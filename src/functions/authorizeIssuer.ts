@@ -22,31 +22,27 @@ export async function authorizeIssuer(
   client: LedgerJsonApiClient,
   params: AuthorizeIssuerParams
 ): Promise<AuthorizeIssuerResult> {
-  try {
-    // Create the choice arguments for AuthorizeIssuer
-    const choiceArguments: Fairmint.OpenCapTable.OcpFactory.AuthorizeIssuer = {
-      issuer: params.issuer
-    };
+  // Create the choice arguments for AuthorizeIssuer
+  const choiceArguments: Fairmint.OpenCapTable.OcpFactory.AuthorizeIssuer = {
+    issuer: params.issuer
+  };
 
-    // Submit the choice to the factory contract
-    const response = await client.submitAndWaitForTransactionTree({
-      commands: [
-        {
-          ExerciseCommand: {
-            templateId: Fairmint.OpenCapTable.OcpFactory.OcpFactory.templateId,
-            contractId: factoryContractIdData.ocpFactoryContractId,
-            choice: 'AuthorizeIssuer',
-            choiceArgument: choiceArguments
-          }
+  // Submit the choice to the factory contract
+  const response = await client.submitAndWaitForTransactionTree({
+    commands: [
+      {
+        ExerciseCommand: {
+          templateId: Fairmint.OpenCapTable.OcpFactory.OcpFactory.templateId,
+          contractId: factoryContractIdData.ocpFactoryContractId,
+          choice: 'AuthorizeIssuer',
+          choiceArgument: choiceArguments
         }
-      ]
-    }) as JsSubmitAndWaitForTransactionTreeResponse;
-    
-    return {
-      contractId: response.transactionTree.eventsById[1].CreatedTreeEvent.value.contractId,
-      updateId: response.transactionTree.updateId
-    };
-  } catch (error) {
-    throw new Error(`Failed to authorize issuer: ${error instanceof Error ? error.message : String(error)}`);
-  }
+      }
+    ]
+  }) as JsSubmitAndWaitForTransactionTreeResponse;
+  
+  return {
+    contractId: response.transactionTree.eventsById[1].CreatedTreeEvent.value.contractId,
+    updateId: response.transactionTree.updateId
+  };
 } 

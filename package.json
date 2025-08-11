@@ -5,17 +5,21 @@
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "script:authorize": "ts-node scripts/authorizeIssuer.ts"
+    "script:authorize": "ts-node scripts/authorizeIssuer.ts",
+    "script:create-issuer": "ts-node scripts/createIssuer.ts"
   },
   "dependencies": {
     "@daml/ledger": "^2.10.2",
     "@daml/types": "^2.10.2",
     "@fairmint/canton-node-sdk": "^0.0.65",
-    "@fairmint/open-captable-protocol-daml-js": "^0.0.9"
+    "@fairmint/open-captable-protocol-daml-js": "^0.0.13"
   },
   "devDependencies": {
     "@types/node": "^24.2.0",
