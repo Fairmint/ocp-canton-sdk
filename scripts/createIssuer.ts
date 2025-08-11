@@ -13,13 +13,11 @@ async function main() {
     
     if (!issuerAuthorizationContractId || !legalName || !countryOfFormation) {
       console.error('❌ Error: All parameters are required');
-      console.log('Usage: npm run script:create-issuer <issuer-authorization-contract-id> <legal-name> <formation-date> <country-of-formation> <initial-shares-authorized>');
+      console.log('Usage: npm run script:create-issuer <issuer-authorization-contract-id> <legal-name> <country-of-formation>');
       console.log('   or set environment variables:');
       console.log('   - ISSUER_AUTHORIZATION_CONTRACT_ID');
       console.log('   - LEGAL_NAME');
-      console.log('   - FORMATION_DATE (YYYY-MM-DD)');
       console.log('   - COUNTRY_OF_FORMATION');
-      console.log('   - INITIAL_SHARES_AUTHORIZED');
       process.exit(1);
     }
     

@@ -22,6 +22,13 @@ export async function createIssuer(
   client: LedgerJsonApiClient,
   params: CreateIssuerParams
 ): Promise<CreateIssuerResult> {
+  // Get the events for the IssuerAuthorization contract to extract the issuer party
+  const eventsResponse = await client.getEventsByContractId({
+    contractId: params.issuerAuthorizationContractId
+  });
+  
+  const issuerParty = eventsResponse.created.createdEvent.createArgument.issuer;
+  
   // Create the choice arguments for CreateIssuer
   const choiceArguments: Fairmint.OpenCapTable.IssuerAuthorization.CreateIssuer = {
     issuer_data: params.issuerData
@@ -29,6 +36,7 @@ export async function createIssuer(
 
   // Submit the choice to the IssuerAuthorization contract
   const response = await client.submitAndWaitForTransactionTree({
+    actAs: [issuerParty],
     commands: [
       {
         ExerciseCommand: {
