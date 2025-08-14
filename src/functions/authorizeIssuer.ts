@@ -22,6 +22,15 @@ export async function authorizeIssuer(
   client: LedgerJsonApiClient,
   params: AuthorizeIssuerParams
 ): Promise<AuthorizeIssuerResult> {
+  // Get the current network from the client
+  const network = client.getNetwork();
+  
+  // Select the appropriate contract ID based on the network
+  const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData];
+  if (!networkData) {
+    throw new Error(`Unsupported network: ${network}`);
+  }
+
   // Create the choice arguments for AuthorizeIssuer
   const choiceArguments: Fairmint.OpenCapTable.OcpFactory.AuthorizeIssuer = {
     issuer: params.issuer
@@ -33,7 +42,7 @@ export async function authorizeIssuer(
       {
         ExerciseCommand: {
           templateId: Fairmint.OpenCapTable.OcpFactory.OcpFactory.templateId,
-          contractId: factoryContractIdData.ocpFactoryContractId,
+          contractId: networkData.ocpFactoryContractId,
           choice: 'AuthorizeIssuer',
           choiceArgument: choiceArguments
         }
