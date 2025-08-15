@@ -7,24 +7,30 @@ async function main() {
     console.log('🚀 Starting createIssuer script...');
     
     // Get parameters from command line arguments or environment
-    const issuerAuthorizationContractId = process.argv[2] || process.env.ISSUER_AUTHORIZATION_CONTRACT_ID;
+    const contractId = process.argv[2] || process.env.ISSUER_AUTHORIZATION_CONTRACT_ID;
     const legalName = process.argv[3] || process.env.LEGAL_NAME;
     const countryOfFormation = process.argv[4] || process.env.COUNTRY_OF_FORMATION;
+    const createdEventBlob = process.argv[5] || process.env.CREATED_EVENT_BLOB;
+    const synchronizerId = process.argv[6] || process.env.SYNCHRONIZER_ID;
     
-    if (!issuerAuthorizationContractId || !legalName || !countryOfFormation) {
-      console.error('❌ Error: All parameters are required');
-      console.log('Usage: npm run script:create-issuer <issuer-authorization-contract-id> <legal-name> <country-of-formation>');
+    if (!contractId || !legalName || !countryOfFormation || !createdEventBlob || !synchronizerId) {
+      console.error('❌ Error: All required parameters are required');
+      console.log('Usage: npm run script:create-issuer <contract-id> <legal-name> <country-of-formation> <created-event-blob> <synchronizer-id>');
       console.log('   or set environment variables:');
       console.log('   - ISSUER_AUTHORIZATION_CONTRACT_ID');
       console.log('   - LEGAL_NAME');
       console.log('   - COUNTRY_OF_FORMATION');
+      console.log('   - CREATED_EVENT_BLOB');
+      console.log('   - SYNCHRONIZER_ID');
       process.exit(1);
     }
     
     console.log(`📋 Configuration:`);
-    console.log(`   IssuerAuthorization Contract ID: ${issuerAuthorizationContractId}`);
+    console.log(`   Contract ID: ${contractId}`);
     console.log(`   Legal Name: ${legalName}`);
     console.log(`   Country of Formation: ${countryOfFormation}`);
+    console.log(`   Created Event Blob: ${createdEventBlob.substring(0, 50)}...`);
+    console.log(`   Synchronizer ID: ${synchronizerId}`);
     console.log('');
     
     const client = new OcpFactoryClient();
@@ -45,9 +51,16 @@ async function main() {
       initial_shares_authorized: null // DAML Numeric is a string
     };
 
+    // Create issuer authorization contract details
+    const issuerAuthorizationContractDetails = {
+      contractId,
+      createdEventBlob,
+      synchronizerId
+    };
+
     // Call the createIssuer function
     const result = await client.createIssuer({
-      issuerAuthorizationContractId,
+      issuerAuthorizationContractDetails,
       issuerData
     });
     

@@ -1,9 +1,9 @@
 import { ClientConfig, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { authorizeIssuer, AuthorizeIssuerParams, AuthorizeIssuerResult } from './functions/authorizeIssuer';
-import { createIssuer, CreateIssuerParams, CreateIssuerResult } from './functions/createIssuer';
+import { createIssuer, CreateIssuerParams, CreateIssuerResult, IssuerAuthorizationContractDetails } from './functions/createIssuer';
 
 export { AuthorizeIssuerParams, AuthorizeIssuerResult } from './functions/authorizeIssuer';
-export { CreateIssuerParams, CreateIssuerResult } from './functions/createIssuer';
+export { CreateIssuerParams, CreateIssuerResult, IssuerAuthorizationContractDetails } from './functions/createIssuer';
 
 export class OcpFactoryClient {
   private client: LedgerJsonApiClient;
