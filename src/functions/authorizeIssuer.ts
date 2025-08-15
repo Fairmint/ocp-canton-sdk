@@ -1,7 +1,7 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
-import { JsSubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api';
+import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 export interface AuthorizeIssuerParams {
   issuer: string; // Party ID of the issuer to authorize
@@ -10,6 +10,8 @@ export interface AuthorizeIssuerParams {
 export interface AuthorizeIssuerResult {
   contractId: string; // Contract ID of the created IssuerAuthorization
   updateId: string;
+  createdEventBlob: string;
+  synchronizerId: string;
 }
 
 /**
@@ -48,10 +50,18 @@ export async function authorizeIssuer(
         }
       }
     ]
-  }) as JsSubmitAndWaitForTransactionTreeResponse;
+  }) as SubmitAndWaitForTransactionTreeResponse;
+
+  const issuerContractId = response.transactionTree.eventsById[1].CreatedTreeEvent.value.contractId;
+  const issuerContractEvents = await client.getEventsByContractId({
+    contractId: issuerContractId,
+    readAs: [params.issuer]
+  })
   
   return {
-    contractId: response.transactionTree.eventsById[1].CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
+    contractId: issuerContractId,
+    updateId: response.transactionTree.updateId,
+    createdEventBlob: issuerContractEvents.created.createdEvent.createdEventBlob,
+    synchronizerId: response.transactionTree.synchronizerId,
   };
 } 
