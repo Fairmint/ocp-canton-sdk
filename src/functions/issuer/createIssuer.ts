@@ -91,8 +91,13 @@ export async function createIssuer(
     ]
   }) as SubmitAndWaitForTransactionTreeResponse;
   
-  return {
-    contractId: response.transactionTree.eventsById[1].CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
-  };
+  const event = response.transactionTree.eventsById[1];
+  if ('CreatedTreeEvent' in event) {
+    return {
+      contractId: event.CreatedTreeEvent.value.contractId,
+      updateId: response.transactionTree.updateId
+    };
+  } else {
+    throw new Error('Expected CreatedTreeEvent not found');
+  }
 } 

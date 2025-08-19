@@ -44,7 +44,7 @@ export async function authorizeIssuer(
     commands: [
       {
         ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.OcpFactory.OcpFactory.templateId,
+          templateId: networkData.templateId,
           contractId: networkData.ocpFactoryContractId,
           choice: 'AuthorizeIssuer',
           choiceArgument: choiceArguments
@@ -53,7 +53,12 @@ export async function authorizeIssuer(
     ]
   }) as SubmitAndWaitForTransactionTreeResponse;
 
-  const issuerContractId = response.transactionTree.eventsById[1].CreatedTreeEvent.value.contractId;
+  const event = response.transactionTree.eventsById[1];
+  if (!('CreatedTreeEvent' in event)) {
+    throw new Error('Expected CreatedTreeEvent not found');
+  }
+  
+  const issuerContractId = event.CreatedTreeEvent.value.contractId;
   const issuerContractEvents = await client.getEventsByContractId({
     contractId: issuerContractId
   })
@@ -63,6 +68,6 @@ export async function authorizeIssuer(
     updateId: response.transactionTree.updateId,
     createdEventBlob: issuerContractEvents.created.createdEvent.createdEventBlob,
     synchronizerId: response.transactionTree.synchronizerId,
-    templateId: response.transactionTree.eventsById[1].CreatedTreeEvent.value.templateId
+    templateId: event.CreatedTreeEvent.value.templateId
   };
 } 

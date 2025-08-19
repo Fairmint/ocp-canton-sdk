@@ -40,7 +40,7 @@ export async function createCompanyValuationReport(
     commands: [
       {
         ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.OcpFactory.OcpFactory.templateId,
+          templateId: networkData.templateId,
           contractId: networkData.ocpFactoryContractId,
           choice: 'CreateCompanyValuationReport',
           choiceArgument: choiceArguments
@@ -49,8 +49,13 @@ export async function createCompanyValuationReport(
     ]
   }) as SubmitAndWaitForTransactionTreeResponse;
 
-  return {
-    contractId: response.transactionTree.eventsById[1].CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
-  };
+  const event = response.transactionTree.eventsById[1];
+  if ('CreatedTreeEvent' in event) {
+    return {
+      contractId: event.CreatedTreeEvent.value.contractId,
+      updateId: response.transactionTree.updateId
+    };
+  } else {
+    throw new Error('Expected CreatedTreeEvent not found');
+  }
 } 
