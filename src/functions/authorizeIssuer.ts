@@ -12,6 +12,7 @@ export interface AuthorizeIssuerResult {
   updateId: string;
   createdEventBlob: string;
   synchronizerId: string;
+  templateId: string;
 }
 
 /**
@@ -54,8 +55,7 @@ export async function authorizeIssuer(
 
   const issuerContractId = response.transactionTree.eventsById[1].CreatedTreeEvent.value.contractId;
   const issuerContractEvents = await client.getEventsByContractId({
-    contractId: issuerContractId,
-    readAs: [params.issuer]
+    contractId: issuerContractId
   })
   
   return {
@@ -63,5 +63,6 @@ export async function authorizeIssuer(
     updateId: response.transactionTree.updateId,
     createdEventBlob: issuerContractEvents.created.createdEvent.createdEventBlob,
     synchronizerId: response.transactionTree.synchronizerId,
+    templateId: response.transactionTree.eventsById[1].CreatedTreeEvent.value.templateId
   };
 } 
