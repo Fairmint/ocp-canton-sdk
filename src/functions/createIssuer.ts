@@ -14,11 +14,14 @@ export interface IssuerAuthorizationContractDetails {
   createdEventBlob: string;
   /** The synchronizer ID associated with the contract */
   synchronizerId: string;
+  /** The template ID of the contract */
+  templateId: string;
 }
 
 export interface CreateIssuerParams {
   /** Details of the IssuerAuthorization contract for disclosed contracts */
   issuerAuthorizationContractDetails: IssuerAuthorizationContractDetails;
+  issuerParty: string;
   /** Issuer data to create */
   issuerData: Fairmint.OpenCapTable.OcfObjects.OcfIssuerData;
 }
@@ -60,13 +63,6 @@ export async function createIssuer(
   client: LedgerJsonApiClient,
   params: CreateIssuerParams
 ): Promise<CreateIssuerResult> {
-  // Get the events for the IssuerAuthorization contract to extract the issuer party
-  const eventsResponse = await client.getEventsByContractId({
-    contractId: params.issuerAuthorizationContractDetails.contractId
-  });
-  
-  const issuerParty = eventsResponse.created.createdEvent.createArgument.issuer;
-  
   // Create the choice arguments for CreateIssuer
   const choiceArguments: Fairmint.OpenCapTable.IssuerAuthorization.CreateIssuer = {
     issuer_data: params.issuerData
@@ -74,7 +70,7 @@ export async function createIssuer(
 
   // Submit the choice to the IssuerAuthorization contract
   const response = await client.submitAndWaitForTransactionTree({
-    actAs: [issuerParty],
+    actAs: [params.issuerParty],
     commands: [
       {
         ExerciseCommand: {
@@ -87,7 +83,7 @@ export async function createIssuer(
     ],
     disclosedContracts: [
       {
-        templateId: Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId,
+        templateId: params.issuerAuthorizationContractDetails.templateId,
         contractId: params.issuerAuthorizationContractDetails.contractId,
         createdEventBlob: params.issuerAuthorizationContractDetails.createdEventBlob,
         synchronizerId: params.issuerAuthorizationContractDetails.synchronizerId
