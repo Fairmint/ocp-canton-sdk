@@ -1,6 +1,7 @@
 #!/usr/bin/env ts-node
 
-import { OcpFactoryClient } from '../src';
+import { OcpClient } from '../src';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
 async function main() {
   try {
@@ -12,16 +13,18 @@ async function main() {
     const countryOfFormation = process.argv[4] || process.env.COUNTRY_OF_FORMATION;
     const createdEventBlob = process.argv[5] || process.env.CREATED_EVENT_BLOB;
     const synchronizerId = process.argv[6] || process.env.SYNCHRONIZER_ID;
+    const issuerPartyId = process.argv[7] || process.env.ISSUER_PARTY_ID;
     
-    if (!contractId || !legalName || !countryOfFormation || !createdEventBlob || !synchronizerId) {
+    if (!contractId || !legalName || !countryOfFormation || !createdEventBlob || !synchronizerId || !issuerPartyId) {
       console.error('❌ Error: All required parameters are required');
-      console.log('Usage: npm run script:create-issuer <contract-id> <legal-name> <country-of-formation> <created-event-blob> <synchronizer-id>');
+      console.log('Usage: npm run script:create-issuer <contract-id> <legal-name> <country-of-formation> <created-event-blob> <synchronizer-id> <issuer-party-id>');
       console.log('   or set environment variables:');
       console.log('   - ISSUER_AUTHORIZATION_CONTRACT_ID');
       console.log('   - LEGAL_NAME');
       console.log('   - COUNTRY_OF_FORMATION');
       console.log('   - CREATED_EVENT_BLOB');
       console.log('   - SYNCHRONIZER_ID');
+      console.log('   - ISSUER_PARTY_ID');
       process.exit(1);
     }
     
@@ -31,9 +34,10 @@ async function main() {
     console.log(`   Country of Formation: ${countryOfFormation}`);
     console.log(`   Created Event Blob: ${createdEventBlob.substring(0, 50)}...`);
     console.log(`   Synchronizer ID: ${synchronizerId}`);
+    console.log(`   Issuer Party ID: ${issuerPartyId}`);
     console.log('');
     
-    const client = new OcpFactoryClient();
+    const client = new OcpClient();
     
     console.log('📝 Creating issuer...');
 
@@ -55,12 +59,14 @@ async function main() {
     const issuerAuthorizationContractDetails = {
       contractId,
       createdEventBlob,
-      synchronizerId
+      synchronizerId,
+      templateId: Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId
     };
 
     // Call the createIssuer function
-    const result = await client.createIssuer({
+    const result = await client.issuer.createIssuer({
       issuerAuthorizationContractDetails,
+      issuerParty: issuerPartyId,
       issuerData
     });
     

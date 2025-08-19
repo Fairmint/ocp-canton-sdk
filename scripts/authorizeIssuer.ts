@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 
-import { OcpFactoryClient } from '../src';
+import { OcpClient } from '../src';
 
 async function main() {
   try {
@@ -20,12 +20,12 @@ async function main() {
     console.log(`   Issuer Party ID: ${issuerPartyId}`);
     console.log('');
     
-    const client = new OcpFactoryClient();
+    const client = new OcpClient();
     
     console.log('📝 Authorizing issuer...');
 
     // Call the authorizeIssuer function
-    const result = await client.authorizeIssuer({
+    const result = await client.issuer.authorizeIssuer({
       issuer: issuerPartyId
     });
     

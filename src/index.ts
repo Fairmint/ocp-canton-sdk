@@ -1,2 +1,2 @@
-export * from './OcpFactoryClient';
+export * from './OcpClient';
 export * from './functions'; 
