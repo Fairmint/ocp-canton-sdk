@@ -1,6 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { JsSubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api';
+import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 /**
  * Details about the IssuerAuthorization contract that need to be disclosed
@@ -89,7 +89,7 @@ export async function createIssuer(
         synchronizerId: params.issuerAuthorizationContractDetails.synchronizerId
       }
     ]
-  }) as JsSubmitAndWaitForTransactionTreeResponse;
+  }) as SubmitAndWaitForTransactionTreeResponse;
   
   return {
     contractId: response.transactionTree.eventsById[1].CreatedTreeEvent.value.contractId,
