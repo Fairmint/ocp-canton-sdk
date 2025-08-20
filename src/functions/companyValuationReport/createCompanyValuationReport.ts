@@ -7,6 +7,7 @@ export interface CreateCompanyValuationReportParams {
   companyId: string;
   companyValuation: string | number;
   observers?: string[];
+  featuredAppRight: string; // Contract ID of the FeaturedAppRight contract
 }
 
 export interface CreateCompanyValuationReportResult {
@@ -33,7 +34,8 @@ export async function createCompanyValuationReport(
     company_valuation: typeof params.companyValuation === 'number'
       ? params.companyValuation.toString()
       : params.companyValuation,
-    observers: params.observers ?? []
+    observers: params.observers ?? [],
+    featured_app_right: params.featuredAppRight as any
   };
 
   const response = await client.submitAndWaitForTransactionTree({
