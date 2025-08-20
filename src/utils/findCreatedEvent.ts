@@ -19,16 +19,22 @@ export interface CreatedTreeEventWrapper {
 	};
 }
 
+function isCreatedTreeEventWrapper(event: unknown): event is CreatedTreeEventWrapper {
+	if (!event || typeof event !== 'object') return false;
+	const e = event as { CreatedTreeEvent?: { value?: unknown } };
+	return !!e.CreatedTreeEvent && typeof e.CreatedTreeEvent === 'object' && 'value' in e.CreatedTreeEvent;
+}
+
 export function findCreatedEventByTemplateId(
 	response: SubmitAndWaitForTransactionTreeResponse,
 	expectedTemplateId: string
 ): CreatedTreeEventWrapper | undefined {
-	const eventsById = (response as any)?.transactionTree?.eventsById ?? {};
+	const eventsById = (response.transactionTree?.eventsById ?? {}) as Record<string, unknown>;
 	for (const event of Object.values(eventsById)) {
-		if (event && (event as any).CreatedTreeEvent) {
-			const created = (event as any).CreatedTreeEvent.value as CreatedTreeEventValue;
+		if (isCreatedTreeEventWrapper(event)) {
+			const created = event.CreatedTreeEvent.value;
 			if (created?.templateId === expectedTemplateId) {
-				return event as CreatedTreeEventWrapper;
+				return event;
 			}
 		}
 	}

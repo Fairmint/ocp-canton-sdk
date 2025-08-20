@@ -67,6 +67,10 @@ export async function authorizeIssuer(
     contractId: issuerAuthorizationContractId
   });
   
+  if (!issuerAuthorizationContractEvents.created?.createdEvent?.createdEventBlob) {
+    throw new Error('Invalid issuer authorization contract events response: missing created event or created event blob');
+  }
+  
   return {
     contractId: issuerAuthorizationContractId,
     updateId: response.transactionTree.updateId,
