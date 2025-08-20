@@ -3,6 +3,7 @@ import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import * as damlTypes from '@daml/types';
+import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 
 /**
  * Details about the FeaturedAppRight contract that need to be disclosed
@@ -97,13 +98,16 @@ export async function createCompanyValuationReport(
     ]
   }) as SubmitAndWaitForTransactionTreeResponse;
 
-  const event = response.transactionTree.eventsById[1];
-  if ('CreatedTreeEvent' in event) {
-    return {
-      contractId: event.CreatedTreeEvent.value.contractId,
-      updateId: response.transactionTree.updateId
-    };
-  } else {
+  const created = findCreatedEventByTemplateId(
+    response,
+    Fairmint.OpenCapTable.CompanyValuationReport.CompanyValuationReport.templateId
+  );
+  if (!created) {
     throw new Error('Expected CreatedTreeEvent not found');
   }
+
+  return {
+    contractId: created.CreatedTreeEvent.value.contractId,
+    updateId: response.transactionTree.updateId
+  };
 } 

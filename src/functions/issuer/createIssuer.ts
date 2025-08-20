@@ -1,6 +1,7 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 
 /**
  * Details about the IssuerAuthorization contract that need to be disclosed
@@ -91,13 +92,21 @@ export async function createIssuer(
     ]
   }) as SubmitAndWaitForTransactionTreeResponse;
   
-  const event = response.transactionTree.eventsById[1];
-  if ('CreatedTreeEvent' in event) {
-    return {
-      contractId: event.CreatedTreeEvent.value.contractId,
-      updateId: response.transactionTree.updateId
-    };
-  } else {
+  const created = findCreatedEventByTemplateId(
+    response,
+    Fairmint.OpenCapTable.Issuer.Issuer.templateId
+  );
+  if (!created) {
     throw new Error('Expected CreatedTreeEvent not found');
   }
+
+  const issuerContractId = created.CreatedTreeEvent.value.contractId;
+  const issuerContractEvents = await client.getEventsByContractId({
+    contractId: issuerContractId
+  })
+  
+  return {
+    contractId: issuerContractId,
+    updateId: response.transactionTree.updateId
+  };
 } 

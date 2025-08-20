@@ -1,6 +1,7 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 
 export interface ConfirmCurrentCompanyValuationReportParams {
   companyValuationReportContractId: string;
@@ -40,13 +41,16 @@ export async function confirmCurrentCompanyValuationReport(
     ]
   }) as SubmitAndWaitForTransactionTreeResponse;
 
-  const event = response.transactionTree.eventsById[1];
-  if ('CreatedTreeEvent' in event) {
-    return {
-      contractId: event.CreatedTreeEvent.value.contractId,
-      updateId: response.transactionTree.updateId
-    };
-  } else {
+  const created = findCreatedEventByTemplateId(
+    response,
+    Fairmint.OpenCapTable.CompanyValuationReport.CompanyValuationReport.templateId
+  );
+  if (!created) {
     throw new Error('Expected CreatedTreeEvent not found');
   }
+
+  return {
+    contractId: created.CreatedTreeEvent.value.contractId,
+    updateId: response.transactionTree.updateId
+  };
 } 
