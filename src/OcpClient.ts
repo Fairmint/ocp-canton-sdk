@@ -1,11 +1,5 @@
 import { ClientConfig, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { authorizeIssuer, AuthorizeIssuerParams, AuthorizeIssuerResult } from './functions/issuer/authorizeIssuer';
-import { createIssuer, CreateIssuerParams, CreateIssuerResult } from './functions/issuer/createIssuer';
-import { updateIssuerData, UpdateIssuerDataParams, UpdateIssuerDataResult } from './functions/issuer/updateIssuerData';
-import { createCompanyValuationReport, CreateCompanyValuationReportParams, CreateCompanyValuationReportResult } from './functions/companyValuationReport/createCompanyValuationReport';
-import { updateCompanyValuation, UpdateCompanyValuationParams, UpdateCompanyValuationResult } from './functions/companyValuationReport/updateCompanyValuation';
-import { confirmCurrentCompanyValuationReport, ConfirmCurrentCompanyValuationReportParams, ConfirmCurrentCompanyValuationReportResult } from './functions/companyValuationReport/confirmCurrentCompanyValuationReport';
-import { addObserversToCompanyValuationReport, AddObserversToCompanyValuationReportParams, AddObserversToCompanyValuationReportResult } from './functions/companyValuationReport/addObserversToCompanyValuationReport';
+import { authorizeIssuer, AuthorizeIssuerParams, AuthorizeIssuerResult,createIssuer, CreateIssuerParams, CreateIssuerResult ,updateIssuerData, UpdateIssuerDataParams, UpdateIssuerDataResult ,createCompanyValuationReport, CreateCompanyValuationReportParams, CreateCompanyValuationReportResult,updateCompanyValuation, UpdateCompanyValuationParams, UpdateCompanyValuationResult , addObserversToCompanyValuationReport, AddObserversToCompanyValuationReportParams, AddObserversToCompanyValuationReportResult } from './functions';
 
 export class OcpClient {
   private client: LedgerJsonApiClient;
@@ -23,9 +17,6 @@ export class OcpClient {
     updateCompanyValuation: (
       params: UpdateCompanyValuationParams
     ) => Promise<UpdateCompanyValuationResult>;
-    confirmCurrentCompanyValuationReport: (
-      params: ConfirmCurrentCompanyValuationReportParams
-    ) => Promise<ConfirmCurrentCompanyValuationReportResult>;
     addObserversToCompanyValuationReport: (
       params: AddObserversToCompanyValuationReportParams
     ) => Promise<AddObserversToCompanyValuationReportResult>;
@@ -45,9 +36,6 @@ export class OcpClient {
         createCompanyValuationReport(this.client, params),
       updateCompanyValuation: (params: UpdateCompanyValuationParams) =>
         updateCompanyValuation(this.client, params),
-      confirmCurrentCompanyValuationReport: (
-        params: ConfirmCurrentCompanyValuationReportParams
-      ) => confirmCurrentCompanyValuationReport(this.client, params),
       addObserversToCompanyValuationReport: (
         params: AddObserversToCompanyValuationReportParams
       ) => addObserversToCompanyValuationReport(this.client, params)

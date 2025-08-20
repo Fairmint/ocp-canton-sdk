@@ -12,6 +12,14 @@ export interface UpdateIssuerDataResult {
   updateId: string;
 }
 
+interface IssuerCreateArgumentShape {
+  issuer?: string;
+}
+
+function hasIssuer(arg: unknown): arg is Required<Pick<IssuerCreateArgumentShape, 'issuer'>> {
+  return !!arg && typeof arg === 'object' && typeof (arg as IssuerCreateArgumentShape).issuer === 'string';
+}
+
 /**
  * Update issuer data by exercising the UpdateIssuerData choice on an Issuer contract
  * @param client - The ledger JSON API client
@@ -27,7 +35,15 @@ export async function updateIssuerData(
     contractId: params.issuerContractId
   });
   
-  const issuerParty = eventsResponse.created.createdEvent.createArgument.issuer;
+  if (!eventsResponse.created?.createdEvent?.createArgument) {
+    throw new Error('Invalid contract events response: missing created event or create argument');
+  }
+  
+  const createArgument = eventsResponse.created.createdEvent.createArgument;
+  if (!hasIssuer(createArgument)) {
+    throw new Error('Issuer party not found in contract create argument');
+  }
+  const issuerParty = createArgument.issuer;
   
   // Create the choice arguments for UpdateIssuerData
   const choiceArguments: Fairmint.OpenCapTable.Issuer.UpdateIssuerData = {

@@ -13,6 +13,14 @@ export interface UpdateCompanyValuationResult {
   updateId: string;
 }
 
+interface CompanyValuationReportCreateArgumentShape {
+  system_operator?: string;
+}
+
+function hasSystemOperator(arg: unknown): arg is Required<Pick<CompanyValuationReportCreateArgumentShape, 'system_operator'>> {
+  return !!arg && typeof arg === 'object' && typeof (arg as CompanyValuationReportCreateArgumentShape).system_operator === 'string';
+}
+
 /**
  * Update the company valuation on a CompanyValuationReport by exercising SetCompanyValuation.
  */
@@ -24,7 +32,16 @@ export async function updateCompanyValuation(
   const eventsResponse = await client.getEventsByContractId({
     contractId: params.companyValuationReportContractId
   });
-  const systemOperator = eventsResponse.created.createdEvent.createArgument.system_operator;
+  
+  if (!eventsResponse.created?.createdEvent?.createArgument) {
+    throw new Error('Invalid contract events response: missing created event or create argument');
+  }
+  
+  const createArgument = eventsResponse.created.createdEvent.createArgument;
+  if (!hasSystemOperator(createArgument)) {
+    throw new Error('System operator not found in contract create argument');
+  }
+  const systemOperator = createArgument.system_operator;
 
   const choiceArguments: Fairmint.OpenCapTable.CompanyValuationReport.SetCompanyValuation = {
     new_company_valuation: typeof params.newCompanyValuation === 'number'
