@@ -30,11 +30,24 @@ export function findCreatedEventByTemplateId(
 	expectedTemplateId: string
 ): CreatedTreeEventWrapper | undefined {
 	const eventsById = (response.transactionTree?.eventsById ?? {}) as Record<string, unknown>;
+	
+	// Extract the part after the first ':' from the expected template ID
+	const expectedTemplateIdSuffix = expectedTemplateId.includes(':') 
+		? expectedTemplateId.substring(expectedTemplateId.indexOf(':') + 1) 
+		: expectedTemplateId;
+	
 	for (const event of Object.values(eventsById)) {
 		if (isCreatedTreeEventWrapper(event)) {
 			const created = event.CreatedTreeEvent.value;
-			if (created?.templateId === expectedTemplateId) {
-				return event;
+			if (created?.templateId) {
+				// Extract the part after the first ':' from the actual template ID
+				const actualTemplateIdSuffix = created.templateId.includes(':') 
+					? created.templateId.substring(created.templateId.indexOf(':') + 1) 
+					: created.templateId;
+				
+				if (actualTemplateIdSuffix === expectedTemplateIdSuffix) {
+					return event;
+				}
 			}
 		}
 	}
