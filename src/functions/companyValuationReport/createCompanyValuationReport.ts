@@ -32,15 +32,16 @@ export interface CreateCompanyValuationReportParams {
 export interface CreateCompanyValuationReportResult {
   contractId: string;
   updateId: string;
+  transactionTree: SubmitAndWaitForTransactionTreeResponse;
 }
 
 /**
  * Create a CompanyValuationReport by exercising the CreateCompanyValuationReport choice
  * on the OCP Factory contract.
- * 
+ *
  * This function requires the FeaturedAppRight contract details to be provided for disclosed contracts,
  * which is necessary for cross-domain contract interactions in Canton.
- * 
+ *
  * @example
  * ```typescript
  * const featuredAppRightContractDetails = {
@@ -49,7 +50,7 @@ export interface CreateCompanyValuationReportResult {
  *   synchronizerId: "sync_id_here",
  *   templateId: "FeaturedAppRight:template:id:here"
  * };
- * 
+ *
  * const result = await createCompanyValuationReport(client, {
  *   companyId: "company123",
  *   companyValuation: "1000000",
@@ -108,6 +109,7 @@ export async function createCompanyValuationReport(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
+    updateId: response.transactionTree.updateId,
+    transactionTree: response.transactionTree
   };
-} 
+}
