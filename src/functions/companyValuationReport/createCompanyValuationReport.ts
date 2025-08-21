@@ -1,32 +1,14 @@
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js/lib';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import * as damlTypes from '@daml/types';
+import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
-
-/**
- * Details about the FeaturedAppRight contract that need to be disclosed
- * when exercising the CreateCompanyValuationReport choice. This is required for cross-domain
- * contract interactions in Canton.
- */
-export interface FeaturedAppRightContractDetails {
-  /** The contract ID of the FeaturedAppRight contract */
-  contractId: string;
-  /** The serialized created event blob of the contract */
-  createdEventBlob: string;
-  /** The synchronizer ID associated with the contract */
-  synchronizerId: string;
-  /** The template ID of the contract */
-  templateId: string;
-}
 
 export interface CreateCompanyValuationReportParams {
   companyId: string;
   companyValuation: string | number;
   observers?: string[];
-  /** Details of the FeaturedAppRight contract for disclosed contracts */
-  featuredAppRightContractDetails: FeaturedAppRightContractDetails;
 }
 
 export interface CreateCompanyValuationReportResult {
@@ -74,8 +56,7 @@ export async function createCompanyValuationReport(
     company_valuation: typeof params.companyValuation === 'number'
       ? params.companyValuation.toString()
       : params.companyValuation,
-    observers: params.observers ?? [],
-    featured_app_right: params.featuredAppRightContractDetails.contractId as damlTypes.ContractId<any>
+    observers: params.observers ?? []
   };
 
   const response = await client.submitAndWaitForTransactionTree({
@@ -89,14 +70,6 @@ export async function createCompanyValuationReport(
         }
       }
     ],
-    disclosedContracts: [
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
   }) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = findCreatedEventByTemplateId(
@@ -110,6 +83,6 @@ export async function createCompanyValuationReport(
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
     updateId: response.transactionTree.updateId,
-    transactionTree: response.transactionTree
+    transactionTree: response
   };
 }

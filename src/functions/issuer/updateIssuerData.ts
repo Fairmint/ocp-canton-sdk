@@ -4,7 +4,7 @@ import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-s
 
 export interface UpdateIssuerDataParams {
   issuerContractId: string; // Contract ID of the Issuer contract to update
-  newIssuerData: Fairmint.OpenCapTable.OcfObjects.OcfIssuerData; // New issuer data
+  newIssuerData: Fairmint.OpenCapTable.Types.OcfIssuerData; // New issuer data
 }
 
 export interface UpdateIssuerDataResult {

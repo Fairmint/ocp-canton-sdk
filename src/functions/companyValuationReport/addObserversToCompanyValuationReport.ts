@@ -73,6 +73,6 @@ export async function addObserversToCompanyValuationReport(
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
     updateId: response.transactionTree.updateId,
-    transactionTree: response.transactionTree
+    transactionTree: response
   };
 }

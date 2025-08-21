@@ -24,7 +24,7 @@ export interface CreateIssuerParams {
   issuerAuthorizationContractDetails: IssuerAuthorizationContractDetails;
   issuerParty: string;
   /** Issuer data to create */
-  issuerData: Fairmint.OpenCapTable.OcfObjects.OcfIssuerData;
+  issuerData: Fairmint.OpenCapTable.Types.OcfIssuerData;
 }
 
 export interface CreateIssuerResult {
