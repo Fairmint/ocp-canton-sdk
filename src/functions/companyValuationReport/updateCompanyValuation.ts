@@ -11,6 +11,7 @@ export interface UpdateCompanyValuationParams {
 export interface UpdateCompanyValuationResult {
   contractId: string;
   updateId: string;
+  transactionTree: SubmitAndWaitForTransactionTreeResponse;
 }
 
 interface CompanyValuationReportCreateArgumentShape {
@@ -73,6 +74,7 @@ export async function updateCompanyValuation(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
+    updateId: response.transactionTree.updateId,
+    transactionTree: response.transactionTree
   };
-} 
+}
