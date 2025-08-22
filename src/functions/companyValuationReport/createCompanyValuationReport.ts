@@ -2,7 +2,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js/lib';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import * as damlTypes from '@daml/types';
-import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
+import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/reports-factory-contract-id.json';
 import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 
 export interface CreateCompanyValuationReportParams {
@@ -51,7 +51,7 @@ export async function createCompanyValuationReport(
     throw new Error(`Unsupported network: ${network}`);
   }
 
-  const choiceArguments: Fairmint.OpenCapTable.OcpFactory.CreateCompanyValuationReport = {
+  const choiceArguments: Fairmint.OpenCapTableReports.ReportsFactory.CreateCompanyValuationReport = {
     company_id: params.companyId,
     company_valuation: typeof params.companyValuation === 'number'
       ? params.companyValuation.toString()
@@ -64,7 +64,7 @@ export async function createCompanyValuationReport(
       {
         ExerciseCommand: {
           templateId: networkData.templateId,
-          contractId: networkData.ocpFactoryContractId,
+          contractId: networkData.reportsFactoryContractId,
           choice: 'CreateCompanyValuationReport',
           choiceArgument: choiceArguments
         }
@@ -74,7 +74,7 @@ export async function createCompanyValuationReport(
 
   const created = findCreatedEventByTemplateId(
     response,
-    Fairmint.OpenCapTable.CompanyValuationReport.CompanyValuationReport.templateId
+    Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId
   );
   if (!created) {
     throw new Error('Expected CreatedTreeEvent not found');

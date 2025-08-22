@@ -44,7 +44,7 @@ export async function addObserversToCompanyValuationReport(
   }
   const systemOperator = createArgument.system_operator;
   
-  const choiceArguments: Fairmint.OpenCapTable.CompanyValuationReport.AddObservers = {
+  const choiceArguments: Fairmint.OpenCapTableReports.CompanyValuationReport.AddObservers = {
     added: params.added
   };
 
@@ -53,7 +53,7 @@ export async function addObserversToCompanyValuationReport(
     commands: [
       {
         ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.CompanyValuationReport.CompanyValuationReport.templateId,
+          templateId: Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId,
           contractId: params.companyValuationReportContractId,
           choice: 'AddObservers',
           choiceArgument: choiceArguments
@@ -64,7 +64,7 @@ export async function addObserversToCompanyValuationReport(
 
   const created = findCreatedEventByTemplateId(
     response,
-    Fairmint.OpenCapTable.CompanyValuationReport.CompanyValuationReport.templateId
+    Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId
   );
   if (!created) {
     throw new Error('Expected CreatedTreeEvent not found');

@@ -44,7 +44,7 @@ export async function updateCompanyValuation(
   }
   const systemOperator = createArgument.system_operator;
 
-  const choiceArguments: Fairmint.OpenCapTable.CompanyValuationReport.SetCompanyValuation = {
+  const choiceArguments: Fairmint.OpenCapTableReports.CompanyValuationReport.SetCompanyValuation = {
     new_company_valuation: typeof params.newCompanyValuation === 'number'
       ? params.newCompanyValuation.toString()
       : params.newCompanyValuation
@@ -55,7 +55,7 @@ export async function updateCompanyValuation(
     commands: [
       {
         ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.CompanyValuationReport.CompanyValuationReport.templateId,
+          templateId: Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId,
           contractId: params.companyValuationReportContractId,
           choice: 'SetCompanyValuation',
           choiceArgument: choiceArguments
@@ -66,7 +66,7 @@ export async function updateCompanyValuation(
 
   const created = findCreatedEventByTemplateId(
     response,
-    Fairmint.OpenCapTable.CompanyValuationReport.CompanyValuationReport.templateId
+    Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId
   );
   if (!created) {
     throw new Error('Expected CreatedTreeEvent not found');
