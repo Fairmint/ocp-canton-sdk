@@ -63,7 +63,7 @@ async function main() {
       dba: null, // Optional
       country_subdivision_of_formation: null, // Optional
       tax_ids: null, // Empty array for now
-      email: null, // Optional
+      email: null, // Optional - can be set to: { email_type: 'OcfEmailTypeBusiness', email_address: 'contact@company.com' }
       phone: null, // Optional
       address: null, // Optional
       initial_shares_authorized: null // DAML Numeric is a string
