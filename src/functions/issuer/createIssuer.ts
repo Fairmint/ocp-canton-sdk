@@ -2,26 +2,13 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
-
-/**
- * Details about the IssuerAuthorization contract that need to be disclosed
- * when exercising the CreateIssuer choice. This is required for cross-domain
- * contract interactions in Canton.
- */
-export interface IssuerAuthorizationContractDetails {
-  /** The contract ID of the IssuerAuthorization contract */
-  contractId: string;
-  /** The serialized created event blob of the contract */
-  createdEventBlob: string;
-  /** The synchronizer ID associated with the contract */
-  synchronizerId: string;
-  /** The template ID of the contract */
-  templateId: string;
-}
+import { ContractDetails } from '../../types/contractDetails';
 
 export interface CreateIssuerParams {
   /** Details of the IssuerAuthorization contract for disclosed contracts */
-  issuerAuthorizationContractDetails: IssuerAuthorizationContractDetails;
+  issuerAuthorizationContractDetails: ContractDetails;
+  /** Details of the FeaturedAppRight contract for disclosed contracts */
+  featuredAppRightContractDetails: ContractDetails;
   issuerParty: string;
   /** Issuer data to create */
   issuerData: Fairmint.OpenCapTable.Types.OcfIssuerData;
@@ -35,7 +22,7 @@ export interface CreateIssuerResult {
 /**
  * Create an issuer by exercising the CreateIssuer choice on an IssuerAuthorization contract
  * 
- * This function requires the IssuerAuthorization contract details to be provided for disclosed contracts,
+ * This function requires the IssuerAuthorization and FeaturedAppRight contract details to be provided for disclosed contracts,
  * which is necessary for cross-domain contract interactions in Canton.
  * 
  * @example
@@ -43,11 +30,21 @@ export interface CreateIssuerResult {
  * const issuerAuthorizationContractDetails = {
  *   contractId: "1234567890abcdef",
  *   createdEventBlob: "serialized_contract_blob_here",
- *   synchronizerId: "sync_id_here"
+ *   synchronizerId: "sync_id_here",
+ *   templateId: "IssuerAuthorization:template:id:here"
+ * };
+ * 
+ * const featuredAppRightContractDetails = {
+ *   contractId: "abcdef1234567890",
+ *   createdEventBlob: "serialized_featured_app_right_blob_here",
+ *   synchronizerId: "featured_sync_id_here",
+ *   templateId: "FeaturedAppRight:template:id:here"
  * };
  * 
  * const result = await createIssuer(client, {
  *   issuerAuthorizationContractDetails,
+ *   featuredAppRightContractDetails,
+ *   issuerParty: "issuer_party_id",
  *   issuerData: {
  *     legal_name: "My Company Inc.",
  *     country_of_formation: "US",
@@ -57,7 +54,7 @@ export interface CreateIssuerResult {
  * ```
  * 
  * @param client - The ledger JSON API client
- * @param params - Parameters for creating an issuer, including the IssuerAuthorization contract details
+ * @param params - Parameters for creating an issuer, including the contract details for disclosed contracts
  * @returns Promise resolving to the result of the issuer creation
  */
 export async function createIssuer(
@@ -88,6 +85,12 @@ export async function createIssuer(
         contractId: params.issuerAuthorizationContractDetails.contractId,
         createdEventBlob: params.issuerAuthorizationContractDetails.createdEventBlob,
         synchronizerId: params.issuerAuthorizationContractDetails.synchronizerId
+      },
+      {
+        templateId: params.featuredAppRightContractDetails.templateId,
+        contractId: params.featuredAppRightContractDetails.contractId,
+        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
       }
     ]
   }) as SubmitAndWaitForTransactionTreeResponse;
@@ -101,9 +104,6 @@ export async function createIssuer(
   }
 
   const issuerContractId = created.CreatedTreeEvent.value.contractId;
-  const issuerContractEvents = await client.getEventsByContractId({
-    contractId: issuerContractId
-  })
   
   return {
     contractId: issuerContractId,

@@ -4,11 +4,14 @@ import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-s
 import * as damlTypes from '@daml/types';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/reports-factory-contract-id.json';
 import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
+import { ContractDetails } from '../../types/contractDetails';
 
 export interface CreateCompanyValuationReportParams {
   companyId: string;
   companyValuation: string | number;
   observers?: string[];
+  /** Details of the FeaturedAppRight contract for disclosed contracts */
+  featuredAppRightContractDetails: ContractDetails;
 }
 
 export interface CreateCompanyValuationReportResult {
@@ -70,6 +73,14 @@ export async function createCompanyValuationReport(
         }
       }
     ],
+    disclosedContracts: [
+      {
+        templateId: params.featuredAppRightContractDetails.templateId,
+        contractId: params.featuredAppRightContractDetails.contractId,
+        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
+      }
+    ]
   }) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = findCreatedEventByTemplateId(

@@ -1,5 +1,5 @@
 import { ClientConfig, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { authorizeIssuer, AuthorizeIssuerParams, AuthorizeIssuerResult,createIssuer, CreateIssuerParams, CreateIssuerResult ,updateIssuerData, UpdateIssuerDataParams, UpdateIssuerDataResult ,createCompanyValuationReport, CreateCompanyValuationReportParams, CreateCompanyValuationReportResult,updateCompanyValuation, UpdateCompanyValuationParams, UpdateCompanyValuationResult , addObserversToCompanyValuationReport, AddObserversToCompanyValuationReportParams, AddObserversToCompanyValuationReportResult } from './functions';
+import { authorizeIssuer, AuthorizeIssuerParams, AuthorizeIssuerResult,createIssuer, CreateIssuerParams, CreateIssuerResult ,updateIssuerData, UpdateIssuerDataParams, UpdateIssuerDataResult, getIssuerAsOcf, GetIssuerAsOcfParams, GetIssuerAsOcfResult ,createCompanyValuationReport, CreateCompanyValuationReportParams, CreateCompanyValuationReportResult,updateCompanyValuation, UpdateCompanyValuationParams, UpdateCompanyValuationResult , addObserversToCompanyValuationReport, AddObserversToCompanyValuationReportParams, AddObserversToCompanyValuationReportResult } from './functions';
 
 export class OcpClient {
   private client: LedgerJsonApiClient;
@@ -8,6 +8,7 @@ export class OcpClient {
     authorizeIssuer: (params: AuthorizeIssuerParams) => Promise<AuthorizeIssuerResult>;
     createIssuer: (params: CreateIssuerParams) => Promise<CreateIssuerResult>;
     updateIssuerData: (params: UpdateIssuerDataParams) => Promise<UpdateIssuerDataResult>;
+    getIssuerAsOcf: (params: GetIssuerAsOcfParams) => Promise<GetIssuerAsOcfResult>;
   };
 
   public companyValuationReport: {
@@ -28,7 +29,8 @@ export class OcpClient {
     this.issuer = {
       authorizeIssuer: (params: AuthorizeIssuerParams) => authorizeIssuer(this.client, params),
       createIssuer: (params: CreateIssuerParams) => createIssuer(this.client, params),
-      updateIssuerData: (params: UpdateIssuerDataParams) => updateIssuerData(this.client, params)
+      updateIssuerData: (params: UpdateIssuerDataParams) => updateIssuerData(this.client, params),
+      getIssuerAsOcf: (params: GetIssuerAsOcfParams) => getIssuerAsOcf(this.client, params)
     };
 
     this.companyValuationReport = {
