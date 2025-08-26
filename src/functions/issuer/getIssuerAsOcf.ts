@@ -22,12 +22,12 @@ export interface OcfIssuer {
   };
   phone?: string;
   address?: {
-    line1?: string;
-    line2?: string;
+    address_type: 'LEGAL' | 'CONTACT' | 'OTHER';
+    street_suite?: string;
     city?: string;
-    state?: string;
+    country_subdivision?: string;
+    country: string;
     postal_code?: string;
-    country?: string;
   };
   initial_shares_authorized?: string | number;
   id?: string;
@@ -117,6 +117,20 @@ export async function getIssuerAsOcf(
         throw new Error(`Unknown email type: ${damlEmailType}`);
     }
   };
+
+  // Helper function to convert DAML address type to OCF schema address type
+  const convertAddressType = (damlAddressType: Fairmint.OpenCapTable.Types.OcfAddressType): 'LEGAL' | 'CONTACT' | 'OTHER' => {
+    switch (damlAddressType) {
+      case 'OcfAddressTypeLegal':
+        return 'LEGAL';
+      case 'OcfAddressTypeContact':
+        return 'CONTACT';
+      case 'OcfAddressTypeOther':
+        return 'OTHER';
+      default:
+        throw new Error(`Unknown address type: ${damlAddressType}`);
+    }
+  };
   
   // Transform DAML issuer data to OCF format
   const ocfIssuer: OcfIssuer = {
@@ -139,12 +153,12 @@ export async function getIssuerAsOcf(
     ...(issuerData.phone && { phone: issuerData.phone }),
     ...(issuerData.address && { 
       address: {
-        ...(issuerData.address.line1 && { line1: toUndefined(issuerData.address.line1) }),
-        ...(issuerData.address.line2 && { line2: toUndefined(issuerData.address.line2) }),
+        address_type: convertAddressType(issuerData.address.address_type),
+        ...(issuerData.address.street_suite && { street_suite: toUndefined(issuerData.address.street_suite) }),
         ...(issuerData.address.city && { city: toUndefined(issuerData.address.city) }),
-        ...(issuerData.address.state && { state: toUndefined(issuerData.address.state) }),
-        ...(issuerData.address.postal_code && { postal_code: toUndefined(issuerData.address.postal_code) }),
-        ...(issuerData.address.country && { country: toUndefined(issuerData.address.country) })
+        ...(issuerData.address.country_subdivision && { country_subdivision: toUndefined(issuerData.address.country_subdivision) }),
+        country: toUndefined(issuerData.address.country) || issuerData.country_of_formation, // Use country_of_formation as fallback
+        ...(issuerData.address.postal_code && { postal_code: toUndefined(issuerData.address.postal_code) })
       }
     }),
     ...(issuerData.initial_shares_authorized && { 
