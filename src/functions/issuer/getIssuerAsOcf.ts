@@ -3,34 +3,70 @@ import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 
 /**
  * OCF Issuer object according to the Open Cap Table Coalition schema
+ * Object describing the issuer of the cap table (the company whose cap table this is)
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/Issuer.schema.json
  */
 export interface OcfIssuer {
+  /** Object type identifier - must be "ISSUER" */
   object_type: 'ISSUER';
+  
+  /** Legal name of the issuer */
   legal_name: string;
+  
+  /** Doing Business As name */
   dba?: string;
-  formation_date?: string; // ISO 8601 date string (YYYY-MM-DD)
-  country_of_formation: string; // ISO 3166-1 alpha-2 country code
+  
+  /** Date of formation (ISO 8601 date string YYYY-MM-DD) */
+  formation_date?: string;
+  
+  /** The country where the issuer company was legally formed (ISO 3166-1 alpha-2) */
+  country_of_formation: string;
+  
+  /** The state, province, or subdivision where the issuer company was legally formed */
   country_subdivision_of_formation?: string;
+  
+  /** The tax ids for this issuer company */
   tax_ids?: Array<{
+    /** Type of tax identifier */
     tax_id_type: string;
+    /** The tax identification number */
     tax_id: string;
   }>;
+  
+  /** A work email that the issuer company can be reached at */
   email?: {
+    /** Type of email address (personal or business) */
     email_type: 'PERSONAL' | 'BUSINESS';
+    /** The email address */
     email_address: string;
   };
+  
+  /** A phone number that the issuer company can be reached at */
   phone?: string;
+  
+  /** The headquarters address of the issuing company */
   address?: {
+    /** What type of address is this (e.g. legal address, contact address, etc.) */
     address_type: 'LEGAL' | 'CONTACT' | 'OTHER';
+    /** Street address (multi-line string) */
     street_suite?: string;
+    /** City */
     city?: string;
+    /** State, province, or equivalent identifier required for an address in this country */
     country_subdivision?: string;
+    /** Country code for this address (ISO 3166-1 alpha-2) */
     country: string;
+    /** Address postal code */
     postal_code?: string;
   };
+  
+  /** The initial number of shares authorized for this issuer */
   initial_shares_authorized?: string | number;
+  
+  /** Unique identifier for the issuer object */
   id?: string;
+  
+  /** Additional comments or notes about the issuer */
   comments?: string[];
 }
 
