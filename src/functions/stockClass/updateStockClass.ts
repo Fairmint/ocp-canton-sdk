@@ -1,10 +1,12 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { OcfStockClassData } from '../../types/native';
+import { stockClassDataToDaml } from '../../utils/typeConversions';
 
 export interface UpdateStockClassParams {
   stockClassContractId: string; // Contract ID of the StockClass contract to update
-  newStockClassData: Fairmint.OpenCapTable.Types.OcfStockClassData; // New stock class data
+  newStockClassData: OcfStockClassData; // New stock class data
 }
 
 export interface UpdateStockClassResult {
@@ -32,7 +34,7 @@ function hasIssuer(arg: unknown): arg is Required<Pick<StockClassCreateArgumentS
  *   stockClassContractId: "1234567890abcdef",
  *   newStockClassData: {
  *     name: "Series A Preferred (Updated)",
- *     class_type: "OcfStockClassTypePreferred",
+ *     class_type: "PREFERRED",
  *     default_id_prefix: "SA-",
  *     initial_shares_authorized: "2000000", // Updated from 1000000
  *     votes_per_share: "1",
@@ -67,7 +69,7 @@ export async function updateStockClass(
   
   // Create the choice arguments for UpdateStockClassData
   const choiceArguments: Fairmint.OpenCapTable.StockClass.UpdateStockClassData = {
-    new_stock_class_data: params.newStockClassData
+    new_stock_class_data: stockClassDataToDaml(params.newStockClassData)
   };
 
   // Submit the choice to the StockClass contract

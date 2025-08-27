@@ -3,6 +3,8 @@ import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 import { ContractDetails } from '../../types/contractDetails';
+import { OcfIssuerData } from '../../types/native';
+import { issuerDataToDaml } from '../../utils/typeConversions';
 
 export interface CreateIssuerParams {
   /** Details of the IssuerAuthorization contract for disclosed contracts */
@@ -11,7 +13,7 @@ export interface CreateIssuerParams {
   featuredAppRightContractDetails: ContractDetails;
   issuerParty: string;
   /** Issuer data to create */
-  issuerData: Fairmint.OpenCapTable.Types.OcfIssuerData;
+  issuerData: OcfIssuerData;
 }
 
 export interface CreateIssuerResult {
@@ -48,6 +50,10 @@ export interface CreateIssuerResult {
  *   issuerData: {
  *     legal_name: "My Company Inc.",
  *     country_of_formation: "US",
+ *     email: {
+ *       email_type: "BUSINESS",
+ *       email_address: "contact@company.com"
+ *     },
  *     // ... other issuer data
  *   }
  * });
@@ -63,7 +69,7 @@ export async function createIssuer(
 ): Promise<CreateIssuerResult> {
   // Create the choice arguments for CreateIssuer
   const choiceArguments: Fairmint.OpenCapTable.IssuerAuthorization.CreateIssuer = {
-    issuer_data: params.issuerData
+    issuer_data: issuerDataToDaml(params.issuerData)
   };
 
   // Submit the choice to the IssuerAuthorization contract

@@ -2,6 +2,8 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
+import { OcfStockClassData } from '../../types/native';
+import { stockClassDataToDaml } from '../../utils/typeConversions';
 
 export interface CreateStockClassParams {
   /** Contract ID of the Issuer contract */
@@ -9,7 +11,7 @@ export interface CreateStockClassParams {
   /** The party that will act as the issuer */
   issuerParty: string;
   /** Stock class data to create */
-  stockClassData: Fairmint.OpenCapTable.Types.OcfStockClassData;
+  stockClassData: OcfStockClassData;
 }
 
 export interface CreateStockClassResult {
@@ -27,7 +29,7 @@ export interface CreateStockClassResult {
  *   issuerParty: "issuer_party_id",
  *   stockClassData: {
  *     name: "Series A Preferred",
- *     class_type: "OcfStockClassTypePreferred",
+ *     class_type: "PREFERRED",
  *     default_id_prefix: "SA-",
  *     initial_shares_authorized: "1000000",
  *     votes_per_share: "1",
@@ -47,7 +49,7 @@ export async function createStockClass(
 ): Promise<CreateStockClassResult> {
   // Create the choice arguments for CreateStockClass
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockClass = {
-    stock_class_data: params.stockClassData
+    stock_class_data: stockClassDataToDaml(params.stockClassData)
   };
 
   // Submit the choice to the Issuer contract

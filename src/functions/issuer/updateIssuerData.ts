@@ -1,10 +1,12 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { OcfIssuerData } from '../../types/native';
+import { issuerDataToDaml } from '../../utils/typeConversions';
 
 export interface UpdateIssuerDataParams {
   issuerContractId: string; // Contract ID of the Issuer contract to update
-  newIssuerData: Fairmint.OpenCapTable.Types.OcfIssuerData; // New issuer data
+  newIssuerData: OcfIssuerData; // New issuer data
 }
 
 export interface UpdateIssuerDataResult {
@@ -47,7 +49,7 @@ export async function updateIssuerData(
   
   // Create the choice arguments for UpdateIssuerData
   const choiceArguments: Fairmint.OpenCapTable.Issuer.UpdateIssuerData = {
-    new_issuer_data: params.newIssuerData
+    new_issuer_data: issuerDataToDaml(params.newIssuerData)
   };
 
   // Submit the choice to the Issuer contract
