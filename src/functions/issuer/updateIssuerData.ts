@@ -1,11 +1,14 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { ContractDetails } from '../../types/contractDetails';
 import { OcfIssuerData } from '../../types/native';
 import { issuerDataToDaml } from '../../utils/typeConversions';
 
 export interface UpdateIssuerDataParams {
   issuerContractId: string; // Contract ID of the Issuer contract to update
+  /** Details of the FeaturedAppRight contract for disclosed contracts */
+  featuredAppRightContractDetails: ContractDetails;
   newIssuerData: OcfIssuerData; // New issuer data
 }
 
@@ -24,8 +27,32 @@ function hasIssuer(arg: unknown): arg is Required<Pick<IssuerCreateArgumentShape
 
 /**
  * Update issuer data by exercising the UpdateIssuerData choice on an Issuer contract
+ * 
+ * This function requires the FeaturedAppRight contract details to be provided for disclosed contracts,
+ * which is necessary for cross-domain contract interactions in Canton.
+ * 
+ * @example
+ * ```typescript
+ * const featuredAppRightContractDetails = {
+ *   contractId: "abcdef1234567890",
+ *   createdEventBlob: "serialized_featured_app_right_blob_here",
+ *   synchronizerId: "featured_sync_id_here",
+ *   templateId: "FeaturedAppRight:template:id:here"
+ * };
+ * 
+ * const result = await updateIssuerData(client, {
+ *   issuerContractId: "1234567890abcdef",
+ *   featuredAppRightContractDetails,
+ *   newIssuerData: {
+ *     legal_name: "Updated Company Inc.",
+ *     country_of_formation: "US",
+ *     // ... other updated issuer data
+ *   }
+ * });
+ * ```
+ * 
  * @param client - The ledger JSON API client
- * @param params - Parameters for updating issuer data
+ * @param params - Parameters for updating issuer data, including the contract details for disclosed contracts
  * @returns Promise resolving to the result of the issuer data update
  */
 export async function updateIssuerData(
@@ -63,6 +90,14 @@ export async function updateIssuerData(
           choice: 'UpdateIssuerData',
           choiceArgument: choiceArguments
         }
+      }
+    ],
+    disclosedContracts: [
+      {
+        templateId: params.featuredAppRightContractDetails.templateId,
+        contractId: params.featuredAppRightContractDetails.contractId,
+        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
       }
     ]
   }) as SubmitAndWaitForTransactionTreeResponse;

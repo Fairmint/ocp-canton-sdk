@@ -1,6 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { damlTimeToDateString } from '../../utils/typeConversions';
+import { damlStockClassDataToNative } from '../../utils/typeConversions';
 
 /**
  * OCF Stock Class object according to the Open Cap Table Coalition schema
@@ -149,47 +149,48 @@ export async function getStockClassAsOcf(
   
   const stockClassData = createArgument.stock_class_data;
   
-  // Helper function to convert DAML Optional to JavaScript undefined
-  const toUndefined = <T>(value: T | null): T | undefined => value === null ? undefined : value;
+  // Use the shared conversion function from typeConversions.ts
+  const nativeStockClassData = damlStockClassDataToNative(stockClassData);
   
-  // Helper function to convert DAML stock class type to OCF schema stock class type
-  const convertStockClassType = (damlClassType: Fairmint.OpenCapTable.Types.OcfStockClassType): 'PREFERRED' | 'COMMON' => {
-    switch (damlClassType) {
-      case 'OcfStockClassTypePreferred':
-        return 'PREFERRED';
-      case 'OcfStockClassTypeCommon':
-        return 'COMMON';
-      default:
-        throw new Error(`Unknown stock class type: ${damlClassType}`);
-    }
-  };
-
-  // Helper function to convert DAML monetary value to OCF format
-  const convertMonetary = (damlMonetary: Fairmint.OpenCapTable.Types.OcfMonetary) => ({
-    amount: damlMonetary.amount.toString(),
-    currency: damlMonetary.currency
+  // Helper function to ensure monetary amounts are strings
+  const ensureStringAmount = (monetary: { amount: string | number; currency: string }) => ({
+    amount: typeof monetary.amount === 'number' ? monetary.amount.toString() : monetary.amount,
+    currency: monetary.currency
   });
   
-  // Transform DAML stock class data to OCF format
+  // Destructure native data, excluding fields that need type conversion
+  const {
+    par_value,
+    price_per_share,
+    initial_shares_authorized,
+    votes_per_share,
+    seniority,
+    liquidation_preference_multiple,
+    participation_cap_multiple,
+    ...baseStockClassData
+  } = nativeStockClassData;
+  
+  // Transform native stock class data to OCF format, adding OCF-specific fields
   const ocfStockClass: OcfStockClass = {
     object_type: 'STOCK_CLASS',
-    name: stockClassData.name || '',
-    class_type: convertStockClassType(stockClassData.class_type),
-    default_id_prefix: stockClassData.default_id_prefix || '',
-    initial_shares_authorized: stockClassData.initial_shares_authorized?.toString() || '0',
-    votes_per_share: stockClassData.votes_per_share?.toString() || '0',
-    seniority: stockClassData.seniority?.toString() || '0',
-    // Optional fields
-    ...(stockClassData.board_approval_date && { board_approval_date: damlTimeToDateString(stockClassData.board_approval_date) }),
-    ...(stockClassData.stockholder_approval_date && { stockholder_approval_date: damlTimeToDateString(stockClassData.stockholder_approval_date) }),
-    ...(stockClassData.par_value && { par_value: convertMonetary(stockClassData.par_value) }),
-    ...(stockClassData.price_per_share && { price_per_share: convertMonetary(stockClassData.price_per_share) }),
-    ...(stockClassData.conversion_rights && { conversion_rights: stockClassData.conversion_rights }),
-    ...(stockClassData.liquidation_preference_multiple && { 
-      liquidation_preference_multiple: stockClassData.liquidation_preference_multiple.toString() 
+    ...baseStockClassData,
+    // Ensure numeric values are strings for OCF compatibility
+    initial_shares_authorized: typeof initial_shares_authorized === 'number' ? 
+      initial_shares_authorized.toString() : initial_shares_authorized,
+    votes_per_share: typeof votes_per_share === 'number' ? 
+      votes_per_share.toString() : votes_per_share,
+    seniority: typeof seniority === 'number' ? 
+      seniority.toString() : seniority,
+    // Add optional monetary fields with proper string conversion
+    ...(par_value && { par_value: ensureStringAmount(par_value) }),
+    ...(price_per_share && { price_per_share: ensureStringAmount(price_per_share) }),
+    ...(liquidation_preference_multiple && { 
+      liquidation_preference_multiple: typeof liquidation_preference_multiple === 'number' ? 
+        liquidation_preference_multiple.toString() : liquidation_preference_multiple
     }),
-    ...(stockClassData.participation_cap_multiple && { 
-      participation_cap_multiple: stockClassData.participation_cap_multiple.toString() 
+    ...(participation_cap_multiple && { 
+      participation_cap_multiple: typeof participation_cap_multiple === 'number' ? 
+        participation_cap_multiple.toString() : participation_cap_multiple
     }),
     // Use contract ID as the OCF object ID
     id: params.contractId
