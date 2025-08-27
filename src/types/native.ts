@@ -60,12 +60,12 @@ export interface Address {
   postal_code?: string;
 }
 
-/** Tax ID object */
+/** Tax ID object following OCF specification */
 export interface TaxId {
-  /** Type of tax identifier */
-  tax_id_type: string;
-  /** The tax identification number */
+  /** Tax identifier as string */
   tax_id: string;
+  /** Issuing country code (ISO 3166-1 alpha-2) for the tax identifier */
+  country: string;
 }
 
 /** Stock Class Conversion Right following OCF specification */
@@ -84,8 +84,8 @@ export interface StockClassConversionRight {
   conversion_price: Monetary;
   /** How should fractional shares be rounded? (required for RATIO_CONVERSION) */
   rounding_type: RoundingType;
-  /** Expiration date after which the conversion right is no longer valid (optional) */
-  expires_at?: Date;
+  /** Expiration date after which the conversion right is no longer valid (YYYY-MM-DD format) */
+  expires_at?: string;
 }
 
 /** OCF Issuer Data */
@@ -96,8 +96,8 @@ export interface OcfIssuerData {
   country_of_formation: string;
   /** Doing Business As name */
   dba?: string;
-  /** Date of formation */
-  formation_date?: Date;
+  /** Date of formation (YYYY-MM-DD format) */
+  formation_date?: string;
   /** The state, province, or subdivision where the issuer company was legally formed */
   country_subdivision_of_formation?: string;
   /** The tax ids for this issuer company */
@@ -126,10 +126,10 @@ export interface OcfStockClassData {
   votes_per_share: string | number;
   /** Seniority of the stock - determines repayment priority */
   seniority: string | number;
-  /** Date on which the board approved the stock class */
-  board_approval_date?: Date;
-  /** Date on which the stockholders approved the stock class */
-  stockholder_approval_date?: Date;
+  /** Date on which the board approved the stock class (YYYY-MM-DD format) */
+  board_approval_date?: string;
+  /** Date on which the stockholders approved the stock class (YYYY-MM-DD format) */
+  stockholder_approval_date?: string;
   /** Per-share par value of this stock class */
   par_value?: Monetary;
   /** Per-share price this stock class was issued for */
