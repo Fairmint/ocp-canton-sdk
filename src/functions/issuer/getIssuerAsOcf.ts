@@ -1,5 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { damlTimeToDate } from '../../utils/typeConversions';
 
 /**
  * OCF Issuer object according to the Open Cap Table Coalition schema
@@ -16,8 +17,8 @@ export interface OcfIssuer {
   /** Doing Business As name */
   dba?: string;
   
-  /** Date of formation (ISO 8601 date string YYYY-MM-DD) */
-  formation_date?: string;
+  /** Date of formation */
+  formation_date?: Date;
   
   /** The country where the issuer company was legally formed (ISO 3166-1 alpha-2) */
   country_of_formation: string;
@@ -175,7 +176,7 @@ export async function getIssuerAsOcf(
     country_of_formation: issuerData.country_of_formation || '',
     // Optional fields
     ...(issuerData.dba && { dba: issuerData.dba }),
-    ...(issuerData.formation_date && { formation_date: issuerData.formation_date }),
+    ...(issuerData.formation_date && { formation_date: damlTimeToDate(issuerData.formation_date) }),
     ...(issuerData.country_subdivision_of_formation && { 
       country_subdivision_of_formation: issuerData.country_subdivision_of_formation 
     }),

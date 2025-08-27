@@ -13,6 +13,21 @@ export type AddressType = 'LEGAL' | 'CONTACT' | 'OTHER';
 /** Stock class type */
 export type StockClassType = 'PREFERRED' | 'COMMON';
 
+/** Conversion mechanism types */
+export type ConversionMechanism = 'RATIO_CONVERSION' | 'PERCENT_CONVERSION' | 'FIXED_AMOUNT_CONVERSION';
+
+/** Conversion trigger types */
+export type ConversionTrigger = 'AUTOMATIC_ON_CONDITION' | 'AUTOMATIC_ON_DATE' | 'ELECTIVE_ON_CONDITION' | 'ELECTIVE_ON_DATE' | 'ELECTIVE_AT_WILL';
+
+/** Rounding type for fractional shares */
+export type RoundingType = 'DOWN' | 'UP' | 'NEAREST' | 'NORMAL';
+
+/** Authorized shares special values */
+export type AuthorizedShares = 'NOT_APPLICABLE' | 'UNLIMITED';
+
+/** Initial shares authorized (can be numeric or special enum value) */
+export type InitialSharesAuthorized = number | string | AuthorizedShares;
+
 /** Monetary value */
 export interface Monetary {
   /** The amount of the monetary value */
@@ -53,6 +68,26 @@ export interface TaxId {
   tax_id: string;
 }
 
+/** Stock Class Conversion Right following OCF specification */
+export interface StockClassConversionRight {
+  /** Type identifier for the conversion right (required) */
+  type: string;
+  /** The conversion mechanism that determines how conversions are calculated (required) */
+  conversion_mechanism: ConversionMechanism;
+  /** When the conversion can occur (required) */
+  conversion_trigger: ConversionTrigger;
+  /** ID of the target stock class that this converts into (required) */
+  converts_to_stock_class_id: string;
+  /** One share of this stock class converts into this many target stock class shares (required for RATIO_CONVERSION) */
+  ratio: number;
+  /** What is the effective conversion price per share of this stock class? (required for RATIO_CONVERSION) */
+  conversion_price: Monetary;
+  /** How should fractional shares be rounded? (required for RATIO_CONVERSION) */
+  rounding_type: RoundingType;
+  /** Expiration date after which the conversion right is no longer valid (optional) */
+  expires_at?: Date;
+}
+
 /** OCF Issuer Data */
 export interface OcfIssuerData {
   /** Legal name of the issuer */
@@ -61,8 +96,8 @@ export interface OcfIssuerData {
   country_of_formation: string;
   /** Doing Business As name */
   dba?: string;
-  /** Date of formation (ISO 8601 date string YYYY-MM-DD) */
-  formation_date?: string;
+  /** Date of formation */
+  formation_date?: Date;
   /** The state, province, or subdivision where the issuer company was legally formed */
   country_subdivision_of_formation?: string;
   /** The tax ids for this issuer company */
@@ -86,26 +121,21 @@ export interface OcfStockClassData {
   /** Default prefix for certificate numbers */
   default_id_prefix: string;
   /** The initial number of shares authorized for this stock class */
-  initial_shares_authorized: string | number;
+  initial_shares_authorized: InitialSharesAuthorized;
   /** The number of votes each share of this stock class gets */
   votes_per_share: string | number;
   /** Seniority of the stock - determines repayment priority */
   seniority: string | number;
-  /** Date on which the board approved the stock class (ISO 8601 date string YYYY-MM-DD) */
-  board_approval_date?: string;
-  /** Date on which the stockholders approved the stock class (ISO 8601 date string YYYY-MM-DD) */
-  stockholder_approval_date?: string;
+  /** Date on which the board approved the stock class */
+  board_approval_date?: Date;
+  /** Date on which the stockholders approved the stock class */
+  stockholder_approval_date?: Date;
   /** Per-share par value of this stock class */
   par_value?: Monetary;
   /** Per-share price this stock class was issued for */
   price_per_share?: Monetary;
   /** List of stock class conversion rights possible for this stock class */
-  conversion_rights?: Array<{
-    /** The type of conversion right */
-    conversion_mechanism: string;
-    /** Additional conversion right details */
-    [key: string]: any;
-  }>;
+  conversion_rights?: StockClassConversionRight[];
   /** The liquidation preference per share for this stock class */
   liquidation_preference_multiple?: string | number;
   /** The participation cap multiple per share for this stock class */

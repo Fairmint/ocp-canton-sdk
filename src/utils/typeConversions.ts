@@ -15,6 +15,30 @@ import {
   OcfStockClassData
 } from '../types/native';
 
+// ===== Date Conversion Helpers =====
+
+/**
+ * Convert a JavaScript Date to DAML Time format (ISO string with 0 timestamp)
+ * DAML Time expects a string in the format YYYY-MM-DDTHH:MM:SS.000Z
+ * Since we only care about the date, we use 00:00:00.000Z for the time portion
+ */
+export function dateToDAMLTime(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}T00:00:00.000Z`;
+}
+
+/**
+ * Convert a DAML Time string back to a JavaScript Date
+ * Extract only the date portion and create a Date object
+ */
+export function damlTimeToDate(timeString: string): Date {
+  // Extract just the date portion (YYYY-MM-DD) and create a Date
+  const datePart = timeString.split('T')[0];
+  return new Date(datePart + 'T00:00:00.000Z');
+}
+
 // ===== Email Type Conversions =====
 
 export function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfEmailType {
@@ -152,7 +176,7 @@ export function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTab
     legal_name: issuerData.legal_name,
     country_of_formation: issuerData.country_of_formation,
     dba: issuerData.dba || null,
-    formation_date: issuerData.formation_date || null,
+    formation_date: issuerData.formation_date ? dateToDAMLTime(issuerData.formation_date) : null,
     country_subdivision_of_formation: issuerData.country_subdivision_of_formation || null,
     tax_ids: issuerData.tax_ids || null,
     email: issuerData.email ? emailToDaml(issuerData.email) : null,
@@ -170,7 +194,7 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Types.Ocf
     legal_name: damlData.legal_name || '',
     country_of_formation: damlData.country_of_formation || '',
     ...(damlData.dba && { dba: damlData.dba }),
-    ...(damlData.formation_date && { formation_date: damlData.formation_date }),
+    ...(damlData.formation_date && { formation_date: damlTimeToDate(damlData.formation_date) }),
     ...(damlData.country_subdivision_of_formation && { 
       country_subdivision_of_formation: damlData.country_subdivision_of_formation 
     }),
@@ -198,19 +222,23 @@ export function stockClassDataToDaml(stockClassData: OcfStockClassData): Fairmin
       stockClassData.votes_per_share.toString() : stockClassData.votes_per_share,
     seniority: typeof stockClassData.seniority === 'number' ?
       stockClassData.seniority.toString() : stockClassData.seniority,
-    board_approval_date: stockClassData.board_approval_date || null,
-    stockholder_approval_date: stockClassData.stockholder_approval_date || null,
+    board_approval_date: stockClassData.board_approval_date ? dateToDAMLTime(stockClassData.board_approval_date) : null,
+    stockholder_approval_date: stockClassData.stockholder_approval_date ? dateToDAMLTime(stockClassData.stockholder_approval_date) : null,
     par_value: stockClassData.par_value ? monetaryToDaml(stockClassData.par_value) : null,
     price_per_share: stockClassData.price_per_share ? monetaryToDaml(stockClassData.price_per_share) : null,
     conversion_rights: stockClassData.conversion_rights ? 
       stockClassData.conversion_rights.map(right => ({
-        type_: right.conversion_mechanism,
-        conversion_mechanism: 'OcfConversionMechanismRatioConversion', // Default for now
-        conversion_trigger: 'OcfConversionTriggerOptional', // Default for now
-        converts_to_stock_class_id: '',
-        conversion_rate: null,
-        conversion_price: null,
-        expires_at: null
+        type_: right.type,
+        conversion_mechanism: right.conversion_mechanism === 'RATIO_CONVERSION' ? 'OcfConversionMechanismRatioConversion' :
+                            right.conversion_mechanism === 'PERCENT_CONVERSION' ? 'OcfConversionMechanismPercentConversion' :
+                            'OcfConversionMechanismFixedAmountConversion',
+        conversion_trigger: right.conversion_trigger === 'AUTOMATIC_ON_CONDITION' ? 'OcfConversionTriggerAutomatic' :
+                          right.conversion_trigger === 'AUTOMATIC_ON_DATE' ? 'OcfConversionTriggerAutomatic' :
+                          'OcfConversionTriggerOptional',
+        converts_to_stock_class_id: right.converts_to_stock_class_id,
+        conversion_rate: right.ratio.toString(),
+        conversion_price: monetaryToDaml(right.conversion_price),
+        expires_at: right.expires_at ? dateToDAMLTime(right.expires_at) : null
       })) : [],
     liquidation_preference_multiple: stockClassData.liquidation_preference_multiple ?
       (typeof stockClassData.liquidation_preference_multiple === 'number' ?
@@ -239,14 +267,23 @@ export function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.Types
     initial_shares_authorized: initialShares,
     votes_per_share: damlData.votes_per_share || '0',
     seniority: damlData.seniority || '0',
-    ...(damlData.board_approval_date && { board_approval_date: damlData.board_approval_date }),
-    ...(damlData.stockholder_approval_date && { stockholder_approval_date: damlData.stockholder_approval_date }),
+    ...(damlData.board_approval_date && { board_approval_date: damlTimeToDate(damlData.board_approval_date) }),
+    ...(damlData.stockholder_approval_date && { stockholder_approval_date: damlTimeToDate(damlData.stockholder_approval_date) }),
     ...(damlData.par_value && { par_value: damlMonetaryToNative(damlData.par_value) }),
     ...(damlData.price_per_share && { price_per_share: damlMonetaryToNative(damlData.price_per_share) }),
     ...(damlData.conversion_rights && damlData.conversion_rights.length > 0 && { 
       conversion_rights: damlData.conversion_rights.map(right => ({
-        ...right,
-        conversion_mechanism: right.type_
+        type: right.type_,
+        conversion_mechanism: right.conversion_mechanism === 'OcfConversionMechanismRatioConversion' ? 'RATIO_CONVERSION' as const :
+                            right.conversion_mechanism === 'OcfConversionMechanismPercentConversion' ? 'PERCENT_CONVERSION' as const :
+                            'FIXED_AMOUNT_CONVERSION' as const,
+        conversion_trigger: right.conversion_trigger === 'OcfConversionTriggerAutomatic' ? 'AUTOMATIC_ON_CONDITION' as const :
+                          'ELECTIVE_AT_WILL' as const,
+        converts_to_stock_class_id: right.converts_to_stock_class_id,
+        ratio: parseFloat(right.conversion_rate || '1'),
+        conversion_price: right.conversion_price ? damlMonetaryToNative(right.conversion_price) : { amount: '0', currency: 'USD' },
+        rounding_type: 'NORMAL' as const, // Default rounding type since DAML doesn't store this yet
+        ...(right.expires_at && { expires_at: damlTimeToDate(right.expires_at) })
       }))
     }),
     ...(damlData.liquidation_preference_multiple && { 

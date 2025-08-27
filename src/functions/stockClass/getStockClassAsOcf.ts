@@ -1,5 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { damlTimeToDate } from '../../utils/typeConversions';
 
 /**
  * OCF Stock Class object according to the Open Cap Table Coalition schema
@@ -22,11 +23,11 @@ export interface OcfStockClass {
   /** The initial number of shares authorized for this stock class */
   initial_shares_authorized: string | number;
   
-  /** Date on which the board approved the stock class (ISO 8601 date string YYYY-MM-DD) */
-  board_approval_date?: string;
+  /** Date on which the board approved the stock class */
+  board_approval_date?: Date;
   
-  /** Date on which the stockholders approved the stock class (ISO 8601 date string YYYY-MM-DD) */
-  stockholder_approval_date?: string;
+  /** Date on which the stockholders approved the stock class */
+  stockholder_approval_date?: Date;
   
   /** The number of votes each share of this stock class gets */
   votes_per_share: string | number;
@@ -179,8 +180,8 @@ export async function getStockClassAsOcf(
     votes_per_share: stockClassData.votes_per_share?.toString() || '0',
     seniority: stockClassData.seniority?.toString() || '0',
     // Optional fields
-    ...(stockClassData.board_approval_date && { board_approval_date: stockClassData.board_approval_date }),
-    ...(stockClassData.stockholder_approval_date && { stockholder_approval_date: stockClassData.stockholder_approval_date }),
+    ...(stockClassData.board_approval_date && { board_approval_date: damlTimeToDate(stockClassData.board_approval_date) }),
+    ...(stockClassData.stockholder_approval_date && { stockholder_approval_date: damlTimeToDate(stockClassData.stockholder_approval_date) }),
     ...(stockClassData.par_value && { par_value: convertMonetary(stockClassData.par_value) }),
     ...(stockClassData.price_per_share && { price_per_share: convertMonetary(stockClassData.price_per_share) }),
     ...(stockClassData.conversion_rights && { conversion_rights: stockClassData.conversion_rights }),
