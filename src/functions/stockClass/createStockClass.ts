@@ -13,7 +13,25 @@ export interface CreateStockClassParams {
   featuredAppRightContractDetails: ContractDetails;
   /** The party that will act as the issuer */
   issuerParty: string;
-  /** Stock class data to create */
+  /**
+   * Stock class data to create
+   *
+   * Schema: https://schema.opencaptablecoalition.com/v/1.2.0/objects/StockClass.schema.json
+   * - name: Name for the stock type (e.g. Series A Preferred or Class A Common)
+   * - class_type: The type of this stock class (e.g. Preferred or Common)
+   * - default_id_prefix: Default prefix for certificate numbers in certificated shares (e.g. CS- in CS-1). If certificate IDs have a dash, the prefix should end in the dash like CS-
+   * - initial_shares_authorized: The initial number of shares authorized for this stock class
+   * - board_approval_date (optional): Date on which the board approved the stock class (YYYY-MM-DD)
+   * - stockholder_approval_date (optional): Date on which the stockholders approved the stock class (YYYY-MM-DD)
+   * - votes_per_share: The number of votes each share of this stock class gets
+   * - par_value (optional): Per-share par value of this stock class
+   * - price_per_share (optional): Per-share price this stock class was issued for
+   * - seniority: Seniority of the stock - determines repayment priority. Seniority is ordered by increasing number so that stock classes with a higher seniority have higher repayment priority. Multiple stock classes can share the same seniority.
+   * - conversion_rights (optional): List of stock class conversion rights possible for this stock class
+   * - liquidation_preference_multiple (optional): The liquidation preference per share for this stock class
+   * - participation_cap_multiple (optional): The participation cap multiple per share for this stock class
+   * - comments (optional): Additional comments or notes about the stock class
+   */
   stockClassData: OcfStockClassData;
 }
 
@@ -24,10 +42,10 @@ export interface CreateStockClassResult {
 
 /**
  * Create a stock class by exercising the CreateStockClass choice on an Issuer contract
- * 
+ *
  * This function requires the FeaturedAppRight contract details to be provided for disclosed contracts,
  * which is necessary for cross-domain contract interactions in Canton.
- * 
+ *
  * @example
  * ```typescript
  * const featuredAppRightContractDetails = {
@@ -36,7 +54,7 @@ export interface CreateStockClassResult {
  *   synchronizerId: "featured_sync_id_here",
  *   templateId: "FeaturedAppRight:template:id:here"
  * };
- * 
+ *
  * const result = await createStockClass(client, {
  *   issuerContractId: "1234567890abcdef",
  *   featuredAppRightContractDetails,
@@ -52,7 +70,7 @@ export interface CreateStockClassResult {
  *   }
  * });
  * ```
- * 
+ *
  * @param client - The ledger JSON API client
  * @param params - Parameters for creating a stock class, including the contract details for disclosed contracts
  * @returns Promise resolving to the result of the stock class creation
@@ -88,7 +106,7 @@ export async function createStockClass(
       }
     ]
   }) as SubmitAndWaitForTransactionTreeResponse;
-  
+
   const created = findCreatedEventByTemplateId(
     response,
     Fairmint.OpenCapTable.StockClass.StockClass.templateId
@@ -98,7 +116,7 @@ export async function createStockClass(
   }
 
   const stockClassContractId = created.CreatedTreeEvent.value.contractId;
-  
+
   return {
     contractId: stockClassContractId,
     updateId: response.transactionTree.updateId

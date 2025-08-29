@@ -1,0 +1,68 @@
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
+import { ContractDetails } from '../../types/contractDetails';
+import { OcfStakeholderData } from '../../types/native';
+import { stakeholderDataToDaml } from '../../utils/typeConversions';
+
+export interface CreateStakeholderParams {
+  issuerContractId: string;
+  featuredAppRightContractDetails: ContractDetails;
+  issuerParty: string;
+  stakeholderParty: string;
+  stakeholderData: OcfStakeholderData;
+}
+
+export interface CreateStakeholderResult {
+  contractId: string;
+  updateId: string;
+}
+
+/**
+ * Create a stakeholder by exercising the CreateStakeholder choice on an Issuer contract
+ */
+export async function createStakeholder(
+  client: LedgerJsonApiClient,
+  params: CreateStakeholderParams
+): Promise<CreateStakeholderResult> {
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStakeholder = {
+    stakeholder: params.stakeholderParty,
+    stakeholder_data: stakeholderDataToDaml(params.stakeholderData)
+  };
+
+  const response = await client.submitAndWaitForTransactionTree({
+    actAs: [params.issuerParty],
+    commands: [
+      {
+        ExerciseCommand: {
+          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+          contractId: params.issuerContractId,
+          choice: 'CreateStakeholder',
+          choiceArgument: choiceArguments
+        }
+      }
+    ],
+    disclosedContracts: [
+      {
+        templateId: params.featuredAppRightContractDetails.templateId,
+        contractId: params.featuredAppRightContractDetails.contractId,
+        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
+      }
+    ]
+  }) as SubmitAndWaitForTransactionTreeResponse;
+
+  const created = findCreatedEventByTemplateId(
+    response,
+    Fairmint.OpenCapTable.Stakeholder.Stakeholder.templateId
+  );
+  if (!created) {
+    throw new Error('Expected CreatedTreeEvent not found');
+  }
+
+  return {
+    contractId: created.CreatedTreeEvent.value.contractId,
+    updateId: response.transactionTree.updateId
+  };
+}
