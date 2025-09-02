@@ -8,7 +8,7 @@ export interface OcfStakeholder {
   name: string;
   stakeholder_type: 'INDIVIDUAL' | 'INSTITUTION';
   issuer_assigned_id?: string;
-  current_relationship?: string;
+  current_relationships?: string[];
   primary_contact?: {
     name: string;
     email?: { email_type: 'PERSONAL' | 'BUSINESS'; email_address: string };
@@ -88,7 +88,7 @@ export async function getStakeholderAsOcf(
     name: native.name,
     stakeholder_type: native.stakeholder_type,
     ...(native.issuer_assigned_id && { issuer_assigned_id: native.issuer_assigned_id }),
-    ...(native.current_relationship && { current_relationship: native.current_relationship }),
+    ...(native.current_relationships && { current_relationships: native.current_relationships }),
     ...(native.primary_contact && { primary_contact: native.primary_contact as any }),
     ...(native.contact_info && { contact_info: native.contact_info as any }),
     addresses: native.addresses,

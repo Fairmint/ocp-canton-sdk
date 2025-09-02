@@ -300,17 +300,26 @@ export function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTab
     dba: issuerData.dba || null,
     formation_date: dateStringToDAMLTime(issuerData.formation_date),
     country_subdivision_of_formation: issuerData.country_subdivision_of_formation || null,
-    // TODO: Add country_subdivision_name_of_formation once the generated SDK supports it
+    country_subdivision_name_of_formation: issuerData.country_subdivision_name_of_formation || null,
     tax_ids: issuerData.tax_ids || null,
     email: issuerData.email ? emailToDaml(issuerData.email) : null,
     phone: issuerData.phone ? (phoneToDaml(issuerData.phone) as any) : null,
     address: issuerData.address ? addressToDaml(issuerData.address) : null,
-    // For now, pass as string to match current generated SDK Optional<string>
-    initial_shares_authorized: issuerData.initial_shares_authorized !== undefined && issuerData.initial_shares_authorized !== null
-      ? (typeof issuerData.initial_shares_authorized === 'number'
-          ? issuerData.initial_shares_authorized.toString()
-          : String(issuerData.initial_shares_authorized))
-      : null,
+    // Map to DAML union: OcfInitialSharesAuthorized = Numeric | Enum
+    initial_shares_authorized:
+      issuerData.initial_shares_authorized !== undefined && issuerData.initial_shares_authorized !== null
+        ? ((): any => {
+            const v = issuerData.initial_shares_authorized;
+            if (typeof v === 'number' || (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v))) {
+              return { tag: 'OcfInitialSharesNumeric', value: typeof v === 'number' ? v.toString() : v };
+            }
+            if (v === 'UNLIMITED') {
+              return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
+            }
+            // Treat NOT_APPLICABLE and others as NotApplicable enum
+            return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
+          })()
+        : null,
     comments: issuerData.comments || null
   };
 }
@@ -327,7 +336,16 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Types.Ocf
     ...(damlData.email && { email: damlEmailToNative(damlData.email) }),
     ...(damlData.phone && { phone: damlPhoneToNative(damlData.phone as any) }),
     ...(damlData.address && { address: damlAddressToNative(damlData.address) }),
-    ...(damlData.initial_shares_authorized && { initial_shares_authorized: damlData.initial_shares_authorized })
+    ...(damlData.initial_shares_authorized && {
+      initial_shares_authorized: ((): any => {
+        const isa: any = damlData.initial_shares_authorized as any;
+        if (isa.tag === 'OcfInitialSharesNumeric') return isa.value;
+        if (isa.tag === 'OcfInitialSharesEnum') {
+          return isa.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT_APPLICABLE';
+        }
+        return undefined;
+      })()
+    })
   };
 }
 
@@ -361,8 +379,8 @@ export function stockClassDataToDaml(stockClassData: OcfStockClassData): Fairmin
       // Trigger mapping - collapse to Automatic/Optional as per DAML type
       const trigger: Fairmint.OpenCapTable.Types.OcfConversionTrigger =
         right.conversion_trigger.startsWith('AUTOMATIC')
-          ? 'OcfConversionTriggerAutomatic'
-          : 'OcfConversionTriggerOptional';
+          ? ({ tag: 'OcfConversionTriggerAutomatic' } as any)
+          : ({ tag: 'OcfConversionTriggerOptional' } as any);
 
       // Ratio mapping if provided
       let ratio: any = null;
@@ -430,7 +448,10 @@ export function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.Types
             : right.conversion_mechanism === 'OcfConversionMechanismPercentCapitalizationConversion'
             ? 'PERCENT_CONVERSION'
             : 'FIXED_AMOUNT_CONVERSION';
-        const trigger: ConversionTrigger = right.conversion_trigger === 'OcfConversionTriggerAutomatic' ? 'AUTOMATIC_ON_CONDITION' : 'ELECTIVE_AT_WILL';
+        const isAutomatic = (right.conversion_trigger as any)?.tag
+          ? (right.conversion_trigger as any).tag === 'OcfConversionTriggerAutomatic'
+          : right.conversion_trigger === 'OcfConversionTriggerAutomatic';
+        const trigger: ConversionTrigger = isAutomatic ? 'AUTOMATIC_ON_CONDITION' : 'ELECTIVE_AT_WILL';
 
         let ratioValue: number | undefined;
         if (right.ratio && right.ratio.tag === 'Some') {
@@ -890,18 +911,21 @@ function damlConvertibleTypeToNative(t: Fairmint.OpenCapTable.Types.OcfConvertib
 }
 
 function simpleTriggerToDaml(t: SimpleTrigger): Fairmint.OpenCapTable.Types.OcfConversionTrigger {
-  return t === 'AUTOMATIC' ? 'OcfConversionTriggerAutomatic' : 'OcfConversionTriggerOptional';
+  return (t === 'AUTOMATIC'
+    ? ({ tag: 'OcfConversionTriggerAutomatic' } as any)
+    : ({ tag: 'OcfConversionTriggerOptional' } as any)) as any;
 }
 
 function damlSimpleTriggerToNative(t: Fairmint.OpenCapTable.Types.OcfConversionTrigger): SimpleTrigger {
-  return t === 'OcfConversionTriggerAutomatic' ? 'AUTOMATIC' : 'OPTIONAL';
+  const tag = (t as any)?.tag || (t as unknown as string);
+  return tag === 'OcfConversionTriggerAutomatic' ? 'AUTOMATIC' : 'OPTIONAL';
 }
 
 export function convertibleIssuanceToDaml(d: OcfConvertibleIssuanceDataNative): Fairmint.OpenCapTable.Types.OcfConvertibleIssuanceData {
   return {
     investment_amount: monetaryToDaml(d.investment_amount),
     convertible_type: convertibleTypeToDaml(d.convertible_type),
-    conversion_triggers: d.conversion_triggers.map(simpleTriggerToDaml),
+    conversion_triggers: d.conversion_triggers.map(t => (t === 'AUTOMATIC' ? ({ tag: 'OcfConversionTriggerAutomatic' } as any) : ({ tag: 'OcfConversionTriggerOptional' } as any))),
     seniority: d.seniority as any,
     pro_rata: d.pro_rata !== undefined ? (typeof d.pro_rata === 'number' ? d.pro_rata.toString() : d.pro_rata) : null,
     comments: d.comments || null
@@ -912,7 +936,7 @@ export function damlConvertibleIssuanceToNative(d: Fairmint.OpenCapTable.Types.O
   return {
     investment_amount: damlMonetaryToNative(d.investment_amount),
     convertible_type: damlConvertibleTypeToNative(d.convertible_type),
-    conversion_triggers: d.conversion_triggers.map(damlSimpleTriggerToNative),
+    conversion_triggers: d.conversion_triggers.map((t: any) => (t?.tag === 'OcfConversionTriggerAutomatic' ? 'AUTOMATIC' : 'OPTIONAL')),
     seniority: d.seniority as any,
     ...(d.pro_rata && { pro_rata: d.pro_rata }),
     ...(d.comments && { comments: d.comments })
@@ -924,7 +948,7 @@ export function warrantIssuanceToDaml(d: OcfWarrantIssuanceDataNative): Fairmint
     quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
     exercise_price: monetaryToDaml(d.exercise_price),
     purchase_price: monetaryToDaml(d.purchase_price),
-    exercise_triggers: d.exercise_triggers.map(simpleTriggerToDaml),
+    exercise_triggers: d.exercise_triggers.map(t => (t === 'AUTOMATIC' ? ({ tag: 'OcfConversionTriggerAutomatic' } as any) : ({ tag: 'OcfConversionTriggerOptional' } as any))),
     warrant_expiration_date: d.warrant_expiration_date ? dateStringToDAMLTime(d.warrant_expiration_date) : null,
     vesting_terms_id: d.vesting_terms_id || null,
     comments: d.comments || null
@@ -936,7 +960,7 @@ export function damlWarrantIssuanceToNative(d: Fairmint.OpenCapTable.Types.OcfWa
     quantity: d.quantity,
     exercise_price: damlMonetaryToNative(d.exercise_price),
     purchase_price: damlMonetaryToNative(d.purchase_price),
-    exercise_triggers: d.exercise_triggers.map(damlSimpleTriggerToNative),
+    exercise_triggers: d.exercise_triggers.map((t: any) => (t?.tag === 'OcfConversionTriggerAutomatic' ? 'AUTOMATIC' : 'OPTIONAL')),
     ...(d.warrant_expiration_date && { warrant_expiration_date: damlTimeToDateString(d.warrant_expiration_date) }),
     ...(d.vesting_terms_id && { vesting_terms_id: d.vesting_terms_id }),
     ...(d.comments && { comments: d.comments })

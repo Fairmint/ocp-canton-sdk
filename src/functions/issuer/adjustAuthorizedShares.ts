@@ -24,7 +24,7 @@ export async function adjustIssuerAuthorizedShares(
   client: LedgerJsonApiClient,
   params: AdjustIssuerAuthorizedSharesParams
 ): Promise<AdjustIssuerAuthorizedSharesResult> {
-  const choiceArgs: Fairmint.OpenCapTable.Issuer.AdjustAuthorizedShares = {
+  const choiceArgs: Fairmint.OpenCapTable.Issuer.AdjustIssuerAuthorizedShares = {
     new_authorized:
       typeof params.newAuthorized === 'number'
         ? params.newAuthorized.toString()
@@ -39,7 +39,7 @@ export async function adjustIssuerAuthorizedShares(
         ExerciseCommand: {
           templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
           contractId: params.issuerContractId,
-          choice: 'AdjustAuthorizedShares',
+          choice: 'AdjustIssuerAuthorizedShares',
           choiceArgument: choiceArgs,
         },
       },
