@@ -9,6 +9,17 @@ export type EmailType = 'PERSONAL' | 'BUSINESS';
 
 /** Address type */
 export type AddressType = 'LEGAL' | 'CONTACT' | 'OTHER';
+/** Phone type */
+export type PhoneType = 'HOME' | 'MOBILE' | 'BUSINESS' | 'OTHER';
+
+/** Phone object */
+export interface Phone {
+  /** Type of phone number (e.g. mobile, home or business) */
+  phone_type: PhoneType;
+  /** A valid phone number string in ITU E.123 international notation (e.g. +123 123 456 7890) */
+  phone_number: string;
+}
+
 
 /** Stock class type */
 export type StockClassType = 'PREFERRED' | 'COMMON';
@@ -78,12 +89,25 @@ export interface StockClassConversionRight {
   conversion_trigger: ConversionTrigger;
   /** ID of the target stock class that this converts into (required) */
   converts_to_stock_class_id: string;
-  /** One share of this stock class converts into this many target stock class shares (required for RATIO_CONVERSION) */
-  ratio: number;
-  /** What is the effective conversion price per share of this stock class? (required for RATIO_CONVERSION) */
-  conversion_price: Monetary;
-  /** How should fractional shares be rounded? (required for RATIO_CONVERSION) */
-  rounding_type: RoundingType;
+  /** Legacy simple ratio value (if provided, denominator assumed 1) */
+  ratio?: number;
+  /** Ratio components for RATIO_CONVERSION */
+  ratio_numerator?: number;
+  ratio_denominator?: number;
+  /** Percent for PERCENT_CONVERSION (0 < p <= 1) */
+  percent_of_capitalization?: number;
+  /** Fixed amount price for FIXED_AMOUNT_CONVERSION */
+  conversion_price?: Monetary;
+  /** Optional reference prices and bounds (not fully modeled in DAML in v1) */
+  reference_share_price?: Monetary;
+  reference_valuation_price_per_share?: Monetary;
+  discount_rate?: number;
+  valuation_cap?: Monetary;
+  floor_price_per_share?: Monetary;
+  ceiling_price_per_share?: Monetary;
+  custom_description?: string;
+  /** How should fractional shares be rounded? (not modeled in DAML v1; retained for OCF completeness) */
+  rounding_type?: RoundingType;
   /** Expiration date after which the conversion right is no longer valid (YYYY-MM-DD format) */
   expires_at?: string;
 }
@@ -92,24 +116,28 @@ export interface StockClassConversionRight {
 export interface OcfIssuerData {
   /** Legal name of the issuer */
   legal_name: string;
+  /** Date of formation (YYYY-MM-DD format) */
+  formation_date: string;
   /** The country where the issuer company was legally formed (ISO 3166-1 alpha-2) */
   country_of_formation: string;
   /** Doing Business As name */
   dba?: string;
-  /** Date of formation (YYYY-MM-DD format) */
-  formation_date?: string;
   /** The state, province, or subdivision where the issuer company was legally formed */
   country_subdivision_of_formation?: string;
+  /** The text name of state, province, or subdivision where the issuer company was legally formed if the code is not available */
+  country_subdivision_name_of_formation?: string;
   /** The tax ids for this issuer company */
   tax_ids?: TaxId[];
   /** A work email that the issuer company can be reached at */
   email?: Email;
   /** A phone number that the issuer company can be reached at */
-  phone?: string;
+  phone?: Phone;
   /** The headquarters address of the issuing company */
   address?: Address;
   /** The initial number of shares authorized for this issuer */
-  initial_shares_authorized?: string | number;
+  initial_shares_authorized?: InitialSharesAuthorized;
+  /** Optional comments */
+  comments?: string[];
 }
 
 /** OCF Stock Class Data */
@@ -140,4 +168,191 @@ export interface OcfStockClassData {
   liquidation_preference_multiple?: string | number;
   /** The participation cap multiple per share for this stock class */
   participation_cap_multiple?: string | number;
+  /** Optional comments */
+  comments?: string[];
+}
+
+/** Stakeholder type */
+export type StakeholderType = 'INDIVIDUAL' | 'INSTITUTION';
+
+/** Contact info with name */
+export interface ContactInfo {
+  name: string;
+  email?: Email;
+  phone?: Phone;
+  address?: Address;
+}
+
+/** Contact info without name */
+export interface ContactInfoWithoutName {
+  email?: Email;
+  phone?: Phone;
+  address?: Address;
+}
+
+/** OCF Stakeholder Data */
+export interface OcfStakeholderData {
+  name: string;
+  stakeholder_type: StakeholderType;
+  issuer_assigned_id?: string;
+  /** Array of current relationships per v2 */
+  current_relationships?: string[];
+  /** Current activity status of the stakeholder */
+  current_status?:
+    | 'ACTIVE'
+    | 'LEAVE_OF_ABSENCE'
+    | 'TERMINATION_VOLUNTARY_OTHER'
+    | 'TERMINATION_VOLUNTARY_GOOD_CAUSE'
+    | 'TERMINATION_VOLUNTARY_RETIREMENT'
+    | 'TERMINATION_INVOLUNTARY_OTHER'
+    | 'TERMINATION_INVOLUNTARY_DEATH'
+    | 'TERMINATION_INVOLUNTARY_DISABILITY'
+    | 'TERMINATION_INVOLUNTARY_WITH_CAUSE';
+  primary_contact?: ContactInfo;
+  contact_info?: ContactInfoWithoutName;
+  addresses: Address[];
+  tax_ids: TaxId[];
+  comments?: string[];
+}
+
+/** Stock Legend Template Data */
+export interface OcfStockLegendTemplateData {
+  name: string;
+  text: string;
+  comments?: string[];
+}
+
+/** Valuation Type */
+export type ValuationType = '409A';
+
+/** OCF Valuation Data */
+export interface OcfValuationData {
+  provider?: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  comments?: string[];
+  price_per_share: Monetary;
+  effective_date: string; // YYYY-MM-DD
+  valuation_type: ValuationType;
+}
+
+// ===== Vesting Terms Types =====
+
+export type AllocationType =
+  | 'CUMULATIVE_ROUNDING'
+  | 'CUMULATIVE_ROUND_DOWN'
+  | 'FRONT_LOADED'
+  | 'BACK_LOADED'
+  | 'FRONT_LOADED_SINGLE_TRANCHE'
+  | 'BACK_LOADED_SINGLE_TRANCHE'
+  | 'FRACTIONAL';
+
+export type PeriodType = 'DAYS' | 'MONTHS';
+
+export type VestingPeriod = { type: PeriodType; value: number };
+
+export type VestingTrigger =
+  | { kind: 'START' }
+  | { kind: 'SCHEDULE_ABSOLUTE'; at: string }
+  | { kind: 'SCHEDULE_RELATIVE'; period: VestingPeriod; relative_to_condition_id: string }
+  | { kind: 'EVENT' };
+
+export interface VestingConditionPortion {
+  numerator: string | number;
+  denominator: string | number;
+  remainder: boolean;
+}
+
+export interface VestingCondition {
+  id: string;
+  description?: string;
+  portion?: VestingConditionPortion;
+  quantity?: string | number;
+  trigger: VestingTrigger;
+  next_condition_ids: string[];
+}
+
+export interface OcfVestingTermsData {
+  name: string;
+  description: string;
+  allocation_type: AllocationType;
+  vesting_conditions: VestingCondition[];
+  comments?: string[];
+}
+
+// ===== Stock Plan Types =====
+
+export type StockPlanCancellationBehavior =
+  | 'RETIRE'
+  | 'RETURN_TO_POOL'
+  | 'HOLD_AS_CAPITAL_STOCK'
+  | 'DEFINED_PER_PLAN_SECURITY';
+
+export interface OcfStockPlanData {
+  plan_name: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  initial_shares_reserved: string | number;
+  default_cancellation_behavior?: StockPlanCancellationBehavior;
+  comments?: string[];
+}
+
+// ===== Equity Compensation Issuance Types =====
+
+export type CompensationType = 'OPTION_NSO' | 'OPTION_ISO' | 'OPTION' | 'RSU' | 'CSAR' | 'SSAR';
+
+export interface Vesting {
+  date: string; // YYYY-MM-DD
+  amount: string | number;
+}
+
+export type TerminationWindowReason =
+  | 'VOLUNTARY_OTHER'
+  | 'VOLUNTARY_GOOD_CAUSE'
+  | 'VOLUNTARY_RETIREMENT'
+  | 'INVOLUNTARY_OTHER'
+  | 'INVOLUNTARY_DEATH'
+  | 'INVOLUNTARY_DISABILITY'
+  | 'INVOLUNTARY_WITH_CAUSE';
+
+export interface TerminationWindow {
+  reason: TerminationWindowReason;
+  period: number;
+  period_type: PeriodType;
+}
+
+export interface OcfEquityCompensationIssuanceData {
+  compensation_type: CompensationType;
+  quantity: string | number;
+  exercise_price?: Monetary;
+  base_price?: Monetary;
+  early_exercisable?: boolean;
+  vestings?: Vesting[];
+  expiration_date?: string;
+  termination_exercise_windows: TerminationWindow[];
+  comments?: string[];
+}
+
+// ===== Convertible & Warrant Issuance Types =====
+
+export type ConvertibleType = 'NOTE' | 'SAFE' | 'SECURITY';
+export type SimpleTrigger = 'AUTOMATIC' | 'OPTIONAL';
+
+export interface OcfConvertibleIssuanceDataNative {
+  investment_amount: Monetary;
+  convertible_type: ConvertibleType;
+  conversion_triggers: SimpleTrigger[];
+  seniority: number;
+  pro_rata?: string | number;
+  comments?: string[];
+}
+
+export interface OcfWarrantIssuanceDataNative {
+  quantity: string | number;
+  exercise_price: Monetary;
+  purchase_price: Monetary;
+  exercise_triggers: SimpleTrigger[];
+  warrant_expiration_date?: string;
+  vesting_terms_id?: string;
+  comments?: string[];
 }
