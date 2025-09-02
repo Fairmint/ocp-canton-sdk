@@ -16,6 +16,10 @@ export interface ExerciseGrantResult {
   stockPositionContractId: string;
 }
 
+/**
+ * Exercise a plan security grant by exercising the ExerciseGrant choice on PlanSecurityGrant
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/exercise/PlanSecurityExercise.schema.json
+ */
 export async function exerciseGrant(
   client: LedgerJsonApiClient,
   params: ExerciseGrantParams

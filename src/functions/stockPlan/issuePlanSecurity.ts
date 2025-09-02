@@ -21,6 +21,15 @@ export interface IssuePlanSecurityResult {
   updateId: string;
 }
 
+/**
+ * Issue an equity compensation plan security by exercising the IssuePlanSecurity choice on a StockPlan
+ *
+ * Schema: https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/issuance/EquityCompensationIssuance.schema.json
+ * - stockClassContractId: Class the security will ultimately exercise into
+ * - vestingTermsContractId (optional): Vesting terms to apply
+ * - issuanceData: compensation_type, quantity, optional exercise/base price, early_exercisable, vestings or vesting_terms_id,
+ *   expiration_date, termination_exercise_windows, comments
+ */
 export async function issuePlanSecurity(
   client: LedgerJsonApiClient,
   params: IssuePlanSecurityParams

@@ -1,38 +1,43 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { ContractId } from '@daml/types';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
-export interface AcceptTransferParams {
-  stockTransferProposalContractId: string;
+export interface IssueStockParams {
+  stockClassContractId: ContractId<Fairmint.OpenCapTable.StockClass.StockClass>;
   issuerParty: string;
-  date: string; // YYYY-MM-DD
+  recipientParty: string;
+  quantity: string | number;
 }
 
-export interface AcceptTransferResult {
+export interface IssueStockResult {
   updateId: string;
   stockPositionContractId: string;
 }
 
 /**
- * Accept a proposed stock transfer by exercising the AcceptTransfer choice on a StockTransferProposal
- * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/transfer/StockTransfer.schema.json
+ * Issue stock to a stakeholder by exercising the IssueStock choice on a StockClass contract
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/issuance/StockIssuance.schema.json
  */
-export async function acceptTransfer(
+export async function issueStock(
   client: LedgerJsonApiClient,
-  params: AcceptTransferParams
-): Promise<AcceptTransferResult> {
-  const choiceArgs: Fairmint.OpenCapTable.StockClass.AcceptTransfer = {
-    date: `${params.date}T00:00:00.000Z`
-  };
+  params: IssueStockParams
+): Promise<IssueStockResult> {
+  const choiceArgs: Fairmint.OpenCapTable.StockClass.IssueStock = {
+    transfer: {
+      recipient: params.recipientParty,
+      quantity: typeof params.quantity === 'number' ? params.quantity.toString() : params.quantity
+    } as any
+  } as any;
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
     commands: [
       {
         ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.StockClass.StockTransferProposal.templateId,
-          contractId: params.stockTransferProposalContractId,
-          choice: 'AcceptTransfer',
+          templateId: Fairmint.OpenCapTable.StockClass.StockClass.templateId,
+          contractId: params.stockClassContractId,
+          choice: 'IssueStock',
           choiceArgument: choiceArgs
         }
       }

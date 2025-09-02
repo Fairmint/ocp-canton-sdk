@@ -12,6 +12,10 @@ export interface OcfStockRepurchaseEvent {
 export interface GetStockRepurchaseEventAsOcfParams { contractId: string }
 export interface GetStockRepurchaseEventAsOcfResult { event: OcfStockRepurchaseEvent; contractId: string }
 
+/**
+ * Retrieve a Stock Repurchase event and return it as an OCF JSON object
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/repurchase/StockRepurchase.schema.json
+ */
 export async function getStockRepurchaseEventAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockRepurchaseEventAsOcfParams
@@ -29,5 +33,3 @@ export async function getStockRepurchaseEventAsOcf(
   };
   return { event, contractId: params.contractId };
 }
-
-

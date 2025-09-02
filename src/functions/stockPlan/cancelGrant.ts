@@ -13,6 +13,10 @@ export interface CancelGrantResult {
   cancellationEventContractId: string;
 }
 
+/**
+ * Cancel a plan security grant by exercising the CancelGrant choice on PlanSecurityGrant
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/cancellation/EquityCompensationCancellation.schema.json
+ */
 export async function cancelGrant(
   client: LedgerJsonApiClient,
   params: CancelGrantParams

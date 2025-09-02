@@ -13,6 +13,10 @@ export interface AcceptGrantResult {
   acceptanceEventContractId: string;
 }
 
+/**
+ * Accept a plan security grant by exercising the AcceptGrant choice on PlanSecurityGrant
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/acceptance/EquityCompensationAcceptance.schema.json
+ */
 export async function acceptGrant(
   client: LedgerJsonApiClient,
   params: AcceptGrantParams

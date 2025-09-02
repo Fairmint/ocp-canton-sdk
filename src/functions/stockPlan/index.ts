@@ -8,3 +8,7 @@ export * from './releaseGrant';
 export * from './retractGrant';
 export * from './startVesting';
 export * from './exerciseGrant';
+export * from './adjustPool';
+export * from './repriceGrant';
+export * from './transferGrant';
+export * from './getEquityCompensationExerciseEventAsOcf';

@@ -15,6 +15,10 @@ export interface ReissueStockResult {
   stockPositionContractId: string;
 }
 
+/**
+ * Reissue previously repurchased shares into a stock position
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/reissuance/StockReissuance.schema.json
+ */
 export async function reissueStock(
   client: LedgerJsonApiClient,
   params: ReissueStockParams

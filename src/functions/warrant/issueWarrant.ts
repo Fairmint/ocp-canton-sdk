@@ -21,6 +21,12 @@ export interface IssueWarrantResult {
   updateId: string;
 }
 
+/**
+ * Issue a warrant by exercising the IssueWarrant choice on an Issuer contract
+ *
+ * Schema: https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/issuance/WarrantIssuance.schema.json
+ * - quantity, exercise_price, purchase_price, exercise_triggers[], optional expiration date, vesting_terms_id, comments
+ */
 export async function issueWarrant(
   client: LedgerJsonApiClient,
   params: IssueWarrantParams

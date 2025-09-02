@@ -15,6 +15,10 @@ export interface SplitStockClassResult {
   newStockClassContractId: string;
 }
 
+/**
+ * Split a stock class and proportionally adjust provided positions
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/split/StockClassSplit.schema.json
+ */
 export async function splitStockClass(
   client: LedgerJsonApiClient,
   params: SplitStockClassParams

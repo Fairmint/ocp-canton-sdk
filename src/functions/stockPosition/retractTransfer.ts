@@ -12,6 +12,10 @@ export interface RetractTransferResult {
   updateId: string;
 }
 
+/**
+ * Retract a proposed stock transfer by exercising the RetractTransfer choice on a StockTransferProposal
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/retraction/StockRetraction.schema.json
+ */
 export async function retractTransfer(
   client: LedgerJsonApiClient,
   params: RetractTransferParams

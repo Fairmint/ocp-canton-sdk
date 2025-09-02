@@ -13,6 +13,10 @@ export interface RetractGrantResult {
   retractionEventContractId: string;
 }
 
+/**
+ * Retract a plan security grant by exercising the RetractGrant choice on PlanSecurityGrant
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/retraction/EquityCompensationRetraction.schema.json
+ */
 export async function retractGrant(
   client: LedgerJsonApiClient,
   params: RetractGrantParams

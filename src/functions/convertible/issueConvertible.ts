@@ -19,6 +19,10 @@ export interface IssueConvertibleResult {
   updateId: string;
 }
 
+/**
+ * Issue a convertible by exercising the IssueConvertible choice on an Issuer contract
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/issuance/ConvertibleIssuance.schema.json
+ */
 export async function issueConvertible(
   client: LedgerJsonApiClient,
   params: IssueConvertibleParams

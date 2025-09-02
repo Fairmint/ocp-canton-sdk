@@ -15,6 +15,10 @@ export interface ConvertConvertibleResult {
   stockPositionContractId: string;
 }
 
+/**
+ * Convert a convertible into stock by exercising the Convert choice on a Convertible
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/conversion/ConvertibleConversion.schema.json
+ */
 export async function convertConvertible(
   client: LedgerJsonApiClient,
   params: ConvertConvertibleParams

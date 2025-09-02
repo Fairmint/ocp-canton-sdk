@@ -16,6 +16,10 @@ export interface RepurchaseStockResult {
   updatedStockClassContractId: string;
 }
 
+/**
+ * Repurchase stock from a position
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/repurchase/StockRepurchase.schema.json
+ */
 export async function repurchaseStock(
   client: LedgerJsonApiClient,
   params: RepurchaseStockParams

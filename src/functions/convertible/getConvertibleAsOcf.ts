@@ -18,6 +18,10 @@ export interface GetConvertibleAsOcfResult {
   contractId: string;
 }
 
+/**
+ * Retrieve a Convertible and return it as an OCF JSON object
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/issuance/ConvertibleIssuance.schema.json
+ */
 export async function getConvertibleAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleAsOcfParams

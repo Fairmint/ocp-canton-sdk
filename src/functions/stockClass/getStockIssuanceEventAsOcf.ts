@@ -18,6 +18,10 @@ export interface GetStockIssuanceEventAsOcfResult {
   contractId: string;
 }
 
+/**
+ * Retrieve a Stock Issuance event and return it as an OCF JSON object
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/issuance/StockIssuance.schema.json
+ */
 export async function getStockIssuanceEventAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockIssuanceEventAsOcfParams
@@ -35,5 +39,3 @@ export async function getStockIssuanceEventAsOcf(
   };
   return { event, contractId: params.contractId };
 }
-
-

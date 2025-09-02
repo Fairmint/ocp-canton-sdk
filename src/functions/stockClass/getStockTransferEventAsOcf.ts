@@ -13,6 +13,10 @@ export interface OcfStockTransferEvent {
 export interface GetStockTransferEventAsOcfParams { contractId: string }
 export interface GetStockTransferEventAsOcfResult { event: OcfStockTransferEvent; contractId: string }
 
+/**
+ * Retrieve a Stock Transfer event and return it as an OCF JSON object
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/transfer/StockTransfer.schema.json
+ */
 export async function getStockTransferEventAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockTransferEventAsOcfParams
@@ -31,5 +35,3 @@ export async function getStockTransferEventAsOcf(
   };
   return { event, contractId: params.contractId };
 }
-
-

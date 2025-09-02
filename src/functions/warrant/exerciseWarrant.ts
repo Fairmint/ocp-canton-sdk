@@ -14,6 +14,10 @@ export interface ExerciseWarrantResult {
   stockPositionContractId: string;
 }
 
+/**
+ * Exercise a warrant by exercising the ExerciseWarrant choice on a Warrant contract
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/exercise/WarrantExercise.schema.json
+ */
 export async function exerciseWarrant(
   client: LedgerJsonApiClient,
   params: ExerciseWarrantParams

@@ -14,6 +14,10 @@ export interface ProposeTransferResult {
   stockTransferProposalContractId: string;
 }
 
+/**
+ * Propose a stock transfer by exercising the ProposeTransfer choice on a StockPosition
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/transfer/StockTransfer.schema.json
+ */
 export async function proposeTransfer(
   client: LedgerJsonApiClient,
   params: ProposeTransferParams

@@ -13,6 +13,10 @@ export interface ReleaseGrantResult {
   releaseEventContractId: string;
 }
 
+/**
+ * Release a plan security grant by exercising the ReleaseGrant choice on PlanSecurityGrant
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/release/EquityCompensationRelease.schema.json
+ */
 export async function releaseGrant(
   client: LedgerJsonApiClient,
   params: ReleaseGrantParams
