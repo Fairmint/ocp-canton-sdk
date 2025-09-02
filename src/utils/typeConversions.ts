@@ -298,7 +298,7 @@ export function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTab
     legal_name: issuerData.legal_name,
     country_of_formation: issuerData.country_of_formation,
     dba: issuerData.dba || null,
-    formation_date: dateStringToDAMLTime(issuerData.formation_date),
+    formation_date: issuerData.formation_date ? dateStringToDAMLTime(issuerData.formation_date) : null,
     country_subdivision_of_formation: issuerData.country_subdivision_of_formation || null,
     country_subdivision_name_of_formation: issuerData.country_subdivision_name_of_formation || null,
     tax_ids: issuerData.tax_ids || null,
@@ -328,7 +328,7 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Types.Ocf
   return {
     legal_name: damlData.legal_name || '',
     country_of_formation: damlData.country_of_formation || '',
-    formation_date: damlData.formation_date ? damlTimeToDateString(damlData.formation_date) : '',
+    ...(damlData.formation_date && { formation_date: damlTimeToDateString(damlData.formation_date) }),
     ...(damlData.dba && { dba: damlData.dba }),
     ...(damlData.country_subdivision_of_formation && { country_subdivision_of_formation: damlData.country_subdivision_of_formation }),
     // TODO: Expose country_subdivision_name_of_formation when SDK updates

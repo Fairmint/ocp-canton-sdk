@@ -11,7 +11,7 @@ export interface OcfIssuer {
   object_type: 'ISSUER';
   legal_name: string;
   dba?: string;
-  formation_date: string; // YYYY-MM-DD
+  formation_date?: string; // YYYY-MM-DD
   country_of_formation: string; // ISO 3166-1 alpha-2
   country_subdivision_of_formation?: string;
   country_subdivision_name_of_formation?: string;
