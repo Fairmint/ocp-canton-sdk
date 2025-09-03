@@ -484,7 +484,8 @@ export function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.Types
     }),
     ...(damlData.participation_cap_multiple && {
       participation_cap_multiple: damlData.participation_cap_multiple
-    })
+    }),
+    ...(dAny.comments && { comments: dAny.comments as string[] })
   };
 }
 
