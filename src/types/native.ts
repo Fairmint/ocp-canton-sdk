@@ -36,8 +36,8 @@ export type RoundingType = 'DOWN' | 'UP' | 'NEAREST' | 'NORMAL';
 /** Authorized shares special values */
 export type AuthorizedShares = 'NOT_APPLICABLE' | 'UNLIMITED';
 
-/** Initial shares authorized (can be numeric or special enum value) */
-export type InitialSharesAuthorized = number | string | AuthorizedShares;
+/** Initial shares authorized (Issuer allows enum, StockClass requires numeric). */
+export type InitialSharesAuthorized = number | string;
 
 /** Monetary value */
 export interface Monetary {
@@ -148,8 +148,8 @@ export interface OcfStockClassData {
   class_type: StockClassType;
   /** Default prefix for certificate numbers */
   default_id_prefix: string;
-  /** The initial number of shares authorized for this stock class */
-  initial_shares_authorized: InitialSharesAuthorized;
+  /** The initial number of shares authorized for this stock class (numeric only) */
+  initial_shares_authorized: string | number;
   /** The number of votes each share of this stock class gets */
   votes_per_share: string | number;
   /** Seniority of the stock - determines repayment priority */
