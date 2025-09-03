@@ -349,16 +349,15 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Types.Ocf
   };
 }
 
-export function stockClassDataToDaml(stockClassData: OcfStockClassData): Fairmint.OpenCapTable.Types.OcfStockClassData {
-  // Convert initial_shares_authorized to the required tagged union format
-  const initialSharesValue = typeof stockClassData.initial_shares_authorized === 'number' ?
-    stockClassData.initial_shares_authorized.toString() : stockClassData.initial_shares_authorized;
-
+export function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
   return {
     name: stockClassData.name,
     class_type: stockClassTypeToDaml(stockClassData.class_type),
     default_id_prefix: stockClassData.default_id_prefix,
-    initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: initialSharesValue },
+    // Support DAML Decimal (as string) payload
+    initial_shares_authorized: typeof stockClassData.initial_shares_authorized === 'number'
+      ? stockClassData.initial_shares_authorized.toString()
+      : stockClassData.initial_shares_authorized,
     votes_per_share: typeof stockClassData.votes_per_share === 'number' ?
       stockClassData.votes_per_share.toString() : stockClassData.votes_per_share,
     seniority: typeof stockClassData.seniority === 'number' ?
@@ -419,14 +418,14 @@ export function stockClassDataToDaml(stockClassData: OcfStockClassData): Fairmin
 }
 
 export function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.Types.OcfStockClassData): OcfStockClassData {
-  // Extract initial_shares_authorized from tagged union
-  let initialShares = '0';
-  if (damlData.initial_shares_authorized) {
-    if (damlData.initial_shares_authorized.tag === 'OcfInitialSharesNumeric') {
-      initialShares = damlData.initial_shares_authorized.value;
-    } else if (damlData.initial_shares_authorized.tag === 'OcfInitialSharesEnum') {
-      initialShares = damlData.initial_shares_authorized.value === 'OcfAuthorizedSharesUnlimited' ? 'Unlimited' : 'N/A';
-    }
+  const dAny: any = damlData as any;
+  // Handle either union-shaped or plain decimal-shaped initial_shares_authorized
+  let initialShares: string = '0';
+  const isa = dAny.initial_shares_authorized;
+  if (typeof isa === 'string' || typeof isa === 'number') {
+    initialShares = String(isa);
+  } else if (isa && typeof isa === 'object' && 'tag' in isa) {
+    initialShares = isa.tag === 'OcfInitialSharesNumeric' ? isa.value : (isa.value === 'OcfAuthorizedSharesUnlimited' ? 'Unlimited' : 'N/A');
   }
 
   return {
