@@ -1,4 +1,1 @@
-export * from './proposeTransfer';
-export * from './acceptTransfer';
-export * from './retractTransfer';
-export * from './reduceQuantity';
+// Removed: stock position transfer functions no longer supported in DAML v16

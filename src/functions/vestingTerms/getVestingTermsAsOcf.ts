@@ -35,7 +35,7 @@ export async function getVestingTermsAsOcf(
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument;
 
-  function hasData(arg: unknown): arg is { vesting_terms_data: Fairmint.OpenCapTable.Types.OcfVestingTermsData } {
+  function hasData(arg: unknown): arg is { vesting_terms_data: Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData } {
     return typeof arg === 'object' && arg !== null && 'vesting_terms_data' in arg && typeof (arg as any).vesting_terms_data === 'object';
   }
   if (!hasData(createArgument)) {

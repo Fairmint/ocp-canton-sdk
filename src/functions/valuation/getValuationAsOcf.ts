@@ -37,7 +37,7 @@ export async function getValuationAsOcf(
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument;
 
-  function hasValuationData(arg: unknown): arg is { valuation_data: Fairmint.OpenCapTable.Types.OcfValuationData } {
+  function hasValuationData(arg: unknown): arg is { valuation_data: Fairmint.OpenCapTable.Valuation.OcfValuationData } {
     return typeof arg === 'object' && arg !== null && 'valuation_data' in arg && typeof (arg as any).valuation_data === 'object';
   }
   if (!hasValuationData(createArgument)) {

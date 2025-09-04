@@ -72,7 +72,7 @@ export async function getStakeholderAsOcf(
 
   const createArgument = eventsResponse.created.createdEvent.createArgument;
 
-  function hasStakeholderData(arg: unknown): arg is { stakeholder_data: Fairmint.OpenCapTable.Types.OcfStakeholderData } {
+  function hasStakeholderData(arg: unknown): arg is { stakeholder_data: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData } {
     return typeof arg === 'object' && arg !== null && 'stakeholder_data' in arg && typeof (arg as any).stakeholder_data === 'object';
   }
 

@@ -54,8 +54,7 @@ export async function getIssuerAsOcf(
     throw new Error('Issuer data not found in contract create argument');
   }
 
-  const issuerData = (createArgument as Fairmint.OpenCapTable.Issuer.Issuer)
-    .issuer_data as Fairmint.OpenCapTable.Types.OcfIssuerData;
+  const issuerData = (createArgument as any).issuer_data as Fairmint.OpenCapTable.Issuer.OcfIssuerData;
   const native = damlIssuerDataToNative(issuerData);
 
   const ocfIssuer: OcfIssuer = {

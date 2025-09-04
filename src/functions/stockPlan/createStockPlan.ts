@@ -36,7 +36,6 @@ export async function createStockPlan(
   params: CreateStockPlanParams
 ): Promise<CreateStockPlanResult> {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlan = {
-    stock_classes: params.stockClassContractIds,
     plan_data: stockPlanDataToDaml(params.planData)
   };
 

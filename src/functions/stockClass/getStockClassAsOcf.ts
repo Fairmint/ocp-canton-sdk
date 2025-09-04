@@ -136,7 +136,7 @@ export async function getStockClassAsOcf(
   const createArgument = eventsResponse.created.createdEvent.createArgument;
   
   // Type guard to ensure we have the expected stock class data structure
-  function hasStockClassData(arg: unknown): arg is { stock_class_data: Fairmint.OpenCapTable.Types.OcfStockClassData } {
+  function hasStockClassData(arg: unknown): arg is { stock_class_data: Fairmint.OpenCapTable.StockClass.OcfStockClassData } {
     return typeof arg === 'object' && 
            arg !== null && 
            'stock_class_data' in arg &&

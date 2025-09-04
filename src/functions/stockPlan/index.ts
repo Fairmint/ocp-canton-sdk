@@ -1,14 +1,4 @@
 export * from './createStockPlan';
-export * from './updateStockPlan';
 export * from './getStockPlanAsOcf';
-export * from './issuePlanSecurity';
-export * from './acceptGrant';
-export * from './cancelGrant';
-export * from './releaseGrant';
-export * from './retractGrant';
-export * from './startVesting';
-export * from './exerciseGrant';
-export * from './adjustPool';
-export * from './repriceGrant';
-export * from './transferGrant';
 export * from './getEquityCompensationExerciseEventAsOcf';
+// Removed: StockPlan update/grant/security operations not present in DAML v16
