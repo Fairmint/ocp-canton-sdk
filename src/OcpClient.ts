@@ -16,13 +16,11 @@ export class OcpClient {
   public issuer: {
     authorizeIssuer: (params: AuthorizeIssuerParams) => Promise<AuthorizeIssuerResult>;
     createIssuer: (params: CreateIssuerParams) => Promise<CreateIssuerResult>;
-    updateIssuerData: (params: any) => Promise<any>;
     getIssuerAsOcf: (params: GetIssuerAsOcfParams) => Promise<GetIssuerAsOcfResult>;
   };
 
   public stockClass: {
     createStockClass: (params: CreateStockClassParams) => Promise<CreateStockClassResult>;
-    updateStockClass: (params: any) => Promise<any>;
     getStockClassAsOcf: (params: GetStockClassAsOcfParams) => Promise<GetStockClassAsOcfResult>;
   };
 
@@ -79,13 +77,11 @@ export class OcpClient {
     this.issuer = {
       authorizeIssuer: (params: AuthorizeIssuerParams) => authorizeIssuer(this.client, params),
       createIssuer: (params: CreateIssuerParams) => createIssuer(this.client, params),
-      updateIssuerData: (_params: any) => { throw new Error('updateIssuerData removed in DAML v16'); },
       getIssuerAsOcf: (params: GetIssuerAsOcfParams) => getIssuerAsOcf(this.client, params)
     };
 
     this.stockClass = {
       createStockClass: (params: CreateStockClassParams) => createStockClass(this.client, params),
-      updateStockClass: (_params: any) => { throw new Error('updateStockClass removed in DAML v16'); },
       getStockClassAsOcf: (params: GetStockClassAsOcfParams) => getStockClassAsOcf(this.client, params)
     };
 
