@@ -36,10 +36,10 @@ export async function createValuation(
   client: LedgerJsonApiClient,
   params: CreateValuationParams
 ): Promise<CreateValuationResult> {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateValuation = {
+  const choiceArguments = {
     stock_class: params.stockClassContractId,
     valuation_data: valuationDataToDaml(params.valuationData)
-  };
+  } as any;
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],

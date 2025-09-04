@@ -27,9 +27,8 @@ export async function createStakeholder(
   params: CreateStakeholderParams
 ): Promise<CreateStakeholderResult> {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStakeholder = {
-    stakeholder: params.stakeholderParty,
     stakeholder_data: stakeholderDataToDaml(params.stakeholderData)
-  };
+  } as any;
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],

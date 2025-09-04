@@ -29,7 +29,7 @@ export async function getStockLegendTemplateAsOcf(
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument;
 
-  function hasTemplateData(arg: unknown): arg is { template_data: Fairmint.OpenCapTable.Types.OcfStockLegendTemplateData } {
+  function hasTemplateData(arg: unknown): arg is { template_data: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData } {
     return typeof arg === 'object' && arg !== null && 'template_data' in arg && typeof (arg as any).template_data === 'object';
   }
   if (!hasTemplateData(createArgument)) {

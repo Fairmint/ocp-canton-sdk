@@ -11,7 +11,6 @@ export interface OcfStockPlan {
   stockholder_approval_date?: string;
   default_cancellation_behavior?: string;
   comments?: string[];
-  stock_class_contract_ids: string[];
 }
 
 export interface GetStockPlanAsOcfParams {
@@ -46,8 +45,7 @@ export async function getStockPlanAsOcf(
   const ocf: OcfStockPlan = {
     object_type: 'STOCK_PLAN',
     id: params.contractId,
-    ...native,
-    stock_class_contract_ids: (createArgument.stock_classes || []) as string[]
+    ...native
   };
 
   return { stockPlan: ocf, contractId: params.contractId };
