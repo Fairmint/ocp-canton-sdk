@@ -5,6 +5,7 @@ import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 import { ContractDetails } from '../../types/contractDetails';
 import { OcfVestingTermsData } from '../../types/native';
 import { vestingTermsDataToDaml } from '../../utils/typeConversions';
+import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
 export interface CreateVestingTermsParams {
   issuerContractId: string;
@@ -64,4 +65,33 @@ export async function createVestingTerms(
     contractId: created.CreatedTreeEvent.value.contractId,
     updateId: response.transactionTree.updateId
   };
+}
+
+export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams): {
+  command: Command;
+  disclosedContracts: DisclosedContract[];
+} {
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateVestingTerms = {
+    terms_data: vestingTermsDataToDaml(params.termsData)
+  } as any;
+
+  const command: Command = {
+    ExerciseCommand: {
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+      contractId: params.issuerContractId,
+      choice: 'CreateVestingTerms',
+      choiceArgument: choiceArguments
+    }
+  };
+
+  const disclosedContracts: DisclosedContract[] = [
+    {
+      templateId: params.featuredAppRightContractDetails.templateId,
+      contractId: params.featuredAppRightContractDetails.contractId,
+      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+      synchronizerId: params.featuredAppRightContractDetails.synchronizerId
+    }
+  ];
+
+  return { command, disclosedContracts };
 }

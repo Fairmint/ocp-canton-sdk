@@ -6,6 +6,7 @@ import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 import { ContractDetails } from '../../types/contractDetails';
 import { OcfStockPlanData } from '../../types/native';
 import { stockPlanDataToDaml } from '../../utils/typeConversions';
+import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
 export interface CreateStockPlanParams {
   issuerContractId: string;
@@ -73,4 +74,33 @@ export async function createStockPlan(
     contractId: created.CreatedTreeEvent.value.contractId,
     updateId: response.transactionTree.updateId
   };
+}
+
+export function buildCreateStockPlanCommand(params: CreateStockPlanParams): {
+  command: Command;
+  disclosedContracts: DisclosedContract[];
+} {
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlan = {
+    plan_data: stockPlanDataToDaml(params.planData)
+  };
+
+  const command: Command = {
+    ExerciseCommand: {
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+      contractId: params.issuerContractId,
+      choice: 'CreateStockPlan',
+      choiceArgument: choiceArguments
+    }
+  };
+
+  const disclosedContracts: DisclosedContract[] = [
+    {
+      templateId: params.featuredAppRightContractDetails.templateId,
+      contractId: params.featuredAppRightContractDetails.contractId,
+      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+      synchronizerId: params.featuredAppRightContractDetails.synchronizerId
+    }
+  ];
+
+  return { command, disclosedContracts };
 }

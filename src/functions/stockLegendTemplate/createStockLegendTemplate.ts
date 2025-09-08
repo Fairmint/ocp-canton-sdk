@@ -5,6 +5,7 @@ import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 import { ContractDetails } from '../../types/contractDetails';
 import { OcfStockLegendTemplateData } from '../../types/native';
 import { stockLegendTemplateDataToDaml } from '../../utils/typeConversions';
+import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
 export interface CreateStockLegendTemplateParams {
   issuerContractId: string;
@@ -60,4 +61,33 @@ export async function createStockLegendTemplate(
     contractId: created.CreatedTreeEvent.value.contractId,
     updateId: response.transactionTree.updateId
   };
+}
+
+export function buildCreateStockLegendTemplateCommand(params: CreateStockLegendTemplateParams): {
+  command: Command;
+  disclosedContracts: DisclosedContract[];
+} {
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockLegendTemplate = {
+    template_data: stockLegendTemplateDataToDaml(params.templateData)
+  };
+
+  const command: Command = {
+    ExerciseCommand: {
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+      contractId: params.issuerContractId,
+      choice: 'CreateStockLegendTemplate',
+      choiceArgument: choiceArguments
+    }
+  };
+
+  const disclosedContracts: DisclosedContract[] = [
+    {
+      templateId: params.featuredAppRightContractDetails.templateId,
+      contractId: params.featuredAppRightContractDetails.contractId,
+      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+      synchronizerId: params.featuredAppRightContractDetails.synchronizerId
+    }
+  ];
+
+  return { command, disclosedContracts };
 }

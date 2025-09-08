@@ -9,6 +9,7 @@ import {
   updateCompanyValuation, UpdateCompanyValuationParams, UpdateCompanyValuationResult,
   addObserversToCompanyValuationReport, AddObserversToCompanyValuationReportParams, AddObserversToCompanyValuationReportResult
 } from './functions';
+import { TransactionBatch } from './utils/TransactionBatch';
 
 export class OcpClient {
   private client: LedgerJsonApiClient;
@@ -22,6 +23,7 @@ export class OcpClient {
   public stockClass: {
     createStockClass: (params: CreateStockClassParams) => Promise<CreateStockClassResult>;
     getStockClassAsOcf: (params: GetStockClassAsOcfParams) => Promise<GetStockClassAsOcfResult>;
+    archiveStockClassByIssuer: (params: import('./functions').ArchiveStockClassByIssuerParams) => Promise<import('./functions').ArchiveStockClassByIssuerResult>;
   };
 
   public companyValuationReport: {
@@ -39,26 +41,31 @@ export class OcpClient {
   public stakeholder: {
     createStakeholder: (params: import('./functions').CreateStakeholderParams) => Promise<import('./functions').CreateStakeholderResult>;
     getStakeholderAsOcf: (params: import('./functions').GetStakeholderAsOcfParams) => Promise<import('./functions').GetStakeholderAsOcfResult>;
+    archiveStakeholderByIssuer: (params: import('./functions').ArchiveStakeholderByIssuerParams) => Promise<import('./functions').ArchiveStakeholderByIssuerResult>;
   };
 
   public stockLegendTemplate: {
     createStockLegendTemplate: (params: import('./functions').CreateStockLegendTemplateParams) => Promise<import('./functions').CreateStockLegendTemplateResult>;
     getStockLegendTemplateAsOcf: (params: import('./functions').GetStockLegendTemplateAsOcfParams) => Promise<import('./functions').GetStockLegendTemplateAsOcfResult>;
+    archiveStockLegendTemplateByIssuer: (params: import('./functions').ArchiveStockLegendTemplateByIssuerParams) => Promise<import('./functions').ArchiveStockLegendTemplateByIssuerResult>;
   };
 
   public valuation: {
     createValuation: (params: import('./functions').CreateValuationParams) => Promise<import('./functions').CreateValuationResult>;
     getValuationAsOcf: (params: import('./functions').GetValuationAsOcfParams) => Promise<import('./functions').GetValuationAsOcfResult>;
+    archiveValuationByIssuer: (params: import('./functions').ArchiveValuationByIssuerParams) => Promise<import('./functions').ArchiveValuationByIssuerResult>;
   };
 
   public vestingTerms: {
     createVestingTerms: (params: import('./functions').CreateVestingTermsParams) => Promise<import('./functions').CreateVestingTermsResult>;
     getVestingTermsAsOcf: (params: import('./functions').GetVestingTermsAsOcfParams) => Promise<import('./functions').GetVestingTermsAsOcfResult>;
+    archiveVestingTermsByIssuer: (params: import('./functions').ArchiveVestingTermsByIssuerParams) => Promise<import('./functions').ArchiveVestingTermsByIssuerResult>;
   };
 
   public stockPlan: {
     createStockPlan: (params: import('./functions').CreateStockPlanParams) => Promise<import('./functions').CreateStockPlanResult>;
     getStockPlanAsOcf: (params: import('./functions').GetStockPlanAsOcfParams) => Promise<import('./functions').GetStockPlanAsOcfResult>;
+    archiveStockPlanByIssuer: (params: import('./functions').ArchiveStockPlanByIssuerParams) => Promise<import('./functions').ArchiveStockPlanByIssuerResult>;
   };
 
   public stockPosition: {};
@@ -82,7 +89,8 @@ export class OcpClient {
 
     this.stockClass = {
       createStockClass: (params: CreateStockClassParams) => createStockClass(this.client, params),
-      getStockClassAsOcf: (params: GetStockClassAsOcfParams) => getStockClassAsOcf(this.client, params)
+      getStockClassAsOcf: (params: GetStockClassAsOcfParams) => getStockClassAsOcf(this.client, params),
+      archiveStockClassByIssuer: (params) => { const { archiveStockClassByIssuer } = require('./functions/stockClass'); return archiveStockClassByIssuer(this.client, params); }
     };
 
     this.companyValuationReport = {
@@ -103,6 +111,10 @@ export class OcpClient {
       getStakeholderAsOcf: (params) => {
         const { getStakeholderAsOcf } = require('./functions/stakeholder');
         return getStakeholderAsOcf(this.client, params);
+      },
+      archiveStakeholderByIssuer: (params) => {
+        const { archiveStakeholderByIssuer } = require('./functions/stakeholder');
+        return archiveStakeholderByIssuer(this.client, params);
       }
     };
 
@@ -114,6 +126,10 @@ export class OcpClient {
       getStockLegendTemplateAsOcf: (params) => {
         const { getStockLegendTemplateAsOcf } = require('./functions/stockLegendTemplate');
         return getStockLegendTemplateAsOcf(this.client, params);
+      },
+      archiveStockLegendTemplateByIssuer: (params) => {
+        const { archiveStockLegendTemplateByIssuer } = require('./functions/stockLegendTemplate');
+        return archiveStockLegendTemplateByIssuer(this.client, params);
       }
     };
 
@@ -125,6 +141,10 @@ export class OcpClient {
       getValuationAsOcf: (params) => {
         const { getValuationAsOcf } = require('./functions/valuation');
         return getValuationAsOcf(this.client, params);
+      },
+      archiveValuationByIssuer: (params) => {
+        const { archiveValuationByIssuer } = require('./functions/valuation');
+        return archiveValuationByIssuer(this.client, params);
       }
     };
 
@@ -136,12 +156,17 @@ export class OcpClient {
       getVestingTermsAsOcf: (params) => {
         const { getVestingTermsAsOcf } = require('./functions/vestingTerms');
         return getVestingTermsAsOcf(this.client, params);
+      },
+      archiveVestingTermsByIssuer: (params) => {
+        const { archiveVestingTermsByIssuer } = require('./functions/vestingTerms');
+        return archiveVestingTermsByIssuer(this.client, params);
       }
     };
 
     this.stockPlan = {
       createStockPlan: (params) => { const { createStockPlan } = require('./functions/stockPlan'); return createStockPlan(this.client, params); },
-      getStockPlanAsOcf: (params) => { const { getStockPlanAsOcf } = require('./functions/stockPlan'); return getStockPlanAsOcf(this.client, params); }
+      getStockPlanAsOcf: (params) => { const { getStockPlanAsOcf } = require('./functions/stockPlan'); return getStockPlanAsOcf(this.client, params); },
+      archiveStockPlanByIssuer: (params) => { const { archiveStockPlanByIssuer } = require('./functions/stockPlan'); return archiveStockPlanByIssuer(this.client, params); }
     };
 
     this.stockPosition = {};
@@ -153,5 +178,9 @@ export class OcpClient {
     this.issuerAuthorization = {
       withdrawAuthorization: (params) => { const { withdrawAuthorization } = require('./functions/issuerAuthorization'); return withdrawAuthorization(this.client, params); }
     };
+  }
+
+  public createBatch(params: { actAs: string[]; readAs?: string[] }): TransactionBatch {
+    return new TransactionBatch(this.client, params.actAs, params.readAs);
   }
 }

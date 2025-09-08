@@ -2,6 +2,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
+import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { ContractDetails } from '../../types/contractDetails';
 import { OcfStockClassData } from '../../types/native';
 import { stockClassDataToDaml } from '../../utils/typeConversions';
@@ -121,4 +122,33 @@ export async function createStockClass(
     contractId: stockClassContractId,
     updateId: response.transactionTree.updateId
   };
+}
+
+export function buildCreateStockClassCommand(params: CreateStockClassParams): {
+  command: Command;
+  disclosedContracts: DisclosedContract[];
+} {
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockClass = {
+    stock_class_data: stockClassDataToDaml(params.stockClassData)
+  };
+
+  const command: Command = {
+    ExerciseCommand: {
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+      contractId: params.issuerContractId,
+      choice: 'CreateStockClass',
+      choiceArgument: choiceArguments as any
+    }
+  };
+
+  const disclosedContracts: DisclosedContract[] = [
+    {
+      templateId: params.featuredAppRightContractDetails.templateId,
+      contractId: params.featuredAppRightContractDetails.contractId,
+      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+      synchronizerId: params.featuredAppRightContractDetails.synchronizerId
+    }
+  ];
+
+  return { command, disclosedContracts };
 }
