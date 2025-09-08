@@ -6,6 +6,7 @@ import type { ContractId } from '@daml/types';
 import { ContractDetails } from '../../types/contractDetails';
 import { OcfValuationData } from '../../types/native';
 import { valuationDataToDaml } from '../../utils/typeConversions';
+import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
 export interface CreateValuationParams {
   issuerContractId: string;
@@ -75,4 +76,34 @@ export async function createValuation(
     contractId: created.CreatedTreeEvent.value.contractId,
     updateId: response.transactionTree.updateId
   };
+}
+
+export function buildCreateValuationCommand(params: CreateValuationParams): {
+  command: Command;
+  disclosedContracts: DisclosedContract[];
+} {
+  const choiceArguments = {
+    stock_class: params.stockClassContractId,
+    valuation_data: valuationDataToDaml(params.valuationData)
+  } as any;
+
+  const command: Command = {
+    ExerciseCommand: {
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+      contractId: params.issuerContractId,
+      choice: 'CreateValuation',
+      choiceArgument: choiceArguments
+    }
+  };
+
+  const disclosedContracts: DisclosedContract[] = [
+    {
+      templateId: params.featuredAppRightContractDetails.templateId,
+      contractId: params.featuredAppRightContractDetails.contractId,
+      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+      synchronizerId: params.featuredAppRightContractDetails.synchronizerId
+    }
+  ];
+
+  return { command, disclosedContracts };
 }

@@ -5,6 +5,7 @@ import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 import { ContractDetails } from '../../types/contractDetails';
 import { OcfStakeholderData } from '../../types/native';
 import { stakeholderDataToDaml } from '../../utils/typeConversions';
+import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
 export interface CreateStakeholderParams {
   issuerContractId: string;
@@ -64,4 +65,33 @@ export async function createStakeholder(
     contractId: created.CreatedTreeEvent.value.contractId,
     updateId: response.transactionTree.updateId
   };
+}
+
+export function buildCreateStakeholderCommand(params: CreateStakeholderParams): {
+  command: Command;
+  disclosedContracts: DisclosedContract[];
+} {
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStakeholder = {
+    stakeholder_data: stakeholderDataToDaml(params.stakeholderData)
+  } as any;
+
+  const command: Command = {
+    ExerciseCommand: {
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+      contractId: params.issuerContractId,
+      choice: 'CreateStakeholder',
+      choiceArgument: choiceArguments
+    }
+  };
+
+  const disclosedContracts: DisclosedContract[] = [
+    {
+      templateId: params.featuredAppRightContractDetails.templateId,
+      contractId: params.featuredAppRightContractDetails.contractId,
+      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+      synchronizerId: params.featuredAppRightContractDetails.synchronizerId
+    }
+  ];
+
+  return { command, disclosedContracts };
 }
