@@ -5,7 +5,7 @@
  */
 
 /** Email type */
-export type EmailType = 'PERSONAL' | 'BUSINESS';
+export type EmailType = 'PERSONAL' | 'BUSINESS' | 'OTHER';
 
 /** Address type */
 export type AddressType = 'LEGAL' | 'CONTACT' | 'OTHER';
@@ -18,6 +18,13 @@ export interface Phone {
   phone_type: PhoneType;
   /** A valid phone number string in ITU E.123 international notation (e.g. +123 123 456 7890) */
   phone_number: string;
+}
+
+/** Name object per OCF Name.schema */
+export interface Name {
+  legal_name: string;
+  first_name?: string;
+  last_name?: string;
 }
 
 
@@ -114,6 +121,7 @@ export interface StockClassConversionRight {
 
 /** OCF Issuer Data */
 export interface OcfIssuerData {
+  ocf_id: string;
   /** Legal name of the issuer */
   legal_name: string;
   /** Date of formation (YYYY-MM-DD format) */
@@ -142,6 +150,7 @@ export interface OcfIssuerData {
 
 /** OCF Stock Class Data */
 export interface OcfStockClassData {
+  ocf_id: string;
   /** Name for the stock type (e.g. Series A Preferred or Class A Common) */
   name: string;
   /** The type of this stock class */
@@ -177,22 +186,21 @@ export type StakeholderType = 'INDIVIDUAL' | 'INSTITUTION';
 
 /** Contact info with name */
 export interface ContactInfo {
-  name: string;
-  email?: Email;
-  phone?: Phone;
-  address?: Address;
+  name: Name;
+  phone_numbers?: Phone[];
+  emails?: Email[];
 }
 
 /** Contact info without name */
 export interface ContactInfoWithoutName {
-  email?: Email;
-  phone?: Phone;
-  address?: Address;
+  phone_numbers?: Phone[];
+  emails?: Email[];
 }
 
 /** OCF Stakeholder Data */
 export interface OcfStakeholderData {
-  name: string;
+  ocf_id: string;
+  name: Name;
   stakeholder_type: StakeholderType;
   issuer_assigned_id?: string;
   /** Array of current relationships per v2 */
@@ -217,6 +225,7 @@ export interface OcfStakeholderData {
 
 /** Stock Legend Template Data */
 export interface OcfStockLegendTemplateData {
+  ocf_id: string;
   name: string;
   text: string;
   comments?: string[];
@@ -227,6 +236,8 @@ export type ValuationType = '409A';
 
 /** OCF Valuation Data */
 export interface OcfValuationData {
+  ocf_id: string;
+  stock_class_id: string;
   provider?: string;
   board_approval_date?: string;
   stockholder_approval_date?: string;
@@ -273,6 +284,7 @@ export interface VestingCondition {
 }
 
 export interface OcfVestingTermsData {
+  ocf_id: string;
   name: string;
   description: string;
   allocation_type: AllocationType;
@@ -289,11 +301,13 @@ export type StockPlanCancellationBehavior =
   | 'DEFINED_PER_PLAN_SECURITY';
 
 export interface OcfStockPlanData {
+  ocf_id: string;
   plan_name: string;
   board_approval_date?: string;
   stockholder_approval_date?: string;
   initial_shares_reserved: string | number;
   default_cancellation_behavior?: StockPlanCancellationBehavior;
+  stock_class_ids: string[];
   comments?: string[];
 }
 

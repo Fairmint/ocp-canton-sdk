@@ -5,34 +5,18 @@ import { damlStakeholderDataToNative } from '../../utils/typeConversions';
 export interface OcfStakeholder {
   object_type: 'STAKEHOLDER';
   id?: string;
-  name: string;
+  name: { legal_name: string; first_name?: string; last_name?: string };
   stakeholder_type: 'INDIVIDUAL' | 'INSTITUTION';
   issuer_assigned_id?: string;
   current_relationships?: string[];
   primary_contact?: {
-    name: string;
-    email?: { email_type: 'PERSONAL' | 'BUSINESS'; email_address: string };
-    phone?: string;
-    address?: {
-      address_type: 'LEGAL' | 'CONTACT' | 'OTHER';
-      street_suite?: string;
-      city?: string;
-      country_subdivision?: string;
-      country: string;
-      postal_code?: string;
-    };
+    name: { legal_name: string; first_name?: string; last_name?: string };
+    phone_numbers?: Array<{ phone_type: 'HOME' | 'MOBILE' | 'BUSINESS' | 'OTHER'; phone_number: string }>;
+    emails?: Array<{ email_type: 'PERSONAL' | 'BUSINESS' | 'OTHER'; email_address: string }>;
   };
   contact_info?: {
-    email?: { email_type: 'PERSONAL' | 'BUSINESS'; email_address: string };
-    phone?: string;
-    address?: {
-      address_type: 'LEGAL' | 'CONTACT' | 'OTHER';
-      street_suite?: string;
-      city?: string;
-      country_subdivision?: string;
-      country: string;
-      postal_code?: string;
-    };
+    phone_numbers?: Array<{ phone_type: 'HOME' | 'MOBILE' | 'BUSINESS' | 'OTHER'; phone_number: string }>;
+    emails?: Array<{ email_type: 'PERSONAL' | 'BUSINESS' | 'OTHER'; email_address: string }>;
   };
   addresses: Array<{
     address_type: 'LEGAL' | 'CONTACT' | 'OTHER';
@@ -85,7 +69,7 @@ export async function getStakeholderAsOcf(
   const ocfStakeholder: OcfStakeholder = {
     object_type: 'STAKEHOLDER',
     id: params.contractId,
-    name: native.name,
+    name: native.name as any,
     stakeholder_type: native.stakeholder_type,
     ...(native.issuer_assigned_id && { issuer_assigned_id: native.issuer_assigned_id }),
     ...(native.current_relationships && { current_relationships: native.current_relationships }),

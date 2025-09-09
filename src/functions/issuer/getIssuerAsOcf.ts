@@ -16,7 +16,7 @@ export interface OcfIssuer {
   country_subdivision_of_formation?: string;
   country_subdivision_name_of_formation?: string;
   tax_ids?: Array<{ tax_id: string; country: string }>;
-  email?: { email_type: 'BUSINESS' | 'PERSONAL'; email_address: string };
+  email?: { email_type: 'BUSINESS' | 'PERSONAL' | 'OTHER'; email_address: string };
   phone?: { phone_type: 'HOME' | 'MOBILE' | 'BUSINESS' | 'OTHER'; phone_number: string };
   address?: {
     address_type: 'LEGAL' | 'CONTACT' | 'OTHER';
