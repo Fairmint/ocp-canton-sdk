@@ -21,7 +21,8 @@ import {
   OcfStakeholderData,
   OcfStockLegendTemplateData,
   OcfValuationData,
-  ValuationType
+  ValuationType,
+  Name
 } from '../types/native';
 import type {
   AllocationType,
@@ -40,7 +41,6 @@ import type {
   TerminationWindow,
   Vesting
 } from '../types/native';
-// Removed convertible and warrant native types in DAML v16
 import type { ConversionMechanism, ConversionTrigger, StockClassConversionRight } from '../types/native';
 
 // ===== Date Conversion Helpers =====
@@ -71,6 +71,8 @@ export function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Typ
       return 'OcfEmailTypePersonal';
     case 'BUSINESS':
       return 'OcfEmailTypeBusiness';
+    case 'OTHER':
+      return 'OcfEmailTypeOther';
     default:
       throw new Error(`Unknown email type: ${emailType}`);
   }
@@ -82,6 +84,8 @@ export function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfE
       return 'PERSONAL';
     case 'OcfEmailTypeBusiness':
       return 'BUSINESS';
+    case 'OcfEmailTypeOther':
+      return 'OTHER';
     default:
       throw new Error(`Unknown DAML email type: ${damlType}`);
   }
@@ -255,53 +259,68 @@ export function damlStakeholderTypeToNative(damlType: Fairmint.OpenCapTable.Stak
 
 // ===== Contact Info Conversions =====
 
+function nameToDaml(n: Name): Fairmint.OpenCapTable.Stakeholder.OcfName {
+  return {
+    legal_name: n.legal_name,
+    first_name: n.first_name || null,
+    last_name: n.last_name || null
+  } as any;
+}
+
 export function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.Stakeholder.OcfContactInfo {
   return {
-    name: info.name,
-    email: info.email ? emailToDaml(info.email) : null,
-    phone: info.phone ? phoneToDaml(info.phone) : null,
-    address: info.address ? addressToDaml(info.address) : null
-  };
+    name: nameToDaml(info.name),
+    phone_numbers: (info.phone_numbers || []).map(phoneToDaml) as any,
+    emails: (info.emails || []).map(emailToDaml)
+  } as any;
 }
 
 export function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.Stakeholder.OcfContactInfo): ContactInfo {
-  return {
-    name: damlInfo.name,
-    ...(damlInfo.email && { email: damlEmailToNative(damlInfo.email) }),
-    ...(damlInfo.phone && { phone: damlPhoneToNative(damlInfo.phone) }),
-    ...(damlInfo.address && { address: damlAddressToNative(damlInfo.address) })
+  const name: Name = {
+    legal_name: (damlInfo as any).name.legal_name || '',
+    ...(damlInfo as any).name.first_name ? { first_name: (damlInfo as any).name.first_name } : {},
+    ...(damlInfo as any).name.last_name ? { last_name: (damlInfo as any).name.last_name } : {}
   };
+  const phones: Phone[] = ((damlInfo as any).phone_numbers || []).map(damlPhoneToNative);
+  const emails: Email[] = ((damlInfo as any).emails || []).map(damlEmailToNative);
+  return {
+    name,
+    ...(phones.length ? { phone_numbers: phones } : {}),
+    ...(emails.length ? { emails } : {})
+  } as ContactInfo;
 }
 
 export function contactInfoWithoutNameToDaml(info: ContactInfoWithoutName): Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName {
   return {
-    email: info.email ? emailToDaml(info.email) : null,
-    phone: info.phone ? phoneToDaml(info.phone) : null,
-    address: info.address ? addressToDaml(info.address) : null
-  };
+    phone_numbers: (info.phone_numbers || []).map(phoneToDaml) as any,
+    emails: (info.emails || []).map(emailToDaml)
+  } as any;
 }
 
 export function damlContactInfoWithoutNameToNative(
   damlInfo: Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName
 ): ContactInfoWithoutName {
+  const phones: Phone[] = ((damlInfo as any).phone_numbers || []).map(damlPhoneToNative);
+  const emails: Email[] = ((damlInfo as any).emails || []).map(damlEmailToNative);
   return {
-    ...(damlInfo.email && { email: damlEmailToNative(damlInfo.email) }),
-    ...(damlInfo.phone && { phone: damlPhoneToNative(damlInfo.phone) }),
-    ...(damlInfo.address && { address: damlAddressToNative(damlInfo.address) })
-  };
+    ...(phones.length ? { phone_numbers: phones } : {}),
+    ...(emails.length ? { emails } : {})
+  } as ContactInfoWithoutName;
 }
 
 // ===== Main Data Structure Conversions =====
 
 export function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issuer.OcfIssuerData {
+  if (!issuerData.ocf_id) throw new Error('issuerData.ocf_id is required');
   return {
+    ocf_id: issuerData.ocf_id,
     legal_name: issuerData.legal_name,
     country_of_formation: issuerData.country_of_formation,
     dba: issuerData.dba || null,
     formation_date: issuerData.formation_date ? dateStringToDAMLTime(issuerData.formation_date) : null,
     country_subdivision_of_formation: issuerData.country_subdivision_of_formation || null,
     country_subdivision_name_of_formation: issuerData.country_subdivision_name_of_formation || null,
-    tax_ids: issuerData.tax_ids || null,
+    tax_ids: issuerData.tax_ids || [],
     email: issuerData.email ? emailToDaml(issuerData.email) : null,
     phone: issuerData.phone ? (phoneToDaml(issuerData.phone) as any) : null,
     address: issuerData.address ? addressToDaml(issuerData.address) : null,
@@ -320,12 +339,13 @@ export function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTab
             return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
           })()
         : null,
-    comments: issuerData.comments || null
+    comments: issuerData.comments || []
   };
 }
 
 export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.OcfIssuerData): OcfIssuerData {
   return {
+    ocf_id: damlData.ocf_id,
     legal_name: damlData.legal_name || '',
     country_of_formation: damlData.country_of_formation || '',
     ...(damlData.formation_date && { formation_date: damlTimeToDateString(damlData.formation_date) }),
@@ -350,7 +370,9 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.Oc
 }
 
 export function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
+  if (!stockClassData.ocf_id) throw new Error('stockClassData.ocf_id is required');
   return {
+    ocf_id: stockClassData.ocf_id,
     name: stockClassData.name,
     class_type: stockClassTypeToDaml(stockClassData.class_type),
     default_id_prefix: stockClassData.default_id_prefix,
@@ -413,7 +435,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
     participation_cap_multiple: stockClassData.participation_cap_multiple ?
       (typeof stockClassData.participation_cap_multiple === 'number' ?
         stockClassData.participation_cap_multiple.toString() : stockClassData.participation_cap_multiple) : null,
-    comments: stockClassData.comments || null
+    comments: stockClassData.comments || []
   };
 }
 
@@ -429,6 +451,7 @@ export function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.Stock
   }
 
   return {
+    ...(dAny.ocf_id ? { ocf_id: dAny.ocf_id as string } : {}),
     name: damlData.name || '',
     class_type: damlStockClassTypeToNative(damlData.class_type),
     default_id_prefix: damlData.default_id_prefix || '',
@@ -492,18 +515,30 @@ export function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.Stock
 // ===== Stakeholder Data Conversions =====
 
 export function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData {
+  if (!data.ocf_id) throw new Error('stakeholder.ocf_id is required');
   const payload: any = {
-    name: data.name,
+    ocf_id: data.ocf_id,
+    name: nameToDaml(data.name),
     stakeholder_type: stakeholderTypeToDaml(data.stakeholder_type),
     issuer_assigned_id: data.issuer_assigned_id || null,
     primary_contact: data.primary_contact ? contactInfoToDaml(data.primary_contact) : null,
     contact_info: data.contact_info ? contactInfoWithoutNameToDaml(data.contact_info) : null,
     addresses: (data.addresses || []).map(addressToDaml),
     tax_ids: (data.tax_ids || []),
-    comments: data.comments || null
+    comments: data.comments || []
   };
   if (data.current_relationships && data.current_relationships.length) {
-    payload.current_relationships = data.current_relationships as any;
+    const mapRel = (r: string): Fairmint.OpenCapTable.Types.OcfStakeholderRelationshipType => {
+      const v = r.toUpperCase();
+      if (v.includes('EMPLOYEE')) return 'OcfRelEmployee' as any;
+      if (v.includes('ADVISOR')) return 'OcfRelAdvisor' as any;
+      if (v.includes('INVESTOR')) return 'OcfRelInvestor' as any;
+      if (v.includes('FOUNDER')) return 'OcfRelFounder' as any;
+      if (v.includes('BOARD')) return 'OcfRelBoardMember' as any;
+      if (v.includes('OFFICER')) return 'OcfRelOfficer' as any;
+      return 'OcfRelOther' as any;
+    };
+    payload.current_relationships = data.current_relationships.map(mapRel);
   }
   if (data.current_status) {
     payload.current_status = (
@@ -525,11 +560,29 @@ export function damlStakeholderDataToNative(
   damlData: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData
 ): OcfStakeholderData {
   const dAny: any = damlData as any;
+  const name: Name = {
+    legal_name: (dAny.name?.legal_name || '') as string,
+    ...(dAny.name?.first_name ? { first_name: dAny.name.first_name } : {}),
+    ...(dAny.name?.last_name ? { last_name: dAny.name.last_name } : {})
+  };
+  const mapRelBack = (s: string): string | undefined => {
+    switch (s) {
+      case 'OcfRelEmployee': return 'EMPLOYEE';
+      case 'OcfRelAdvisor': return 'ADVISOR';
+      case 'OcfRelInvestor': return 'INVESTOR';
+      case 'OcfRelFounder': return 'FOUNDER';
+      case 'OcfRelBoardMember': return 'BOARD_MEMBER';
+      case 'OcfRelOfficer': return 'OFFICER';
+      case 'OcfRelOther': return 'OTHER';
+      default: return undefined;
+    }
+  };
   const native: OcfStakeholderData = {
-    name: damlData.name || '',
+    ...(dAny.ocf_id ? { ocf_id: dAny.ocf_id as string } : {}),
+    name,
     stakeholder_type: damlStakeholderTypeToNative(damlData.stakeholder_type),
     ...(damlData.issuer_assigned_id && { issuer_assigned_id: damlData.issuer_assigned_id }),
-    ...(dAny.current_relationships && { current_relationships: dAny.current_relationships as string[] }),
+    ...(dAny.current_relationships && { current_relationships: (dAny.current_relationships as string[]).map(r => mapRelBack(r) || 'OTHER') }),
     ...(dAny.current_status && { current_status: ((): any => {
       const s = dAny.current_status as string;
       switch (s) {
@@ -550,17 +603,19 @@ export function damlStakeholderDataToNative(
     addresses: (damlData.addresses || []).map(damlAddressToNative),
     tax_ids: (damlData.tax_ids || []),
     ...(damlData.comments && { comments: damlData.comments })
-  };
+  } as OcfStakeholderData;
   return native;
 }
 
 // ===== Stock Legend Template Conversions =====
 
 export function stockLegendTemplateDataToDaml(data: OcfStockLegendTemplateData): Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData {
+  if (!data.ocf_id) throw new Error('stockLegendTemplate.ocf_id is required');
   return {
+    ocf_id: data.ocf_id,
     name: data.name,
     text: data.text,
-    comments: data.comments || null
+    comments: data.comments || []
   };
 }
 
@@ -568,6 +623,7 @@ export function damlStockLegendTemplateDataToNative(
   damlData: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData
 ): OcfStockLegendTemplateData {
   return {
+    ocf_id: damlData.ocf_id,
     name: damlData.name || '',
     text: damlData.text || '',
     ...(damlData.comments && { comments: damlData.comments })
@@ -595,11 +651,15 @@ function damlValuationTypeToNative(t: Fairmint.OpenCapTable.Valuation.OcfValuati
 }
 
 export function valuationDataToDaml(data: OcfValuationData): Fairmint.OpenCapTable.Valuation.OcfValuationData {
+  if (!data.ocf_id) throw new Error('valuation.ocf_id is required');
+  if (!(data as any).stock_class_id) throw new Error('valuation.stock_class_id is required');
   return {
+    ocf_id: data.ocf_id,
+    stock_class_id: (data as any).stock_class_id || '',
     provider: data.provider || null,
     board_approval_date: data.board_approval_date ? dateStringToDAMLTime(data.board_approval_date) : null,
     stockholder_approval_date: data.stockholder_approval_date ? dateStringToDAMLTime(data.stockholder_approval_date) : null,
-    comments: data.comments || null,
+    comments: data.comments || [],
     price_per_share: monetaryToDaml(data.price_per_share),
     effective_date: dateStringToDAMLTime(data.effective_date),
     valuation_type: valuationTypeToDaml(data.valuation_type)
@@ -608,6 +668,8 @@ export function valuationDataToDaml(data: OcfValuationData): Fairmint.OpenCapTab
 
 export function damlValuationDataToNative(d: Fairmint.OpenCapTable.Valuation.OcfValuationData): OcfValuationData {
   return {
+    ocf_id: d.ocf_id,
+    stock_class_id: ((d as any).stock_class_id || '') as string,
     ...(d.provider && { provider: d.provider }),
     ...(d.board_approval_date && { board_approval_date: damlTimeToDateString(d.board_approval_date) }),
     ...(d.stockholder_approval_date && { stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date) }),
@@ -730,17 +792,20 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfV
 }
 
 export function vestingTermsDataToDaml(d: OcfVestingTermsData): Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData {
+  if (!d.ocf_id) throw new Error('vestingTerms.ocf_id is required');
   return {
+    ocf_id: d.ocf_id,
     name: d.name,
     description: d.description,
     allocation_type: allocationTypeToDaml(d.allocation_type),
     vesting_conditions: d.vesting_conditions.map(vestingConditionToDaml) as any,
-    comments: d.comments || null
+    comments: d.comments || []
   } as any;
 }
 
 export function damlVestingTermsDataToNative(d: Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData): OcfVestingTermsData {
   return {
+    ocf_id: d.ocf_id,
     name: d.name || '',
     description: d.description || '',
     allocation_type: damlAllocationTypeToNative(d.allocation_type),
@@ -773,23 +838,29 @@ function damlCancellationBehaviorToNative(b: any): StockPlanCancellationBehavior
 }
 
 export function stockPlanDataToDaml(d: OcfStockPlanData): Fairmint.OpenCapTable.StockPlan.OcfStockPlanData {
+  if (!d.ocf_id) throw new Error('stockPlan.ocf_id is required');
+  if (!d.stock_class_ids || d.stock_class_ids.length === 0) throw new Error('stockPlan.stock_class_ids must be a non-empty array');
   return {
+    ocf_id: d.ocf_id,
     plan_name: d.plan_name,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     initial_shares_reserved: typeof d.initial_shares_reserved === 'number' ? d.initial_shares_reserved.toString() : d.initial_shares_reserved,
     default_cancellation_behavior: cancellationBehaviorToDaml(d.default_cancellation_behavior) as any,
-    comments: d.comments || null
+    stock_class_ids: d.stock_class_ids,
+    comments: d.comments || []
   } as any;
 }
 
 export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.StockPlan.OcfStockPlanData): OcfStockPlanData {
   return {
+    ocf_id: d.ocf_id,
     plan_name: d.plan_name || '',
     ...(d.board_approval_date && { board_approval_date: damlTimeToDateString(d.board_approval_date) }),
     ...(d.stockholder_approval_date && { stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date) }),
     initial_shares_reserved: d.initial_shares_reserved || '0',
     ...(d.default_cancellation_behavior && { default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior) }),
+    stock_class_ids: (d as any).stock_class_ids || [],
     ...(d.comments && { comments: d.comments })
   };
 }
@@ -872,7 +943,7 @@ export function equityCompIssuanceDataToDaml(d: OcfEquityCompensationIssuanceDat
     vestings: d.vestings ? d.vestings.map(v => ({ date: dateStringToDAMLTime(v.date), amount: typeof v.amount === 'number' ? v.amount.toString() : v.amount })) as any : null,
     expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
     termination_exercise_windows: d.termination_exercise_windows.map(terminationWindowToDaml) as any,
-    comments: d.comments || null
+    comments: d.comments || []
   } as any;
 }
 
@@ -889,6 +960,3 @@ export function damlEquityCompIssuanceDataToNative(d: Fairmint.OpenCapTable.Type
     ...(d.comments && { comments: d.comments })
   };
 }
-
-// ===== Convertible & Warrant Conversions =====
-// Removed in DAML v16

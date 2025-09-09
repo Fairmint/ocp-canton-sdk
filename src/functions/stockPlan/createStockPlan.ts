@@ -1,7 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import type { ContractId } from '@daml/types';
 import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 import { ContractDetails } from '../../types/contractDetails';
 import { OcfStockPlanData } from '../../types/native';
@@ -12,7 +11,6 @@ export interface CreateStockPlanParams {
   issuerContractId: string;
   featuredAppRightContractDetails: ContractDetails;
   issuerParty: string;
-  stockClassContractIds: ContractId<Fairmint.OpenCapTable.StockClass.StockClass>[];
   planData: OcfStockPlanData;
 }
 
@@ -30,7 +28,6 @@ export interface CreateStockPlanResult {
  * - stockholder_approval_date (optional): Date stockholders approved the plan (YYYY-MM-DD)
  * - initial_shares_reserved: Initial shares reserved in the pool
  * - default_cancellation_behavior (optional): What happens to cancelled reserved shares by default
- * - stockClassContractIds: Contract IDs of StockClass objects this plan is composed of
  */
 export async function createStockPlan(
   client: LedgerJsonApiClient,

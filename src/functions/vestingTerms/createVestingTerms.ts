@@ -72,7 +72,7 @@ export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams)
   disclosedContracts: DisclosedContract[];
 } {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateVestingTerms = {
-    terms_data: vestingTermsDataToDaml(params.termsData)
+    terms_data: vestingTermsDataToDaml(params.vestingTermsData)
   } as any;
 
   const command: Command = {
