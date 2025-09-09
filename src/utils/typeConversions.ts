@@ -839,7 +839,6 @@ function damlCancellationBehaviorToNative(b: any): StockPlanCancellationBehavior
 
 export function stockPlanDataToDaml(d: OcfStockPlanData): Fairmint.OpenCapTable.StockPlan.OcfStockPlanData {
   if (!d.ocf_id) throw new Error('stockPlan.ocf_id is required');
-  if (!d.stock_class_ids || d.stock_class_ids.length === 0) throw new Error('stockPlan.stock_class_ids must be a non-empty array');
   return {
     ocf_id: d.ocf_id,
     plan_name: d.plan_name,
