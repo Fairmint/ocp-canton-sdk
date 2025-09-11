@@ -56,28 +56,29 @@ export async function getIssuerAsOcf(
 
   const issuerData = (createArgument as any).issuer_data as Fairmint.OpenCapTable.Issuer.OcfIssuerData;
   const native = damlIssuerDataToNative(issuerData);
+  const { ocf_id, ...nativeWithoutId } = native as any;
 
   const ocfIssuer: OcfIssuer = {
     object_type: 'ISSUER',
-    id: native.ocf_id,
-    legal_name: native.legal_name,
-    country_of_formation: native.country_of_formation,
-    formation_date: native.formation_date,
-    ...(native.dba && { dba: native.dba }),
-    ...(native.country_subdivision_of_formation && {
-      country_subdivision_of_formation: native.country_subdivision_of_formation
+    id: ocf_id,
+    legal_name: nativeWithoutId.legal_name,
+    country_of_formation: nativeWithoutId.country_of_formation,
+    formation_date: nativeWithoutId.formation_date,
+    ...(nativeWithoutId.dba && { dba: nativeWithoutId.dba }),
+    ...(nativeWithoutId.country_subdivision_of_formation && {
+      country_subdivision_of_formation: nativeWithoutId.country_subdivision_of_formation
     }),
-    ...(native.country_subdivision_name_of_formation && {
-      country_subdivision_name_of_formation: native.country_subdivision_name_of_formation
+    ...(nativeWithoutId.country_subdivision_name_of_formation && {
+      country_subdivision_name_of_formation: nativeWithoutId.country_subdivision_name_of_formation
     }),
-    ...(native.tax_ids && { tax_ids: native.tax_ids }),
-    ...(native.email && { email: native.email }),
-    ...(native.phone && { phone: native.phone }),
-    ...(native.address && { address: native.address }),
-    ...(native.initial_shares_authorized !== undefined && {
-      initial_shares_authorized: native.initial_shares_authorized
+    ...(nativeWithoutId.tax_ids && { tax_ids: nativeWithoutId.tax_ids }),
+    ...(nativeWithoutId.email && { email: nativeWithoutId.email }),
+    ...(nativeWithoutId.phone && { phone: nativeWithoutId.phone }),
+    ...(nativeWithoutId.address && { address: nativeWithoutId.address }),
+    ...(nativeWithoutId.initial_shares_authorized !== undefined && {
+      initial_shares_authorized: nativeWithoutId.initial_shares_authorized
     }),
-    ...(native.comments && { comments: native.comments })
+    ...(nativeWithoutId.comments && { comments: nativeWithoutId.comments })
   };
 
   return { issuer: ocfIssuer, contractId: params.contractId };

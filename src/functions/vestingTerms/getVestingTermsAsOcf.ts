@@ -43,11 +43,12 @@ export async function getVestingTermsAsOcf(
   }
 
   const native = damlVestingTermsDataToNative(createArgument.vesting_terms_data);
+  const { ocf_id, ...nativeWithoutId } = native as any;
 
   const ocf: OcfVestingTerms = {
     object_type: 'VESTING_TERMS',
-    id: native.ocf_id,
-    ...native
+    id: ocf_id,
+    ...nativeWithoutId
   } as any;
 
   return { vestingTerms: ocf, contractId: params.contractId };

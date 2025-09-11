@@ -41,11 +41,12 @@ export async function getStockPlanAsOcf(
   }
 
   const native = damlStockPlanDataToNative(createArgument.plan_data);
+  const { ocf_id, ...nativeWithoutId } = native as any;
 
   const ocf: OcfStockPlan = {
     object_type: 'STOCK_PLAN',
-    id: native.ocf_id,
-    ...native
+    id: ocf_id,
+    ...nativeWithoutId
   };
 
   return { stockPlan: ocf, contractId: params.contractId };
