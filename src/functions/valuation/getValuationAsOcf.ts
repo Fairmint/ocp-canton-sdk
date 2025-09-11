@@ -48,7 +48,7 @@ export async function getValuationAsOcf(
 
   const ocf: OcfValuation = {
     object_type: 'VALUATION',
-    id: params.contractId,
+    id: native.ocf_id,
     ...native,
     price_per_share: {
       amount: typeof native.price_per_share.amount === 'number' ? String(native.price_per_share.amount) : native.price_per_share.amount,

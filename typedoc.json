@@ -1,0 +1,15 @@
+{
+  "entryPoints": [
+    "src/index.ts"
+  ],
+  "out": "docs",
+  "tsconfig": "tsconfig.json",
+  "name": "OCP Canton SDK",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "cleanOutputDir": true,
+  "readme": "none",
+  "categorizeByGroup": true
+}
+

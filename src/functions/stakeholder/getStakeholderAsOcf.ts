@@ -68,7 +68,7 @@ export async function getStakeholderAsOcf(
 
   const ocfStakeholder: OcfStakeholder = {
     object_type: 'STAKEHOLDER',
-    id: params.contractId,
+    id: native.ocf_id,
     name: native.name as any,
     stakeholder_type: native.stakeholder_type,
     ...(native.issuer_assigned_id && { issuer_assigned_id: native.issuer_assigned_id }),

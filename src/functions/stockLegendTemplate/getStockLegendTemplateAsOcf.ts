@@ -40,7 +40,7 @@ export async function getStockLegendTemplateAsOcf(
 
   const ocf: OcfStockLegendTemplate = {
     object_type: 'STOCK_LEGEND_TEMPLATE',
-    id: params.contractId,
+    id: native.ocf_id,
     ...native
   };
 

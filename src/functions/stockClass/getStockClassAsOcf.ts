@@ -173,6 +173,7 @@ export async function getStockClassAsOcf(
   // Transform native stock class data to OCF format, adding OCF-specific fields
   const ocfStockClass: OcfStockClass = {
     object_type: 'STOCK_CLASS',
+    id: (nativeStockClassData as any).ocf_id,
     ...baseStockClassData,
     // Ensure numeric values are strings for OCF compatibility
     initial_shares_authorized: typeof initial_shares_authorized === 'number' ? 
@@ -191,9 +192,7 @@ export async function getStockClassAsOcf(
     ...(participation_cap_multiple && { 
       participation_cap_multiple: typeof participation_cap_multiple === 'number' ? 
         participation_cap_multiple.toString() : participation_cap_multiple
-    }),
-    // Use contract ID as the OCF object ID
-    id: params.contractId
+    })
   };
   
   return {
