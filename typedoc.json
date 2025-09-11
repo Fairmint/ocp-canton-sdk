@@ -4,7 +4,7 @@
   ],
   "out": "docs",
   "tsconfig": "tsconfig.json",
-  "name": "OCP Canton SDK",
+  "name": "Open Cap Table Protocol Canton SDK",
   "includeVersion": true,
   "excludePrivate": true,
   "excludeInternal": true,

@@ -37,11 +37,12 @@ export async function getStockLegendTemplateAsOcf(
   }
 
   const native = damlStockLegendTemplateDataToNative(createArgument.template_data);
+  const { ocf_id, ...nativeWithoutId } = native as any;
 
   const ocf: OcfStockLegendTemplate = {
     object_type: 'STOCK_LEGEND_TEMPLATE',
-    id: native.ocf_id,
-    ...native
+    id: ocf_id,
+    ...nativeWithoutId
   };
 
   return { stockLegendTemplate: ocf, contractId: params.contractId };

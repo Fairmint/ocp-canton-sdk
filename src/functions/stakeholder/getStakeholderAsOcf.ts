@@ -65,19 +65,20 @@ export async function getStakeholderAsOcf(
   }
 
   const native = damlStakeholderDataToNative(createArgument.stakeholder_data);
+  const { ocf_id, ...nativeWithoutId } = native as any;
 
   const ocfStakeholder: OcfStakeholder = {
     object_type: 'STAKEHOLDER',
-    id: native.ocf_id,
-    name: native.name as any,
-    stakeholder_type: native.stakeholder_type,
-    ...(native.issuer_assigned_id && { issuer_assigned_id: native.issuer_assigned_id }),
-    ...(native.current_relationships && { current_relationships: native.current_relationships }),
-    ...(native.primary_contact && { primary_contact: native.primary_contact as any }),
-    ...(native.contact_info && { contact_info: native.contact_info as any }),
-    addresses: native.addresses,
-    tax_ids: native.tax_ids,
-    ...(native.comments && { comments: native.comments })
+    id: ocf_id,
+    name: nativeWithoutId.name as any,
+    stakeholder_type: nativeWithoutId.stakeholder_type,
+    ...(nativeWithoutId.issuer_assigned_id && { issuer_assigned_id: nativeWithoutId.issuer_assigned_id }),
+    ...(nativeWithoutId.current_relationships && { current_relationships: nativeWithoutId.current_relationships }),
+    ...(nativeWithoutId.primary_contact && { primary_contact: nativeWithoutId.primary_contact as any }),
+    ...(nativeWithoutId.contact_info && { contact_info: nativeWithoutId.contact_info as any }),
+    addresses: nativeWithoutId.addresses,
+    tax_ids: nativeWithoutId.tax_ids,
+    ...(nativeWithoutId.comments && { comments: nativeWithoutId.comments })
   };
 
   return { stakeholder: ocfStakeholder, contractId: params.contractId };

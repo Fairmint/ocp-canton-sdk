@@ -45,11 +45,12 @@ export async function getValuationAsOcf(
   }
 
   const native = damlValuationDataToNative(createArgument.valuation_data);
+  const { ocf_id, ...nativeWithoutId } = native as any;
 
   const ocf: OcfValuation = {
     object_type: 'VALUATION',
-    id: native.ocf_id,
-    ...native,
+    id: ocf_id,
+    ...nativeWithoutId,
     price_per_share: {
       amount: typeof native.price_per_share.amount === 'number' ? String(native.price_per_share.amount) : native.price_per_share.amount,
       currency: native.price_per_share.currency
