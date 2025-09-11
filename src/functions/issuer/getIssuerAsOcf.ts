@@ -59,6 +59,7 @@ export async function getIssuerAsOcf(
 
   const ocfIssuer: OcfIssuer = {
     object_type: 'ISSUER',
+    id: native.ocf_id,
     legal_name: native.legal_name,
     country_of_formation: native.country_of_formation,
     formation_date: native.formation_date,
@@ -76,7 +77,6 @@ export async function getIssuerAsOcf(
     ...(native.initial_shares_authorized !== undefined && {
       initial_shares_authorized: native.initial_shares_authorized
     }),
-    id: params.contractId,
     ...(native.comments && { comments: native.comments })
   };
 

@@ -46,7 +46,7 @@ export async function getVestingTermsAsOcf(
 
   const ocf: OcfVestingTerms = {
     object_type: 'VESTING_TERMS',
-    id: params.contractId,
+    id: native.ocf_id,
     ...native
   } as any;
 

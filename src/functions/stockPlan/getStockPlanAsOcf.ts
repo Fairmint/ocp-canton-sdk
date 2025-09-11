@@ -44,7 +44,7 @@ export async function getStockPlanAsOcf(
 
   const ocf: OcfStockPlan = {
     object_type: 'STOCK_PLAN',
-    id: params.contractId,
+    id: native.ocf_id,
     ...native
   };
 

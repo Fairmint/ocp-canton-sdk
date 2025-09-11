@@ -25,7 +25,7 @@ export async function getStockRepurchaseEventAsOcf(
   const arg = res.created.createdEvent.createArgument as any;
   const event: OcfStockRepurchaseEvent = {
     object_type: 'STOCK_REPURCHASE',
-    id: params.contractId,
+    id: arg.ocf_id,
     stock_class: arg.stock_class,
     owner: arg.owner,
     quantity: arg.quantity,

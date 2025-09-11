@@ -14,18 +14,21 @@
     "clean": "rm -rf dist",
     "script:authorize": "ts-node scripts/authorizeIssuer.ts",
     "script:create-issuer": "ts-node scripts/createIssuer.ts",
-    "script:get-issuer-ocf": "ts-node scripts/getIssuerAsOcf.ts"
+    "script:get-issuer-ocf": "ts-node scripts/getIssuerAsOcf.ts",
+    "docs": "typedoc",
+    "docs:clean": "rm -rf docs"
   },
   "dependencies": {
     "@daml/ledger": "2.10.2",
     "@daml/types": "2.10.2",
-    "@fairmint/canton-node-sdk": "0.0.90",
+    "@fairmint/canton-node-sdk": "0.0.91",
     "@fairmint/open-captable-protocol-daml-js": "0.2.2"
   },
   "devDependencies": {
     "@types/node": "24.3.1",
     "ts-node": "10.9.2",
-    "typescript": "5.9.2"
+    "typescript": "5.9.2",
+    "typedoc": "^0.28.0"
   },
   "files": [
     "dist"

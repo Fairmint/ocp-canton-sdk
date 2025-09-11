@@ -26,7 +26,7 @@ export async function getStockTransferEventAsOcf(
   const arg = res.created.createdEvent.createArgument as any;
   const event: OcfStockTransferEvent = {
     object_type: 'STOCK_TRANSFER',
-    id: params.contractId,
+    id: arg.ocf_id,
     stock_class: arg.stock_class,
     from_owner: arg.from_owner,
     to_owner: arg.to_owner,

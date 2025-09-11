@@ -31,7 +31,7 @@ export async function getStockIssuanceEventAsOcf(
   const arg = res.created.createdEvent.createArgument as any;
   const event: OcfStockIssuanceEvent = {
     object_type: 'STOCK_ISSUANCE',
-    id: params.contractId,
+    id: arg.ocf_id,
     stock_class: arg.stock_class,
     recipient: arg.recipient,
     quantity: arg.quantity,
