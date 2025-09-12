@@ -74,6 +74,12 @@ export class OcpClient {
 
   public warrant: {};
 
+  public document: {
+    createDocument: (params: import('./functions').CreateDocumentParams) => Promise<import('./functions').CreateDocumentResult>;
+    getDocumentAsOcf: (params: import('./functions').GetDocumentAsOcfParams) => Promise<import('./functions').GetDocumentAsOcfResult>;
+    archiveDocumentByIssuer: (params: import('./functions').ArchiveDocumentByIssuerParams) => Promise<import('./functions').ArchiveDocumentByIssuerResult>;
+  };
+
   public issuerAuthorization: {
     withdrawAuthorization: (params: import('./functions').WithdrawAuthorizationParams) => Promise<import('./functions').WithdrawAuthorizationResult>;
   };
@@ -174,6 +180,12 @@ export class OcpClient {
     this.convertible = {};
 
     this.warrant = {};
+
+    this.document = {
+      createDocument: (params) => { const { createDocument } = require('./functions/document'); return createDocument(this.client, params); },
+      getDocumentAsOcf: (params) => { const { getDocumentAsOcf } = require('./functions/document'); return getDocumentAsOcf(this.client, params); },
+      archiveDocumentByIssuer: (params) => { const { archiveDocumentByIssuer } = require('./functions/document'); return archiveDocumentByIssuer(this.client, params); }
+    };
 
     this.issuerAuthorization = {
       withdrawAuthorization: (params) => { const { withdrawAuthorization } = require('./functions/issuerAuthorization'); return withdrawAuthorization(this.client, params); }
