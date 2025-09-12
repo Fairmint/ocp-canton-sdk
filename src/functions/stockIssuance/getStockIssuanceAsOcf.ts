@@ -9,7 +9,7 @@ export interface GetStockIssuanceAsOcfParams {
 
 export interface GetStockIssuanceAsOcfResult {
   contractId: string;
-  stockIssuance: OcfStockIssuanceData;
+  stockIssuance: (OcfStockIssuanceData & { object_type: 'TX_STOCK_ISSUANCE'; id?: string });
 }
 
 export async function getStockIssuanceAsOcf(
@@ -22,8 +22,14 @@ export async function getStockIssuanceAsOcf(
     throw new Error('Missing createArgument for StockIssuance');
   }
   const arg = created.createArgument as Fairmint.OpenCapTable.StockIssuance.StockIssuance;
-  const stockIssuance = damlStockIssuanceDataToNative((arg as any).issuance_data);
-  return { contractId: params.contractId, stockIssuance };
+  const native = damlStockIssuanceDataToNative((arg as any).issuance_data);
+  const { ocf_id, ...rest } = native as any;
+  const ocf = {
+    object_type: 'TX_STOCK_ISSUANCE' as const,
+    id: ocf_id,
+    ...rest
+  };
+  return { contractId: params.contractId, stockIssuance: ocf };
 }
 
 
