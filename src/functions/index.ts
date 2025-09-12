@@ -7,3 +7,4 @@ export * from './valuation';
 export * from './vestingTerms';
 export * from './stockPlan';
 export * from './issuerAuthorization';
+export * from './document';
