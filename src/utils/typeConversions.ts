@@ -840,7 +840,7 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuanceData): Fairmint.OpenC
   if (!d.custom_id) throw new Error('stockIssuance.custom_id is required');
   if (!d.stakeholder_id) throw new Error('stockIssuance.stakeholder_id is required');
   if (!d.stock_class_id) throw new Error('stockIssuance.stock_class_id is required');
-  if (!d.stock_legend_ids || d.stock_legend_ids.length === 0) throw new Error('stockIssuance.stock_legend_ids must be non-empty');
+  // Allow empty array for stock_legend_ids per OCF schema (no minItems)
   return {
     ocf_id: d.ocf_id,
     date: dateStringToDAMLTime(d.date),
@@ -857,7 +857,7 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuanceData): Fairmint.OpenC
     share_price: monetaryToDaml(d.share_price),
     quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
     vesting_terms_id: d.vesting_terms_id ?? null,
-    vestings: d.vestings ? d.vestings.map(v => ({ date: dateStringToDAMLTime(v.date), amount: typeof v.amount === 'number' ? v.amount.toString() : v.amount })) as any : null,
+    vestings: (d.vestings || []).map(v => ({ date: dateStringToDAMLTime(v.date), amount: typeof v.amount === 'number' ? v.amount.toString() : v.amount })) as any,
     cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,
     stock_legend_ids: d.stock_legend_ids,
     issuance_type: stockIssuanceTypeToDaml(d.issuance_type) as any,

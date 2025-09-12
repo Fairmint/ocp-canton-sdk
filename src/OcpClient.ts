@@ -74,6 +74,12 @@ export class OcpClient {
 
   public warrant: {};
 
+  public stockIssuance: {
+    createStockIssuance: (params: import('./functions').CreateStockIssuanceParams) => Promise<import('./functions').CreateStockIssuanceResult>;
+    getStockIssuanceAsOcf: (params: import('./functions').GetStockIssuanceAsOcfParams) => Promise<import('./functions').GetStockIssuanceAsOcfResult>;
+    archiveStockIssuanceByIssuer: (params: import('./functions').ArchiveStockIssuanceByIssuerParams) => Promise<import('./functions').ArchiveStockIssuanceByIssuerResult>;
+  };
+
   public document: {
     createDocument: (params: import('./functions').CreateDocumentParams) => Promise<import('./functions').CreateDocumentResult>;
     getDocumentAsOcf: (params: import('./functions').GetDocumentAsOcfParams) => Promise<import('./functions').GetDocumentAsOcfResult>;
@@ -189,6 +195,12 @@ export class OcpClient {
 
     this.issuerAuthorization = {
       withdrawAuthorization: (params) => { const { withdrawAuthorization } = require('./functions/issuerAuthorization'); return withdrawAuthorization(this.client, params); }
+    };
+
+    this.stockIssuance = {
+      createStockIssuance: (params) => { const { createStockIssuance } = require('./functions/stockIssuance'); return createStockIssuance(this.client, params); },
+      getStockIssuanceAsOcf: (params) => { const { getStockIssuanceAsOcf } = require('./functions/stockIssuance'); return getStockIssuanceAsOcf(this.client, params); },
+      archiveStockIssuanceByIssuer: (params) => { const { archiveStockIssuanceByIssuer } = require('./functions/stockIssuance'); return archiveStockIssuanceByIssuer(this.client, params); }
     };
   }
 
