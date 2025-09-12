@@ -35,6 +35,7 @@ import type {
   VestingCondition,
   OcfVestingTermsData
 } from '../types/native';
+import type { OcfStockIssuanceData, SecurityExemption, ShareNumberRange, VestingSimple, StockIssuanceType } from '../types/native';
 import type {
   OcfStockPlanData,
   StockPlanCancellationBehavior,
@@ -786,6 +787,107 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.Document.OcfDo
       object_id: r.object_id
     })),
     ...(d.comments && { comments: d.comments })
+  };
+}
+
+// ===== Stock Issuance Conversions =====
+
+function securityExemptionToDaml(e: SecurityExemption): Fairmint.OpenCapTable.Types.OcfSecurityExemption {
+  return {
+    description: e.description,
+    jurisdiction: e.jurisdiction
+  } as any;
+}
+
+function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.OcfSecurityExemption): SecurityExemption {
+  return { description: e.description, jurisdiction: e.jurisdiction };
+}
+
+function shareNumberRangeToDaml(r: ShareNumberRange): Fairmint.OpenCapTable.Types.OcfShareNumberRange {
+  return {
+    starting_share_number: typeof r.starting_share_number === 'number' ? r.starting_share_number.toString() : r.starting_share_number,
+    ending_share_number: typeof r.ending_share_number === 'number' ? r.ending_share_number.toString() : r.ending_share_number
+  } as any;
+}
+
+function damlShareNumberRangeToNative(r: Fairmint.OpenCapTable.Types.OcfShareNumberRange): ShareNumberRange {
+  return {
+    starting_share_number: r.starting_share_number,
+    ending_share_number: r.ending_share_number
+  };
+}
+
+function stockIssuanceTypeToDaml(t: StockIssuanceType | undefined): any {
+  if (!t) return null;
+  switch (t) {
+    case 'RSA': return 'OcfStockIssuanceRSA';
+    case 'FOUNDERS_STOCK': return 'OcfStockIssuanceFounders';
+    default: throw new Error(`Unknown stock issuance type: ${t}`);
+  }
+}
+
+function damlStockIssuanceTypeToNative(t: any): StockIssuanceType | undefined {
+  switch (t) {
+    case 'OcfStockIssuanceRSA': return 'RSA';
+    case 'OcfStockIssuanceFounders': return 'FOUNDERS_STOCK';
+    default: return undefined;
+  }
+}
+
+export function stockIssuanceDataToDaml(d: OcfStockIssuanceData): Fairmint.OpenCapTable.StockIssuance.OcfStockIssuanceData {
+  if (!d.ocf_id) throw new Error('stockIssuance.ocf_id is required');
+  if (!d.security_id) throw new Error('stockIssuance.security_id is required');
+  if (!d.custom_id) throw new Error('stockIssuance.custom_id is required');
+  if (!d.stakeholder_id) throw new Error('stockIssuance.stakeholder_id is required');
+  if (!d.stock_class_id) throw new Error('stockIssuance.stock_class_id is required');
+  if (!d.stock_legend_ids || d.stock_legend_ids.length === 0) throw new Error('stockIssuance.stock_legend_ids must be non-empty');
+  return {
+    ocf_id: d.ocf_id,
+    date: dateStringToDAMLTime(d.date),
+    security_id: d.security_id,
+    custom_id: d.custom_id,
+    stakeholder_id: d.stakeholder_id,
+    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
+    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    consideration_text: d.consideration_text ?? null,
+    security_law_exemptions: (d.security_law_exemptions || []).map(securityExemptionToDaml),
+    stock_class_id: d.stock_class_id,
+    stock_plan_id: d.stock_plan_id ?? null,
+    share_numbers_issued: (d.share_numbers_issued || []).map(shareNumberRangeToDaml) as any,
+    share_price: monetaryToDaml(d.share_price),
+    quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
+    vesting_terms_id: d.vesting_terms_id ?? null,
+    vestings: d.vestings ? d.vestings.map(v => ({ date: dateStringToDAMLTime(v.date), amount: typeof v.amount === 'number' ? v.amount.toString() : v.amount })) as any : null,
+    cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,
+    stock_legend_ids: d.stock_legend_ids,
+    issuance_type: stockIssuanceTypeToDaml(d.issuance_type) as any,
+    comments: d.comments || []
+  } as any;
+}
+
+export function damlStockIssuanceDataToNative(d: Fairmint.OpenCapTable.StockIssuance.OcfStockIssuanceData): OcfStockIssuanceData {
+  const anyD: any = d as any;
+  return {
+    ocf_id: d.ocf_id,
+    date: damlTimeToDateString(d.date as any),
+    security_id: d.security_id,
+    custom_id: d.custom_id,
+    stakeholder_id: d.stakeholder_id,
+    ...(d.board_approval_date && { board_approval_date: damlTimeToDateString(d.board_approval_date) }),
+    ...(d.stockholder_approval_date && { stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date) }),
+    ...(d.consideration_text && { consideration_text: d.consideration_text }),
+    security_law_exemptions: (anyD.security_law_exemptions || []).map(damlSecurityExemptionToNative),
+    stock_class_id: d.stock_class_id,
+    ...(d.stock_plan_id && { stock_plan_id: d.stock_plan_id }),
+    ...(anyD.share_numbers_issued && { share_numbers_issued: (anyD.share_numbers_issued as any[]).map(damlShareNumberRangeToNative) }),
+    share_price: damlMonetaryToNative(d.share_price),
+    quantity: d.quantity,
+    ...(d.vesting_terms_id && { vesting_terms_id: d.vesting_terms_id }),
+    ...(anyD.vestings && { vestings: (anyD.vestings as any[]).map((v: any) => ({ date: damlTimeToDateString(v.date), amount: v.amount })) }),
+    ...(d.cost_basis && { cost_basis: damlMonetaryToNative(d.cost_basis) }),
+    stock_legend_ids: (d as any).stock_legend_ids || [],
+    ...(anyD.issuance_type && { issuance_type: damlStockIssuanceTypeToNative(anyD.issuance_type) }),
+    ...(anyD.comments && { comments: anyD.comments as string[] })
   };
 }
 // ===== Valuation Conversions =====

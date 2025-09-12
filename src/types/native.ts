@@ -319,6 +319,48 @@ export interface OcfValuationData {
   valuation_type: ValuationType;
 }
 
+// ===== Stock Issuance Types =====
+
+export type StockIssuanceType = 'RSA' | 'FOUNDERS_STOCK';
+
+export interface ShareNumberRange {
+  starting_share_number: string | number;
+  ending_share_number: string | number;
+}
+
+export interface SecurityExemption {
+  description: string;
+  jurisdiction: string;
+}
+
+export interface VestingSimple {
+  date: string; // YYYY-MM-DD
+  amount: string | number;
+}
+
+export interface OcfStockIssuanceData {
+  ocf_id: string;
+  date: string; // YYYY-MM-DD
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  security_law_exemptions: SecurityExemption[];
+  stock_class_id: string;
+  stock_plan_id?: string;
+  share_numbers_issued?: ShareNumberRange[];
+  share_price: Monetary;
+  quantity: string | number;
+  vesting_terms_id?: string;
+  vestings?: VestingSimple[];
+  cost_basis?: Monetary;
+  stock_legend_ids: string[];
+  issuance_type?: StockIssuanceType;
+  comments?: string[];
+}
+
 // ===== Vesting Terms Types =====
 
 export type AllocationType =
