@@ -71,9 +71,30 @@ export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams)
   command: Command;
   disclosedContracts: DisclosedContract[];
 } {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateVestingTerms = {
-    terms_data: vestingTermsDataToDaml(params.vestingTermsData)
+  const damlArgs: Fairmint.OpenCapTable.Issuer.CreateVestingTerms = {
+    vesting_terms_data: vestingTermsDataToDaml(params.vestingTermsData)
   } as any;
+
+  // Normalize Optional fields for JSON API: use direct value for Some, null for None
+  const choiceArguments: any = {
+    vesting_terms_data: {
+      ...damlArgs.vesting_terms_data,
+      vesting_conditions: (damlArgs as any).vesting_terms_data.vesting_conditions.map((c: any) => {
+        const portion = c.portion && c.portion.tag === 'Some' ? c.portion.value : null;
+        const trigger = ((): any => {
+          if (c.trigger && typeof c.trigger === 'object' && 'tag' in c.trigger) {
+            return 'value' in c.trigger ? c.trigger : { ...c.trigger, value: null };
+          }
+          return c.trigger;
+        })();
+        return {
+          ...c,
+          portion,
+          trigger,
+        };
+      })
+    }
+  };
 
   const command: Command = {
     ExerciseCommand: {
