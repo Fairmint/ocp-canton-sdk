@@ -968,48 +968,177 @@ function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.VestingTerms.OcfAll
   }
 }
 
-function vestingPeriodToDaml(p: VestingPeriod): Fairmint.OpenCapTable.VestingTerms.OcfVestingPeriod {
-  switch (p.type) {
-    case 'DAYS': return { tag: 'OcfVestingPeriodDays', value: p.value } as any;
-    case 'MONTHS': return { tag: 'OcfVestingPeriodMonths', value: p.value } as any;
-    default: throw new Error('Unknown vesting period');
-  }
+function mapOcfDayOfMonthToDaml(day: string): any {
+  const d = (day || '').toString().toUpperCase();
+  const table: Record<string, any> = {
+    '01': 'OcfVestingDay01', '02': 'OcfVestingDay02', '03': 'OcfVestingDay03', '04': 'OcfVestingDay04', '05': 'OcfVestingDay05',
+    '06': 'OcfVestingDay06', '07': 'OcfVestingDay07', '08': 'OcfVestingDay08', '09': 'OcfVestingDay09', '10': 'OcfVestingDay10',
+    '11': 'OcfVestingDay11', '12': 'OcfVestingDay12', '13': 'OcfVestingDay13', '14': 'OcfVestingDay14', '15': 'OcfVestingDay15',
+    '16': 'OcfVestingDay16', '17': 'OcfVestingDay17', '18': 'OcfVestingDay18', '19': 'OcfVestingDay19', '20': 'OcfVestingDay20',
+    '21': 'OcfVestingDay21', '22': 'OcfVestingDay22', '23': 'OcfVestingDay23', '24': 'OcfVestingDay24', '25': 'OcfVestingDay25',
+    '26': 'OcfVestingDay26', '27': 'OcfVestingDay27', '28': 'OcfVestingDay28',
+    '29_OR_LAST_DAY_OF_MONTH': 'OcfVestingDay29OrLast',
+    '30_OR_LAST_DAY_OF_MONTH': 'OcfVestingDay30OrLast',
+    '31_OR_LAST_DAY_OF_MONTH': 'OcfVestingDay31OrLast',
+    'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH': 'OcfVestingStartDayOrLast'
+  };
+  return table[d] || 'OcfVestingStartDayOrLast';
 }
 
-function damlVestingPeriodToNative(p: any): VestingPeriod {
-  if (p.tag === 'OcfVestingPeriodDays') return { type: 'DAYS', value: p.value };
-  if (p.tag === 'OcfVestingPeriodMonths') return { type: 'MONTHS', value: p.value };
+function mapDamlDayOfMonthToOcf(day: any): string {
+  const table: Record<string, string> = {
+    OcfVestingDay01: '01', OcfVestingDay02: '02', OcfVestingDay03: '03', OcfVestingDay04: '04', OcfVestingDay05: '05',
+    OcfVestingDay06: '06', OcfVestingDay07: '07', OcfVestingDay08: '08', OcfVestingDay09: '09', OcfVestingDay10: '10',
+    OcfVestingDay11: '11', OcfVestingDay12: '12', OcfVestingDay13: '13', OcfVestingDay14: '14', OcfVestingDay15: '15',
+    OcfVestingDay16: '16', OcfVestingDay17: '17', OcfVestingDay18: '18', OcfVestingDay19: '19', OcfVestingDay20: '20',
+    OcfVestingDay21: '21', OcfVestingDay22: '22', OcfVestingDay23: '23', OcfVestingDay24: '24', OcfVestingDay25: '25',
+    OcfVestingDay26: '26', OcfVestingDay27: '27', OcfVestingDay28: '28',
+    OcfVestingDay29OrLast: '29_OR_LAST_DAY_OF_MONTH',
+    OcfVestingDay30OrLast: '30_OR_LAST_DAY_OF_MONTH',
+    OcfVestingDay31OrLast: '31_OR_LAST_DAY_OF_MONTH',
+    OcfVestingStartDayOrLast: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH'
+  };
+  return table[day] || 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH';
+}
+
+// Legacy helper for old native type VestingPeriod
+function vestingPeriodToDaml(p: VestingPeriod): Fairmint.OpenCapTable.VestingTerms.OcfVestingPeriod {
+  if (p.type === 'DAYS') {
+    return { tag: 'OcfVestingPeriodDays', value: { period_length: Number(p.value), occurrences: 1, cliff_installment: null } } as any;
+  }
+  return {
+    tag: 'OcfVestingPeriodMonths',
+    value: { period_length: Number(p.value), occurrences: 1, day_of_month: 'OcfVestingStartDayOrLast', cliff_installment: null }
+  } as any;
+}
+
+function damlVestingPeriodToNative(p: any): { tag: 'DAYS' | 'MONTHS'; length: number; occurrences: number; day_of_month?: string; cliff_installment?: number } {
+  if (p.tag === 'OcfVestingPeriodDays') {
+    const v = p.value || {};
+    return {
+      tag: 'DAYS',
+      length: Number(v.period_length),
+      occurrences: Number(v.occurrences || 1),
+      ...(v.cliff_installment !== null && v.cliff_installment !== undefined ? { cliff_installment: Number(v.cliff_installment) } : {})
+    };
+  }
+  if (p.tag === 'OcfVestingPeriodMonths') {
+    const v = p.value || {};
+    return {
+      tag: 'MONTHS',
+      length: Number(v.period_length),
+      occurrences: Number(v.occurrences || 1),
+      day_of_month: mapDamlDayOfMonthToOcf(v.day_of_month),
+      ...(v.cliff_installment !== null && v.cliff_installment !== undefined ? { cliff_installment: Number(v.cliff_installment) } : {})
+    };
+  }
   throw new Error('Unknown DAML vesting period');
 }
 
-function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger {
-  switch (t.kind) {
+function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger {
+  // Support both legacy 'kind' shape and schema 'type' shape
+  const kind: string | undefined = t?.kind;
+  const type: string | undefined = typeof t?.type === 'string' ? t.type.toUpperCase() : undefined;
+
+  // Map schema 'type' to DAML
+  if (!kind && type) {
+    if (type === 'VESTING_START_DATE') return { tag: 'OcfVestingStartTrigger' } as any;
+    if (type === 'VESTING_EVENT') return { tag: 'OcfVestingEventTrigger' } as any;
+    if (type === 'VESTING_SCHEDULE_ABSOLUTE') {
+      const date: string | undefined = t?.date || t?.at;
+      if (!date) throw new Error('Vesting absolute trigger requires date');
+      return { tag: 'OcfVestingScheduleAbsoluteTrigger', value: dateStringToDAMLTime(date) } as any;
+    }
+    if (type === 'VESTING_SCHEDULE_RELATIVE') {
+      const p = t?.period || {};
+      const pType: 'DAYS' | 'MONTHS' = ((p?.type || '').toString().toUpperCase()) === 'MONTHS' ? 'MONTHS' : 'DAYS';
+      const lengthVal = p?.length ?? p?.value;
+      const occurrencesVal = p?.occurrences ?? 1;
+      const cliffVal = p?.cliff_installment;
+      const lengthNum: number = Number(lengthVal);
+      const occurrencesNum: number = Number(occurrencesVal);
+      if (!Number.isFinite(lengthNum) || lengthNum <= 0) throw new Error('Invalid vesting relative period length');
+      if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1) throw new Error('Invalid vesting relative period occurrences');
+      const period: any = pType === 'DAYS'
+        ? { tag: 'OcfVestingPeriodDays', value: { length: lengthNum, occurrences: occurrencesNum, cliff_installment: cliffVal === undefined ? null : Number(cliffVal) } }
+        : { tag: 'OcfVestingPeriodMonths', value: { length: lengthNum, occurrences: occurrencesNum, day_of_month: mapOcfDayOfMonthToDaml(p?.day_of_month || 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH'), cliff_installment: cliffVal === undefined ? null : Number(cliffVal) } };
+      return {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: {
+          period,
+          relative_to_condition_id: t?.relative_to_condition_id
+        }
+      } as any;
+    }
+  }
+
+  // Legacy 'kind' mapping
+  switch (kind) {
     case 'START':
       return { tag: 'OcfVestingStartTrigger' } as any;
     case 'SCHEDULE_ABSOLUTE':
       return { tag: 'OcfVestingScheduleAbsoluteTrigger', value: dateStringToDAMLTime(t.at) } as any;
-    case 'SCHEDULE_RELATIVE':
-      return {
-        tag: 'OcfVestingScheduleRelativeTrigger',
-        value: {
-          period: vestingPeriodToDaml(t.period) as any,
-          relative_to_condition_id: t.relative_to_condition_id
-        }
-      } as any;
+    case 'SCHEDULE_RELATIVE': {
+      const p: VestingPeriod = t.period;
+      const period: any = p.type === 'DAYS'
+        ? { tag: 'OcfVestingPeriodDays', value: { length: Number(p.value), occurrences: 1, cliff_installment: null } }
+        : { tag: 'OcfVestingPeriodMonths', value: { length: Number(p.value), occurrences: 1, day_of_month: 'OcfVestingStartDayOrLast', cliff_installment: null } };
+      return { tag: 'OcfVestingScheduleRelativeTrigger', value: { period, relative_to_condition_id: t.relative_to_condition_id } } as any;
+    }
     case 'EVENT':
       return { tag: 'OcfVestingEventTrigger' } as any;
+    default:
+      throw new Error('Unknown vesting trigger');
   }
 }
 
-function damlVestingTriggerToNative(t: any): VestingTrigger {
-  if (t === 'OcfVestingStartTrigger') return { kind: 'START' };
-  if (t.tag === 'OcfVestingScheduleAbsoluteTrigger') return { kind: 'SCHEDULE_ABSOLUTE', at: damlTimeToDateString(t.value) };
-  if (t.tag === 'OcfVestingScheduleRelativeTrigger') return {
-    kind: 'SCHEDULE_RELATIVE',
-    period: damlVestingPeriodToNative(t.value.period),
-    relative_to_condition_id: t.value.relative_to_condition_id
-  };
-  if (t === 'OcfVestingEventTrigger') return { kind: 'EVENT' };
+function damlVestingTriggerToNative(t: any): any {
+  // Emit schema-compliant trigger objects
+  const tag: string | undefined = typeof t === 'string' ? t : t?.tag;
+
+  if (tag === 'OcfVestingStartTrigger') {
+    return { type: 'VESTING_START_DATE' };
+  }
+
+  if (tag === 'OcfVestingEventTrigger') {
+    return { type: 'VESTING_EVENT' };
+  }
+
+  if (tag === 'OcfVestingScheduleAbsoluteTrigger') {
+    const value = typeof t === 'string' ? undefined : t?.value;
+    if (!value) throw new Error('Missing value for OcfVestingScheduleAbsoluteTrigger');
+    return { type: 'VESTING_SCHEDULE_ABSOLUTE', date: damlTimeToDateString(value) };
+  }
+
+  if (tag === 'OcfVestingScheduleRelativeTrigger') {
+    const value = typeof t === 'string' ? undefined : t?.value;
+    if (!value) throw new Error('Missing value for OcfVestingScheduleRelativeTrigger');
+    const p = damlVestingPeriodToNative(value.period);
+    if (p.tag === 'MONTHS') {
+      return {
+        type: 'VESTING_SCHEDULE_RELATIVE',
+        period: {
+          type: 'MONTHS',
+          length: p.length,
+          occurrences: p.occurrences,
+          day_of_month: p.day_of_month || 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
+          ...(p.cliff_installment !== undefined ? { cliff_installment: p.cliff_installment } : {})
+        },
+        relative_to_condition_id: value.relative_to_condition_id
+      };
+    }
+    return {
+      type: 'VESTING_SCHEDULE_RELATIVE',
+      period: {
+        type: 'DAYS',
+        length: p.length,
+        occurrences: p.occurrences,
+        ...(p.cliff_installment !== undefined ? { cliff_installment: p.cliff_installment } : {})
+      },
+      relative_to_condition_id: value.relative_to_condition_id
+    };
+  }
+
   throw new Error('Unknown DAML vesting trigger');
 }
 

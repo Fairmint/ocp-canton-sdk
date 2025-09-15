@@ -42,8 +42,8 @@ export async function getVestingTermsAsOcf(
     throw new Error('Vesting terms data not found in contract create argument');
   }
 
-  const native = damlVestingTermsDataToNative(createArgument.vesting_terms_data);
-  const { ocf_id, ...nativeWithoutId } = native as any;
+  const native = damlVestingTermsDataToNative(createArgument.vesting_terms_data) as any;
+  const { ocf_id, ...nativeWithoutId } = native;
 
   const ocf: OcfVestingTerms = {
     object_type: 'VESTING_TERMS',
