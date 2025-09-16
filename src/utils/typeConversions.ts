@@ -1060,8 +1060,8 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVes
       if (!Number.isFinite(lengthNum) || lengthNum <= 0) throw new Error('Invalid vesting relative period length');
       if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1) throw new Error('Invalid vesting relative period occurrences');
       const period: any = pType === 'DAYS'
-        ? { tag: 'OcfVestingPeriodDays', value: { length: lengthNum, occurrences: occurrencesNum, cliff_installment: cliffVal === undefined ? null : Number(cliffVal) } }
-        : { tag: 'OcfVestingPeriodMonths', value: { length: lengthNum, occurrences: occurrencesNum, day_of_month: mapOcfDayOfMonthToDaml(p?.day_of_month || 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH'), cliff_installment: cliffVal === undefined ? null : Number(cliffVal) } };
+        ? { tag: 'OcfVestingPeriodDays', value: { period_length: lengthNum, occurrences: occurrencesNum, cliff_installment: cliffVal === undefined ? null : Number(cliffVal) } }
+        : { tag: 'OcfVestingPeriodMonths', value: { period_length: lengthNum, occurrences: occurrencesNum, day_of_month: mapOcfDayOfMonthToDaml(p?.day_of_month || 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH'), cliff_installment: cliffVal === undefined ? null : Number(cliffVal) } };
       return {
         tag: 'OcfVestingScheduleRelativeTrigger',
         value: {
@@ -1081,8 +1081,8 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVes
     case 'SCHEDULE_RELATIVE': {
       const p: VestingPeriod = t.period;
       const period: any = p.type === 'DAYS'
-        ? { tag: 'OcfVestingPeriodDays', value: { length: Number(p.value), occurrences: 1, cliff_installment: null } }
-        : { tag: 'OcfVestingPeriodMonths', value: { length: Number(p.value), occurrences: 1, day_of_month: 'OcfVestingStartDayOrLast', cliff_installment: null } };
+        ? { tag: 'OcfVestingPeriodDays', value: { period_length: Number(p.value), occurrences: 1, cliff_installment: null } }
+        : { tag: 'OcfVestingPeriodMonths', value: { period_length: Number(p.value), occurrences: 1, day_of_month: 'OcfVestingStartDayOrLast', cliff_installment: null } };
       return { tag: 'OcfVestingScheduleRelativeTrigger', value: { period, relative_to_condition_id: t.relative_to_condition_id } } as any;
     }
     case 'EVENT':
