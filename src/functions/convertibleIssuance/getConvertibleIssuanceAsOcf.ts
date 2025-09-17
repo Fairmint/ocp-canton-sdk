@@ -1,6 +1,42 @@
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
+type ConversionTriggerType =
+  | 'AUTOMATIC_ON_CONDITION'
+  | 'AUTOMATIC_ON_DATE'
+  | 'ELECTIVE_IN_RANGE'
+  | 'ELECTIVE_ON_CONDITION'
+  | 'ELECTIVE_AT_WILL'
+  | 'UNSPECIFIED';
+
+type CustomConversionMechanism = {
+  type: 'CUSTOM_CONVERSION';
+  custom_conversion_description: string;
+};
+
+type SafeConversionMechanism = {
+  type: 'SAFE_CONVERSION';
+  conversion_mfn: boolean;
+};
+
+type ConvertibleConversionRight = {
+  type: 'CONVERTIBLE_CONVERSION_RIGHT';
+  conversion_mechanism: CustomConversionMechanism | SafeConversionMechanism;
+  converts_to_future_round?: boolean;
+  converts_to_stock_class_id?: string;
+};
+
+type ConversionTrigger = {
+  type: ConversionTriggerType;
+  trigger_id: string;
+  conversion_right: ConvertibleConversionRight;
+  nickname?: string;
+  trigger_description?: string;
+  // Optional fields for specific trigger subtypes
+  trigger_date?: string;
+  trigger_condition?: string;
+};
+
 export interface OcfConvertibleIssuanceEvent {
   object_type: 'TX_CONVERTIBLE_ISSUANCE';
   id: string;
@@ -10,9 +46,10 @@ export interface OcfConvertibleIssuanceEvent {
   stakeholder_id: string;
   investment_amount: { amount: string; currency: string };
   convertible_type: 'NOTE' | 'SAFE' | 'SECURITY';
-  conversion_triggers: Array<'AUTOMATIC' | 'OPTIONAL'>;
+  conversion_triggers: ConversionTrigger[];
   pro_rata?: string;
-  seniority: string;
+  seniority: number;
+  security_law_exemptions?: Array<{ description: string; jurisdiction: string }>;
   comments?: string[];
 }
 
@@ -51,11 +88,51 @@ export async function getConvertibleIssuanceAsOcf(
     OcfConvertibleSecurity: 'SECURITY'
   };
 
-  const convertTriggers = (ts: any[] | undefined): Array<'AUTOMATIC' | 'OPTIONAL'> => {
+  const convertTriggers = (
+    ts: unknown[] | undefined,
+    convertibleType: 'NOTE' | 'SAFE' | 'SECURITY',
+    ocfId: string
+  ): ConversionTrigger[] => {
     if (!Array.isArray(ts)) return [];
-    return ts.map((t: any) => {
-      const v = typeof t === 'string' ? t : t?.tag || t;
-      return String(v).startsWith('OcfTriggerAutomatic') ? 'AUTOMATIC' : 'OPTIONAL';
+    const defaultRightForType = (): ConvertibleConversionRight => {
+      if (convertibleType === 'SAFE') {
+        return {
+          type: 'CONVERTIBLE_CONVERSION_RIGHT',
+          conversion_mechanism: { type: 'SAFE_CONVERSION', conversion_mfn: false },
+          converts_to_future_round: true
+        };
+      }
+      return {
+        type: 'CONVERTIBLE_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          type: 'CUSTOM_CONVERSION',
+          custom_conversion_description: 'UNSPECIFIED'
+        }
+      };
+    };
+    const mapTagToType = (tag: string): ConversionTriggerType => {
+      if (tag === 'OcfTriggerAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
+      if (tag === 'OcfTriggerElectiveInRange') return 'ELECTIVE_IN_RANGE';
+      if (tag === 'OcfTriggerElectiveOnCondition') return 'ELECTIVE_ON_CONDITION';
+      if (tag === 'OcfTriggerElectiveAtWill') return 'ELECTIVE_AT_WILL';
+      if (tag === 'OcfTriggerUnspecified') return 'UNSPECIFIED';
+      // Default automatic mapping
+      return 'AUTOMATIC_ON_CONDITION';
+    };
+
+    return ts.map((raw, idx) => {
+      const tag = typeof raw === 'string' ? raw : (raw as any)?.tag || String(raw);
+      const type: ConversionTriggerType = mapTagToType(String(tag));
+      const trigger: ConversionTrigger = {
+        type,
+        trigger_id: `${ocfId}-trigger-${idx + 1}`,
+        conversion_right: defaultRightForType(),
+      };
+      if (type === 'AUTOMATIC_ON_CONDITION') {
+        trigger.trigger_description = 'Automatic conversion upon specified condition';
+        trigger.trigger_condition = 'UNSPECIFIED';
+      }
+      return trigger;
     });
   };
 
@@ -71,9 +148,16 @@ export async function getConvertibleIssuanceAsOcf(
       currency: d.investment_amount.currency
     },
     convertible_type: typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
-    conversion_triggers: convertTriggers(d.conversion_triggers),
+    conversion_triggers: convertTriggers(
+      d.conversion_triggers as unknown[],
+      typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
+      d.ocf_id as string
+    ),
     ...(d.pro_rata !== null && d.pro_rata !== undefined ? { pro_rata: typeof d.pro_rata === 'number' ? String(d.pro_rata) : d.pro_rata } : {}),
-    seniority: typeof d.seniority === 'number' ? String(d.seniority) : d.seniority,
+    seniority: typeof d.seniority === 'number' ? d.seniority : Number(d.seniority),
+    ...(Array.isArray(d.security_law_exemptions) && d.security_law_exemptions.length > 0
+      ? { security_law_exemptions: d.security_law_exemptions as Array<{ description: string; jurisdiction: string }> }
+      : {}),
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {})
   };
 

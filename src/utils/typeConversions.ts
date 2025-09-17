@@ -354,7 +354,7 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.Oc
     ...(damlData.formation_date && { formation_date: damlTimeToDateString(damlData.formation_date) }),
     ...(damlData.dba && { dba: damlData.dba }),
     ...(damlData.country_subdivision_of_formation && { country_subdivision_of_formation: damlData.country_subdivision_of_formation }),
-    // TODO: Expose country_subdivision_name_of_formation when SDK updates
+    ...(damlData.country_subdivision_name_of_formation && { country_subdivision_name_of_formation: damlData.country_subdivision_name_of_formation }),
     ...(damlData.tax_ids && { tax_ids: damlData.tax_ids }),
     ...(damlData.email && { email: damlEmailToNative(damlData.email) }),
     ...(damlData.phone && { phone: damlPhoneToNative(damlData.phone as any) }),
@@ -404,18 +404,18 @@ export function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
       const trigger: Fairmint.OpenCapTable.StockClass.OcfConversionTrigger = (() => {
         switch (right.conversion_trigger) {
           case 'AUTOMATIC_ON_CONDITION':
-            return 'OcfTriggerAutomaticOnCondition';
+            return { tag: 'OcfTriggerAutomaticOnCondition' };
           case 'AUTOMATIC_ON_DATE':
-            return 'OcfTriggerAutomaticOnDate';
+            return { tag: 'OcfTriggerAutomaticOnDate' };
           case 'ELECTIVE_AT_WILL':
-            return 'OcfTriggerElectiveAtWill';
+            return { tag: 'OcfTriggerElectiveAtWill' };
           case 'ELECTIVE_ON_CONDITION':
-            return 'OcfTriggerElectiveOnCondition';
+            return { tag: 'OcfTriggerElectiveOnCondition' };
           case 'ELECTIVE_ON_DATE':
             // Map to closest supported DAML trigger
-            return 'OcfTriggerElectiveAtWill';
+            return { tag: 'OcfTriggerElectiveAtWill' };
           default:
-            return 'OcfTriggerAutomaticOnCondition';
+            return { tag: 'OcfTriggerAutomaticOnCondition' };
         }
       })();
 

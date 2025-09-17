@@ -477,7 +477,7 @@ export interface OcfConvertibleIssuanceDataNative {
 
 export interface OcfWarrantIssuanceDataNative {
   quantity: string | number;
-  exercise_price: Monetary;
+  exercise_price?: Monetary;
   purchase_price: Monetary;
   exercise_triggers: SimpleTrigger[];
   warrant_expiration_date?: string;

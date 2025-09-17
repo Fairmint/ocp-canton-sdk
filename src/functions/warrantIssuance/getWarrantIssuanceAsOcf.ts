@@ -8,7 +8,7 @@ export interface OcfWarrantIssuanceEvent {
   custom_id: string;
   stakeholder_id: string;
   quantity: string;
-  exercise_price: { amount: string; currency: string };
+  exercise_price: { amount: string; currency: string } | null;
   purchase_price: { amount: string; currency: string };
   exercise_triggers: Array<'AUTOMATIC' | 'OPTIONAL'>;
   warrant_expiration_date?: string;
@@ -45,7 +45,9 @@ export async function getWarrantIssuanceAsOcf(
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
     quantity: typeof d.quantity === 'number' ? String(d.quantity) : d.quantity,
-    exercise_price: { amount: typeof d.exercise_price.amount === 'number' ? String(d.exercise_price.amount) : d.exercise_price.amount, currency: d.exercise_price.currency },
+    exercise_price: d.exercise_price
+      ? { amount: typeof d.exercise_price.amount === 'number' ? String(d.exercise_price.amount) : d.exercise_price.amount, currency: d.exercise_price.currency }
+      : null,
     purchase_price: { amount: typeof d.purchase_price.amount === 'number' ? String(d.purchase_price.amount) : d.purchase_price.amount, currency: d.purchase_price.currency },
     exercise_triggers: triggers,
     ...(d.warrant_expiration_date ? { warrant_expiration_date: (d.warrant_expiration_date as string).split('T')[0] } : {}),
