@@ -22,8 +22,8 @@ export interface CreateWarrantIssuanceParams {
     stockholder_approval_date?: string;
     consideration_text?: string;
     security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-    quantity: string | number;
-    exercise_price: Monetary;
+    quantity?: string | number;
+    exercise_price?: Monetary;
     purchase_price: Monetary;
     exercise_triggers: Array<'AUTOMATIC' | 'OPTIONAL'>;
     warrant_expiration_date?: string;
@@ -48,11 +48,6 @@ export async function createWarrantIssuance(
   client: LedgerJsonApiClient,
   params: CreateWarrantIssuanceParams
 ): Promise<CreateWarrantIssuanceResult> {
-  const issuerEvents = await client.getEventsByContractId({ contractId: params.issuerContractId });
-  const createArg = issuerEvents.created?.createdEvent?.createArgument as IssuerCreateArgShape | undefined;
-  const systemOperator = createArg?.context?.system_operator;
-  if (!systemOperator) throw new Error('System operator not found on Issuer create argument');
-
   const d = params.issuanceData;
   const issuance_data: Fairmint.OpenCapTable.WarrantIssuance.OcfWarrantIssuanceData = {
     ocf_id: d.ocf_id,
@@ -64,8 +59,8 @@ export async function createWarrantIssuance(
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: d.consideration_text ?? null,
     security_law_exemptions: d.security_law_exemptions,
-    quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
-    exercise_price: monetaryToDaml(d.exercise_price),
+    quantity: d.quantity !== undefined && d.quantity !== null ? (typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity) : null,
+    exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),
     exercise_triggers: d.exercise_triggers.map(triggerToDaml) as any,
     warrant_expiration_date: d.warrant_expiration_date ? dateStringToDAMLTime(d.warrant_expiration_date) : null,
@@ -74,22 +69,19 @@ export async function createWarrantIssuance(
     comments: d.comments || []
   } as any;
 
-  const createArguments = {
-    context: {
-      issuer: params.issuerParty,
-      system_operator: systemOperator,
-      featured_app_right: params.featuredAppRightContractDetails.contractId
-    },
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateWarrantIssuance = {
     issuance_data
-  };
+  } as any;
 
   const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty, systemOperator],
+    actAs: [params.issuerParty],
     commands: [
       {
-        CreateCommand: {
-          templateId: Fairmint.OpenCapTable.WarrantIssuance.WarrantIssuance.templateId,
-          createArguments: createArguments as any
+        ExerciseCommand: {
+          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+          contractId: params.issuerContractId,
+          choice: 'CreateWarrantIssuance',
+          choiceArgument: choiceArguments as any
         }
       }
     ],
@@ -114,7 +106,7 @@ export async function createWarrantIssuance(
   };
 }
 
-export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceParams & { systemOperator: string }): {
+export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceParams): {
   command: Command;
   disclosedContracts: DisclosedContract[];
 } {
@@ -129,8 +121,8 @@ export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceP
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: d.consideration_text ?? null,
     security_law_exemptions: d.security_law_exemptions,
-    quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
-    exercise_price: monetaryToDaml(d.exercise_price),
+    quantity: d.quantity !== undefined && d.quantity !== null ? (typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity) : null,
+    exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),
     exercise_triggers: d.exercise_triggers.map(triggerToDaml) as any,
     warrant_expiration_date: d.warrant_expiration_date ? dateStringToDAMLTime(d.warrant_expiration_date) : null,
@@ -139,19 +131,16 @@ export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceP
     comments: d.comments || []
   } as any;
 
-  const createArguments = {
-    context: {
-      issuer: params.issuerParty,
-      system_operator: params.systemOperator,
-      featured_app_right: params.featuredAppRightContractDetails.contractId
-    },
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateWarrantIssuance = {
     issuance_data
-  };
+  } as any;
 
   const command: Command = {
-    CreateCommand: {
-      templateId: Fairmint.OpenCapTable.WarrantIssuance.WarrantIssuance.templateId,
-      createArguments: createArguments as any
+    ExerciseCommand: {
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+      contractId: params.issuerContractId,
+      choice: 'CreateWarrantIssuance',
+      choiceArgument: choiceArguments as any
     }
   };
 

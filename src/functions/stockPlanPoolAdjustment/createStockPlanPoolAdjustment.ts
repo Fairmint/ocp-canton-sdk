@@ -28,10 +28,6 @@ export async function createStockPlanPoolAdjustment(
   client: LedgerJsonApiClient,
   params: CreateStockPlanPoolAdjustmentParams
 ): Promise<CreateStockPlanPoolAdjustmentResult> {
-  const issuerEvents = await client.getEventsByContractId({ contractId: params.issuerContractId });
-  const systemOperator = (issuerEvents.created?.createdEvent?.createArgument as IssuerCreateArgShape | undefined)?.context?.system_operator;
-  if (!systemOperator) throw new Error('System operator not found on Issuer create argument');
-
   const d = params.adjustmentData;
   const adjustment_data: Fairmint.OpenCapTable.StockPlanPoolAdjustment.OcfStockPlanPoolAdjustmentData = {
     ocf_id: d.ocf_id,
@@ -43,19 +39,12 @@ export async function createStockPlanPoolAdjustment(
     comments: d.comments || []
   } as any;
 
-  const createArguments = {
-    context: {
-      issuer: params.issuerParty,
-      system_operator: systemOperator,
-      featured_app_right: params.featuredAppRightContractDetails.contractId
-    },
-    adjustment_data
-  };
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlanPoolAdjustment = { adjustment_data } as any;
 
   const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty, systemOperator],
+    actAs: [params.issuerParty],
     commands: [
-      { CreateCommand: { templateId: Fairmint.OpenCapTable.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId, createArguments: createArguments as any } }
+      { ExerciseCommand: { templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId, contractId: params.issuerContractId, choice: 'CreateStockPlanPoolAdjustment', choiceArgument: choiceArguments as any } }
     ],
     disclosedContracts: [
       { templateId: params.featuredAppRightContractDetails.templateId, contractId: params.featuredAppRightContractDetails.contractId, createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob, synchronizerId: params.featuredAppRightContractDetails.synchronizerId }
@@ -70,7 +59,7 @@ export async function createStockPlanPoolAdjustment(
   return { contractId: created.CreatedTreeEvent.value.contractId, updateId: response.transactionTree.updateId };
 }
 
-export function buildCreateStockPlanPoolAdjustmentCommand(params: CreateStockPlanPoolAdjustmentParams & { systemOperator: string }): { command: Command; disclosedContracts: DisclosedContract[] } {
+export function buildCreateStockPlanPoolAdjustmentCommand(params: CreateStockPlanPoolAdjustmentParams): { command: Command; disclosedContracts: DisclosedContract[] } {
   const d = params.adjustmentData;
   const adjustment_data: Fairmint.OpenCapTable.StockPlanPoolAdjustment.OcfStockPlanPoolAdjustmentData = {
     ocf_id: d.ocf_id,
@@ -82,12 +71,8 @@ export function buildCreateStockPlanPoolAdjustmentCommand(params: CreateStockPla
     comments: d.comments || []
   } as any;
 
-  const createArguments = {
-    context: { issuer: params.issuerParty, system_operator: params.systemOperator, featured_app_right: params.featuredAppRightContractDetails.contractId },
-    adjustment_data
-  };
-
-  const command: Command = { CreateCommand: { templateId: Fairmint.OpenCapTable.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId, createArguments: createArguments as any } };
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlanPoolAdjustment = { adjustment_data } as any;
+  const command: Command = { ExerciseCommand: { templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId, contractId: params.issuerContractId, choice: 'CreateStockPlanPoolAdjustment', choiceArgument: choiceArguments as any } };
   const disclosedContracts: DisclosedContract[] = [ { templateId: params.featuredAppRightContractDetails.templateId, contractId: params.featuredAppRightContractDetails.contractId, createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob, synchronizerId: params.featuredAppRightContractDetails.synchronizerId } ];
   return { command, disclosedContracts };
 }

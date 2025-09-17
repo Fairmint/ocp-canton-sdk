@@ -22,7 +22,7 @@ export interface CreateConvertibleIssuanceParams {
     security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
     investment_amount: Monetary;
     convertible_type: 'NOTE' | 'SAFE' | 'SECURITY';
-    conversion_triggers: Array<'AUTOMATIC' | 'OPTIONAL'>;
+    conversion_triggers: Array<'AUTOMATIC_ON_CONDITION' | 'AUTOMATIC_ON_DATE' | 'ELECTIVE_AT_WILL' | 'ELECTIVE_ON_CONDITION' | 'ELECTIVE_IN_RANGE' | 'UNSPECIFIED' | 'AUTOMATIC' | 'OPTIONAL'>;
     pro_rata?: string | number;
     seniority: number;
     comments?: string[];
@@ -44,19 +44,33 @@ function convertibleTypeToDaml(t: 'NOTE' | 'SAFE' | 'SECURITY'): any {
   }
 }
 
-function triggerToDaml(t: 'AUTOMATIC' | 'OPTIONAL'): any {
-  return t === 'AUTOMATIC' ? 'OcfConversionTriggerAutomatic' : 'OcfConversionTriggerOptional';
+function triggerToDaml(
+  t: 'AUTOMATIC_ON_CONDITION' | 'AUTOMATIC_ON_DATE' | 'ELECTIVE_AT_WILL' | 'ELECTIVE_ON_CONDITION' | 'ELECTIVE_IN_RANGE' | 'UNSPECIFIED' | 'AUTOMATIC' | 'OPTIONAL'
+): any {
+  switch (t) {
+    case 'AUTOMATIC_ON_DATE':
+      return 'OcfTriggerAutomaticOnDate';
+    case 'ELECTIVE_AT_WILL':
+      return 'OcfTriggerElectiveAtWill';
+    case 'ELECTIVE_ON_CONDITION':
+      return 'OcfTriggerElectiveOnCondition';
+    case 'ELECTIVE_IN_RANGE':
+      return 'OcfTriggerElectiveInRange';
+    case 'UNSPECIFIED':
+      return 'OcfTriggerUnspecified';
+    case 'AUTOMATIC':
+      return 'OcfTriggerAutomaticOnCondition';
+    case 'OPTIONAL':
+      return 'OcfTriggerElectiveAtWill';
+    default:
+      return 'OcfTriggerAutomaticOnCondition';
+  }
 }
 
 export async function createConvertibleIssuance(
   client: LedgerJsonApiClient,
   params: CreateConvertibleIssuanceParams
 ): Promise<CreateConvertibleIssuanceResult> {
-  const issuerEvents = await client.getEventsByContractId({ contractId: params.issuerContractId });
-  const createArg = issuerEvents.created?.createdEvent?.createArgument as IssuerCreateArgShape | undefined;
-  const systemOperator = createArg?.context?.system_operator;
-  if (!systemOperator) throw new Error('System operator not found on Issuer create argument');
-
   const d = params.issuanceData;
   const issuance_data: Fairmint.OpenCapTable.ConvertibleIssuance.OcfConvertibleIssuanceTxData = {
     ocf_id: d.ocf_id,
@@ -76,22 +90,19 @@ export async function createConvertibleIssuance(
     comments: d.comments || []
   } as any;
 
-  const createArguments = {
-    context: {
-      issuer: params.issuerParty,
-      system_operator: systemOperator,
-      featured_app_right: params.featuredAppRightContractDetails.contractId
-    },
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateConvertibleIssuance = {
     issuance_data
-  };
+  } as any;
 
   const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty, systemOperator],
+    actAs: [params.issuerParty],
     commands: [
       {
-        CreateCommand: {
-          templateId: Fairmint.OpenCapTable.ConvertibleIssuance.ConvertibleIssuance.templateId,
-          createArguments: createArguments as any
+        ExerciseCommand: {
+          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+          contractId: params.issuerContractId,
+          choice: 'CreateConvertibleIssuance',
+          choiceArgument: choiceArguments as any
         }
       }
     ],
@@ -116,7 +127,7 @@ export async function createConvertibleIssuance(
   };
 }
 
-export function buildCreateConvertibleIssuanceCommand(params: CreateConvertibleIssuanceParams & { systemOperator: string }): {
+export function buildCreateConvertibleIssuanceCommand(params: CreateConvertibleIssuanceParams): {
   command: Command;
   disclosedContracts: DisclosedContract[];
 } {
@@ -139,19 +150,16 @@ export function buildCreateConvertibleIssuanceCommand(params: CreateConvertibleI
     comments: d.comments || []
   } as any;
 
-  const createArguments = {
-    context: {
-      issuer: params.issuerParty,
-      system_operator: params.systemOperator,
-      featured_app_right: params.featuredAppRightContractDetails.contractId
-    },
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateConvertibleIssuance = {
     issuance_data
-  };
+  } as any;
 
   const command: Command = {
-    CreateCommand: {
-      templateId: Fairmint.OpenCapTable.ConvertibleIssuance.ConvertibleIssuance.templateId,
-      createArguments: createArguments as any
+    ExerciseCommand: {
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+      contractId: params.issuerContractId,
+      choice: 'CreateConvertibleIssuance',
+      choiceArgument: choiceArguments as any
     }
   };
 
