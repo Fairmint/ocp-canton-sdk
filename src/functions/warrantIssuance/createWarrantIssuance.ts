@@ -40,8 +40,25 @@ export interface CreateWarrantIssuanceResult {
 
 interface IssuerCreateArgShape { context?: { system_operator?: string } }
 
-function triggerToDaml(t: 'AUTOMATIC' | 'OPTIONAL'): any {
-  return t === 'AUTOMATIC' ? 'OcfConversionTriggerAutomatic' : 'OcfConversionTriggerOptional';
+function triggerToDaml(t: 'AUTOMATIC_ON_CONDITION' | 'AUTOMATIC_ON_DATE' | 'ELECTIVE_AT_WILL' | 'ELECTIVE_ON_CONDITION' | 'ELECTIVE_IN_RANGE' | 'UNSPECIFIED' | 'AUTOMATIC' | 'OPTIONAL'): any {
+  switch (t) {
+    case 'AUTOMATIC_ON_DATE':
+      return 'OcfTriggerAutomaticOnDate';
+    case 'ELECTIVE_AT_WILL':
+      return 'OcfTriggerElectiveAtWill';
+    case 'ELECTIVE_ON_CONDITION':
+      return 'OcfTriggerElectiveOnCondition';
+    case 'ELECTIVE_IN_RANGE':
+      return 'OcfTriggerElectiveInRange';
+    case 'UNSPECIFIED':
+      return 'OcfTriggerUnspecified';
+    case 'AUTOMATIC':
+      return 'OcfTriggerAutomaticOnCondition';
+    case 'OPTIONAL':
+      return 'OcfTriggerElectiveAtWill';
+    default:
+      return 'OcfTriggerAutomaticOnCondition';
+  }
 }
 
 export async function createWarrantIssuance(
