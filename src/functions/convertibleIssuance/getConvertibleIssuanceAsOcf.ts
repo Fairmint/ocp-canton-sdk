@@ -75,12 +75,11 @@ export async function getConvertibleIssuanceAsOcf(
     throw new Error('Missing createArgument for ConvertibleIssuance');
   }
 
-  const arg = created.createArgument as any;
-  function hasIssuanceData(a: unknown): a is { issuance_data: any } {
-    return !!a && typeof a === 'object' && 'issuance_data' in (a as any);
+  const arg = created.createArgument;
+  if (!arg || typeof arg !== 'object' || !('issuance_data' in arg)) {
+    throw new Error('Unexpected createArgument for ConvertibleIssuance');
   }
-  if (!hasIssuanceData(arg)) throw new Error('Unexpected createArgument for ConvertibleIssuance');
-  const d = arg.issuance_data as any;
+  const d = (arg as { issuance_data: Record<string, any> }).issuance_data;
 
   const typeMap: Record<string, 'NOTE' | 'SAFE' | 'SECURITY'> = {
     OcfConvertibleNote: 'NOTE',
@@ -94,6 +93,7 @@ export async function getConvertibleIssuanceAsOcf(
     ocfId: string
   ): ConversionTrigger[] => {
     if (!Array.isArray(ts)) return [];
+
     const defaultRightForType = (): ConvertibleConversionRight => {
       if (convertibleType === 'SAFE') {
         return {
@@ -104,34 +104,74 @@ export async function getConvertibleIssuanceAsOcf(
       }
       return {
         type: 'CONVERTIBLE_CONVERSION_RIGHT',
-        conversion_mechanism: {
-          type: 'CUSTOM_CONVERSION',
-          custom_conversion_description: 'UNSPECIFIED'
-        }
+        conversion_mechanism: { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'UNSPECIFIED' }
       };
     };
+
     const mapTagToType = (tag: string): ConversionTriggerType => {
-      if (tag === 'OcfTriggerAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
-      if (tag === 'OcfTriggerElectiveInRange') return 'ELECTIVE_IN_RANGE';
-      if (tag === 'OcfTriggerElectiveOnCondition') return 'ELECTIVE_ON_CONDITION';
-      if (tag === 'OcfTriggerElectiveAtWill') return 'ELECTIVE_AT_WILL';
-      if (tag === 'OcfTriggerUnspecified') return 'UNSPECIFIED';
-      // Default automatic mapping
+      if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
+      if (tag === 'OcfTriggerTypeTypeElectiveInRange') return 'ELECTIVE_IN_RANGE';
+      if (tag === 'OcfTriggerTypeTypeElectiveOnCondition') return 'ELECTIVE_ON_CONDITION';
+      if (tag === 'OcfTriggerTypeTypeElectiveAtWill') return 'ELECTIVE_AT_WILL';
+      if (tag === 'OcfTriggerTypeTypeUnspecified') return 'UNSPECIFIED';
       return 'AUTOMATIC_ON_CONDITION';
     };
 
+    const mapMechanism = (m: string | undefined): ConvertibleConversionRight['conversion_mechanism'] => {
+      switch (m) {
+        case 'OcfConversionMechanismSAFEConversion':
+          return { type: 'SAFE_CONVERSION', conversion_mfn: false };
+        case 'OcfConversionMechanismNoteConversion':
+          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'NOTE_CONVERSION' };
+        case 'OcfConversionMechanismRatioConversion':
+          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'RATIO_CONVERSION' };
+        case 'OcfConversionMechanismFixedAmountConversion':
+          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'FIXED_AMOUNT_CONVERSION' };
+        case 'OcfConversionMechanismPercentCapitalizationConversion':
+          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'PERCENT_CAPITALIZATION_CONVERSION' };
+        case 'OcfConversionMechanismValuationBasedConversion':
+          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'VALUATION_BASED_CONVERSION' };
+        case 'OcfConversionMechanismSharePriceBasedConversion':
+          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'SHARE_PRICE_BASED_CONVERSION' };
+        case 'OcfConversionMechanismCustomConversion':
+        default:
+          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'CUSTOM_CONVERSION' };
+      }
+    };
+
     return ts.map((raw, idx) => {
-      const tag = typeof raw === 'string' ? raw : (raw as any)?.tag || String(raw);
+      const r = (raw ?? {}) as Record<string, any>;
+      const tag = typeof r.type_ === 'string' ? r.type_ : (typeof r.tag === 'string' ? r.tag : (typeof raw === 'string' ? raw : ''));
       const type: ConversionTriggerType = mapTagToType(String(tag));
+      const trigger_id: string = typeof r.trigger_id === 'string' && r.trigger_id.length ? r.trigger_id : `${ocfId}-trigger-${idx + 1}`;
+      const nickname: string | undefined = typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
+      const trigger_description: string | undefined = typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
+      const trigger_date: string | undefined = typeof r.trigger_date === 'string' && r.trigger_date.length ? (r.trigger_date as string).split('T')[0] : undefined;
+      const trigger_condition: string | undefined = typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
+
+      // Parse conversion_right if present and convertible variant is used
+      let conversion_right: ConvertibleConversionRight = defaultRightForType();
+      if (r.conversion_right && typeof r.conversion_right === 'object' && 'OcfRightConvertible' in r.conversion_right) {
+        const right = (r.conversion_right as any).OcfRightConvertible as Record<string, any>;
+        conversion_right = {
+          type: 'CONVERTIBLE_CONVERSION_RIGHT',
+          conversion_mechanism: mapMechanism(right.conversion_mechanism as string | undefined),
+          ...(typeof right.converts_to_future_round === 'boolean' ? { converts_to_future_round: right.converts_to_future_round } : {}),
+          ...(typeof right.converts_to_stock_class_id === 'string' && right.converts_to_stock_class_id.length
+            ? { converts_to_stock_class_id: right.converts_to_stock_class_id }
+            : {})
+        };
+      }
+
       const trigger: ConversionTrigger = {
         type,
-        trigger_id: `${ocfId}-trigger-${idx + 1}`,
-        conversion_right: defaultRightForType(),
+        trigger_id,
+        conversion_right,
+        ...(nickname ? { nickname } : {}),
+        ...(trigger_description ? { trigger_description } : {}),
+        ...(trigger_date ? { trigger_date } : {}),
+        ...(trigger_condition ? { trigger_condition } : {})
       };
-      if (type === 'AUTOMATIC_ON_CONDITION') {
-        trigger.trigger_description = 'Automatic conversion upon specified condition';
-        trigger.trigger_condition = 'UNSPECIFIED';
-      }
       return trigger;
     });
   };

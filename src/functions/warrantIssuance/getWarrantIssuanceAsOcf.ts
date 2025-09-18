@@ -33,7 +33,7 @@ export async function getWarrantIssuanceAsOcf(
   const triggers = Array.isArray(d.exercise_triggers)
     ? (d.exercise_triggers as any[]).map((t: any) => {
         const v = typeof t === 'string' ? t : t?.tag || t;
-        return String(v).startsWith('OcfTriggerAutomatic') ? 'AUTOMATIC' : 'OPTIONAL';
+        return String(v).startsWith('OcfTriggerTypeAutomatic') ? 'AUTOMATIC' : 'OPTIONAL';
       })
     : [];
 

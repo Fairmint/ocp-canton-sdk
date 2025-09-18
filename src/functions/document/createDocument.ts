@@ -25,7 +25,7 @@ export async function createDocument(
 ): Promise<CreateDocumentResult> {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateDocument = {
     document_data: documentDataToDaml(params.documentData)
-  } as any;
+  };
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
@@ -69,7 +69,7 @@ export function buildCreateDocumentCommand(params: CreateDocumentParams): {
 } {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateDocument = {
     document_data: documentDataToDaml(params.documentData)
-  } as any;
+  };
 
   const command: Command = {
     ExerciseCommand: {

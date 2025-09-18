@@ -18,6 +18,7 @@ export interface CreateEquityCompensationIssuanceParams {
     stakeholder_id: string;
     stock_plan_id?: string;
     stock_class_id?: string;
+    vesting_terms_id?: string;
   };
 }
 
@@ -42,20 +43,23 @@ export async function createEquityCompensationIssuance(
     security_law_exemptions: [],
     stock_plan_id: d.stock_plan_id ?? null,
     stock_class_id: d.stock_class_id ?? null,
+    vesting_terms_id: d.vesting_terms_id ?? null,
     ...equityCompIssuanceDataToDaml(d)
-  } as any;
+  };
 
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateEquityCompensationIssuance = { issuance_data } as any;
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateEquityCompensationIssuance = { issuance_data };
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [ { ExerciseCommand: { templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId, contractId: params.issuerContractId, choice: 'CreateEquityCompensationIssuance', choiceArgument: choiceArguments as any } } ],
+    commands: [ { ExerciseCommand: { templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId, contractId: params.issuerContractId, choice: 'CreateEquityCompensationIssuance', choiceArgument: choiceArguments } } ],
     disclosedContracts: [ { templateId: params.featuredAppRightContractDetails.templateId, contractId: params.featuredAppRightContractDetails.contractId, createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob, synchronizerId: params.featuredAppRightContractDetails.synchronizerId } ]
   }) as SubmitAndWaitForTransactionTreeResponse;
 
-  const created = Object.values(response.transactionTree.eventsById).find((e: any) =>
-    (e as any).CreatedTreeEvent?.value?.templateId?.endsWith(':Fairmint.OpenCapTable.EquityCompensationIssuance.EquityCompensationIssuance')
-  ) as any;
+  type TreeEvent = SubmitAndWaitForTransactionTreeResponse['transactionTree']['eventsById'][string];
+  type CreatedEvent = Extract<TreeEvent, { CreatedTreeEvent: unknown }>;
+  const created = Object.values(response.transactionTree.eventsById).find((e): e is CreatedEvent =>
+    'CreatedTreeEvent' in e && e.CreatedTreeEvent.value.templateId.endsWith(':Fairmint.OpenCapTable.EquityCompensationIssuance.EquityCompensationIssuance')
+  );
   if (!created) throw new Error('Expected EquityCompensationIssuance CreatedTreeEvent not found');
 
   return { contractId: created.CreatedTreeEvent.value.contractId, updateId: response.transactionTree.updateId };
@@ -75,11 +79,12 @@ export function buildCreateEquityCompensationIssuanceCommand(params: CreateEquit
     security_law_exemptions: [],
     stock_plan_id: d.stock_plan_id ?? null,
     stock_class_id: d.stock_class_id ?? null,
+    vesting_terms_id: d.vesting_terms_id ?? null,
     ...equityCompIssuanceDataToDaml(d)
-  } as any;
+  };
 
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateEquityCompensationIssuance = { issuance_data } as any;
-  const command: Command = { ExerciseCommand: { templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId, contractId: params.issuerContractId, choice: 'CreateEquityCompensationIssuance', choiceArgument: choiceArguments as any } };
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateEquityCompensationIssuance = { issuance_data };
+  const command: Command = { ExerciseCommand: { templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId, contractId: params.issuerContractId, choice: 'CreateEquityCompensationIssuance', choiceArgument: choiceArguments } };
   const disclosedContracts: DisclosedContract[] = [ { templateId: params.featuredAppRightContractDetails.templateId, contractId: params.featuredAppRightContractDetails.contractId, createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob, synchronizerId: params.featuredAppRightContractDetails.synchronizerId } ];
   return { command, disclosedContracts };
 }
