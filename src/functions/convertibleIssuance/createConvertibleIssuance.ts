@@ -109,46 +109,7 @@ function triggerTypeToDamlEnum(
 function mechanismInputToDamlEnum(
   m: ConvertibleConversionMechanismInput | undefined
 ): Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism {
-  switch (m) {
-    case 'SAFE_CONVERSION':
-      // minimal payload; using custom with placeholder description would be wrong; choose SAFE with defaults
-      return { tag: 'OcfConvMechSAFE', value: { OcfSAFEConversionMechanism: {
-        conversion_discount: null,
-        conversion_valuation_cap: null,
-        exit_multiple: null,
-        conversion_mfn: false,
-        conversion_timing: null,
-        capitalization_definition: null,
-        capitalization_definition_rules: null
-      } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-    case 'NOTE_CONVERSION':
-      return { tag: 'OcfConvMechNote', value: { OcfNoteConversionMechanism: {
-        interest_rates: [],
-        day_count_convention: 'Act360',
-        interest_payout: 'Simple',
-        interest_accrual_period: 'Monthly',
-        compounding_type: 'None',
-        conversion_discount: null,
-        conversion_valuation_cap: null,
-        capitalization_definition: null,
-        capitalization_definition_rules: null,
-        exit_multiple: null,
-        conversion_mfn: null
-      } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-    case 'RATIO_CONVERSION':
-      return { tag: 'OcfConvMechRatio', value: { OcfRatio: { numerator: 1.0, denominator: 1.0 } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-    case 'FIXED_AMOUNT_CONVERSION':
-      return { tag: 'OcfConvMechFixedAmount', value: { OcfFixedAmountConversionMechanism: { converts_to_quantity: 1.0 } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-    case 'PERCENT_CAPITALIZATION_CONVERSION':
-      return { tag: 'OcfConvMechPercentCapitalization', value: { OcfPercentCapitalizationConversionMechanism: { converts_to_percent: 0.01, capitalization_definition: null, capitalization_definition_rules: null } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-    case 'VALUATION_BASED_CONVERSION':
-      return { tag: 'OcfConvMechValuationBased', value: { OcfValuationBasedConversionMechanism: { valuation_type: 'OcfValuationActual', valuation_amount: null, capitalization_definition: null, capitalization_definition_rules: null } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-    case 'SHARE_PRICE_BASED_CONVERSION':
-      return { tag: 'OcfConvMechSharePriceBased', value: { OcfSharePriceBasedConversionMechanism: { description: 'Share price based', discount: false, discount_percentage: null, discount_amount: null } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-    case 'CUSTOM_CONVERSION':
-    default:
-      return { tag: 'OcfConvMechCustom', value: { OcfCustomConversionMechanism: { custom_conversion_description: 'Custom' } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-  }
+  return { tag: 'OcfConvMechCustom', value: { OcfCustomConversionMechanism: { custom_conversion_description: (m ?? 'CUSTOM_CONVERSION') } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
 }
 
 function buildConvertibleRight(
