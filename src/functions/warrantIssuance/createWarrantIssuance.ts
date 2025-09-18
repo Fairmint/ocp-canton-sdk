@@ -212,6 +212,9 @@ export async function createWarrantIssuance(
   params: CreateWarrantIssuanceParams
 ): Promise<CreateWarrantIssuanceResult> {
   const d = params.issuanceData;
+  // Default quantity_source to UNSPECIFIED when quantity is provided per schema
+  const quantitySourceDaml =
+    d.quantity !== undefined && d.quantity !== null ? ('OcfQuantityUnspecified' as unknown as Fairmint.OpenCapTable.Types.OcfQuantitySourceType) : null;
   const issuance_data: Fairmint.OpenCapTable.WarrantIssuance.OcfWarrantIssuanceData = {
     ocf_id: d.ocf_id,
     date: dateStringToDAMLTime(d.date),
@@ -223,7 +226,7 @@ export async function createWarrantIssuance(
     consideration_text: d.consideration_text ?? null,
     security_law_exemptions: d.security_law_exemptions,
     quantity: d.quantity !== undefined && d.quantity !== null ? (typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity) : null,
-    quantity_source: null,
+    quantity_source: quantitySourceDaml,
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),
     exercise_triggers: d.exercise_triggers.map((t, idx) => buildWarrantTrigger(t, idx, d.ocf_id)),
@@ -277,6 +280,9 @@ export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceP
   disclosedContracts: DisclosedContract[];
 } {
   const d = params.issuanceData;
+  // Default quantity_source to UNSPECIFIED when quantity is provided per schema
+  const quantitySourceDaml =
+    d.quantity !== undefined && d.quantity !== null ? ('OcfQuantityUnspecified' as unknown as Fairmint.OpenCapTable.Types.OcfQuantitySourceType) : null;
   const issuance_data: Fairmint.OpenCapTable.WarrantIssuance.OcfWarrantIssuanceData = {
     ocf_id: d.ocf_id,
     date: dateStringToDAMLTime(d.date),
@@ -288,7 +294,7 @@ export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceP
     consideration_text: d.consideration_text ?? null,
     security_law_exemptions: d.security_law_exemptions,
     quantity: d.quantity !== undefined && d.quantity !== null ? (typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity) : null,
-    quantity_source: null,
+    quantity_source: quantitySourceDaml,
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),
     exercise_triggers: d.exercise_triggers.map((t, idx) => buildWarrantTrigger(t, idx, d.ocf_id)),

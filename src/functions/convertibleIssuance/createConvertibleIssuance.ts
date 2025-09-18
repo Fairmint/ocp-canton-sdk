@@ -108,31 +108,52 @@ function triggerTypeToDamlEnum(
 
 function mechanismInputToDamlEnum(
   m: ConvertibleConversionMechanismInput | undefined
-): Fairmint.OpenCapTable.StockClass.OcfConversionMechanism {
+): Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism {
   switch (m) {
     case 'SAFE_CONVERSION':
-      return 'OcfConversionMechanismSAFEConversion';
+      // minimal payload; using custom with placeholder description would be wrong; choose SAFE with defaults
+      return { tag: 'OcfConvMechSAFE', value: { OcfSAFEConversionMechanism: {
+        conversion_discount: null,
+        conversion_valuation_cap: null,
+        exit_multiple: null,
+        conversion_mfn: false,
+        conversion_timing: null,
+        capitalization_definition: null,
+        capitalization_definition_rules: null
+      } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
     case 'NOTE_CONVERSION':
-      return 'OcfConversionMechanismNoteConversion';
+      return { tag: 'OcfConvMechNote', value: { OcfNoteConversionMechanism: {
+        interest_rates: [],
+        day_count_convention: 'Act360',
+        interest_payout: 'Simple',
+        interest_accrual_period: 'Monthly',
+        compounding_type: 'None',
+        conversion_discount: null,
+        conversion_valuation_cap: null,
+        capitalization_definition: null,
+        capitalization_definition_rules: null,
+        exit_multiple: null,
+        conversion_mfn: null
+      } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
     case 'RATIO_CONVERSION':
-      return 'OcfConversionMechanismRatioConversion';
+      return { tag: 'OcfConvMechRatio', value: { OcfRatio: { numerator: 1.0, denominator: 1.0 } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
     case 'FIXED_AMOUNT_CONVERSION':
-      return 'OcfConversionMechanismFixedAmountConversion';
+      return { tag: 'OcfConvMechFixedAmount', value: { OcfFixedAmountConversionMechanism: { converts_to_quantity: 1.0 } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
     case 'PERCENT_CAPITALIZATION_CONVERSION':
-      return 'OcfConversionMechanismPercentCapitalizationConversion';
+      return { tag: 'OcfConvMechPercentCapitalization', value: { OcfPercentCapitalizationConversionMechanism: { converts_to_percent: 0.01, capitalization_definition: null, capitalization_definition_rules: null } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
     case 'VALUATION_BASED_CONVERSION':
-      return 'OcfConversionMechanismValuationBasedConversion';
+      return { tag: 'OcfConvMechValuationBased', value: { OcfValuationBasedConversionMechanism: { valuation_type: 'OcfValuationActual', valuation_amount: null, capitalization_definition: null, capitalization_definition_rules: null } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
     case 'SHARE_PRICE_BASED_CONVERSION':
-      return 'OcfConversionMechanismSharePriceBasedConversion';
+      return { tag: 'OcfConvMechSharePriceBased', value: { OcfSharePriceBasedConversionMechanism: { description: 'Share price based', discount: false, discount_percentage: null, discount_amount: null } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
     case 'CUSTOM_CONVERSION':
     default:
-      return 'OcfConversionMechanismCustomConversion';
+      return { tag: 'OcfConvMechCustom', value: { OcfCustomConversionMechanism: { custom_conversion_description: 'Custom' } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
   }
 }
 
 function buildConvertibleRight(
   input: ConversionTriggerInput | undefined
-): Fairmint.OpenCapTable.StockClass.OcfAnyConversionRight {
+): Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionRight {
   const details = typeof input === 'object' && input !== null && 'conversion_right' in input ? (input as Exclude<ConversionTriggerInput, ConversionTriggerTypeInput>).conversion_right : undefined;
   const mechanism = mechanismInputToDamlEnum(details?.conversion_mechanism);
   const convertsToFutureRound =
@@ -144,19 +165,14 @@ function buildConvertibleRight(
     converts_to_future_round: convertsToFutureRound,
     converts_to_stock_class_id: convertsToStockClassId
   } as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionRight;
-  // Encode DAML variant as { tag, value }
-  const anyRight = {
-    tag: 'OcfRightConvertible',
-    value: convertibleRight
-  } as unknown as Fairmint.OpenCapTable.StockClass.OcfAnyConversionRight;
-  return anyRight;
+  return convertibleRight;
 }
 
 function buildTriggerToDaml(
   t: ConversionTriggerInput,
   index: number,
   ocfId: string
-): Fairmint.OpenCapTable.StockClass.OcfConversionTrigger {
+): Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionTrigger {
   const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
   const trigger_id = typeof t === 'object' && t.trigger_id ? t.trigger_id : `${ocfId}-trigger-${index + 1}`;
@@ -173,7 +189,7 @@ function buildTriggerToDaml(
     conversion_right,
     trigger_date: trigger_dateStr ? dateStringToDAMLTime(trigger_dateStr) : null,
     trigger_condition
-  };
+  } as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionTrigger;
 }
 
 export async function createConvertibleIssuance(

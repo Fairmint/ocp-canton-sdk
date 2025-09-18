@@ -1234,15 +1234,22 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfV
     next_condition_ids: c.next_condition_ids || []
   };
   const portionUnknown = c.portion as unknown;
-  if (
-    portionUnknown &&
-    typeof portionUnknown === 'object' &&
-    'tag' in portionUnknown &&
-    (portionUnknown as { tag: unknown }).tag === 'Some' &&
-    'value' in portionUnknown
-  ) {
-    const value = (portionUnknown as { value: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion }).value;
-    native.portion = damlVestingConditionPortionToNative(value);
+  if (portionUnknown) {
+    // Handle Optional encoded as { tag: 'Some', value: {...} }
+    if (
+      typeof portionUnknown === 'object' &&
+      'tag' in portionUnknown &&
+      (portionUnknown as { tag: unknown }).tag === 'Some' &&
+      'value' in portionUnknown
+    ) {
+      const value = (portionUnknown as { value: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion }).value;
+      native.portion = damlVestingConditionPortionToNative(value);
+    } else if (typeof portionUnknown === 'object') {
+      // Handle Optional normalized to direct value (no tag), as produced in JSON API command normalization
+      native.portion = damlVestingConditionPortionToNative(
+        portionUnknown as Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion
+      );
+    }
   }
   return native;
 }
