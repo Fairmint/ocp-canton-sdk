@@ -1,7 +1,7 @@
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 
 export interface OcfStockCancellationEvent {
-  object_type: 'STOCK_CANCELLATION';
+  object_type: 'TX_STOCK_CANCELLATION';
   id: string;
   date: string;
   security_id: string;
@@ -23,7 +23,7 @@ export async function getStockCancellationEventAsOcf(
   const d = res.created.createdEvent.createArgument as any;
   const data = d.cancellation_data || d; // template stores as cancellation_data
   const event: OcfStockCancellationEvent = {
-    object_type: 'STOCK_CANCELLATION',
+    object_type: 'TX_STOCK_CANCELLATION',
     id: data.ocf_id,
     date: (data.date as string).split('T')[0],
     security_id: data.security_id,

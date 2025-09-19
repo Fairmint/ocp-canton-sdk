@@ -53,28 +53,26 @@ type WarrantTriggerTypeInput =
   | 'ELECTIVE_AT_WILL'
   | 'ELECTIVE_ON_CONDITION'
   | 'ELECTIVE_IN_RANGE'
-  | 'UNSPECIFIED'
-  | 'AUTOMATIC' // Back-compat simple flags
-  | 'OPTIONAL';
+  | 'UNSPECIFIED';
 
 type WarrantConversionMechanismInput =
-  | { type: 'CUSTOM'; custom_conversion_description: string }
+  | { type: 'CUSTOM_CONVERSION'; custom_conversion_description: string }
   | {
-      type: 'PERCENT_CAPITALIZATION';
+      type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
       converts_to_percent: string | number;
       capitalization_definition?: string | null;
       capitalization_definition_rules?: Record<string, unknown> | null;
     }
   | { type: 'FIXED_AMOUNT_CONVERSION'; converts_to_quantity: string | number }
   | {
-      type: 'VALUATION_BASED';
+      type: 'VALUATION_BASED_CONVERSION';
       valuation_type: string;
       valuation_amount?: Monetary | null;
       capitalization_definition?: string | null;
       capitalization_definition_rules?: Record<string, unknown> | null;
     }
   | {
-      type: 'SHARE_PRICE_BASED';
+      type: 'SHARE_PRICE_BASED_CONVERSION';
       description: string;
       discount: boolean;
       discount_percentage?: string | number | null;
@@ -97,14 +95,12 @@ export type WarrantExerciseTriggerInput =
       };
     };
 
-function normalizeTriggerType(t: WarrantTriggerTypeInput): Exclude<WarrantTriggerTypeInput, 'AUTOMATIC' | 'OPTIONAL'> {
-  if (t === 'AUTOMATIC') return 'AUTOMATIC_ON_CONDITION';
-  if (t === 'OPTIONAL') return 'ELECTIVE_AT_WILL';
+function normalizeTriggerType(t: WarrantTriggerTypeInput): WarrantTriggerTypeInput {
   return t;
 }
 
 function triggerTypeToDamlEnum(
-  t: Exclude<WarrantTriggerTypeInput, 'AUTOMATIC' | 'OPTIONAL'>
+  t: WarrantTriggerTypeInput
 ): Fairmint.OpenCapTable.StockClass.OcfConversionTriggerType {
   switch (t) {
     case 'AUTOMATIC_ON_DATE':
@@ -120,7 +116,7 @@ function triggerTypeToDamlEnum(
     case 'AUTOMATIC_ON_CONDITION':
       return 'OcfTriggerTypeTypeAutomaticOnCondition';
     default:
-      throw new Error(`Unknown trigger type: ${t}`);
+      throw new Error(`Unknown warrant trigger type: ${t}`);
   }
 }
 
@@ -128,12 +124,12 @@ function warrantMechanismToDamlVariant(
   m?: WarrantConversionMechanismInput
 ): Fairmint.OpenCapTable.StockClass.OcfWarrantConversionMechanism {
   if (!m) {
-    return { tag: 'OcfWarrantMechanismCustom', value: { custom_conversion_description: 'Custom warrant conversion' } } as unknown as Fairmint.OpenCapTable.StockClass.OcfWarrantConversionMechanism;
+    throw new Error('conversion_right.conversion_mechanism is required for warrant issuance');
   }
   switch (m.type) {
-    case 'CUSTOM':
+    case 'CUSTOM_CONVERSION':
       return { tag: 'OcfWarrantMechanismCustom', value: { custom_conversion_description: m.custom_conversion_description } } as unknown as Fairmint.OpenCapTable.StockClass.OcfWarrantConversionMechanism;
-    case 'PERCENT_CAPITALIZATION':
+    case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
@@ -149,7 +145,7 @@ function warrantMechanismToDamlVariant(
           converts_to_quantity: typeof m.converts_to_quantity === 'number' ? m.converts_to_quantity.toString() : m.converts_to_quantity
         }
       } as unknown as Fairmint.OpenCapTable.StockClass.OcfWarrantConversionMechanism;
-    case 'VALUATION_BASED':
+    case 'VALUATION_BASED_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismValuationBased',
         value: {
@@ -159,7 +155,7 @@ function warrantMechanismToDamlVariant(
           capitalization_definition_rules: m.capitalization_definition_rules ?? null
         }
       } as unknown as Fairmint.OpenCapTable.StockClass.OcfWarrantConversionMechanism;
-    case 'SHARE_PRICE_BASED':
+    case 'SHARE_PRICE_BASED_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismSharePriceBased',
         value: {
@@ -170,7 +166,7 @@ function warrantMechanismToDamlVariant(
         }
       } as unknown as Fairmint.OpenCapTable.StockClass.OcfWarrantConversionMechanism;
     default:
-      return { tag: 'OcfWarrantMechanismCustom', value: { custom_conversion_description: 'Custom warrant conversion' } } as unknown as Fairmint.OpenCapTable.StockClass.OcfWarrantConversionMechanism;
+      throw new Error(`Unknown warrant conversion mechanism type: ${(m as any).type}`);
   }
 }
 
@@ -192,24 +188,11 @@ function buildWarrantRight(input: WarrantExerciseTriggerInput | undefined): Fair
   return anyRight;
 }
 
-function quantitySourceToDamlEnumFlexible(
-  qs: CreateWarrantIssuanceParams['issuanceData']['quantity_source'] | string | null | undefined
+function quantitySourceToDamlEnumStrict(
+  qs: CreateWarrantIssuanceParams['issuanceData']['quantity_source'] | null | undefined
 ): Fairmint.OpenCapTable.Types.OcfQuantitySourceType | null {
   if (qs === undefined || qs === null) return null;
-  // Pass-through if caller already provides a valid DAML tag
-  const allowedTags: Array<Fairmint.OpenCapTable.Types.OcfQuantitySourceType> = [
-    'OcfQuantityHumanEstimated',
-    'OcfQuantityMachineEstimated',
-    'OcfQuantityUnspecified',
-    'OcfQuantityInstrumentFixed',
-    'OcfQuantityInstrumentMax',
-    'OcfQuantityInstrumentMin'
-  ];
-  if (typeof qs === 'string' && (allowedTags as readonly string[]).includes(qs)) {
-    return qs as Fairmint.OpenCapTable.Types.OcfQuantitySourceType;
-  }
-  const normalized = String(qs).trim().toUpperCase().replace(/[\s-]+/g, '_');
-  switch (normalized) {
+  switch (qs) {
     case 'HUMAN_ESTIMATED':
       return 'OcfQuantityHumanEstimated';
     case 'MACHINE_ESTIMATED':
@@ -223,7 +206,7 @@ function quantitySourceToDamlEnumFlexible(
     case 'INSTRUMENT_MIN':
       return 'OcfQuantityInstrumentMin';
     default:
-      return null;
+      throw new Error(`Unknown quantity_source: ${qs}`);
   }
 }
 
@@ -234,11 +217,12 @@ function buildWarrantTrigger(
 ): Fairmint.OpenCapTable.StockClass.OcfConversionTrigger {
   const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
-  const trigger_id = typeof t === 'object' && t.trigger_id ? t.trigger_id : `${ocfId}-warrant-trigger-${index + 1}`;
-  const nickname = typeof t === 'object' && t.nickname ? t.nickname : null;
-  const trigger_description = typeof t === 'object' && t.trigger_description ? t.trigger_description : null;
-  const trigger_dateStr = typeof t === 'object' && t.trigger_date ? t.trigger_date : undefined;
-  const trigger_condition = typeof t === 'object' && t.trigger_condition ? t.trigger_condition : null;
+  if (typeof t !== 'object' || !t.trigger_id) throw new Error('trigger_id is required for each warrant exercise trigger');
+  const trigger_id = t.trigger_id;
+  const nickname = typeof t.nickname === 'string' ? t.nickname : null;
+  const trigger_description = typeof t.trigger_description === 'string' ? t.trigger_description : null;
+  const trigger_dateStr = typeof t.trigger_date === 'string' ? t.trigger_date : undefined;
+  const trigger_condition = typeof t.trigger_condition === 'string' ? t.trigger_condition : null;
   const conversion_right = buildWarrantRight(t);
   return {
     type_: typeEnum,
@@ -256,15 +240,10 @@ export async function createWarrantIssuance(
   params: CreateWarrantIssuanceParams
 ): Promise<CreateWarrantIssuanceResult> {
   const d = params.issuanceData;
-  const mappedQuantitySource = quantitySourceToDamlEnumFlexible(d.quantity_source);
-  const quantitySourceDaml:
-    | Fairmint.OpenCapTable.Types.OcfQuantitySourceType
-    | null =
-    mappedQuantitySource !== null
-      ? mappedQuantitySource
-      : d.quantity !== undefined && d.quantity !== null
-      ? 'OcfQuantityUnspecified'
-      : null;
+  const quantitySourceDaml = quantitySourceToDamlEnumStrict(d.quantity_source);
+  if (d.quantity !== undefined && d.quantity !== null && quantitySourceDaml === null) {
+    throw new Error('quantity_source is required when quantity is provided');
+  }
   const issuance_data: Fairmint.OpenCapTable.WarrantIssuance.OcfWarrantIssuanceData = {
     ocf_id: d.ocf_id,
     date: dateStringToDAMLTime(d.date),
@@ -330,15 +309,10 @@ export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceP
   disclosedContracts: DisclosedContract[];
 } {
   const d = params.issuanceData;
-  const mappedQuantitySource = quantitySourceToDamlEnumFlexible(d.quantity_source);
-  const quantitySourceDaml:
-    | Fairmint.OpenCapTable.Types.OcfQuantitySourceType
-    | null =
-    mappedQuantitySource !== null
-      ? mappedQuantitySource
-      : d.quantity !== undefined && d.quantity !== null
-      ? 'OcfQuantityUnspecified'
-      : null;
+  const quantitySourceDaml = quantitySourceToDamlEnumStrict(d.quantity_source);
+  if (d.quantity !== undefined && d.quantity !== null && quantitySourceDaml === null) {
+    throw new Error('quantity_source is required when quantity is provided');
+  }
   const issuance_data: Fairmint.OpenCapTable.WarrantIssuance.OcfWarrantIssuanceData = {
     ocf_id: d.ocf_id,
     date: dateStringToDAMLTime(d.date),
