@@ -107,9 +107,133 @@ function triggerTypeToDamlEnum(
 }
 
 function mechanismInputToDamlEnum(
-  m: ConvertibleConversionMechanismInput | undefined
+  m: ConvertibleConversionMechanismInput | (Record<string, unknown> & { type?: string }) | undefined
 ): Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism {
-  return { tag: 'OcfConvMechCustom', value: { OcfCustomConversionMechanism: { custom_conversion_description: (m ?? 'CUSTOM_CONVERSION') } } } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+  // If caller passed a simple string enum, map minimally
+  if (typeof m === 'string') {
+    const t = m.toUpperCase();
+    if (t === 'SAFE_CONVERSION') {
+      return {
+        tag: 'OcfConvMechSAFE',
+        value: {
+          conversion_discount: null,
+          conversion_valuation_cap: null,
+          exit_multiple: null,
+          conversion_mfn: false,
+          conversion_timing: null,
+          capitalization_definition: null,
+          capitalization_definition_rules: null
+        }
+      } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+    }
+    if (t === 'PERCENT_CAPITALIZATION_CONVERSION') {
+      return {
+        tag: 'OcfConvMechPercentCapitalization',
+        value: {
+          converts_to_percent: '0',
+          capitalization_definition: null,
+          capitalization_definition_rules: null
+        }
+      } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+    }
+    if (t === 'FIXED_AMOUNT_CONVERSION') {
+      return {
+        tag: 'OcfConvMechFixedAmount',
+        value: { converts_to_quantity: '0' }
+      } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+    }
+    // Fallback to CUSTOM with a simple string description
+    return {
+      tag: 'OcfConvMechCustom',
+      value: { OcfCustomConversionMechanism: { custom_conversion_description: t || 'CUSTOM_CONVERSION' } }
+    } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+  }
+
+  // If caller passed a structured object from OCF builders, map per-type
+  if (m && typeof m === 'object') {
+    const typeStr = String(m.type || '').toUpperCase();
+
+    // Helper: map capitalization_definition_rules plain booleans to DAML type
+    const mapCapRules = (rules: any) => {
+      if (!rules || typeof rules !== 'object') return null;
+      return {
+        include_outstanding_shares: !!rules.include_outstanding_shares,
+        include_outstanding_options: !!rules.include_outstanding_options,
+        include_outstanding_unissued_options: !!rules.include_outstanding_unissued_options,
+        include_this_security: !!rules.include_this_security,
+        include_other_converting_securities: !!rules.include_other_converting_securities,
+        include_option_pool_topup_for_promised_options: !!rules.include_option_pool_topup_for_promised_options,
+        include_additional_option_pool_topup: !!rules.include_additional_option_pool_topup,
+        include_new_money: !!rules.include_new_money
+      } as unknown as Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules;
+    };
+
+    const safeTiming = (v: unknown): any => {
+      const s = String(v || '').toUpperCase();
+      if (s === 'PRE_MONEY') return 'OcfConversionTimingPreMoney';
+      if (s === 'POST_MONEY') return 'OcfConversionTimingPostMoney';
+      return null;
+    };
+
+    switch (typeStr) {
+      case 'SAFE_CONVERSION': {
+        const anyM = m as Record<string, unknown>;
+        return {
+          tag: 'OcfConvMechSAFE',
+          value: {
+            conversion_discount: anyM.conversion_discount ?? null,
+            conversion_valuation_cap: anyM.conversion_valuation_cap ? monetaryToDaml(anyM.conversion_valuation_cap as any) : null,
+            exit_multiple: null,
+            conversion_mfn: Boolean(anyM.conversion_mfn),
+            conversion_timing: safeTiming(anyM.conversion_timing),
+            capitalization_definition: (anyM.capitalization_definition as string) || null,
+            capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules)
+          }
+        } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+      }
+      case 'PERCENT_CAPITALIZATION_CONVERSION': {
+        const anyM = m as Record<string, unknown>;
+        return {
+          tag: 'OcfConvMechPercentCapitalization',
+          value: {
+            converts_to_percent: typeof anyM.converts_to_percent === 'number' ? String(anyM.converts_to_percent) : (anyM.converts_to_percent as string) || '0',
+            capitalization_definition: (anyM.capitalization_definition as string) || null,
+            capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules)
+          }
+        } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+      }
+      case 'FIXED_AMOUNT_CONVERSION': {
+        const anyM = m as Record<string, unknown>;
+        return {
+          tag: 'OcfConvMechFixedAmount',
+          value: {
+            converts_to_quantity: typeof anyM.converts_to_quantity === 'number' ? String(anyM.converts_to_quantity) : (anyM.converts_to_quantity as string) || '0'
+          }
+        } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+      }
+      case 'CUSTOM_CONVERSION': {
+        const anyM = m as Record<string, unknown>;
+        const desc = (anyM.custom_conversion_description as string) || (anyM.custom_description as string) || (anyM.description as string) || 'Custom';
+        return {
+          tag: 'OcfConvMechCustom',
+          value: { OcfCustomConversionMechanism: { custom_conversion_description: desc } }
+        } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+      }
+      default: {
+        // Unknown/unsupported -> collapse to CUSTOM with textual marker
+        return {
+          tag: 'OcfConvMechCustom',
+          value: { OcfCustomConversionMechanism: { custom_conversion_description: typeStr || 'CUSTOM_CONVERSION' } }
+        } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+      }
+    }
+  }
+
+  // No mechanism provided -> default to CUSTOM with UNSPECIFIED
+  return {
+    tag: 'OcfConvMechCustom',
+    value: { OcfCustomConversionMechanism: { custom_conversion_description: 'UNSPECIFIED' } }
+  } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
 }
 
 function buildConvertibleRight(
