@@ -153,11 +153,12 @@ export async function getWarrantIssuanceAsOcf(
           ...(value.discount_amount ? { discount_amount: mapMonetary(value.discount_amount)! } : {})
         } as WarrantSharePriceBasedMechanism;
       case 'OcfWarrantMechanismCustom':
-      default:
         return {
           type: 'CUSTOM_CONVERSION',
-          custom_conversion_description: value.custom_conversion_description || 'Custom'
+          custom_conversion_description: value.custom_conversion_description
         } as WarrantCustomMechanism;
+      default:
+        throw new Error(`Unknown warrant mechanism: ${tag}`);
     }
   };
 

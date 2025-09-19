@@ -216,15 +216,11 @@ function mechanismInputToDamlEnum(
         const desc = (anyM.custom_conversion_description as string) || (anyM.custom_description as string) || (anyM.description as string) || 'Custom';
         return {
           tag: 'OcfConvMechCustom',
-          value: { OcfCustomConversionMechanism: { custom_conversion_description: desc } }
+          value: { custom_conversion_description: desc }
         } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
       }
       default: {
-        // Unknown/unsupported -> collapse to CUSTOM with textual marker
-        return {
-          tag: 'OcfConvMechCustom',
-          value: { OcfCustomConversionMechanism: { custom_conversion_description: typeStr || 'CUSTOM_CONVERSION' } }
-        } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+        throw new Error(`Unknown conversion mechanism: ${typeStr}`);
       }
     }
   }
@@ -232,7 +228,7 @@ function mechanismInputToDamlEnum(
   // No mechanism provided -> default to CUSTOM with UNSPECIFIED
   return {
     tag: 'OcfConvMechCustom',
-    value: { OcfCustomConversionMechanism: { custom_conversion_description: 'UNSPECIFIED' } }
+    value: { custom_conversion_description: 'UNSPECIFIED' }
   } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
 }
 
