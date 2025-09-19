@@ -11,17 +11,72 @@ type ConversionTriggerType =
 
 type CustomConversionMechanism = {
   type: 'CUSTOM_CONVERSION';
-  custom_conversion_description: string;
+  custom_conversion_description?: string;
 };
 
 type SafeConversionMechanism = {
   type: 'SAFE_CONVERSION';
   conversion_mfn: boolean;
+  conversion_discount?: string;
+  conversion_valuation_cap?: { amount: string; currency: string };
+  conversion_timing?: 'PRE_MONEY' | 'POST_MONEY';
+  capitalization_definition?: string;
+  capitalization_definition_rules?: any;
+};
+
+type PercentCapitalizationMechanism = {
+  type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
+  converts_to_percent: string;
+  capitalization_definition?: string;
+  capitalization_definition_rules?: any;
+};
+
+type FixedAmountMechanism = {
+  type: 'FIXED_AMOUNT_CONVERSION';
+  converts_to_quantity: string;
+};
+
+type ValuationBasedMechanism = {
+  type: 'VALUATION_BASED_CONVERSION';
+  valuation_type?: string;
+  valuation_amount?: { amount: string; currency: string };
+  capitalization_definition?: string;
+  capitalization_definition_rules?: any;
+};
+
+type SharePriceBasedMechanism = {
+  type: 'SHARE_PRICE_BASED_CONVERSION';
+  description?: string;
+  discount: boolean;
+  discount_percentage?: string;
+  discount_amount?: { amount: string; currency: string };
+};
+
+type NoteConversionMechanism = {
+  type: 'CONVERTIBLE_NOTE_CONVERSION';
+  interest_rates: Array<{ rate: string; period_type?: string; basis_points?: string }> | null;
+  day_count_convention?: string;
+  interest_payout?: string;
+  interest_accrual_period?: string;
+  compounding_type?: string;
+  conversion_discount?: string;
+  conversion_valuation_cap?: { amount: string; currency: string };
+  capitalization_definition?: string;
+  capitalization_definition_rules?: any;
+  exit_multiple?: { numerator: string; denominator: string } | null;
+  conversion_mfn?: boolean;
 };
 
 type ConvertibleConversionRight = {
   type: 'CONVERTIBLE_CONVERSION_RIGHT';
-  conversion_mechanism: CustomConversionMechanism | SafeConversionMechanism;
+  conversion_mechanism:
+    | CustomConversionMechanism
+    | SafeConversionMechanism
+    | PercentCapitalizationMechanism
+    | FixedAmountMechanism
+    | ValuationBasedMechanism
+    | SharePriceBasedMechanism
+    | NoteConversionMechanism;
   converts_to_future_round?: boolean;
   converts_to_stock_class_id?: string;
 };
@@ -94,7 +149,7 @@ export async function getConvertibleIssuanceAsOcf(
   ): ConversionTrigger[] => {
     if (!Array.isArray(ts)) return [];
 
-    const defaultRightForType = (): ConvertibleConversionRight => {
+    const defaultRightForType = (): ConvertibleConversionRight | undefined => {
       if (convertibleType === 'SAFE') {
         return {
           type: 'CONVERTIBLE_CONVERSION_RIGHT',
@@ -102,10 +157,7 @@ export async function getConvertibleIssuanceAsOcf(
           converts_to_future_round: true
         };
       }
-      return {
-        type: 'CONVERTIBLE_CONVERSION_RIGHT',
-        conversion_mechanism: { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'UNSPECIFIED' }
-      };
+      return undefined;
     };
 
     const mapTagToType = (tag: string): ConversionTriggerType => {
@@ -117,26 +169,122 @@ export async function getConvertibleIssuanceAsOcf(
       return 'AUTOMATIC_ON_CONDITION';
     };
 
-    const mapMechanism = (m: string | undefined): ConvertibleConversionRight['conversion_mechanism'] => {
-      switch (m) {
-        case 'OcfConversionMechanismSAFEConversion':
-          return { type: 'SAFE_CONVERSION', conversion_mfn: false };
-        case 'OcfConversionMechanismNoteConversion':
-          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'NOTE_CONVERSION' };
-        case 'OcfConversionMechanismRatioConversion':
-          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'RATIO_CONVERSION' };
-        case 'OcfConversionMechanismFixedAmountConversion':
-          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'FIXED_AMOUNT_CONVERSION' };
-        case 'OcfConversionMechanismPercentCapitalizationConversion':
-          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'PERCENT_CAPITALIZATION_CONVERSION' };
-        case 'OcfConversionMechanismValuationBasedConversion':
-          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'VALUATION_BASED_CONVERSION' };
-        case 'OcfConversionMechanismSharePriceBasedConversion':
-          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'SHARE_PRICE_BASED_CONVERSION' };
-        case 'OcfConversionMechanismCustomConversion':
-        default:
-          return { type: 'CUSTOM_CONVERSION', custom_conversion_description: 'CUSTOM_CONVERSION' };
+    const mapMechanism = (m: unknown): ConvertibleConversionRight['conversion_mechanism'] => {
+      // Handle both string enum and DAML variant { tag, value }
+      const mapMonetary = (mon: any): { amount: string; currency: string } | undefined => {
+        if (!mon) return undefined;
+        const amount = typeof mon.amount === 'number' ? String(mon.amount) : mon.amount;
+        return { amount, currency: mon.currency };
+      };
+      const mapTiming = (t: unknown): 'PRE_MONEY' | 'POST_MONEY' | undefined => {
+        const s = String(t || '');
+        if (s.endsWith('PreMoney')) return 'PRE_MONEY';
+        if (s.endsWith('PostMoney')) return 'POST_MONEY';
+        return undefined;
+      };
+
+      if (typeof m === 'string') {
+        throw new Error(`conversion_mechanism missing variant value (got tag '${m}')`);
       }
+
+      if (m && typeof m === 'object') {
+        const tag = (m as any).tag as string | undefined;
+        const value = (m as any).value as Record<string, any> | undefined;
+        switch (tag) {
+          case 'OcfConvMechSAFE': {
+            const mech: SafeConversionMechanism = {
+              type: 'SAFE_CONVERSION',
+              conversion_mfn: Boolean(value?.conversion_mfn),
+              ...(value?.conversion_discount !== undefined && value?.conversion_discount !== null
+                ? { conversion_discount: typeof value.conversion_discount === 'number' ? String(value.conversion_discount) : value.conversion_discount }
+                : {}),
+              ...(value?.conversion_valuation_cap ? { conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap)! } : {}),
+              ...(value?.conversion_timing ? { conversion_timing: mapTiming(value.conversion_timing) } : {}),
+              ...(value?.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
+              ...(value?.capitalization_definition_rules ? { capitalization_definition_rules: value.capitalization_definition_rules } : {})
+            };
+            return mech;
+          }
+          case 'OcfConvMechPercentCapitalization': {
+            const mech: PercentCapitalizationMechanism = {
+              type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+              converts_to_percent: typeof value?.converts_to_percent === 'number' ? String(value?.converts_to_percent) : value?.converts_to_percent,
+              ...(value?.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
+              ...(value?.capitalization_definition_rules ? { capitalization_definition_rules: value.capitalization_definition_rules } : {})
+            } as PercentCapitalizationMechanism;
+            return mech;
+          }
+          case 'OcfConvMechFixedAmount': {
+            const mech: FixedAmountMechanism = {
+              type: 'FIXED_AMOUNT_CONVERSION',
+              converts_to_quantity: typeof value?.converts_to_quantity === 'number' ? String(value?.converts_to_quantity) : value?.converts_to_quantity
+            } as FixedAmountMechanism;
+            return mech;
+          }
+          case 'OcfConvMechValuationBased': {
+            const mech: ValuationBasedMechanism = {
+              type: 'VALUATION_BASED_CONVERSION',
+              valuation_type: value?.valuation_type,
+              ...(value?.valuation_amount ? { valuation_amount: mapMonetary(value.valuation_amount)! } : {}),
+              ...(value?.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
+              ...(value?.capitalization_definition_rules ? { capitalization_definition_rules: value.capitalization_definition_rules } : {})
+            } as ValuationBasedMechanism;
+            return mech;
+          }
+          case 'OcfConvMechSharePriceBased': {
+            const mech: SharePriceBasedMechanism = {
+              type: 'SHARE_PRICE_BASED_CONVERSION',
+              description: value?.description,
+              discount: !!value?.discount,
+              ...(value?.discount_percentage !== undefined && value?.discount_percentage !== null
+                ? { discount_percentage: typeof value.discount_percentage === 'number' ? String(value.discount_percentage) : value.discount_percentage }
+                : {}),
+              ...(value?.discount_amount ? { discount_amount: mapMonetary(value.discount_amount)! } : {})
+            } as SharePriceBasedMechanism;
+            return mech;
+          }
+          case 'OcfConvMechNote': {
+            const interest_rates = Array.isArray(value?.interest_rates)
+              ? (value!.interest_rates as any[]).map((ir: any) => ({
+                  rate: typeof ir?.rate === 'number' ? String(ir.rate) : ir?.rate,
+                  ...(ir?.period_type ? { period_type: String(ir.period_type) } : {}),
+                  ...(ir?.basis_points !== undefined && ir?.basis_points !== null ? { basis_points: String(ir.basis_points) } : {})
+                }))
+              : null;
+            const mech: NoteConversionMechanism = {
+              type: 'CONVERTIBLE_NOTE_CONVERSION',
+              interest_rates,
+              ...(value?.day_count_convention ? { day_count_convention: String(value.day_count_convention) } : {}),
+              ...(value?.interest_payout ? { interest_payout: String(value.interest_payout) } : {}),
+              ...(value?.interest_accrual_period ? { interest_accrual_period: String(value.interest_accrual_period) } : {}),
+              ...(value?.compounding_type ? { compounding_type: String(value.compounding_type) } : {}),
+              ...(value?.conversion_discount !== undefined && value?.conversion_discount !== null
+                ? { conversion_discount: typeof value.conversion_discount === 'number' ? String(value.conversion_discount) : value.conversion_discount }
+                : {}),
+              ...(value?.conversion_valuation_cap ? { conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap)! } : {}),
+              ...(value?.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
+              ...(value?.capitalization_definition_rules ? { capitalization_definition_rules: value.capitalization_definition_rules } : {}),
+              ...(value?.exit_multiple ? { exit_multiple: { numerator: String(value.exit_multiple?.numerator), denominator: String(value.exit_multiple?.denominator) } } : {}),
+              ...(value?.conversion_mfn !== undefined ? { conversion_mfn: !!value.conversion_mfn } : {})
+            } as NoteConversionMechanism;
+            return mech;
+          }
+          case 'OcfConvMechCustom': {
+            if (!value?.custom_conversion_description) {
+              throw new Error('CUSTOM_CONVERSION missing custom_conversion_description');
+            }
+            const mech: CustomConversionMechanism = {
+              type: 'CUSTOM_CONVERSION',
+              custom_conversion_description: value.custom_conversion_description
+            };
+            return mech;
+          }
+          default:
+            throw new Error(`Unknown convertible conversion mechanism tag: ${String(tag)}`);
+        }
+      }
+
+      throw new Error('Unknown conversion_mechanism shape');
     };
 
     return ts.map((raw, idx) => {
@@ -150,17 +298,20 @@ export async function getConvertibleIssuanceAsOcf(
       const trigger_condition: string | undefined = typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
 
       // Parse conversion_right if present and convertible variant is used
-      let conversion_right: ConvertibleConversionRight = defaultRightForType();
+      let conversion_right: ConvertibleConversionRight | undefined = defaultRightForType();
       if (r.conversion_right && typeof r.conversion_right === 'object' && 'OcfRightConvertible' in r.conversion_right) {
         const right = (r.conversion_right as any).OcfRightConvertible as Record<string, any>;
         conversion_right = {
           type: 'CONVERTIBLE_CONVERSION_RIGHT',
-          conversion_mechanism: mapMechanism(right.conversion_mechanism as string | undefined),
+          conversion_mechanism: mapMechanism(right.conversion_mechanism),
           ...(typeof right.converts_to_future_round === 'boolean' ? { converts_to_future_round: right.converts_to_future_round } : {}),
           ...(typeof right.converts_to_stock_class_id === 'string' && right.converts_to_stock_class_id.length
             ? { converts_to_stock_class_id: right.converts_to_stock_class_id }
             : {})
         };
+      }
+      if (!conversion_right) {
+        throw new Error('Missing conversion_right for convertible trigger');
       }
 
       const trigger: ConversionTrigger = {

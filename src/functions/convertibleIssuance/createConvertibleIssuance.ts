@@ -109,47 +109,6 @@ function triggerTypeToDamlEnum(
 function mechanismInputToDamlEnum(
   m: ConvertibleConversionMechanismInput | (Record<string, unknown> & { type?: string }) | undefined
 ): Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism {
-  // If caller passed a simple string enum, map minimally
-  if (typeof m === 'string') {
-    const t = m.toUpperCase();
-    if (t === 'SAFE_CONVERSION') {
-      return {
-        tag: 'OcfConvMechSAFE',
-        value: {
-          conversion_discount: null,
-          conversion_valuation_cap: null,
-          exit_multiple: null,
-          conversion_mfn: false,
-          conversion_timing: null,
-          capitalization_definition: null,
-          capitalization_definition_rules: null
-        }
-      } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-    }
-    if (t === 'PERCENT_CAPITALIZATION_CONVERSION') {
-      return {
-        tag: 'OcfConvMechPercentCapitalization',
-        value: {
-          converts_to_percent: '0',
-          capitalization_definition: null,
-          capitalization_definition_rules: null
-        }
-      } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-    }
-    if (t === 'FIXED_AMOUNT_CONVERSION') {
-      return {
-        tag: 'OcfConvMechFixedAmount',
-        value: { converts_to_quantity: '0' }
-      } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-    }
-    // Fallback to CUSTOM with a simple string description
-    return {
-      tag: 'OcfConvMechCustom',
-      value: { OcfCustomConversionMechanism: { custom_conversion_description: t || 'CUSTOM_CONVERSION' } }
-    } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
-  }
-
-  // If caller passed a structured object from OCF builders, map per-type
   if (m && typeof m === 'object') {
     const typeStr = String(m.type || '').toUpperCase();
 
@@ -191,8 +150,37 @@ function mechanismInputToDamlEnum(
           }
         } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
       }
+      case 'CONVERTIBLE_NOTE_CONVERSION':
+      case 'NOTE_CONVERSION': {
+        const anyM = m as Record<string, unknown>;
+        const mapIR = (arr: any): any[] =>
+          Array.isArray(arr)
+            ? (arr as any[]).map(ir => ({
+                rate: ir?.rate ?? null,
+                period_type: ir?.period_type ?? null,
+                basis_points: ir?.basis_points ?? null
+              }))
+            : [];
+        return {
+          tag: 'OcfConvMechNote',
+          value: {
+            interest_rates: mapIR(anyM.interest_rates),
+            day_count_convention: (anyM.day_count_convention as any) ?? 'OcfDayCountActualActual',
+            interest_payout: (anyM.interest_payout as any) ?? 'OcfInterestPayoutAtMaturity',
+            interest_accrual_period: (anyM.interest_accrual_period as any) ?? 'OcfAccrualPeriodMonthly',
+            compounding_type: (anyM.compounding_type as any) ?? 'OcfCompoundingTypeNone',
+            conversion_discount: anyM.conversion_discount ?? null,
+            conversion_valuation_cap: anyM.conversion_valuation_cap ? monetaryToDaml(anyM.conversion_valuation_cap as any) : null,
+            capitalization_definition: (anyM.capitalization_definition as string) || null,
+            capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
+            exit_multiple: null,
+            conversion_mfn: (anyM.conversion_mfn as boolean | null) ?? null
+          }
+        } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+      }
       case 'PERCENT_CAPITALIZATION_CONVERSION': {
         const anyM = m as Record<string, unknown>;
+        if (anyM.converts_to_percent === undefined) throw new Error('PERCENT_CAPITALIZATION_CONVERSION requires converts_to_percent');
         return {
           tag: 'OcfConvMechPercentCapitalization',
           value: {
@@ -204,6 +192,7 @@ function mechanismInputToDamlEnum(
       }
       case 'FIXED_AMOUNT_CONVERSION': {
         const anyM = m as Record<string, unknown>;
+        if (anyM.converts_to_quantity === undefined) throw new Error('FIXED_AMOUNT_CONVERSION requires converts_to_quantity');
         return {
           tag: 'OcfConvMechFixedAmount',
           value: {
@@ -211,9 +200,37 @@ function mechanismInputToDamlEnum(
           }
         } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
       }
+      case 'VALUATION_BASED_CONVERSION': {
+        const anyM = m as Record<string, unknown>;
+        if (!anyM.valuation_type) throw new Error('VALUATION_BASED_CONVERSION requires valuation_type');
+        return {
+          tag: 'OcfConvMechValuationBased',
+          value: {
+            valuation_type: (anyM.valuation_type as any) ?? 'OcfValuationActual',
+            valuation_amount: anyM.valuation_amount ? monetaryToDaml(anyM.valuation_amount as any) : null,
+            capitalization_definition: (anyM.capitalization_definition as string) || null,
+            capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules)
+          }
+        } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+      }
+      case 'SHARE_PRICE_BASED_CONVERSION':
+      case 'PPS_BASED_CONVERSION': {
+        const anyM = m as Record<string, unknown>;
+        if (!anyM.description || typeof anyM.description !== 'string') throw new Error('SHARE_PRICE_BASED_CONVERSION requires description');
+        return {
+          tag: 'OcfConvMechSharePriceBased',
+          value: {
+            description: (anyM.description as string) || 'Share-price based conversion',
+            discount: Boolean(anyM.discount),
+            discount_percentage: (anyM.discount_percentage as any) ?? null,
+            discount_amount: anyM.discount_amount ? monetaryToDaml(anyM.discount_amount as any) : null
+          }
+        } as unknown as Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism;
+      }
       case 'CUSTOM_CONVERSION': {
         const anyM = m as Record<string, unknown>;
-        const desc = (anyM.custom_conversion_description as string) || (anyM.custom_description as string) || (anyM.description as string) || 'Custom';
+        const desc = (anyM.custom_conversion_description as string) || (anyM.custom_description as string) || (anyM.description as string);
+        if (!desc) throw new Error('CUSTOM_CONVERSION requires custom_conversion_description');
         return {
           tag: 'OcfConvMechCustom',
           value: { custom_conversion_description: desc }

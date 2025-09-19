@@ -65,7 +65,7 @@ type WarrantConversionMechanismInput =
       capitalization_definition?: string | null;
       capitalization_definition_rules?: Record<string, unknown> | null;
     }
-  | { type: 'FIXED_AMOUNT'; converts_to_quantity: string | number }
+  | { type: 'FIXED_AMOUNT_CONVERSION'; converts_to_quantity: string | number }
   | {
       type: 'VALUATION_BASED';
       valuation_type: string;
@@ -117,8 +117,10 @@ function triggerTypeToDamlEnum(
       return 'OcfTriggerTypeTypeElectiveInRange';
     case 'UNSPECIFIED':
       return 'OcfTriggerTypeTypeUnspecified';
-    default:
+    case 'AUTOMATIC_ON_CONDITION':
       return 'OcfTriggerTypeTypeAutomaticOnCondition';
+    default:
+      throw new Error(`Unknown trigger type: ${t}`);
   }
 }
 
@@ -140,7 +142,7 @@ function warrantMechanismToDamlVariant(
           capitalization_definition_rules: m.capitalization_definition_rules ?? null
         }
       } as unknown as Fairmint.OpenCapTable.StockClass.OcfWarrantConversionMechanism;
-    case 'FIXED_AMOUNT':
+    case 'FIXED_AMOUNT_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismFixedAmount',
         value: {
@@ -190,6 +192,41 @@ function buildWarrantRight(input: WarrantExerciseTriggerInput | undefined): Fair
   return anyRight;
 }
 
+function quantitySourceToDamlEnumFlexible(
+  qs: CreateWarrantIssuanceParams['issuanceData']['quantity_source'] | string | null | undefined
+): Fairmint.OpenCapTable.Types.OcfQuantitySourceType | null {
+  if (qs === undefined || qs === null) return null;
+  // Pass-through if caller already provides a valid DAML tag
+  const allowedTags: Array<Fairmint.OpenCapTable.Types.OcfQuantitySourceType> = [
+    'OcfQuantityHumanEstimated',
+    'OcfQuantityMachineEstimated',
+    'OcfQuantityUnspecified',
+    'OcfQuantityInstrumentFixed',
+    'OcfQuantityInstrumentMax',
+    'OcfQuantityInstrumentMin'
+  ];
+  if (typeof qs === 'string' && (allowedTags as readonly string[]).includes(qs)) {
+    return qs as Fairmint.OpenCapTable.Types.OcfQuantitySourceType;
+  }
+  const normalized = String(qs).trim().toUpperCase().replace(/[\s-]+/g, '_');
+  switch (normalized) {
+    case 'HUMAN_ESTIMATED':
+      return 'OcfQuantityHumanEstimated';
+    case 'MACHINE_ESTIMATED':
+      return 'OcfQuantityMachineEstimated';
+    case 'UNSPECIFIED':
+      return 'OcfQuantityUnspecified';
+    case 'INSTRUMENT_FIXED':
+      return 'OcfQuantityInstrumentFixed';
+    case 'INSTRUMENT_MAX':
+      return 'OcfQuantityInstrumentMax';
+    case 'INSTRUMENT_MIN':
+      return 'OcfQuantityInstrumentMin';
+    default:
+      return null;
+  }
+}
+
 function buildWarrantTrigger(
   t: WarrantExerciseTriggerInput,
   index: number,
@@ -219,32 +256,12 @@ export async function createWarrantIssuance(
   params: CreateWarrantIssuanceParams
 ): Promise<CreateWarrantIssuanceResult> {
   const d = params.issuanceData;
-  // Map quantity_source to DAML enum when provided; otherwise default to UNSPECIFIED when quantity is present
-  const quantitySourceToDamlEnum = (
-    qs: CreateWarrantIssuanceParams['issuanceData']['quantity_source']
-  ): Fairmint.OpenCapTable.Types.OcfQuantitySourceType | null => {
-    switch (qs) {
-      case 'HUMAN_ESTIMATED':
-        return 'OcfQuantityHumanEstimated';
-      case 'MACHINE_ESTIMATED':
-        return 'OcfQuantityMachineEstimated';
-      case 'INSTRUMENT_FIXED':
-        return 'OcfQuantityInstrumentFixed';
-      case 'INSTRUMENT_MAX':
-        return 'OcfQuantityInstrumentMax';
-      case 'INSTRUMENT_MIN':
-        return 'OcfQuantityInstrumentMin';
-      case 'UNSPECIFIED':
-        return 'OcfQuantityUnspecified';
-      default:
-        return null;
-    }
-  };
+  const mappedQuantitySource = quantitySourceToDamlEnumFlexible(d.quantity_source);
   const quantitySourceDaml:
     | Fairmint.OpenCapTable.Types.OcfQuantitySourceType
     | null =
-    d.quantity_source !== undefined && d.quantity_source !== null
-      ? quantitySourceToDamlEnum(d.quantity_source)
+    mappedQuantitySource !== null
+      ? mappedQuantitySource
       : d.quantity !== undefined && d.quantity !== null
       ? 'OcfQuantityUnspecified'
       : null;
@@ -313,32 +330,12 @@ export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceP
   disclosedContracts: DisclosedContract[];
 } {
   const d = params.issuanceData;
-  // Map quantity_source to DAML enum when provided; otherwise default to UNSPECIFIED when quantity is present
-  const quantitySourceToDamlEnum = (
-    qs: CreateWarrantIssuanceParams['issuanceData']['quantity_source']
-  ): Fairmint.OpenCapTable.Types.OcfQuantitySourceType | null => {
-    switch (qs) {
-      case 'HUMAN_ESTIMATED':
-        return 'OcfQuantityHumanEstimated';
-      case 'MACHINE_ESTIMATED':
-        return 'OcfQuantityMachineEstimated';
-      case 'INSTRUMENT_FIXED':
-        return 'OcfQuantityInstrumentFixed';
-      case 'INSTRUMENT_MAX':
-        return 'OcfQuantityInstrumentMax';
-      case 'INSTRUMENT_MIN':
-        return 'OcfQuantityInstrumentMin';
-      case 'UNSPECIFIED':
-        return 'OcfQuantityUnspecified';
-      default:
-        return null;
-    }
-  };
+  const mappedQuantitySource = quantitySourceToDamlEnumFlexible(d.quantity_source);
   const quantitySourceDaml:
     | Fairmint.OpenCapTable.Types.OcfQuantitySourceType
     | null =
-    d.quantity_source !== undefined && d.quantity_source !== null
-      ? quantitySourceToDamlEnum(d.quantity_source)
+    mappedQuantitySource !== null
+      ? mappedQuantitySource
       : d.quantity !== undefined && d.quantity !== null
       ? 'OcfQuantityUnspecified'
       : null;
