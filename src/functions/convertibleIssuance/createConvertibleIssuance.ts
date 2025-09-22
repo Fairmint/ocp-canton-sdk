@@ -177,6 +177,27 @@ function mechanismInputToDamlEnum(
                 basis_points: ir?.basis_points ?? null
               }))
             : [];
+        const accrualToDaml = (v: unknown): any => {
+          const s = String(v || '').toUpperCase();
+          switch (s) {
+            case 'DAILY': return 'OcfAccrualDaily';
+            case 'MONTHLY': return 'OcfAccrualMonthly';
+            case 'QUARTERLY': return 'OcfAccrualQuarterly';
+            case 'SEMI_ANNUAL': return 'OcfAccrualSemiAnnual';
+            case 'ANNUAL': return 'OcfAccrualAnnual';
+            default: throw new Error(`Unknown interest_accrual_period: ${v}`);
+          }
+        };
+        const compoundingToDaml = (v: unknown): any => {
+          // Pass-through if already DAML tag; otherwise map common strings
+          const s = String(v || '');
+          if (s.startsWith('Ocf')) return s as any;
+          const u = s.toUpperCase();
+          if (u === 'NONE') return 'OcfCompoundingNone' as any;
+          if (u === 'SIMPLE') return 'OcfCompoundingSimple' as any;
+          if (u === 'COMPOUNDING') return 'OcfCompoundingCompound' as any;
+          return s as any;
+        };
         if (!Array.isArray(anyM.interest_rates)) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires interest_rates');
         if (!anyM.day_count_convention) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires day_count_convention');
         if (!anyM.interest_payout) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires interest_payout');
@@ -188,8 +209,8 @@ function mechanismInputToDamlEnum(
             interest_rates: mapIR(anyM.interest_rates),
             day_count_convention: dayCountToDaml(anyM.day_count_convention),
             interest_payout: payoutToDaml(anyM.interest_payout),
-            interest_accrual_period: anyM.interest_accrual_period as any,
-            compounding_type: anyM.compounding_type as any,
+            interest_accrual_period: accrualToDaml(anyM.interest_accrual_period),
+            compounding_type: compoundingToDaml(anyM.compounding_type),
             conversion_discount: anyM.conversion_discount ?? null,
             conversion_valuation_cap: anyM.conversion_valuation_cap ? monetaryToDaml(anyM.conversion_valuation_cap as any) : null,
             capitalization_definition: (anyM.capitalization_definition as string) || null,

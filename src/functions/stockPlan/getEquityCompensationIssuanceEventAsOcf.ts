@@ -1,4 +1,5 @@
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { Vesting } from '../../types/native';
 
 export interface OcfEquityCompensationIssuanceEvent {
   object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE';
@@ -13,9 +14,16 @@ export interface OcfEquityCompensationIssuanceEvent {
   base_price?: { amount: string; currency: string };
   early_exercisable?: boolean;
   expiration_date?: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
   vesting_terms_id?: string;
+  stock_class_id?: string;
+  stock_plan_id?: string;
+  security_law_exemptions?: Array<{ description: string; jurisdiction: string }>;
   termination_exercise_windows?: Array<{ reason: string; period: number; period_type: 'DAYS' | 'MONTHS' }>;
   comments?: string[];
+  vestings?: Vesting[];
 }
 
 export interface GetEquityCompensationIssuanceEventAsOcfParams { contractId: string }
@@ -66,9 +74,27 @@ export async function getEquityCompensationIssuanceEventAsOcf(
     ...(d.base_price ? { base_price: { amount: typeof d.base_price.amount === 'number' ? String(d.base_price.amount) : d.base_price.amount, currency: d.base_price.currency } } : {}),
     ...(d.early_exercisable !== null && d.early_exercisable !== undefined ? { early_exercisable: !!d.early_exercisable } : {}),
     ...(d.expiration_date ? { expiration_date: (d.expiration_date as string).split('T')[0] } : {}),
+    ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
+    ...(d.stockholder_approval_date ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] } : {}),
+    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
     ...(d.vesting_terms_id ? { vesting_terms_id: d.vesting_terms_id } : {}),
+    ...(d.stock_class_id ? { stock_class_id: d.stock_class_id } : {}),
+    ...(d.stock_plan_id ? { stock_plan_id: d.stock_plan_id } : {}),
+    ...(Array.isArray(d.security_law_exemptions) && d.security_law_exemptions.length
+      ? { security_law_exemptions: (d.security_law_exemptions as any[]).map((ex: any) => ({ description: ex.description, jurisdiction: ex.jurisdiction })) }
+      : {}),
+    ...(Array.isArray(d.vestings) && d.vestings.length
+      ? { vestings: (d.vestings as any[]).map((v: any) => ({
+          date: (v.date as string).split('T')[0],
+          amount: typeof v.amount === 'number' ? String(v.amount) : v.amount
+        })) as Vesting[] }
+      : {}),
     ...(Array.isArray(d.termination_exercise_windows) && d.termination_exercise_windows.length
-      ? { termination_exercise_windows: (d.termination_exercise_windows as any[]).map((w: any) => ({ reason: twMapReason[w.reason] || 'VOLUNTARY_OTHER', period: w.period as number, period_type: twMapPeriodType[w.period_type] })) }
+      ? { termination_exercise_windows: (d.termination_exercise_windows as any[]).map((w: any) => ({
+          reason: twMapReason[w.reason] || 'VOLUNTARY_OTHER',
+          period: typeof w.period === 'string' ? Number(w.period) : (w.period as number),
+          period_type: twMapPeriodType[w.period_type]
+        })) }
       : {}),
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {})
   };

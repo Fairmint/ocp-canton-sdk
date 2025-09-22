@@ -256,6 +256,23 @@ export async function getConvertibleIssuanceAsOcf(
                   ...(ir?.basis_points !== undefined && ir?.basis_points !== null ? { basis_points: String(ir.basis_points) } : {})
                 }))
               : null;
+            const accrualFromDaml = (v: unknown): 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL' | undefined => {
+              const s = String(v || '');
+              if (s.endsWith('OcfAccrualDaily') || s === 'OcfAccrualDaily') return 'DAILY';
+              if (s.endsWith('OcfAccrualMonthly') || s === 'OcfAccrualMonthly') return 'MONTHLY';
+              if (s.endsWith('OcfAccrualQuarterly') || s === 'OcfAccrualQuarterly') return 'QUARTERLY';
+              if (s.endsWith('OcfAccrualSemiAnnual') || s === 'OcfAccrualSemiAnnual') return 'SEMI_ANNUAL';
+              if (s.endsWith('OcfAccrualAnnual') || s === 'OcfAccrualAnnual') return 'ANNUAL';
+              return undefined;
+            };
+            const compoundingFromDaml = (v: unknown): string | undefined => {
+              const s = String(v || '');
+              if (!s) return undefined;
+              if (s.endsWith('OcfCompoundingNone') || s === 'OcfCompoundingNone') return 'NONE';
+              if (s.endsWith('OcfCompoundingSimple') || s === 'OcfCompoundingSimple') return 'SIMPLE';
+              if (s.endsWith('OcfCompoundingCompound') || s === 'OcfCompoundingCompound') return 'COMPOUNDING';
+              return s;
+            };
             const mech: NoteConversionMechanism = {
               type: 'CONVERTIBLE_NOTE_CONVERSION',
               interest_rates,
@@ -275,8 +292,8 @@ export async function getConvertibleIssuanceAsOcf(
                         : 'CASH'
                   }
                 : {}),
-              ...(value?.interest_accrual_period ? { interest_accrual_period: String(value.interest_accrual_period) } : {}),
-              ...(value?.compounding_type ? { compounding_type: String(value.compounding_type) } : {}),
+              ...(value?.interest_accrual_period ? { interest_accrual_period: accrualFromDaml(value.interest_accrual_period) } : {}),
+              ...(value?.compounding_type ? { compounding_type: compoundingFromDaml(value.compounding_type) } : {}),
               ...(value?.conversion_discount !== undefined && value?.conversion_discount !== null
                 ? { conversion_discount: typeof value.conversion_discount === 'number' ? String(value.conversion_discount) : value.conversion_discount }
                 : {}),
