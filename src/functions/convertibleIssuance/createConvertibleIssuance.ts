@@ -105,6 +105,12 @@ function triggerTypeToDamlEnum(
 function mechanismInputToDamlEnum(
   m: ConvertibleConversionMechanismInput | (Record<string, unknown> & { type?: string }) | undefined
 ): Fairmint.OpenCapTable.StockClass.OcfConvertibleConversionMechanism {
+  const dayCountToDaml = (v: unknown): Fairmint.OpenCapTable.Types.OcfDayCountType => {
+    const s = String(v || '').toUpperCase();
+    if (s === 'ACTUAL_365') return 'OcfDayCountActual365';
+    if (s === '30_360') return 'OcfDayCount30_360';
+    throw new Error(`Unknown day_count_convention: ${v}`);
+  };
   if (m && typeof m === 'object') {
     const typeStr = String(m.type || '').toUpperCase();
 
@@ -174,7 +180,7 @@ function mechanismInputToDamlEnum(
           tag: 'OcfConvMechNote',
           value: {
             interest_rates: mapIR(anyM.interest_rates),
-            day_count_convention: anyM.day_count_convention as any,
+            day_count_convention: dayCountToDaml(anyM.day_count_convention),
             interest_payout: anyM.interest_payout as any,
             interest_accrual_period: anyM.interest_accrual_period as any,
             compounding_type: anyM.compounding_type as any,

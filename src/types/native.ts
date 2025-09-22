@@ -455,6 +455,7 @@ export interface OcfEquityCompensationIssuanceData {
   exercise_price?: Monetary;
   base_price?: Monetary;
   early_exercisable?: boolean;
+  security_law_exemptions?: SecurityExemption[];
   vestings?: Vesting[];
   expiration_date?: string;
   termination_exercise_windows: TerminationWindow[];

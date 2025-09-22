@@ -18,13 +18,14 @@ export interface CreateEquityCompensationIssuanceParams {
     stakeholder_id: string;
     stock_plan_id?: string;
     stock_class_id?: string;
+    board_approval_date?: string;
+    stockholder_approval_date?: string;
+    consideration_text?: string;
     vesting_terms_id?: string;
   };
 }
 
 export interface CreateEquityCompensationIssuanceResult { contractId: string; updateId: string }
-
-interface IssuerCreateArgShape { context?: { system_operator?: string } }
 
 export async function createEquityCompensationIssuance(
   client: LedgerJsonApiClient,
@@ -37,10 +38,10 @@ export async function createEquityCompensationIssuance(
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    board_approval_date: null,
-    stockholder_approval_date: null,
-    consideration_text: null,
-    security_law_exemptions: [],
+    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
+    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    consideration_text: d.consideration_text ?? null,
+    security_law_exemptions: (d.security_law_exemptions || []).map(e => ({ description: e.description, jurisdiction: e.jurisdiction })),
     stock_plan_id: d.stock_plan_id ?? null,
     stock_class_id: d.stock_class_id ?? null,
     vesting_terms_id: d.vesting_terms_id ?? null,
@@ -73,10 +74,10 @@ export function buildCreateEquityCompensationIssuanceCommand(params: CreateEquit
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    board_approval_date: null,
-    stockholder_approval_date: null,
-    consideration_text: null,
-    security_law_exemptions: [],
+    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
+    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    consideration_text: d.consideration_text ?? null,
+    security_law_exemptions: (d.security_law_exemptions || []).map(e => ({ description: e.description, jurisdiction: e.jurisdiction })),
     stock_plan_id: d.stock_plan_id ?? null,
     stock_class_id: d.stock_class_id ?? null,
     vesting_terms_id: d.vesting_terms_id ?? null,

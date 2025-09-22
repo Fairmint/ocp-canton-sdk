@@ -56,7 +56,7 @@ type SharePriceBasedMechanism = {
 type NoteConversionMechanism = {
   type: 'CONVERTIBLE_NOTE_CONVERSION';
   interest_rates: Array<{ rate: string; period_type?: string; basis_points?: string }> | null;
-  day_count_convention?: string;
+  day_count_convention?: 'ACTUAL_365' | '30_360';
   interest_payout?: string;
   interest_accrual_period?: string;
   compounding_type?: string;
@@ -259,7 +259,14 @@ export async function getConvertibleIssuanceAsOcf(
             const mech: NoteConversionMechanism = {
               type: 'CONVERTIBLE_NOTE_CONVERSION',
               interest_rates,
-              ...(value?.day_count_convention ? { day_count_convention: String(value.day_count_convention) } : {}),
+              ...(value?.day_count_convention
+                ? {
+                    day_count_convention:
+                      String(value.day_count_convention).endsWith('Actual365')
+                        ? 'ACTUAL_365'
+                        : '30_360'
+                  }
+                : {}),
               ...(value?.interest_payout ? { interest_payout: String(value.interest_payout) } : {}),
               ...(value?.interest_accrual_period ? { interest_accrual_period: String(value.interest_accrual_period) } : {}),
               ...(value?.compounding_type ? { compounding_type: String(value.compounding_type) } : {}),
