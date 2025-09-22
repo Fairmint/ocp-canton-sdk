@@ -35,16 +35,18 @@ export async function getEquityCompensationExerciseEventAsOcf(
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument as any;
 
-  const quantity = createArgument.quantity;
-  const planSecurityCid = createArgument.plan_security;
-  const dateIso: string = createArgument.date;
+  // Some events nest OCF data under a specific key; fall back to root for backward compatibility
+  const d = createArgument.exercise_data || createArgument;
 
   const ocf: OcfEquityCompensationExercise = {
     object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
-    id: createArgument.ocf_id,
-    quantity,
-    security_id: planSecurityCid,
-    date: dateIso,
+    id: d.ocf_id,
+    quantity: typeof d.quantity === 'number' ? String(d.quantity) : d.quantity,
+    security_id: d.security_id,
+    date: (d.date as string).split('T')[0],
+    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
+    ...(Array.isArray(d.resulting_security_ids) && d.resulting_security_ids.length ? { resulting_security_ids: d.resulting_security_ids } : {}),
+    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };
 
   return { event: ocf, contractId: params.contractId };

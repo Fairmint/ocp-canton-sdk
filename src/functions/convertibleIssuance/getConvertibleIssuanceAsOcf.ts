@@ -57,7 +57,7 @@ type NoteConversionMechanism = {
   type: 'CONVERTIBLE_NOTE_CONVERSION';
   interest_rates: Array<{ rate: string; period_type?: string; basis_points?: string }> | null;
   day_count_convention?: 'ACTUAL_365' | '30_360';
-  interest_payout?: string;
+  interest_payout?: 'DEFERRED' | 'CASH';
   interest_accrual_period?: string;
   compounding_type?: string;
   conversion_discount?: string;
@@ -267,7 +267,14 @@ export async function getConvertibleIssuanceAsOcf(
                         : '30_360'
                   }
                 : {}),
-              ...(value?.interest_payout ? { interest_payout: String(value.interest_payout) } : {}),
+              ...(value?.interest_payout
+                ? {
+                    interest_payout:
+                      String(value.interest_payout).endsWith('Deferred')
+                        ? 'DEFERRED'
+                        : 'CASH'
+                  }
+                : {}),
               ...(value?.interest_accrual_period ? { interest_accrual_period: String(value.interest_accrual_period) } : {}),
               ...(value?.compounding_type ? { compounding_type: String(value.compounding_type) } : {}),
               ...(value?.conversion_discount !== undefined && value?.conversion_discount !== null

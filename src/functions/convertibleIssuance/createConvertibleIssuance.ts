@@ -111,6 +111,12 @@ function mechanismInputToDamlEnum(
     if (s === '30_360') return 'OcfDayCount30_360';
     throw new Error(`Unknown day_count_convention: ${v}`);
   };
+  const payoutToDaml = (v: unknown): Fairmint.OpenCapTable.Types.OcfInterestPayoutType => {
+    const s = String(v || '').toUpperCase();
+    if (s === 'DEFERRED') return 'OcfInterestPayoutDeferred';
+    if (s === 'CASH') return 'OcfInterestPayoutCash';
+    throw new Error(`Unknown interest_payout: ${v}`);
+  };
   if (m && typeof m === 'object') {
     const typeStr = String(m.type || '').toUpperCase();
 
@@ -181,7 +187,7 @@ function mechanismInputToDamlEnum(
           value: {
             interest_rates: mapIR(anyM.interest_rates),
             day_count_convention: dayCountToDaml(anyM.day_count_convention),
-            interest_payout: anyM.interest_payout as any,
+            interest_payout: payoutToDaml(anyM.interest_payout),
             interest_accrual_period: anyM.interest_accrual_period as any,
             compounding_type: anyM.compounding_type as any,
             conversion_discount: anyM.conversion_discount ?? null,

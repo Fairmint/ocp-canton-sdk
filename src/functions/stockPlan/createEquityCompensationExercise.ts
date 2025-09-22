@@ -22,8 +22,6 @@ export interface CreateEquityCompensationExerciseParams {
 
 export interface CreateEquityCompensationExerciseResult { contractId: string; updateId: string }
 
-interface IssuerCreateArgShape { context?: { system_operator?: string } }
-
 export async function createEquityCompensationExercise(
   client: LedgerJsonApiClient,
   params: CreateEquityCompensationExerciseParams
