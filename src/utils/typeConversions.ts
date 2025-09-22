@@ -293,10 +293,17 @@ export function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.Stakehol
   } as ContactInfo;
 }
 
-export function contactInfoWithoutNameToDaml(info: ContactInfoWithoutName): Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName {
+export function contactInfoWithoutNameToDaml(info: ContactInfoWithoutName): Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName | null {
+  const phones = (info.phone_numbers || []).map(phoneToDaml);
+  const emails = (info.emails || []).map(emailToDaml);
+  
+  if (phones.length === 0 && emails.length === 0) {
+    return null;
+  }
+
   return {
-    phone_numbers: (info.phone_numbers || []).map(phoneToDaml),
-    emails: (info.emails || []).map(emailToDaml)
+    phone_numbers: phones,
+    emails: emails
   };
 }
 

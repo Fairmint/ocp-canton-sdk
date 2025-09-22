@@ -138,7 +138,16 @@ function mechanismInputToDamlEnum(
           value: {
             conversion_discount: anyM.conversion_discount ?? null,
             conversion_valuation_cap: anyM.conversion_valuation_cap ? monetaryToDaml(anyM.conversion_valuation_cap as any) : null,
-            exit_multiple: null,
+            exit_multiple: ((): any => {
+              const r = (anyM as { exit_multiple?: unknown }).exit_multiple as
+                | { numerator?: string | number; denominator?: string | number }
+                | undefined;
+              if (!r) return null;
+              const num = r.numerator !== undefined ? String(r.numerator) : undefined;
+              const den = r.denominator !== undefined ? String(r.denominator) : undefined;
+              if (!num || !den) return null;
+              return { numerator: num, denominator: den };
+            })(),
             conversion_mfn: (anyM.conversion_mfn as boolean | null) ?? null,
             conversion_timing: safeTiming(anyM.conversion_timing),
             capitalization_definition: (anyM.capitalization_definition as string) || null,

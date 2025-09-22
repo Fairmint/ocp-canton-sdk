@@ -22,6 +22,7 @@ type SafeConversionMechanism = {
   conversion_timing?: 'PRE_MONEY' | 'POST_MONEY';
   capitalization_definition?: string;
   capitalization_definition_rules?: any;
+  exit_multiple?: { numerator: string; denominator: string };
 };
 
 type PercentCapitalizationMechanism = {
@@ -100,6 +101,7 @@ export interface OcfConvertibleIssuanceEvent {
   custom_id: string;
   stakeholder_id: string;
   investment_amount: { amount: string; currency: string };
+  consideration_text?: string;
   convertible_type: 'NOTE' | 'SAFE' | 'SECURITY';
   conversion_triggers: ConversionTrigger[];
   pro_rata?: string;
@@ -201,7 +203,10 @@ export async function getConvertibleIssuanceAsOcf(
               ...(value?.conversion_valuation_cap ? { conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap)! } : {}),
               ...(value?.conversion_timing ? { conversion_timing: mapTiming(value.conversion_timing) } : {}),
               ...(value?.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
-              ...(value?.capitalization_definition_rules ? { capitalization_definition_rules: value.capitalization_definition_rules } : {})
+              ...(value?.capitalization_definition_rules ? { capitalization_definition_rules: value.capitalization_definition_rules } : {}),
+              ...(value?.exit_multiple
+                ? { exit_multiple: { numerator: String(value.exit_multiple?.numerator), denominator: String(value.exit_multiple?.denominator) } }
+                : {})
             };
             return mech;
           }
@@ -309,6 +314,17 @@ export async function getConvertibleIssuanceAsOcf(
             ? { converts_to_stock_class_id: right.converts_to_stock_class_id }
             : {})
         };
+      } else if (r.conversion_right && typeof r.conversion_right === 'object' && 'conversion_mechanism' in r.conversion_right) {
+        // Handle direct convertible right shape (no OcfRightConvertible wrapper)
+        const right = r.conversion_right as { conversion_mechanism: unknown; converts_to_future_round?: boolean; converts_to_stock_class_id?: string };
+        conversion_right = {
+          type: 'CONVERTIBLE_CONVERSION_RIGHT',
+          conversion_mechanism: mapMechanism(right.conversion_mechanism),
+          ...(typeof right.converts_to_future_round === 'boolean' ? { converts_to_future_round: right.converts_to_future_round } : {}),
+          ...(typeof right.converts_to_stock_class_id === 'string' && right.converts_to_stock_class_id.length
+            ? { converts_to_stock_class_id: right.converts_to_stock_class_id }
+            : {})
+        };
       }
       if (!conversion_right) {
         throw new Error('Missing conversion_right for convertible trigger');
@@ -338,6 +354,7 @@ export async function getConvertibleIssuanceAsOcf(
       amount: typeof d.investment_amount?.amount === 'number' ? String(d.investment_amount.amount) : d.investment_amount.amount,
       currency: d.investment_amount.currency
     },
+    ...(typeof d.consideration_text === 'string' && d.consideration_text.length ? { consideration_text: d.consideration_text } : {}),
     convertible_type: typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
     conversion_triggers: convertTriggers(
       d.conversion_triggers as unknown[],

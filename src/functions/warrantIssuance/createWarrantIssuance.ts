@@ -45,8 +45,6 @@ export interface CreateWarrantIssuanceResult {
   updateId: string;
 }
 
-interface IssuerCreateArgShape { context?: { system_operator?: string } }
-
 type WarrantTriggerTypeInput =
   | 'AUTOMATIC_ON_CONDITION'
   | 'AUTOMATIC_ON_DATE'
@@ -188,7 +186,7 @@ function buildWarrantRight(input: WarrantExerciseTriggerInput | undefined): Fair
   return anyRight;
 }
 
-function quantitySourceToDamlEnumStrict(
+function quantitySourceToDamlEnum(
   qs: CreateWarrantIssuanceParams['issuanceData']['quantity_source'] | null | undefined
 ): Fairmint.OpenCapTable.Types.OcfQuantitySourceType | null {
   if (qs === undefined || qs === null) return null;
@@ -240,10 +238,10 @@ export async function createWarrantIssuance(
   params: CreateWarrantIssuanceParams
 ): Promise<CreateWarrantIssuanceResult> {
   const d = params.issuanceData;
-  const quantitySourceDaml = quantitySourceToDamlEnumStrict(d.quantity_source);
-  if (d.quantity !== undefined && d.quantity !== null && quantitySourceDaml === null) {
-    throw new Error('quantity_source is required when quantity is provided');
-  }
+  const quantitySourceDaml =
+    d.quantity !== undefined && d.quantity !== null
+      ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
+      : quantitySourceToDamlEnum(d.quantity_source);
   const issuance_data: Fairmint.OpenCapTable.WarrantIssuance.OcfWarrantIssuanceData = {
     ocf_id: d.ocf_id,
     date: dateStringToDAMLTime(d.date),
@@ -309,10 +307,10 @@ export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceP
   disclosedContracts: DisclosedContract[];
 } {
   const d = params.issuanceData;
-  const quantitySourceDaml = quantitySourceToDamlEnumStrict(d.quantity_source);
-  if (d.quantity !== undefined && d.quantity !== null && quantitySourceDaml === null) {
-    throw new Error('quantity_source is required when quantity is provided');
-  }
+  const quantitySourceDaml =
+    d.quantity !== undefined && d.quantity !== null
+      ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
+      : quantitySourceToDamlEnum(d.quantity_source);
   const issuance_data: Fairmint.OpenCapTable.WarrantIssuance.OcfWarrantIssuanceData = {
     ocf_id: d.ocf_id,
     date: dateStringToDAMLTime(d.date),
