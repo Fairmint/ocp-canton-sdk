@@ -193,10 +193,9 @@ function mechanismInputToDamlEnum(
           const s = String(v || '');
           if (s.startsWith('Ocf')) return s as any;
           const u = s.toUpperCase();
-          if (u === 'NONE') return 'OcfCompoundingNone' as any;
-          if (u === 'SIMPLE') return 'OcfCompoundingSimple' as any;
-          if (u === 'COMPOUNDING') return 'OcfCompoundingCompound' as any;
-          return s as any;
+          if (u === 'SIMPLE') return 'OcfSimple';
+          if (u === 'COMPOUNDING') return 'OcfCompounding';
+          throw new Error(`Unknown compounding_type: ${v}`);
         };
         if (!Array.isArray(anyM.interest_rates)) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires interest_rates');
         if (!anyM.day_count_convention) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires day_count_convention');

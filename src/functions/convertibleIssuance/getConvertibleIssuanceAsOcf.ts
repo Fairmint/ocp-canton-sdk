@@ -268,10 +268,9 @@ export async function getConvertibleIssuanceAsOcf(
             const compoundingFromDaml = (v: unknown): string | undefined => {
               const s = String(v || '');
               if (!s) return undefined;
-              if (s.endsWith('OcfCompoundingNone') || s === 'OcfCompoundingNone') return 'NONE';
-              if (s.endsWith('OcfCompoundingSimple') || s === 'OcfCompoundingSimple') return 'SIMPLE';
-              if (s.endsWith('OcfCompoundingCompound') || s === 'OcfCompoundingCompound') return 'COMPOUNDING';
-              return s;
+              if (s === 'OcfSimple') return 'SIMPLE';
+              if (s === 'OcfCompounding') return 'COMPOUNDING';
+              throw new Error(`Unknown compounding_type: ${v}`);
             };
             const mech: NoteConversionMechanism = {
               type: 'CONVERTIBLE_NOTE_CONVERSION',
