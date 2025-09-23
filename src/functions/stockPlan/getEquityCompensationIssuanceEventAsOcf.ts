@@ -63,7 +63,7 @@ export async function getEquityCompensationIssuanceEventAsOcf(
 
   const event: OcfEquityCompensationIssuanceEvent = {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
-    id: d.ocf_id,
+    id: (d as any).id,
     date: (d.date as string).split('T')[0],
     security_id: d.security_id,
     custom_id: d.custom_id,

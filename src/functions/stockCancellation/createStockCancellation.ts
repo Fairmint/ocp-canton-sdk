@@ -10,7 +10,7 @@ export interface CreateStockCancellationParams {
   featuredAppRightContractDetails: ContractDetails;
   issuerParty: string;
   cancellationData: {
-    ocf_id: string;
+    id: string;
     date: string;
     security_id: string;
     quantity: string | number;
@@ -29,8 +29,8 @@ export async function createStockCancellation(
   params: CreateStockCancellationParams
 ): Promise<CreateStockCancellationResult> {
   const d = params.cancellationData;
-  const cancellation_data: Fairmint.OpenCapTable.StockCancellation.OcfStockCancellationData = {
-    ocf_id: d.ocf_id,
+  const cancellation_data: any = {
+    id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
@@ -57,8 +57,8 @@ export async function createStockCancellation(
 
 export function buildCreateStockCancellationCommand(params: CreateStockCancellationParams): { command: Command; disclosedContracts: DisclosedContract[] } {
   const d = params.cancellationData;
-  const cancellation_data: Fairmint.OpenCapTable.StockCancellation.OcfStockCancellationData = {
-    ocf_id: d.ocf_id,
+  const cancellation_data: any = {
+    id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,

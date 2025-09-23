@@ -182,7 +182,7 @@ export async function getWarrantIssuanceAsOcf(
         const r = (raw ?? {}) as Record<string, any>;
         const tag = typeof r.type_ === 'string' ? r.type_ : (typeof r.tag === 'string' ? r.tag : (typeof raw === 'string' ? raw : ''));
         const type: ConversionTriggerType = mapTagToType(String(tag));
-        const trigger_id: string = typeof r.trigger_id === 'string' && r.trigger_id.length ? r.trigger_id : `${d.ocf_id}-warrant-trigger-${idx + 1}`;
+        const trigger_id: string = typeof r.trigger_id === 'string' && r.trigger_id.length ? r.trigger_id : `${(d as any).id}-warrant-trigger-${idx + 1}`;
         const nickname: string | undefined = typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
         const trigger_description: string | undefined = typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
         const trigger_date: string | undefined = typeof r.trigger_date === 'string' && r.trigger_date.length ? (r.trigger_date as string).split('T')[0] : undefined;
@@ -217,7 +217,7 @@ export async function getWarrantIssuanceAsOcf(
 
   const event: OcfWarrantIssuanceEvent = {
     object_type: 'TX_WARRANT_ISSUANCE',
-    id: d.ocf_id,
+    id: (d as any).id,
     date: (d.date as string).split('T')[0],
     security_id: d.security_id,
     custom_id: d.custom_id,

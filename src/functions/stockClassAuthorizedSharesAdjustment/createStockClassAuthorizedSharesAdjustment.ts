@@ -10,7 +10,7 @@ export interface CreateStockClassAuthorizedSharesAdjustmentParams {
   featuredAppRightContractDetails: ContractDetails;
   issuerParty: string;
   adjustmentData: {
-    ocf_id: string;
+    id: string;
     date: string;
     stock_class_id: string;
     new_shares_authorized: string | number;
@@ -29,8 +29,8 @@ export async function createStockClassAuthorizedSharesAdjustment(
   params: CreateStockClassAuthorizedSharesAdjustmentParams
 ): Promise<CreateStockClassAuthorizedSharesAdjustmentResult> {
   const d = params.adjustmentData;
-  const adjustment_data: Fairmint.OpenCapTable.StockClassAuthorizedSharesAdjustment.OcfStockClassAuthorizedSharesAdjustmentData = {
-    ocf_id: d.ocf_id,
+  const adjustment_data: any = {
+    id: d.id,
     date: dateStringToDAMLTime(d.date),
     stock_class_id: d.stock_class_id,
     new_shares_authorized: typeof d.new_shares_authorized === 'number' ? d.new_shares_authorized.toString() : d.new_shares_authorized,
@@ -57,8 +57,8 @@ export async function createStockClassAuthorizedSharesAdjustment(
 
 export function buildCreateStockClassAuthorizedSharesAdjustmentCommand(params: CreateStockClassAuthorizedSharesAdjustmentParams): { command: Command; disclosedContracts: DisclosedContract[] } {
   const d = params.adjustmentData;
-  const adjustment_data: Fairmint.OpenCapTable.StockClassAuthorizedSharesAdjustment.OcfStockClassAuthorizedSharesAdjustmentData = {
-    ocf_id: d.ocf_id,
+  const adjustment_data: any = {
+    id: d.id,
     date: dateStringToDAMLTime(d.date),
     stock_class_id: d.stock_class_id,
     new_shares_authorized: typeof d.new_shares_authorized === 'number' ? d.new_shares_authorized.toString() : d.new_shares_authorized,

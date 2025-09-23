@@ -24,7 +24,7 @@ export async function getStockPlanPoolAdjustmentEventAsOcf(
   const d = arg.adjustment_data || arg;
   const event: OcfStockPlanPoolAdjustmentEvent = {
     object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
-    id: d.ocf_id,
+    id: (d as any).id,
     date: (d.date as string).split('T')[0],
     stock_plan_id: d.stock_plan_id,
     shares_reserved: typeof d.shares_reserved === 'number' ? String(d.shares_reserved) : d.shares_reserved,

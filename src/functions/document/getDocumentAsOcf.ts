@@ -32,10 +32,10 @@ export async function getDocumentAsOcf(
   }
 
   const native = damlDocumentDataToNative(createArgument.document_data);
-  const { ocf_id, ...rest } = native as any;
+  const { id, ...rest } = native as any;
   const ocf = {
     object_type: 'DOCUMENT' as const,
-    id: ocf_id,
+    id,
     ...rest
   };
   return { document: ocf, contractId: params.contractId };

@@ -40,7 +40,7 @@ export async function getEquityCompensationExerciseEventAsOcf(
 
   const ocf: OcfEquityCompensationExercise = {
     object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
-    id: d.ocf_id,
+    id: (d as any).id,
     quantity: typeof d.quantity === 'number' ? String(d.quantity) : d.quantity,
     security_id: d.security_id,
     date: (d.date as string).split('T')[0],

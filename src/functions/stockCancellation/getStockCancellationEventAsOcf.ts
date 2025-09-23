@@ -24,7 +24,7 @@ export async function getStockCancellationEventAsOcf(
   const data = d.cancellation_data || d; // template stores as cancellation_data
   const event: OcfStockCancellationEvent = {
     object_type: 'TX_STOCK_CANCELLATION',
-    id: data.ocf_id,
+    id: (data as any).id,
     date: (data.date as string).split('T')[0],
     security_id: data.security_id,
     quantity: typeof data.quantity === 'number' ? String(data.quantity) : data.quantity,

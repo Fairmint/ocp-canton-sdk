@@ -121,7 +121,7 @@ export interface StockClassConversionRight {
 
 /** OCF Issuer Data */
 export interface OcfIssuerData {
-  ocf_id: string;
+  id: string;
   /** Legal name of the issuer */
   legal_name: string;
   /** Date of formation (YYYY-MM-DD format) */
@@ -150,7 +150,7 @@ export interface OcfIssuerData {
 
 /** OCF Stock Class Data */
 export interface OcfStockClassData {
-  ocf_id: string;
+  id: string;
   /** Name for the stock type (e.g. Series A Preferred or Class A Common) */
   name: string;
   /** The type of this stock class */
@@ -199,7 +199,7 @@ export interface ContactInfoWithoutName {
 
 /** OCF Stakeholder Data */
 export interface OcfStakeholderData {
-  ocf_id: string;
+  id: string;
   name: Name;
   stakeholder_type: StakeholderType;
   issuer_assigned_id?: string;
@@ -225,7 +225,7 @@ export interface OcfStakeholderData {
 
 /** Stock Legend Template Data */
 export interface OcfStockLegendTemplateData {
-  ocf_id: string;
+  id: string;
   name: string;
   text: string;
   comments?: string[];
@@ -295,7 +295,7 @@ export interface OcfObjectReference {
 
 /** OCF Document Data */
 export interface OcfDocumentData {
-  ocf_id: string;
+  id: string;
   path?: string;
   uri?: string;
   md5: string;
@@ -308,7 +308,7 @@ export type ValuationType = '409A';
 
 /** OCF Valuation Data */
 export interface OcfValuationData {
-  ocf_id: string;
+  id: string;
   stock_class_id: string;
   provider?: string;
   board_approval_date?: string;
@@ -339,7 +339,7 @@ export interface VestingSimple {
 }
 
 export interface OcfStockIssuanceData {
-  ocf_id: string;
+  id: string;
   date: string; // YYYY-MM-DD
   security_id: string;
   custom_id: string;
@@ -398,7 +398,7 @@ export interface VestingCondition {
 }
 
 export interface OcfVestingTermsData {
-  ocf_id: string;
+  id: string;
   name: string;
   description: string;
   allocation_type: AllocationType;
@@ -415,7 +415,7 @@ export type StockPlanCancellationBehavior =
   | 'DEFINED_PER_PLAN_SECURITY';
 
 export interface OcfStockPlanData {
-  ocf_id: string;
+  id: string;
   plan_name: string;
   board_approval_date?: string;
   stockholder_approval_date?: string;

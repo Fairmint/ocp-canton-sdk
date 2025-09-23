@@ -10,7 +10,7 @@ export interface CreateStockPlanPoolAdjustmentParams {
   featuredAppRightContractDetails: ContractDetails;
   issuerParty: string;
   adjustmentData: {
-    ocf_id: string;
+    id: string;
     date: string;
     stock_plan_id: string;
     board_approval_date?: string;
@@ -29,8 +29,8 @@ export async function createStockPlanPoolAdjustment(
   params: CreateStockPlanPoolAdjustmentParams
 ): Promise<CreateStockPlanPoolAdjustmentResult> {
   const d = params.adjustmentData;
-  const adjustment_data: Fairmint.OpenCapTable.StockPlanPoolAdjustment.OcfStockPlanPoolAdjustmentData = {
-    ocf_id: d.ocf_id,
+  const adjustment_data: any = {
+    id: d.id,
     date: dateStringToDAMLTime(d.date),
     stock_plan_id: d.stock_plan_id,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
@@ -61,8 +61,8 @@ export async function createStockPlanPoolAdjustment(
 
 export function buildCreateStockPlanPoolAdjustmentCommand(params: CreateStockPlanPoolAdjustmentParams): { command: Command; disclosedContracts: DisclosedContract[] } {
   const d = params.adjustmentData;
-  const adjustment_data: Fairmint.OpenCapTable.StockPlanPoolAdjustment.OcfStockPlanPoolAdjustmentData = {
-    ocf_id: d.ocf_id,
+  const adjustment_data: any = {
+    id: d.id,
     date: dateStringToDAMLTime(d.date),
     stock_plan_id: d.stock_plan_id,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,

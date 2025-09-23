@@ -11,7 +11,7 @@ export interface CreateEquityCompensationIssuanceParams {
   featuredAppRightContractDetails: ContractDetails;
   issuerParty: string;
   issuanceData: OcfEquityCompensationIssuanceData & {
-    ocf_id: string;
+    id: string;
     date: string;
     security_id: string;
     custom_id: string;
@@ -32,8 +32,8 @@ export async function createEquityCompensationIssuance(
   params: CreateEquityCompensationIssuanceParams
 ): Promise<CreateEquityCompensationIssuanceResult> {
   const d = params.issuanceData;
-  const issuance_data: Fairmint.OpenCapTable.EquityCompensationIssuance.OcfEquityCompensationIssuanceTxData = {
-    ocf_id: d.ocf_id,
+  const issuance_data: any = {
+    id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     custom_id: d.custom_id,
@@ -68,8 +68,8 @@ export async function createEquityCompensationIssuance(
 
 export function buildCreateEquityCompensationIssuanceCommand(params: CreateEquityCompensationIssuanceParams): { command: Command; disclosedContracts: DisclosedContract[] } {
   const d = params.issuanceData;
-  const issuance_data: Fairmint.OpenCapTable.EquityCompensationIssuance.OcfEquityCompensationIssuanceTxData = {
-    ocf_id: d.ocf_id,
+  const issuance_data: any = {
+    id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     custom_id: d.custom_id,

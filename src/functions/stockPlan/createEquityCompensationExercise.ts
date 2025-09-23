@@ -10,7 +10,7 @@ export interface CreateEquityCompensationExerciseParams {
   featuredAppRightContractDetails: ContractDetails;
   issuerParty: string;
   exerciseData: {
-    ocf_id: string;
+    id: string;
     date: string;
     security_id: string;
     quantity: string | number;
@@ -27,8 +27,8 @@ export async function createEquityCompensationExercise(
   params: CreateEquityCompensationExerciseParams
 ): Promise<CreateEquityCompensationExerciseResult> {
   const d = params.exerciseData;
-  const exercise_data: Fairmint.OpenCapTable.EquityCompensationExercise.OcfEquityCompensationExerciseData = {
-    ocf_id: d.ocf_id,
+  const exercise_data: any = {
+    id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
@@ -55,8 +55,8 @@ export async function createEquityCompensationExercise(
 
 export function buildCreateEquityCompensationExerciseCommand(params: CreateEquityCompensationExerciseParams): { command: Command; disclosedContracts: DisclosedContract[] } {
   const d = params.exerciseData;
-  const exercise_data: Fairmint.OpenCapTable.EquityCompensationExercise.OcfEquityCompensationExerciseData = {
-    ocf_id: d.ocf_id,
+  const exercise_data: any = {
+    id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,

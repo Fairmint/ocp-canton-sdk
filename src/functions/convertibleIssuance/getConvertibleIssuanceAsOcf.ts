@@ -147,7 +147,7 @@ export async function getConvertibleIssuanceAsOcf(
   const convertTriggers = (
     ts: unknown[] | undefined,
     convertibleType: 'NOTE' | 'SAFE' | 'SECURITY',
-    ocfId: string
+    issuanceId: string
   ): ConversionTrigger[] => {
     if (!Array.isArray(ts)) return [];
 
@@ -326,7 +326,7 @@ export async function getConvertibleIssuanceAsOcf(
       const r = (raw ?? {}) as Record<string, any>;
       const tag = typeof r.type_ === 'string' ? r.type_ : (typeof r.tag === 'string' ? r.tag : (typeof raw === 'string' ? raw : ''));
       const type: ConversionTriggerType = mapTagToType(String(tag));
-      const trigger_id: string = typeof r.trigger_id === 'string' && r.trigger_id.length ? r.trigger_id : `${ocfId}-trigger-${idx + 1}`;
+      const trigger_id: string = typeof r.trigger_id === 'string' && r.trigger_id.length ? r.trigger_id : `${issuanceId}-trigger-${idx + 1}`;
       const nickname: string | undefined = typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
       const trigger_description: string | undefined = typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
       const trigger_date: string | undefined = typeof r.trigger_date === 'string' && r.trigger_date.length ? (r.trigger_date as string).split('T')[0] : undefined;
@@ -375,7 +375,7 @@ export async function getConvertibleIssuanceAsOcf(
 
   const event: OcfConvertibleIssuanceEvent = {
     object_type: 'TX_CONVERTIBLE_ISSUANCE',
-    id: d.ocf_id,
+    id: (d as any).id,
     date: (d.date as string).split('T')[0],
     security_id: d.security_id,
     custom_id: d.custom_id,
@@ -389,7 +389,7 @@ export async function getConvertibleIssuanceAsOcf(
     conversion_triggers: convertTriggers(
       d.conversion_triggers as unknown[],
       typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
-      d.ocf_id as string
+      (d as any).id as string
     ),
     ...(d.pro_rata !== null && d.pro_rata !== undefined ? { pro_rata: typeof d.pro_rata === 'number' ? String(d.pro_rata) : d.pro_rata } : {}),
     seniority: typeof d.seniority === 'number' ? d.seniority : Number(d.seniority),

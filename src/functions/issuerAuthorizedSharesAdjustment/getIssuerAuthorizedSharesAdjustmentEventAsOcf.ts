@@ -24,7 +24,7 @@ export async function getIssuerAuthorizedSharesAdjustmentEventAsOcf(
   const d = arg.adjustment_data || arg;
   const event: OcfIssuerAuthorizedSharesAdjustmentEvent = {
     object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
-    id: d.ocf_id,
+    id: (d as any).id,
     date: (d.date as string).split('T')[0],
     issuer_id: d.issuer_id,
     new_shares_authorized: typeof d.new_shares_authorized === 'number' ? String(d.new_shares_authorized) : d.new_shares_authorized,

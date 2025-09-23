@@ -124,7 +124,7 @@ export function damlAddressTypeToNative(damlType: Fairmint.OpenCapTable.Types.Oc
 
 // ===== Stock Class Type Conversions =====
 
-export function stockClassTypeToDaml(stockClassType: StockClassType): Fairmint.OpenCapTable.StockClass.OcfStockClassType {
+export function stockClassTypeToDaml(stockClassType: StockClassType): any {
   switch (stockClassType) {
     case 'PREFERRED':
       return 'OcfStockClassTypePreferred';
@@ -135,7 +135,7 @@ export function stockClassTypeToDaml(stockClassType: StockClassType): Fairmint.O
   }
 }
 
-export function damlStockClassTypeToNative(damlType: Fairmint.OpenCapTable.StockClass.OcfStockClassType): StockClassType {
+export function damlStockClassTypeToNative(damlType: any): StockClassType {
   switch (damlType) {
     case 'OcfStockClassTypePreferred':
       return 'PREFERRED';
@@ -321,9 +321,9 @@ export function damlContactInfoWithoutNameToNative(
 // ===== Main Data Structure Conversions =====
 
 export function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issuer.OcfIssuerData {
-  if (!issuerData.ocf_id) throw new Error('issuerData.ocf_id is required');
+  if (!issuerData.id) throw new Error('issuerData.id is required');
   return {
-    ocf_id: issuerData.ocf_id,
+    id: issuerData.id,
     legal_name: issuerData.legal_name,
     country_of_formation: issuerData.country_of_formation,
     dba: issuerData.dba || null,
@@ -355,7 +355,7 @@ export function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTab
 
 export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.OcfIssuerData): OcfIssuerData {
   return {
-    ocf_id: damlData.ocf_id,
+    id: (damlData as any).id,
     legal_name: damlData.legal_name || '',
     country_of_formation: damlData.country_of_formation || '',
     ...(damlData.formation_date && { formation_date: damlTimeToDateString(damlData.formation_date) }),
@@ -384,9 +384,9 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.Oc
 }
 
 export function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
-  if (!stockClassData.ocf_id) throw new Error('stockClassData.ocf_id is required');
+  if (!stockClassData.id) throw new Error('stockClassData.id is required');
   return {
-    ocf_id: stockClassData.ocf_id,
+    id: stockClassData.id,
     name: stockClassData.name,
     class_type: stockClassTypeToDaml(stockClassData.class_type),
     default_id_prefix: stockClassData.default_id_prefix,
@@ -404,7 +404,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
     price_per_share: stockClassData.price_per_share ? monetaryToDaml(stockClassData.price_per_share) : null,
     conversion_rights: (stockClassData.conversion_rights || []).map((right) => {
       // Mechanism mapping
-      const mechanism: Fairmint.OpenCapTable.StockClass.OcfConversionMechanism =
+      const mechanism: any =
         right.conversion_mechanism === 'RATIO_CONVERSION'
           ? 'OcfConversionMechanismRatioConversion'
           : right.conversion_mechanism === 'PERCENT_CONVERSION'
@@ -412,7 +412,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
           : 'OcfConversionMechanismFixedAmountConversion';
 
       // Trigger mapping - collapse to Automatic/Optional as per DAML type
-      const trigger: Fairmint.OpenCapTable.StockClass.OcfConversionTrigger | string = (() => {
+      const trigger: any = (() => {
         switch (right.conversion_trigger) {
           case 'AUTOMATIC_ON_CONDITION':
             return 'OcfTriggerTypeAutomaticOnCondition';
@@ -483,7 +483,7 @@ export function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.Stock
   }
 
   return {
-    ocf_id: (typeof dAny.ocf_id === 'string' ? dAny.ocf_id : ''),
+    id: (typeof (dAny as any).id === 'string' ? (dAny as any).id : ''),
     name: damlData.name || '',
     class_type: damlStockClassTypeToNative(damlData.class_type),
     default_id_prefix: damlData.default_id_prefix || '',
@@ -592,9 +592,9 @@ export function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.Stock
 // ===== Stakeholder Data Conversions =====
 
 export function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData {
-  if (!data.ocf_id) throw new Error('stakeholder.ocf_id is required');
+  if (!data.id) throw new Error('stakeholder.id is required');
   const payload: any = {
-    ocf_id: data.ocf_id,
+    id: data.id,
     name: nameToDaml(data.name),
     stakeholder_type: stakeholderTypeToDaml(data.stakeholder_type),
     issuer_assigned_id: data.issuer_assigned_id || null,
@@ -656,7 +656,7 @@ export function damlStakeholderDataToNative(
     }
   };
   const native: OcfStakeholderData = {
-    ...(dAny.ocf_id ? { ocf_id: dAny.ocf_id as string } : {}),
+    ...(dAny.id ? { id: dAny.id as string } : {}),
     name,
     stakeholder_type: damlStakeholderTypeToNative(damlData.stakeholder_type),
     ...(damlData.issuer_assigned_id && { issuer_assigned_id: damlData.issuer_assigned_id }),
@@ -688,9 +688,9 @@ export function damlStakeholderDataToNative(
 // ===== Stock Legend Template Conversions =====
 
 export function stockLegendTemplateDataToDaml(data: OcfStockLegendTemplateData): Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData {
-  if (!data.ocf_id) throw new Error('stockLegendTemplate.ocf_id is required');
+  if (!data.id) throw new Error('stockLegendTemplate.id is required');
   return {
-    ocf_id: data.ocf_id,
+    id: data.id,
     name: data.name,
     text: data.text,
     comments: data.comments || []
@@ -701,7 +701,7 @@ export function damlStockLegendTemplateDataToNative(
   damlData: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData
 ): OcfStockLegendTemplateData {
   return {
-    ocf_id: damlData.ocf_id,
+    id: (damlData as any).id,
     name: damlData.name || '',
     text: damlData.text || '',
     ...(damlData.comments && { comments: damlData.comments })
@@ -835,11 +835,11 @@ function objectTypeToNative(t: Fairmint.OpenCapTable.Document.OcfObjectType): Oc
 }
 
 export function documentDataToDaml(d: OcfDocumentData): Fairmint.OpenCapTable.Document.OcfDocument {
-  if (!d.ocf_id) throw new Error('document.ocf_id is required');
+  if (!d.id) throw new Error('document.id is required');
   if (!d.md5) throw new Error('document.md5 is required');
   if (!d.path && !d.uri) throw new Error('document requires path or uri');
   return {
-    ocf_id: d.ocf_id,
+    id: d.id,
     path: d.path ?? null,
     uri: d.uri ?? null,
     md5: d.md5,
@@ -853,7 +853,7 @@ export function documentDataToDaml(d: OcfDocumentData): Fairmint.OpenCapTable.Do
 
 export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.Document.OcfDocument): OcfDocumentData {
   return {
-    ocf_id: d.ocf_id,
+    id: (d as any).id,
     ...(d.path ? { path: d.path || undefined } : {}),
     ...(d.uri ? { uri: d.uri || undefined } : {}),
     md5: d.md5,
@@ -910,14 +910,14 @@ function damlStockIssuanceTypeToNative(t: any): StockIssuanceType | undefined {
 }
 
 export function stockIssuanceDataToDaml(d: OcfStockIssuanceData): Fairmint.OpenCapTable.StockIssuance.OcfStockIssuanceData {
-  if (!d.ocf_id) throw new Error('stockIssuance.ocf_id is required');
+  if (!d.id) throw new Error('stockIssuance.id is required');
   if (!d.security_id) throw new Error('stockIssuance.security_id is required');
   if (!d.custom_id) throw new Error('stockIssuance.custom_id is required');
   if (!d.stakeholder_id) throw new Error('stockIssuance.stakeholder_id is required');
   if (!d.stock_class_id) throw new Error('stockIssuance.stock_class_id is required');
   // Allow empty array for stock_legend_ids per OCF schema (no minItems)
   return {
-    ocf_id: d.ocf_id,
+    id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     custom_id: d.custom_id,
@@ -943,7 +943,7 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuanceData): Fairmint.OpenC
 export function damlStockIssuanceDataToNative(d: Fairmint.OpenCapTable.StockIssuance.OcfStockIssuanceData): OcfStockIssuanceData {
   const anyD = d as unknown as { [k: string]: unknown };
   return {
-    ocf_id: d.ocf_id,
+    id: (d as any).id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     custom_id: d.custom_id,
@@ -988,10 +988,10 @@ function damlValuationTypeToNative(t: Fairmint.OpenCapTable.Valuation.OcfValuati
 }
 
 export function valuationDataToDaml(data: OcfValuationData): Fairmint.OpenCapTable.Valuation.OcfValuationData {
-  if (!data.ocf_id) throw new Error('valuation.ocf_id is required');
+  if (!data.id) throw new Error('valuation.id is required');
   if (!('stock_class_id' in data) || !data.stock_class_id) throw new Error('valuation.stock_class_id is required');
   return {
-    ocf_id: data.ocf_id,
+    id: data.id,
     stock_class_id: data.stock_class_id || '',
     provider: data.provider || null,
     board_approval_date: data.board_approval_date ? dateStringToDAMLTime(data.board_approval_date) : null,
@@ -1005,7 +1005,7 @@ export function valuationDataToDaml(data: OcfValuationData): Fairmint.OpenCapTab
 
 export function damlValuationDataToNative(d: Fairmint.OpenCapTable.Valuation.OcfValuationData): OcfValuationData {
   return {
-    ocf_id: d.ocf_id,
+    id: (d as any).id,
     stock_class_id: ('stock_class_id' in d ? (d as { stock_class_id?: string }).stock_class_id || '' : ''),
     ...(d.provider && { provider: d.provider }),
     ...(d.board_approval_date && { board_approval_date: damlTimeToDateString(d.board_approval_date) }),
@@ -1112,7 +1112,7 @@ function damlVestingPeriodToNative(p: any): { tag: 'DAYS' | 'MONTHS'; length: nu
   throw new Error('Unknown DAML vesting period');
 }
 
-function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger {
+function vestingTriggerToDaml(t: any): any {
   const type: string | undefined = typeof t?.type === 'string' ? t.type.toUpperCase() : undefined;
 
   // Map schema 'type' to DAML
@@ -1223,7 +1223,7 @@ function damlVestingConditionPortionToNative(p: Fairmint.OpenCapTable.VestingTer
 
 function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition {
   return {
-    id_: c.id,
+    id: c.id,
     description: c.description || null,
     portion: c.portion ? ({ tag: 'Some', value: vestingConditionPortionToDaml(c.portion) } as unknown as Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition['portion']) : null,
     quantity: c.quantity !== undefined ? (typeof c.quantity === 'number' ? c.quantity.toString() : c.quantity) : null,
@@ -1234,7 +1234,7 @@ function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.Vest
 
 function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition): VestingCondition {
   const native: VestingCondition = {
-    id: c.id_ || '',
+    id: (c as any).id || '',
     ...(c.description && { description: c.description }),
     ...(c.quantity && { quantity: c.quantity }),
     trigger: damlVestingTriggerToNative(c.trigger),
@@ -1262,9 +1262,9 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfV
 }
 
 export function vestingTermsDataToDaml(d: OcfVestingTermsData): Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData {
-  if (!d.ocf_id) throw new Error('vestingTerms.ocf_id is required');
+  if (!d.id) throw new Error('vestingTerms.id is required');
   return {
-    ocf_id: d.ocf_id,
+    id: d.id,
     name: d.name,
     description: d.description,
     allocation_type: allocationTypeToDaml(d.allocation_type),
@@ -1275,7 +1275,7 @@ export function vestingTermsDataToDaml(d: OcfVestingTermsData): Fairmint.OpenCap
 
 export function damlVestingTermsDataToNative(d: Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData): OcfVestingTermsData {
   return {
-    ocf_id: d.ocf_id,
+    id: (d as any).id,
     name: d.name || '',
     description: d.description || '',
     allocation_type: damlAllocationTypeToNative(d.allocation_type),
@@ -1308,9 +1308,9 @@ function damlCancellationBehaviorToNative(b: any): StockPlanCancellationBehavior
 }
 
 export function stockPlanDataToDaml(d: OcfStockPlanData): Fairmint.OpenCapTable.StockPlan.OcfStockPlanData {
-  if (!d.ocf_id) throw new Error('stockPlan.ocf_id is required');
+  if (!d.id) throw new Error('stockPlan.id is required');
   return {
-    ocf_id: d.ocf_id,
+    id: d.id,
     plan_name: d.plan_name,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
@@ -1323,7 +1323,7 @@ export function stockPlanDataToDaml(d: OcfStockPlanData): Fairmint.OpenCapTable.
 
 export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.StockPlan.OcfStockPlanData): OcfStockPlanData {
   return {
-    ocf_id: d.ocf_id,
+    id: (d as any).id,
     plan_name: d.plan_name || '',
     ...(d.board_approval_date && { board_approval_date: damlTimeToDateString(d.board_approval_date) }),
     ...(d.stockholder_approval_date && { stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date) }),
