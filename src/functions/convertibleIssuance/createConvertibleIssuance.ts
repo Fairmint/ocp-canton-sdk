@@ -173,8 +173,8 @@ function mechanismInputToDamlEnum(
           Array.isArray(arr)
             ? (arr as any[]).map(ir => ({
                 rate: ir?.rate ?? null,
-                period_type: ir?.period_type ?? null,
-                basis_points: ir?.basis_points ?? null
+                accrual_start_date: ir?.accrual_start_date ? dateStringToDAMLTime(ir.accrual_start_date as string) : null,
+                accrual_end_date: ir?.accrual_end_date ? dateStringToDAMLTime(ir.accrual_end_date as string) : null
               }))
             : [];
         const accrualToDaml = (v: unknown): any => {

@@ -32,6 +32,7 @@ export async function createEquityCompensationIssuance(
   params: CreateEquityCompensationIssuanceParams
 ): Promise<CreateEquityCompensationIssuanceResult> {
   const d = params.issuanceData;
+  const emptyToNull = (v: string | undefined): string | null => (v === '' ? null : (v ?? null));
   const issuance_data: any = {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -40,9 +41,9 @@ export async function createEquityCompensationIssuance(
     stakeholder_id: d.stakeholder_id,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-    consideration_text: d.consideration_text ?? null,
+    consideration_text: emptyToNull(d.consideration_text),
     security_law_exemptions: (d.security_law_exemptions || []).map(e => ({ description: e.description, jurisdiction: e.jurisdiction })),
-    stock_plan_id: d.stock_plan_id ?? null,
+    stock_plan_id: emptyToNull(d.stock_plan_id),
     stock_class_id: d.stock_class_id ?? null,
     vesting_terms_id: d.vesting_terms_id ?? null,
     ...equityCompIssuanceDataToDaml(d)
@@ -68,6 +69,7 @@ export async function createEquityCompensationIssuance(
 
 export function buildCreateEquityCompensationIssuanceCommand(params: CreateEquityCompensationIssuanceParams): { command: Command; disclosedContracts: DisclosedContract[] } {
   const d = params.issuanceData;
+  const emptyToNull = (v: string | undefined): string | null => (v === '' ? null : (v ?? null));
   const issuance_data: any = {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -76,9 +78,9 @@ export function buildCreateEquityCompensationIssuanceCommand(params: CreateEquit
     stakeholder_id: d.stakeholder_id,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-    consideration_text: d.consideration_text ?? null,
+    consideration_text: emptyToNull(d.consideration_text),
     security_law_exemptions: (d.security_law_exemptions || []).map(e => ({ description: e.description, jurisdiction: e.jurisdiction })),
-    stock_plan_id: d.stock_plan_id ?? null,
+    stock_plan_id: emptyToNull(d.stock_plan_id),
     stock_class_id: d.stock_class_id ?? null,
     vesting_terms_id: d.vesting_terms_id ?? null,
     ...equityCompIssuanceDataToDaml(d)

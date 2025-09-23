@@ -55,7 +55,7 @@ type SharePriceBasedMechanism = {
 
 type NoteConversionMechanism = {
   type: 'CONVERTIBLE_NOTE_CONVERSION';
-  interest_rates: Array<{ rate: string; period_type?: string; basis_points?: string }> | null;
+  interest_rates: Array<{ rate: string; accrual_start_date: string; accrual_end_date?: string }> | null;
   day_count_convention?: 'ACTUAL_365' | '30_360';
   interest_payout?: 'DEFERRED' | 'CASH';
   interest_accrual_period?: string;
@@ -252,8 +252,8 @@ export async function getConvertibleIssuanceAsOcf(
             const interest_rates = Array.isArray(value?.interest_rates)
               ? (value!.interest_rates as any[]).map((ir: any) => ({
                   rate: typeof ir?.rate === 'number' ? String(ir.rate) : ir?.rate,
-                  ...(ir?.period_type ? { period_type: String(ir.period_type) } : {}),
-                  ...(ir?.basis_points !== undefined && ir?.basis_points !== null ? { basis_points: String(ir.basis_points) } : {})
+                  accrual_start_date: (ir?.accrual_start_date as string).split('T')[0],
+                  ...(ir?.accrual_end_date ? { accrual_end_date: (ir.accrual_end_date as string).split('T')[0] } : {})
                 }))
               : null;
             const accrualFromDaml = (v: unknown): 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL' | undefined => {

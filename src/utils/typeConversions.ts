@@ -1089,7 +1089,7 @@ function damlVestingPeriodToNative(p: any): { tag: 'DAYS' | 'MONTHS'; length: nu
     if (!Number.isFinite(occ) || occ < 1) throw new Error('Invalid vesting period occurrences');
     return {
       tag: 'DAYS',
-      length: Number(v.period_length),
+      length: Number(v.length_),
       occurrences: occ,
       ...(v.cliff_installment !== null && v.cliff_installment !== undefined ? { cliff_installment: Number(v.cliff_installment) } : {})
     };
@@ -1103,7 +1103,7 @@ function damlVestingPeriodToNative(p: any): { tag: 'DAYS' | 'MONTHS'; length: nu
     if (v.day_of_month === undefined || v.day_of_month === null) throw new Error('Missing vesting period day_of_month for MONTHS');
     return {
       tag: 'MONTHS',
-      length: Number(v.period_length),
+      length: Number(v.length_),
       occurrences: occ,
       day_of_month: mapDamlDayOfMonthToOcf(v.day_of_month),
       ...(v.cliff_installment !== null && v.cliff_installment !== undefined ? { cliff_installment: Number(v.cliff_installment) } : {})
@@ -1135,13 +1135,13 @@ function vestingTriggerToDaml(t: any): any {
     if (!Number.isFinite(lengthNum) || lengthNum <= 0) throw new Error('Invalid vesting relative period length');
     if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1) throw new Error('Invalid vesting relative period occurrences');
     let period:
-      | { tag: 'OcfVestingPeriodDays'; value: { period_length: string; occurrences: string; cliff_installment: string | null } }
-      | { tag: 'OcfVestingPeriodMonths'; value: { period_length: string; occurrences: string; day_of_month: any; cliff_installment: string | null } };
+      | { tag: 'OcfVestingPeriodDays'; value: { length_: string; occurrences: string; cliff_installment: string | null } }
+      | { tag: 'OcfVestingPeriodMonths'; value: { length_: string; occurrences: string; day_of_month: any; cliff_installment: string | null } };
     if (pType === 'DAYS') {
-      period = { tag: 'OcfVestingPeriodDays', value: { period_length: String(lengthNum), occurrences: String(occurrencesNum), cliff_installment: cliffVal === undefined ? null : String(Number(cliffVal)) } };
+      period = { tag: 'OcfVestingPeriodDays', value: { length_: String(lengthNum), occurrences: String(occurrencesNum), cliff_installment: cliffVal === undefined ? null : String(Number(cliffVal)) } };
     } else {
       if (p?.day_of_month === undefined || p?.day_of_month === null) throw new Error('Missing vesting relative period day_of_month for MONTHS');
-      period = { tag: 'OcfVestingPeriodMonths', value: { period_length: String(lengthNum), occurrences: String(occurrencesNum), day_of_month: mapOcfDayOfMonthToDaml(p?.day_of_month), cliff_installment: cliffVal === undefined ? null : String(Number(cliffVal)) } };
+      period = { tag: 'OcfVestingPeriodMonths', value: { length_: String(lengthNum), occurrences: String(occurrencesNum), day_of_month: mapOcfDayOfMonthToDaml(p?.day_of_month), cliff_installment: cliffVal === undefined ? null : String(Number(cliffVal)) } };
     }
     return {
       tag: 'OcfVestingScheduleRelativeTrigger',
