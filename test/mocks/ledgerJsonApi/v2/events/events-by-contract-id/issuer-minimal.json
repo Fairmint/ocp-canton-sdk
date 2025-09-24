@@ -3,7 +3,7 @@
     "createdEvent": {
       "offset": 1835839,
       "nodeId": 3,
-      "contractId": "issuer-1",
+      "contractId": "issuer-minimal",
       "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
       "contractKey": null,
       "createArgument": {
@@ -20,14 +20,11 @@
           "comments": [],
           "tax_ids": [],
           "address": null,
-          "country_subdivision_of_formation": "DE",
+          "country_subdivision_of_formation": null,
           "country_subdivision_name_of_formation": null,
           "dba": null,
           "email": null,
-          "initial_shares_authorized": {
-            "tag": "OcfInitialSharesNumeric",
-            "value": "15000000.0000000000"
-          },
+          "initial_shares_authorized": null,
           "phone": null
         }
       },

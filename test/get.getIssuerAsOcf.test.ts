@@ -1,12 +1,9 @@
 import { OcpClient } from '../src';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { LedgerJsonApiClient } = require('@fairmint/canton-node-sdk');
 
 describe('get: getIssuerAsOcf', () => {
-  test('maps network response to expected OCF issuer (file-backed fixture)', async () => {
-    const client = new OcpClient({ network: 'devnet' });
-    const res = await client.issuer.getIssuerAsOcf({ contractId: 'issuer-1' });
-    console.log(res);
+  test('minimal', async () => {
+    const client = new OcpClient();
+    const res = await client.issuer.getIssuerAsOcf({ contractId: 'issuer-minimal' });
     expect(res).toEqual({
       issuer: {
         object_type: 'ISSUER',
@@ -14,12 +11,42 @@ describe('get: getIssuerAsOcf', () => {
         legal_name: 'Fairmint Inc.',
         country_of_formation: 'US',
         formation_date: '2019-04-23',
-        country_subdivision_of_formation: 'DE',
         tax_ids: [],
-        initial_shares_authorized: '15000000.0000000000',
         comments: []
       },
-      contractId: 'issuer-1'
+      contractId: 'issuer-minimal'
+    });
+  });
+
+  test('full', async () => {
+    const client = new OcpClient();
+    const res = await client.issuer.getIssuerAsOcf({ contractId: 'issuer-full' });
+    expect(res).toEqual({
+      issuer: {
+        object_type: 'ISSUER',
+        id: '87685711-93e5-4998-b332-9c5bbadf4b5c',
+        legal_name: 'Magnetic Media Holdings, Inc.',
+        country_of_formation: 'US',
+        formation_date: '2006-11-13',
+        tax_ids: [  {
+             country: "US",
+             tax_id: "208420066",
+           } ],
+        comments: ["Here is a comment", "Here is another comment"],
+        dba: 'Magnetic 3D',
+        country_subdivision_of_formation: 'DE',
+        email: { email_type: 'BUSINESS', email_address: 'support@magnetic3d.com' },
+        address: {
+          address_type: 'LEGAL',
+          country: 'US',
+          street_suite: '450 Lexington Avenue, 4th floor',
+          city: 'New York City',
+          country_subdivision: 'NY',
+          postal_code: '10017'
+        },
+        initial_shares_authorized: '191500.0000000000'
+      },
+      contractId: 'issuer-full'
     });
   });
 });
