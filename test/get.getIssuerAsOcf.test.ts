@@ -4,7 +4,7 @@ const { LedgerJsonApiClient } = require('@fairmint/canton-node-sdk');
 
 describe('get: getIssuerAsOcf', () => {
   test('maps network response to expected OCF issuer', async () => {
-    const client = new OcpClient({ network: 'dev' });
+    const client = new OcpClient({ network: 'devnet' });
     const ledger = (LedgerJsonApiClient as any).__instances?.slice(-1)[0] as InstanceType<typeof LedgerJsonApiClient> & { __setEventsResponse: Function };
 
     // Mock events response to include issuer_data
