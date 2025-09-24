@@ -135,7 +135,7 @@ export interface OcfIssuerData {
   /** The text name of state, province, or subdivision where the issuer company was legally formed if the code is not available */
   country_subdivision_name_of_formation?: string;
   /** The tax ids for this issuer company */
-  tax_ids?: TaxId[];
+  tax_ids: TaxId[];
   /** A work email that the issuer company can be reached at */
   email?: Email;
   /** A phone number that the issuer company can be reached at */
@@ -145,7 +145,7 @@ export interface OcfIssuerData {
   /** The initial number of shares authorized for this issuer */
   initial_shares_authorized?: InitialSharesAuthorized;
   /** Optional comments */
-  comments?: string[];
+  comments: string[];
 }
 
 /** OCF Stock Class Data */
@@ -172,13 +172,13 @@ export interface OcfStockClassData {
   /** Per-share price this stock class was issued for */
   price_per_share?: Monetary;
   /** List of stock class conversion rights possible for this stock class */
-  conversion_rights?: StockClassConversionRight[];
+  conversion_rights: StockClassConversionRight[];
   /** The liquidation preference per share for this stock class */
   liquidation_preference_multiple?: string | number;
   /** The participation cap multiple per share for this stock class */
   participation_cap_multiple?: string | number;
   /** Optional comments */
-  comments?: string[];
+  comments: string[];
 }
 
 /** Stakeholder type */
@@ -187,14 +187,14 @@ export type StakeholderType = 'INDIVIDUAL' | 'INSTITUTION';
 /** Contact info with name */
 export interface ContactInfo {
   name: Name;
-  phone_numbers?: Phone[];
-  emails?: Email[];
+  phone_numbers: Phone[];
+  emails: Email[];
 }
 
 /** Contact info without name */
 export interface ContactInfoWithoutName {
-  phone_numbers?: Phone[];
-  emails?: Email[];
+  phone_numbers: Phone[];
+  emails: Email[];
 }
 
 /** OCF Stakeholder Data */
@@ -204,7 +204,7 @@ export interface OcfStakeholderData {
   stakeholder_type: StakeholderType;
   issuer_assigned_id?: string;
   /** Array of current relationships per v2 */
-  current_relationships?: string[];
+  current_relationships: string[];
   /** Current activity status of the stakeholder */
   current_status?:
     | 'ACTIVE'
@@ -220,7 +220,7 @@ export interface OcfStakeholderData {
   contact_info?: ContactInfoWithoutName;
   addresses: Address[];
   tax_ids: TaxId[];
-  comments?: string[];
+  comments: string[];
 }
 
 /** Stock Legend Template Data */
@@ -228,7 +228,7 @@ export interface OcfStockLegendTemplateData {
   id: string;
   name: string;
   text: string;
-  comments?: string[];
+  comments: string[];
 }
 
 /** Reference to another OCF object */
@@ -300,7 +300,7 @@ export interface OcfDocumentData {
   uri?: string;
   md5: string;
   related_objects: OcfObjectReference[];
-  comments?: string[];
+  comments: string[];
 }
 
 /** Valuation Type */
@@ -350,15 +350,15 @@ export interface OcfStockIssuanceData {
   security_law_exemptions: SecurityExemption[];
   stock_class_id: string;
   stock_plan_id?: string;
-  share_numbers_issued?: ShareNumberRange[];
+  share_numbers_issued: ShareNumberRange[];
   share_price: Monetary;
   quantity: string | number;
   vesting_terms_id?: string;
-  vestings?: VestingSimple[];
+  vestings: VestingSimple[];
   cost_basis?: Monetary;
   stock_legend_ids: string[];
   issuance_type?: StockIssuanceType;
-  comments?: string[];
+  comments: string[];
 }
 
 // ===== Vesting Terms Types =====
@@ -403,7 +403,7 @@ export interface OcfVestingTermsData {
   description: string;
   allocation_type: AllocationType;
   vesting_conditions: VestingCondition[];
-  comments?: string[];
+  comments: string[];
 }
 
 // ===== Stock Plan Types =====
@@ -422,7 +422,7 @@ export interface OcfStockPlanData {
   initial_shares_reserved: string | number;
   default_cancellation_behavior?: StockPlanCancellationBehavior;
   stock_class_ids: string[];
-  comments?: string[];
+  comments: string[];
 }
 
 // ===== Equity Compensation Issuance Types =====
@@ -455,11 +455,11 @@ export interface OcfEquityCompensationIssuanceData {
   exercise_price?: Monetary;
   base_price?: Monetary;
   early_exercisable?: boolean;
-  security_law_exemptions?: SecurityExemption[];
-  vestings?: Vesting[];
+  security_law_exemptions: SecurityExemption[];
+  vestings: Vesting[];
   expiration_date?: string;
   termination_exercise_windows: TerminationWindow[];
-  comments?: string[];
+  comments: string[];
 }
 
 // ===== Convertible & Warrant Issuance Types =====
@@ -473,7 +473,7 @@ export interface OcfConvertibleIssuanceDataNative {
   conversion_triggers: SimpleTrigger[];
   seniority: number;
   pro_rata?: string | number;
-  comments?: string[];
+  comments: string[];
 }
 
 export interface OcfWarrantIssuanceDataNative {
@@ -483,5 +483,5 @@ export interface OcfWarrantIssuanceDataNative {
   exercise_triggers: SimpleTrigger[];
   warrant_expiration_date?: string;
   vesting_terms_id?: string;
-  comments?: string[];
+  comments: string[];
 }

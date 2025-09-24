@@ -56,29 +56,10 @@ export async function getIssuerAsOcf(
 
   const issuerData = (createArgument as any).issuer_data as Fairmint.OpenCapTable.Issuer.OcfIssuerData;
   const native = damlIssuerDataToNative(issuerData);
-  const { id, ...nativeWithoutId } = native as any;
 
   const ocfIssuer: OcfIssuer = {
     object_type: 'ISSUER',
-    id,
-    legal_name: nativeWithoutId.legal_name,
-    country_of_formation: nativeWithoutId.country_of_formation,
-    formation_date: nativeWithoutId.formation_date,
-    ...(nativeWithoutId.dba && { dba: nativeWithoutId.dba }),
-    ...(nativeWithoutId.country_subdivision_of_formation && {
-      country_subdivision_of_formation: nativeWithoutId.country_subdivision_of_formation
-    }),
-    ...(nativeWithoutId.country_subdivision_name_of_formation && {
-      country_subdivision_name_of_formation: nativeWithoutId.country_subdivision_name_of_formation
-    }),
-    ...(nativeWithoutId.tax_ids && { tax_ids: nativeWithoutId.tax_ids }),
-    ...(nativeWithoutId.email && { email: nativeWithoutId.email }),
-    ...(nativeWithoutId.phone && { phone: nativeWithoutId.phone }),
-    ...(nativeWithoutId.address && { address: nativeWithoutId.address }),
-    ...(nativeWithoutId.initial_shares_authorized !== undefined && {
-      initial_shares_authorized: nativeWithoutId.initial_shares_authorized
-    }),
-    ...(nativeWithoutId.comments && { comments: nativeWithoutId.comments })
+    ...native
   };
 
   return { issuer: ocfIssuer, contractId: params.contractId };

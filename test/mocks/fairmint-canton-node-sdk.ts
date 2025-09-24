@@ -39,8 +39,39 @@ export class LedgerJsonApiClient {
     ) as SubmitAndWaitForTransactionTreeResponse;
   });
 
-  public getEventsByContractId = jest.fn(async (_req: { contractId: string }) => {
-    return {} as any;
+  public getEventsByContractId = jest.fn(async (req: { contractId: string }) => {
+    // Allow tests to override via helper
+    const override = (this as any).__eventsResponseOverride;
+    if (override) return override;
+
+    // Load from JSON fixture on disk: test/mocks/ledgerJsonApi/v2/events/events-by-contract-id/<contractId>.json
+    // Use absolute path to avoid cwd issues
+    const path = require('path');
+    const fs = require('fs');
+    const fixturePath = path.join(
+      __dirname,
+      '..',
+      'mocks',
+      'ledgerJsonApi',
+      'v2',
+      'events',
+      'events-by-contract-id',
+      `${req.contractId}.json`
+    );
+
+    if (!fs.existsSync(fixturePath)) {
+      const error: any = new Error(`Fixture not found for contractId ${req.contractId}: ${fixturePath}`);
+      error.code = 404;
+      error.body = { code: 'CONTRACT_EVENTS_NOT_FOUND' };
+      throw error;
+    }
+
+    const fileContent = fs.readFileSync(fixturePath, 'utf-8');
+    try {
+      return JSON.parse(fileContent);
+    } catch (e) {
+      throw new Error(`Invalid JSON in fixture ${fixturePath}: ${(e as Error).message}`);
+    }
   });
 
   constructor(config?: ClientConfig) {
@@ -58,6 +89,7 @@ export class LedgerJsonApiClient {
   }
 
   __setEventsResponse(resp: any) {
+    (this as any).__eventsResponseOverride = resp;
     (this.getEventsByContractId as jest.Mock).mockResolvedValue(resp);
   }
 

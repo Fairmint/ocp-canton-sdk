@@ -3,36 +3,23 @@ import { OcpClient } from '../src';
 const { LedgerJsonApiClient } = require('@fairmint/canton-node-sdk');
 
 describe('get: getIssuerAsOcf', () => {
-  test('maps network response to expected OCF issuer', async () => {
+  test('maps network response to expected OCF issuer (file-backed fixture)', async () => {
     const client = new OcpClient({ network: 'devnet' });
-    const ledger = (LedgerJsonApiClient as any).__instances?.slice(-1)[0] as InstanceType<typeof LedgerJsonApiClient> & { __setEventsResponse: Function };
-
-    // Mock events response to include issuer_data
-    ledger.__setEventsResponse({
-      created: {
-        createdEvent: {
-          createArgument: {
-            issuer_data: {
-              id: 'iss-1',
-              legal_name: 'ACME Inc.',
-              country_of_formation: 'US',
-              formation_date: '2025-01-01T00:00:00Z'
-            }
-          }
-        }
-      }
-    });
-
     const res = await client.issuer.getIssuerAsOcf({ contractId: 'issuer-1' });
+    console.log(res);
     expect(res).toEqual({
-      contractId: 'issuer-1',
       issuer: {
-        id: 'iss-1',
         object_type: 'ISSUER',
-        legal_name: 'ACME Inc.',
+        id: '66ff16f7-5f65-4a78-9011-fac4a8596efc',
+        legal_name: 'Fairmint Inc.',
         country_of_formation: 'US',
-        formation_date: '2025-01-01'
-      }
+        formation_date: '2019-04-23',
+        country_subdivision_of_formation: 'DE',
+        tax_ids: [],
+        initial_shares_authorized: '15000000.0000000000',
+        comments: []
+      },
+      contractId: 'issuer-1'
     });
   });
 });
