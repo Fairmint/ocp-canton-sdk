@@ -100,6 +100,8 @@ export interface OcfConvertibleIssuanceEvent {
   security_id: string;
   custom_id: string;
   stakeholder_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
   investment_amount: { amount: string; currency: string };
   consideration_text?: string;
   convertible_type: 'NOTE' | 'SAFE' | 'SECURITY';
@@ -151,16 +153,6 @@ export async function getConvertibleIssuanceAsOcf(
   ): ConversionTrigger[] => {
     if (!Array.isArray(ts)) return [];
 
-    const defaultRightForType = (): ConvertibleConversionRight | undefined => {
-      if (convertibleType === 'SAFE') {
-        return {
-          type: 'CONVERTIBLE_CONVERSION_RIGHT',
-          conversion_mechanism: { type: 'SAFE_CONVERSION', conversion_mfn: false },
-          converts_to_future_round: true
-        };
-      }
-      return undefined;
-    };
 
     const mapTagToType = (tag: string): ConversionTriggerType => {
       if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
@@ -300,7 +292,7 @@ export async function getConvertibleIssuanceAsOcf(
               ...(value?.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
               ...(value?.capitalization_definition_rules ? { capitalization_definition_rules: value.capitalization_definition_rules } : {}),
               ...(value?.exit_multiple ? { exit_multiple: { numerator: String(value.exit_multiple?.numerator), denominator: String(value.exit_multiple?.denominator) } } : {}),
-              ...(value?.conversion_mfn !== undefined ? { conversion_mfn: !!value.conversion_mfn } : {})
+              ...(value?.conversion_mfn ? { conversion_mfn: !!value.conversion_mfn } : {})
             } as NoteConversionMechanism;
             return mech;
           }
@@ -333,7 +325,7 @@ export async function getConvertibleIssuanceAsOcf(
       const trigger_condition: string | undefined = typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
 
       // Parse conversion_right if present and convertible variant is used
-      let conversion_right: ConvertibleConversionRight | undefined = defaultRightForType();
+      let conversion_right: ConvertibleConversionRight | undefined;
       if (r.conversion_right && typeof r.conversion_right === 'object' && 'OcfRightConvertible' in r.conversion_right) {
         const right = (r.conversion_right as any).OcfRightConvertible as Record<string, any>;
         conversion_right = {
@@ -380,6 +372,12 @@ export async function getConvertibleIssuanceAsOcf(
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
+    ...(typeof d.board_approval_date === 'string' && d.board_approval_date.length
+      ? { board_approval_date: (d.board_approval_date as string).split('T')[0] }
+      : {}),
+    ...(typeof d.stockholder_approval_date === 'string' && d.stockholder_approval_date.length
+      ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }
+      : {}),
     investment_amount: {
       amount: typeof d.investment_amount?.amount === 'number' ? String(d.investment_amount.amount) : d.investment_amount.amount,
       currency: d.investment_amount.currency

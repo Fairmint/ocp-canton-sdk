@@ -125,7 +125,7 @@ export interface OcfIssuerData {
   /** Legal name of the issuer */
   legal_name: string;
   /** Date of formation (YYYY-MM-DD format) */
-  formation_date?: string;
+  formation_date: string;
   /** The country where the issuer company was legally formed (ISO 3166-1 alpha-2) */
   country_of_formation: string;
   /** Doing Business As name */
