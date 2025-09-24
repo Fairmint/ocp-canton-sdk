@@ -65,11 +65,11 @@ export async function getStakeholderAsOcf(
   }
 
   const native = damlStakeholderDataToNative(createArgument.stakeholder_data);
-  const { ocf_id, ...nativeWithoutId } = native as any;
+  const { id, ...nativeWithoutId } = native as any;
 
   const ocfStakeholder: OcfStakeholder = {
     object_type: 'STAKEHOLDER',
-    id: ocf_id,
+    id,
     name: nativeWithoutId.name as any,
     stakeholder_type: nativeWithoutId.stakeholder_type,
     ...(nativeWithoutId.issuer_assigned_id && { issuer_assigned_id: nativeWithoutId.issuer_assigned_id }),

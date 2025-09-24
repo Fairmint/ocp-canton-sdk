@@ -56,11 +56,11 @@ export async function getIssuerAsOcf(
 
   const issuerData = (createArgument as any).issuer_data as Fairmint.OpenCapTable.Issuer.OcfIssuerData;
   const native = damlIssuerDataToNative(issuerData);
-  const { ocf_id, ...nativeWithoutId } = native as any;
+  const { id, ...nativeWithoutId } = native as any;
 
   const ocfIssuer: OcfIssuer = {
     object_type: 'ISSUER',
-    id: ocf_id,
+    id,
     legal_name: nativeWithoutId.legal_name,
     country_of_formation: nativeWithoutId.country_of_formation,
     formation_date: nativeWithoutId.formation_date,

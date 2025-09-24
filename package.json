@@ -1,6 +1,6 @@
 {
   "name": "@open-captable-protocol/canton",
-  "version": "0.2.12",
+  "version": "0.2.65",
   "description": "A TypeScript SDK for interacting with the Open CapTable Protocol (OCP) Factory contract on Canton blockchain",
   "license": "MIT",
   "main": "dist/index.js",
@@ -16,19 +16,26 @@
     "script:create-issuer": "ts-node scripts/createIssuer.ts",
     "script:get-issuer-ocf": "ts-node scripts/getIssuerAsOcf.ts",
     "docs": "typedoc",
-    "docs:clean": "rm -rf docs"
+    "docs:clean": "rm -rf docs",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "test:ci": "jest --runInBand"
   },
   "dependencies": {
     "@daml/ledger": "2.10.2",
     "@daml/types": "2.10.2",
     "@fairmint/canton-node-sdk": "0.0.91",
-    "@fairmint/open-captable-protocol-daml-js": "0.2.4"
+    "@fairmint/open-captable-protocol-daml-js": "0.2.12",
+    "@open-captable-protocol/canton": "^0.2.32"
   },
   "devDependencies": {
     "@types/node": "24.3.1",
+    "@types/jest": "29.5.12",
+    "jest": "29.7.0",
+    "ts-jest": "29.2.5",
     "ts-node": "10.9.2",
-    "typescript": "5.9.2",
-    "typedoc": "^0.28.0"
+    "typedoc": "^0.28.0",
+    "typescript": "5.9.2"
   },
   "files": [
     "dist"

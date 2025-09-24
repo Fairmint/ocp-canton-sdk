@@ -49,6 +49,15 @@ export class TransactionBatch {
   }
 
   public async submit(): Promise<BatchSubmitResult> {
+    // Dedupe disclosed contracts by their stringified representation
+    this.disclosedContracts = Array.from(
+      new Map(
+        this.disclosedContracts.map(contract => [
+          JSON.stringify(contract),
+          contract
+        ])
+      ).values()
+    );
     const response = (await this.client.submitAndWaitForTransactionTree({
       actAs: this.actAs,
       ...(this.readAs ? { readAs: this.readAs } : {}),

@@ -160,7 +160,7 @@ export async function getStockClassAsOcf(
   
   // Destructure native data, excluding fields that need type conversion
   const {
-    ocf_id,
+    id,
     par_value,
     price_per_share,
     initial_shares_authorized,
@@ -174,7 +174,7 @@ export async function getStockClassAsOcf(
   // Transform native stock class data to OCF format, adding OCF-specific fields
   const ocfStockClass: OcfStockClass = {
     object_type: 'STOCK_CLASS',
-    id: ocf_id,
+    id,
     ...baseStockClassData,
     // Ensure numeric values are strings for OCF compatibility
     initial_shares_authorized: typeof initial_shares_authorized === 'number' ? 

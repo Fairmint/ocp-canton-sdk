@@ -23,10 +23,10 @@ export async function getStockIssuanceAsOcf(
   }
   const arg = created.createArgument as Fairmint.OpenCapTable.StockIssuance.StockIssuance;
   const native = damlStockIssuanceDataToNative((arg as any).issuance_data);
-  const { ocf_id, ...rest } = native as any;
+  const { id, ...rest } = native as any;
   const ocf = {
     object_type: 'TX_STOCK_ISSUANCE' as const,
-    id: ocf_id,
+    id,
     ...rest
   };
   return { contractId: params.contractId, stockIssuance: ocf };
