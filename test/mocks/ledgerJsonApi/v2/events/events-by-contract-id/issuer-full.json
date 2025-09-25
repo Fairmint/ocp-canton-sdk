@@ -33,7 +33,7 @@
             "street_suite": "450 Lexington Avenue, 4th floor"
           },
           "country_subdivision_of_formation": "DE",
-          "country_subdivision_name_of_formation": null,
+          "country_subdivision_name_of_formation": "The text name of state, province, or subdivision where the issuer company was legally formed if the code is not available",
           "dba": "Magnetic 3D",
           "email": {
             "email_address": "support@magnetic3d.com",
@@ -43,7 +43,10 @@
             "tag": "OcfInitialSharesNumeric",
             "value": "191500.0000000000"
           },
-          "phone": null
+          "phone": {
+            "phone_number": "+1 612 234 2345",
+            "phone_type": "OcfPhoneMobile"
+          }
         }
       },
       "createdEventBlob": "CgMyLjES7wgKRQDrn8/3xHp8zQE9dTDKp+lfYcE/hAXK5MdMP5cXTyYZesoREiBMvrFpnYvDWLORUjQ6EvooXQWfdhOl60f4C8DveJ5r7BIQT3BlbkNhcFRhYmxlLXYyNRpqCkBlMzY1N2FiNWMyMDkwMzYxYmU5MzZjYjY2NjExZjk1ZGY0YWJmNjkxMWMzYzk0MTcyYWZjZjJlOWMyNmY3NWY2EghGYWlybWludBIMT3BlbkNhcFRhYmxlEgZJc3N1ZXIaBklzc3VlciLIBWrFBQqDAgqAAmr9AQpQCk46TDg3Njg1Nzo6MTIyMGVhNzBlYTJjYmZlNmJlNDMxZjM0YzczMjNlMjQ5YzYyNGEwMmZiMjIwOWQyYjczZmFiZDdlZWExZmU4NGRmMzQKXgpcOlpGYWlybWludC12YWxpZGF0b3ItMTo6MTIyMGNkZGFmMzU0ZmIxMmQ0Y2JkZWUzZDMxNDQzMGFhNmZkMjZkNjA2MGI5ZjM1YzM0YTAyMjg4NWUzYzY4MWVjNjMKSQpHSkUANTP/nU5vA77w6rqS6IIen58YVWXCzbWXeiESvRlOmRXKERIgwWU763OZ3GZobdxyC966JBirfeHxvXI3w4nmLM0MfBcKvAMKuQNqtgMKKAomQiQ4NzY4NTcxMS05M2U1LTQ5OTgtYjMzMi05YzViYmFkZjRiNWMKBgoEQgJVUwoLCgkpAGA4lRUiBAAKIQofQh1NYWduZXRpYyBNZWRpYSBIb2xkaW5ncywgSW5jLgoECgJaAAofCh1aGwoZahcKBgoEQgJVUwoNCgtCCTIwODQyMDA2NgqJAQqGAVKDAQqAAWp+ChkKF3oVChNPY2ZBZGRyZXNzVHlwZUxlZ2FsCgYKBEICVVMKFQoTUhEKD0INTmV3IFlvcmsgQ2l0eQoKCghSBgoEQgJOWQoNCgtSCQoHQgUxMDAxNwonCiVSIwohQh80NTAgTGV4aW5ndG9uIEF2ZW51ZSwgNHRoIGZsb29yCgoKCFIGCgRCAkRFCgQKAlIAChMKEVIPCg1CC01hZ25ldGljIDNECkAKPlI8CjpqOAoaChhCFnN1cHBvcnRAbWFnbmV0aWMzZC5jb20KGgoYehYKFE9jZkVtYWlsVHlwZUJ1c2luZXNzCjYKNFIyCjByLgoXT2NmSW5pdGlhbFNoYXJlc051bWVyaWMSEzIRMTkxNTAwLjAwMDAwMDAwMDAqTDg3Njg1Nzo6MTIyMGVhNzBlYTJjYmZlNmJlNDMxZjM0YzczMjNlMjQ5YzYyNGEwMmZiMjIwOWQyYjczZmFiZDdlZWExZmU4NGRmMzQqWkZhaXJtaW50LXZhbGlkYXRvci0xOjoxMjIwY2RkYWYzNTRmYjEyZDRjYmRlZTNkMzE0NDMwYWE2ZmQyNmQ2MDYwYjlmMzVjMzRhMDIyODg1ZTNjNjgxZWM2MzkITfLZjD8GAEIqCiYKJAgBEiAvdXSO6HyKp/K6UXk8PndpAtsCElJhRkLecG9FV9PmXRAe",

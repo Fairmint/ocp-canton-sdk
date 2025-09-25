@@ -5,8 +5,9 @@ const { LedgerJsonApiClient } = require('@fairmint/canton-node-sdk');
 describe('write: createDocument', () => {
   test('submits expected message and includes auth token', async () => {
     const getAuthToken = jest.fn().mockResolvedValue('bearer-123');
-    const client = new OcpClient({ network: 'devnet', getAuthToken });
+    const client = new OcpClient({ network: 'devnet' } as any);
     const ledger = (LedgerJsonApiClient as any).__instances?.slice(-1)[0] as InstanceType<typeof LedgerJsonApiClient> & { __setSubmitResponse: Function; lastAuthToken?: string; submitAndWaitForTransactionTree: jest.Mock };
+    (ledger as any).__setAuthTokenProvider?.(getAuthToken);
 
     ledger.__setSubmitResponse({
       transactionTree: {
@@ -40,7 +41,8 @@ describe('write: createDocument', () => {
         id: 'doc-ocf-1',
         uri: 'https://example.com/doc.pdf',
         md5: 'abc123',
-        related_objects: [{ object_type: 'ISSUER', object_id: 'iss-1' }]
+        related_objects: [{ object_type: 'ISSUER', object_id: 'iss-1' }],
+        comments: []
       }
     });
 

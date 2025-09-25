@@ -48,7 +48,9 @@ describe('write: createStockClass', () => {
         default_id_prefix: 'SA-',
         initial_shares_authorized: '1000',
         votes_per_share: '1',
-        seniority: '1'
+        seniority: '1',
+        comments: [],
+        conversion_rights: []
       }
     });
 

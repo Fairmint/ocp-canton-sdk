@@ -36,6 +36,7 @@ describe('get: getIssuerAsOcf', () => {
         dba: 'Magnetic 3D',
         country_subdivision_of_formation: 'DE',
         email: { email_type: 'BUSINESS', email_address: 'support@magnetic3d.com' },
+        phone: { phone_type: 'MOBILE', phone_number: '+1 612 234 2345' },
         address: {
           address_type: 'LEGAL',
           country: 'US',
@@ -44,7 +45,8 @@ describe('get: getIssuerAsOcf', () => {
           country_subdivision: 'NY',
           postal_code: '10017'
         },
-        initial_shares_authorized: '191500.0000000000'
+        initial_shares_authorized: '191500.0000000000',
+        country_subdivision_name_of_formation: 'The text name of state, province, or subdivision where the issuer company was legally formed if the code is not available'
       },
       contractId: 'issuer-full'
     });
