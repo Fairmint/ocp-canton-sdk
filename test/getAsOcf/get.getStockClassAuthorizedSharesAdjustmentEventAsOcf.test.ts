@@ -1,4 +1,4 @@
-import { OcpClient } from '../src';
+import { OcpClient } from '../../src';
 
 describe('get: getStockClassAuthorizedSharesAdjustmentEventAsOcf', () => {
   test('minimal', async () => {

@@ -1,4 +1,4 @@
-import { OcpClient } from '../src';
+import { OcpClient } from '../../src';
 
 describe('get: getWarrantIssuanceAsOcf', () => {
   test('minimal', async () => {

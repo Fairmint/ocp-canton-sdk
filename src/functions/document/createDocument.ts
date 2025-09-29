@@ -15,6 +15,7 @@ export interface CreateDocumentParams {
 export interface CreateDocumentResult {
   contractId: string;
   updateId: string;
+  transactionTree: SubmitAndWaitForTransactionTreeResponse['transactionTree'];
 }
 
 export async function createDocument(
@@ -57,7 +58,8 @@ export async function createDocument(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
+    updateId: response.transactionTree.updateId,
+    transactionTree: response.transactionTree
   };
 }
 

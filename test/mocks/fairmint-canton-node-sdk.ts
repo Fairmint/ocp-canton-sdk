@@ -1,21 +1,7 @@
 // Minimal mock of @fairmint/canton-node-sdk to avoid real network
 
-export type SubmitAndWaitForTransactionTreeResponse = {
-  transactionTree: {
-    updateId: string;
-    synchronizerId?: string;
-    eventsById: Record<string, any>;
-  };
-};
-
-export type Command = any;
-export type DisclosedContract = any;
-
-export interface ClientConfig {
-  url?: string;
-  network?: string;
-  getAuthToken?: () => Promise<string> | string;
-}
+import { ClientConfig } from "@fairmint/canton-node-sdk";
+import { SubmitAndWaitForTransactionTreeResponse } from "@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations";
 
 export class LedgerJsonApiClient {
   private config?: ClientConfig;
@@ -23,20 +9,32 @@ export class LedgerJsonApiClient {
   public lastAuthToken?: string;
   private __getAuthToken?: () => Promise<string> | string;
   public submitAndWaitForTransactionTree = jest.fn(async (req: any): Promise<SubmitAndWaitForTransactionTreeResponse> => {
-    const provider = this.__getAuthToken || this.config?.getAuthToken;
+    const provider = this.__getAuthToken;
     if (provider) {
       const tok = await provider();
       this.lastAuthToken = typeof tok === 'string' ? tok : String(tok);
     }
-    return (
-      (this as any).__submitResponse || {
-        transactionTree: {
-          updateId: 'mock-update-id',
-          synchronizerId: 'mock-sync',
-          eventsById: {}
-        }
+
+    // Use fixture configured via setTransactionTreeFixture helper
+    try {
+      // Dynamically import to avoid circular dependencies
+      const fixtureHelpers = require('../utils/fixtureHelpers');
+      const fixtureResponse = fixtureHelpers.getFixtureResponse();
+      if (fixtureResponse) {
+        // Validate request matches fixture expectations
+        fixtureHelpers.validateRequestMatchesFixture(req);
+        return fixtureResponse;
       }
-    ) as SubmitAndWaitForTransactionTreeResponse;
+    } catch (error) {
+      // fixtureHelpers might not exist or error during validation
+      throw error;
+    }
+
+    // No fixture configured - this is an error
+    throw new Error(
+      'No transaction fixture configured. Use setTransactionTreeFixture() in your test setup. ' +
+      'Request: ' + JSON.stringify(req, null, 2)
+    );
   });
 
   public getEventsByContractId = jest.fn(async (req: { contractId: string }) => {
@@ -98,11 +96,6 @@ export class LedgerJsonApiClient {
     return this.config?.network || 'dev';
   }
 
-  // Helper for tests to set canned responses
-  __setSubmitResponse(resp: SubmitAndWaitForTransactionTreeResponse) {
-    (this as any).__submitResponse = resp;
-  }
-
   __setEventsResponse(resp: any) {
     (this as any).__eventsResponseOverride = resp;
     (this.getEventsByContractId as jest.Mock).mockResolvedValue(resp);
@@ -111,6 +104,137 @@ export class LedgerJsonApiClient {
   __setAuthTokenProvider(fn: () => Promise<string> | string) {
     this.__getAuthToken = fn;
   }
+}
+
+
+export class AuthenticationManager {
+  constructor(private readonly config?: ClientConfig) {}
+  async getAuthToken(): Promise<string | undefined> {
+    const provider = this.getAuthToken;
+    if (!provider) return undefined;
+    const value = await provider();
+    return typeof value === 'string' ? value : value ? String(value) : undefined;
+  }
+}
+
+export class BaseClient {
+  protected readonly authManager: AuthenticationManager;
+
+  constructor(private readonly name: string, protected readonly config?: ClientConfig) {
+    this.authManager = new AuthenticationManager(config);
+  }
+
+  public getPartyId(): string {
+    return this.config?.network === 'devnet' ? 'party::issuer' : 'party::unknown';
+  }
+
+  protected async getAuthToken(): Promise<string | undefined> {
+    return this.authManager.getAuthToken();
+  }
+}
+
+export class ValidatorApiClient extends BaseClient {
+  public static __instances: ValidatorApiClient[] = [];
+  public lookupFeaturedAppRight = jest.fn(async () => {
+    const path = require('path');
+    const fs = require('fs');
+    const fixturePath = path.join(
+      __dirname,
+      '..',
+      'fixtures',
+      'validatorApi',
+      'featured-app-right.json'
+    );
+    const data = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
+    return data;
+  });
+  public getAmuletRules = jest.fn(async () => {
+    const path = require('path');
+    const fs = require('fs');
+    const fixturePath = path.join(
+      __dirname,
+      '..',
+      'fixtures',
+      'validatorApi',
+      'amulet-rules.json'
+    );
+    const data = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
+    return data;
+  });
+
+  constructor(config: ClientConfig) {
+    super('VALIDATOR_API', config);
+    (ValidatorApiClient.__instances as any).push(this);
+  }
+
+  public async getAuthToken(): Promise<string | undefined> {
+    return super.getAuthToken();
+  }
+}
+
+// Export the getFeaturedAppRightContractDetails function
+export async function getFeaturedAppRightContractDetails(
+  validatorApi: ValidatorApiClient,
+): Promise<any> {
+  const featuredAppRight = await validatorApi.lookupFeaturedAppRight();
+  if (!featuredAppRight || !featuredAppRight.featured_app_right) {
+    throw new Error(
+      `No featured app right found for party ${validatorApi.getPartyId()}`
+    );
+  }
+  // The featured-apps endpoint may not include the synchronizer/domain id.
+  // Fallback to amulet rules which reliably expose the domain_id to use as synchronizerId.
+  const amuletRules = await validatorApi.getAmuletRules();
+  const synchronizerIdFromRules =
+    (amuletRules as any)?.amulet_rules?.domain_id || '';
+  return {
+    contractId: featuredAppRight.featured_app_right.contract_id,
+    createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
+    synchronizerId:
+      (featuredAppRight as any)?.featured_app_right?.domain_id ||
+      synchronizerIdFromRules,
+    templateId: featuredAppRight.featured_app_right.template_id,
+  };
+}
+
+// Export the findCreatedEventByTemplateId function
+export function findCreatedEventByTemplateId(
+  response: any,
+  templateId: string
+): any {
+  // Mock implementation - look for CreatedTreeEvent in the transactionTree
+  if (response?.transactionTree?.eventsById) {
+    for (const [key, event] of Object.entries(response.transactionTree.eventsById)) {
+      const eventData = event as any;
+      const eventTemplateId = eventData?.CreatedTreeEvent?.value?.templateId;
+      
+      // Handle different template ID formats
+      if (eventTemplateId === templateId) {
+        return eventData.CreatedTreeEvent;
+      }
+      
+      // Handle the case where templateId is in pkg: format but event has full template ID
+      if (templateId.startsWith('pkg:') && eventTemplateId) {
+        const pkgName = templateId.replace('pkg:', '');
+        // Check if the template name part matches (after the hash)
+        const templateNamePart = eventTemplateId.split(':').slice(1).join(':');
+        // Convert the last colon to dot for comparison
+        const normalizedTemplateName = templateNamePart.replace(/:([^:]+)$/, '.$1');
+        if (normalizedTemplateName === pkgName) {
+          return eventData;
+        }
+      }
+    }
+  }
+  // If not found in transactionTree, try the old structure for backward compatibility
+  if (response?.transaction?.events) {
+    for (const event of response.transaction.events) {
+      if (event.kind?.JsCreated?.templateId === templateId) {
+        return event;
+      }
+    }
+  }
+  return null;
 }
 
 
