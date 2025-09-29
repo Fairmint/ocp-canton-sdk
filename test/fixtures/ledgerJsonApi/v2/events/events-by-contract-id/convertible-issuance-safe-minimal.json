@@ -1,0 +1,32 @@
+{
+  "created": {
+    "createdEvent": {
+      "createArgument": {
+        "issuance_data": {
+          "id": "ci-1",
+          "date": "2025-01-03T00:00:00.000Z",
+          "security_id": "conv-1",
+          "custom_id": "C-1",
+          "stakeholder_id": "st-1",
+          "investment_amount": { "amount": "10000", "currency": "USD" },
+          "convertible_type": "OcfConvertibleSafe",
+          "conversion_triggers": [
+            {
+              "type_": "OcfTriggerTypeTypeAutomaticOnDate",
+              "trigger_id": "ci-1-trigger-1",
+              "conversion_right": {
+                "conversion_mechanism": {
+                  "tag": "OcfConvMechSAFE",
+                  "value": { "conversion_mfn": false }
+                }
+              }
+            }
+          ],
+          "seniority": "1"
+        }
+      }
+    }
+  }
+}
+
+

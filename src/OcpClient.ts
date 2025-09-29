@@ -72,10 +72,6 @@ export class OcpClient {
     createEquityCompensationExercise: (params: import('./functions').CreateEquityCompensationExerciseParams) => Promise<import('./functions').CreateEquityCompensationExerciseResult>;
   };
 
-  public stockPosition: {};
-
-  public convertible: {};
-
   public warrantIssuance: {
     createWarrantIssuance: (params: import('./functions').CreateWarrantIssuanceParams) => Promise<import('./functions').CreateWarrantIssuanceResult>;
     getWarrantIssuanceAsOcf: (params: import('./functions').GetWarrantIssuanceAsOcfParams) => Promise<import('./functions').GetWarrantIssuanceAsOcfResult>;
@@ -222,10 +218,6 @@ export class OcpClient {
       createEquityCompensationIssuance: (params) => { const { createEquityCompensationIssuance } = require('./functions/stockPlan'); return createEquityCompensationIssuance(this.client, params); },
       createEquityCompensationExercise: (params) => { const { createEquityCompensationExercise } = require('./functions/stockPlan'); return createEquityCompensationExercise(this.client, params); }
     };
-
-    this.stockPosition = {};
-
-    this.convertible = {};
 
     this.warrantIssuance = {
       createWarrantIssuance: (params) => { const { createWarrantIssuance } = require('./functions/warrantIssuance'); return createWarrantIssuance(this.client, params); },
