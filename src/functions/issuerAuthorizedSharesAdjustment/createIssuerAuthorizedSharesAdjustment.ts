@@ -1,13 +1,12 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { ContractDetails } from '../../types/contractDetails';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { dateStringToDAMLTime } from '../../utils/typeConversions';
 
 export interface CreateIssuerAuthorizedSharesAdjustmentParams {
   issuerContractId: string;
-  featuredAppRightContractDetails: ContractDetails;
+  featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
   adjustmentData: {
     id: string;

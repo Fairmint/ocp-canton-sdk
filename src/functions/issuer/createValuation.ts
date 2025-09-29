@@ -1,9 +1,7 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 import type { ContractId } from '@daml/types';
-import { ContractDetails } from '../../types/contractDetails';
 import { OcfValuationData } from '../../types/native';
 import { valuationDataToDaml } from '../../utils/typeConversions';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
@@ -11,7 +9,7 @@ import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/
 export interface CreateValuationParams {
   issuerContractId: string;
   stockClassContractId: ContractId<Fairmint.OpenCapTable.StockClass.StockClass>;
-  featuredAppRightContractDetails: ContractDetails;
+  featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
   valuationData: OcfValuationData;
 }

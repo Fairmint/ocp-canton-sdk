@@ -1,0 +1,1774 @@
+{
+  partyId: '66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '66ff16f7-5f65-4a78-9011-fac4a8596efc' ],
+  counts: {
+    stakeholders: 2,
+    stockClasses: 0,
+    stockPlans: 0,
+    stockLegendTemplates: 0,
+    documents: 1,
+    vestingTerms: 0,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 1,
+    equityCompExercises: 0,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'STAKEHOLDER',
+      ocfObjectId: '0a284e00-a2e9-48eb-980b-4752787323fd',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '0079d1f0a8330e7e30b8a454231b164803a1c9859a1312d9bbf7910c05535ddcafca11122054b69ef493094d6e26aa2ecdfa10e252f98944945164ea878d4e12f4298c4eb4',
+          choice: 'CreateStakeholder',
+          choiceArgument: {
+            stakeholder_data: {
+              id: '0a284e00-a2e9-48eb-980b-4752787323fd',
+              name: {
+                legal_name: 'test light',
+                first_name: 'test',
+                last_name: 'light'
+              },
+              stakeholder_type: 'OcfStakeholderTypeIndividual',
+              issuer_assigned_id: null,
+              primary_contact: {
+                name: {
+                  legal_name: 'test light',
+                  first_name: 'test',
+                  last_name: 'light'
+                },
+                phone_numbers: [
+                  {
+                    phone_type: 'OcfPhoneMobile',
+                    phone_number: '+190 57 83 0241'
+                  }
+                ],
+                emails: [
+                  {
+                    email_type: 'OcfEmailTypeBusiness',
+                    email_address: 'marketjack@yopmail.com'
+                  }
+                ]
+              },
+              contact_info: {
+                phone_numbers: [],
+                emails: [
+                  {
+                    email_type: 'OcfEmailTypeBusiness',
+                    email_address: 'marketjack@yopmail.com'
+                  }
+                ]
+              },
+              addresses: [
+                {
+                  address_type: 'OcfAddressTypeLegal',
+                  street_suite: '534 Blackwater Place',
+                  city: 'London',
+                  country_subdivision: 'AL',
+                  country: 'US',
+                  postal_code: 'N5X 4J4'
+                }
+              ],
+              tax_ids: [],
+              comments: [],
+              current_relationships: [ 'OcfRelInvestor' ]
+            }
+          }
+        }
+      }
+    },
+    {
+      type: 'DOCUMENT',
+      ocfObjectId: '6d86e6c0-4aef-4756-93f5-2895492239e5',
+      command: {
+        document_data: {
+          id: '6d86e6c0-4aef-4756-93f5-2895492239e5',
+          path: null,
+          uri: 's3://series-private/s3_dev/portal/028fc334-d093-4618-b95f-6035ad336a8e/0687b5ccbb3d2a1178bf187682dbf7450fa4beb9',
+          md5: '5ed9abcb64985d40c1417d278d3a7262',
+          related_objects: [],
+          comments: [
+            'filename: The_source_Contractors_X_Contis_Test_Equity_Grant_Agreement_-_Signed_October_18,_2024.pdf'
+          ]
+        }
+      }
+    },
+    {
+      type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+      ocfObjectId: '7f9f26fa-5aa0-4112-9353-ccb01b0d64ef',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '0079d1f0a8330e7e30b8a454231b164803a1c9859a1312d9bbf7910c05535ddcafca11122054b69ef493094d6e26aa2ecdfa10e252f98944945164ea878d4e12f4298c4eb4',
+          choice: 'CreateEquityCompensationIssuance',
+          choiceArgument: {
+            issuance_data: {
+              id: '7f9f26fa-5aa0-4112-9353-ccb01b0d64ef',
+              date: '2025-09-26T00:00:00.000Z',
+              security_id: '9ca41b4a-7b74-4d7d-ab89-f348430f540f',
+              custom_id: '9ca41b4a-7b74-4d7d-ab89-f348430f540f',
+              stakeholder_id: 'f15fdc64-1709-4f7a-b553-e0109104e5a3',
+              board_approval_date: null,
+              stockholder_approval_date: null,
+              consideration_text: null,
+              security_law_exemptions: [ { description: 'Rule 701', jurisdiction: '*' } ],
+              stock_plan_id: 'ccfec0e5-4d29-40d0-b42f-f7058d402c58',
+              stock_class_id: '142fe924-90a9-47e3-9ce2-dce8d2445d98',
+              vesting_terms_id: null,
+              compensation_type: 'OcfCompensationTypeRSU',
+              quantity: '1000',
+              exercise_price: null,
+              base_price: null,
+              early_exercisable: null,
+              vestings: [
+                { date: '2026-09-26T00:00:00.000Z', amount: '250' },
+                { date: '2026-10-26T00:00:00.000Z', amount: '20' },
+                { date: '2026-11-26T00:00:00.000Z', amount: '20' },
+                { date: '2026-12-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-01-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-02-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-03-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-04-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-05-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-06-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-07-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-08-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-09-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-10-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-11-26T00:00:00.000Z', amount: '20' },
+                { date: '2027-12-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-01-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-02-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-03-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-04-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-05-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-06-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-07-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-08-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-09-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-10-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-11-26T00:00:00.000Z', amount: '20' },
+                { date: '2028-12-26T00:00:00.000Z', amount: '20' },
+                { date: '2029-01-26T00:00:00.000Z', amount: '20' },
+                { date: '2029-02-26T00:00:00.000Z', amount: '20' },
+                { date: '2029-03-26T00:00:00.000Z', amount: '20' },
+                { date: '2029-04-26T00:00:00.000Z', amount: '20' },
+                { date: '2029-05-26T00:00:00.000Z', amount: '20' },
+                { date: '2029-06-26T00:00:00.000Z', amount: '20' },
+                { date: '2029-07-26T00:00:00.000Z', amount: '20' },
+                { date: '2029-08-26T00:00:00.000Z', amount: '20' },
+                { date: '2029-09-26T00:00:00.000Z', amount: '50' }
+              ],
+              expiration_date: '2034-11-01T00:00:00.000Z',
+              termination_exercise_windows: [
+                {
+                  reason: 'OcfTermInvoluntaryWithCause',
+                  period: '1',
+                  period_type: 'OcfPeriodDays'
+                }
+              ],
+              comments: []
+            }
+          }
+        }
+      }
+    },
+    {
+      type: 'STAKEHOLDER',
+      ocfObjectId: 'f15fdc64-1709-4f7a-b553-e0109104e5a3',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '0079d1f0a8330e7e30b8a454231b164803a1c9859a1312d9bbf7910c05535ddcafca11122054b69ef493094d6e26aa2ecdfa10e252f98944945164ea878d4e12f4298c4eb4',
+          choice: 'CreateStakeholder',
+          choiceArgument: {
+            stakeholder_data: {
+              id: 'f15fdc64-1709-4f7a-b553-e0109104e5a3',
+              name: {
+                legal_name: 'Kobe  Doie',
+                first_name: 'Kobe ',
+                last_name: 'Doie'
+              },
+              stakeholder_type: 'OcfStakeholderTypeIndividual',
+              issuer_assigned_id: null,
+              primary_contact: {
+                name: {
+                  legal_name: 'Kobe  Doie',
+                  first_name: 'Kobe ',
+                  last_name: 'Doie'
+                },
+                phone_numbers: [],
+                emails: [
+                  {
+                    email_type: 'OcfEmailTypeBusiness',
+                    email_address: 'dtest927a@yopmail.com'
+                  }
+                ]
+              },
+              contact_info: {
+                phone_numbers: [],
+                emails: [
+                  {
+                    email_type: 'OcfEmailTypeBusiness',
+                    email_address: 'dtest927a@yopmail.com'
+                  }
+                ]
+              },
+              addresses: [
+                {
+                  address_type: 'OcfAddressTypeLegal',
+                  street_suite: '1551 Victoria st',
+                  city: 'Pasig',
+                  country_subdivision: null,
+                  country: 'PH',
+                  postal_code: '23443'
+                }
+              ],
+              tax_ids: [],
+              comments: [],
+              current_relationships: [ 'OcfRelEmployee' ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'STAKEHOLDER',
+      ocfObjectId: '0a284e00-a2e9-48eb-980b-4752787323fd',
+      ocfData: {
+        id: '0a284e00-a2e9-48eb-980b-4752787323fd',
+        name: {
+          last_name: 'light',
+          first_name: 'test',
+          legal_name: 'test light'
+        },
+        tax_ids: [],
+        comments: [],
+        addresses: [
+          {
+            city: 'London',
+            country: 'US',
+            postal_code: 'N5X 4J4',
+            address_type: 'LEGAL',
+            street_suite: '534 Blackwater Place',
+            country_subdivision: 'AL'
+          }
+        ],
+        object_type: 'STAKEHOLDER',
+        contact_info: {
+          emails: [
+            {
+              email_type: 'BUSINESS',
+              email_address: 'marketjack@yopmail.com'
+            }
+          ],
+          phone_numbers: []
+        },
+        primary_contact: {
+          name: {
+            last_name: 'light',
+            first_name: 'test',
+            legal_name: 'test light'
+          },
+          emails: [
+            {
+              email_type: 'BUSINESS',
+              email_address: 'marketjack@yopmail.com'
+            }
+          ],
+          phone_numbers: [ { phone_type: 'MOBILE', phone_number: '+190 57 83 0241' } ]
+        },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'INVESTOR'
+      }
+    },
+    {
+      type: 'DOCUMENT',
+      ocfObjectId: '6d86e6c0-4aef-4756-93f5-2895492239e5',
+      ocfData: {
+        id: '6d86e6c0-4aef-4756-93f5-2895492239e5',
+        md5: '5ed9abcb64985d40c1417d278d3a7262',
+        uri: 's3://series-private/s3_dev/portal/028fc334-d093-4618-b95f-6035ad336a8e/0687b5ccbb3d2a1178bf187682dbf7450fa4beb9',
+        comments: [
+          'filename: The_source_Contractors_X_Contis_Test_Equity_Grant_Agreement_-_Signed_October_18,_2024.pdf'
+        ],
+        object_type: 'DOCUMENT',
+        related_objects: []
+      }
+    },
+    {
+      type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+      ocfObjectId: '7f9f26fa-5aa0-4112-9353-ccb01b0d64ef',
+      ocfData: {
+        id: '7f9f26fa-5aa0-4112-9353-ccb01b0d64ef',
+        date: '2025-09-26',
+        quantity: '1000',
+        vestings: [
+          { date: '2026-09-26', amount: '250' },
+          { date: '2026-10-26', amount: '20' },
+          { date: '2026-11-26', amount: '20' },
+          { date: '2026-12-26', amount: '20' },
+          { date: '2027-01-26', amount: '20' },
+          { date: '2027-02-26', amount: '20' },
+          { date: '2027-03-26', amount: '20' },
+          { date: '2027-04-26', amount: '20' },
+          { date: '2027-05-26', amount: '20' },
+          { date: '2027-06-26', amount: '20' },
+          { date: '2027-07-26', amount: '20' },
+          { date: '2027-08-26', amount: '20' },
+          { date: '2027-09-26', amount: '20' },
+          { date: '2027-10-26', amount: '20' },
+          { date: '2027-11-26', amount: '20' },
+          { date: '2027-12-26', amount: '20' },
+          { date: '2028-01-26', amount: '20' },
+          { date: '2028-02-26', amount: '20' },
+          { date: '2028-03-26', amount: '20' },
+          { date: '2028-04-26', amount: '20' },
+          { date: '2028-05-26', amount: '20' },
+          { date: '2028-06-26', amount: '20' },
+          { date: '2028-07-26', amount: '20' },
+          { date: '2028-08-26', amount: '20' },
+          { date: '2028-09-26', amount: '20' },
+          { date: '2028-10-26', amount: '20' },
+          { date: '2028-11-26', amount: '20' },
+          { date: '2028-12-26', amount: '20' },
+          { date: '2029-01-26', amount: '20' },
+          { date: '2029-02-26', amount: '20' },
+          { date: '2029-03-26', amount: '20' },
+          { date: '2029-04-26', amount: '20' },
+          { date: '2029-05-26', amount: '20' },
+          { date: '2029-06-26', amount: '20' },
+          { date: '2029-07-26', amount: '20' },
+          { date: '2029-08-26', amount: '20' },
+          { date: '2029-09-26', amount: '50' }
+        ],
+        custom_id: '9ca41b4a-7b74-4d7d-ab89-f348430f540f',
+        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+        security_id: '9ca41b4a-7b74-4d7d-ab89-f348430f540f',
+        stock_plan_id: 'ccfec0e5-4d29-40d0-b42f-f7058d402c58',
+        stakeholder_id: 'f15fdc64-1709-4f7a-b553-e0109104e5a3',
+        stock_class_id: '142fe924-90a9-47e3-9ce2-dce8d2445d98',
+        expiration_date: '2034-11-01',
+        compensation_type: 'RSU',
+        security_law_exemptions: [ { description: 'Rule 701', jurisdiction: '*' } ],
+        termination_exercise_windows: [
+          {
+            period: 1,
+            reason: 'INVOLUNTARY_WITH_CAUSE',
+            period_type: 'DAYS'
+          }
+        ]
+      }
+    },
+    {
+      type: 'STAKEHOLDER',
+      ocfObjectId: 'f15fdc64-1709-4f7a-b553-e0109104e5a3',
+      ocfData: {
+        id: 'f15fdc64-1709-4f7a-b553-e0109104e5a3',
+        name: {
+          last_name: 'Doie',
+          first_name: 'Kobe ',
+          legal_name: 'Kobe  Doie'
+        },
+        comments: [],
+        addresses: [
+          {
+            city: 'Pasig',
+            country: 'PH',
+            postal_code: '23443',
+            address_type: 'LEGAL',
+            street_suite: '1551 Victoria st'
+          }
+        ],
+        object_type: 'STAKEHOLDER',
+        contact_info: {
+          emails: [
+            {
+              email_type: 'BUSINESS',
+              email_address: 'dtest927a@yopmail.com'
+            }
+          ],
+          phone_numbers: []
+        },
+        primary_contact: {
+          name: {
+            last_name: 'Doie',
+            first_name: 'Kobe ',
+            legal_name: 'Kobe  Doie'
+          },
+          emails: [
+            {
+              email_type: 'BUSINESS',
+              email_address: 'dtest927a@yopmail.com'
+            }
+          ],
+          phone_numbers: []
+        },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'EMPLOYEE'
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=1220faf461e8afb9546a8cbff8491fa66b65e9ac9790f817fd72eaa243d6e648f740
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for Fairmint Inc.: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=1220faf461e8afb9546a8cbff8491fa66b65e9ac9790f817fd72eaa243d6e648f740|2 Stakeholders & 1 Document & 1 Equity Compensation Issuance>
+📦 Preparing batch for party_id=4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 1 changes
+🔢 Limiting to 1 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: '4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '4f567cbe-b1e7-414a-93ef-748e4b9cb895' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 0,
+    stockPlans: 0,
+    stockLegendTemplates: 0,
+    documents: 0,
+    vestingTerms: 1,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 0,
+    equityCompExercises: 0,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'VESTING_TERMS',
+      ocfObjectId: 'e7742df1-7c48-47e9-9c03-9c0cc2b83278',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '0019dabd34885de087b85c648702f2982d5d914b637f9f715637b0ae7ebe425ed9ca11122082e2f75ae84a2c77639b624a0784265234204291dbac187f4867019d8b23be75',
+          choice: 'CreateVestingTerms',
+          choiceArgument: {
+            vesting_terms_data: {
+              id: 'e7742df1-7c48-47e9-9c03-9c0cc2b83278',
+              name: "SOIRÉ Goods Founder's Stock Vesting",
+              description: "Vesting terms for 8,000,000 shares issued to Kash Rogers under the Founder's Stock Purchase Agreement dated August 8, 2024. The vesting schedule includes 10% immediate vesting, a 1-year cliff for 15%, and monthly vesting over 36 months for the remaining 75%.",
+              allocation_type: 'OcfAllocationCumulativeRounding',
+              vesting_conditions: [
+                {
+                  id: 'immediate-vesting',
+                  description: '10% of the shares (800,000 shares) vest immediately upon execution of the agreement.',
+                  portion: null,
+                  quantity: '800000',
+                  trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+                  next_condition_ids: [ 'cliff-vesting' ]
+                },
+                {
+                  id: 'cliff-vesting',
+                  description: '15% of the shares (1,200,000 shares) vest on the first anniversary of the agreement.',
+                  portion: null,
+                  quantity: '1200000',
+                  trigger: {
+                    tag: 'OcfVestingScheduleRelativeTrigger',
+                    value: {
+                      period: {
+                        tag: 'OcfVestingPeriodMonths',
+                        value: {
+                          length_: '12',
+                          occurrences: '1',
+                          day_of_month: 'OcfVestingStartDayOrLast',
+                          cliff_installment: null
+                        }
+                      },
+                      relative_to_condition_id: 'immediate-vesting'
+                    }
+                  },
+                  next_condition_ids: [ 'monthly-vesting' ]
+                },
+                {
+                  id: 'monthly-vesting',
+                  description: 'The remaining 75% of the shares (6,000,000 shares) vest in equal monthly installments over 36 months.',
+                  portion: {
+                    numerator: '1',
+                    denominator: '36',
+                    remainder: false
+                  },
+                  quantity: null,
+                  trigger: {
+                    tag: 'OcfVestingScheduleRelativeTrigger',
+                    value: {
+                      period: {
+                        tag: 'OcfVestingPeriodMonths',
+                        value: {
+                          length_: '1',
+                          occurrences: '36',
+                          day_of_month: 'OcfVestingStartDayOrLast',
+                          cliff_installment: null
+                        }
+                      },
+                      relative_to_condition_id: 'cliff-vesting'
+                    }
+                  },
+                  next_condition_ids: []
+                }
+              ],
+              comments: []
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'VESTING_TERMS',
+      ocfObjectId: 'e7742df1-7c48-47e9-9c03-9c0cc2b83278',
+      ocfData: {
+        id: 'e7742df1-7c48-47e9-9c03-9c0cc2b83278',
+        name: "SOIRÉ Goods Founder's Stock Vesting",
+        comments: [],
+        description: "Vesting terms for 8,000,000 shares issued to Kash Rogers under the Founder's Stock Purchase Agreement dated August 8, 2024. The vesting schedule includes 10% immediate vesting, a 1-year cliff for 15%, and monthly vesting over 36 months for the remaining 75%.",
+        object_type: 'VESTING_TERMS',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'immediate-vesting',
+            trigger: { type: 'VESTING_START_DATE' },
+            quantity: '800000',
+            description: '10% of the shares (800,000 shares) vest immediately upon execution of the agreement.',
+            next_condition_ids: [ 'cliff-vesting' ]
+          },
+          {
+            id: 'cliff-vesting',
+            trigger: {
+              type: 'VESTING_SCHEDULE_RELATIVE',
+              period: {
+                type: 'MONTHS',
+                length: 12,
+                occurrences: 1,
+                day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH'
+              },
+              relative_to_condition_id: 'immediate-vesting'
+            },
+            quantity: '1200000',
+            description: '15% of the shares (1,200,000 shares) vest on the first anniversary of the agreement.',
+            next_condition_ids: [ 'monthly-vesting' ]
+          },
+          {
+            id: 'monthly-vesting',
+            portion: { numerator: '1', remainder: false, denominator: '36' },
+            trigger: {
+              type: 'VESTING_SCHEDULE_RELATIVE',
+              period: {
+                type: 'MONTHS',
+                length: 1,
+                occurrences: 36,
+                day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH'
+              },
+              relative_to_condition_id: 'cliff-vesting'
+            },
+            description: 'The remaining 75% of the shares (6,000,000 shares) vest in equal monthly installments over 36 months.',
+            next_condition_ids: []
+          }
+        ]
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=1220aea4174a24399f3f93dd2dd8c685df808fbff0ccb95f4734e026d9e4745e75d1
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for SOIRE GOODS: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=1220aea4174a24399f3f93dd2dd8c685df808fbff0ccb95f4734e026d9e4745e75d1|1 Vesting Term>
+📦 Preparing batch for party_id=257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 1 changes
+🔢 Limiting to 1 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: '257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '25750310-4efa-451b-9171-39ff9f6f75e0' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 0,
+    stockPlans: 1,
+    stockLegendTemplates: 0,
+    documents: 0,
+    vestingTerms: 0,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 0,
+    equityCompExercises: 0,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'STOCK_PLAN',
+      ocfObjectId: 'ee2bd2da-fbf8-4073-bd39-26809027f0e0',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '005b768651ac441feb6e17b480787a13dafec09d3f3b6f3c645517cb092ee33f9bca1112203991499ab1ec9f4590bddcae4e8aa64540dcc3cad2a3f5ae1237019a4c4dfa16',
+          choice: 'CreateStockPlan',
+          choiceArgument: {
+            plan_data: {
+              id: 'ee2bd2da-fbf8-4073-bd39-26809027f0e0',
+              plan_name: '2024 Stock Incentive Plan',
+              board_approval_date: '1983-12-31T00:00:00.000Z',
+              stockholder_approval_date: null,
+              initial_shares_reserved: '1000000',
+              default_cancellation_behavior: 'OcfPlanCancelReturnToPool',
+              stock_class_ids: [
+                'acb2d5a2-fa68-4d0f-bfa6-8ee0d10f11e0',
+                '198312c0-a4e1-4980-9556-6f54089180fa',
+                '7861a5ba-b896-4cc6-b459-a78c39419c63',
+                '95b489ed-f9ae-482e-853e-9dc1320c7551',
+                '6e94b2ad-8f7d-44af-9a71-67814bd63c52'
+              ],
+              comments: []
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'STOCK_PLAN',
+      ocfObjectId: 'ee2bd2da-fbf8-4073-bd39-26809027f0e0',
+      ocfData: {
+        id: 'ee2bd2da-fbf8-4073-bd39-26809027f0e0',
+        comments: [],
+        plan_name: '2024 Stock Incentive Plan',
+        object_type: 'STOCK_PLAN',
+        stock_class_ids: [
+          'acb2d5a2-fa68-4d0f-bfa6-8ee0d10f11e0',
+          '198312c0-a4e1-4980-9556-6f54089180fa',
+          '7861a5ba-b896-4cc6-b459-a78c39419c63',
+          '95b489ed-f9ae-482e-853e-9dc1320c7551',
+          '6e94b2ad-8f7d-44af-9a71-67814bd63c52'
+        ],
+        board_approval_date: '1983-12-31',
+        initial_shares_reserved: '1000000',
+        default_cancellation_behavior: 'RETURN_TO_POOL'
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=1220dbdb890e741a2df21354a9dd71922acf675a1cc5ee9fe8eb94cef643a9cca88d
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for The Source Inc.: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=1220dbdb890e741a2df21354a9dd71922acf675a1cc5ee9fe8eb94cef643a9cca88d|1 Stock Plan>
+📦 Preparing batch for party_id=e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 1 changes
+🔢 Limiting to 1 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: 'e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ 'e5eb6f36-de10-4e42-819e-763a8a7f2cbc' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 0,
+    stockPlans: 0,
+    stockLegendTemplates: 0,
+    documents: 0,
+    vestingTerms: 0,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 0,
+    equityCompExercises: 0,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'TX_STOCK_ISSUANCE',
+      ocfObjectId: '6057992e-ebc4-e178-cf20-338b7effda82',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '001d806841ae6f9fc56e1409ba969bb9abbb71f10f4c02426d2d9af8d2523efb83ca11122095d72f7e1b3c5fd58f212c717fa17d1b350162ebf387a8527bb7518f16328f89',
+          choice: 'CreateStockIssuance',
+          choiceArgument: {
+            issuance_data: {
+              id: '6057992e-ebc4-e178-cf20-338b7effda82',
+              date: '2023-11-06T00:00:00.000Z',
+              security_id: '688b5ce6-d742-dbab-8fce-b2751424d750',
+              custom_id: 'CS-2',
+              stakeholder_id: '6e59643b-1a68-41cb-b700-2374fed7ba60',
+              board_approval_date: null,
+              stockholder_approval_date: null,
+              consideration_text: null,
+              security_law_exemptions: [
+                {
+                  description: 'Issued under Israeli Securities Law, which typically allows founders to receive shares without the need for public registration under exemptions similar to private placement rules in other jurisdictions. The specific Israeli exemption may align with the principles of private offering as found in Section 15A(b)(1) of the Israeli Securities Law, 1968.',
+                  jurisdiction: 'Israel'
+                }
+              ],
+              stock_class_id: '6332b541-537b-4e7e-865e-ccab256677e7',
+              stock_plan_id: '00000000-0000-0000-0000-000000000000',
+              share_numbers_issued: [],
+              share_price: { amount: '0.01', currency: 'USD' },
+              quantity: '100200',
+              vesting_terms_id: '00000000-0000-0000-0000-000000000000',
+              vestings: [],
+              cost_basis: { amount: '0', currency: 'USD' },
+              stock_legend_ids: [],
+              issuance_type: null,
+              comments: [
+                '{"fairmintData":{"date":"2023-11-06","series_id":"84d80b9d-6f9e-4656-a94b-7cbf07bd3957"}}'
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'TX_STOCK_ISSUANCE',
+      ocfObjectId: '6057992e-ebc4-e178-cf20-338b7effda82',
+      ocfData: {
+        id: '6057992e-ebc4-e178-cf20-338b7effda82',
+        date: '2023-11-06',
+        comments: [
+          '{"fairmintData":{"date":"2023-11-06","series_id":"84d80b9d-6f9e-4656-a94b-7cbf07bd3957"}}'
+        ],
+        quantity: '100200',
+        custom_id: 'CS-2',
+        cost_basis: { amount: '0', currency: 'USD' },
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: '688b5ce6-d742-dbab-8fce-b2751424d750',
+        share_price: { amount: '0.01', currency: 'USD' },
+        stock_plan_id: '00000000-0000-0000-0000-000000000000',
+        stakeholder_id: '6e59643b-1a68-41cb-b700-2374fed7ba60',
+        stock_class_id: '6332b541-537b-4e7e-865e-ccab256677e7',
+        stock_legend_ids: [],
+        vesting_terms_id: '00000000-0000-0000-0000-000000000000',
+        consideration_text: '',
+        share_numbers_issued: [ { ending_share_number: '0', starting_share_number: '0' } ],
+        security_law_exemptions: [
+          {
+            description: 'Issued under Israeli Securities Law, which typically allows founders to receive shares without the need for public registration under exemptions similar to private placement rules in other jurisdictions. The specific Israeli exemption may align with the principles of private offering as found in Section 15A(b)(1) of the Israeli Securities Law, 1968.',
+            jurisdiction: 'Israel'
+          }
+        ]
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=1220e4189877808e32812d5a4795604b6227a3c5e28958f940293f70b471229b3af0
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for FHE Labs Ltd.: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=1220e4189877808e32812d5a4795604b6227a3c5e28958f940293f70b471229b3af0|1 Stock Issuance>
+📦 Preparing batch for party_id=947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 1 changes
+🔢 Limiting to 1 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: '947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '947a5327-d42a-42b3-a94a-d2ff35705773' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 0,
+    stockPlans: 0,
+    stockLegendTemplates: 0,
+    documents: 0,
+    vestingTerms: 0,
+    warrantIssuances: 1,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 0,
+    equityCompExercises: 0,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'TX_WARRANT_ISSUANCE',
+      ocfObjectId: '66d91301-1382-4564-a0cf-75a5a4524294',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '00bd0fe4760d580f008195eeee9cda4cfd0392d7f2f33bd99fdc06fe3561e6b796ca11122016dc981de24077bad5a124295707057ebea3aeebe134a258c2c0813e15b88ed8',
+          choice: 'CreateWarrantIssuance',
+          choiceArgument: {
+            issuance_data: {
+              id: '66d91301-1382-4564-a0cf-75a5a4524294',
+              date: '2022-02-01T00:00:00.000Z',
+              security_id: 'c49f6af2-d128-4221-86d5-fd22eec90764',
+              custom_id: 'W-1',
+              stakeholder_id: '7971bced-e9b8-4bc5-b028-e726c1c87215',
+              board_approval_date: null,
+              stockholder_approval_date: null,
+              consideration_text: null,
+              security_law_exemptions: [],
+              quantity: '100000',
+              quantity_source: 'OcfQuantityHumanEstimated',
+              exercise_price: { amount: '1.00', currency: 'USD' },
+              purchase_price: { amount: '1.00', currency: 'USD' },
+              exercise_triggers: [
+                {
+                  type_: 'OcfTriggerTypeTypeAutomaticOnCondition',
+                  trigger_id: 'WARRANT-1.TRIG.1',
+                  nickname: 'Automatic exercise immediately prior to qualified public offering',
+                  trigger_description: 'Warrant shall be deemed exercise immediately prior to consummation to a qualified public offering.',
+                  conversion_right: {
+                    tag: 'OcfRightWarrant',
+                    value: {
+                      type_: 'WARRANT_CONVERSION_RIGHT',
+                      conversion_mechanism: {
+                        tag: 'OcfWarrantMechanismFixedAmount',
+                        value: { converts_to_quantity: '1000000.00' }
+                      },
+                      converts_to_future_round: null,
+                      converts_to_stock_class_id: '1de668f8-f1ed-40fe-ab78-4b8fdf80c779'
+                    }
+                  },
+                  trigger_date: null,
+                  trigger_condition: 'Qualified Public Offering means the issuance by the issuer or any direct or indirect parent of the issuer of its common Equity Interests in an underwritten primary public offering (other than a public offering pursuant to a registration statement on Form S-8) pursuant to an effective registration statement filed with the U.S. Securities and Exchange Commission in accordance with the Securities Act of 1933, as amended.'
+                }
+              ],
+              warrant_expiration_date: '2032-02-01T00:00:00.000Z',
+              vesting_terms_id: null,
+              vestings: [],
+              comments: [
+                'use-case: Warrant with a stock class id, ie series-a-preferred-id.'
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'TX_WARRANT_ISSUANCE',
+      ocfObjectId: '66d91301-1382-4564-a0cf-75a5a4524294',
+      ocfData: {
+        id: '66d91301-1382-4564-a0cf-75a5a4524294',
+        date: '2022-02-01',
+        comments: [
+          'use-case: Warrant with a stock class id, ie series-a-preferred-id.'
+        ],
+        quantity: '100000',
+        custom_id: 'W-1',
+        object_type: 'TX_WARRANT_ISSUANCE',
+        security_id: 'c49f6af2-d128-4221-86d5-fd22eec90764',
+        exercise_price: { amount: '1.00', currency: 'USD' },
+        purchase_price: { amount: '1.00', currency: 'USD' },
+        stakeholder_id: '7971bced-e9b8-4bc5-b028-e726c1c87215',
+        quantity_source: 'HUMAN_ESTIMATED',
+        exercise_triggers: [
+          {
+            type: 'AUTOMATIC_ON_CONDITION',
+            nickname: 'Automatic exercise immediately prior to qualified public offering',
+            trigger_id: 'WARRANT-1.TRIG.1',
+            conversion_right: {
+              type: 'WARRANT_CONVERSION_RIGHT',
+              conversion_mechanism: {
+                type: 'FIXED_AMOUNT_CONVERSION',
+                converts_to_quantity: '1000000.00'
+              },
+              converts_to_stock_class_id: '1de668f8-f1ed-40fe-ab78-4b8fdf80c779'
+            },
+            trigger_condition: 'Qualified Public Offering means the issuance by the issuer or any direct or indirect parent of the issuer of its common Equity Interests in an underwritten primary public offering (other than a public offering pursuant to a registration statement on Form S-8) pursuant to an effective registration statement filed with the U.S. Securities and Exchange Commission in accordance with the Securities Act of 1933, as amended.',
+            trigger_description: 'Warrant shall be deemed exercise immediately prior to consummation to a qualified public offering.'
+          }
+        ],
+        security_law_exemptions: [],
+        warrant_expiration_date: '2032-02-01'
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=1220fcc44a625eec5cc24a58cef84ef6c257e34951633b9a6368be07760c1b8c0a3c
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for The Source Inc.: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=1220fcc44a625eec5cc24a58cef84ef6c257e34951633b9a6368be07760c1b8c0a3c|1 Warrant Issuance>
+📦 Preparing batch for party_id=55a780::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 1 changes
+🔢 Limiting to 1 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: '55a780::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '55a78071-41df-461f-ae51-64687653c0ed' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 0,
+    stockPlans: 0,
+    stockLegendTemplates: 0,
+    documents: 0,
+    vestingTerms: 0,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 1,
+    equityCompIssuances: 0,
+    equityCompExercises: 0,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
+      ocfObjectId: '1c80380c-37ed-41dd-2fbd-85294bbbeae3',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '00bcb6ca2191742fb1c1b3dea10c5de0bce674a27ad4ba2d71243137918380a79bca111220e7f12b545eb3f422740a39bad4266b6e4dcadf05335a18b2e8ebec4819071b09',
+          choice: 'CreateIssuerAuthorizedSharesAdjustment',
+          choiceArgument: {
+            adjustment_data: {
+              id: '1c80380c-37ed-41dd-2fbd-85294bbbeae3',
+              date: '2024-10-24T00:00:00.000Z',
+              issuer_id: '55a78071-41df-461f-ae51-64687653c0ed',
+              new_shares_authorized: '100000000000000',
+              board_approval_date: '2024-06-19T00:00:00.000Z',
+              stockholder_approval_date: null,
+              comments: []
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
+      ocfObjectId: '1c80380c-37ed-41dd-2fbd-85294bbbeae3',
+      ocfData: {
+        id: '1c80380c-37ed-41dd-2fbd-85294bbbeae3',
+        date: '2024-10-24',
+        comments: [],
+        issuer_id: '55a78071-41df-461f-ae51-64687653c0ed',
+        object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
+        board_approval_date: '2024-06-19',
+        new_shares_authorized: '100000000000000'
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=122062594f41c48107f63605b229364b7779ca45dd84de3f164e3e87ed3ff041e21b
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for Protelicious USA Corp: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=122062594f41c48107f63605b229364b7779ca45dd84de3f164e3e87ed3ff041e21b|1 Issuer Authorized Shares Adjustment>
+📦 Preparing batch for party_id=1b2149::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 1 changes
+🔢 Limiting to 1 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: '1b2149::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '1b21493a-fe75-4292-a518-e0c08871dcba' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 0,
+    stockPlans: 0,
+    stockLegendTemplates: 0,
+    documents: 0,
+    vestingTerms: 0,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 1,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 0,
+    equityCompExercises: 0,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
+      ocfObjectId: '282200ac-926d-49d2-957b-084db9c07c38',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '003a3ffd1fb411e2c7408850f36c3e632490c3116d0aca7e294af52a505ef73b01ca111220ae870a4ef00bfaa0b14f56899e5e363585e0010cdd66c9f0b3b0937749d4a8dd',
+          choice: 'CreateStockPlanPoolAdjustment',
+          choiceArgument: {
+            adjustment_data: {
+              id: '282200ac-926d-49d2-957b-084db9c07c38',
+              date: '2022-10-31T00:00:00.000Z',
+              stock_plan_id: 'deb6f0e7-106c-44eb-8363-44048dc63dd4',
+              board_approval_date: '2022-10-31T00:00:00.000Z',
+              stockholder_approval_date: null,
+              shares_reserved: '400',
+              comments: []
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
+      ocfObjectId: '282200ac-926d-49d2-957b-084db9c07c38',
+      ocfData: {
+        id: '282200ac-926d-49d2-957b-084db9c07c38',
+        date: '2022-10-31',
+        comments: [],
+        object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
+        stock_plan_id: 'deb6f0e7-106c-44eb-8363-44048dc63dd4',
+        shares_reserved: '400',
+        board_approval_date: '2022-10-31'
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=1220585d78c181b2f5b7a9f589cad3a3505b9e0184826f7c24fda3a4383eb5f3fdb3
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for Protelicious USA Corp: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=1220585d78c181b2f5b7a9f589cad3a3505b9e0184826f7c24fda3a4383eb5f3fdb3|1 Stock Plan Pool Adjustment>
+📦 Preparing batch for party_id=4e4790::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 2 changes
+🔢 Limiting to 2 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: '4e4790::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '4e47909e-9ef4-4f52-9597-6f0b8c3beddb' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 0,
+    stockPlans: 0,
+    stockLegendTemplates: 0,
+    documents: 0,
+    vestingTerms: 0,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 1,
+    equityCompExercises: 1,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'TX_EQUITY_COMPENSATION_EXERCISE',
+      ocfObjectId: '5a9b5b82-8c18-4dd4-804a-bcec60faefb8',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '00f25a5cb8e1030949dfd61134056091deb787e3774466b7c20f93998e27f97382ca111220c1ab38d3121b55c0c2234fd564e745fde7b373b8109ac89591ae94bf623a2681',
+          choice: 'CreateEquityCompensationExercise',
+          choiceArgument: {
+            exercise_data: {
+              id: '5a9b5b82-8c18-4dd4-804a-bcec60faefb8',
+              date: '2024-06-30T00:00:00.000Z',
+              security_id: '0094d247-7b24-4865-aedc-87f04ff2a63a',
+              quantity: '5',
+              consideration_text: 'Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement.',
+              resulting_security_ids: [ 'b0e4b17d-e3fe-2ab9-3ada-76ef1e6b742a' ],
+              comments: [
+                'Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024.'
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+      ocfObjectId: 'ed4c180c-3dc5-4c21-9b36-0ba8d5262bdf',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '00f25a5cb8e1030949dfd61134056091deb787e3774466b7c20f93998e27f97382ca111220c1ab38d3121b55c0c2234fd564e745fde7b373b8109ac89591ae94bf623a2681',
+          choice: 'CreateEquityCompensationIssuance',
+          choiceArgument: {
+            issuance_data: {
+              id: 'ed4c180c-3dc5-4c21-9b36-0ba8d5262bdf',
+              date: '2023-12-30T00:00:00.000Z',
+              security_id: '4ce867ae-b60c-4885-a625-7e09325fb3c3',
+              custom_id: 'OPT-25',
+              stakeholder_id: '339e0415-62ff-45a1-8ca9-57f6e753bcf2',
+              board_approval_date: '2023-12-30T00:00:00.000Z',
+              stockholder_approval_date: null,
+              consideration_text: 'Incentive stock option granted as compensation for services rendered.',
+              security_law_exemptions: [ { description: 'SEC Rule 701', jurisdiction: 'US' } ],
+              stock_plan_id: null,
+              stock_class_id: '8df2c7e0-0027-494c-a2ce-110c52cb984d',
+              vesting_terms_id: null,
+              compensation_type: 'OcfCompensationTypeOptionISO',
+              quantity: '21',
+              exercise_price: { amount: '1.00', currency: 'USD' },
+              base_price: null,
+              early_exercisable: null,
+              vestings: [
+                { date: '2024-01-30T00:00:00.000Z', amount: '3.5' },
+                { date: '2024-02-28T00:00:00.000Z', amount: '3.5' },
+                { date: '2024-03-30T00:00:00.000Z', amount: '3.5' },
+                { date: '2024-04-30T00:00:00.000Z', amount: '3.5' },
+                { date: '2024-05-30T00:00:00.000Z', amount: '3.5' },
+                { date: '2024-06-30T00:00:00.000Z', amount: '3.5' }
+              ],
+              expiration_date: '2026-12-31T00:00:00.000Z',
+              termination_exercise_windows: [
+                {
+                  reason: 'OcfTermInvoluntaryWithCause',
+                  period: '0',
+                  period_type: 'OcfPeriodDays'
+                }
+              ],
+              comments: [
+                'Option grant for IDwithPurpose SAS, represented by Carlota Thévenot, as per the Protelicious USA Corp. 2022 Stock Option/Stock Issuance Plan.'
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'TX_EQUITY_COMPENSATION_EXERCISE',
+      ocfObjectId: '5a9b5b82-8c18-4dd4-804a-bcec60faefb8',
+      ocfData: {
+        id: '5a9b5b82-8c18-4dd4-804a-bcec60faefb8',
+        date: '2024-06-30',
+        comments: [
+          'Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024.'
+        ],
+        quantity: '5',
+        object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
+        security_id: '0094d247-7b24-4865-aedc-87f04ff2a63a',
+        consideration_text: 'Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement.',
+        resulting_security_ids: [ 'b0e4b17d-e3fe-2ab9-3ada-76ef1e6b742a' ]
+      }
+    },
+    {
+      type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+      ocfObjectId: 'ed4c180c-3dc5-4c21-9b36-0ba8d5262bdf',
+      ocfData: {
+        id: 'ed4c180c-3dc5-4c21-9b36-0ba8d5262bdf',
+        date: '2023-12-30',
+        comments: [
+          'Option grant for IDwithPurpose SAS, represented by Carlota Thévenot, as per the Protelicious USA Corp. 2022 Stock Option/Stock Issuance Plan.'
+        ],
+        quantity: '21',
+        vestings: [
+          { date: '2024-01-30', amount: '3.5' },
+          { date: '2024-02-28', amount: '3.5' },
+          { date: '2024-03-30', amount: '3.5' },
+          { date: '2024-04-30', amount: '3.5' },
+          { date: '2024-05-30', amount: '3.5' },
+          { date: '2024-06-30', amount: '3.5' }
+        ],
+        custom_id: 'OPT-25',
+        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+        security_id: '4ce867ae-b60c-4885-a625-7e09325fb3c3',
+        exercise_price: { amount: '1.00', currency: 'USD' },
+        stakeholder_id: '339e0415-62ff-45a1-8ca9-57f6e753bcf2',
+        stock_class_id: '8df2c7e0-0027-494c-a2ce-110c52cb984d',
+        expiration_date: '2026-12-31',
+        compensation_type: 'OPTION_ISO',
+        option_grant_type: 'ISO',
+        consideration_text: 'Incentive stock option granted as compensation for services rendered.',
+        board_approval_date: '2023-12-30',
+        security_law_exemptions: [ { description: 'SEC Rule 701', jurisdiction: 'US' } ],
+        termination_exercise_windows: [
+          {
+            period: 0,
+            reason: 'INVOLUNTARY_WITH_CAUSE',
+            period_type: 'DAYS'
+          }
+        ]
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=122070945f039dad73b1f4dc1970e3d8bdf023f2354a4a094200adbdc174e9f765f2
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for Protelicious USA Corp: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=122070945f039dad73b1f4dc1970e3d8bdf023f2354a4a094200adbdc174e9f765f2|1 Equity Compensation Issuance & 1 Equity Compensation Exercise>
+📦 Preparing batch for party_id=57de5b::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 1 changes
+🔢 Limiting to 1 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: '57de5b::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '57de5b88-7fbc-4176-b1c9-45c09f0baf2d' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 0,
+    stockPlans: 0,
+    stockLegendTemplates: 1,
+    documents: 0,
+    vestingTerms: 0,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 0,
+    equityCompExercises: 0,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'STOCK_LEGEND_TEMPLATE',
+      ocfObjectId: '4c59459e-1683-4248-b7c3-ab9f46f0ccfe',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '00e3a747a6d4004365c5c2ebb2b4b34474328d00cfb4243acc396887900de51c1dca11122018261710f8fd28544c023edd1243b120ddf0fcc1e69ae9f6f21d5967f2debc19',
+          choice: 'CreateStockLegendTemplate',
+          choiceArgument: {
+            template_data: {
+              id: '4c59459e-1683-4248-b7c3-ab9f46f0ccfe',
+              name: 'SECURITIES ACT LEGEND',
+              text: 'THE SECURITIES REPRESENTED HEREBY HAVE NOT BEEN REGISTERED UNDER THE SECURITIES ACT OF 1933, AS AMENDED (THE “SECURITIES ACT”), OR UNDER THE SECURITIES LAWS OF CERTAIN STATES. THESE SECURITIES ARE SUBJECT TO RESTRICTIONS ON TRANSFERABILITY AND RESALE AND MAY NOT BE TRANSFERRED OR RESOLD EXCEPT AS PERMITTED UNDER THE SECURITIES ACT AND APPLICABLE STATE SECURITIES LAWS, PURSUANT TO REGISTRATION OR EXEMPTION THEREFROM. INVESTORS SHOULD BE AWARE THAT THEY MAY BE REQUIRED TO BEAR THE FINANCIAL RISKS OF THIS INVESTMENT FOR AN INDEFINITE PERIOD OF TIME. THE ISSUER OF THESE SECURITIES MAY REQUIRE AN OPINION OF COUNSEL IN FORM AND SUBSTANCE SATISFACTORY TO THE ISSUER TO THE EFFECT THAT ANY PROPOSED TRANSFER OR RESALE IS IN COMPLIANCE WITH THE SECURITIES ACT AND ANY APPLICABLE STATE SECURITIES LAWS.',
+              comments: []
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'STOCK_LEGEND_TEMPLATE',
+      ocfObjectId: '4c59459e-1683-4248-b7c3-ab9f46f0ccfe',
+      ocfData: {
+        id: '4c59459e-1683-4248-b7c3-ab9f46f0ccfe',
+        name: 'SECURITIES ACT LEGEND',
+        text: 'THE SECURITIES REPRESENTED HEREBY HAVE NOT BEEN REGISTERED UNDER THE SECURITIES ACT OF 1933, AS AMENDED (THE “SECURITIES ACT”), OR UNDER THE SECURITIES LAWS OF CERTAIN STATES. THESE SECURITIES ARE SUBJECT TO RESTRICTIONS ON TRANSFERABILITY AND RESALE AND MAY NOT BE TRANSFERRED OR RESOLD EXCEPT AS PERMITTED UNDER THE SECURITIES ACT AND APPLICABLE STATE SECURITIES LAWS, PURSUANT TO REGISTRATION OR EXEMPTION THEREFROM. INVESTORS SHOULD BE AWARE THAT THEY MAY BE REQUIRED TO BEAR THE FINANCIAL RISKS OF THIS INVESTMENT FOR AN INDEFINITE PERIOD OF TIME. THE ISSUER OF THESE SECURITIES MAY REQUIRE AN OPINION OF COUNSEL IN FORM AND SUBSTANCE SATISFACTORY TO THE ISSUER TO THE EFFECT THAT ANY PROPOSED TRANSFER OR RESALE IS IN COMPLIANCE WITH THE SECURITIES ACT AND ANY APPLICABLE STATE SECURITIES LAWS.',
+        comments: [],
+        object_type: 'STOCK_LEGEND_TEMPLATE'
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=1220efdee0a55afc7d7c20396a64014f992cb3d2957d521ee7cf5e2eec7041fdae2c
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for Quine Co.: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=1220efdee0a55afc7d7c20396a64014f992cb3d2957d521ee7cf5e2eec7041fdae2c|1 Stock Legend Template>
+📦 Preparing batch for party_id=824748::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 1 changes
+🔢 Limiting to 1 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: '824748::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '824748cb-9f71-4c01-94ca-8264cc3008d7' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 0,
+    stockPlans: 0,
+    stockLegendTemplates: 0,
+    documents: 0,
+    vestingTerms: 0,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 1,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 0,
+    equityCompExercises: 0,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
+      ocfObjectId: 'bc2e4a2c-8b00-4725-84e6-d905ca4dfa1d',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '002ae048ab56a519d8afcd1410aae68d6bdc2e1f2c129b15e89f5bf559000c6bb9ca1112205e6805b9038ebcb5eba45dbe94d0dceb09215a9d03f4fe51f3ad0f4a0647b3ff',
+          choice: 'CreateStockClassAuthorizedSharesAdjustment',
+          choiceArgument: {
+            adjustment_data: {
+              id: 'bc2e4a2c-8b00-4725-84e6-d905ca4dfa1d',
+              date: '2024-10-01T00:00:00.000Z',
+              stock_class_id: '6c143645-9699-4b47-9edb-782108da60bd',
+              new_shares_authorized: '15000000',
+              board_approval_date: '2024-10-01T00:00:00.000Z',
+              stockholder_approval_date: null,
+              comments: []
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
+      ocfObjectId: 'bc2e4a2c-8b00-4725-84e6-d905ca4dfa1d',
+      ocfData: {
+        id: 'bc2e4a2c-8b00-4725-84e6-d905ca4dfa1d',
+        date: '2024-10-01',
+        comments: [],
+        object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
+        stock_class_id: '6c143645-9699-4b47-9edb-782108da60bd',
+        board_approval_date: '2024-10-01',
+        new_shares_authorized: '15000000'
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=1220298de15bc12a02755d723d9d2e75ce952f713366b9cd086fcf110f5bf7b350a6
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for Quine Co.: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=1220298de15bc12a02755d723d9d2e75ce952f713366b9cd086fcf110f5bf7b350a6|1 Stock Class Authorized Shares Adjustment>
+📦 Preparing batch for party_id=21d0ed::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 1 changes
+🔢 Limiting to 1 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: '21d0ed::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '21d0edd5-e943-49c9-b0ef-7be79c8634e3' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 0,
+    stockPlans: 0,
+    stockLegendTemplates: 0,
+    documents: 0,
+    vestingTerms: 0,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 1,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 0,
+    equityCompExercises: 0,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'TX_STOCK_CANCELLATION',
+      ocfObjectId: 'ba60e9d6-1e85-43ac-94bc-f0c4745a2dbe',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '0012975f9b257503c7db27b38fde1fbe5ae2d24ce72468dbe2dfd3d1d1a2caf001ca111220d68ece50e56e877aa638bb29885f5a503d2f1e10a8f8daa0e6873c2575435787',
+          choice: 'CreateStockCancellation',
+          choiceArgument: {
+            cancellation_data: {
+              id: 'ba60e9d6-1e85-43ac-94bc-f0c4745a2dbe',
+              date: '2025-04-04T00:00:00.000Z',
+              security_id: '65296909-0c42-4678-b7d2-5eccd8b10bdc',
+              quantity: '1411765',
+              balance_security_id: '00000000-0000-0000-0000-000000000000',
+              reason_text: 'Left company',
+              comments: []
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'TX_STOCK_CANCELLATION',
+      ocfObjectId: 'ba60e9d6-1e85-43ac-94bc-f0c4745a2dbe',
+      ocfData: {
+        id: 'ba60e9d6-1e85-43ac-94bc-f0c4745a2dbe',
+        date: '2025-04-04',
+        comments: [],
+        quantity: '1411765',
+        object_type: 'TX_STOCK_CANCELLATION',
+        reason_text: 'Left company',
+        security_id: '65296909-0c42-4678-b7d2-5eccd8b10bdc',
+        balance_security_id: '00000000-0000-0000-0000-000000000000'
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=1220253f1c217e4cb9d630fd2335ebdbe61ab5bb2da2e4245ce068c4a2407b2091ad
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for Quine Co.: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=1220253f1c217e4cb9d630fd2335ebdbe61ab5bb2da2e4245ce068c4a2407b2091ad|1 Stock Cancellation>
+📦 Preparing batch for party_id=3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 1 changes
+🔢 Limiting to 1 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: '3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '3bf3b4f3-2855-4314-b472-6f0c1695c64b' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 0,
+    stockPlans: 0,
+    stockLegendTemplates: 0,
+    documents: 0,
+    vestingTerms: 0,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 0,
+    equityCompExercises: 0,
+    convertibleIssuances: 1
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'TX_CONVERTIBLE_ISSUANCE',
+      ocfObjectId: '72a00893-ace6-4a9e-9881-5e79a06af2b2',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '003c65cc842f023a05d7b5e3d09bbaba106b3ac45b04b2141b4c0494024dfcdd8fca11122001057bb13e472d75a079623e8bd84676eb237ed1d7c29bc38ba85e0da36367a2',
+          choice: 'CreateConvertibleIssuance',
+          choiceArgument: {
+            issuance_data: {
+              id: '72a00893-ace6-4a9e-9881-5e79a06af2b2',
+              date: '2024-05-28T00:00:00.000Z',
+              security_id: '1b39a78d-24b1-4be4-b3aa-bd2bcd716130',
+              custom_id: 'CN-5',
+              stakeholder_id: 'a3829b26-acb9-4273-a63a-946fff5ccc24',
+              board_approval_date: null,
+              stockholder_approval_date: null,
+              consideration_text: 'Payment of $25,000.00',
+              security_law_exemptions: [
+                {
+                  description: 'Exemption under the Securities Act of 1933 and applicable state securities laws',
+                  jurisdiction: 'US'
+                }
+              ],
+              investment_amount: { amount: '25000', currency: 'USD' },
+              convertible_type: 'OcfConvertibleSafe',
+              conversion_triggers: [
+                {
+                  type_: 'OcfTriggerTypeTypeAutomaticOnCondition',
+                  trigger_id: 'a84b1867-6cfa-42cf-94be-1e97d51bd361',
+                  nickname: 'Qualified Financing Conversion',
+                  trigger_description: 'Automatic conversion upon a Qualified Financing with aggregate proceeds of at least $1,000,000.',
+                  conversion_right: {
+                    type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+                    conversion_mechanism: {
+                      tag: 'OcfConvMechSAFE',
+                      value: {
+                        conversion_discount: '0.15',
+                        conversion_valuation_cap: { amount: '40000000', currency: 'USD' },
+                        exit_multiple: null,
+                        conversion_mfn: false,
+                        conversion_timing: 'OcfConversionTimingPostMoney',
+                        capitalization_definition: 'Includes all issued and outstanding shares of the Company’s capital stock, all shares issuable upon conversion of this SAFE and other instruments, all issued and outstanding options, restricted stock awards or purchases, RSUs, SARs, warrants or similar securities, Promised Options, and the Unissued Option Pool, except any increase to the Unissued Option Pool in connection with the Qualified Financing.',
+                        capitalization_definition_rules: {
+                          include_outstanding_shares: true,
+                          include_outstanding_options: true,
+                          include_outstanding_unissued_options: true,
+                          include_this_security: true,
+                          include_other_converting_securities: true,
+                          include_option_pool_topup_for_promised_options: false,
+                          include_additional_option_pool_topup: false,
+                          include_new_money: false
+                        }
+                      }
+                    },
+                    converts_to_future_round: true,
+                    converts_to_stock_class_id: null
+                  },
+                  trigger_date: null,
+                  trigger_condition: 'Company issues and sells Preferred Stock in a bona fide transaction or series of transactions with the principal purpose of raising capital for aggregate proceeds of at least $1,000,000.'
+                },
+                {
+                  type_: 'OcfTriggerTypeTypeAutomaticOnCondition',
+                  trigger_id: '536410c5-73c4-4647-b70d-a724af618c7e',
+                  nickname: 'Liquidity Event Conversion',
+                  trigger_description: 'Automatic conversion upon a Liquidity Event such as a Change of Control, Direct Listing, or Initial Public Offering.',
+                  conversion_right: {
+                    type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+                    conversion_mechanism: {
+                      tag: 'OcfConvMechSAFE',
+                      value: {
+                        conversion_discount: null,
+                        conversion_valuation_cap: { amount: '40000000', currency: 'USD' },
+                        exit_multiple: null,
+                        conversion_mfn: false,
+                        conversion_timing: 'OcfConversionTimingPostMoney',
+                        capitalization_definition: 'Includes all shares of Capital Stock issued and outstanding, all issued and outstanding Options and Promised Options to the extent receiving Proceeds, and all Converting Securities, excluding the Unissued Option Pool.',
+                        capitalization_definition_rules: {
+                          include_outstanding_shares: true,
+                          include_outstanding_options: true,
+                          include_outstanding_unissued_options: false,
+                          include_this_security: true,
+                          include_other_converting_securities: true,
+                          include_option_pool_topup_for_promised_options: false,
+                          include_additional_option_pool_topup: false,
+                          include_new_money: false
+                        }
+                      }
+                    },
+                    converts_to_future_round: true,
+                    converts_to_stock_class_id: null
+                  },
+                  trigger_date: null,
+                  trigger_condition: 'Change of Control, Direct Listing, or Initial Public Offering occurs before the termination of this SAFE.'
+                }
+              ],
+              pro_rata: null,
+              seniority: '1',
+              comments: [
+                'This SAFE includes both a valuation cap and a discount rate for conversion.'
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'TX_CONVERTIBLE_ISSUANCE',
+      ocfObjectId: '72a00893-ace6-4a9e-9881-5e79a06af2b2',
+      ocfData: {
+        id: '72a00893-ace6-4a9e-9881-5e79a06af2b2',
+        date: '2024-05-28',
+        comments: [
+          'This SAFE includes both a valuation cap and a discount rate for conversion.'
+        ],
+        custom_id: 'CN-5',
+        seniority: 1,
+        object_type: 'TX_CONVERTIBLE_ISSUANCE',
+        security_id: '1b39a78d-24b1-4be4-b3aa-bd2bcd716130',
+        stakeholder_id: 'a3829b26-acb9-4273-a63a-946fff5ccc24',
+        convertible_type: 'SAFE',
+        investment_amount: { amount: '25000', currency: 'USD' },
+        consideration_text: 'Payment of $25,000.00',
+        conversion_triggers: [
+          {
+            type: 'AUTOMATIC_ON_CONDITION',
+            nickname: 'Qualified Financing Conversion',
+            trigger_id: 'a84b1867-6cfa-42cf-94be-1e97d51bd361',
+            conversion_right: {
+              type: 'CONVERTIBLE_CONVERSION_RIGHT',
+              conversion_mechanism: {
+                type: 'SAFE_CONVERSION',
+                conversion_mfn: false,
+                conversion_timing: 'POST_MONEY',
+                conversion_discount: '0.15',
+                conversion_valuation_cap: { amount: '40000000', currency: 'USD' },
+                capitalization_definition: 'Includes all issued and outstanding shares of the Company’s capital stock, all shares issuable upon conversion of this SAFE and other instruments, all issued and outstanding options, restricted stock awards or purchases, RSUs, SARs, warrants or similar securities, Promised Options, and the Unissued Option Pool, except any increase to the Unissued Option Pool in connection with the Qualified Financing.',
+                capitalization_definition_rules: {
+                  include_new_money: false,
+                  include_this_security: true,
+                  include_outstanding_shares: true,
+                  include_outstanding_options: true,
+                  include_other_converting_securities: true,
+                  include_additional_option_pool_topup: false,
+                  include_outstanding_unissued_options: true,
+                  include_option_pool_topup_for_promised_options: false
+                }
+              },
+              converts_to_future_round: true
+            },
+            trigger_condition: 'Company issues and sells Preferred Stock in a bona fide transaction or series of transactions with the principal purpose of raising capital for aggregate proceeds of at least $1,000,000.',
+            trigger_description: 'Automatic conversion upon a Qualified Financing with aggregate proceeds of at least $1,000,000.'
+          },
+          {
+            type: 'AUTOMATIC_ON_CONDITION',
+            nickname: 'Liquidity Event Conversion',
+            trigger_id: '536410c5-73c4-4647-b70d-a724af618c7e',
+            conversion_right: {
+              type: 'CONVERTIBLE_CONVERSION_RIGHT',
+              conversion_mechanism: {
+                type: 'SAFE_CONVERSION',
+                conversion_mfn: false,
+                conversion_timing: 'POST_MONEY',
+                conversion_valuation_cap: { amount: '40000000', currency: 'USD' },
+                capitalization_definition: 'Includes all shares of Capital Stock issued and outstanding, all issued and outstanding Options and Promised Options to the extent receiving Proceeds, and all Converting Securities, excluding the Unissued Option Pool.',
+                capitalization_definition_rules: {
+                  include_new_money: false,
+                  include_this_security: true,
+                  include_outstanding_shares: true,
+                  include_outstanding_options: true,
+                  include_other_converting_securities: true,
+                  include_additional_option_pool_topup: false,
+                  include_outstanding_unissued_options: false,
+                  include_option_pool_topup_for_promised_options: false
+                }
+              },
+              converts_to_future_round: true
+            },
+            trigger_condition: 'Change of Control, Direct Listing, or Initial Public Offering occurs before the termination of this SAFE.',
+            trigger_description: 'Automatic conversion upon a Liquidity Event such as a Change of Control, Direct Listing, or Initial Public Offering.'
+          }
+        ],
+        security_law_exemptions: [
+          {
+            description: 'Exemption under the Securities Act of 1933 and applicable state securities laws',
+            jurisdiction: 'US'
+          }
+        ]
+      }
+    }
+  ]
+}
+✅ Batch submitted. updateId=1220017c6469795528b9c113af7f0cd19256d590ba185446ce004b5c1dc7030cb61a
+🗄️ ocf_deployments updated for first issuer group.
+✅ OCF Batch deployment for OtoCo Inc.: <https://canton-hardlydiff-fairmint.vercel.app/?network=devnet&provider=5n&q=1220017c6469795528b9c113af7f0cd19256d590ba185446ce004b5c1dc7030cb61a|1 Convertible Issuance>
+📦 Preparing batch for party_id=926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34 with 1 changes
+🔢 Limiting to 1 change(s) (limit=100). Remaining in issuer queue: 0
+🧪 Full batch request payload (pre-submit):
+{
+  partyId: '926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34',
+  portalIds: [ '926233d1-370f-40eb-9175-9d993462b061' ],
+  counts: {
+    stakeholders: 0,
+    stockClasses: 1,
+    stockPlans: 0,
+    stockLegendTemplates: 0,
+    documents: 0,
+    vestingTerms: 0,
+    warrantIssuances: 0,
+    stockPlanPoolAdjustments: 0,
+    stockClassAuthorizedAdjustments: 0,
+    stockCancellations: 0,
+    issuerAuthorizedAdjustments: 0,
+    equityCompIssuances: 0,
+    equityCompExercises: 0,
+    convertibleIssuances: 0
+  },
+  disclosedContracts: [
+    {
+      templateId: 'a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight',
+      contractId: '003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17',
+      synchronizerId: 'global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a'
+    }
+  ],
+  archiveCommands: [],
+  createCommands: [
+    {
+      type: 'STOCK_CLASS',
+      ocfObjectId: '93feb8f8-f8b6-4be6-ae10-d5cab38a9baf',
+      command: {
+        ExerciseCommand: {
+          templateId: '#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer',
+          contractId: '00620e528248eb8fcdc75903835191d254313a86a43f17d473e8c597cae6e6ce50ca11122055afe851d0332ce4a9ba334dcc0dd748ace4dc40cf91279ffb3e71b8cde5d7a0',
+          choice: 'CreateStockClass',
+          choiceArgument: {
+            stock_class_data: {
+              id: '93feb8f8-f8b6-4be6-ae10-d5cab38a9baf',
+              name: 'Common Stock',
+              class_type: 'OcfStockClassTypeCommon',
+              default_id_prefix: 'CS-',
+              initial_shares_authorized: '20000000',
+              votes_per_share: '1',
+              seniority: '1',
+              board_approval_date: null,
+              stockholder_approval_date: null,
+              par_value: { amount: '0.00001', currency: 'USD' },
+              price_per_share: { amount: '0.00001', currency: 'USD' },
+              conversion_rights: [],
+              liquidation_preference_multiple: null,
+              participation_cap_multiple: null,
+              comments: [
+                'The corporation is authorized to issue only one class of stock. Directors are elected at each annual meeting of stockholders. The Board of Directors is empowered to adopt, amend, or repeal the Bylaws. Liability of directors for monetary damages for breach of fiduciary duty is eliminated to the fullest extent under applicable law.\n' +
+                  'Original filename: 20220218 Filed Certificate of Incorporation.pdf'
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  rawItems: [
+    {
+      type: 'STOCK_CLASS',
+      ocfObjectId: '93feb8f8-f8b6-4be6-ae10-d5cab38a9baf',
+      ocfData: {
+        id: '93feb8f8-f8b6-4be6-ae10-d5cab38a9baf',
+        name: 'Common Stock',
+        comments: [
+          'The corporation is authorized to issue only one class of stock. Directors are elected at each annual meeting of stockholders. The Board of Directors is empowered to adopt, amend, or repeal the Bylaws. Liability of directors for monetary damages for breach of fiduciary duty is eliminated to the fullest extent under applicable law.\n' +
+            'Original filename: 20220218 Filed Certificate of Incorporation.pdf'
+        ],
+        par_value: { amount: '0.00001', currency: 'USD' },
+        seniority: '1',
+        class_type: 'COMMON',
+        object_type: 'STOCK_CLASS',
+        price_per_share: { amount: '0.00001', currency: 'USD' },
+        votes_per_share: '1',
+        conversion_rights: [],
+        default_id_prefix: 'CS-',
+        initial_shares_authorized: '20000000'
+      }
+    }
+  ]
+}

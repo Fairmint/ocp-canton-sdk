@@ -1,15 +1,14 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
-import { ContractDetails } from '../../types/contractDetails';
+import { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 
 export interface AuthorizeIssuerParams {
   issuer: string; // Party ID of the issuer to authorize
 }
 
-export interface AuthorizeIssuerResult extends ContractDetails {
+export interface AuthorizeIssuerResult extends DisclosedContract {
   updateId: string;
 }
 

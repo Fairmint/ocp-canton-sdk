@@ -1,4 +1,4 @@
-import { ClientConfig, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { ClientConfig, LedgerJsonApiClient, TransactionBatch } from '@fairmint/canton-node-sdk';
 import {
   authorizeIssuer, AuthorizeIssuerParams, AuthorizeIssuerResult,
   createIssuer, CreateIssuerParams, CreateIssuerResult,
@@ -9,7 +9,6 @@ import {
   updateCompanyValuation, UpdateCompanyValuationParams, UpdateCompanyValuationResult,
   addObserversToCompanyValuationReport, AddObserversToCompanyValuationReportParams, AddObserversToCompanyValuationReportResult
 } from './functions';
-import { TransactionBatch } from './utils/TransactionBatch';
 
 export class OcpClient {
   private client: LedgerJsonApiClient;

@@ -1,7 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
 
 export interface UpdateCompanyValuationParams {
   companyValuationReportContractId: string;

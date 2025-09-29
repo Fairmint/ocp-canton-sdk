@@ -1,0 +1,18 @@
+{
+  "transactionTree": {
+    "updateId": "1220faf461e8afb9546a8cbff8491fa66b65e9ac9790f817fd72eaa243d6e648f740",
+    "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+    "eventsById": {
+      "1": {
+        "CreatedTreeEvent": {
+          "value": {
+            "contractId": "doc-1",
+            "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Document:Document"
+          }
+        }
+      }
+    }
+  }
+}
+
+
