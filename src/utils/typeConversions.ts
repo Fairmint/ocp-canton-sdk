@@ -52,8 +52,13 @@ import type { ConversionMechanism, ConversionTrigger, StockClassConversionRight 
  * Convert a date string (YYYY-MM-DD) to DAML Time format (ISO string with 0 timestamp)
  * DAML Time expects a string in the format YYYY-MM-DDTHH:MM:SS.000Z
  * Since we only care about the date, we use 00:00:00.000Z for the time portion
+ * If the date already has a time portion, return it as-is
  */
 export function dateStringToDAMLTime(dateString: string): string {
+  // If already has time portion, return as-is
+  if (dateString.includes('T')) {
+    return dateString;
+  }
   return `${dateString}T00:00:00.000Z`;
 }
 

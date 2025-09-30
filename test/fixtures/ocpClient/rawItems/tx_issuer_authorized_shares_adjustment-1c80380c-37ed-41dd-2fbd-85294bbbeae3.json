@@ -1,9 +1,0 @@
-{
-  "id": "1c80380c-37ed-41dd-2fbd-85294bbbeae3",
-  "date": "2024-10-24",
-  "comments": [],
-  "issuer_id": "55a78071-41df-461f-ae51-64687653c0ed",
-  "object_type": "TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT",
-  "board_approval_date": "2024-06-19",
-  "new_shares_authorized": "100000000000000"
-}

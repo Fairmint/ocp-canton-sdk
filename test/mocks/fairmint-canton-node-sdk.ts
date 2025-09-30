@@ -32,7 +32,7 @@ export class LedgerJsonApiClient {
 
     // No fixture configured - this is an error
     throw new Error(
-      'No transaction fixture configured. Use setTransactionTreeFixture() in your test setup. ' +
+      'No transaction fixture configured. Use setTransactionTreeFixtureData() in your test setup. ' +
       'Request: ' + JSON.stringify(req, null, 2)
     );
   });

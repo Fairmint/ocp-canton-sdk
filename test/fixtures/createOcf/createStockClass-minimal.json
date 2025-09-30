@@ -1,0 +1,265 @@
+{
+  "functionName": "createStockClass",
+  "dbInput": {
+    "id": "93feb8f8-f8b6-4be6-ae10-d5cab38a9baf",
+    "name": "Common Stock",
+    "comments": [
+      "The corporation is authorized to issue only one class of stock. Directors are elected at each annual meeting of stockholders. The Board of Directors is empowered to adopt, amend, or repeal the Bylaws. Liability of directors for monetary damages for breach of fiduciary duty is eliminated to the fullest extent under applicable law.\nOriginal filename: 20220218 Filed Certificate of Incorporation.pdf"
+    ],
+    "par_value": {
+      "amount": "0.00001",
+      "currency": "USD"
+    },
+    "seniority": "1",
+    "class_type": "COMMON",
+    "object_type": "STOCK_CLASS",
+    "price_per_share": {
+      "amount": "0.00001",
+      "currency": "USD"
+    },
+    "votes_per_share": "1",
+    "conversion_rights": [],
+    "default_id_prefix": "CS-",
+    "initial_shares_authorized": "20000000"
+  },
+  "testContext": {
+    "issuerContractId": "00620e528248eb8fcdc75903835191d254313a86a43f17d473e8c597cae6e6ce50ca11122055afe851d0332ce4a9ba334dcc0dd748ace4dc40cf91279ffb3e71b8cde5d7a0",
+    "issuerParty": "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+  },
+  "expectedRequest": {
+    "commands": [
+      {
+        "ExerciseCommand": {
+          "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+          "contractId": "00620e528248eb8fcdc75903835191d254313a86a43f17d473e8c597cae6e6ce50ca11122055afe851d0332ce4a9ba334dcc0dd748ace4dc40cf91279ffb3e71b8cde5d7a0",
+          "choice": "CreateStockClass",
+          "choiceArgument": {
+            "stock_class_data": {
+              "id": "93feb8f8-f8b6-4be6-ae10-d5cab38a9baf",
+              "name": "Common Stock",
+              "class_type": "OcfStockClassTypeCommon",
+              "default_id_prefix": "CS-",
+              "initial_shares_authorized": "20000000",
+              "votes_per_share": "1",
+              "seniority": "1",
+              "board_approval_date": null,
+              "stockholder_approval_date": null,
+              "par_value": {
+                "amount": "0.00001",
+                "currency": "USD"
+              },
+              "price_per_share": {
+                "amount": "0.00001",
+                "currency": "USD"
+              },
+              "conversion_rights": [],
+              "liquidation_preference_multiple": null,
+              "participation_cap_multiple": null,
+              "comments": [
+                "The corporation is authorized to issue only one class of stock. Directors are elected at each annual meeting of stockholders. The Board of Directors is empowered to adopt, amend, or repeal the Bylaws. Liability of directors for monetary damages for breach of fiduciary duty is eliminated to the fullest extent under applicable law.\nOriginal filename: 20220218 Filed Certificate of Incorporation.pdf"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "actAs": [
+      "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+    ],
+    "disclosedContracts": [
+      {
+        "templateId": "a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight",
+        "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+        "createdEventBlob": "CgMyLjESzQQKRQA1M/+dTm8DvvDqupLogh6fnxhVZcLNtZd6IRK9GU6ZFcoREiDBZTvrc5ncZmht3HIL3rokGKt94fG9cjfDieYszQx8FxINc3BsaWNlLWFtdWxldBpkCkBhNWIwNTU0OTJmYjhmMDhiMmU3YmMwZmM5NGRhNmRhNTBjMzljMmUxZDdmMjRjZDVlYThkYjEyZmM4N2MxMzMyEgZTcGxpY2USBkFtdWxldBoQRmVhdHVyZWRBcHBSaWdodCKyAWqvAQpNCks6SURTTzo6MTIyMGJlNThjMjllNjVkZTQwYmYyNzNiZTFkYzJiMjY2ZDQzYTlhMDAyZWE1YjE4OTU1YWVlZjdhYWM4ODFiYjQ3MWEKXgpcOlpGYWlybWludC12YWxpZGF0b3ItMTo6MTIyMGNkZGFmMzU0ZmIxMmQ0Y2JkZWUzZDMxNDQzMGFhNmZkMjZkNjA2MGI5ZjM1YzM0YTAyMjg4NWUzYzY4MWVjNjMqSURTTzo6MTIyMGJlNThjMjllNjVkZTQwYmYyNzNiZTFkYzJiMjY2ZDQzYTlhMDAyZWE1YjE4OTU1YWVlZjdhYWM4ODFiYjQ3MWEyWkZhaXJtaW50LXZhbGlkYXRvci0xOjoxMjIwY2RkYWYzNTRmYjEyZDRjYmRlZTNkMzE0NDMwYWE2ZmQyNmQ2MDYwYjlmMzVjMzRhMDIyODg1ZTNjNjgxZWM2Mzl8/9PpzDwGAEIqCiYKJAgBEiB38RW4VvGg4KfUWTOmMjc2YKK/qy8rilrQmhh+ArwtShAe",
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+      }
+    ]
+  },
+  "expectedResponse": {
+    "transactionTree": {
+      "updateId": "12203b3f08dcc4bf5f10c1872151e3fe1acdee781c64fee67bdba3f797c4901554c9",
+      "commandId": "submit-and-wait-for-transaction-tree-1759154614731-2gtvd1",
+      "workflowId": "",
+      "effectiveAt": "2025-09-29T14:03:35.668810Z",
+      "offset": 738036,
+      "eventsById": {
+        "0": {
+          "ExercisedTreeEvent": {
+            "value": {
+              "offset": 738036,
+              "nodeId": 0,
+              "contractId": "00620e528248eb8fcdc75903835191d254313a86a43f17d473e8c597cae6e6ce50ca11122055afe851d0332ce4a9ba334dcc0dd748ace4dc40cf91279ffb3e71b8cde5d7a0",
+              "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+              "interfaceId": null,
+              "choice": "CreateStockClass",
+              "choiceArgument": {
+                "stock_class_data": {
+                  "id": "93feb8f8-f8b6-4be6-ae10-d5cab38a9baf",
+                  "class_type": "OcfStockClassTypeCommon",
+                  "default_id_prefix": "CS-",
+                  "initial_shares_authorized": "20000000.0000000000",
+                  "name": "Common Stock",
+                  "seniority": "1.0000000000",
+                  "votes_per_share": "1.0000000000",
+                  "comments": [
+                    "The corporation is authorized to issue only one class of stock. Directors are elected at each annual meeting of stockholders. The Board of Directors is empowered to adopt, amend, or repeal the Bylaws. Liability of directors for monetary damages for breach of fiduciary duty is eliminated to the fullest extent under applicable law.\nOriginal filename: 20220218 Filed Certificate of Incorporation.pdf"
+                  ],
+                  "conversion_rights": [],
+                  "board_approval_date": null,
+                  "liquidation_preference_multiple": null,
+                  "par_value": {
+                    "amount": "0.0000100000",
+                    "currency": "USD"
+                  },
+                  "participation_cap_multiple": null,
+                  "price_per_share": {
+                    "amount": "0.0000100000",
+                    "currency": "USD"
+                  },
+                  "stockholder_approval_date": null
+                }
+              },
+              "actingParties": [
+                "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "consuming": false,
+              "witnessParties": [
+                "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "lastDescendantNodeId": 3,
+              "exerciseResult": "00aeb35604fbd42f60e08a1d5609d47c75d894285b592b269e96a169a0505a176dca1112203d791b85006456c57c12f336647b5ae00624fc71876599cae2b4fc195d386302",
+              "packageName": "OpenCapTable-v25",
+              "implementedInterfaces": []
+            }
+          }
+        },
+        "1": {
+          "ExercisedTreeEvent": {
+            "value": {
+              "offset": 738036,
+              "nodeId": 1,
+              "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+              "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+              "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+              "choice": "FeaturedAppRight_CreateActivityMarker",
+              "choiceArgument": {
+                "beneficiaries": [
+                  {
+                    "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "weight": "1.0000000000"
+                  }
+                ]
+              },
+              "actingParties": [
+                "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+              ],
+              "consuming": false,
+              "witnessParties": [
+                "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "lastDescendantNodeId": 2,
+              "exerciseResult": {
+                "activityMarkerCids": [
+                  "008e3b4b19d3ba916f61c88ca75e4d2f464d2acba55b306008bdc52fbfbe135152ca1112209d7c1e4a7097a683726f3fdec082fbc1206da258e118d29d37a824423065a967"
+                ]
+              },
+              "packageName": "splice-amulet",
+              "implementedInterfaces": []
+            }
+          }
+        },
+        "2": {
+          "CreatedTreeEvent": {
+            "value": {
+              "offset": 738036,
+              "nodeId": 2,
+              "contractId": "008e3b4b19d3ba916f61c88ca75e4d2f464d2acba55b306008bdc52fbfbe135152ca1112209d7c1e4a7097a683726f3fdec082fbc1206da258e118d29d37a824423065a967",
+              "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+              "contractKey": null,
+              "createArgument": {
+                "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                "weight": "1.0000000000"
+              },
+              "createdEventBlob": "",
+              "interfaceViews": [],
+              "witnessParties": [
+                "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "signatories": [
+                "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+              ],
+              "observers": [
+                "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+              ],
+              "createdAt": "2025-09-29T14:03:35.668810Z",
+              "packageName": "splice-amulet"
+            }
+          }
+        },
+        "3": {
+          "CreatedTreeEvent": {
+            "value": {
+              "offset": 738036,
+              "nodeId": 3,
+              "contractId": "00aeb35604fbd42f60e08a1d5609d47c75d894285b592b269e96a169a0505a176dca1112203d791b85006456c57c12f336647b5ae00624fc71876599cae2b4fc195d386302",
+              "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.StockClass:StockClass",
+              "contractKey": null,
+              "createArgument": {
+                "context": {
+                  "issuer": "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                },
+                "stock_class_data": {
+                  "id": "93feb8f8-f8b6-4be6-ae10-d5cab38a9baf",
+                  "class_type": "OcfStockClassTypeCommon",
+                  "default_id_prefix": "CS-",
+                  "initial_shares_authorized": "20000000.0000000000",
+                  "name": "Common Stock",
+                  "seniority": "1.0000000000",
+                  "votes_per_share": "1.0000000000",
+                  "comments": [
+                    "The corporation is authorized to issue only one class of stock. Directors are elected at each annual meeting of stockholders. The Board of Directors is empowered to adopt, amend, or repeal the Bylaws. Liability of directors for monetary damages for breach of fiduciary duty is eliminated to the fullest extent under applicable law.\nOriginal filename: 20220218 Filed Certificate of Incorporation.pdf"
+                  ],
+                  "conversion_rights": [],
+                  "board_approval_date": null,
+                  "liquidation_preference_multiple": null,
+                  "par_value": {
+                    "amount": "0.0000100000",
+                    "currency": "USD"
+                  },
+                  "participation_cap_multiple": null,
+                  "price_per_share": {
+                    "amount": "0.0000100000",
+                    "currency": "USD"
+                  },
+                  "stockholder_approval_date": null
+                }
+              },
+              "createdEventBlob": "",
+              "interfaceViews": [],
+              "witnessParties": [
+                "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "signatories": [
+                "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+              ],
+              "observers": [],
+              "createdAt": "2025-09-29T14:03:35.668810Z",
+              "packageName": "OpenCapTable-v25"
+            }
+          }
+        }
+      },
+      "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+      "traceContext": {
+        "traceparent": "00-5cd7d15323585784e08ff72aacd19713-dd2f1c148d65feaf-01",
+        "tracestate": null
+      },
+      "recordTime": "2025-09-29T14:03:35.796711Z"
+    }
+  }
+}

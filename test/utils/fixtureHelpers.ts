@@ -21,32 +21,11 @@ export interface TransactionTreeFixture {
 let currentFixture: TransactionTreeFixture | null = null;
 
 /**
- * Configure the mock to use a specific transaction tree fixture for testing.
- * This sets up both request validation and response mocking.
- * 
- * @param fixtureName - Name of the fixture file (without .json extension)
- * @example
- * setTransactionTreeFixture('createDocument');
+ * Configure the mock with a fixture object directly (no file I/O)
+ * @param fixture - The fixture object to use
  */
-export function setTransactionTreeFixture(fixtureName: string): void {
-  const fixturePath = path.join(
-    __dirname,
-    '..',
-    'fixtures',
-    'ocpClient',
-    `${fixtureName}.json`
-  );
-
-  if (!fs.existsSync(fixturePath)) {
-    throw new Error(`Fixture not found: ${fixturePath}`);
-  }
-
-  const fileContent = fs.readFileSync(fixturePath, 'utf-8');
-  try {
-    currentFixture = JSON.parse(fileContent) as TransactionTreeFixture;
-  } catch (error) {
-    throw new Error(`Invalid JSON in fixture ${fixturePath}: ${(error as Error).message}`);
-  }
+export function setTransactionTreeFixtureData(fixture: TransactionTreeFixture): void {
+  currentFixture = fixture;
 }
 
 /**
