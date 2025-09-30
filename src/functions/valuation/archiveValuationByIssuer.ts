@@ -10,6 +10,7 @@ export interface ArchiveValuationByIssuerParams {
 
 export interface ArchiveValuationByIssuerResult {
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 export async function archiveValuationByIssuer(
@@ -30,7 +31,7 @@ export async function archiveValuationByIssuer(
     ]
   })) as SubmitAndWaitForTransactionTreeResponse;
 
-  return { updateId: response.transactionTree.updateId };
+  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }
 
 export function buildArchiveValuationByIssuerCommand(params: { contractId: string; }): Command {

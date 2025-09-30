@@ -10,6 +10,7 @@ export interface ArchiveVestingTermsByIssuerParams {
 
 export interface ArchiveVestingTermsByIssuerResult {
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 export async function archiveVestingTermsByIssuer(
@@ -30,7 +31,7 @@ export async function archiveVestingTermsByIssuer(
     ]
   })) as SubmitAndWaitForTransactionTreeResponse;
 
-  return { updateId: response.transactionTree.updateId };
+  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }
 
 export function buildArchiveVestingTermsByIssuerCommand(params: { contractId: string; }): Command {

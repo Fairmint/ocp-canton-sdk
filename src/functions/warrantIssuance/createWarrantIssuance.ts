@@ -2,7 +2,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Monetary } from '../../types/native';
+import { Monetary, CommandWithDisclosedContracts } from '../../types';
 import { monetaryToDaml, dateStringToDAMLTime } from '../../utils/typeConversions';
 
 export interface SimpleVesting { date: string; amount: string | number }
@@ -42,6 +42,7 @@ export interface CreateWarrantIssuanceParams {
 export interface CreateWarrantIssuanceResult {
   contractId: string;
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 type WarrantTriggerTypeInput =
@@ -236,77 +237,31 @@ export async function createWarrantIssuance(
   client: LedgerJsonApiClient,
   params: CreateWarrantIssuanceParams
 ): Promise<CreateWarrantIssuanceResult> {
-  const d = params.issuanceData;
-  const quantitySourceDaml =
-    d.quantity !== undefined && d.quantity !== null
-      ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
-      : quantitySourceToDamlEnum(d.quantity_source);
-  const issuance_data: Fairmint.OpenCapTable.WarrantIssuance.OcfWarrantIssuanceData = {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    custom_id: d.custom_id,
-    stakeholder_id: d.stakeholder_id,
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-    consideration_text: d.consideration_text ?? null,
-    security_law_exemptions: d.security_law_exemptions,
-    quantity: d.quantity !== undefined && d.quantity !== null ? (typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity) : null,
-    quantity_source: quantitySourceDaml,
-    exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
-    purchase_price: monetaryToDaml(d.purchase_price),
-    exercise_triggers: d.exercise_triggers.map((t, idx) => buildWarrantTrigger(t, idx, d.id)),
-    warrant_expiration_date: d.warrant_expiration_date ? dateStringToDAMLTime(d.warrant_expiration_date) : null,
-    vesting_terms_id: d.vesting_terms_id ?? null,
-    vestings: (d.vestings || []).map(v => ({ date: dateStringToDAMLTime(v.date), amount: typeof v.amount === 'number' ? v.amount.toString() : v.amount })),
-    comments: d.comments || []
-  };
-
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateWarrantIssuance = {
-    issuance_data
-  };
+  const { command, disclosedContracts } = buildCreateWarrantIssuanceCommand(params);
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-          contractId: params.issuerContractId,
-          choice: 'CreateWarrantIssuance',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
+    commands: [command],
+    disclosedContracts
   }) as SubmitAndWaitForTransactionTreeResponse;
 
   type TreeEvent = SubmitAndWaitForTransactionTreeResponse['transactionTree']['eventsById'][string];
   type CreatedEvent = Extract<TreeEvent, { CreatedTreeEvent: unknown }>;
-  const created = Object.values(response.transactionTree.eventsById).find((e): e is CreatedEvent => {
+  const created = Object.values((response.transactionTree as any)?.eventsById ?? (response.transactionTree as any)?.transaction?.eventsById ?? {}).find((e: any): e is CreatedEvent => {
     if (!('CreatedTreeEvent' in e)) return false;
-    const templateId = e.CreatedTreeEvent.value.templateId;
+    const templateId = (e as CreatedEvent).CreatedTreeEvent.value.templateId;
     return templateId.endsWith(':Fairmint.OpenCapTable.WarrantIssuance:WarrantIssuance');
   });
   if (!created) throw new Error('Expected WarrantIssuance CreatedTreeEvent not found');
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
+    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
+    response
   };
 }
 
-export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceParams): {
-  command: Command;
-  disclosedContracts: DisclosedContract[];
-} {
+export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceParams): CommandWithDisclosedContracts {
   const d = params.issuanceData;
   const quantitySourceDaml =
     d.quantity !== undefined && d.quantity !== null

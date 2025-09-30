@@ -10,6 +10,7 @@ export interface ArchiveStockPlanByIssuerParams {
 
 export interface ArchiveStockPlanByIssuerResult {
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 export async function archiveStockPlanByIssuer(
@@ -30,7 +31,7 @@ export async function archiveStockPlanByIssuer(
     ]
   })) as SubmitAndWaitForTransactionTreeResponse;
 
-  return { updateId: response.transactionTree.updateId };
+  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }
 
 export function buildArchiveStockPlanByIssuerCommand(params: { contractId: string; }): Command {

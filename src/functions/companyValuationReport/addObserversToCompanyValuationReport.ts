@@ -10,7 +10,7 @@ export interface AddObserversToCompanyValuationReportParams {
 export interface AddObserversToCompanyValuationReportResult {
   contractId: string;
   updateId: string;
-  transactionTree: SubmitAndWaitForTransactionTreeResponse;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 interface CompanyValuationReportCreateArgumentShape {
@@ -71,7 +71,7 @@ export async function addObserversToCompanyValuationReport(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId,
-    transactionTree: response
+    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
+    response
   };
 }

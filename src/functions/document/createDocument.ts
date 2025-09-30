@@ -1,9 +1,9 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { OcfDocumentData } from '../../types/native';
-import { documentDataToDaml } from '../../utils/typeConversions';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { OcfDocumentData, CommandWithDisclosedContracts } from '../../types';
+import { documentDataToDaml } from '../../utils/typeConversions';
 
 export interface CreateDocumentParams {
   issuerContractId: string;
@@ -15,37 +15,19 @@ export interface CreateDocumentParams {
 export interface CreateDocumentResult {
   contractId: string;
   updateId: string;
-  transactionTree: SubmitAndWaitForTransactionTreeResponse['transactionTree'];
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 export async function createDocument(
   client: LedgerJsonApiClient,
   params: CreateDocumentParams
 ): Promise<CreateDocumentResult> {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateDocument = {
-    document_data: documentDataToDaml(params.documentData)
-  };
+  const { command, disclosedContracts } = buildCreateDocumentCommand(params);
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-          contractId: params.issuerContractId,
-          choice: 'CreateDocument',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
+    commands: [command],
+    disclosedContracts
   }) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = findCreatedEventByTemplateId(
@@ -58,15 +40,12 @@ export async function createDocument(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId,
-    transactionTree: response.transactionTree
+    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
+    response
   };
 }
 
-export function buildCreateDocumentCommand(params: CreateDocumentParams): {
-  command: Command;
-  disclosedContracts: DisclosedContract[];
-} {
+export function buildCreateDocumentCommand(params: CreateDocumentParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateDocument = {
     document_data: documentDataToDaml(params.documentData)
   };

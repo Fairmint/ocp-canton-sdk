@@ -1,9 +1,9 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { OcfStakeholderData } from '../../types/native';
-import { stakeholderDataToDaml } from '../../utils/typeConversions';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { OcfStakeholderData, CommandWithDisclosedContracts } from '../../types';
+import { stakeholderDataToDaml } from '../../utils/typeConversions';
 
 export interface CreateStakeholderParams {
   issuerContractId: string;
@@ -15,6 +15,7 @@ export interface CreateStakeholderParams {
 export interface CreateStakeholderResult {
   contractId: string;
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 /**
@@ -24,30 +25,12 @@ export async function createStakeholder(
   client: LedgerJsonApiClient,
   params: CreateStakeholderParams
 ): Promise<CreateStakeholderResult> {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStakeholder = {
-    stakeholder_data: stakeholderDataToDaml(params.stakeholderData)
-  } as any;
+  const { command, disclosedContracts } = buildCreateStakeholderCommand(params);
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-          contractId: params.issuerContractId,
-          choice: 'CreateStakeholder',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
+    commands: [command],
+    disclosedContracts
   }) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = findCreatedEventByTemplateId(
@@ -60,14 +43,12 @@ export async function createStakeholder(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
+    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
+    response
   };
 }
 
-export function buildCreateStakeholderCommand(params: CreateStakeholderParams): {
-  command: Command;
-  disclosedContracts: DisclosedContract[];
-} {
+export function buildCreateStakeholderCommand(params: CreateStakeholderParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStakeholder = {
     stakeholder_data: stakeholderDataToDaml(params.stakeholderData)
   } as any;

@@ -2,9 +2,9 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { ContractId } from '@daml/types';
-import { OcfValuationData } from '../../types/native';
-import { valuationDataToDaml } from '../../utils/typeConversions';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { OcfValuationData, CommandWithDisclosedContracts } from '../../types';
+import { valuationDataToDaml } from '../../utils/typeConversions';
 
 export interface CreateValuationParams {
   issuerContractId: string;
@@ -17,6 +17,7 @@ export interface CreateValuationParams {
 export interface CreateValuationResult {
   contractId: string;
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 /**
@@ -35,31 +36,12 @@ export async function createValuation(
   client: LedgerJsonApiClient,
   params: CreateValuationParams
 ): Promise<CreateValuationResult> {
-  const choiceArguments = {
-    stock_class: params.stockClassContractId,
-    valuation_data: valuationDataToDaml(params.valuationData)
-  } as any;
+  const { command, disclosedContracts } = buildCreateValuationCommand(params);
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-          contractId: params.issuerContractId,
-          choice: 'CreateValuation',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
+    commands: [command],
+    disclosedContracts
   }) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = findCreatedEventByTemplateId(
@@ -72,14 +54,12 @@ export async function createValuation(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
+    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
+    response
   };
 }
 
-export function buildCreateValuationCommand(params: CreateValuationParams): {
-  command: Command;
-  disclosedContracts: DisclosedContract[];
-} {
+export function buildCreateValuationCommand(params: CreateValuationParams): CommandWithDisclosedContracts {
   const choiceArguments = {
     stock_class: params.stockClassContractId,
     valuation_data: valuationDataToDaml(params.valuationData)

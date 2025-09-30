@@ -14,20 +14,12 @@ export class LedgerJsonApiClient {
       const tok = await provider();
       this.lastAuthToken = typeof tok === 'string' ? tok : String(tok);
     }
-
-    // Use fixture configured via setTransactionTreeFixture helper
-    try {
-      // Dynamically import to avoid circular dependencies
-      const fixtureHelpers = require('../utils/fixtureHelpers');
-      const fixtureResponse = fixtureHelpers.getFixtureResponse();
-      if (fixtureResponse) {
-        // Validate request matches fixture expectations
-        fixtureHelpers.validateRequestMatchesFixture(req);
-        return fixtureResponse;
-      }
-    } catch (error) {
-      // fixtureHelpers might not exist or error during validation
-      throw error;
+    // Check if there's a fixture configured and validate request matches
+    const { getCurrentFixture, validateRequestMatchesFixture } = require('../utils/fixtureHelpers');
+    const fixture = getCurrentFixture();
+    if (fixture) {
+      validateRequestMatchesFixture(req);
+      return fixture.response;
     }
 
     // No fixture configured - this is an error
@@ -202,15 +194,19 @@ export function findCreatedEventByTemplateId(
   response: any,
   templateId: string
 ): any {
+  // Handle both direct structure and nested transaction structure
+  const transactionTree = response.transactionTree;
+  const eventsById = transactionTree?.eventsById ?? transactionTree?.transaction?.eventsById;
+  
   // Mock implementation - look for CreatedTreeEvent in the transactionTree
-  if (response?.transactionTree?.eventsById) {
-    for (const [key, event] of Object.entries(response.transactionTree.eventsById)) {
+  if (eventsById) {
+    for (const [key, event] of Object.entries(eventsById)) {
       const eventData = event as any;
       const eventTemplateId = eventData?.CreatedTreeEvent?.value?.templateId;
       
       // Handle different template ID formats
       if (eventTemplateId === templateId) {
-        return eventData.CreatedTreeEvent;
+        return eventData;
       }
       
       // Handle the case where templateId is in pkg: format but event has full template ID
@@ -218,9 +214,7 @@ export function findCreatedEventByTemplateId(
         const pkgName = templateId.replace('pkg:', '');
         // Check if the template name part matches (after the hash)
         const templateNamePart = eventTemplateId.split(':').slice(1).join(':');
-        // Convert the last colon to dot for comparison
-        const normalizedTemplateName = templateNamePart.replace(/:([^:]+)$/, '.$1');
-        if (normalizedTemplateName === pkgName) {
+        if (templateNamePart === pkgName) {
           return eventData;
         }
       }

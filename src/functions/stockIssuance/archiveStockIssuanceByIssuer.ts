@@ -10,6 +10,7 @@ export interface ArchiveStockIssuanceByIssuerParams {
 
 export interface ArchiveStockIssuanceByIssuerResult {
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 export async function archiveStockIssuanceByIssuer(
@@ -30,7 +31,7 @@ export async function archiveStockIssuanceByIssuer(
     ]
   })) as SubmitAndWaitForTransactionTreeResponse;
 
-  return { updateId: response.transactionTree.updateId };
+  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }
 
 export function buildArchiveStockIssuanceByIssuerCommand(params: { contractId: string; }): Command {

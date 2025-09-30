@@ -1,9 +1,9 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { OcfStockLegendTemplateData } from '../../types/native';
-import { stockLegendTemplateDataToDaml } from '../../utils/typeConversions';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { OcfStockLegendTemplateData, CommandWithDisclosedContracts } from '../../types';
+import { stockLegendTemplateDataToDaml } from '../../utils/typeConversions';
 
 export interface CreateStockLegendTemplateParams {
   issuerContractId: string;
@@ -15,36 +15,19 @@ export interface CreateStockLegendTemplateParams {
 export interface CreateStockLegendTemplateResult {
   contractId: string;
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 export async function createStockLegendTemplate(
   client: LedgerJsonApiClient,
   params: CreateStockLegendTemplateParams
 ): Promise<CreateStockLegendTemplateResult> {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockLegendTemplate = {
-    template_data: stockLegendTemplateDataToDaml(params.templateData)
-  };
+  const { command, disclosedContracts } = buildCreateStockLegendTemplateCommand(params);
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-          contractId: params.issuerContractId,
-          choice: 'CreateStockLegendTemplate',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
+    commands: [command],
+    disclosedContracts
   }) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = findCreatedEventByTemplateId(
@@ -57,14 +40,12 @@ export async function createStockLegendTemplate(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
+    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
+    response
   };
 }
 
-export function buildCreateStockLegendTemplateCommand(params: CreateStockLegendTemplateParams): {
-  command: Command;
-  disclosedContracts: DisclosedContract[];
-} {
+export function buildCreateStockLegendTemplateCommand(params: CreateStockLegendTemplateParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockLegendTemplate = {
     template_data: stockLegendTemplateDataToDaml(params.templateData)
   };

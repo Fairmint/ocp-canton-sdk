@@ -3,7 +3,7 @@ import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 export interface ArchiveWarrantIssuanceByIssuerParams { contractId: string; issuerParty: string }
-export interface ArchiveWarrantIssuanceByIssuerResult { updateId: string }
+export interface ArchiveWarrantIssuanceByIssuerResult { updateId: string; response: SubmitAndWaitForTransactionTreeResponse }
 
 export async function archiveWarrantIssuanceByIssuer(
   client: LedgerJsonApiClient,
@@ -22,7 +22,7 @@ export async function archiveWarrantIssuanceByIssuer(
       }
     ]
   })) as SubmitAndWaitForTransactionTreeResponse;
-  return { updateId: response.transactionTree.updateId };
+  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }
 
 

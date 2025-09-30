@@ -9,6 +9,7 @@ export interface ArchiveConvertibleIssuanceByIssuerParams {
 
 export interface ArchiveConvertibleIssuanceByIssuerResult {
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 export async function archiveConvertibleIssuanceByIssuer(
@@ -29,7 +30,7 @@ export async function archiveConvertibleIssuanceByIssuer(
     ]
   })) as SubmitAndWaitForTransactionTreeResponse;
 
-  return { updateId: response.transactionTree.updateId };
+  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }
 
 

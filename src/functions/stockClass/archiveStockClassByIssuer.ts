@@ -10,6 +10,7 @@ export interface ArchiveStockClassByIssuerParams {
 
 export interface ArchiveStockClassByIssuerResult {
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 export async function archiveStockClassByIssuer(
@@ -30,7 +31,7 @@ export async function archiveStockClassByIssuer(
     ]
   })) as SubmitAndWaitForTransactionTreeResponse;
 
-  return { updateId: response.transactionTree.updateId };
+  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }
 
 export function buildArchiveStockClassByIssuerCommand(params: { contractId: string; }): Command {

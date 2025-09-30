@@ -1,218 +1,21 @@
 import { ClientConfig, getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import { OcpClient } from '../../src';
+import { OcfIssuerData, OcfStakeholderData, OcfStockClassData, OcfStockLegendTemplateData, OcfVestingTermsData, OcfStockPlanData, OcfStockIssuanceData, OcfDocumentData, OcpClient } from '../../src';
 import { setTransactionTreeFixtureData, clearTransactionTreeFixture } from '../utils/fixtureHelpers';
 import * as fs from 'fs';
 import * as path from 'path';
+import { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 
 interface TestFixture {
   functionName: string;
-  dbInput: Record<string, unknown>;
+  db: Record<string, unknown>;
   testContext: {
     issuerContractId: string;
     issuerParty: string;
-    [key: string]: unknown;
+    issuerAuthorizationContractDetails?: DisclosedContract;
   };
-  expectedRequest: {
-    commands: Array<Record<string, unknown>>;
-    actAs: string[];
-    disclosedContracts: Array<Record<string, unknown>>;
-  };
-  expectedResponse: {
-    transactionTree: Record<string, unknown>;
-  };
+  request: Record<string, unknown>;
+  onchain_ocf: Record<string, unknown>;
 }
-
-interface FunctionMapping {
-  namespace: keyof OcpClient;
-  functionName: string;
-  buildParams: (fixture: TestFixture, featuredAppRight: unknown) => Record<string, unknown>;
-}
-
-// Map test fixture function names to OcpClient paths and parameter builders
-const FUNCTION_MAPPINGS: Record<string, FunctionMapping> = {
-  createDocument: {
-    namespace: 'document',
-    functionName: 'createDocument',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...documentData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        documentData
-      };
-    }
-  },
-  createStockClass: {
-    namespace: 'stockClass',
-    functionName: 'createStockClass',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...stockClassData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        stockClassData
-      };
-    }
-  },
-  createStakeholder: {
-    namespace: 'stakeholder',
-    functionName: 'createStakeholder',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...stakeholderData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        stakeholderData
-      };
-    }
-  },
-  createStockLegendTemplate: {
-    namespace: 'stockLegendTemplate',
-    functionName: 'createStockLegendTemplate',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...templateData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        templateData
-      };
-    }
-  },
-  createVestingTerms: {
-    namespace: 'vestingTerms',
-    functionName: 'createVestingTerms',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...vestingTermsData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        vestingTermsData
-      };
-    }
-  },
-  createStockPlan: {
-    namespace: 'stockPlan',
-    functionName: 'createStockPlan',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...planData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        planData
-      };
-    }
-  },
-  createConvertibleIssuance: {
-    namespace: 'convertibleIssuance',
-    functionName: 'createConvertibleIssuance',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...issuanceData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        issuanceData
-      };
-    }
-  },
-  createWarrantIssuance: {
-    namespace: 'warrantIssuance',
-    functionName: 'createWarrantIssuance',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...issuanceData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        issuanceData
-      };
-    }
-  },
-  createStockIssuance: {
-    namespace: 'stockIssuance',
-    functionName: 'createStockIssuance',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...issuanceData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        issuanceData
-      };
-    }
-  },
-  createStockCancellation: {
-    namespace: 'stockCancellation',
-    functionName: 'createStockCancellation',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...cancellationData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        cancellationData
-      };
-    }
-  },
-  createIssuerAuthorizedSharesAdjustment: {
-    namespace: 'issuerAuthorizedSharesAdjustment',
-    functionName: 'createIssuerAuthorizedSharesAdjustment',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...adjustmentData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        adjustmentData
-      };
-    }
-  },
-  createStockClassAuthorizedSharesAdjustment: {
-    namespace: 'stockClassAuthorizedSharesAdjustment',
-    functionName: 'createStockClassAuthorizedSharesAdjustment',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...adjustmentData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        adjustmentData
-      };
-    }
-  },
-  createStockPlanPoolAdjustment: {
-    namespace: 'stockPlanPoolAdjustment',
-    functionName: 'createStockPlanPoolAdjustment',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...adjustmentData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        adjustmentData
-      };
-    }
-  },
-  createEquityCompensationExercise: {
-    namespace: 'stockPlan',
-    functionName: 'createEquityCompensationExercise',
-    buildParams: (fixture, featuredAppRight) => {
-      const { object_type, ...exerciseData } = fixture.dbInput;
-      return {
-        issuerContractId: fixture.testContext.issuerContractId,
-        issuerParty: fixture.testContext.issuerParty,
-        featuredAppRightContractDetails: featuredAppRight,
-        exerciseData
-      };
-    }
-  }
-};
 
 // Load all fixtures from the fixtures directory
 function loadFixtures(): Array<{ name: string; fixture: TestFixture }> {
@@ -246,20 +49,29 @@ describe('OCP Client - Dynamic Create Tests', () => {
 
   fixtures.forEach(({ name, fixture }) => {
     describe(name, () => {
-      beforeEach(() => {
+      beforeEach(async () => {
+        const config: ClientConfig = {
+          network: 'devnet'
+        };
+        const validatorApi = new ValidatorApiClient(config);
+
         // Set up the fixture data directly without file I/O
         const fixtureData = {
+          ...fixture,
           timestamp: new Date().toISOString(),
           url: 'https://ledger-api.validator.devnet.transfer-agent.xyz/v2/commands/submit-and-wait-for-transaction-tree',
           request: {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            data: fixture.expectedRequest
+            data: {
+              commands: [fixture.request],
+              actAs: [fixture.testContext.issuerParty],
+              disclosedContracts: [await getFeaturedAppRightContractDetails(validatorApi)],
+            }
           },
-          response: fixture.expectedResponse as any
         };
         
-        setTransactionTreeFixtureData(fixtureData as any);
+        setTransactionTreeFixtureData(fixtureData);
       });
 
       afterEach(() => {
@@ -267,12 +79,6 @@ describe('OCP Client - Dynamic Create Tests', () => {
       });
 
       test('validates request and returns expected response', async () => {
-        const mapping = FUNCTION_MAPPINGS[fixture.functionName];
-        
-        if (!mapping) {
-          throw new Error(`No function mapping found for ${fixture.functionName}`);
-        }
-
         const config: ClientConfig = {
           network: 'devnet'
         };
@@ -281,18 +87,123 @@ describe('OCP Client - Dynamic Create Tests', () => {
         const featuredAppRight = await getFeaturedAppRightContractDetails(validatorApi);
         const client = new OcpClient(config);
 
-        // Build parameters from fixture
-        const params = mapping.buildParams(fixture, featuredAppRight);
-
-        // Call the function dynamically
-        const namespace = client[mapping.namespace] as Record<string, Function>;
-        const fn = namespace[mapping.functionName];
-        
-        if (!fn) {
-          throw new Error(`Function ${mapping.functionName} not found on ${mapping.namespace}`);
+        let result;
+        switch (fixture.db.object_type) {
+          case 'ISSUER':
+            result = await client.issuer.createIssuer({
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              issuerData: fixture.db as unknown as OcfIssuerData,
+              issuerAuthorizationContractDetails: fixture.testContext.issuerAuthorizationContractDetails!
+            });
+            break;
+          case 'STOCK_CLASS':
+            result = await client.stockClass.createStockClass({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              stockClassData: fixture.db as unknown as OcfStockClassData
+            });
+            break;
+          case 'STAKEHOLDER':
+            result = await client.stakeholder.createStakeholder({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              stakeholderData: fixture.db as unknown as OcfStakeholderData
+            });
+            break;
+          case 'STOCK_LEGEND_TEMPLATE':
+            result = await client.stockLegendTemplate.createStockLegendTemplate({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              templateData: fixture.db as unknown as OcfStockLegendTemplateData
+            });
+            break;
+          case 'VESTING_TERMS':
+            result = await client.vestingTerms.createVestingTerms({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              vestingTermsData: fixture.db as unknown as OcfVestingTermsData
+            });
+            break;
+          case 'STOCK_PLAN':
+            result = await client.stockPlan.createStockPlan({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              planData: fixture.db as unknown as OcfStockPlanData
+            });
+            break;
+          case 'TX_STOCK_ISSUANCE':
+            result = await client.stockIssuance.createStockIssuance({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              issuanceData: fixture.db as unknown as OcfStockIssuanceData
+            });
+            break;
+          case 'TX_STOCK_CANCELLATION':
+            result = await client.stockCancellation.createStockCancellation({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              cancellationData: fixture.db as any
+            });
+            break;
+          case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
+            result = await client.issuerAuthorizedSharesAdjustment.createIssuerAuthorizedSharesAdjustment({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              adjustmentData: fixture.db as any
+            });
+            break;
+          case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
+            result = await client.stockClassAuthorizedSharesAdjustment.createStockClassAuthorizedSharesAdjustment({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              adjustmentData: fixture.db as any
+            });
+            break;
+          case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
+            result = await client.stockPlanPoolAdjustment.createStockPlanPoolAdjustment({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              adjustmentData: fixture.db as any
+            });
+            break;
+          case 'TX_EQUITY_COMPENSATION_ISSUANCE':
+            result = await client.stockPlan.createEquityCompensationIssuance({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              issuanceData: fixture.db as any
+            });
+            break;
+          case 'TX_EQUITY_COMPENSATION_EXERCISE':
+            result = await client.stockPlan.createEquityCompensationExercise({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              exerciseData: fixture.db as any
+            });
+            break;
+          case 'DOCUMENT':
+            result = await client.document.createDocument({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              documentData: fixture.db as unknown as OcfDocumentData
+            });
+            break;
+          default:
+            throw new Error(`Unsupported object type: ${fixture.db.object_type}`);
         }
-
-        const result = await fn(params);
 
         // Verify result structure
         expect(result).toBeDefined();

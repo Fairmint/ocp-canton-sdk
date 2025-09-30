@@ -2,7 +2,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcfIssuerData } from '../../types/native';
+import { OcfIssuerData, CommandWithDisclosedContracts } from '../../types';
 import { issuerDataToDaml } from '../../utils/typeConversions';
 
 export interface CreateIssuerParams {
@@ -34,6 +34,7 @@ export interface CreateIssuerParams {
 export interface CreateIssuerResult {
   contractId: string; // Contract ID of the created Issuer
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 /**
@@ -82,38 +83,12 @@ export async function createIssuer(
   client: LedgerJsonApiClient,
   params: CreateIssuerParams
 ): Promise<CreateIssuerResult> {
-  // Create the choice arguments for CreateIssuer
-  const choiceArguments: Fairmint.OpenCapTable.IssuerAuthorization.CreateIssuer = {
-    issuer_data: issuerDataToDaml(params.issuerData)
-  };
+  const { command, disclosedContracts } = buildCreateIssuerCommand(params);
 
-  // Submit the choice to the IssuerAuthorization contract
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId,
-          contractId: params.issuerAuthorizationContractDetails.contractId,
-          choice: 'CreateIssuer',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.issuerAuthorizationContractDetails.templateId,
-        contractId: params.issuerAuthorizationContractDetails.contractId,
-        createdEventBlob: params.issuerAuthorizationContractDetails.createdEventBlob,
-        synchronizerId: params.issuerAuthorizationContractDetails.synchronizerId
-      },
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
+    commands: [command],
+    disclosedContracts
   }) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = findCreatedEventByTemplateId(
@@ -128,14 +103,12 @@ export async function createIssuer(
 
   return {
     contractId: issuerContractId,
-    updateId: response.transactionTree.updateId
+    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
+    response
   };
 }
 
-export function buildCreateIssuerCommand(params: CreateIssuerParams): {
-  command: Command;
-  disclosedContracts: DisclosedContract[];
-} {
+export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.IssuerAuthorization.CreateIssuer = {
     issuer_data: issuerDataToDaml(params.issuerData)
   };

@@ -3,7 +3,7 @@ import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 export interface ArchiveStockPlanPoolAdjustmentByIssuerParams { contractId: string; issuerParty: string }
-export interface ArchiveStockPlanPoolAdjustmentByIssuerResult { updateId: string }
+export interface ArchiveStockPlanPoolAdjustmentByIssuerResult { updateId: string; response: SubmitAndWaitForTransactionTreeResponse }
 
 export async function archiveStockPlanPoolAdjustmentByIssuer(
   client: LedgerJsonApiClient,
@@ -22,7 +22,7 @@ export async function archiveStockPlanPoolAdjustmentByIssuer(
       }
     ]
   })) as SubmitAndWaitForTransactionTreeResponse;
-  return { updateId: response.transactionTree.updateId };
+  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }
 
 

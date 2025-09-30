@@ -1,9 +1,9 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { OcfVestingTermsData } from '../../types/native';
-import { vestingTermsDataToDaml } from '../../utils/typeConversions';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { OcfVestingTermsData, CommandWithDisclosedContracts } from '../../types';
+import { vestingTermsDataToDaml } from '../../utils/typeConversions';
 
 export interface CreateVestingTermsParams {
   issuerContractId: string;
@@ -15,6 +15,7 @@ export interface CreateVestingTermsParams {
 export interface CreateVestingTermsResult {
   contractId: string;
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 /**
@@ -25,30 +26,12 @@ export async function createVestingTerms(
   client: LedgerJsonApiClient,
   params: CreateVestingTermsParams
 ): Promise<CreateVestingTermsResult> {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateVestingTerms = {
-    vesting_terms_data: vestingTermsDataToDaml(params.vestingTermsData)
-  };
+  const { command, disclosedContracts } = buildCreateVestingTermsCommand(params);
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-          contractId: params.issuerContractId,
-          choice: 'CreateVestingTerms',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
+    commands: [command],
+    disclosedContracts
   }) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = findCreatedEventByTemplateId(
@@ -56,19 +39,17 @@ export async function createVestingTerms(
     Fairmint.OpenCapTable.VestingTerms.VestingTerms.templateId
   );
   if (!created) {
-    throw new Error('Expected CreatedTreeEvent not found');
+    throw new Error(`Expected CreatedTreeEvent not found for template ${Fairmint.OpenCapTable.VestingTerms.VestingTerms.templateId}`);
   }
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
+    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
+    response
   };
 }
 
-export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams): {
-  command: Command;
-  disclosedContracts: DisclosedContract[];
-} {
+export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams): CommandWithDisclosedContracts {
   const damlArgs: Fairmint.OpenCapTable.Issuer.CreateVestingTerms = {
     vesting_terms_data: vestingTermsDataToDaml(params.vestingTermsData)
   } as any;

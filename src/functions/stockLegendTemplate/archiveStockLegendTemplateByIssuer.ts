@@ -10,6 +10,7 @@ export interface ArchiveStockLegendTemplateByIssuerParams {
 
 export interface ArchiveStockLegendTemplateByIssuerResult {
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 export async function archiveStockLegendTemplateByIssuer(
@@ -30,7 +31,7 @@ export async function archiveStockLegendTemplateByIssuer(
     ]
   })) as SubmitAndWaitForTransactionTreeResponse;
 
-  return { updateId: response.transactionTree.updateId };
+  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }
 
 export function buildArchiveStockLegendTemplateByIssuerCommand(params: { contractId: string; }): Command {

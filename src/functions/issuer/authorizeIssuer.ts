@@ -10,6 +10,7 @@ export interface AuthorizeIssuerParams {
 
 export interface AuthorizeIssuerResult extends DisclosedContract {
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 /**
@@ -69,9 +70,10 @@ export async function authorizeIssuer(
   
   return {
     contractId: issuerAuthorizationContractId,
-    updateId: response.transactionTree.updateId,
+    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
     createdEventBlob: issuerAuthorizationContractEvents.created.createdEvent.createdEventBlob,
     synchronizerId: response.transactionTree.synchronizerId,
-    templateId: created.CreatedTreeEvent.value.templateId
+    templateId: created.CreatedTreeEvent.value.templateId,
+    response
   };
 } 

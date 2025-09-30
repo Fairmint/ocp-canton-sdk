@@ -1,9 +1,9 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { OcfStockPlanData } from '../../types/native';
-import { stockPlanDataToDaml } from '../../utils/typeConversions';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { OcfStockPlanData, CommandWithDisclosedContracts } from '../../types';
+import { stockPlanDataToDaml } from '../../utils/typeConversions';
 
 export interface CreateStockPlanParams {
   issuerContractId: string;
@@ -15,6 +15,7 @@ export interface CreateStockPlanParams {
 export interface CreateStockPlanResult {
   contractId: string;
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 /**
@@ -31,30 +32,12 @@ export async function createStockPlan(
   client: LedgerJsonApiClient,
   params: CreateStockPlanParams
 ): Promise<CreateStockPlanResult> {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlan = {
-    plan_data: stockPlanDataToDaml(params.planData)
-  };
+  const { command, disclosedContracts } = buildCreateStockPlanCommand(params);
 
   const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-          contractId: params.issuerContractId,
-          choice: 'CreateStockPlan',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
+    commands: [command],
+    disclosedContracts
   }) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = findCreatedEventByTemplateId(
@@ -67,14 +50,12 @@ export async function createStockPlan(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
+    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
+    response
   };
 }
 
-export function buildCreateStockPlanCommand(params: CreateStockPlanParams): {
-  command: Command;
-  disclosedContracts: DisclosedContract[];
-} {
+export function buildCreateStockPlanCommand(params: CreateStockPlanParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlan = {
     plan_data: stockPlanDataToDaml(params.planData)
   };

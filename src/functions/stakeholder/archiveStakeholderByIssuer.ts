@@ -10,6 +10,7 @@ export interface ArchiveStakeholderByIssuerParams {
 
 export interface ArchiveStakeholderByIssuerResult {
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 export async function archiveStakeholderByIssuer(
@@ -30,7 +31,7 @@ export async function archiveStakeholderByIssuer(
     ]
   })) as SubmitAndWaitForTransactionTreeResponse;
 
-  return { updateId: response.transactionTree.updateId };
+  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }
 
 export function buildArchiveStakeholderByIssuerCommand(params: {
