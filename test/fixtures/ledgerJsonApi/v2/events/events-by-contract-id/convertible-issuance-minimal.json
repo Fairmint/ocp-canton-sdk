@@ -1,0 +1,51 @@
+{
+  "created": {
+    "createdEvent": {
+      "createArgument": {
+        "issuance_data": {
+          "id": "b7d3ad8e-15ea-40e9-b68a-93d5a9f4e5bc",
+          "date": "2023-11-01T00:00:00.000Z",
+          "security_id": "07dc6a31-3852-42b2-9e36-3be2698a4eb9",
+          "custom_id": "CN-2",
+          "stakeholder_id": "b21ec946-4e68-424c-9050-4cf2345d1b02",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": null,
+          "security_law_exemptions": [],
+          "investment_amount": { "amount": "25000", "currency": "USD" },
+          "convertible_type": "OcfConvertibleSafe",
+          "conversion_triggers": [
+            {
+              "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+              "trigger_id": "cd1f2ac7-1d39-4c2d-b6cb-77e395cbc415",
+              "nickname": "Next Financing",
+              "trigger_description": "Conversion at Next Equity Financing",
+              "conversion_right": {
+                "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                "conversion_mechanism": {
+                  "tag": "OcfConvMechSAFE",
+                  "value": {
+                    "conversion_discount": null,
+                    "conversion_valuation_cap": { "amount": "7000000", "currency": "USD" },
+                    "exit_multiple": null,
+                    "conversion_mfn": false,
+                    "conversion_timing": "OcfConversionTimingPostMoney",
+                    "capitalization_definition": null,
+                    "capitalization_definition_rules": null
+                  }
+                },
+                "converts_to_future_round": true,
+                "converts_to_stock_class_id": null
+              },
+              "trigger_date": null,
+              "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)"
+            }
+          ],
+          "pro_rata": null,
+          "seniority": "1",
+          "comments": []
+        }
+      }
+    }
+  }
+}

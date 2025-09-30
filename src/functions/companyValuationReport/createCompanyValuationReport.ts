@@ -1,17 +1,15 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js/lib';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import * as damlTypes from '@daml/types';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/reports-factory-contract-id.json';
-import { findCreatedEventByTemplateId } from '../../utils/findCreatedEvent';
-import { ContractDetails } from '../../types/contractDetails';
+import { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 
 export interface CreateCompanyValuationReportParams {
   companyId: string;
   companyValuation: string | number;
   observers?: string[];
   /** Details of the FeaturedAppRight contract for disclosed contracts */
-  featuredAppRightContractDetails: ContractDetails;
+  featuredAppRightContractDetails: DisclosedContract;
 }
 
 export interface CreateCompanyValuationReportResult {

@@ -168,6 +168,8 @@ export async function getStockClassAsOcf(
     seniority,
     liquidation_preference_multiple,
     participation_cap_multiple,
+    conversion_rights,
+    comments,
     ...baseStockClassData
   } = nativeStockClassData;
   
@@ -176,6 +178,7 @@ export async function getStockClassAsOcf(
     object_type: 'STOCK_CLASS',
     id,
     ...baseStockClassData,
+    comments: Array.isArray(comments) ? comments : [],
     // Ensure numeric values are strings for OCF compatibility
     initial_shares_authorized: typeof initial_shares_authorized === 'number' ? 
       initial_shares_authorized.toString() : initial_shares_authorized,
@@ -193,7 +196,10 @@ export async function getStockClassAsOcf(
     ...(participation_cap_multiple && { 
       participation_cap_multiple: typeof participation_cap_multiple === 'number' ? 
         participation_cap_multiple.toString() : participation_cap_multiple
-    })
+    }),
+    ...(Array.isArray(conversion_rights) && conversion_rights.length > 0
+      ? { conversion_rights }
+      : {})
   };
   
   return {

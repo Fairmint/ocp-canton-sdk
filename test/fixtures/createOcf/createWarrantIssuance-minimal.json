@@ -1,0 +1,366 @@
+{
+  "functionName": "createWarrantIssuance",
+  "dbInput": {
+    "id": "66d91301-1382-4564-a0cf-75a5a4524294",
+    "date": "2022-02-01T00:00:00.000Z",
+    "security_id": "c49f6af2-d128-4221-86d5-fd22eec90764",
+    "custom_id": "W-1",
+    "stakeholder_id": "7971bced-e9b8-4bc5-b028-e726c1c87215",
+    "board_approval_date": null,
+    "stockholder_approval_date": null,
+    "consideration_text": null,
+    "security_law_exemptions": [],
+    "quantity": "100000",
+    "quantity_source": "HUMAN_ESTIMATED",
+    "exercise_price": {
+      "amount": "1.00",
+      "currency": "USD"
+    },
+    "purchase_price": {
+      "amount": "1.00",
+      "currency": "USD"
+    },
+    "exercise_triggers": [
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "trigger_id": "WARRANT-1.TRIG.1",
+        "nickname": "Automatic exercise immediately prior to qualified public offering",
+        "trigger_description": "Warrant shall be deemed exercise immediately prior to consummation to a qualified public offering.",
+        "conversion_right": {
+          "conversion_mechanism": {
+            "type": "FIXED_AMOUNT_CONVERSION",
+            "converts_to_quantity": "1000000.00"
+          },
+          "converts_to_future_round": null,
+          "converts_to_stock_class_id": "1de668f8-f1ed-40fe-ab78-4b8fdf80c779"
+        },
+        "trigger_date": null,
+        "trigger_condition": "Qualified Public Offering means the issuance by the issuer or any direct or indirect parent of the issuer of its common Equity Interests in an underwritten primary public offering (other than a public offering pursuant to a registration statement on Form S-8) pursuant to an effective registration statement filed with the U.S. Securities and Exchange Commission in accordance with the Securities Act of 1933, as amended."
+      }
+    ],
+    "warrant_expiration_date": "2032-02-01T00:00:00.000Z",
+    "vesting_terms_id": null,
+    "vestings": [],
+    "comments": [
+      "use-case: Warrant with a stock class id, ie series-a-preferred-id."
+    ]
+  },
+  "testContext": {
+    "issuerContractId": "00bd0fe4760d580f008195eeee9cda4cfd0392d7f2f33bd99fdc06fe3561e6b796ca11122016dc981de24077bad5a124295707057ebea3aeebe134a258c2c0813e15b88ed8",
+    "issuerParty": "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+  },
+  "expectedRequest": {
+    "commands": [
+      {
+        "ExerciseCommand": {
+          "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+          "contractId": "00bd0fe4760d580f008195eeee9cda4cfd0392d7f2f33bd99fdc06fe3561e6b796ca11122016dc981de24077bad5a124295707057ebea3aeebe134a258c2c0813e15b88ed8",
+          "choice": "CreateWarrantIssuance",
+          "choiceArgument": {
+            "issuance_data": {
+              "id": "66d91301-1382-4564-a0cf-75a5a4524294",
+              "date": "2022-02-01T00:00:00.000Z",
+              "security_id": "c49f6af2-d128-4221-86d5-fd22eec90764",
+              "custom_id": "W-1",
+              "stakeholder_id": "7971bced-e9b8-4bc5-b028-e726c1c87215",
+              "board_approval_date": null,
+              "stockholder_approval_date": null,
+              "consideration_text": null,
+              "security_law_exemptions": [],
+              "quantity": "100000",
+              "quantity_source": "OcfQuantityHumanEstimated",
+              "exercise_price": {
+                "amount": "1.00",
+                "currency": "USD"
+              },
+              "purchase_price": {
+                "amount": "1.00",
+                "currency": "USD"
+              },
+              "exercise_triggers": [
+                {
+                  "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                  "trigger_id": "WARRANT-1.TRIG.1",
+                  "nickname": "Automatic exercise immediately prior to qualified public offering",
+                  "trigger_description": "Warrant shall be deemed exercise immediately prior to consummation to a qualified public offering.",
+                  "conversion_right": {
+                    "tag": "OcfRightWarrant",
+                    "value": {
+                      "type_": "WARRANT_CONVERSION_RIGHT",
+                      "conversion_mechanism": {
+                        "tag": "OcfWarrantMechanismFixedAmount",
+                        "value": {
+                          "converts_to_quantity": "1000000.00"
+                        }
+                      },
+                      "converts_to_future_round": null,
+                      "converts_to_stock_class_id": "1de668f8-f1ed-40fe-ab78-4b8fdf80c779"
+                    }
+                  },
+                  "trigger_date": null,
+                  "trigger_condition": "Qualified Public Offering means the issuance by the issuer or any direct or indirect parent of the issuer of its common Equity Interests in an underwritten primary public offering (other than a public offering pursuant to a registration statement on Form S-8) pursuant to an effective registration statement filed with the U.S. Securities and Exchange Commission in accordance with the Securities Act of 1933, as amended."
+                }
+              ],
+              "warrant_expiration_date": "2032-02-01T00:00:00.000Z",
+              "vesting_terms_id": null,
+              "vestings": [],
+              "comments": [
+                "use-case: Warrant with a stock class id, ie series-a-preferred-id."
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "actAs": [
+      "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+    ],
+    "disclosedContracts": [
+      {
+        "templateId": "a5b055492fb8f08b2e7bc0fc94da6da50c39c2e1d7f24cd5ea8db12fc87c1332:Splice.Amulet:FeaturedAppRight",
+        "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+        "createdEventBlob": "CgMyLjESzQQKRQA1M/+dTm8DvvDqupLogh6fnxhVZcLNtZd6IRK9GU6ZFcoREiDBZTvrc5ncZmht3HIL3rokGKt94fG9cjfDieYszQx8FxINc3BsaWNlLWFtdWxldBpkCkBhNWIwNTU0OTJmYjhmMDhiMmU3YmMwZmM5NGRhNmRhNTBjMzljMmUxZDdmMjRjZDVlYThkYjEyZmM4N2MxMzMyEgZTcGxpY2USBkFtdWxldBoQRmVhdHVyZWRBcHBSaWdodCKyAWqvAQpNCks6SURTTzo6MTIyMGJlNThjMjllNjVkZTQwYmYyNzNiZTFkYzJiMjY2ZDQzYTlhMDAyZWE1YjE4OTU1YWVlZjdhYWM4ODFiYjQ3MWEKXgpcOlpGYWlybWludC12YWxpZGF0b3ItMTo6MTIyMGNkZGFmMzU0ZmIxMmQ0Y2JkZWUzZDMxNDQzMGFhNmZkMjZkNjA2MGI5ZjM1YzM0YTAyMjg4NWUzYzY4MWVjNjMqSURTTzo6MTIyMGJlNThjMjllNjVkZTQwYmYyNzNiZTFkYzJiMjY2ZDQzYTlhMDAyZWE1YjE4OTU1YWVlZjdhYWM4ODFiYjQ3MWEyWkZhaXJtaW50LXZhbGlkYXRvci0xOjoxMjIwY2RkYWYzNTRmYjEyZDRjYmRlZTNkMzE0NDMwYWE2ZmQyNmQ2MDYwYjlmMzVjMzRhMDIyODg1ZTNjNjgxZWM2Mzl8/9PpzDwGAEIqCiYKJAgBEiB38RW4VvGg4KfUWTOmMjc2YKK/qy8rilrQmhh+ArwtShAe",
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+      }
+    ]
+  },
+  "expectedResponse": {
+    "transactionTree": {
+      "updateId": "1220fcc44a625eec5cc24a58cef84ef6c257e34951633b9a6368be07760c1b8c0a3c",
+      "commandId": "submit-and-wait-for-transaction-tree-1759154539492-dbxk3v",
+      "workflowId": "",
+      "effectiveAt": "2025-09-29T14:02:20.448170Z",
+      "offset": 737782,
+      "eventsById": {
+        "0": {
+          "ExercisedTreeEvent": {
+            "value": {
+              "offset": 737782,
+              "nodeId": 0,
+              "contractId": "00bd0fe4760d580f008195eeee9cda4cfd0392d7f2f33bd99fdc06fe3561e6b796ca11122016dc981de24077bad5a124295707057ebea3aeebe134a258c2c0813e15b88ed8",
+              "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+              "interfaceId": null,
+              "choice": "CreateWarrantIssuance",
+              "choiceArgument": {
+                "issuance_data": {
+                  "id": "66d91301-1382-4564-a0cf-75a5a4524294",
+                  "custom_id": "W-1",
+                  "date": "2022-02-01T00:00:00Z",
+                  "purchase_price": {
+                    "amount": "1.0000000000",
+                    "currency": "USD"
+                  },
+                  "security_id": "c49f6af2-d128-4221-86d5-fd22eec90764",
+                  "stakeholder_id": "7971bced-e9b8-4bc5-b028-e726c1c87215",
+                  "comments": [
+                    "use-case: Warrant with a stock class id, ie series-a-preferred-id."
+                  ],
+                  "exercise_triggers": [
+                    {
+                      "conversion_right": {
+                        "tag": "OcfRightWarrant",
+                        "value": {
+                          "conversion_mechanism": {
+                            "tag": "OcfWarrantMechanismFixedAmount",
+                            "value": {
+                              "converts_to_quantity": "1000000.0000000000"
+                            }
+                          },
+                          "type_": "WARRANT_CONVERSION_RIGHT",
+                          "converts_to_future_round": null,
+                          "converts_to_stock_class_id": "1de668f8-f1ed-40fe-ab78-4b8fdf80c779"
+                        }
+                      },
+                      "trigger_id": "WARRANT-1.TRIG.1",
+                      "type_": "AUTOMATIC_ON_CONDITION",
+                      "nickname": "Automatic exercise immediately prior to qualified public offering",
+                      "trigger_condition": "Qualified Public Offering means the issuance by the issuer or any direct or indirect parent of the issuer of its common Equity Interests in an underwritten primary public offering (other than a public offering pursuant to a registration statement on Form S-8) pursuant to an effective registration statement filed with the U.S. Securities and Exchange Commission in accordance with the Securities Act of 1933, as amended.",
+                      "trigger_date": null,
+                      "trigger_description": "Warrant shall be deemed exercise immediately prior to consummation to a qualified public offering."
+                    }
+                  ],
+                  "security_law_exemptions": [],
+                  "vestings": [],
+                  "board_approval_date": null,
+                  "consideration_text": null,
+                  "exercise_price": {
+                    "amount": "1.0000000000",
+                    "currency": "USD"
+                  },
+                  "quantity": "100000.0000000000",
+                  "quantity_source": "OcfQuantityHumanEstimated",
+                  "stockholder_approval_date": null,
+                  "vesting_terms_id": null,
+                  "warrant_expiration_date": "2032-02-01T00:00:00Z"
+                }
+              },
+              "actingParties": [
+                "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "consuming": false,
+              "witnessParties": [
+                "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "lastDescendantNodeId": 3,
+              "exerciseResult": "0080468f29f3e9a47dbf99644dbeca3129bc1c25cf0216eaf3e834d1307130cd9eca111220373526fd7b3835c732c2aacadcdbc83453bc8dbeb9bd4893504351f5f294da5e",
+              "packageName": "OpenCapTable-v25",
+              "implementedInterfaces": []
+            }
+          }
+        },
+        "1": {
+          "ExercisedTreeEvent": {
+            "value": {
+              "offset": 737782,
+              "nodeId": 1,
+              "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+              "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+              "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+              "choice": "FeaturedAppRight_CreateActivityMarker",
+              "choiceArgument": {
+                "beneficiaries": [
+                  {
+                    "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "weight": "1.0000000000"
+                  }
+                ]
+              },
+              "actingParties": [
+                "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+              ],
+              "consuming": false,
+              "witnessParties": [
+                "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "lastDescendantNodeId": 2,
+              "exerciseResult": {
+                "activityMarkerCids": [
+                  "00301ed61f3bce5e19e732b561fef4c1233527e7a96f89f576148ca6a5317d95aaca111220ff0bb360623bc18ad6f90dbb5a67cc2a7a5b8e61f9b02835593a1ae100f190e8"
+                ]
+              },
+              "packageName": "splice-amulet",
+              "implementedInterfaces": []
+            }
+          }
+        },
+        "2": {
+          "CreatedTreeEvent": {
+            "value": {
+              "offset": 737782,
+              "nodeId": 2,
+              "contractId": "00301ed61f3bce5e19e732b561fef4c1233527e7a96f89f576148ca6a5317d95aaca111220ff0bb360623bc18ad6f90dbb5a67cc2a7a5b8e61f9b02835593a1ae100f190e8",
+              "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+              "contractKey": null,
+              "createArgument": {
+                "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                "weight": "1.0000000000"
+              },
+              "createdEventBlob": "",
+              "interfaceViews": [],
+              "witnessParties": [
+                "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "signatories": [
+                "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+              ],
+              "observers": [
+                "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+              ],
+              "createdAt": "2025-09-29T14:02:20.448170Z",
+              "packageName": "splice-amulet"
+            }
+          }
+        },
+        "3": {
+          "CreatedTreeEvent": {
+            "value": {
+              "offset": 737782,
+              "nodeId": 3,
+              "contractId": "0080468f29f3e9a47dbf99644dbeca3129bc1c25cf0216eaf3e834d1307130cd9eca111220373526fd7b3835c732c2aacadcdbc83453bc8dbeb9bd4893504351f5f294da5e",
+              "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.WarrantIssuance:WarrantIssuance",
+              "contractKey": null,
+              "createArgument": {
+                "context": {
+                  "issuer": "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                },
+                "issuance_data": {
+                  "id": "66d91301-1382-4564-a0cf-75a5a4524294",
+                  "custom_id": "W-1",
+                  "date": "2022-02-01T00:00:00Z",
+                  "purchase_price": {
+                    "amount": "1.0000000000",
+                    "currency": "USD"
+                  },
+                  "security_id": "c49f6af2-d128-4221-86d5-fd22eec90764",
+                  "stakeholder_id": "7971bced-e9b8-4bc5-b028-e726c1c87215",
+                  "comments": [
+                    "use-case: Warrant with a stock class id, ie series-a-preferred-id."
+                  ],
+                  "exercise_triggers": [
+                    {
+                      "conversion_right": {
+                        "tag": "OcfRightWarrant",
+                        "value": {
+                          "conversion_mechanism": {
+                            "tag": "OcfWarrantMechanismFixedAmount",
+                            "value": {
+                              "converts_to_quantity": "1000000.0000000000"
+                            }
+                          },
+                          "type_": "WARRANT_CONVERSION_RIGHT",
+                          "converts_to_future_round": null,
+                          "converts_to_stock_class_id": "1de668f8-f1ed-40fe-ab78-4b8fdf80c779"
+                        }
+                      },
+                      "trigger_id": "WARRANT-1.TRIG.1",
+                      "type_": "AUTOMATIC_ON_CONDITION",
+                      "nickname": "Automatic exercise immediately prior to qualified public offering",
+                      "trigger_condition": "Qualified Public Offering means the issuance by the issuer or any direct or indirect parent of the issuer of its common Equity Interests in an underwritten primary public offering (other than a public offering pursuant to a registration statement on Form S-8) pursuant to an effective registration statement filed with the U.S. Securities and Exchange Commission in accordance with the Securities Act of 1933, as amended.",
+                      "trigger_date": null,
+                      "trigger_description": "Warrant shall be deemed exercise immediately prior to consummation to a qualified public offering."
+                    }
+                  ],
+                  "security_law_exemptions": [],
+                  "vestings": [],
+                  "board_approval_date": null,
+                  "consideration_text": null,
+                  "exercise_price": {
+                    "amount": "1.0000000000",
+                    "currency": "USD"
+                  },
+                  "quantity": "100000.0000000000",
+                  "quantity_source": "OcfQuantityHumanEstimated",
+                  "stockholder_approval_date": null,
+                  "vesting_terms_id": null,
+                  "warrant_expiration_date": "2032-02-01T00:00:00Z"
+                }
+              },
+              "createdEventBlob": "",
+              "interfaceViews": [],
+              "witnessParties": [
+                "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "signatories": [
+                "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+              ],
+              "observers": [],
+              "createdAt": "2025-09-29T14:02:20.448170Z",
+              "packageName": "OpenCapTable-v25"
+            }
+          }
+        }
+      },
+      "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+      "traceContext": {
+        "traceparent": "00-1ab4f8cc25376ab2c06db63c656e9054-ae0aa0322442ac1a-01",
+        "tracestate": null
+      },
+      "recordTime": "2025-09-29T14:02:20.798621Z"
+    }
+  }
+}

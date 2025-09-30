@@ -12,21 +12,22 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.tests.json --noEmit",
     "script:authorize": "ts-node scripts/authorizeIssuer.ts",
     "script:create-issuer": "ts-node scripts/createIssuer.ts",
     "script:get-issuer-ocf": "ts-node scripts/getIssuerAsOcf.ts",
     "docs": "typedoc",
     "docs:clean": "rm -rf docs",
-    "test": "jest --passWithNoTests",
+    "test": "npm run -s typecheck && jest --passWithNoTests",
+    "test:coverage": "jest --coverage --passWithNoTests",
     "test:watch": "jest --watch",
-    "test:ci": "jest --runInBand"
+    "test:ci": "npm run -s typecheck && jest --runInBand"
   },
   "dependencies": {
     "@daml/ledger": "2.10.2",
     "@daml/types": "2.10.2",
-    "@fairmint/canton-node-sdk": "0.0.91",
-    "@fairmint/open-captable-protocol-daml-js": "0.2.12",
-    "@open-captable-protocol/canton": "^0.2.32"
+    "@fairmint/canton-node-sdk": "0.0.95",
+    "@fairmint/open-captable-protocol-daml-js": "0.2.12"
   },
   "devDependencies": {
     "@types/node": "24.3.1",

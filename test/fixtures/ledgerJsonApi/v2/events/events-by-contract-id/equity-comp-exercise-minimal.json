@@ -1,0 +1,16 @@
+{
+  "created": {
+    "createdEvent": {
+      "createArgument": {
+        "exercise_data": {
+          "id": "ece-1",
+          "date": "2025-01-13T00:00:00.000Z",
+          "security_id": "ps-1",
+          "quantity": "10"
+        }
+      }
+    }
+  }
+}
+
+

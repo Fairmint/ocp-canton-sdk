@@ -1,0 +1,14 @@
+{
+  "created": {
+    "createdEvent": {
+      "createArgument": {
+        "adjustment_data": {
+          "id": "ias-1",
+          "date": "2025-01-06T00:00:00.000Z",
+          "issuer_id": "issuer-1",
+          "new_shares_authorized": "1000"
+        }
+      }
+    }
+  }
+}

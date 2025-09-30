@@ -2,13 +2,12 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { ContractDetails } from '../../types/contractDetails';
 import { OcfStockIssuanceData } from '../../types/native';
 import { stockIssuanceDataToDaml } from '../../utils/typeConversions';
 
 export interface CreateStockIssuanceParams {
   issuerContractId: string;
-  featuredAppRightContractDetails: ContractDetails;
+  featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
   issuanceData: OcfStockIssuanceData;
 }
@@ -34,7 +33,7 @@ export async function createStockIssuance(
           templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
           contractId: params.issuerContractId,
           choice: 'CreateStockIssuance',
-          choiceArgument: choiceArguments as any
+          choiceArgument: choiceArguments
         }
       }
     ],
@@ -49,9 +48,11 @@ export async function createStockIssuance(
   })) as SubmitAndWaitForTransactionTreeResponse;
 
   const createdEvents = response.transactionTree.eventsById;
-  const created = Object.values(createdEvents).find((e: any) =>
-    (e as any).CreatedTreeEvent?.value?.templateId?.endsWith(':Fairmint.OpenCapTable.StockIssuance.StockIssuance')
-  ) as any;
+  const created = Object.values(createdEvents).find((e: any) => {
+    const templateId = (e as any).CreatedTreeEvent?.value?.templateId;
+    if (!templateId) return false;
+    return templateId.endsWith(':Fairmint.OpenCapTable.StockIssuance:StockIssuance');
+  }) as any;
   if (!created) throw new Error('Expected StockIssuance CreatedTreeEvent not found');
   const contractId = created.CreatedTreeEvent.value.contractId as string;
 

@@ -1,4 +1,4 @@
-import { ClientConfig, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { ClientConfig, LedgerJsonApiClient, TransactionBatch } from '@fairmint/canton-node-sdk';
 import {
   authorizeIssuer, AuthorizeIssuerParams, AuthorizeIssuerResult,
   createIssuer, CreateIssuerParams, CreateIssuerResult,
@@ -9,7 +9,6 @@ import {
   updateCompanyValuation, UpdateCompanyValuationParams, UpdateCompanyValuationResult,
   addObserversToCompanyValuationReport, AddObserversToCompanyValuationReportParams, AddObserversToCompanyValuationReportResult
 } from './functions';
-import { TransactionBatch } from './utils/TransactionBatch';
 
 export class OcpClient {
   private client: LedgerJsonApiClient;
@@ -71,10 +70,6 @@ export class OcpClient {
     createEquityCompensationIssuance: (params: import('./functions').CreateEquityCompensationIssuanceParams) => Promise<import('./functions').CreateEquityCompensationIssuanceResult>;
     createEquityCompensationExercise: (params: import('./functions').CreateEquityCompensationExerciseParams) => Promise<import('./functions').CreateEquityCompensationExerciseResult>;
   };
-
-  public stockPosition: {};
-
-  public convertible: {};
 
   public warrantIssuance: {
     createWarrantIssuance: (params: import('./functions').CreateWarrantIssuanceParams) => Promise<import('./functions').CreateWarrantIssuanceResult>;
@@ -222,10 +217,6 @@ export class OcpClient {
       createEquityCompensationIssuance: (params) => { const { createEquityCompensationIssuance } = require('./functions/stockPlan'); return createEquityCompensationIssuance(this.client, params); },
       createEquityCompensationExercise: (params) => { const { createEquityCompensationExercise } = require('./functions/stockPlan'); return createEquityCompensationExercise(this.client, params); }
     };
-
-    this.stockPosition = {};
-
-    this.convertible = {};
 
     this.warrantIssuance = {
       createWarrantIssuance: (params) => { const { createWarrantIssuance } = require('./functions/warrantIssuance'); return createWarrantIssuance(this.client, params); },

@@ -73,12 +73,16 @@ export async function getStakeholderAsOcf(
     name: nativeWithoutId.name as any,
     stakeholder_type: nativeWithoutId.stakeholder_type,
     ...(nativeWithoutId.issuer_assigned_id && { issuer_assigned_id: nativeWithoutId.issuer_assigned_id }),
-    ...(nativeWithoutId.current_relationships && { current_relationships: nativeWithoutId.current_relationships }),
+    ...(Array.isArray(nativeWithoutId.current_relationships) && nativeWithoutId.current_relationships.length > 0
+      ? { current_relationships: nativeWithoutId.current_relationships }
+      : {}),
     ...(nativeWithoutId.primary_contact && { primary_contact: nativeWithoutId.primary_contact as any }),
     ...(nativeWithoutId.contact_info && { contact_info: nativeWithoutId.contact_info as any }),
     addresses: nativeWithoutId.addresses,
     tax_ids: nativeWithoutId.tax_ids,
-    ...(nativeWithoutId.comments && { comments: nativeWithoutId.comments })
+    ...(Array.isArray(nativeWithoutId.comments) && nativeWithoutId.comments.length > 0
+      ? { comments: nativeWithoutId.comments }
+      : {})
   };
 
   return { stakeholder: ocfStakeholder, contractId: params.contractId };

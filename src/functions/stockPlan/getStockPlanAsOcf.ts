@@ -46,7 +46,9 @@ export async function getStockPlanAsOcf(
   const ocf: OcfStockPlan = {
     object_type: 'STOCK_PLAN',
     id,
-    ...nativeWithoutId
+    ...nativeWithoutId,
+    comments: Array.isArray((native as any).comments) ? (native as any).comments : [],
+    ...(Array.isArray((native as any).stock_class_ids) ? { stock_class_ids: (native as any).stock_class_ids } : {})
   };
 
   return { stockPlan: ocf, contractId: params.contractId };

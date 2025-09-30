@@ -1,0 +1,68 @@
+{
+  "created": {
+    "createdEvent": {
+      "offset": 1836080,
+      "nodeId": 3,
+      "contractId": "issuer-full",
+      "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractKey": null,
+      "createArgument": {
+        "context": {
+          "issuer": "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+          "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+          "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+        },
+        "issuer_data": {
+          "id": "87685711-93e5-4998-b332-9c5bbadf4b5c",
+          "country_of_formation": "US",
+          "formation_date": "2006-11-13T00:00:00Z",
+          "legal_name": "Magnetic Media Holdings, Inc.",
+          "comments": ["Here is a comment", "Here is another comment"],
+          "tax_ids": [
+            {
+              "country": "US",
+              "tax_id": "208420066"
+            }
+          ],
+          "address": {
+            "address_type": "OcfAddressTypeLegal",
+            "country": "US",
+            "city": "New York City",
+            "country_subdivision": "NY",
+            "postal_code": "10017",
+            "street_suite": "450 Lexington Avenue, 4th floor"
+          },
+          "country_subdivision_of_formation": "DE",
+          "country_subdivision_name_of_formation": "The text name of state, province, or subdivision where the issuer company was legally formed if the code is not available",
+          "dba": "Magnetic 3D",
+          "email": {
+            "email_address": "support@magnetic3d.com",
+            "email_type": "OcfEmailTypeBusiness"
+          },
+          "initial_shares_authorized": {
+            "tag": "OcfInitialSharesNumeric",
+            "value": "191500.0000000000"
+          },
+          "phone": {
+            "phone_number": "+1 612 234 2345",
+            "phone_type": "OcfPhoneMobile"
+          }
+        }
+      },
+      "createdEventBlob": "CgMyLjES7wgKRQDrn8/3xHp8zQE9dTDKp+lfYcE/hAXK5MdMP5cXTyYZesoREiBMvrFpnYvDWLORUjQ6EvooXQWfdhOl60f4C8DveJ5r7BIQT3BlbkNhcFRhYmxlLXYyNRpqCkBlMzY1N2FiNWMyMDkwMzYxYmU5MzZjYjY2NjExZjk1ZGY0YWJmNjkxMWMzYzk0MTcyYWZjZjJlOWMyNmY3NWY2EghGYWlybWludBIMT3BlbkNhcFRhYmxlEgZJc3N1ZXIaBklzc3VlciLIBWrFBQqDAgqAAmr9AQpQCk46TDg3Njg1Nzo6MTIyMGVhNzBlYTJjYmZlNmJlNDMxZjM0YzczMjNlMjQ5YzYyNGEwMmZiMjIwOWQyYjczZmFiZDdlZWExZmU4NGRmMzQKXgpcOlpGYWlybWludC12YWxpZGF0b3ItMTo6MTIyMGNkZGFmMzU0ZmIxMmQ0Y2JkZWUzZDMxNDQzMGFhNmZkMjZkNjA2MGI5ZjM1YzM0YTAyMjg4NWUzYzY4MWVjNjMKSQpHSkUANTP/nU5vA77w6rqS6IIen58YVWXCzbWXeiESvRlOmRXKERIgwWU763OZ3GZobdxyC966JBirfeHxvXI3w4nmLM0MfBcKvAMKuQNqtgMKKAomQiQ4NzY4NTcxMS05M2U1LTQ5OTgtYjMzMi05YzViYmFkZjRiNWMKBgoEQgJVUwoLCgkpAGA4lRUiBAAKIQofQh1NYWduZXRpYyBNZWRpYSBIb2xkaW5ncywgSW5jLgoECgJaAAofCh1aGwoZahcKBgoEQgJVUwoNCgtCCTIwODQyMDA2NgqJAQqGAVKDAQqAAWp+ChkKF3oVChNPY2ZBZGRyZXNzVHlwZUxlZ2FsCgYKBEICVVMKFQoTUhEKD0INTmV3IFlvcmsgQ2l0eQoKCghSBgoEQgJOWQoNCgtSCQoHQgUxMDAxNwonCiVSIwohQh80NTAgTGV4aW5ndG9uIEF2ZW51ZSwgNHRoIGZsb29yCgoKCFIGCgRCAkRFCgQKAlIAChMKEVIPCg1CC01hZ25ldGljIDNECkAKPlI8CjpqOAoaChhCFnN1cHBvcnRAbWFnbmV0aWMzZC5jb20KGgoYehYKFE9jZkVtYWlsVHlwZUJ1c2luZXNzCjYKNFIyCjByLgoXT2NmSW5pdGlhbFNoYXJlc051bWVyaWMSEzIRMTkxNTAwLjAwMDAwMDAwMDAqTDg3Njg1Nzo6MTIyMGVhNzBlYTJjYmZlNmJlNDMxZjM0YzczMjNlMjQ5YzYyNGEwMmZiMjIwOWQyYjczZmFiZDdlZWExZmU4NGRmMzQqWkZhaXJtaW50LXZhbGlkYXRvci0xOjoxMjIwY2RkYWYzNTRmYjEyZDRjYmRlZTNkMzE0NDMwYWE2ZmQyNmQ2MDYwYjlmMzVjMzRhMDIyODg1ZTNjNjgxZWM2MzkITfLZjD8GAEIqCiYKJAgBEiAvdXSO6HyKp/K6UXk8PndpAtsCElJhRkLecG9FV9PmXRAe",
+      "interfaceViews": [],
+      "witnessParties": [
+        "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+      ],
+      "signatories": [
+        "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+        "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+      ],
+      "observers": [],
+      "createdAt": "2025-09-24T14:27:24.770568Z",
+      "packageName": "OpenCapTable-v25"
+    },
+    "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+  },
+  "archived": null
+}

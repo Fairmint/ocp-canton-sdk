@@ -1,0 +1,29 @@
+{
+  "created": {
+    "createdEvent": {
+      "createArgument": {
+        "issuance_data": {
+          "id": "66d91301-1382-4564-a0cf-75a5a4524294",
+          "date": "2022-02-01T00:00:00.000Z",
+          "security_id": "c49f6af2-d128-4221-86d5-fd22eec90764",
+          "custom_id": "W-1",
+          "stakeholder_id": "7971bced-e9b8-4bc5-b028-e726c1c87215",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": null,
+          "security_law_exemptions": [],
+          "quantity": "100000",
+          "quantity_source": "OcfQuantityHumanEstimated",
+          "exercise_price": { "amount": "1.00", "currency": "USD" },
+          "purchase_price": { "amount": "1000.00", "currency": "USD" },
+          "exercise_triggers": [],
+          "warrant_expiration_date": null,
+          "vesting_terms_id": null,
+          "comments": []
+        }
+      }
+    }
+  }
+}
+
+

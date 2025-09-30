@@ -1,0 +1,19 @@
+{
+  "created": {
+    "createdEvent": {
+      "createArgument": {
+        "adjustment_data": {
+          "id": "bc2e4a2c-8b00-4725-84e6-d905ca4dfa1d",
+          "date": "2024-10-01T00:00:00.000Z",
+          "stock_class_id": "6c143645-9699-4b47-9edb-782108da60bd",
+          "new_shares_authorized": "15000000",
+          "board_approval_date": "2024-10-01T00:00:00.000Z",
+          "stockholder_approval_date": null,
+          "comments": []
+        }
+      }
+    }
+  }
+}
+
+

@@ -1,0 +1,14 @@
+{
+  "created": {
+    "createdEvent": {
+      "createArgument": {
+        "adjustment_data": {
+          "id": "scas-1",
+          "date": "2025-01-07T00:00:00.000Z",
+          "stock_class_id": "sc-1",
+          "new_shares_authorized": "500"
+        }
+      }
+    }
+  }
+}

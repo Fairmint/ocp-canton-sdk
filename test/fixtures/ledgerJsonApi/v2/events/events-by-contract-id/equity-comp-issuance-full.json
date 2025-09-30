@@ -1,0 +1,31 @@
+{
+  "created": {
+    "createdEvent": {
+      "createArgument": {
+        "issuance_data": {
+          "id": "ec-1",
+          "date": "2024-01-01T00:00:00.000Z",
+          "security_id": "ps-1",
+          "custom_id": "ECI-1",
+          "stakeholder_id": "st-1",
+          "compensation_type": "OcfCompensationTypeOption",
+          "quantity": "100",
+          "exercise_price": { "amount": "1.00", "currency": "USD" },
+          "base_price": null,
+          "early_exercisable": null,
+          "expiration_date": null,
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": null,
+          "vesting_terms_id": null,
+          "stock_class_id": null,
+          "stock_plan_id": null,
+          "termination_exercise_windows": [],
+          "security_law_exemptions": [],
+          "vestings": [],
+          "comments": []
+        }
+      }
+    }
+  }
+}

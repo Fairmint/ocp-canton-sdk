@@ -1,0 +1,15 @@
+{
+  "created": {
+    "createdEvent": {
+      "createArgument": {
+        "document_data": {
+          "id": "doc-1",
+          "md5": "abc123",
+          "related_objects": [],
+          "comments": [],
+          "path": "/files/doc.pdf"
+        }
+      }
+    }
+  }
+}
