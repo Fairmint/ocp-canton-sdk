@@ -56,6 +56,26 @@ describe('OCP Client - Dynamic Create Tests', () => {
         const validatorApi = new ValidatorApiClient(config);
 
         // Set up the fixture data directly without file I/O
+        const featuredAppRight = await getFeaturedAppRightContractDetails(validatorApi);
+        
+        // Build the expected disclosed contracts array
+        const disclosedContracts: DisclosedContract[] = [];
+        
+        // For issuer creation, include the issuer authorization contract
+        if (fixture.db.object_type === 'ISSUER' && fixture.testContext.issuerAuthorizationContractDetails) {
+          // Extract only the required DisclosedContract fields
+          const authContract = fixture.testContext.issuerAuthorizationContractDetails;
+          disclosedContracts.push({
+            contractId: authContract.contractId,
+            createdEventBlob: authContract.createdEventBlob,
+            synchronizerId: authContract.synchronizerId,
+            templateId: authContract.templateId
+          });
+        }
+        
+        // Always include the featured app right
+        disclosedContracts.push(featuredAppRight);
+
         const fixtureData = {
           ...fixture,
           timestamp: new Date().toISOString(),
@@ -66,7 +86,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
             data: {
               commands: [fixture.request],
               actAs: [fixture.testContext.issuerParty],
-              disclosedContracts: [await getFeaturedAppRightContractDetails(validatorApi)],
+              disclosedContracts,
             }
           },
         };

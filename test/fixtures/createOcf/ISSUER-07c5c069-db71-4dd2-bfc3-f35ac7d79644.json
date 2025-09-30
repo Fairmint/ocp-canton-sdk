@@ -1,31 +1,31 @@
 {
   "testContext": {
-    "issuerParty": "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerParty": "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
     "issuerAuthorizationContractDetails": {
-      "contractId": "00f6c796bdbb23f4caae34161b1a8a7918ec2d944ecb9bb99321767f02ad2a86a9ca11122088f33149604971be28a76ad412c49ffa5dac06837426faca4a86f03a528ba921",
-      "updateId": "12205dbe31d4b9a4e08fc2b7bf5e549b01f8d50b7b387db39a773232c2eb7f981057",
-      "createdEventBlob": "CgMyLjESywUKRQD2x5a9uyP0yq40FhsainkY7C2UTsubuZMhdn8CrSqGqcoREiCI8zFJYElxviinatQSxJ/6XawGg3Qm+spKhvA6UoupIRIQT3BlbkNhcFRhYmxlLXYyNRqEAQpAZTM2NTdhYjVjMjA5MDM2MWJlOTM2Y2I2NjYxMWY5NWRmNGFiZjY5MTFjM2M5NDE3MmFmY2YyZTljMjZmNzVmNhIIRmFpcm1pbnQSDE9wZW5DYXBUYWJsZRITSXNzdWVyQXV0aG9yaXphdGlvbhoTSXNzdWVyQXV0aG9yaXphdGlvbiKJAmqGAgqDAgqAAmr9AQpQCk46TDg3Njg1Nzo6MTIyMGVhNzBlYTJjYmZlNmJlNDMxZjM0YzczMjNlMjQ5YzYyNGEwMmZiMjIwOWQyYjczZmFiZDdlZWExZmU4NGRmMzQKXgpcOlpGYWlybWludC12YWxpZGF0b3ItMTo6MTIyMGNkZGFmMzU0ZmIxMmQ0Y2JkZWUzZDMxNDQzMGFhNmZkMjZkNjA2MGI5ZjM1YzM0YTAyMjg4NWUzYzY4MWVjNjMKSQpHSkUANTP/nU5vA77w6rqS6IIen58YVWXCzbWXeiESvRlOmRXKERIgwWU763OZ3GZobdxyC966JBirfeHxvXI3w4nmLM0MfBcqWkZhaXJtaW50LXZhbGlkYXRvci0xOjoxMjIwY2RkYWYzNTRmYjEyZDRjYmRlZTNkMzE0NDMwYWE2ZmQyNmQ2MDYwYjlmMzVjMzRhMDIyODg1ZTNjNjgxZWM2MzJMODc2ODU3OjoxMjIwZWE3MGVhMmNiZmU2YmU0MzFmMzRjNzMyM2UyNDljNjI0YTAyZmIyMjA5ZDJiNzNmYWJkN2VlYTFmZTg0ZGYzNDlfC5H7CkAGAEIqCiYKJAgBEiDvQq3K7M1c3xqo6YZcwrxV9F5wcEkudGdbRI4xjy57vhAe",
+      "contractId": "00a802dd144876a9280cc3d5cf096d6023d396d5b5fd22f6b9a0dd5f668188b5a6ca1112206041fe9c9bbd8124db702f2c69a95b3be7312278b0986ccb38ddd4588324c434",
+      "updateId": "122021124e51b6b44a846673e06cb7f8e46bfbcbb5b890580289e66222a03b1d55f7",
+      "createdEventBlob": "CgMyLjESywUKRQCoAt0USHapKAzD1c8JbWAj05bVtf0i9rmg3V9mgYi1psoREiBgQf6cm72BJNtwLyxpqVs75zEieLCYbMs43dRYgyTENBIQT3BlbkNhcFRhYmxlLXYyNRqEAQpAZTM2NTdhYjVjMjA5MDM2MWJlOTM2Y2I2NjYxMWY5NWRmNGFiZjY5MTFjM2M5NDE3MmFmY2YyZTljMjZmNzVmNhIIRmFpcm1pbnQSDE9wZW5DYXBUYWJsZRITSXNzdWVyQXV0aG9yaXphdGlvbhoTSXNzdWVyQXV0aG9yaXphdGlvbiKJAmqGAgqDAgqAAmr9AQpQCk46TDA3YzVjMDo6MTIyMGVhNzBlYTJjYmZlNmJlNDMxZjM0YzczMjNlMjQ5YzYyNGEwMmZiMjIwOWQyYjczZmFiZDdlZWExZmU4NGRmMzQKXgpcOlpGYWlybWludC12YWxpZGF0b3ItMTo6MTIyMGNkZGFmMzU0ZmIxMmQ0Y2JkZWUzZDMxNDQzMGFhNmZkMjZkNjA2MGI5ZjM1YzM0YTAyMjg4NWUzYzY4MWVjNjMKSQpHSkUANTP/nU5vA77w6rqS6IIen58YVWXCzbWXeiESvRlOmRXKERIgwWU763OZ3GZobdxyC966JBirfeHxvXI3w4nmLM0MfBcqWkZhaXJtaW50LXZhbGlkYXRvci0xOjoxMjIwY2RkYWYzNTRmYjEyZDRjYmRlZTNkMzE0NDMwYWE2ZmQyNmQ2MDYwYjlmMzVjMzRhMDIyODg1ZTNjNjgxZWM2MzJMMDdjNWMwOjoxMjIwZWE3MGVhMmNiZmU2YmU0MzFmMzRjNzMyM2UyNDljNjI0YTAyZmIyMjA5ZDJiNzNmYWJkN2VlYTFmZTg0ZGYzNDmqAiv8CkAGAEIqCiYKJAgBEiB33+7NuOhmW2aSBdT2AFFSj+sCGOHKERCH/dvBIb0kqRAe",
       "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
       "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
       "response": {
         "transactionTree": {
-          "updateId": "12205dbe31d4b9a4e08fc2b7bf5e549b01f8d50b7b387db39a773232c2eb7f981057",
-          "commandId": "submit-and-wait-for-transaction-tree-1759265774451-nmn7i0",
+          "updateId": "122021124e51b6b44a846673e06cb7f8e46bfbcbb5b890580289e66222a03b1d55f7",
+          "commandId": "submit-and-wait-for-transaction-tree-1759265784540-qhjte8",
           "workflowId": "",
-          "effectiveAt": "2025-09-30T20:56:14.701407Z",
-          "offset": 1935513,
+          "effectiveAt": "2025-09-30T20:56:24.791722Z",
+          "offset": 1935521,
           "eventsById": {
             "0": {
               "ExercisedTreeEvent": {
                 "value": {
-                  "offset": 1935513,
+                  "offset": 1935521,
                   "nodeId": 0,
                   "contractId": "0053aaae8102e24b36cbaf751ac89ed6d30864ac475dfc094705adc3f95690a8d6ca111220e8ba67b332c676fa79d649b59fa7346e500d892042e9ebef32dfcaa82bbba941",
                   "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.OcpFactory:OcpFactory",
                   "interfaceId": null,
                   "choice": "AuthorizeIssuer",
                   "choiceArgument": {
-                    "issuer": "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                    "issuer": "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
                   },
                   "actingParties": [
                     "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -35,7 +35,7 @@
                     "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                   ],
                   "lastDescendantNodeId": 1,
-                  "exerciseResult": "00f6c796bdbb23f4caae34161b1a8a7918ec2d944ecb9bb99321767f02ad2a86a9ca11122088f33149604971be28a76ad412c49ffa5dac06837426faca4a86f03a528ba921",
+                  "exerciseResult": "00a802dd144876a9280cc3d5cf096d6023d396d5b5fd22f6b9a0dd5f668188b5a6ca1112206041fe9c9bbd8124db702f2c69a95b3be7312278b0986ccb38ddd4588324c434",
                   "packageName": "OpenCapTable-v25",
                   "implementedInterfaces": []
                 }
@@ -44,14 +44,14 @@
             "1": {
               "CreatedTreeEvent": {
                 "value": {
-                  "offset": 1935513,
+                  "offset": 1935521,
                   "nodeId": 1,
-                  "contractId": "00f6c796bdbb23f4caae34161b1a8a7918ec2d944ecb9bb99321767f02ad2a86a9ca11122088f33149604971be28a76ad412c49ffa5dac06837426faca4a86f03a528ba921",
+                  "contractId": "00a802dd144876a9280cc3d5cf096d6023d396d5b5fd22f6b9a0dd5f668188b5a6ca1112206041fe9c9bbd8124db702f2c69a95b3be7312278b0986ccb38ddd4588324c434",
                   "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
                   "contractKey": null,
                   "createArgument": {
                     "context": {
-                      "issuer": "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                      "issuer": "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                       "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                       "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
                     }
@@ -65,9 +65,9 @@
                     "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                   ],
                   "observers": [
-                    "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                    "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
                   ],
-                  "createdAt": "2025-09-30T20:56:14.701407Z",
+                  "createdAt": "2025-09-30T20:56:24.791722Z",
                   "packageName": "OpenCapTable-v25"
                 }
               }
@@ -75,79 +75,67 @@
           },
           "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
           "traceContext": {
-            "traceparent": "00-f7a8c912b97532f686aaae13b7c63805-aa2d87d5659cdd65-01",
+            "traceparent": "00-02e99c3293678a4ff95415dc67ae08cd-49af02e457e9100d-01",
             "tracestate": null
           },
-          "recordTime": "2025-09-30T20:56:14.988002Z"
+          "recordTime": "2025-09-30T20:56:25.032137Z"
         }
       }
     }
   },
   "db": {
-    "id": "87685711-93e5-4998-b332-9c5bbadf4b5c",
-    "dba": "Magnetic 3D",
+    "id": "07c5c069-db71-4dd2-bfc3-f35ac7d79644",
+    "dba": "Protelicious SARL",
     "email": {
       "email_type": "BUSINESS",
-      "email_address": "support@magnetic3d.com"
+      "email_address": "sheila.partrat@protelicious.com"
     },
     "address": {
-      "city": "New York City",
-      "country": "US",
-      "postal_code": "10017",
+      "city": "Paris",
+      "country": "FR",
+      "postal_code": "75116",
       "address_type": "LEGAL",
-      "street_suite": "450 Lexington Avenue, 4th floor",
-      "country_subdivision": "NY"
+      "street_suite": "4 Rue Cimarosa"
     },
-    "tax_ids": [
-      {
-        "tax_id": "208420066",
-        "country": "US"
-      }
-    ],
+    "tax_ids": [],
     "comments": [],
-    "legal_name": "Magnetic Media Holdings, Inc.",
+    "legal_name": "Protelicious SARL",
     "object_type": "ISSUER",
-    "formation_date": "2006-11-13",
+    "formation_date": "2022-09-15",
     "country_of_formation": "US",
-    "initial_shares_authorized": "191500",
-    "country_subdivision_of_formation": "DE"
+    "initial_shares_authorized": "1000"
   },
   "request": {
     "ExerciseCommand": {
       "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
-      "contractId": "00f6c796bdbb23f4caae34161b1a8a7918ec2d944ecb9bb99321767f02ad2a86a9ca11122088f33149604971be28a76ad412c49ffa5dac06837426faca4a86f03a528ba921",
+      "contractId": "00a802dd144876a9280cc3d5cf096d6023d396d5b5fd22f6b9a0dd5f668188b5a6ca1112206041fe9c9bbd8124db702f2c69a95b3be7312278b0986ccb38ddd4588324c434",
       "choice": "CreateIssuer",
       "choiceArgument": {
         "issuer_data": {
-          "id": "87685711-93e5-4998-b332-9c5bbadf4b5c",
-          "legal_name": "Magnetic Media Holdings, Inc.",
+          "id": "07c5c069-db71-4dd2-bfc3-f35ac7d79644",
+          "legal_name": "Protelicious SARL",
           "country_of_formation": "US",
-          "dba": "Magnetic 3D",
-          "formation_date": "2006-11-13T00:00:00.000Z",
-          "country_subdivision_of_formation": "DE",
+          "dba": "Protelicious SARL",
+          "formation_date": "2022-09-15T00:00:00.000Z",
+          "country_subdivision_of_formation": null,
           "country_subdivision_name_of_formation": null,
-          "tax_ids": [
-            {
-              "tax_id": "208420066",
-              "country": "US"
-            }
-          ],
+          "tax_ids": [],
           "email": {
             "email_type": "OcfEmailTypeBusiness",
-            "email_address": "support@magnetic3d.com"
+            "email_address": "sheila.partrat@protelicious.com"
           },
           "phone": null,
           "address": {
             "address_type": "OcfAddressTypeLegal",
-            "street_suite": "450 Lexington Avenue, 4th floor",
-            "city": "New York City",
-            "country_subdivision": "NY",
-            "country": "US",
-            "postal_code": "10017"
+            "street_suite": "4 Rue Cimarosa",
+            "city": "Paris",
+            "country_subdivision": null,
+            "country": "FR",
+            "postal_code": "75116"
           },
           "initial_shares_authorized": {
             "tag": "OcfInitialSharesNumeric",
-            "value": "191500"
+            "value": "1000"
           },
           "comments": []
         }
@@ -156,65 +144,60 @@
   },
   "response": {
     "transactionTree": {
-      "updateId": "1220774e672c9b2d69574e771cf4ce51bc26ca5f6887ce0a941d22be602025c9b702",
-      "commandId": "submit-and-wait-for-transaction-tree-1759265778842-gtrv97",
+      "updateId": "12202518f85961dd8adb2906279e926b6280893ae4067579f52c2ab40b1eb44bdc51",
+      "commandId": "submit-and-wait-for-transaction-tree-1759265788763-ejnk24",
       "workflowId": "",
-      "effectiveAt": "2025-09-30T20:56:20.028042Z",
-      "offset": 781163,
+      "effectiveAt": "2025-09-30T20:56:29.927577Z",
+      "offset": 781168,
       "eventsById": {
         "0": {
           "ExercisedTreeEvent": {
             "value": {
-              "offset": 781163,
+              "offset": 781168,
               "nodeId": 0,
-              "contractId": "00f6c796bdbb23f4caae34161b1a8a7918ec2d944ecb9bb99321767f02ad2a86a9ca11122088f33149604971be28a76ad412c49ffa5dac06837426faca4a86f03a528ba921",
+              "contractId": "00a802dd144876a9280cc3d5cf096d6023d396d5b5fd22f6b9a0dd5f668188b5a6ca1112206041fe9c9bbd8124db702f2c69a95b3be7312278b0986ccb38ddd4588324c434",
               "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
               "interfaceId": null,
               "choice": "CreateIssuer",
               "choiceArgument": {
                 "issuer_data": {
-                  "id": "87685711-93e5-4998-b332-9c5bbadf4b5c",
+                  "id": "07c5c069-db71-4dd2-bfc3-f35ac7d79644",
                   "country_of_formation": "US",
-                  "formation_date": "2006-11-13T00:00:00Z",
-                  "legal_name": "Magnetic Media Holdings, Inc.",
+                  "formation_date": "2022-09-15T00:00:00Z",
+                  "legal_name": "Protelicious SARL",
                   "comments": [],
-                  "tax_ids": [
-                    {
-                      "country": "US",
-                      "tax_id": "208420066"
-                    }
-                  ],
+                  "tax_ids": [],
                   "address": {
                     "address_type": "OcfAddressTypeLegal",
-                    "country": "US",
-                    "city": "New York City",
-                    "country_subdivision": "NY",
-                    "postal_code": "10017",
-                    "street_suite": "450 Lexington Avenue, 4th floor"
+                    "country": "FR",
+                    "city": "Paris",
+                    "country_subdivision": null,
+                    "postal_code": "75116",
+                    "street_suite": "4 Rue Cimarosa"
                   },
-                  "country_subdivision_of_formation": "DE",
+                  "country_subdivision_of_formation": null,
                   "country_subdivision_name_of_formation": null,
-                  "dba": "Magnetic 3D",
+                  "dba": "Protelicious SARL",
                   "email": {
-                    "email_address": "support@magnetic3d.com",
+                    "email_address": "sheila.partrat@protelicious.com",
                     "email_type": "OcfEmailTypeBusiness"
                   },
                   "initial_shares_authorized": {
                     "tag": "OcfInitialSharesNumeric",
-                    "value": "191500.0000000000"
+                    "value": "1000.0000000000"
                   },
                   "phone": null
                 }
               },
               "actingParties": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
               ],
               "consuming": true,
               "witnessParties": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
               ],
               "lastDescendantNodeId": 3,
-              "exerciseResult": "00ceb770c14811f82314bf0d8a96d67d8e38086c4deaae8b1c99bd8b367e300c86ca111220cc7065d560ce3301e37b44df39ba3b7dac94fd653534e4e1cf09fd8eef43f36a",
+              "exerciseResult": "005b4b3fafea383eb5a895a663382c48bba7b356c6ef42aa69813d8405b83945a3ca1112209380b596c76309da4e16955115d353767329595640f486bd655f821d393ba5d6",
               "packageName": "OpenCapTable-v25",
               "implementedInterfaces": []
             }
@@ -223,7 +206,7 @@
         "1": {
           "ExercisedTreeEvent": {
             "value": {
-              "offset": 781163,
+              "offset": 781168,
               "nodeId": 1,
               "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
               "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
@@ -242,12 +225,12 @@
               ],
               "consuming": false,
               "witnessParties": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
               ],
               "lastDescendantNodeId": 2,
               "exerciseResult": {
                 "activityMarkerCids": [
-                  "001020d445d878e8fa6100e963339a50b7d69df64cd19b975d59fe7b4b15f7044cca11122044c711417cde56aba4e1c29ccdd01766973e1ab569162633a7bd010b4b11c7ff"
+                  "008780fae9f70f45823dde5f0e340a3045f6473329001ce7a484a65d92bc5688f2ca1112201c7f35f9a8a020874039395281ed0785f14d178eda0bffb0ba51af751be92c24"
                 ]
               },
               "packageName": "splice-amulet",
@@ -258,9 +241,9 @@
         "2": {
           "CreatedTreeEvent": {
             "value": {
-              "offset": 781163,
+              "offset": 781168,
               "nodeId": 2,
-              "contractId": "001020d445d878e8fa6100e963339a50b7d69df64cd19b975d59fe7b4b15f7044cca11122044c711417cde56aba4e1c29ccdd01766973e1ab569162633a7bd010b4b11c7ff",
+              "contractId": "008780fae9f70f45823dde5f0e340a3045f6473329001ce7a484a65d92bc5688f2ca1112201c7f35f9a8a020874039395281ed0785f14d178eda0bffb0ba51af751be92c24",
               "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
               "contractKey": null,
               "createArgument": {
@@ -272,7 +255,7 @@
               "createdEventBlob": "",
               "interfaceViews": [],
               "witnessParties": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
               ],
               "signatories": [
                 "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
@@ -280,7 +263,7 @@
               "observers": [
                 "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
               ],
-              "createdAt": "2025-09-30T20:56:20.028042Z",
+              "createdAt": "2025-09-30T20:56:29.927577Z",
               "packageName": "splice-amulet"
             }
           }
@@ -288,47 +271,42 @@
         "3": {
           "CreatedTreeEvent": {
             "value": {
-              "offset": 781163,
+              "offset": 781168,
               "nodeId": 3,
-              "contractId": "00ceb770c14811f82314bf0d8a96d67d8e38086c4deaae8b1c99bd8b367e300c86ca111220cc7065d560ce3301e37b44df39ba3b7dac94fd653534e4e1cf09fd8eef43f36a",
+              "contractId": "005b4b3fafea383eb5a895a663382c48bba7b356c6ef42aa69813d8405b83945a3ca1112209380b596c76309da4e16955115d353767329595640f486bd655f821d393ba5d6",
               "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
               "contractKey": null,
               "createArgument": {
                 "context": {
-                  "issuer": "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "issuer": "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                   "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
                 },
                 "issuer_data": {
-                  "id": "87685711-93e5-4998-b332-9c5bbadf4b5c",
+                  "id": "07c5c069-db71-4dd2-bfc3-f35ac7d79644",
                   "country_of_formation": "US",
-                  "formation_date": "2006-11-13T00:00:00Z",
-                  "legal_name": "Magnetic Media Holdings, Inc.",
+                  "formation_date": "2022-09-15T00:00:00Z",
+                  "legal_name": "Protelicious SARL",
                   "comments": [],
-                  "tax_ids": [
-                    {
-                      "country": "US",
-                      "tax_id": "208420066"
-                    }
-                  ],
+                  "tax_ids": [],
                   "address": {
                     "address_type": "OcfAddressTypeLegal",
-                    "country": "US",
-                    "city": "New York City",
-                    "country_subdivision": "NY",
-                    "postal_code": "10017",
-                    "street_suite": "450 Lexington Avenue, 4th floor"
+                    "country": "FR",
+                    "city": "Paris",
+                    "country_subdivision": null,
+                    "postal_code": "75116",
+                    "street_suite": "4 Rue Cimarosa"
                   },
-                  "country_subdivision_of_formation": "DE",
+                  "country_subdivision_of_formation": null,
                   "country_subdivision_name_of_formation": null,
-                  "dba": "Magnetic 3D",
+                  "dba": "Protelicious SARL",
                   "email": {
-                    "email_address": "support@magnetic3d.com",
+                    "email_address": "sheila.partrat@protelicious.com",
                     "email_type": "OcfEmailTypeBusiness"
                   },
                   "initial_shares_authorized": {
                     "tag": "OcfInitialSharesNumeric",
-                    "value": "191500.0000000000"
+                    "value": "1000.0000000000"
                   },
                   "phone": null
                 }
@@ -336,14 +314,14 @@
               "createdEventBlob": "",
               "interfaceViews": [],
               "witnessParties": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
               ],
               "signatories": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                 "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
               ],
               "observers": [],
-              "createdAt": "2025-09-30T20:56:20.028042Z",
+              "createdAt": "2025-09-30T20:56:29.927577Z",
               "packageName": "OpenCapTable-v25"
             }
           }
@@ -351,39 +329,32 @@
       },
       "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
       "traceContext": {
-        "traceparent": "00-bab735bec5225016a510380a84b1e6d7-55517d5c43b2e5f4-01",
+        "traceparent": "00-ce7e5a56797f6714090898be81f64024-1565c03618f86a83-01",
         "tracestate": null
       },
-      "recordTime": "2025-09-30T20:56:19.973600Z"
+      "recordTime": "2025-09-30T20:56:29.992567Z"
     }
   },
   "onchain_ocf": {
     "object_type": "ISSUER",
-    "id": "87685711-93e5-4998-b332-9c5bbadf4b5c",
-    "legal_name": "Magnetic Media Holdings, Inc.",
+    "id": "07c5c069-db71-4dd2-bfc3-f35ac7d79644",
+    "legal_name": "Protelicious SARL",
     "country_of_formation": "US",
-    "formation_date": "2006-11-13",
-    "tax_ids": [
-      {
-        "country": "US",
-        "tax_id": "208420066"
-      }
-    ],
+    "formation_date": "2022-09-15",
+    "tax_ids": [],
     "comments": [],
-    "dba": "Magnetic 3D",
-    "country_subdivision_of_formation": "DE",
+    "dba": "Protelicious SARL",
     "email": {
       "email_type": "BUSINESS",
-      "email_address": "support@magnetic3d.com"
+      "email_address": "sheila.partrat@protelicious.com"
     },
     "address": {
       "address_type": "LEGAL",
-      "country": "US",
-      "street_suite": "450 Lexington Avenue, 4th floor",
-      "city": "New York City",
-      "country_subdivision": "NY",
-      "postal_code": "10017"
+      "country": "FR",
+      "street_suite": "4 Rue Cimarosa",
+      "city": "Paris",
+      "postal_code": "75116"
     },
-    "initial_shares_authorized": "191500.0000000000"
+    "initial_shares_authorized": "1000.0000000000"
   }
 }

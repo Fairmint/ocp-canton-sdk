@@ -1,31 +1,31 @@
 {
   "testContext": {
-    "issuerParty": "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerParty": "a19114::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
     "issuerAuthorizationContractDetails": {
-      "contractId": "00f6c796bdbb23f4caae34161b1a8a7918ec2d944ecb9bb99321767f02ad2a86a9ca11122088f33149604971be28a76ad412c49ffa5dac06837426faca4a86f03a528ba921",
-      "updateId": "12205dbe31d4b9a4e08fc2b7bf5e549b01f8d50b7b387db39a773232c2eb7f981057",
-      "createdEventBlob": "CgMyLjESywUKRQD2x5a9uyP0yq40FhsainkY7C2UTsubuZMhdn8CrSqGqcoREiCI8zFJYElxviinatQSxJ/6XawGg3Qm+spKhvA6UoupIRIQT3BlbkNhcFRhYmxlLXYyNRqEAQpAZTM2NTdhYjVjMjA5MDM2MWJlOTM2Y2I2NjYxMWY5NWRmNGFiZjY5MTFjM2M5NDE3MmFmY2YyZTljMjZmNzVmNhIIRmFpcm1pbnQSDE9wZW5DYXBUYWJsZRITSXNzdWVyQXV0aG9yaXphdGlvbhoTSXNzdWVyQXV0aG9yaXphdGlvbiKJAmqGAgqDAgqAAmr9AQpQCk46TDg3Njg1Nzo6MTIyMGVhNzBlYTJjYmZlNmJlNDMxZjM0YzczMjNlMjQ5YzYyNGEwMmZiMjIwOWQyYjczZmFiZDdlZWExZmU4NGRmMzQKXgpcOlpGYWlybWludC12YWxpZGF0b3ItMTo6MTIyMGNkZGFmMzU0ZmIxMmQ0Y2JkZWUzZDMxNDQzMGFhNmZkMjZkNjA2MGI5ZjM1YzM0YTAyMjg4NWUzYzY4MWVjNjMKSQpHSkUANTP/nU5vA77w6rqS6IIen58YVWXCzbWXeiESvRlOmRXKERIgwWU763OZ3GZobdxyC966JBirfeHxvXI3w4nmLM0MfBcqWkZhaXJtaW50LXZhbGlkYXRvci0xOjoxMjIwY2RkYWYzNTRmYjEyZDRjYmRlZTNkMzE0NDMwYWE2ZmQyNmQ2MDYwYjlmMzVjMzRhMDIyODg1ZTNjNjgxZWM2MzJMODc2ODU3OjoxMjIwZWE3MGVhMmNiZmU2YmU0MzFmMzRjNzMyM2UyNDljNjI0YTAyZmIyMjA5ZDJiNzNmYWJkN2VlYTFmZTg0ZGYzNDlfC5H7CkAGAEIqCiYKJAgBEiDvQq3K7M1c3xqo6YZcwrxV9F5wcEkudGdbRI4xjy57vhAe",
+      "contractId": "009438c99f8280a2ad62234526ac397653c0565bf03885d0d52ad0907243cf70fbca111220378815424e974392dcbb4eae8c9dc554624ca79248258efa56036751006f22ac",
+      "updateId": "12201c671e120ea1ee973e53ed3c00a5114f3f734cf1f45cb0d11ec9d8c860053a19",
+      "createdEventBlob": "CgMyLjESywUKRQCUOMmfgoCirWIjRSasOXZTwFZb8DiF0NUq0JByQ89w+8oREiA3iBVCTpdDkty7Tq6MncVUYkynkkgljvpWA2dRAG8irBIQT3BlbkNhcFRhYmxlLXYyNRqEAQpAZTM2NTdhYjVjMjA5MDM2MWJlOTM2Y2I2NjYxMWY5NWRmNGFiZjY5MTFjM2M5NDE3MmFmY2YyZTljMjZmNzVmNhIIRmFpcm1pbnQSDE9wZW5DYXBUYWJsZRITSXNzdWVyQXV0aG9yaXphdGlvbhoTSXNzdWVyQXV0aG9yaXphdGlvbiKJAmqGAgqDAgqAAmr9AQpQCk46TGExOTExNDo6MTIyMGVhNzBlYTJjYmZlNmJlNDMxZjM0YzczMjNlMjQ5YzYyNGEwMmZiMjIwOWQyYjczZmFiZDdlZWExZmU4NGRmMzQKXgpcOlpGYWlybWludC12YWxpZGF0b3ItMTo6MTIyMGNkZGFmMzU0ZmIxMmQ0Y2JkZWUzZDMxNDQzMGFhNmZkMjZkNjA2MGI5ZjM1YzM0YTAyMjg4NWUzYzY4MWVjNjMKSQpHSkUANTP/nU5vA77w6rqS6IIen58YVWXCzbWXeiESvRlOmRXKERIgwWU763OZ3GZobdxyC966JBirfeHxvXI3w4nmLM0MfBcqWkZhaXJtaW50LXZhbGlkYXRvci0xOjoxMjIwY2RkYWYzNTRmYjEyZDRjYmRlZTNkMzE0NDMwYWE2ZmQyNmQ2MDYwYjlmMzVjMzRhMDIyODg1ZTNjNjgxZWM2MzJMYTE5MTE0OjoxMjIwZWE3MGVhMmNiZmU2YmU0MzFmMzRjNzMyM2UyNDljNjI0YTAyZmIyMjA5ZDJiNzNmYWJkN2VlYTFmZTg0ZGYzNDll8bP8CkAGAEIqCiYKJAgBEiAAk7BmSqIzIaGGdiPOzyOylnH7cbbv+hTSOp+bM6oNFxAe",
       "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
       "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
       "response": {
         "transactionTree": {
-          "updateId": "12205dbe31d4b9a4e08fc2b7bf5e549b01f8d50b7b387db39a773232c2eb7f981057",
-          "commandId": "submit-and-wait-for-transaction-tree-1759265774451-nmn7i0",
+          "updateId": "12201c671e120ea1ee973e53ed3c00a5114f3f734cf1f45cb0d11ec9d8c860053a19",
+          "commandId": "submit-and-wait-for-transaction-tree-1759265793502-3qyv5f",
           "workflowId": "",
-          "effectiveAt": "2025-09-30T20:56:14.701407Z",
-          "offset": 1935513,
+          "effectiveAt": "2025-09-30T20:56:33.765733Z",
+          "offset": 1935533,
           "eventsById": {
             "0": {
               "ExercisedTreeEvent": {
                 "value": {
-                  "offset": 1935513,
+                  "offset": 1935533,
                   "nodeId": 0,
                   "contractId": "0053aaae8102e24b36cbaf751ac89ed6d30864ac475dfc094705adc3f95690a8d6ca111220e8ba67b332c676fa79d649b59fa7346e500d892042e9ebef32dfcaa82bbba941",
                   "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.OcpFactory:OcpFactory",
                   "interfaceId": null,
                   "choice": "AuthorizeIssuer",
                   "choiceArgument": {
-                    "issuer": "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                    "issuer": "a19114::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
                   },
                   "actingParties": [
                     "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -35,7 +35,7 @@
                     "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                   ],
                   "lastDescendantNodeId": 1,
-                  "exerciseResult": "00f6c796bdbb23f4caae34161b1a8a7918ec2d944ecb9bb99321767f02ad2a86a9ca11122088f33149604971be28a76ad412c49ffa5dac06837426faca4a86f03a528ba921",
+                  "exerciseResult": "009438c99f8280a2ad62234526ac397653c0565bf03885d0d52ad0907243cf70fbca111220378815424e974392dcbb4eae8c9dc554624ca79248258efa56036751006f22ac",
                   "packageName": "OpenCapTable-v25",
                   "implementedInterfaces": []
                 }
@@ -44,14 +44,14 @@
             "1": {
               "CreatedTreeEvent": {
                 "value": {
-                  "offset": 1935513,
+                  "offset": 1935533,
                   "nodeId": 1,
-                  "contractId": "00f6c796bdbb23f4caae34161b1a8a7918ec2d944ecb9bb99321767f02ad2a86a9ca11122088f33149604971be28a76ad412c49ffa5dac06837426faca4a86f03a528ba921",
+                  "contractId": "009438c99f8280a2ad62234526ac397653c0565bf03885d0d52ad0907243cf70fbca111220378815424e974392dcbb4eae8c9dc554624ca79248258efa56036751006f22ac",
                   "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
                   "contractKey": null,
                   "createArgument": {
                     "context": {
-                      "issuer": "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                      "issuer": "a19114::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                       "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                       "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
                     }
@@ -65,9 +65,9 @@
                     "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                   ],
                   "observers": [
-                    "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                    "a19114::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
                   ],
-                  "createdAt": "2025-09-30T20:56:14.701407Z",
+                  "createdAt": "2025-09-30T20:56:33.765733Z",
                   "packageName": "OpenCapTable-v25"
                 }
               }
@@ -75,16 +75,16 @@
           },
           "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
           "traceContext": {
-            "traceparent": "00-f7a8c912b97532f686aaae13b7c63805-aa2d87d5659cdd65-01",
+            "traceparent": "00-f2f664fd4e5f10ddeed2ddde578bc8bf-a9142cc77c4d82ed-01",
             "tracestate": null
           },
-          "recordTime": "2025-09-30T20:56:14.988002Z"
+          "recordTime": "2025-09-30T20:56:33.651924Z"
         }
       }
     }
   },
   "db": {
-    "id": "87685711-93e5-4998-b332-9c5bbadf4b5c",
+    "id": "a1911479-ac3a-4600-989c-2b9c69891a90",
     "dba": "Magnetic 3D",
     "email": {
       "email_type": "BUSINESS",
@@ -109,17 +109,17 @@
     "object_type": "ISSUER",
     "formation_date": "2006-11-13",
     "country_of_formation": "US",
-    "initial_shares_authorized": "191500",
+    "initial_shares_authorized": "1500",
     "country_subdivision_of_formation": "DE"
   },
   "request": {
     "ExerciseCommand": {
       "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
-      "contractId": "00f6c796bdbb23f4caae34161b1a8a7918ec2d944ecb9bb99321767f02ad2a86a9ca11122088f33149604971be28a76ad412c49ffa5dac06837426faca4a86f03a528ba921",
+      "contractId": "009438c99f8280a2ad62234526ac397653c0565bf03885d0d52ad0907243cf70fbca111220378815424e974392dcbb4eae8c9dc554624ca79248258efa56036751006f22ac",
       "choice": "CreateIssuer",
       "choiceArgument": {
         "issuer_data": {
-          "id": "87685711-93e5-4998-b332-9c5bbadf4b5c",
+          "id": "a1911479-ac3a-4600-989c-2b9c69891a90",
           "legal_name": "Magnetic Media Holdings, Inc.",
           "country_of_formation": "US",
           "dba": "Magnetic 3D",
@@ -147,7 +147,7 @@
           },
           "initial_shares_authorized": {
             "tag": "OcfInitialSharesNumeric",
-            "value": "191500"
+            "value": "1500"
           },
           "comments": []
         }
@@ -156,24 +156,24 @@
   },
   "response": {
     "transactionTree": {
-      "updateId": "1220774e672c9b2d69574e771cf4ce51bc26ca5f6887ce0a941d22be602025c9b702",
-      "commandId": "submit-and-wait-for-transaction-tree-1759265778842-gtrv97",
+      "updateId": "1220883b69df38f205c619e6ff9f5c1cb87a77e780d19380baf20736ed5fb45aa494",
+      "commandId": "submit-and-wait-for-transaction-tree-1759265800125-7j389n",
       "workflowId": "",
-      "effectiveAt": "2025-09-30T20:56:20.028042Z",
-      "offset": 781163,
+      "effectiveAt": "2025-09-30T20:56:41.290089Z",
+      "offset": 781191,
       "eventsById": {
         "0": {
           "ExercisedTreeEvent": {
             "value": {
-              "offset": 781163,
+              "offset": 781191,
               "nodeId": 0,
-              "contractId": "00f6c796bdbb23f4caae34161b1a8a7918ec2d944ecb9bb99321767f02ad2a86a9ca11122088f33149604971be28a76ad412c49ffa5dac06837426faca4a86f03a528ba921",
+              "contractId": "009438c99f8280a2ad62234526ac397653c0565bf03885d0d52ad0907243cf70fbca111220378815424e974392dcbb4eae8c9dc554624ca79248258efa56036751006f22ac",
               "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
               "interfaceId": null,
               "choice": "CreateIssuer",
               "choiceArgument": {
                 "issuer_data": {
-                  "id": "87685711-93e5-4998-b332-9c5bbadf4b5c",
+                  "id": "a1911479-ac3a-4600-989c-2b9c69891a90",
                   "country_of_formation": "US",
                   "formation_date": "2006-11-13T00:00:00Z",
                   "legal_name": "Magnetic Media Holdings, Inc.",
@@ -201,20 +201,20 @@
                   },
                   "initial_shares_authorized": {
                     "tag": "OcfInitialSharesNumeric",
-                    "value": "191500.0000000000"
+                    "value": "1500.0000000000"
                   },
                   "phone": null
                 }
               },
               "actingParties": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                "a19114::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
               ],
               "consuming": true,
               "witnessParties": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                "a19114::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
               ],
               "lastDescendantNodeId": 3,
-              "exerciseResult": "00ceb770c14811f82314bf0d8a96d67d8e38086c4deaae8b1c99bd8b367e300c86ca111220cc7065d560ce3301e37b44df39ba3b7dac94fd653534e4e1cf09fd8eef43f36a",
+              "exerciseResult": "006fa305e887c72dbae973d5d2c87d445fc4ebd9227d09d1dd6fb4f23677bfe269ca11122014b2466253773a3fb9054351fffcccb60b9640d5954172af192985c4fd5a210b",
               "packageName": "OpenCapTable-v25",
               "implementedInterfaces": []
             }
@@ -223,7 +223,7 @@
         "1": {
           "ExercisedTreeEvent": {
             "value": {
-              "offset": 781163,
+              "offset": 781191,
               "nodeId": 1,
               "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
               "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
@@ -242,12 +242,12 @@
               ],
               "consuming": false,
               "witnessParties": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                "a19114::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
               ],
               "lastDescendantNodeId": 2,
               "exerciseResult": {
                 "activityMarkerCids": [
-                  "001020d445d878e8fa6100e963339a50b7d69df64cd19b975d59fe7b4b15f7044cca11122044c711417cde56aba4e1c29ccdd01766973e1ab569162633a7bd010b4b11c7ff"
+                  "006bb8b2fbe992bd459b59ebc3c06108babd5a556cea839859f3b4ffdd956882bbca111220ce1b96975374d100bd33e75f1f9dea0826612ea74a0de7a2f4df6d2e883e3db2"
                 ]
               },
               "packageName": "splice-amulet",
@@ -258,9 +258,9 @@
         "2": {
           "CreatedTreeEvent": {
             "value": {
-              "offset": 781163,
+              "offset": 781191,
               "nodeId": 2,
-              "contractId": "001020d445d878e8fa6100e963339a50b7d69df64cd19b975d59fe7b4b15f7044cca11122044c711417cde56aba4e1c29ccdd01766973e1ab569162633a7bd010b4b11c7ff",
+              "contractId": "006bb8b2fbe992bd459b59ebc3c06108babd5a556cea839859f3b4ffdd956882bbca111220ce1b96975374d100bd33e75f1f9dea0826612ea74a0de7a2f4df6d2e883e3db2",
               "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
               "contractKey": null,
               "createArgument": {
@@ -272,7 +272,7 @@
               "createdEventBlob": "",
               "interfaceViews": [],
               "witnessParties": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                "a19114::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
               ],
               "signatories": [
                 "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
@@ -280,7 +280,7 @@
               "observers": [
                 "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
               ],
-              "createdAt": "2025-09-30T20:56:20.028042Z",
+              "createdAt": "2025-09-30T20:56:41.290089Z",
               "packageName": "splice-amulet"
             }
           }
@@ -288,19 +288,19 @@
         "3": {
           "CreatedTreeEvent": {
             "value": {
-              "offset": 781163,
+              "offset": 781191,
               "nodeId": 3,
-              "contractId": "00ceb770c14811f82314bf0d8a96d67d8e38086c4deaae8b1c99bd8b367e300c86ca111220cc7065d560ce3301e37b44df39ba3b7dac94fd653534e4e1cf09fd8eef43f36a",
+              "contractId": "006fa305e887c72dbae973d5d2c87d445fc4ebd9227d09d1dd6fb4f23677bfe269ca11122014b2466253773a3fb9054351fffcccb60b9640d5954172af192985c4fd5a210b",
               "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
               "contractKey": null,
               "createArgument": {
                 "context": {
-                  "issuer": "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "issuer": "a19114::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                   "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
                 },
                 "issuer_data": {
-                  "id": "87685711-93e5-4998-b332-9c5bbadf4b5c",
+                  "id": "a1911479-ac3a-4600-989c-2b9c69891a90",
                   "country_of_formation": "US",
                   "formation_date": "2006-11-13T00:00:00Z",
                   "legal_name": "Magnetic Media Holdings, Inc.",
@@ -328,7 +328,7 @@
                   },
                   "initial_shares_authorized": {
                     "tag": "OcfInitialSharesNumeric",
-                    "value": "191500.0000000000"
+                    "value": "1500.0000000000"
                   },
                   "phone": null
                 }
@@ -336,14 +336,14 @@
               "createdEventBlob": "",
               "interfaceViews": [],
               "witnessParties": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                "a19114::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
               ],
               "signatories": [
-                "876857::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
-                "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                "a19114::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
               ],
               "observers": [],
-              "createdAt": "2025-09-30T20:56:20.028042Z",
+              "createdAt": "2025-09-30T20:56:41.290089Z",
               "packageName": "OpenCapTable-v25"
             }
           }
@@ -351,15 +351,15 @@
       },
       "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
       "traceContext": {
-        "traceparent": "00-bab735bec5225016a510380a84b1e6d7-55517d5c43b2e5f4-01",
+        "traceparent": "00-30d2797e460bde2e6bf93dece2c9c642-192ded869d311d2c-01",
         "tracestate": null
       },
-      "recordTime": "2025-09-30T20:56:19.973600Z"
+      "recordTime": "2025-09-30T20:56:41.754258Z"
     }
   },
   "onchain_ocf": {
     "object_type": "ISSUER",
-    "id": "87685711-93e5-4998-b332-9c5bbadf4b5c",
+    "id": "a1911479-ac3a-4600-989c-2b9c69891a90",
     "legal_name": "Magnetic Media Holdings, Inc.",
     "country_of_formation": "US",
     "formation_date": "2006-11-13",
@@ -384,6 +384,6 @@
       "country_subdivision": "NY",
       "postal_code": "10017"
     },
-    "initial_shares_authorized": "191500.0000000000"
+    "initial_shares_authorized": "1500.0000000000"
   }
 }

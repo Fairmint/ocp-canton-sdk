@@ -15,6 +15,7 @@ export interface TransactionTreeFixture {
       commandId?: string;
     };
   };
+  response?: SubmitAndWaitForTransactionTreeResponse;
 }
 
 let currentFixture: TransactionTreeFixture | null = null;

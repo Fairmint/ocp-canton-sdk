@@ -118,7 +118,7 @@ export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWit
       templateId: Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId,
       contractId: params.issuerAuthorizationContractDetails.contractId,
       choice: 'CreateIssuer',
-      choiceArgument: choiceArguments as any
+      choiceArgument: choiceArguments
     }
   };
 

@@ -209,6 +209,15 @@ export function findCreatedEventByTemplateId(
         return eventData;
       }
       
+      // Handle the case where templateId starts with # (package name alias) but event has full hash
+      if (templateId.startsWith('#') && eventTemplateId) {
+        const templateNamePart = templateId.split(':').slice(1).join(':');
+        const eventNamePart = eventTemplateId.split(':').slice(1).join(':');
+        if (templateNamePart === eventNamePart) {
+          return eventData;
+        }
+      }
+      
       // Handle the case where templateId is in pkg: format but event has full template ID
       if (templateId.startsWith('pkg:') && eventTemplateId) {
         const pkgName = templateId.replace('pkg:', '');
