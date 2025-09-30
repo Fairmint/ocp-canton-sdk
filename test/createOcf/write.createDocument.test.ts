@@ -1,6 +1,6 @@
 import { ClientConfig, getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { OcpClient } from '../../src';
-import { setTransactionTreeFixture, clearTransactionTreeFixture, configureClientWithFixture } from '../utils/fixtureHelpers';
+import { setTransactionTreeFixture, clearTransactionTreeFixture } from '../utils/fixtureHelpers';
 
 describe('write: createDocument', () => {
   beforeEach(() => {
