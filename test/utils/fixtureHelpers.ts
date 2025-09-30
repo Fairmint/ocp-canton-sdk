@@ -19,6 +19,7 @@ export interface TransactionTreeFixture {
 }
 
 let currentFixture: TransactionTreeFixture | null = null;
+let currentEventsFixture: Record<string, unknown> | null = null;
 
 /**
  * Configure the mock with a fixture object directly (no file I/O)
@@ -40,6 +41,66 @@ export function clearTransactionTreeFixture(): void {
  */
 export function getCurrentFixture(): TransactionTreeFixture | null {
   return currentFixture;
+}
+
+/**
+ * Configure the mock with events fixture data for getEventsByContractId
+ * @param eventsData - The events response object to use
+ */
+export function setEventsFixtureData(eventsData: Record<string, unknown>): void {
+  currentEventsFixture = eventsData;
+}
+
+/**
+ * Clear the current events fixture configuration
+ */
+export function clearEventsFixture(): void {
+  currentEventsFixture = null;
+}
+
+/**
+ * Get the current events fixture (used internally by mocks)
+ */
+export function getCurrentEventsFixture(): Record<string, unknown> | null {
+  return currentEventsFixture;
+}
+
+/**
+ * Convert transaction tree response to events response format
+ * Extracts the created event from the transaction tree
+ */
+export function convertTransactionTreeToEventsResponse(
+  response: SubmitAndWaitForTransactionTreeResponse | Record<string, unknown>,
+  synchronizerId: string
+): Record<string, unknown> {
+  // Handle both structures: response.transactionTree.eventsById and response.transactionTree.transaction.eventsById
+  const transactionTree = (response as any).transactionTree;
+  const eventsById = transactionTree?.eventsById || transactionTree?.transaction?.eventsById;
+  
+  if (!eventsById) {
+    throw new Error('No eventsById in transaction tree');
+  }
+
+  // Find the created event (usually the last event with CreatedTreeEvent)
+  let createdEvent: Record<string, unknown> | null = null;
+  for (const [nodeId, event] of Object.entries(eventsById)) {
+    const eventData = event as Record<string, unknown>;
+    if (eventData.CreatedTreeEvent) {
+      createdEvent = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
+    }
+  }
+
+  if (!createdEvent) {
+    throw new Error('No CreatedTreeEvent found in transaction tree');
+  }
+
+  return {
+    created: {
+      createdEvent,
+      synchronizerId
+    },
+    archived: null
+  };
 }
 
 /**

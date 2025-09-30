@@ -34,46 +34,18 @@ export class LedgerJsonApiClient {
     const override = (this as any).__eventsResponseOverride;
     if (override) return override;
 
-    // Load from JSON fixture on disk: test/fixtures/ledgerJsonApi/v2/events/events-by-contract-id/<contractId>.json
-    // Use absolute path to avoid cwd issues
-    const path = require('path');
-    const fs = require('fs');
-    const fixtureBase = path.join(
-      __dirname,
-      '..',
-      'fixtures',
-      'ledgerJsonApi',
-      'v2',
-      'events',
-      'events-by-contract-id'
-    );
-
-    const candidateNames: string[] = [
-      `${req.contractId}.json`
-    ];
-
-    // Backward-compatible aliases used by test expectations
-    if (req.contractId === 'vt-minimal') candidateNames.push('vesting-terms-minimal.json');
-    if (req.contractId === 'slt-minimal') candidateNames.push('stock-legend-template-minimal.json');
-    if (req.contractId === 'sp-minimal') candidateNames.push('stock-plan-minimal.json');
-
-    let lastErr: Error | undefined;
-    for (const name of candidateNames) {
-      const fixturePath = path.join(fixtureBase, name);
-      if (fs.existsSync(fixturePath)) {
-        const fileContent = fs.readFileSync(fixturePath, 'utf-8');
-        try {
-          return JSON.parse(fileContent);
-        } catch (e) {
-          throw new Error(`Invalid JSON in fixture ${fixturePath}: ${(e as Error).message}`);
-        }
-      } else {
-        lastErr = new Error(`Fixture not found at ${fixturePath}`);
-      }
+    // Check if there's an events fixture configured
+    const { getCurrentEventsFixture } = require('../utils/fixtureHelpers');
+    const eventsFixture = getCurrentEventsFixture();
+    if (eventsFixture) {
+      return eventsFixture;
     }
 
-    const primaryPath = path.join(fixtureBase, `${req.contractId}.json`);
-    const error: any = new Error(`Fixture not found for contractId ${req.contractId}: ${primaryPath}`);
+    // No fixture configured - this is an error
+    const error: any = new Error(
+      'No events fixture configured. Use setEventsFixtureData() in your test setup. ' +
+      'Contract ID: ' + req.contractId
+    );
     error.code = 404;
     error.body = { code: 'CONTRACT_EVENTS_NOT_FOUND' };
     throw error;

@@ -1,6 +1,6 @@
 import { ClientConfig, getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { OcfIssuerData, OcfStakeholderData, OcfStockClassData, OcfStockLegendTemplateData, OcfVestingTermsData, OcfStockPlanData, OcfStockIssuanceData, OcfDocumentData, OcpClient } from '../../src';
-import { setTransactionTreeFixtureData, clearTransactionTreeFixture } from '../utils/fixtureHelpers';
+import { setTransactionTreeFixtureData, clearTransactionTreeFixture, setEventsFixtureData, clearEventsFixture, convertTransactionTreeToEventsResponse } from '../utils/fixtureHelpers';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
@@ -11,9 +11,14 @@ interface TestFixture {
   testContext: {
     issuerContractId: string;
     issuerParty: string;
-    issuerAuthorizationContractDetails?: DisclosedContract;
+    issuerAuthorizationContractDetails?: DisclosedContract & {
+      response?: any;
+      synchronizerId?: string;
+    };
   };
   request: Record<string, unknown>;
+  response?: any;
+  synchronizerId?: string;
   onchain_ocf: Record<string, unknown>;
 }
 
@@ -231,6 +236,105 @@ describe('OCP Client - Dynamic Create Tests', () => {
         expect(typeof result.contractId).toBe('string');
         expect(result.contractId.length).toBeGreaterThan(0);
         expect(result.updateId).toBeDefined();
+      });
+
+      test('get*AsOcf returns expected OCF data', async () => {
+        // Determine where the response is located
+        const response = fixture.response || fixture.testContext.issuerAuthorizationContractDetails?.response;
+        const synchronizerId = fixture.synchronizerId || fixture.testContext.issuerAuthorizationContractDetails?.synchronizerId || '';
+
+        // Skip this test if there's no response data (required for events mock)
+        if (!response) {
+          return;
+        }
+
+        const config: ClientConfig = {
+          network: 'devnet'
+        };
+
+        // Convert the transaction tree response to events format
+        const eventsResponse = convertTransactionTreeToEventsResponse(
+          response,
+          synchronizerId
+        );
+
+        // Set up the events fixture
+        setEventsFixtureData(eventsResponse);
+
+        try {
+          const client = new OcpClient(config);
+          const contractId = 'test-contract-id';
+
+          let result: any;
+          let expectedOcf: any;
+
+          switch (fixture.db.object_type) {
+            case 'ISSUER':
+              result = await client.issuer.getIssuerAsOcf({ contractId });
+              expectedOcf = { issuer: fixture.onchain_ocf, contractId };
+              break;
+            case 'STOCK_CLASS':
+              result = await client.stockClass.getStockClassAsOcf({ contractId });
+              expectedOcf = { stockClass: fixture.onchain_ocf, contractId };
+              break;
+            case 'STAKEHOLDER':
+              result = await client.stakeholder.getStakeholderAsOcf({ contractId });
+              expectedOcf = { stakeholder: fixture.onchain_ocf, contractId };
+              break;
+            case 'STOCK_LEGEND_TEMPLATE':
+              result = await client.stockLegendTemplate.getStockLegendTemplateAsOcf({ contractId });
+              expectedOcf = { stockLegendTemplate: fixture.onchain_ocf, contractId };
+              break;
+            case 'VESTING_TERMS':
+              result = await client.vestingTerms.getVestingTermsAsOcf({ contractId });
+              expectedOcf = { vestingTerms: fixture.onchain_ocf, contractId };
+              break;
+            case 'STOCK_PLAN':
+              result = await client.stockPlan.getStockPlanAsOcf({ contractId });
+              expectedOcf = { stockPlan: fixture.onchain_ocf, contractId };
+              break;
+            case 'TX_STOCK_ISSUANCE':
+              result = await client.stockIssuance.getStockIssuanceAsOcf({ contractId });
+              expectedOcf = { stockIssuance: fixture.onchain_ocf, contractId };
+              break;
+            case 'TX_STOCK_CANCELLATION':
+              result = await client.stockCancellation.getStockCancellationEventAsOcf({ contractId });
+              expectedOcf = { event: fixture.onchain_ocf, contractId };
+              break;
+            case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
+              result = await client.issuerAuthorizedSharesAdjustment.getIssuerAuthorizedSharesAdjustmentEventAsOcf({ contractId });
+              expectedOcf = { event: fixture.onchain_ocf, contractId };
+              break;
+            case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
+              result = await client.stockClassAuthorizedSharesAdjustment.getStockClassAuthorizedSharesAdjustmentEventAsOcf({ contractId });
+              expectedOcf = { event: fixture.onchain_ocf, contractId };
+              break;
+            case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
+              result = await client.stockPlanPoolAdjustment.getStockPlanPoolAdjustmentEventAsOcf({ contractId });
+              expectedOcf = { event: fixture.onchain_ocf, contractId };
+              break;
+            case 'TX_EQUITY_COMPENSATION_ISSUANCE':
+              result = await client.stockPlan.getEquityCompensationIssuanceEventAsOcf({ contractId });
+              expectedOcf = { event: fixture.onchain_ocf, contractId };
+              break;
+            case 'TX_EQUITY_COMPENSATION_EXERCISE':
+              result = await client.stockPlan.getEquityCompensationExerciseEventAsOcf({ contractId });
+              expectedOcf = { event: fixture.onchain_ocf, contractId };
+              break;
+            case 'DOCUMENT':
+              result = await client.document.getDocumentAsOcf({ contractId });
+              expectedOcf = { document: fixture.onchain_ocf, contractId };
+              break;
+            default:
+              // Skip unsupported types for now
+              return;
+          }
+
+          // Verify the result matches expected OCF
+          expect(result).toEqual(expectedOcf);
+        } finally {
+          clearEventsFixture();
+        }
       });
     });
   });
