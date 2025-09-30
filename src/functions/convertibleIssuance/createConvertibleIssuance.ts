@@ -381,9 +381,11 @@ export async function createConvertibleIssuance(
   }) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = Object.values(response.transactionTree.eventsById).find(
-    (e): e is CreatedEvent =>
-      isCreatedEvent(e) &&
-      e.CreatedTreeEvent.value.templateId.endsWith(':Fairmint.OpenCapTable.ConvertibleIssuance.ConvertibleIssuance')
+    (e): e is CreatedEvent => {
+      if (!isCreatedEvent(e)) return false;
+      const templateId = e.CreatedTreeEvent.value.templateId;
+      return templateId.endsWith(':Fairmint.OpenCapTable.ConvertibleIssuance:ConvertibleIssuance');
+    }
   );
   if (!created) throw new Error('Expected ConvertibleIssuance CreatedTreeEvent not found');
 

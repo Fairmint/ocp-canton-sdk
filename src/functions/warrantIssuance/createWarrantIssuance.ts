@@ -290,9 +290,11 @@ export async function createWarrantIssuance(
 
   type TreeEvent = SubmitAndWaitForTransactionTreeResponse['transactionTree']['eventsById'][string];
   type CreatedEvent = Extract<TreeEvent, { CreatedTreeEvent: unknown }>;
-  const created = Object.values(response.transactionTree.eventsById).find((e): e is CreatedEvent =>
-    'CreatedTreeEvent' in e && e.CreatedTreeEvent.value.templateId.endsWith(':Fairmint.OpenCapTable.WarrantIssuance.WarrantIssuance')
-  );
+  const created = Object.values(response.transactionTree.eventsById).find((e): e is CreatedEvent => {
+    if (!('CreatedTreeEvent' in e)) return false;
+    const templateId = e.CreatedTreeEvent.value.templateId;
+    return templateId.endsWith(':Fairmint.OpenCapTable.WarrantIssuance:WarrantIssuance');
+  });
   if (!created) throw new Error('Expected WarrantIssuance CreatedTreeEvent not found');
 
   return {

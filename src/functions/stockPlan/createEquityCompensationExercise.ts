@@ -44,9 +44,11 @@ export async function createEquityCompensationExercise(
     disclosedContracts: [ { templateId: params.featuredAppRightContractDetails.templateId, contractId: params.featuredAppRightContractDetails.contractId, createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob, synchronizerId: params.featuredAppRightContractDetails.synchronizerId } ]
   }) as SubmitAndWaitForTransactionTreeResponse;
 
-  const created = Object.values(response.transactionTree.eventsById).find((e: any) =>
-    (e as any).CreatedTreeEvent?.value?.templateId?.endsWith(':Fairmint.OpenCapTable.EquityCompensationExercise.EquityCompensationExercise')
-  ) as any;
+  const created = Object.values(response.transactionTree.eventsById).find((e: any) => {
+    const templateId = (e as any).CreatedTreeEvent?.value?.templateId;
+    if (!templateId) return false;
+    return templateId.endsWith(':Fairmint.OpenCapTable.EquityCompensationExercise:EquityCompensationExercise');
+  }) as any;
   if (!created) throw new Error('Expected EquityCompensationExercise CreatedTreeEvent not found');
 
   return { contractId: created.CreatedTreeEvent.value.contractId, updateId: response.transactionTree.updateId };

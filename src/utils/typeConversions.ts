@@ -614,7 +614,13 @@ export function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCa
     tax_ids: (data.tax_ids || []),
     comments: data.comments || []
   };
-  if (data.current_relationships && data.current_relationships.length) {
+  
+  // Handle both current_relationship (singular, from API) and current_relationships (plural, from SDK)
+  const dataWithSingular = data as OcfStakeholderData & { current_relationship?: string };
+  const relationships = data.current_relationships 
+    || (dataWithSingular.current_relationship ? [dataWithSingular.current_relationship] : []);
+  
+  if (relationships && relationships.length) {
     const mapRel = (r: string): Fairmint.OpenCapTable.Types.OcfStakeholderRelationshipType => {
       const v = r.toUpperCase();
       if (v.includes('EMPLOYEE')) return 'OcfRelEmployee';
@@ -625,7 +631,7 @@ export function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCa
       if (v.includes('OFFICER')) return 'OcfRelOfficer';
       return 'OcfRelOther';
     };
-    payload.current_relationships = data.current_relationships.map(mapRel);
+    payload.current_relationships = relationships.map(mapRel);
   }
   if (data.current_status) {
     const status: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderStatusType = (
@@ -941,11 +947,13 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuanceData): Fairmint.OpenC
     stakeholder_id: d.stakeholder_id,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-    consideration_text: d.consideration_text ?? null,
+    consideration_text: (d.consideration_text && d.consideration_text != '') ? d.consideration_text : null,
     security_law_exemptions: (d.security_law_exemptions || []).map(securityExemptionToDaml),
     stock_class_id: d.stock_class_id,
     stock_plan_id: d.stock_plan_id ?? null,
-    share_numbers_issued: (d.share_numbers_issued || []).map(shareNumberRangeToDaml),
+    share_numbers_issued: (d.share_numbers_issued || [])
+      .filter(range => !(range.starting_share_number === '0' && range.ending_share_number === '0'))
+      .map(shareNumberRangeToDaml),
     share_price: monetaryToDaml(d.share_price),
     quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
     vesting_terms_id: d.vesting_terms_id ?? null,

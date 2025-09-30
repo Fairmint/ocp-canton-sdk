@@ -1,0 +1,37 @@
+{
+  "id": "6057992e-ebc4-e178-cf20-338b7effda82",
+  "date": "2023-11-06",
+  "comments": [
+    "{\"fairmintData\":{\"date\":\"2023-11-06\",\"series_id\":\"84d80b9d-6f9e-4656-a94b-7cbf07bd3957\"}}"
+  ],
+  "quantity": "100200",
+  "custom_id": "CS-2",
+  "cost_basis": {
+    "amount": "0",
+    "currency": "USD"
+  },
+  "object_type": "TX_STOCK_ISSUANCE",
+  "security_id": "688b5ce6-d742-dbab-8fce-b2751424d750",
+  "share_price": {
+    "amount": "0.01",
+    "currency": "USD"
+  },
+  "stock_plan_id": "00000000-0000-0000-0000-000000000000",
+  "stakeholder_id": "6e59643b-1a68-41cb-b700-2374fed7ba60",
+  "stock_class_id": "6332b541-537b-4e7e-865e-ccab256677e7",
+  "stock_legend_ids": [],
+  "vesting_terms_id": "00000000-0000-0000-0000-000000000000",
+  "consideration_text": "",
+  "share_numbers_issued": [
+    {
+      "ending_share_number": "0",
+      "starting_share_number": "0"
+    }
+  ],
+  "security_law_exemptions": [
+    {
+      "description": "Issued under Israeli Securities Law, which typically allows founders to receive shares without the need for public registration under exemptions similar to private placement rules in other jurisdictions. The specific Israeli exemption may align with the principles of private offering as found in Section 15A(b)(1) of the Israeli Securities Law, 1968.",
+      "jurisdiction": "Israel"
+    }
+  ]
+}

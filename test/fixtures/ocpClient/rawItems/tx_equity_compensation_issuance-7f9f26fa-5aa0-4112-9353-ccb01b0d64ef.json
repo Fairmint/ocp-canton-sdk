@@ -1,0 +1,176 @@
+{
+  "id": "7f9f26fa-5aa0-4112-9353-ccb01b0d64ef",
+  "date": "2025-09-26",
+  "quantity": "1000",
+  "vestings": [
+    {
+      "date": "2026-09-26",
+      "amount": "250"
+    },
+    {
+      "date": "2026-10-26",
+      "amount": "20"
+    },
+    {
+      "date": "2026-11-26",
+      "amount": "20"
+    },
+    {
+      "date": "2026-12-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-01-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-02-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-03-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-04-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-05-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-06-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-07-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-08-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-09-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-10-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-11-26",
+      "amount": "20"
+    },
+    {
+      "date": "2027-12-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-01-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-02-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-03-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-04-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-05-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-06-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-07-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-08-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-09-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-10-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-11-26",
+      "amount": "20"
+    },
+    {
+      "date": "2028-12-26",
+      "amount": "20"
+    },
+    {
+      "date": "2029-01-26",
+      "amount": "20"
+    },
+    {
+      "date": "2029-02-26",
+      "amount": "20"
+    },
+    {
+      "date": "2029-03-26",
+      "amount": "20"
+    },
+    {
+      "date": "2029-04-26",
+      "amount": "20"
+    },
+    {
+      "date": "2029-05-26",
+      "amount": "20"
+    },
+    {
+      "date": "2029-06-26",
+      "amount": "20"
+    },
+    {
+      "date": "2029-07-26",
+      "amount": "20"
+    },
+    {
+      "date": "2029-08-26",
+      "amount": "20"
+    },
+    {
+      "date": "2029-09-26",
+      "amount": "50"
+    }
+  ],
+  "custom_id": "9ca41b4a-7b74-4d7d-ab89-f348430f540f",
+  "object_type": "TX_EQUITY_COMPENSATION_ISSUANCE",
+  "security_id": "9ca41b4a-7b74-4d7d-ab89-f348430f540f",
+  "stock_plan_id": "ccfec0e5-4d29-40d0-b42f-f7058d402c58",
+  "stakeholder_id": "f15fdc64-1709-4f7a-b553-e0109104e5a3",
+  "stock_class_id": "142fe924-90a9-47e3-9ce2-dce8d2445d98",
+  "expiration_date": "2034-11-01",
+  "compensation_type": "RSU",
+  "security_law_exemptions": [
+    {
+      "description": "Rule 701",
+      "jurisdiction": "*"
+    }
+  ],
+  "termination_exercise_windows": [
+    {
+      "period": 1,
+      "reason": "INVOLUNTARY_WITH_CAUSE",
+      "period_type": "DAYS"
+    }
+  ]
+}

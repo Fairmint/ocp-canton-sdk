@@ -1,0 +1,59 @@
+{
+  "id": "e7742df1-7c48-47e9-9c03-9c0cc2b83278",
+  "name": "SOIRÉ Goods Founder's Stock Vesting",
+  "comments": [],
+  "description": "Vesting terms for 8,000,000 shares issued to Kash Rogers under the Founder's Stock Purchase Agreement dated August 8, 2024. The vesting schedule includes 10% immediate vesting, a 1-year cliff for 15%, and monthly vesting over 36 months for the remaining 75%.",
+  "object_type": "VESTING_TERMS",
+  "allocation_type": "CUMULATIVE_ROUNDING",
+  "vesting_conditions": [
+    {
+      "id": "immediate-vesting",
+      "trigger": {
+        "type": "VESTING_START_DATE"
+      },
+      "quantity": "800000",
+      "description": "10% of the shares (800,000 shares) vest immediately upon execution of the agreement.",
+      "next_condition_ids": [
+        "cliff-vesting"
+      ]
+    },
+    {
+      "id": "cliff-vesting",
+      "trigger": {
+        "type": "VESTING_SCHEDULE_RELATIVE",
+        "period": {
+          "type": "MONTHS",
+          "length": 12,
+          "occurrences": 1,
+          "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+        },
+        "relative_to_condition_id": "immediate-vesting"
+      },
+      "quantity": "1200000",
+      "description": "15% of the shares (1,200,000 shares) vest on the first anniversary of the agreement.",
+      "next_condition_ids": [
+        "monthly-vesting"
+      ]
+    },
+    {
+      "id": "monthly-vesting",
+      "portion": {
+        "numerator": "1",
+        "remainder": false,
+        "denominator": "36"
+      },
+      "trigger": {
+        "type": "VESTING_SCHEDULE_RELATIVE",
+        "period": {
+          "type": "MONTHS",
+          "length": 1,
+          "occurrences": 36,
+          "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+        },
+        "relative_to_condition_id": "cliff-vesting"
+      },
+      "description": "The remaining 75% of the shares (6,000,000 shares) vest in equal monthly installments over 36 months.",
+      "next_condition_ids": []
+    }
+  ]
+}

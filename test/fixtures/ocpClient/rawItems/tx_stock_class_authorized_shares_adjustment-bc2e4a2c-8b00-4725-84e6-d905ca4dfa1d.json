@@ -1,0 +1,9 @@
+{
+  "id": "bc2e4a2c-8b00-4725-84e6-d905ca4dfa1d",
+  "date": "2024-10-01",
+  "comments": [],
+  "object_type": "TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT",
+  "stock_class_id": "6c143645-9699-4b47-9edb-782108da60bd",
+  "board_approval_date": "2024-10-01",
+  "new_shares_authorized": "15000000"
+}

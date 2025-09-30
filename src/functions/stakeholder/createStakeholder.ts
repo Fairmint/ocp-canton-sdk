@@ -9,7 +9,6 @@ export interface CreateStakeholderParams {
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
-  stakeholderParty: string;
   stakeholderData: OcfStakeholderData;
 }
 

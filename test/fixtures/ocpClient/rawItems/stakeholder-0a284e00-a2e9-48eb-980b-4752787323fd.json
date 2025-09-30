@@ -1,0 +1,51 @@
+{
+  "id": "0a284e00-a2e9-48eb-980b-4752787323fd",
+  "name": {
+    "last_name": "light",
+    "first_name": "test",
+    "legal_name": "test light"
+  },
+  "tax_ids": [],
+  "comments": [],
+  "addresses": [
+    {
+      "city": "London",
+      "country": "US",
+      "postal_code": "N5X 4J4",
+      "address_type": "LEGAL",
+      "street_suite": "534 Blackwater Place",
+      "country_subdivision": "AL"
+    }
+  ],
+  "object_type": "STAKEHOLDER",
+  "contact_info": {
+    "emails": [
+      {
+        "email_type": "BUSINESS",
+        "email_address": "marketjack@yopmail.com"
+      }
+    ],
+    "phone_numbers": []
+  },
+  "primary_contact": {
+    "name": {
+      "last_name": "light",
+      "first_name": "test",
+      "legal_name": "test light"
+    },
+    "emails": [
+      {
+        "email_type": "BUSINESS",
+        "email_address": "marketjack@yopmail.com"
+      }
+    ],
+    "phone_numbers": [
+      {
+        "phone_type": "MOBILE",
+        "phone_number": "+190 57 83 0241"
+      }
+    ]
+  },
+  "stakeholder_type": "INDIVIDUAL",
+  "current_relationship": "INVESTOR"
+}

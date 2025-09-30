@@ -1,0 +1,22 @@
+{
+  "id": "93feb8f8-f8b6-4be6-ae10-d5cab38a9baf",
+  "name": "Common Stock",
+  "comments": [
+    "The corporation is authorized to issue only one class of stock. Directors are elected at each annual meeting of stockholders. The Board of Directors is empowered to adopt, amend, or repeal the Bylaws. Liability of directors for monetary damages for breach of fiduciary duty is eliminated to the fullest extent under applicable law.\nOriginal filename: 20220218 Filed Certificate of Incorporation.pdf"
+  ],
+  "par_value": {
+    "amount": "0.00001",
+    "currency": "USD"
+  },
+  "seniority": "1",
+  "class_type": "COMMON",
+  "object_type": "STOCK_CLASS",
+  "price_per_share": {
+    "amount": "0.00001",
+    "currency": "USD"
+  },
+  "votes_per_share": "1",
+  "conversion_rights": [],
+  "default_id_prefix": "CS-",
+  "initial_shares_authorized": "20000000"
+}

@@ -1,0 +1,19 @@
+{
+  "6d86e6c0": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/document-6d86e6c0-4aef-4756-93f5-2895492239e5.json",
+  "0a284e00": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/stakeholder-0a284e00-a2e9-48eb-980b-4752787323fd.json",
+  "f15fdc64": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/stakeholder-f15fdc64-1709-4f7a-b553-e0109104e5a3.json",
+  "93feb8f8": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/stock_class-93feb8f8-f8b6-4be6-ae10-d5cab38a9baf.json",
+  "4c59459e": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/stock_legend_template-4c59459e-1683-4248-b7c3-ab9f46f0ccfe.json",
+  "ee2bd2da": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/stock_plan-ee2bd2da-fbf8-4073-bd39-26809027f0e0.json",
+  "72a00893": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/tx_convertible_issuance-72a00893-ace6-4a9e-9881-5e79a06af2b2.json",
+  "5a9b5b82": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/tx_equity_compensation_exercise-5a9b5b82-8c18-4dd4-804a-bcec60faefb8.json",
+  "7f9f26fa": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/tx_equity_compensation_issuance-7f9f26fa-5aa0-4112-9353-ccb01b0d64ef.json",
+  "ed4c180c": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/tx_equity_compensation_issuance-ed4c180c-3dc5-4c21-9b36-0ba8d5262bdf.json",
+  "1c80380c": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/tx_issuer_authorized_shares_adjustment-1c80380c-37ed-41dd-2fbd-85294bbbeae3.json",
+  "ba60e9d6": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/tx_stock_cancellation-ba60e9d6-1e85-43ac-94bc-f0c4745a2dbe.json",
+  "bc2e4a2c": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/tx_stock_class_authorized_shares_adjustment-bc2e4a2c-8b00-4725-84e6-d905ca4dfa1d.json",
+  "6057992e": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/tx_stock_issuance-6057992e-ebc4-e178-cf20-338b7effda82.json",
+  "282200ac": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/tx_stock_plan_pool_adjustment-282200ac-926d-49d2-957b-084db9c07c38.json",
+  "66d91301": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/tx_warrant_issuance-66d91301-1382-4564-a0cf-75a5a4524294.json",
+  "e7742df1": "ocp-canton-sdk/test/fixtures/ocpClient/rawItems/vesting_terms-e7742df1-7c48-47e9-9c03-9c0cc2b83278.json"
+}

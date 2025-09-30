@@ -1,0 +1,89 @@
+{
+  "id": "72a00893-ace6-4a9e-9881-5e79a06af2b2",
+  "date": "2024-05-28",
+  "comments": [
+    "This SAFE includes both a valuation cap and a discount rate for conversion."
+  ],
+  "custom_id": "CN-5",
+  "seniority": 1,
+  "object_type": "TX_CONVERTIBLE_ISSUANCE",
+  "security_id": "1b39a78d-24b1-4be4-b3aa-bd2bcd716130",
+  "stakeholder_id": "a3829b26-acb9-4273-a63a-946fff5ccc24",
+  "convertible_type": "SAFE",
+  "investment_amount": {
+    "amount": "25000",
+    "currency": "USD"
+  },
+  "consideration_text": "Payment of $25,000.00",
+  "conversion_triggers": [
+    {
+      "type": "AUTOMATIC_ON_CONDITION",
+      "nickname": "Qualified Financing Conversion",
+      "trigger_id": "a84b1867-6cfa-42cf-94be-1e97d51bd361",
+      "conversion_right": {
+        "type": "CONVERTIBLE_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "SAFE_CONVERSION",
+          "conversion_mfn": false,
+          "conversion_timing": "POST_MONEY",
+          "conversion_discount": "0.15",
+          "conversion_valuation_cap": {
+            "amount": "40000000",
+            "currency": "USD"
+          },
+          "capitalization_definition": "Includes all issued and outstanding shares of the Company’s capital stock, all shares issuable upon conversion of this SAFE and other instruments, all issued and outstanding options, restricted stock awards or purchases, RSUs, SARs, warrants or similar securities, Promised Options, and the Unissued Option Pool, except any increase to the Unissued Option Pool in connection with the Qualified Financing.",
+          "capitalization_definition_rules": {
+            "include_new_money": false,
+            "include_this_security": true,
+            "include_outstanding_shares": true,
+            "include_outstanding_options": true,
+            "include_other_converting_securities": true,
+            "include_additional_option_pool_topup": false,
+            "include_outstanding_unissued_options": true,
+            "include_option_pool_topup_for_promised_options": false
+          }
+        },
+        "converts_to_future_round": true
+      },
+      "trigger_condition": "Company issues and sells Preferred Stock in a bona fide transaction or series of transactions with the principal purpose of raising capital for aggregate proceeds of at least $1,000,000.",
+      "trigger_description": "Automatic conversion upon a Qualified Financing with aggregate proceeds of at least $1,000,000."
+    },
+    {
+      "type": "AUTOMATIC_ON_CONDITION",
+      "nickname": "Liquidity Event Conversion",
+      "trigger_id": "536410c5-73c4-4647-b70d-a724af618c7e",
+      "conversion_right": {
+        "type": "CONVERTIBLE_CONVERSION_RIGHT",
+        "conversion_mechanism": {
+          "type": "SAFE_CONVERSION",
+          "conversion_mfn": false,
+          "conversion_timing": "POST_MONEY",
+          "conversion_valuation_cap": {
+            "amount": "40000000",
+            "currency": "USD"
+          },
+          "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding, all issued and outstanding Options and Promised Options to the extent receiving Proceeds, and all Converting Securities, excluding the Unissued Option Pool.",
+          "capitalization_definition_rules": {
+            "include_new_money": false,
+            "include_this_security": true,
+            "include_outstanding_shares": true,
+            "include_outstanding_options": true,
+            "include_other_converting_securities": true,
+            "include_additional_option_pool_topup": false,
+            "include_outstanding_unissued_options": false,
+            "include_option_pool_topup_for_promised_options": false
+          }
+        },
+        "converts_to_future_round": true
+      },
+      "trigger_condition": "Change of Control, Direct Listing, or Initial Public Offering occurs before the termination of this SAFE.",
+      "trigger_description": "Automatic conversion upon a Liquidity Event such as a Change of Control, Direct Listing, or Initial Public Offering."
+    }
+  ],
+  "security_law_exemptions": [
+    {
+      "description": "Exemption under the Securities Act of 1933 and applicable state securities laws",
+      "jurisdiction": "US"
+    }
+  ]
+}

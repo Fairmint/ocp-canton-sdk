@@ -1,0 +1,10 @@
+{
+  "id": "ba60e9d6-1e85-43ac-94bc-f0c4745a2dbe",
+  "date": "2025-04-04",
+  "comments": [],
+  "quantity": "1411765",
+  "object_type": "TX_STOCK_CANCELLATION",
+  "reason_text": "Left company",
+  "security_id": "65296909-0c42-4678-b7d2-5eccd8b10bdc",
+  "balance_security_id": "00000000-0000-0000-0000-000000000000"
+}

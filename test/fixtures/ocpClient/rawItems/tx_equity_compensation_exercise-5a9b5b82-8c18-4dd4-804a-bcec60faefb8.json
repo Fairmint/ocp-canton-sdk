@@ -1,0 +1,14 @@
+{
+  "id": "5a9b5b82-8c18-4dd4-804a-bcec60faefb8",
+  "date": "2024-06-30",
+  "comments": [
+    "Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024."
+  ],
+  "quantity": "5",
+  "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
+  "security_id": "0094d247-7b24-4865-aedc-87f04ff2a63a",
+  "consideration_text": "Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement.",
+  "resulting_security_ids": [
+    "b0e4b17d-e3fe-2ab9-3ada-76ef1e6b742a"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "282200ac-926d-49d2-957b-084db9c07c38",
+  "date": "2022-10-31",
+  "comments": [],
+  "object_type": "TX_STOCK_PLAN_POOL_ADJUSTMENT",
+  "stock_plan_id": "deb6f0e7-106c-44eb-8363-44048dc63dd4",
+  "shares_reserved": "400",
+  "board_approval_date": "2022-10-31"
+}

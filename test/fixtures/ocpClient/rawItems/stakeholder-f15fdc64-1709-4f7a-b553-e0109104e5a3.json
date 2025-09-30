@@ -1,0 +1,44 @@
+{
+  "id": "f15fdc64-1709-4f7a-b553-e0109104e5a3",
+  "name": {
+    "last_name": "Doie",
+    "first_name": "Kobe ",
+    "legal_name": "Kobe  Doie"
+  },
+  "comments": [],
+  "addresses": [
+    {
+      "city": "Pasig",
+      "country": "PH",
+      "postal_code": "23443",
+      "address_type": "LEGAL",
+      "street_suite": "1551 Victoria st"
+    }
+  ],
+  "object_type": "STAKEHOLDER",
+  "contact_info": {
+    "emails": [
+      {
+        "email_type": "BUSINESS",
+        "email_address": "dtest927a@yopmail.com"
+      }
+    ],
+    "phone_numbers": []
+  },
+  "primary_contact": {
+    "name": {
+      "last_name": "Doie",
+      "first_name": "Kobe ",
+      "legal_name": "Kobe  Doie"
+    },
+    "emails": [
+      {
+        "email_type": "BUSINESS",
+        "email_address": "dtest927a@yopmail.com"
+      }
+    ],
+    "phone_numbers": []
+  },
+  "stakeholder_type": "INDIVIDUAL",
+  "current_relationship": "EMPLOYEE"
+}

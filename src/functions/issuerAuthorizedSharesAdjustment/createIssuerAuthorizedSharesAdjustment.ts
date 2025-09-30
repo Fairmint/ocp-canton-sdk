@@ -46,9 +46,11 @@ export async function createIssuerAuthorizedSharesAdjustment(
     disclosedContracts: [ { templateId: params.featuredAppRightContractDetails.templateId, contractId: params.featuredAppRightContractDetails.contractId, createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob, synchronizerId: params.featuredAppRightContractDetails.synchronizerId } ]
   }) as SubmitAndWaitForTransactionTreeResponse;
 
-  const created = Object.values(response.transactionTree.eventsById).find((e: any) =>
-    (e as any).CreatedTreeEvent?.value?.templateId?.endsWith(':Fairmint.OpenCapTable.IssuerAuthorizedSharesAdjustment.IssuerAuthorizedSharesAdjustment')
-  ) as any;
+  const created = Object.values(response.transactionTree.eventsById).find((e: any) => {
+    const templateId = (e as any).CreatedTreeEvent?.value?.templateId;
+    if (!templateId) return false;
+    return templateId.endsWith(':Fairmint.OpenCapTable.IssuerAuthorizedSharesAdjustment:IssuerAuthorizedSharesAdjustment');
+  }) as any;
   if (!created) throw new Error('Expected IssuerAuthorizedSharesAdjustment CreatedTreeEvent not found');
 
   return { contractId: created.CreatedTreeEvent.value.contractId, updateId: response.transactionTree.updateId };

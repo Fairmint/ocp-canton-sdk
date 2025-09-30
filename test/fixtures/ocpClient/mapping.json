@@ -1,0 +1,18 @@
+{
+  "CreateIssuer": "Issuer",
+  "CreateStakeholder": "STAKEHOLDER",
+  "CreateDocument": "DOCUMENT",
+  "CreateEquityCompensationIssuance": "TX_EQUITY_COMPENSATION_ISSUANCE",
+  "CreateVestingTerms": "VESTING_TERMS",
+  "CreateStockPlan": "STOCK_PLAN",
+  "CreateStockIssuance": "TX_STOCK_ISSUANCE",
+  "CreateWarrantIssuance": "TX_WARRANT_ISSUANCE",
+  "CreateIssuerAuthorizedSharesAdjustment": "TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT",
+  "CreateStockPlanPoolAdjustment": "TX_STOCK_PLAN_POOL_ADJUSTMENT",
+  "CreateEquityCompensationExercise": "TX_EQUITY_COMPENSATION_EXERCISE",
+  "CreateStockLegendTemplate": "STOCK_LEGEND_TEMPLATE",
+  "CreateStockClassAuthorizedSharesAdjustment": "TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT",
+  "CreateStockCancellation": "TX_STOCK_CANCELLATION",
+  "CreateConvertibleIssuance": "TX_CONVERTIBLE_ISSUANCE",
+  "CreateStockClass": "STOCK_CLASS"
+}
