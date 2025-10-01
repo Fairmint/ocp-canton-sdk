@@ -351,7 +351,6 @@
     "custom_id": "W-1",
     "stakeholder_id": "ad9087c4-c52c-48d2-aaf9-d9bba07ce8f8",
     "quantity": "0.0000000000",
-    "exercise_price": null,
     "purchase_price": {
       "amount": "35000.0000000000",
       "currency": "USD"

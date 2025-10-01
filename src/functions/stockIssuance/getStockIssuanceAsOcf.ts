@@ -88,17 +88,15 @@ export async function getStockIssuanceAsOcf(
     object_type: 'TX_STOCK_ISSUANCE' as const,
     id,
     ...rest,
-    ...(Array.isArray(share_numbers_issued) && share_numbers_issued.length > 0
+    ...(share_numbers_issued.length > 0
       ? { share_numbers_issued }
       : {}),
-    ...(Array.isArray((rest as any).stock_legend_ids) && (rest as any).stock_legend_ids.length > 0
+    ...((rest as any).stock_legend_ids.length > 0
       ? { stock_legend_ids: (rest as any).stock_legend_ids }
       : {}),
-    ...(Array.isArray((rest as any).security_law_exemptions) && (rest as any).security_law_exemptions.length > 0
-      ? { security_law_exemptions: (rest as any).security_law_exemptions }
-      : {}),
-    ...(Array.isArray(comments) && comments.length > 0 ? { comments } : {}),
-    ...(Array.isArray(vestings) && vestings.length > 0 ? { vestings } : {}),
+    security_law_exemptions: (rest as any).security_law_exemptions,
+    ...(comments.length > 0 ? { comments } : {}),
+    ...(vestings.length > 0 ? { vestings } : {}),
     ...(issuance_type ? { issuance_type } : {})
   };
   return { contractId: params.contractId, stockIssuance: ocf };

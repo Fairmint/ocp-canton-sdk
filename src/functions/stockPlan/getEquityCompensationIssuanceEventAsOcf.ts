@@ -20,7 +20,7 @@ export interface OcfEquityCompensationIssuanceEvent {
   vesting_terms_id?: string;
   stock_class_id?: string;
   stock_plan_id?: string;
-  security_law_exemptions?: Array<{ description: string; jurisdiction: string }>;
+  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
   termination_exercise_windows?: Array<{ reason: string; period: number; period_type: 'DAYS' | 'MONTHS' }>;
   comments?: string[];
   vestings?: Vesting[];
@@ -80,23 +80,21 @@ export async function getEquityCompensationIssuanceEventAsOcf(
     ...(d.vesting_terms_id ? { vesting_terms_id: d.vesting_terms_id } : {}),
     ...(d.stock_class_id ? { stock_class_id: d.stock_class_id } : {}),
     ...(d.stock_plan_id ? { stock_plan_id: d.stock_plan_id } : {}),
-    ...(Array.isArray(d.security_law_exemptions) && d.security_law_exemptions.length
-      ? { security_law_exemptions: (d.security_law_exemptions as any[]).map((ex: any) => ({ description: ex.description, jurisdiction: ex.jurisdiction })) }
-      : {}),
-    ...(Array.isArray(d.vestings) && d.vestings.length
+    security_law_exemptions: (d.security_law_exemptions as any[]).map((ex: any) => ({ description: ex.description, jurisdiction: ex.jurisdiction })),
+    ...(d.vestings.length
       ? { vestings: (d.vestings as any[]).map((v: any) => ({
           date: (v.date as string).split('T')[0],
           amount: typeof v.amount === 'number' ? String(v.amount) : v.amount
         })) as Vesting[] }
       : {}),
-    ...(Array.isArray(d.termination_exercise_windows) && d.termination_exercise_windows.length
+    ...(d.termination_exercise_windows.length
       ? { termination_exercise_windows: (d.termination_exercise_windows as any[]).map((w: any) => ({
           reason: twMapReason[w.reason] || 'VOLUNTARY_OTHER',
           period: typeof w.period === 'string' ? Number(w.period) : (w.period as number),
           period_type: twMapPeriodType[w.period_type]
         })) }
       : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {})
+    ...(d.comments.length ? { comments: d.comments } : {})
   };
 
   return { event, contractId: params.contractId };

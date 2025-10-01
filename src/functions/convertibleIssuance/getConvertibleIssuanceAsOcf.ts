@@ -108,7 +108,7 @@ export interface OcfConvertibleIssuanceEvent {
   conversion_triggers: ConversionTrigger[];
   pro_rata?: string;
   seniority: number;
-  security_law_exemptions?: Array<{ description: string; jurisdiction: string }>;
+  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
   comments?: string[];
 }
 
@@ -391,10 +391,8 @@ export async function getConvertibleIssuanceAsOcf(
     ),
     ...(d.pro_rata !== null && d.pro_rata !== undefined ? { pro_rata: typeof d.pro_rata === 'number' ? String(d.pro_rata) : d.pro_rata } : {}),
     seniority: typeof d.seniority === 'number' ? d.seniority : Number(d.seniority),
-    ...(Array.isArray(d.security_law_exemptions) && d.security_law_exemptions.length > 0
-      ? { security_law_exemptions: d.security_law_exemptions as Array<{ description: string; jurisdiction: string }> }
-      : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {})
+    security_law_exemptions: d.security_law_exemptions as Array<{ description: string; jurisdiction: string }>,
+    ...(d.comments.length ? { comments: d.comments } : {})
   };
 
   return { event, contractId: params.contractId };

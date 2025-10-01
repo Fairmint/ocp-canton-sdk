@@ -381,6 +381,7 @@
     "warrant_expiration_date": "2032-02-01",
     "comments": [
       "use-case: Warrant with a stock class id, ie series-a-preferred-id."
-    ]
+    ],
+    "security_law_exemptions": []
   }
 }

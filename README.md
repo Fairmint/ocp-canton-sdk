@@ -43,6 +43,13 @@ This README is for SDK contributors and AI assistants. For end users/consumers, 
 ### Data conversion
 - Map inputs using native OCF types from `types/native`
 - Perform conversions in `utils/typeConversions.ts`; reject invalid shapes immediately
+- **Never hide data issues with defensive checks or fallback values**
+  - If DAML defines a field as an array, trust it's an array—don't check with `Array.isArray()` and provide empty array fallbacks
+  - DAML arrays are never null or undefined, so don't check for that either (e.g., `arr && arr.length` → just `arr.length`)
+  - If data is malformed, let it throw naturally so issues surface immediately
+  - This applies to all conversions: fail fast rather than silently handling unexpected data
+  - Example of what NOT to do: `Array.isArray(data) ? data : []` ❌ or `data && data.length` ❌
+  - Example of what to do: `data as ExpectedType[]` ✅ and `data.length` ✅
 
 ### Batching
 - Use `TransactionBatch` for multi-command submissions; prefer `buildXCommand` helpers to ensure types are correct

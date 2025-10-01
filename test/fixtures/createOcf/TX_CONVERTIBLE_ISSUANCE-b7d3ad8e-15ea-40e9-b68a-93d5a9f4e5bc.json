@@ -370,6 +370,7 @@
         "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)"
       }
     ],
-    "seniority": 1
+    "seniority": 1,
+    "security_law_exemptions": []
   }
 }

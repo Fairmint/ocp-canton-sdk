@@ -349,8 +349,6 @@
     "security_id": "8b447fc8-f14e-49ba-ad58-15407ae3a36c",
     "custom_id": "W-1",
     "stakeholder_id": "6ffee098-66b7-4637-99c9-7fa12898a776",
-    "quantity": null,
-    "exercise_price": null,
     "purchase_price": {
       "amount": "35000.0000000000",
       "currency": "USD"
