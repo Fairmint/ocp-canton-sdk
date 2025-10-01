@@ -3,8 +3,33 @@ import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/can
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { ContractId } from '@daml/types';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcfValuationData, CommandWithDisclosedContracts } from '../../types';
-import { valuationDataToDaml } from '../../utils/typeConversions';
+import { OcfValuationData, CommandWithDisclosedContracts, ValuationType } from '../../types';
+import { dateStringToDAMLTime, monetaryToDaml } from '../../utils/typeConversions';
+
+function valuationTypeToDaml(t: ValuationType): Fairmint.OpenCapTable.Valuation.OcfValuationType {
+  switch (t) {
+    case '409A':
+      return 'OcfValuationType409A';
+    default:
+      throw new Error(`Unknown valuation type: ${t}`);
+  }
+}
+
+function valuationDataToDaml(data: OcfValuationData): Fairmint.OpenCapTable.Valuation.OcfValuationData {
+  if (!data.id) throw new Error('valuation.id is required');
+  if (!('stock_class_id' in data) || !data.stock_class_id) throw new Error('valuation.stock_class_id is required');
+  return {
+    id: data.id,
+    stock_class_id: data.stock_class_id || '',
+    provider: data.provider || null,
+    board_approval_date: data.board_approval_date ? dateStringToDAMLTime(data.board_approval_date) : null,
+    stockholder_approval_date: data.stockholder_approval_date ? dateStringToDAMLTime(data.stockholder_approval_date) : null,
+    comments: data.comments || [],
+    price_per_share: monetaryToDaml(data.price_per_share),
+    effective_date: dateStringToDAMLTime(data.effective_date),
+    valuation_type: valuationTypeToDaml(data.valuation_type)
+  };
+}
 
 export interface CreateValuationParams {
   issuerContractId: string;

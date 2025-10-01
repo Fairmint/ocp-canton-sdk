@@ -1,6 +1,32 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { damlStockPlanDataToNative } from '../../utils/typeConversions';
+import { damlTimeToDateString } from '../../utils/typeConversions';
+import { OcfStockPlanData, StockPlanCancellationBehavior } from '../../types/native';
+
+function damlCancellationBehaviorToNative(b: any): StockPlanCancellationBehavior | undefined {
+  switch (b) {
+    case 'OcfPlanCancelRetire': return 'RETIRE';
+    case 'OcfPlanCancelReturnToPool': return 'RETURN_TO_POOL';
+    case 'OcfPlanCancelHoldAsCapitalStock': return 'HOLD_AS_CAPITAL_STOCK';
+    case 'OcfPlanCancelDefinedPerPlanSecurity': return 'DEFINED_PER_PLAN_SECURITY';
+    default: return undefined;
+  }
+}
+
+function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.StockPlan.OcfStockPlanData): OcfStockPlanData {
+  return {
+    id: (d as any).id,
+    plan_name: d.plan_name || '',
+    ...(d.board_approval_date && { board_approval_date: damlTimeToDateString(d.board_approval_date) }),
+    ...(d.stockholder_approval_date && { stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date) }),
+    initial_shares_reserved: d.initial_shares_reserved || '0',
+    ...(d.default_cancellation_behavior && { default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior) }),
+    stock_class_ids: Array.isArray((d as unknown as { stock_class_ids?: unknown }).stock_class_ids) ? (d as unknown as { stock_class_ids: string[] }).stock_class_ids : [],
+    comments: (Array.isArray((d as unknown as { comments?: unknown }).comments)
+      ? (d as unknown as { comments: string[] }).comments
+      : [])
+  };
+}
 
 export interface OcfStockPlan {
   object_type: 'STOCK_PLAN';

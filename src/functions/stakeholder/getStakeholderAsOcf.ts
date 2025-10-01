@@ -1,6 +1,61 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { damlStakeholderDataToNative } from '../../utils/typeConversions';
+import { damlStakeholderTypeToNative, damlContactInfoToNative, damlContactInfoWithoutNameToNative, damlAddressToNative } from '../../utils/typeConversions';
+import { OcfStakeholderData, Name } from '../../types/native';
+
+function damlStakeholderDataToNative(
+  damlData: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData
+): OcfStakeholderData {
+  const dAny = damlData as unknown as { [k: string]: any };
+  const name: Name = {
+    legal_name: (dAny.name?.legal_name || '') as string,
+    ...(dAny.name?.first_name ? { first_name: dAny.name.first_name } : {}),
+    ...(dAny.name?.last_name ? { last_name: dAny.name.last_name } : {})
+  };
+  const mapRelBack = (s: string): string | undefined => {
+    switch (s) {
+      case 'OcfRelEmployee': return 'EMPLOYEE';
+      case 'OcfRelAdvisor': return 'ADVISOR';
+      case 'OcfRelInvestor': return 'INVESTOR';
+      case 'OcfRelFounder': return 'FOUNDER';
+      case 'OcfRelBoardMember': return 'BOARD_MEMBER';
+      case 'OcfRelOfficer': return 'OFFICER';
+      case 'OcfRelOther': return 'OTHER';
+      default: return undefined;
+    }
+  };
+  const relationships: string[] = Array.isArray(dAny.current_relationships)
+    ? (dAny.current_relationships as string[]).map(r => mapRelBack(r) || 'OTHER')
+    : [];
+  const native: OcfStakeholderData = {
+    ...(dAny.id ? { id: dAny.id as string } : {}),
+    name,
+    stakeholder_type: damlStakeholderTypeToNative(damlData.stakeholder_type),
+    ...(damlData.issuer_assigned_id && { issuer_assigned_id: damlData.issuer_assigned_id }),
+    current_relationships: relationships,
+    ...(dAny.current_status && { current_status: ((): string | undefined => {
+      const s = dAny.current_status as string;
+      switch (s) {
+        case 'OcfStakeholderStatusActive': return 'ACTIVE';
+        case 'OcfStakeholderStatusLeaveOfAbsence': return 'LEAVE_OF_ABSENCE';
+        case 'OcfStakeholderStatusTerminationVoluntaryOther': return 'TERMINATION_VOLUNTARY_OTHER';
+        case 'OcfStakeholderStatusTerminationVoluntaryGoodCause': return 'TERMINATION_VOLUNTARY_GOOD_CAUSE';
+        case 'OcfStakeholderStatusTerminationVoluntaryRetirement': return 'TERMINATION_VOLUNTARY_RETIREMENT';
+        case 'OcfStakeholderStatusTerminationInvoluntaryOther': return 'TERMINATION_INVOLUNTARY_OTHER';
+        case 'OcfStakeholderStatusTerminationInvoluntaryDeath': return 'TERMINATION_INVOLUNTARY_DEATH';
+        case 'OcfStakeholderStatusTerminationInvoluntaryDisability': return 'TERMINATION_INVOLUNTARY_DISABILITY';
+        case 'OcfStakeholderStatusTerminationInvoluntaryWithCause': return 'TERMINATION_INVOLUNTARY_WITH_CAUSE';
+        default: return undefined;
+      }
+    })() }),
+    ...(damlData.primary_contact && { primary_contact: damlContactInfoToNative(damlData.primary_contact) }),
+    ...(damlData.contact_info && { contact_info: damlContactInfoWithoutNameToNative(damlData.contact_info) }),
+    addresses: (damlData.addresses || []).map(damlAddressToNative),
+    tax_ids: (damlData.tax_ids || []),
+    comments: (Array.isArray((dAny as { comments?: unknown }).comments) ? (dAny as { comments: string[] }).comments : [])
+  } as OcfStakeholderData;
+  return native;
+}
 
 export interface OcfStakeholder {
   object_type: 'STAKEHOLDER';

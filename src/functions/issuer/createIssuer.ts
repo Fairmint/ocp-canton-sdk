@@ -3,7 +3,38 @@ import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/can
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcfIssuerData, CommandWithDisclosedContracts } from '../../types';
-import { issuerDataToDaml } from '../../utils/typeConversions';
+import { dateStringToDAMLTime, emailToDaml, phoneToDaml, addressToDaml } from '../../utils/typeConversions';
+
+function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issuer.OcfIssuerData {
+  if (!issuerData.id) throw new Error('issuerData.id is required');
+  return {
+    id: issuerData.id,
+    legal_name: issuerData.legal_name,
+    country_of_formation: issuerData.country_of_formation,
+    dba: issuerData.dba || null,
+    formation_date: dateStringToDAMLTime(issuerData.formation_date),
+    country_subdivision_of_formation: issuerData.country_subdivision_of_formation || null,
+    country_subdivision_name_of_formation: issuerData.country_subdivision_name_of_formation || null,
+    tax_ids: issuerData.tax_ids || [],
+    email: issuerData.email ? emailToDaml(issuerData.email) : null,
+    phone: issuerData.phone ? phoneToDaml(issuerData.phone) : null,
+    address: issuerData.address ? addressToDaml(issuerData.address) : null,
+    initial_shares_authorized:
+      issuerData.initial_shares_authorized !== undefined && issuerData.initial_shares_authorized !== null
+        ? ((): Fairmint.OpenCapTable.Issuer.OcfIssuerData['initial_shares_authorized'] => {
+            const v = issuerData.initial_shares_authorized;
+            if (typeof v === 'number' || (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v))) {
+              return { tag: 'OcfInitialSharesNumeric', value: typeof v === 'number' ? v.toString() : v };
+            }
+            if (v === 'UNLIMITED') {
+              return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
+            }
+            return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
+          })()
+        : null,
+    comments: issuerData.comments || []
+  };
+}
 
 export interface CreateIssuerParams {
   /** Details of the IssuerAuthorization contract for disclosed contracts */

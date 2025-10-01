@@ -1,6 +1,45 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { damlIssuerDataToNative } from '../../utils/typeConversions';
+import { damlTimeToDateString, damlEmailToNative, damlPhoneToNative, damlAddressToNative } from '../../utils/typeConversions';
+import { OcfIssuerData } from '../../types/native';
+
+function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.OcfIssuerData): OcfIssuerData {
+  const normalizeInitialShares = (v: unknown): OcfIssuerData['initial_shares_authorized'] | undefined => {
+    if (typeof v === 'string' || typeof v === 'number') return String(v);
+    if (v && typeof v === 'object' && 'tag' in (v as { tag: string })) {
+      const i = v as { tag: 'OcfInitialSharesNumeric' | 'OcfInitialSharesEnum'; value?: unknown };
+      if (i.tag === 'OcfInitialSharesNumeric' && typeof i.value === 'string') return i.value;
+      if (i.tag === 'OcfInitialSharesEnum' && typeof i.value === 'string') {
+        return i.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT_APPLICABLE';
+      }
+    }
+    return undefined;
+  };
+
+  const out: OcfIssuerData = {
+    id: (damlData as any).id,
+    legal_name: damlData.legal_name,
+    country_of_formation: damlData.country_of_formation,
+    formation_date: damlTimeToDateString(damlData.formation_date),
+    tax_ids: [],
+    comments: []
+  };
+
+  if (damlData.dba) out.dba = damlData.dba;
+  if (damlData.country_subdivision_of_formation) out.country_subdivision_of_formation = damlData.country_subdivision_of_formation;
+  if (damlData.country_subdivision_name_of_formation) out.country_subdivision_name_of_formation = damlData.country_subdivision_name_of_formation;
+  if (damlData.tax_ids && damlData.tax_ids.length) out.tax_ids = damlData.tax_ids;
+  if (damlData.email) out.email = damlEmailToNative(damlData.email);
+  if (damlData.phone) out.phone = damlPhoneToNative(damlData.phone);
+  if (damlData.address) out.address = damlAddressToNative(damlData.address);
+  if ((damlData as unknown as { comments?: string[] }).comments) out.comments = (damlData as unknown as { comments: string[] }).comments;
+
+  const isa = (damlData as unknown as { initial_shares_authorized?: unknown }).initial_shares_authorized;
+  const normalizedIsa = normalizeInitialShares(isa);
+  if (normalizedIsa !== undefined) out.initial_shares_authorized = normalizedIsa;
+
+  return out;
+}
 
 /**
  * OCF Issuer object according to the Open Cap Table Coalition schema

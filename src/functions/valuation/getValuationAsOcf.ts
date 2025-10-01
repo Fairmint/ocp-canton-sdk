@@ -1,6 +1,30 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { damlValuationDataToNative } from '../../utils/typeConversions';
+import { damlTimeToDateString, damlMonetaryToNative } from '../../utils/typeConversions';
+import { OcfValuationData, ValuationType } from '../../types/native';
+
+function damlValuationTypeToNative(t: Fairmint.OpenCapTable.Valuation.OcfValuationType): ValuationType {
+  switch (t) {
+    case 'OcfValuationType409A':
+      return '409A';
+    default:
+      throw new Error(`Unknown DAML valuation type: ${t}`);
+  }
+}
+
+function damlValuationDataToNative(d: Fairmint.OpenCapTable.Valuation.OcfValuationData): OcfValuationData {
+  return {
+    id: (d as any).id,
+    stock_class_id: ('stock_class_id' in d ? (d as { stock_class_id?: string }).stock_class_id || '' : ''),
+    ...(d.provider && { provider: d.provider }),
+    ...(d.board_approval_date && { board_approval_date: damlTimeToDateString(d.board_approval_date) }),
+    ...(d.stockholder_approval_date && { stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date) }),
+    ...(d.comments && { comments: d.comments }),
+    price_per_share: damlMonetaryToNative(d.price_per_share),
+    effective_date: damlTimeToDateString(d.effective_date),
+    valuation_type: damlValuationTypeToNative(d.valuation_type)
+  };
+}
 
 export interface OcfValuation {
   object_type: 'VALUATION';

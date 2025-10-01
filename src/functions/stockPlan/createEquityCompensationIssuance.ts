@@ -2,8 +2,55 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcfEquityCompensationIssuanceData, CommandWithDisclosedContracts } from '../../types';
-import { equityCompIssuanceDataToDaml, dateStringToDAMLTime } from '../../utils/typeConversions';
+import { OcfEquityCompensationIssuanceData, CommandWithDisclosedContracts, CompensationType, TerminationWindow } from '../../types';
+import { dateStringToDAMLTime, monetaryToDaml } from '../../utils/typeConversions';
+
+function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.OcfCompensationType {
+  switch (t) {
+    case 'OPTION_NSO': return 'OcfCompensationTypeOptionNSO';
+    case 'OPTION_ISO': return 'OcfCompensationTypeOptionISO';
+    case 'OPTION': return 'OcfCompensationTypeOption';
+    case 'RSU': return 'OcfCompensationTypeRSU';
+    case 'CSAR': return 'OcfCompensationTypeCSAR';
+    case 'SSAR': return 'OcfCompensationTypeSSAR';
+    default: throw new Error('Unknown compensation type');
+  }
+}
+
+function terminationWindowToDaml(w: TerminationWindow): Fairmint.OpenCapTable.Types.OcfTerminationWindow {
+  const reasonMap: Record<TerminationWindow['reason'], Fairmint.OpenCapTable.Types.OcfTerminationWindowType> = {
+    VOLUNTARY_OTHER: 'OcfTermVoluntaryOther',
+    VOLUNTARY_GOOD_CAUSE: 'OcfTermVoluntaryGoodCause',
+    VOLUNTARY_RETIREMENT: 'OcfTermVoluntaryRetirement',
+    INVOLUNTARY_OTHER: 'OcfTermInvoluntaryOther',
+    INVOLUNTARY_DEATH: 'OcfTermInvoluntaryDeath',
+    INVOLUNTARY_DISABILITY: 'OcfTermInvoluntaryDisability',
+    INVOLUNTARY_WITH_CAUSE: 'OcfTermInvoluntaryWithCause'
+  };
+  const periodTypeMap: Record<TerminationWindow['period_type'], Fairmint.OpenCapTable.Types.OcfPeriodType> = {
+    DAYS: 'OcfPeriodDays',
+    MONTHS: 'OcfPeriodMonths'
+  };
+  return {
+    reason: reasonMap[w.reason],
+    period: typeof w.period === 'number' ? w.period.toString() : String(w.period),
+    period_type: periodTypeMap[w.period_type]
+  };
+}
+
+function equityCompIssuanceDataToDaml(d: OcfEquityCompensationIssuanceData): Fairmint.OpenCapTable.Types.OcfEquityCompensationIssuanceData {
+  return {
+    compensation_type: compensationTypeToDaml(d.compensation_type),
+    quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
+    exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
+    base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
+    early_exercisable: d.early_exercisable === undefined ? null : d.early_exercisable,
+    vestings: (d.vestings || []).map(v => ({ date: dateStringToDAMLTime(v.date), amount: typeof v.amount === 'number' ? v.amount.toString() : v.amount })),
+    expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
+    termination_exercise_windows: d.termination_exercise_windows.map(terminationWindowToDaml),
+    comments: d.comments || []
+  };
+}
 
 export interface CreateEquityCompensationIssuanceParams {
   issuerContractId: string;

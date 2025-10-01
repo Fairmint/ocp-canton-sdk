@@ -3,7 +3,16 @@ import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/can
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcfStockLegendTemplateData, CommandWithDisclosedContracts } from '../../types';
-import { stockLegendTemplateDataToDaml } from '../../utils/typeConversions';
+
+function stockLegendTemplateDataToDaml(data: OcfStockLegendTemplateData): Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData {
+  if (!data.id) throw new Error('stockLegendTemplate.id is required');
+  return {
+    id: data.id,
+    name: data.name,
+    text: data.text,
+    comments: data.comments || []
+  };
+}
 
 export interface CreateStockLegendTemplateParams {
   issuerContractId: string;

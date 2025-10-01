@@ -1,6 +1,131 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { damlStockClassDataToNative } from '../../utils/typeConversions';
+import { damlTimeToDateString, damlMonetaryToNative, damlStockClassTypeToNative } from '../../utils/typeConversions';
+import { OcfStockClassData, ConversionMechanism, ConversionTrigger, StockClassConversionRight } from '../../types/native';
+
+function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.OcfStockClassData): OcfStockClassData {
+  const dAny = damlData as unknown as Record<string, unknown>;
+  let initialShares: string = '0';
+  const isa = dAny.initial_shares_authorized;
+  if (typeof isa === 'string' || typeof isa === 'number') {
+    initialShares = String(isa);
+  } else if (isa && typeof isa === 'object' && 'tag' in isa) {
+    const tagged = isa as { tag: string; value?: unknown };
+    if (tagged.tag === 'OcfInitialSharesNumeric' && typeof tagged.value === 'string') {
+      initialShares = tagged.value;
+    } else if (tagged.tag === 'OcfInitialSharesEnum' && typeof tagged.value === 'string') {
+      initialShares = tagged.value === 'OcfAuthorizedSharesUnlimited' ? 'Unlimited' : 'N/A';
+    }
+  }
+
+  return {
+    id: (typeof (dAny as any).id === 'string' ? (dAny as any).id : ''),
+    name: damlData.name || '',
+    class_type: damlStockClassTypeToNative(damlData.class_type),
+    default_id_prefix: damlData.default_id_prefix || '',
+    initial_shares_authorized: initialShares,
+    votes_per_share: damlData.votes_per_share || '0',
+    seniority: damlData.seniority || '0',
+    conversion_rights: [],
+    comments: [],
+    ...(damlData.board_approval_date && { board_approval_date: damlTimeToDateString(damlData.board_approval_date) }),
+    ...(damlData.stockholder_approval_date && { stockholder_approval_date: damlTimeToDateString(damlData.stockholder_approval_date) }),
+    ...(damlData.par_value && { par_value: damlMonetaryToNative(damlData.par_value) }),
+    ...(damlData.price_per_share && { price_per_share: damlMonetaryToNative(damlData.price_per_share) }),
+    ...(damlData.conversion_rights && damlData.conversion_rights.length > 0 && {
+      conversion_rights: damlData.conversion_rights.map((right) => {
+        const mechanism: ConversionMechanism =
+          right.conversion_mechanism === 'OcfConversionMechanismRatioConversion'
+            ? 'RATIO_CONVERSION'
+            : right.conversion_mechanism === 'OcfConversionMechanismPercentCapitalizationConversion'
+            ? 'PERCENT_CONVERSION'
+            : 'FIXED_AMOUNT_CONVERSION';
+        const rt = right.conversion_trigger as unknown;
+        let tag: string | undefined;
+        if (typeof rt === 'string') tag = rt;
+        else if (rt && typeof rt === 'object' && 'tag' in rt) tag = (rt as { tag: string }).tag;
+        const trigger: ConversionTrigger =
+          tag === 'OcfTriggerTypeAutomaticOnDate' ? 'AUTOMATIC_ON_DATE' :
+          tag === 'OcfTriggerTypeElectiveAtWill' ? 'ELECTIVE_AT_WILL' :
+          tag === 'OcfTriggerTypeElectiveOnCondition' ? 'ELECTIVE_ON_CONDITION' :
+          tag === 'OcfTriggerTypeElectiveInRange' ? 'ELECTIVE_ON_CONDITION' :
+          tag === 'OcfTriggerTypeUnspecified' ? 'ELECTIVE_AT_WILL' : 'AUTOMATIC_ON_CONDITION';
+
+        let ratioValue: number | undefined;
+        const ratioRaw = (right as unknown as { ratio?: unknown }).ratio;
+        if (ratioRaw && typeof ratioRaw === 'object') {
+          if ('tag' in ratioRaw && (ratioRaw as { tag: unknown }).tag === 'Some' && 'value' in ratioRaw) {
+            const r = (ratioRaw as { value: { numerator?: string; denominator?: string } }).value;
+            const num = parseFloat((r.numerator as string) || '1');
+            const den = parseFloat((r.denominator as string) || '1');
+            ratioValue = den !== 0 ? num / den : undefined;
+          } else if ('numerator' in ratioRaw && 'denominator' in ratioRaw) {
+            const r = ratioRaw as { numerator?: string; denominator?: string };
+            const num = parseFloat((r.numerator as string) || '1');
+            const den = parseFloat((r.denominator as string) || '1');
+            ratioValue = den !== 0 ? num / den : undefined;
+          }
+        }
+
+        return {
+          type: right.type_,
+          conversion_mechanism: mechanism,
+          conversion_trigger: trigger,
+          converts_to_stock_class_id: right.converts_to_stock_class_id,
+          ...(ratioValue !== undefined ? { ratio: ratioValue } : {}),
+          ...((): Record<string, unknown> => {
+            const out: Record<string, unknown> = {};
+            const cv = (right as unknown as Record<string, unknown>).conversion_price;
+            if (cv && typeof cv === 'object' && 'tag' in cv && (cv as { tag: unknown }).tag === 'Some' && 'value' in cv) {
+              out.conversion_price = damlMonetaryToNative((cv as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value);
+            }
+            const rsp = (right as unknown as Record<string, unknown>).reference_share_price;
+            if (rsp && typeof rsp === 'object' && 'tag' in rsp && (rsp as { tag: unknown }).tag === 'Some' && 'value' in rsp) {
+              out.reference_share_price = damlMonetaryToNative((rsp as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value);
+            }
+            const rvps = (right as unknown as Record<string, unknown>).reference_valuation_price_per_share;
+            if (rvps && typeof rvps === 'object' && 'tag' in rvps && (rvps as { tag: unknown }).tag === 'Some' && 'value' in rvps) {
+              out.reference_valuation_price_per_share = damlMonetaryToNative((rvps as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value);
+            }
+            const poc = (right as unknown as Record<string, unknown>).percent_of_capitalization;
+            if (poc && typeof poc === 'object' && 'tag' in poc && (poc as { tag: unknown }).tag === 'Some' && 'value' in poc) {
+              out.percent_of_capitalization = parseFloat((poc as { value: string }).value);
+            }
+            const dr = (right as unknown as Record<string, unknown>).discount_rate;
+            if (dr && typeof dr === 'object' && 'tag' in dr && (dr as { tag: unknown }).tag === 'Some' && 'value' in dr) {
+              out.discount_rate = parseFloat((dr as { value: string }).value);
+            }
+            const vc = (right as unknown as Record<string, unknown>).valuation_cap;
+            if (vc && typeof vc === 'object' && 'tag' in vc && (vc as { tag: unknown }).tag === 'Some' && 'value' in vc) {
+              out.valuation_cap = damlMonetaryToNative((vc as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value);
+            }
+            const fps = (right as unknown as Record<string, unknown>).floor_price_per_share;
+            if (fps && typeof fps === 'object' && 'tag' in fps && (fps as { tag: unknown }).tag === 'Some' && 'value' in fps) {
+              out.floor_price_per_share = damlMonetaryToNative((fps as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value);
+            }
+            const cps = (right as unknown as Record<string, unknown>).ceiling_price_per_share;
+            if (cps && typeof cps === 'object' && 'tag' in cps && (cps as { tag: unknown }).tag === 'Some' && 'value' in cps) {
+              out.ceiling_price_per_share = damlMonetaryToNative((cps as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value);
+            }
+            const cd = (right as unknown as Record<string, unknown>).custom_description;
+            if (cd && typeof cd === 'object' && 'tag' in cd && (cd as { tag: unknown }).tag === 'Some' && 'value' in cd) {
+              out.custom_description = (cd as { value: string }).value;
+            }
+            return out;
+          })(),
+          ...(right.expires_at && { expires_at: damlTimeToDateString(right.expires_at) })
+        } as StockClassConversionRight;
+      })
+    }),
+    ...(damlData.liquidation_preference_multiple && {
+      liquidation_preference_multiple: damlData.liquidation_preference_multiple
+    }),
+    ...(damlData.participation_cap_multiple && {
+      participation_cap_multiple: damlData.participation_cap_multiple
+    }),
+    ...(Array.isArray((dAny as { comments?: unknown }).comments) ? { comments: (dAny as { comments: string[] }).comments } : {})
+  };
+}
 
 /**
  * OCF Stock Class object according to the Open Cap Table Coalition schema
