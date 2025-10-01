@@ -1,0 +1,91 @@
+version: 2.1
+
+jobs:
+  build-and-test:
+    docker:
+      - image: cimg/node:21.7.0
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - npm-deps-{{ checksum "package.json" }}
+            - npm-deps-
+      - run:
+          name: Install Dependencies
+          command: |
+            npm install
+      - save_cache:
+          key: npm-deps-{{ checksum "package.json" }}
+          paths:
+            - node_modules
+            - package-lock.json
+      - run:
+          name: Build
+          command: |
+            npm run build
+      - run:
+          name: Type Check
+          command: |
+            npm run typecheck
+      - run:
+          name: Run Tests
+          command: |
+            npm run test:ci
+      - run:
+          name: Check for changes and commit
+          command: |
+            # Configure git user for commits
+            git config user.name "CircleCI Bot"
+            git config user.email "circleci-bot@example.com"
+
+            # Configure Git authentication using GitHub token
+            git config --global credential.helper store
+            echo "https://$GITHUB_TOKEN:x-oauth-basic@github.com" > ~/.git-credentials
+
+            # Add GitHub to known hosts to avoid SSH host key verification prompt
+            mkdir -p ~/.ssh
+            ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+            # Check if there are any changes
+            if git diff --exit-code --quiet && git diff --cached --exit-code --quiet; then
+              echo "No changes detected from build. Build continues successfully."
+            else
+              echo "Changes detected from build. Checking if last commit was auto-fix..."
+              
+              # Display the diff for debugging
+              echo "=== DIFF OF CHANGES ==="
+              git diff
+              echo "=== END DIFF ==="
+              
+              # Check if the last commit was an auto-fix commit to prevent infinite loops
+              LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+              if [[ "$LAST_COMMIT_MSG" == "Auto-fix: build changes" ]]; then
+                echo "Last commit was an auto-fix commit and there are still changes. Halting build to prevent infinite loop."
+                exit 1
+              fi
+              
+              echo "Committing and pushing changes..."
+              
+              # Add all changes
+              git add .
+              
+              # Commit with descriptive message
+              git commit -m "Auto-fix: build changes"
+              
+              # Push changes using HTTPS authentication
+              git push origin $CIRCLE_BRANCH
+              
+              echo "Changes have been committed and pushed."
+              echo "Failing the build to indicate that changes were made."
+              exit 1
+            fi
+      - run:
+          name: Docs # Just verifies doc generation works, actual publishing happens in GitHub Actions
+          command: |
+            npm run docs
+
+workflows:
+  build-and-test-workflow:
+    jobs:
+      - build-and-test
+
