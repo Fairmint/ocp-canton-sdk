@@ -2,8 +2,74 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcfIssuerData } from '../../types/native';
-import { issuerDataToDaml } from '../../utils/typeConversions';
+import { OcfIssuerData, CommandWithDisclosedContracts, EmailType, PhoneType } from '../../types';
+import { dateStringToDAMLTime, addressToDaml } from '../../utils/typeConversions';
+
+function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfEmailType {
+  switch (emailType) {
+    case 'PERSONAL': return 'OcfEmailTypePersonal';
+    case 'BUSINESS': return 'OcfEmailTypeBusiness';
+    case 'OTHER': return 'OcfEmailTypeOther';
+    default: throw new Error(`Unknown email type: ${emailType}`);
+  }
+}
+
+function emailToDaml(email: OcfIssuerData['email']): Fairmint.OpenCapTable.Types.OcfEmail | null {
+  if (!email) return null;
+  return {
+    email_type: emailTypeToDaml(email.email_type),
+    email_address: email.email_address
+  };
+}
+
+function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfPhoneType {
+  switch (phoneType) {
+    case 'HOME': return 'OcfPhoneHome';
+    case 'MOBILE': return 'OcfPhoneMobile';
+    case 'BUSINESS': return 'OcfPhoneBusiness';
+    case 'OTHER': return 'OcfPhoneOther';
+    default: throw new Error(`Unknown phone type: ${phoneType}`);
+  }
+}
+
+function phoneToDaml(phone: OcfIssuerData['phone']): Fairmint.OpenCapTable.Types.OcfPhone | null {
+  if (!phone) return null;
+  return {
+    phone_type: phoneTypeToDaml(phone.phone_type),
+    phone_number: phone.phone_number
+  };
+}
+
+function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issuer.OcfIssuerData {
+  if (!issuerData.id) throw new Error('issuerData.id is required');
+  return {
+    id: issuerData.id,
+    legal_name: issuerData.legal_name,
+    country_of_formation: issuerData.country_of_formation,
+    dba: issuerData.dba || null,
+    formation_date: dateStringToDAMLTime(issuerData.formation_date),
+    country_subdivision_of_formation: issuerData.country_subdivision_of_formation || null,
+    country_subdivision_name_of_formation: issuerData.country_subdivision_name_of_formation || null,
+    tax_ids: issuerData.tax_ids || [],
+    email: issuerData.email ? emailToDaml(issuerData.email) : null,
+    phone: issuerData.phone ? phoneToDaml(issuerData.phone) : null,
+    address: issuerData.address ? addressToDaml(issuerData.address) : null,
+    initial_shares_authorized:
+      issuerData.initial_shares_authorized !== undefined && issuerData.initial_shares_authorized !== null
+        ? ((): Fairmint.OpenCapTable.Issuer.OcfIssuerData['initial_shares_authorized'] => {
+            const v = issuerData.initial_shares_authorized;
+            if (typeof v === 'number' || (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v))) {
+              return { tag: 'OcfInitialSharesNumeric', value: typeof v === 'number' ? v.toString() : v };
+            }
+            if (v === 'UNLIMITED') {
+              return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
+            }
+            return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
+          })()
+        : null,
+    comments: issuerData.comments || []
+  };
+}
 
 export interface CreateIssuerParams {
   /** Details of the IssuerAuthorization contract for disclosed contracts */
@@ -31,111 +97,7 @@ export interface CreateIssuerParams {
   issuerData: OcfIssuerData;
 }
 
-export interface CreateIssuerResult {
-  contractId: string; // Contract ID of the created Issuer
-  updateId: string;
-}
-
-/**
- * Create an issuer by exercising the CreateIssuer choice on an IssuerAuthorization contract
- *
- * This function requires the IssuerAuthorization and FeaturedAppRight contract details to be provided for disclosed contracts,
- * which is necessary for cross-domain contract interactions in Canton.
- *
- * @example
- * ```typescript
- * const issuerAuthorizationContractDetails = {
- *   contractId: "1234567890abcdef",
- *   createdEventBlob: "serialized_contract_blob_here",
- *   synchronizerId: "sync_id_here",
- *   templateId: "IssuerAuthorization:template:id:here"
- * };
- *
- * const featuredAppRightContractDetails = {
- *   contractId: "abcdef1234567890",
- *   createdEventBlob: "serialized_featured_app_right_blob_here",
- *   synchronizerId: "featured_sync_id_here",
- *   templateId: "FeaturedAppRight:template:id:here"
- * };
- *
- * const result = await createIssuer(client, {
- *   issuerAuthorizationContractDetails,
- *   featuredAppRightContractDetails,
- *   issuerParty: "issuer_party_id",
- *   issuerData: {
- *     legal_name: "My Company Inc.",
- *     country_of_formation: "US",
- *     email: {
- *       email_type: "BUSINESS",
- *       email_address: "contact@company.com"
- *     },
- *     // ... other issuer data
- *   }
- * });
- * ```
- *
- * @param client - The ledger JSON API client
- * @param params - Parameters for creating an issuer, including the contract details for disclosed contracts
- * @returns Promise resolving to the result of the issuer creation
- */
-export async function createIssuer(
-  client: LedgerJsonApiClient,
-  params: CreateIssuerParams
-): Promise<CreateIssuerResult> {
-  // Create the choice arguments for CreateIssuer
-  const choiceArguments: Fairmint.OpenCapTable.IssuerAuthorization.CreateIssuer = {
-    issuer_data: issuerDataToDaml(params.issuerData)
-  };
-
-  // Submit the choice to the IssuerAuthorization contract
-  const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId,
-          contractId: params.issuerAuthorizationContractDetails.contractId,
-          choice: 'CreateIssuer',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.issuerAuthorizationContractDetails.templateId,
-        contractId: params.issuerAuthorizationContractDetails.contractId,
-        createdEventBlob: params.issuerAuthorizationContractDetails.createdEventBlob,
-        synchronizerId: params.issuerAuthorizationContractDetails.synchronizerId
-      },
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
-  }) as SubmitAndWaitForTransactionTreeResponse;
-
-  const created = findCreatedEventByTemplateId(
-    response,
-    Fairmint.OpenCapTable.Issuer.Issuer.templateId
-  );
-  if (!created) {
-    throw new Error('Expected CreatedTreeEvent not found');
-  }
-
-  const issuerContractId = created.CreatedTreeEvent.value.contractId;
-
-  return {
-    contractId: issuerContractId,
-    updateId: response.transactionTree.updateId
-  };
-}
-
-export function buildCreateIssuerCommand(params: CreateIssuerParams): {
-  command: Command;
-  disclosedContracts: DisclosedContract[];
-} {
+export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.IssuerAuthorization.CreateIssuer = {
     issuer_data: issuerDataToDaml(params.issuerData)
   };
@@ -145,7 +107,7 @@ export function buildCreateIssuerCommand(params: CreateIssuerParams): {
       templateId: Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId,
       contractId: params.issuerAuthorizationContractDetails.contractId,
       choice: 'CreateIssuer',
-      choiceArgument: choiceArguments as any
+      choiceArgument: choiceArguments
     }
   };
 

@@ -1,0 +1,3 @@
+[submodule "Open-Cap-Format-OCF"]
+	path = Open-Cap-Format-OCF
+	url = https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF.git

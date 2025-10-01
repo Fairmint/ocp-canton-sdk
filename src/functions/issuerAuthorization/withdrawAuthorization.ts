@@ -9,6 +9,7 @@ export interface WithdrawAuthorizationParams {
 
 export interface WithdrawAuthorizationResult {
   updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 export async function withdrawAuthorization(
@@ -29,5 +30,5 @@ export async function withdrawAuthorization(
     ]
   }) as SubmitAndWaitForTransactionTreeResponse;
 
-  return { updateId: response.transactionTree.updateId };
+  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }

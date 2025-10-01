@@ -2,7 +2,8 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js/lib';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/reports-factory-contract-id.json';
-import { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
+import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
+import { CommandWithDisclosedContracts } from '../../types';
 
 export interface CreateCompanyValuationReportParams {
   companyId: string;
@@ -15,7 +16,7 @@ export interface CreateCompanyValuationReportParams {
 export interface CreateCompanyValuationReportResult {
   contractId: string;
   updateId: string;
-  transactionTree: SubmitAndWaitForTransactionTreeResponse;
+  response: SubmitAndWaitForTransactionTreeResponse;
 }
 
 /**
@@ -46,6 +47,32 @@ export async function createCompanyValuationReport(
   client: LedgerJsonApiClient,
   params: CreateCompanyValuationReportParams
 ): Promise<CreateCompanyValuationReportResult> {
+  const { command, disclosedContracts } = buildCreateCompanyValuationReportCommand(client, params);
+
+  const response = await client.submitAndWaitForTransactionTree({
+    commands: [command],
+    disclosedContracts
+  }) as SubmitAndWaitForTransactionTreeResponse;
+
+  const created = findCreatedEventByTemplateId(
+    response,
+    Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId
+  );
+  if (!created) {
+    throw new Error('Expected CreatedTreeEvent not found');
+  }
+
+  return {
+    contractId: created.CreatedTreeEvent.value.contractId,
+    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
+    response
+  };
+}
+
+export function buildCreateCompanyValuationReportCommand(
+  client: LedgerJsonApiClient,
+  params: CreateCompanyValuationReportParams
+): CommandWithDisclosedContracts {
   const network = client.getNetwork();
   const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData];
   if (!networkData) {
@@ -60,38 +87,23 @@ export async function createCompanyValuationReport(
     observers: params.observers ?? []
   };
 
-  const response = await client.submitAndWaitForTransactionTree({
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: networkData.templateId,
-          contractId: networkData.reportsFactoryContractId,
-          choice: 'CreateCompanyValuationReport',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
-  }) as SubmitAndWaitForTransactionTreeResponse;
-
-  const created = findCreatedEventByTemplateId(
-    response,
-    Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId
-  );
-  if (!created) {
-    throw new Error('Expected CreatedTreeEvent not found');
-  }
-
-  return {
-    contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId,
-    transactionTree: response
+  const command: Command = {
+    ExerciseCommand: {
+      templateId: networkData.templateId,
+      contractId: networkData.reportsFactoryContractId,
+      choice: 'CreateCompanyValuationReport',
+      choiceArgument: choiceArguments
+    }
   };
+
+  const disclosedContracts: DisclosedContract[] = [
+    {
+      templateId: params.featuredAppRightContractDetails.templateId,
+      contractId: params.featuredAppRightContractDetails.contractId,
+      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+      synchronizerId: params.featuredAppRightContractDetails.synchronizerId
+    }
+  ];
+
+  return { command, disclosedContracts };
 }

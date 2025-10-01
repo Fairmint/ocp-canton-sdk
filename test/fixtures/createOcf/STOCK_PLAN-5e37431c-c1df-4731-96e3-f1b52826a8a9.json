@@ -1,0 +1,212 @@
+{
+  "testContext": {
+    "issuerParty": "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "0019dabd34885de087b85c648702f2982d5d914b637f9f715637b0ae7ebe425ed9ca11122082e2f75ae84a2c77639b624a0784265234204291dbac187f4867019d8b23be75"
+  },
+  "db": {
+    "id": "5e37431c-c1df-4731-96e3-f1b52826a8a9",
+    "comments": [],
+    "plan_name": "Options Pool",
+    "object_type": "STOCK_PLAN",
+    "stock_class_ids": [
+      "4556bf32-cc86-4517-9ed0-f62a10a83132"
+    ],
+    "initial_shares_reserved": "1000000",
+    "default_cancellation_behavior": "RETURN_TO_POOL"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "0019dabd34885de087b85c648702f2982d5d914b637f9f715637b0ae7ebe425ed9ca11122082e2f75ae84a2c77639b624a0784265234204291dbac187f4867019d8b23be75",
+      "choice": "CreateStockPlan",
+      "choiceArgument": {
+        "plan_data": {
+          "id": "5e37431c-c1df-4731-96e3-f1b52826a8a9",
+          "plan_name": "Options Pool",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "initial_shares_reserved": "1000000",
+          "default_cancellation_behavior": "OcfPlanCancelReturnToPool",
+          "stock_class_ids": [
+            "4556bf32-cc86-4517-9ed0-f62a10a83132"
+          ],
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220be2d47fc2e9e521788b7f4039bbe9f45e77276cf081ac9b6eb3c1b447796f7a0",
+        "commandId": "submit-and-wait-for-transaction-tree-1759325995287-zjshhm",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T13:39:55.967218Z",
+        "offset": 804533,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804533,
+                "nodeId": 0,
+                "contractId": "0019dabd34885de087b85c648702f2982d5d914b637f9f715637b0ae7ebe425ed9ca11122082e2f75ae84a2c77639b624a0784265234204291dbac187f4867019d8b23be75",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateStockPlan",
+                "choiceArgument": {
+                  "plan_data": {
+                    "id": "5e37431c-c1df-4731-96e3-f1b52826a8a9",
+                    "initial_shares_reserved": "1000000.0000000000",
+                    "plan_name": "Options Pool",
+                    "comments": [],
+                    "stock_class_ids": [
+                      "4556bf32-cc86-4517-9ed0-f62a10a83132"
+                    ],
+                    "board_approval_date": null,
+                    "default_cancellation_behavior": "OcfPlanCancelReturnToPool",
+                    "stockholder_approval_date": null
+                  }
+                },
+                "actingParties": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00932f746f97b53c0c4154acdd07fbf6f7d05b94b8a315612c9ea9c839af9f2329ca11122032320a3e01b5263610395440a068887e74992818a2a01b6d9b5e01e1c9bad5e1",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804533,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00b6e2f92381efbc34abba79df8cbfc862a2af84991b06eda5626554d11103b91cca111220c8c1a0502c780e851f88971b599d0e9db98f866dd595445be24ad3df6f7b85c5"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804533,
+                "nodeId": 2,
+                "contractId": "00b6e2f92381efbc34abba79df8cbfc862a2af84991b06eda5626554d11103b91cca111220c8c1a0502c780e851f88971b599d0e9db98f866dd595445be24ad3df6f7b85c5",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T13:39:55.967218Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804533,
+                "nodeId": 3,
+                "contractId": "00932f746f97b53c0c4154acdd07fbf6f7d05b94b8a315612c9ea9c839af9f2329ca11122032320a3e01b5263610395440a068887e74992818a2a01b6d9b5e01e1c9bad5e1",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.StockPlan:StockPlan",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "plan_data": {
+                    "id": "5e37431c-c1df-4731-96e3-f1b52826a8a9",
+                    "initial_shares_reserved": "1000000.0000000000",
+                    "plan_name": "Options Pool",
+                    "comments": [],
+                    "stock_class_ids": [
+                      "4556bf32-cc86-4517-9ed0-f62a10a83132"
+                    ],
+                    "board_approval_date": null,
+                    "default_cancellation_behavior": "OcfPlanCancelReturnToPool",
+                    "stockholder_approval_date": null
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T13:39:55.967218Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-138f0b31071d2c2814f549d55a898f47-e4eee30457b0d10d-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T13:39:55.946828Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "STOCK_PLAN",
+    "id": "5e37431c-c1df-4731-96e3-f1b52826a8a9",
+    "plan_name": "Options Pool",
+    "initial_shares_reserved": "1000000.0000000000",
+    "default_cancellation_behavior": "RETURN_TO_POOL",
+    "stock_class_ids": [
+      "4556bf32-cc86-4517-9ed0-f62a10a83132"
+    ],
+    "comments": []
+  }
+}

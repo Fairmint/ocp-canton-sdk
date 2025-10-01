@@ -15,10 +15,11 @@ export interface TransactionTreeFixture {
       commandId?: string;
     };
   };
-  response: SubmitAndWaitForTransactionTreeResponse;
+  response?: SubmitAndWaitForTransactionTreeResponse;
 }
 
 let currentFixture: TransactionTreeFixture | null = null;
+let currentEventsFixture: Record<string, unknown> | null = null;
 
 /**
  * Configure the mock with a fixture object directly (no file I/O)
@@ -43,78 +44,63 @@ export function getCurrentFixture(): TransactionTreeFixture | null {
 }
 
 /**
- * Normalize a request object for comparison by removing dynamic fields
- * and normalizing templateId formats
+ * Configure the mock with events fixture data for getEventsByContractId
+ * @param eventsData - The events response object to use
  */
-function unwrapOptionalTypes(obj: unknown): unknown {
-  if (obj === null || obj === undefined) {
-    return obj;
-  }
-  
-  if (Array.isArray(obj)) {
-    return obj.map(unwrapOptionalTypes);
-  }
-  
-  if (typeof obj === 'object') {
-    const record = obj as Record<string, unknown>;
-    
-    // Unwrap Optional type: { tag: "Some", value: X } => X
-    if (record.tag === 'Some' && 'value' in record) {
-      return unwrapOptionalTypes(record.value);
-    }
-    
-    // Unwrap None: { tag: "None" } => null
-    if (record.tag === 'None') {
-      return null;
-    }
-    
-    // Recursively unwrap all nested objects
-    const result: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(record)) {
-      result[key] = unwrapOptionalTypes(value);
-    }
-    return result;
-  }
-  
-  return obj;
+export function setEventsFixtureData(eventsData: Record<string, unknown>): void {
+  currentEventsFixture = eventsData;
 }
 
-function normalizeRequest(request: Record<string, unknown>): Record<string, unknown> {
-  const normalized = JSON.parse(JSON.stringify(request));
-  delete normalized.commandId;
+/**
+ * Clear the current events fixture configuration
+ */
+export function clearEventsFixture(): void {
+  currentEventsFixture = null;
+}
+
+/**
+ * Get the current events fixture (used internally by mocks)
+ */
+export function getCurrentEventsFixture(): Record<string, unknown> | null {
+  return currentEventsFixture;
+}
+
+/**
+ * Convert transaction tree response to events response format
+ * Extracts the created event from the transaction tree
+ */
+export function convertTransactionTreeToEventsResponse(
+  response: SubmitAndWaitForTransactionTreeResponse | Record<string, unknown>,
+  synchronizerId: string
+): Record<string, unknown> {
+  // Handle both structures: response.transactionTree.eventsById and response.transactionTree.transaction.eventsById
+  const transactionTree = (response as any).transactionTree;
+  const eventsById = transactionTree?.eventsById || transactionTree?.transaction?.eventsById;
   
-  // Normalize templateId format (SDK uses "pkg:..." while fixtures may use "#PackageName:...")
-  // Also normalize dots vs colons in template paths
-  if (Array.isArray(normalized.commands)) {
-    for (const command of normalized.commands) {
-      if (command.ExerciseCommand?.templateId) {
-        const templateId = command.ExerciseCommand.templateId as string;
-        // Keep only the module and template name parts, ignore package prefix format differences
-        const match = templateId.match(/(?:#[^:]+:|pkg:)?(.+)/);
-        if (match) {
-          // Normalize all separators to dots for consistent comparison
-          command.ExerciseCommand.templateId = match[1].replace(/:/g, '.');
-        }
-      }
-      
-      // Unwrap Optional types in choiceArgument to match fixture format
-      if (command.ExerciseCommand?.choiceArgument) {
-        command.ExerciseCommand.choiceArgument = unwrapOptionalTypes(command.ExerciseCommand.choiceArgument);
-      }
+  if (!eventsById) {
+    throw new Error('No eventsById in transaction tree');
+  }
+
+  // Find the created event (usually the last event with CreatedTreeEvent)
+  let createdEvent: Record<string, unknown> | null = null;
+  for (const [nodeId, event] of Object.entries(eventsById)) {
+    const eventData = event as Record<string, unknown>;
+    if (eventData.CreatedTreeEvent) {
+      createdEvent = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
     }
   }
-  
-  // Also normalize templateId in disclosedContracts
-  if (Array.isArray(normalized.disclosedContracts)) {
-    for (const contract of normalized.disclosedContracts) {
-      if (contract.templateId) {
-        // These are already in hash:module:template format, keep as-is
-        // No normalization needed for disclosed contracts
-      }
-    }
+
+  if (!createdEvent) {
+    throw new Error('No CreatedTreeEvent found in transaction tree');
   }
-  
-  return normalized;
+
+  return {
+    created: {
+      createdEvent,
+      synchronizerId
+    },
+    archived: null
+  };
 }
 
 /**
@@ -127,24 +113,15 @@ export function validateRequestMatchesFixture(actualRequest: Record<string, unkn
   }
 
   const expectedRequest = currentFixture.request.data;
-  const normalizedActual = normalizeRequest(actualRequest);
-  const normalizedExpected = normalizeRequest(expectedRequest);
 
   try {
-    expect(normalizedActual).toEqual(normalizedExpected);
+    expect(actualRequest).toEqual(expectedRequest);
   } catch (error) {
     console.error('Request validation failed. Expected vs Actual:');
-    console.error('Expected:', JSON.stringify(normalizedExpected, null, 2));
-    console.error('Actual:', JSON.stringify(normalizedActual, null, 2));
+    console.error('Expected:', JSON.stringify(expectedRequest, null, 2));
+    console.error('Actual:', JSON.stringify(actualRequest, null, 2));
     throw error;
   }
-}
-
-/**
- * Get the mock response from the current fixture
- */
-export function getFixtureResponse(): SubmitAndWaitForTransactionTreeResponse | null {
-  return currentFixture?.response ?? null;
 }
 
 /**

@@ -1,0 +1,307 @@
+{
+  "testContext": {
+    "issuerParty": "23b58f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "001b28b440035f5ba934744e5ab3fab61e0c98784ed911039283de1acb1b74ccf2ca111220a1df6750bff21cd47b772736fff32dd039d83dfe2aa2e7ea9aaea2a0750f5005"
+  },
+  "db": {
+    "id": "489ed49c-a789-4d96-ac3c-50128c950da8",
+    "date": "2021-07-01",
+    "comments": [],
+    "quantity": "200000",
+    "custom_id": "CA-5",
+    "object_type": "TX_EQUITY_COMPENSATION_ISSUANCE",
+    "security_id": "afc67e58-96de-4ce6-a664-732d2dd678a0",
+    "stakeholder_id": "806a74f5-20d6-4ff3-9d88-1dbe8dd296d3",
+    "stock_class_id": "f194feb6-9bb8-408b-bf52-638b35e833af",
+    "expiration_date": "2031-01-20",
+    "compensation_type": "RSU",
+    "security_law_exemptions": [
+      {
+        "description": "Securities Act of 1933, Section 4(a)(2)",
+        "jurisdiction": "US"
+      }
+    ],
+    "termination_exercise_windows": [
+      {
+        "period": 1,
+        "reason": "INVOLUNTARY_WITH_CAUSE",
+        "period_type": "DAYS"
+      }
+    ]
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "001b28b440035f5ba934744e5ab3fab61e0c98784ed911039283de1acb1b74ccf2ca111220a1df6750bff21cd47b772736fff32dd039d83dfe2aa2e7ea9aaea2a0750f5005",
+      "choice": "CreateEquityCompensationIssuance",
+      "choiceArgument": {
+        "issuance_data": {
+          "id": "489ed49c-a789-4d96-ac3c-50128c950da8",
+          "date": "2021-07-01T00:00:00.000Z",
+          "security_id": "afc67e58-96de-4ce6-a664-732d2dd678a0",
+          "custom_id": "CA-5",
+          "stakeholder_id": "806a74f5-20d6-4ff3-9d88-1dbe8dd296d3",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": null,
+          "security_law_exemptions": [
+            {
+              "description": "Securities Act of 1933, Section 4(a)(2)",
+              "jurisdiction": "US"
+            }
+          ],
+          "stock_plan_id": null,
+          "stock_class_id": "f194feb6-9bb8-408b-bf52-638b35e833af",
+          "vesting_terms_id": null,
+          "compensation_type": "OcfCompensationTypeRSU",
+          "quantity": "200000",
+          "exercise_price": null,
+          "base_price": null,
+          "early_exercisable": null,
+          "vestings": [],
+          "expiration_date": "2031-01-20T00:00:00.000Z",
+          "termination_exercise_windows": [
+            {
+              "reason": "OcfTermInvoluntaryWithCause",
+              "period": "1",
+              "period_type": "OcfPeriodDays"
+            }
+          ],
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "122036b50cb5b972e25ae261cfff1d97b84e6b08bdbc7bd584463e440d1f52900b3f",
+        "commandId": "submit-and-wait-for-transaction-tree-1759326395910-1yq6ok",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T13:46:36.866490Z",
+        "offset": 804798,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804798,
+                "nodeId": 0,
+                "contractId": "001b28b440035f5ba934744e5ab3fab61e0c98784ed911039283de1acb1b74ccf2ca111220a1df6750bff21cd47b772736fff32dd039d83dfe2aa2e7ea9aaea2a0750f5005",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateEquityCompensationIssuance",
+                "choiceArgument": {
+                  "issuance_data": {
+                    "id": "489ed49c-a789-4d96-ac3c-50128c950da8",
+                    "custom_id": "CA-5",
+                    "date": "2021-07-01T00:00:00Z",
+                    "compensation_type": "OcfCompensationTypeRSU",
+                    "quantity": "200000.0000000000",
+                    "security_id": "afc67e58-96de-4ce6-a664-732d2dd678a0",
+                    "stakeholder_id": "806a74f5-20d6-4ff3-9d88-1dbe8dd296d3",
+                    "comments": [],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Securities Act of 1933, Section 4(a)(2)",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "vestings": [],
+                    "termination_exercise_windows": [
+                      {
+                        "period": "1",
+                        "period_type": "OcfPeriodDays",
+                        "reason": "OcfTermInvoluntaryWithCause"
+                      }
+                    ],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "base_price": null,
+                    "exercise_price": null,
+                    "early_exercisable": null,
+                    "expiration_date": "2031-01-20T00:00:00Z",
+                    "stock_class_id": "f194feb6-9bb8-408b-bf52-638b35e833af",
+                    "stock_plan_id": null,
+                    "vesting_terms_id": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "actingParties": [
+                  "23b58f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "23b58f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00fdb720ab6db217cb849b9e543b6f36f5729b1cfde51dfba3d588a0be2692993dca1112203e1c2f471c8d88c0657dcafc09eab8039fcc719de3ed6e74173e8beac8376de1",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804798,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "23b58f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00866f679037019b5b12f0ee986e34489593e9b424eaaa5b281deb7aa8a239abddca111220afc4aa3f9a5a1bc593d1e5fe1994bff27b8cca850c0166b3c9664dfe42cf8977"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804798,
+                "nodeId": 2,
+                "contractId": "00866f679037019b5b12f0ee986e34489593e9b424eaaa5b281deb7aa8a239abddca111220afc4aa3f9a5a1bc593d1e5fe1994bff27b8cca850c0166b3c9664dfe42cf8977",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "23b58f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T13:46:36.866490Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804798,
+                "nodeId": 3,
+                "contractId": "00fdb720ab6db217cb849b9e543b6f36f5729b1cfde51dfba3d588a0be2692993dca1112203e1c2f471c8d88c0657dcafc09eab8039fcc719de3ed6e74173e8beac8376de1",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.EquityCompensationIssuance:EquityCompensationIssuance",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "23b58f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "issuance_data": {
+                    "id": "489ed49c-a789-4d96-ac3c-50128c950da8",
+                    "custom_id": "CA-5",
+                    "date": "2021-07-01T00:00:00Z",
+                    "compensation_type": "OcfCompensationTypeRSU",
+                    "quantity": "200000.0000000000",
+                    "security_id": "afc67e58-96de-4ce6-a664-732d2dd678a0",
+                    "stakeholder_id": "806a74f5-20d6-4ff3-9d88-1dbe8dd296d3",
+                    "comments": [],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Securities Act of 1933, Section 4(a)(2)",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "vestings": [],
+                    "termination_exercise_windows": [
+                      {
+                        "period": "1",
+                        "period_type": "OcfPeriodDays",
+                        "reason": "OcfTermInvoluntaryWithCause"
+                      }
+                    ],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "base_price": null,
+                    "exercise_price": null,
+                    "early_exercisable": null,
+                    "expiration_date": "2031-01-20T00:00:00Z",
+                    "stock_class_id": "f194feb6-9bb8-408b-bf52-638b35e833af",
+                    "stock_plan_id": null,
+                    "vesting_terms_id": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "23b58f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "23b58f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T13:46:36.866490Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-5864ddaa92f90ef5c4fac20ab1188a02-4d597ecedd0b5c8d-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T13:46:36.990434Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_EQUITY_COMPENSATION_ISSUANCE",
+    "id": "489ed49c-a789-4d96-ac3c-50128c950da8",
+    "date": "2021-07-01",
+    "security_id": "afc67e58-96de-4ce6-a664-732d2dd678a0",
+    "custom_id": "CA-5",
+    "stakeholder_id": "806a74f5-20d6-4ff3-9d88-1dbe8dd296d3",
+    "compensation_type": "RSU",
+    "quantity": "200000.0000000000",
+    "expiration_date": "2031-01-20",
+    "stock_class_id": "f194feb6-9bb8-408b-bf52-638b35e833af",
+    "security_law_exemptions": [
+      {
+        "description": "Securities Act of 1933, Section 4(a)(2)",
+        "jurisdiction": "US"
+      }
+    ],
+    "termination_exercise_windows": [
+      {
+        "reason": "INVOLUNTARY_WITH_CAUSE",
+        "period": 1,
+        "period_type": "DAYS"
+      }
+    ]
+  }
+}

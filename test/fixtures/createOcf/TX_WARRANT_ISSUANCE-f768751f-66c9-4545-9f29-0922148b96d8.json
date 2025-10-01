@@ -1,0 +1,381 @@
+{
+  "testContext": {
+    "issuerParty": "5e0db0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00053ed5b57bd3aedca439c8e50dea3cf3e3b78ffe9a345a7e4a510104953eccd7ca1112202c589487d29beee12d2c090194ac4209afdde06fd9d8d18313f85620121b59fc"
+  },
+  "db": {
+    "id": "f768751f-66c9-4545-9f29-0922148b96d8",
+    "date": "2022-01-15",
+    "comments": [],
+    "custom_id": "W-3",
+    "object_type": "TX_WARRANT_ISSUANCE",
+    "security_id": "c0a1514c-d9c8-4ac7-b35f-4fb6ac5e8a24",
+    "purchase_price": {
+      "amount": "15000",
+      "currency": "USD"
+    },
+    "stakeholder_id": "c30d3bf1-12d4-4cf8-b75b-6f4eff012f0b",
+    "quantity_source": "UNSPECIFIED",
+    "exercise_triggers": [
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "nickname": "Next financing event",
+        "trigger_id": "warrant3_trigger",
+        "conversion_right": {
+          "type": "WARRANT_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "FIXED_AMOUNT_CONVERSION",
+            "converts_to_quantity": "15000"
+          },
+          "converts_to_stock_class_id": "d762fb72-c947-430a-b013-307f62485c30"
+        },
+        "trigger_condition": "TOOD",
+        "trigger_description": "Warrant is exercisable upon the next qualified financing event."
+      }
+    ],
+    "security_law_exemptions": [
+      {
+        "description": "Regulation D",
+        "jurisdiction": "US"
+      }
+    ],
+    "warrant_expiration_date": "2029-10-01"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "00053ed5b57bd3aedca439c8e50dea3cf3e3b78ffe9a345a7e4a510104953eccd7ca1112202c589487d29beee12d2c090194ac4209afdde06fd9d8d18313f85620121b59fc",
+      "choice": "CreateWarrantIssuance",
+      "choiceArgument": {
+        "issuance_data": {
+          "id": "f768751f-66c9-4545-9f29-0922148b96d8",
+          "date": "2022-01-15T00:00:00.000Z",
+          "security_id": "c0a1514c-d9c8-4ac7-b35f-4fb6ac5e8a24",
+          "custom_id": "W-3",
+          "stakeholder_id": "c30d3bf1-12d4-4cf8-b75b-6f4eff012f0b",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": null,
+          "security_law_exemptions": [
+            {
+              "description": "Regulation D",
+              "jurisdiction": "US"
+            }
+          ],
+          "quantity": null,
+          "quantity_source": "OcfQuantityUnspecified",
+          "exercise_price": null,
+          "purchase_price": {
+            "amount": "15000",
+            "currency": "USD"
+          },
+          "exercise_triggers": [
+            {
+              "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+              "trigger_id": "warrant3_trigger",
+              "nickname": "Next financing event",
+              "trigger_description": "Warrant is exercisable upon the next qualified financing event.",
+              "conversion_right": {
+                "tag": "OcfRightWarrant",
+                "value": {
+                  "type_": "WARRANT_CONVERSION_RIGHT",
+                  "conversion_mechanism": {
+                    "tag": "OcfWarrantMechanismFixedAmount",
+                    "value": {
+                      "converts_to_quantity": "15000"
+                    }
+                  },
+                  "converts_to_future_round": null,
+                  "converts_to_stock_class_id": "d762fb72-c947-430a-b013-307f62485c30"
+                }
+              },
+              "trigger_date": null,
+              "trigger_condition": "TOOD"
+            }
+          ],
+          "warrant_expiration_date": "2029-10-01T00:00:00.000Z",
+          "vesting_terms_id": null,
+          "vestings": [],
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "122058bf6c0577f6a7d4291610d5d98196a6b9f76bb97a015e5b84149499d495b994",
+        "commandId": "submit-and-wait-for-transaction-tree-1759327472974-6pmjfd",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T14:04:33.821828Z",
+        "offset": 804994,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804994,
+                "nodeId": 0,
+                "contractId": "00053ed5b57bd3aedca439c8e50dea3cf3e3b78ffe9a345a7e4a510104953eccd7ca1112202c589487d29beee12d2c090194ac4209afdde06fd9d8d18313f85620121b59fc",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateWarrantIssuance",
+                "choiceArgument": {
+                  "issuance_data": {
+                    "id": "f768751f-66c9-4545-9f29-0922148b96d8",
+                    "custom_id": "W-3",
+                    "date": "2022-01-15T00:00:00Z",
+                    "purchase_price": {
+                      "amount": "15000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "c0a1514c-d9c8-4ac7-b35f-4fb6ac5e8a24",
+                    "stakeholder_id": "c30d3bf1-12d4-4cf8-b75b-6f4eff012f0b",
+                    "comments": [],
+                    "exercise_triggers": [
+                      {
+                        "conversion_right": {
+                          "tag": "OcfRightWarrant",
+                          "value": {
+                            "conversion_mechanism": {
+                              "tag": "OcfWarrantMechanismFixedAmount",
+                              "value": {
+                                "converts_to_quantity": "15000.0000000000"
+                              }
+                            },
+                            "type_": "WARRANT_CONVERSION_RIGHT",
+                            "converts_to_future_round": null,
+                            "converts_to_stock_class_id": "d762fb72-c947-430a-b013-307f62485c30"
+                          }
+                        },
+                        "trigger_id": "warrant3_trigger",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Next financing event",
+                        "trigger_condition": "TOOD",
+                        "trigger_date": null,
+                        "trigger_description": "Warrant is exercisable upon the next qualified financing event."
+                      }
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Regulation D",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "vestings": [],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "exercise_price": null,
+                    "quantity": null,
+                    "quantity_source": "OcfQuantityUnspecified",
+                    "stockholder_approval_date": null,
+                    "vesting_terms_id": null,
+                    "warrant_expiration_date": "2029-10-01T00:00:00Z"
+                  }
+                },
+                "actingParties": [
+                  "5e0db0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "5e0db0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00cdc3fc41f96856c8b9a042ad95f02f12f6c2b7298a1b628c6815a6a47fa769a2ca11122039fad650d633a8e6d65541650b441ff5ceeaea5584969a30302ed682fea58668",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804994,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "5e0db0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "0027eb20e1238f8cec97bfaebfeb2272f55272eb3bd059b03782a385a7a7653c47ca11122003e25b0aa2ec5668c80d237af4dc788f2cb492687bf5cdf598ba2300575b33e4"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804994,
+                "nodeId": 2,
+                "contractId": "0027eb20e1238f8cec97bfaebfeb2272f55272eb3bd059b03782a385a7a7653c47ca11122003e25b0aa2ec5668c80d237af4dc788f2cb492687bf5cdf598ba2300575b33e4",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "5e0db0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T14:04:33.821828Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804994,
+                "nodeId": 3,
+                "contractId": "00cdc3fc41f96856c8b9a042ad95f02f12f6c2b7298a1b628c6815a6a47fa769a2ca11122039fad650d633a8e6d65541650b441ff5ceeaea5584969a30302ed682fea58668",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.WarrantIssuance:WarrantIssuance",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "5e0db0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "issuance_data": {
+                    "id": "f768751f-66c9-4545-9f29-0922148b96d8",
+                    "custom_id": "W-3",
+                    "date": "2022-01-15T00:00:00Z",
+                    "purchase_price": {
+                      "amount": "15000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "c0a1514c-d9c8-4ac7-b35f-4fb6ac5e8a24",
+                    "stakeholder_id": "c30d3bf1-12d4-4cf8-b75b-6f4eff012f0b",
+                    "comments": [],
+                    "exercise_triggers": [
+                      {
+                        "conversion_right": {
+                          "tag": "OcfRightWarrant",
+                          "value": {
+                            "conversion_mechanism": {
+                              "tag": "OcfWarrantMechanismFixedAmount",
+                              "value": {
+                                "converts_to_quantity": "15000.0000000000"
+                              }
+                            },
+                            "type_": "WARRANT_CONVERSION_RIGHT",
+                            "converts_to_future_round": null,
+                            "converts_to_stock_class_id": "d762fb72-c947-430a-b013-307f62485c30"
+                          }
+                        },
+                        "trigger_id": "warrant3_trigger",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Next financing event",
+                        "trigger_condition": "TOOD",
+                        "trigger_date": null,
+                        "trigger_description": "Warrant is exercisable upon the next qualified financing event."
+                      }
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Regulation D",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "vestings": [],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "exercise_price": null,
+                    "quantity": null,
+                    "quantity_source": "OcfQuantityUnspecified",
+                    "stockholder_approval_date": null,
+                    "vesting_terms_id": null,
+                    "warrant_expiration_date": "2029-10-01T00:00:00Z"
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "5e0db0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "5e0db0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T14:04:33.821828Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-24246bbd5f43855a81fffd3bca7e2b4f-104735f081c27657-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T14:04:33.889004Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_WARRANT_ISSUANCE",
+    "id": "f768751f-66c9-4545-9f29-0922148b96d8",
+    "date": "2022-01-15",
+    "security_id": "c0a1514c-d9c8-4ac7-b35f-4fb6ac5e8a24",
+    "custom_id": "W-3",
+    "stakeholder_id": "c30d3bf1-12d4-4cf8-b75b-6f4eff012f0b",
+    "purchase_price": {
+      "amount": "15000.0000000000",
+      "currency": "USD"
+    },
+    "exercise_triggers": [
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "trigger_id": "warrant3_trigger",
+        "conversion_right": {
+          "type": "WARRANT_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "FIXED_AMOUNT_CONVERSION",
+            "converts_to_quantity": "15000.0000000000"
+          },
+          "converts_to_stock_class_id": "d762fb72-c947-430a-b013-307f62485c30"
+        },
+        "nickname": "Next financing event",
+        "trigger_description": "Warrant is exercisable upon the next qualified financing event.",
+        "trigger_condition": "TOOD"
+      }
+    ],
+    "warrant_expiration_date": "2029-10-01",
+    "security_law_exemptions": [
+      {
+        "description": "Regulation D",
+        "jurisdiction": "US"
+      }
+    ]
+  }
+}

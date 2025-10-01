@@ -1,0 +1,465 @@
+{
+  "testContext": {
+    "issuerParty": "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00c6e555ac7fcc8c8088937c74b66124d22fb915f8162dc604d3e409e711249b03ca1112204c003fb0de67d14f53e418176cb59790050dc71cb7d531d2ea0e57702d73c2ae"
+  },
+  "db": {
+    "id": "a27546d9-82eb-4706-837f-3771177894df",
+    "date": "2023-12-30",
+    "comments": [
+      "Option grant for IDwithPurpose SAS, represented by Carlota Thévenot, as per the Protelicious USA Corp. 2022 Stock Option/Stock Issuance Plan."
+    ],
+    "quantity": "21",
+    "vestings": [
+      {
+        "date": "2024-01-30",
+        "amount": "3.5"
+      },
+      {
+        "date": "2024-02-28",
+        "amount": "3.5"
+      },
+      {
+        "date": "2024-03-30",
+        "amount": "3.5"
+      },
+      {
+        "date": "2024-04-30",
+        "amount": "3.5"
+      },
+      {
+        "date": "2024-05-30",
+        "amount": "3.5"
+      },
+      {
+        "date": "2024-06-30",
+        "amount": "3.5"
+      }
+    ],
+    "custom_id": "OPT-25",
+    "object_type": "TX_EQUITY_COMPENSATION_ISSUANCE",
+    "security_id": "57d54b2d-a224-4915-bde1-88aa119160ad",
+    "exercise_price": {
+      "amount": "1.00",
+      "currency": "USD"
+    },
+    "stakeholder_id": "96461a59-b618-4ac2-b28f-66372aa42ecd",
+    "expiration_date": "2026-12-31",
+    "compensation_type": "OPTION_ISO",
+    "option_grant_type": "ISO",
+    "consideration_text": "Incentive stock option granted as compensation for services rendered.",
+    "board_approval_date": "2023-12-30",
+    "security_law_exemptions": [
+      {
+        "description": "SEC Rule 701",
+        "jurisdiction": "US"
+      }
+    ],
+    "termination_exercise_windows": [
+      {
+        "period": 0,
+        "reason": "INVOLUNTARY_WITH_CAUSE",
+        "period_type": "DAYS"
+      }
+    ]
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "00c6e555ac7fcc8c8088937c74b66124d22fb915f8162dc604d3e409e711249b03ca1112204c003fb0de67d14f53e418176cb59790050dc71cb7d531d2ea0e57702d73c2ae",
+      "choice": "CreateEquityCompensationIssuance",
+      "choiceArgument": {
+        "issuance_data": {
+          "id": "a27546d9-82eb-4706-837f-3771177894df",
+          "date": "2023-12-30T00:00:00.000Z",
+          "security_id": "57d54b2d-a224-4915-bde1-88aa119160ad",
+          "custom_id": "OPT-25",
+          "stakeholder_id": "96461a59-b618-4ac2-b28f-66372aa42ecd",
+          "board_approval_date": "2023-12-30T00:00:00.000Z",
+          "stockholder_approval_date": null,
+          "consideration_text": "Incentive stock option granted as compensation for services rendered.",
+          "security_law_exemptions": [
+            {
+              "description": "SEC Rule 701",
+              "jurisdiction": "US"
+            }
+          ],
+          "stock_plan_id": null,
+          "stock_class_id": null,
+          "vesting_terms_id": null,
+          "compensation_type": "OcfCompensationTypeOptionISO",
+          "quantity": "21",
+          "exercise_price": {
+            "amount": "1.00",
+            "currency": "USD"
+          },
+          "base_price": null,
+          "early_exercisable": null,
+          "vestings": [
+            {
+              "date": "2024-01-30T00:00:00.000Z",
+              "amount": "3.5"
+            },
+            {
+              "date": "2024-02-28T00:00:00.000Z",
+              "amount": "3.5"
+            },
+            {
+              "date": "2024-03-30T00:00:00.000Z",
+              "amount": "3.5"
+            },
+            {
+              "date": "2024-04-30T00:00:00.000Z",
+              "amount": "3.5"
+            },
+            {
+              "date": "2024-05-30T00:00:00.000Z",
+              "amount": "3.5"
+            },
+            {
+              "date": "2024-06-30T00:00:00.000Z",
+              "amount": "3.5"
+            }
+          ],
+          "expiration_date": "2026-12-31T00:00:00.000Z",
+          "termination_exercise_windows": [
+            {
+              "reason": "OcfTermInvoluntaryWithCause",
+              "period": "0",
+              "period_type": "OcfPeriodDays"
+            }
+          ],
+          "comments": [
+            "Option grant for IDwithPurpose SAS, represented by Carlota Thévenot, as per the Protelicious USA Corp. 2022 Stock Option/Stock Issuance Plan."
+          ]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220bad3fa9a8924a72f29a77cbb72cabe2beeadc5174ae6911bb26c5d75750e2c49",
+        "commandId": "submit-and-wait-for-transaction-tree-1759326256025-ukdzy7",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T13:44:16.925455Z",
+        "offset": 804722,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804722,
+                "nodeId": 0,
+                "contractId": "00c6e555ac7fcc8c8088937c74b66124d22fb915f8162dc604d3e409e711249b03ca1112204c003fb0de67d14f53e418176cb59790050dc71cb7d531d2ea0e57702d73c2ae",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateEquityCompensationIssuance",
+                "choiceArgument": {
+                  "issuance_data": {
+                    "id": "a27546d9-82eb-4706-837f-3771177894df",
+                    "custom_id": "OPT-25",
+                    "date": "2023-12-30T00:00:00Z",
+                    "compensation_type": "OcfCompensationTypeOptionISO",
+                    "quantity": "21.0000000000",
+                    "security_id": "57d54b2d-a224-4915-bde1-88aa119160ad",
+                    "stakeholder_id": "96461a59-b618-4ac2-b28f-66372aa42ecd",
+                    "comments": [
+                      "Option grant for IDwithPurpose SAS, represented by Carlota Thévenot, as per the Protelicious USA Corp. 2022 Stock Option/Stock Issuance Plan."
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "SEC Rule 701",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "vestings": [
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-01-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-02-28T00:00:00Z"
+                      },
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-03-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-04-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-05-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-06-30T00:00:00Z"
+                      }
+                    ],
+                    "termination_exercise_windows": [
+                      {
+                        "period": "0",
+                        "period_type": "OcfPeriodDays",
+                        "reason": "OcfTermInvoluntaryWithCause"
+                      }
+                    ],
+                    "board_approval_date": "2023-12-30T00:00:00Z",
+                    "consideration_text": "Incentive stock option granted as compensation for services rendered.",
+                    "base_price": null,
+                    "exercise_price": {
+                      "amount": "1.0000000000",
+                      "currency": "USD"
+                    },
+                    "early_exercisable": null,
+                    "expiration_date": "2026-12-31T00:00:00Z",
+                    "stock_class_id": null,
+                    "stock_plan_id": null,
+                    "vesting_terms_id": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "actingParties": [
+                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "009921fdae0540db411ad8d6adb333e56163c3944babf76b5c9fc8ceabce9fadd5ca111220c1fc5f678a666474fe043c79f05a5e480fbe5bfb8b5611cbc5ef386d6cd962c7",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804722,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00c12cfc6e4678f54a62c668e7efa0bd05a2ddc9b0fcf7e52a43a1a3392907f98cca111220972234c02bff753ac19fda5a4bb85ad795799f37a26d5c0f92d0cc4a68b9b34c"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804722,
+                "nodeId": 2,
+                "contractId": "00c12cfc6e4678f54a62c668e7efa0bd05a2ddc9b0fcf7e52a43a1a3392907f98cca111220972234c02bff753ac19fda5a4bb85ad795799f37a26d5c0f92d0cc4a68b9b34c",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T13:44:16.925455Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804722,
+                "nodeId": 3,
+                "contractId": "009921fdae0540db411ad8d6adb333e56163c3944babf76b5c9fc8ceabce9fadd5ca111220c1fc5f678a666474fe043c79f05a5e480fbe5bfb8b5611cbc5ef386d6cd962c7",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.EquityCompensationIssuance:EquityCompensationIssuance",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "issuance_data": {
+                    "id": "a27546d9-82eb-4706-837f-3771177894df",
+                    "custom_id": "OPT-25",
+                    "date": "2023-12-30T00:00:00Z",
+                    "compensation_type": "OcfCompensationTypeOptionISO",
+                    "quantity": "21.0000000000",
+                    "security_id": "57d54b2d-a224-4915-bde1-88aa119160ad",
+                    "stakeholder_id": "96461a59-b618-4ac2-b28f-66372aa42ecd",
+                    "comments": [
+                      "Option grant for IDwithPurpose SAS, represented by Carlota Thévenot, as per the Protelicious USA Corp. 2022 Stock Option/Stock Issuance Plan."
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "SEC Rule 701",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "vestings": [
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-01-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-02-28T00:00:00Z"
+                      },
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-03-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-04-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-05-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "3.5000000000",
+                        "date": "2024-06-30T00:00:00Z"
+                      }
+                    ],
+                    "termination_exercise_windows": [
+                      {
+                        "period": "0",
+                        "period_type": "OcfPeriodDays",
+                        "reason": "OcfTermInvoluntaryWithCause"
+                      }
+                    ],
+                    "board_approval_date": "2023-12-30T00:00:00Z",
+                    "consideration_text": "Incentive stock option granted as compensation for services rendered.",
+                    "base_price": null,
+                    "exercise_price": {
+                      "amount": "1.0000000000",
+                      "currency": "USD"
+                    },
+                    "early_exercisable": null,
+                    "expiration_date": "2026-12-31T00:00:00Z",
+                    "stock_class_id": null,
+                    "stock_plan_id": null,
+                    "vesting_terms_id": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T13:44:16.925455Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-1dba3bcf663182c84fc5789ec694eb3d-c23ac56100a0ff91-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T13:44:17.173815Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_EQUITY_COMPENSATION_ISSUANCE",
+    "id": "a27546d9-82eb-4706-837f-3771177894df",
+    "date": "2023-12-30",
+    "security_id": "57d54b2d-a224-4915-bde1-88aa119160ad",
+    "custom_id": "OPT-25",
+    "stakeholder_id": "96461a59-b618-4ac2-b28f-66372aa42ecd",
+    "compensation_type": "OPTION_ISO",
+    "quantity": "21.0000000000",
+    "exercise_price": {
+      "amount": "1.0000000000",
+      "currency": "USD"
+    },
+    "expiration_date": "2026-12-31",
+    "board_approval_date": "2023-12-30",
+    "consideration_text": "Incentive stock option granted as compensation for services rendered.",
+    "security_law_exemptions": [
+      {
+        "description": "SEC Rule 701",
+        "jurisdiction": "US"
+      }
+    ],
+    "vestings": [
+      {
+        "date": "2024-01-30",
+        "amount": "3.5000000000"
+      },
+      {
+        "date": "2024-02-28",
+        "amount": "3.5000000000"
+      },
+      {
+        "date": "2024-03-30",
+        "amount": "3.5000000000"
+      },
+      {
+        "date": "2024-04-30",
+        "amount": "3.5000000000"
+      },
+      {
+        "date": "2024-05-30",
+        "amount": "3.5000000000"
+      },
+      {
+        "date": "2024-06-30",
+        "amount": "3.5000000000"
+      }
+    ],
+    "termination_exercise_windows": [
+      {
+        "reason": "INVOLUNTARY_WITH_CAUSE",
+        "period": 0,
+        "period_type": "DAYS"
+      }
+    ],
+    "comments": [
+      "Option grant for IDwithPurpose SAS, represented by Carlota Thévenot, as per the Protelicious USA Corp. 2022 Stock Option/Stock Issuance Plan."
+    ]
+  }
+}

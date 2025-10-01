@@ -14,20 +14,12 @@ export class LedgerJsonApiClient {
       const tok = await provider();
       this.lastAuthToken = typeof tok === 'string' ? tok : String(tok);
     }
-
-    // Use fixture configured via setTransactionTreeFixture helper
-    try {
-      // Dynamically import to avoid circular dependencies
-      const fixtureHelpers = require('../utils/fixtureHelpers');
-      const fixtureResponse = fixtureHelpers.getFixtureResponse();
-      if (fixtureResponse) {
-        // Validate request matches fixture expectations
-        fixtureHelpers.validateRequestMatchesFixture(req);
-        return fixtureResponse;
-      }
-    } catch (error) {
-      // fixtureHelpers might not exist or error during validation
-      throw error;
+    // Check if there's a fixture configured and validate request matches
+    const { getCurrentFixture, validateRequestMatchesFixture } = require('../utils/fixtureHelpers');
+    const fixture = getCurrentFixture();
+    if (fixture) {
+      validateRequestMatchesFixture(req);
+      return fixture.response;
     }
 
     // No fixture configured - this is an error
@@ -42,46 +34,18 @@ export class LedgerJsonApiClient {
     const override = (this as any).__eventsResponseOverride;
     if (override) return override;
 
-    // Load from JSON fixture on disk: test/fixtures/ledgerJsonApi/v2/events/events-by-contract-id/<contractId>.json
-    // Use absolute path to avoid cwd issues
-    const path = require('path');
-    const fs = require('fs');
-    const fixtureBase = path.join(
-      __dirname,
-      '..',
-      'fixtures',
-      'ledgerJsonApi',
-      'v2',
-      'events',
-      'events-by-contract-id'
-    );
-
-    const candidateNames: string[] = [
-      `${req.contractId}.json`
-    ];
-
-    // Backward-compatible aliases used by test expectations
-    if (req.contractId === 'vt-minimal') candidateNames.push('vesting-terms-minimal.json');
-    if (req.contractId === 'slt-minimal') candidateNames.push('stock-legend-template-minimal.json');
-    if (req.contractId === 'sp-minimal') candidateNames.push('stock-plan-minimal.json');
-
-    let lastErr: Error | undefined;
-    for (const name of candidateNames) {
-      const fixturePath = path.join(fixtureBase, name);
-      if (fs.existsSync(fixturePath)) {
-        const fileContent = fs.readFileSync(fixturePath, 'utf-8');
-        try {
-          return JSON.parse(fileContent);
-        } catch (e) {
-          throw new Error(`Invalid JSON in fixture ${fixturePath}: ${(e as Error).message}`);
-        }
-      } else {
-        lastErr = new Error(`Fixture not found at ${fixturePath}`);
-      }
+    // Check if there's an events fixture configured
+    const { getCurrentEventsFixture } = require('../utils/fixtureHelpers');
+    const eventsFixture = getCurrentEventsFixture();
+    if (eventsFixture) {
+      return eventsFixture;
     }
 
-    const primaryPath = path.join(fixtureBase, `${req.contractId}.json`);
-    const error: any = new Error(`Fixture not found for contractId ${req.contractId}: ${primaryPath}`);
+    // No fixture configured - this is an error
+    const error: any = new Error(
+      'No events fixture configured. Use setEventsFixtureData() in your test setup. ' +
+      'Contract ID: ' + req.contractId
+    );
     error.code = 404;
     error.body = { code: 'CONTRACT_EVENTS_NOT_FOUND' };
     throw error;
@@ -202,15 +166,28 @@ export function findCreatedEventByTemplateId(
   response: any,
   templateId: string
 ): any {
+  // Handle both direct structure and nested transaction structure
+  const transactionTree = response.transactionTree;
+  const eventsById = transactionTree?.eventsById ?? transactionTree?.transaction?.eventsById;
+  
   // Mock implementation - look for CreatedTreeEvent in the transactionTree
-  if (response?.transactionTree?.eventsById) {
-    for (const [key, event] of Object.entries(response.transactionTree.eventsById)) {
+  if (eventsById) {
+    for (const [key, event] of Object.entries(eventsById)) {
       const eventData = event as any;
       const eventTemplateId = eventData?.CreatedTreeEvent?.value?.templateId;
       
       // Handle different template ID formats
       if (eventTemplateId === templateId) {
-        return eventData.CreatedTreeEvent;
+        return eventData;
+      }
+      
+      // Handle the case where templateId starts with # (package name alias) but event has full hash
+      if (templateId.startsWith('#') && eventTemplateId) {
+        const templateNamePart = templateId.split(':').slice(1).join(':');
+        const eventNamePart = eventTemplateId.split(':').slice(1).join(':');
+        if (templateNamePart === eventNamePart) {
+          return eventData;
+        }
       }
       
       // Handle the case where templateId is in pkg: format but event has full template ID
@@ -218,9 +195,7 @@ export function findCreatedEventByTemplateId(
         const pkgName = templateId.replace('pkg:', '');
         // Check if the template name part matches (after the hash)
         const templateNamePart = eventTemplateId.split(':').slice(1).join(':');
-        // Convert the last colon to dot for comparison
-        const normalizedTemplateName = templateNamePart.replace(/:([^:]+)$/, '.$1');
-        if (normalizedTemplateName === pkgName) {
+        if (templateNamePart === pkgName) {
           return eventData;
         }
       }

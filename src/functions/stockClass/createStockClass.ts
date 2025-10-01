@@ -2,8 +2,97 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcfStockClassData } from '../../types/native';
-import { stockClassDataToDaml } from '../../utils/typeConversions';
+import { OcfStockClassData, CommandWithDisclosedContracts, StockClassType } from '../../types';
+import { dateStringToDAMLTime, monetaryToDaml } from '../../utils/typeConversions';
+
+function stockClassTypeToDaml(stockClassType: StockClassType): any {
+  switch (stockClassType) {
+    case 'PREFERRED':
+      return 'OcfStockClassTypePreferred';
+    case 'COMMON':
+      return 'OcfStockClassTypeCommon';
+    default:
+      throw new Error(`Unknown stock class type: ${stockClassType}`);
+  }
+}
+
+function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
+  if (!stockClassData.id) throw new Error('stockClassData.id is required');
+  return {
+    id: stockClassData.id,
+    name: stockClassData.name,
+    class_type: stockClassTypeToDaml(stockClassData.class_type),
+    default_id_prefix: stockClassData.default_id_prefix,
+    initial_shares_authorized: typeof stockClassData.initial_shares_authorized === 'number'
+      ? stockClassData.initial_shares_authorized.toString()
+      : stockClassData.initial_shares_authorized,
+    votes_per_share: typeof stockClassData.votes_per_share === 'number' ?
+      stockClassData.votes_per_share.toString() : stockClassData.votes_per_share,
+    seniority: typeof stockClassData.seniority === 'number' ?
+      stockClassData.seniority.toString() : stockClassData.seniority,
+    board_approval_date: stockClassData.board_approval_date ? dateStringToDAMLTime(stockClassData.board_approval_date) : null,
+    stockholder_approval_date: stockClassData.stockholder_approval_date ? dateStringToDAMLTime(stockClassData.stockholder_approval_date) : null,
+    par_value: stockClassData.par_value ? monetaryToDaml(stockClassData.par_value) : null,
+    price_per_share: stockClassData.price_per_share ? monetaryToDaml(stockClassData.price_per_share) : null,
+    conversion_rights: (stockClassData.conversion_rights || []).map((right) => {
+      const mechanism: any =
+        right.conversion_mechanism === 'RATIO_CONVERSION'
+          ? 'OcfConversionMechanismRatioConversion'
+          : right.conversion_mechanism === 'PERCENT_CONVERSION'
+          ? 'OcfConversionMechanismPercentCapitalizationConversion'
+          : 'OcfConversionMechanismFixedAmountConversion';
+
+      const trigger: any = (() => {
+        switch (right.conversion_trigger) {
+          case 'AUTOMATIC_ON_CONDITION':
+            return 'OcfTriggerTypeAutomaticOnCondition';
+          case 'AUTOMATIC_ON_DATE':
+            return 'OcfTriggerTypeAutomaticOnDate';
+          case 'ELECTIVE_AT_WILL':
+            return 'OcfTriggerTypeElectiveAtWill';
+          case 'ELECTIVE_ON_CONDITION':
+            return 'OcfTriggerTypeElectiveOnCondition';
+          case 'ELECTIVE_ON_DATE':
+            return 'OcfTriggerTypeElectiveAtWill';
+          default:
+            return 'OcfTriggerTypeAutomaticOnCondition';
+        }
+      })();
+
+      let ratio: { numerator: string; denominator: string } | null = null;
+      const numerator = right.ratio_numerator ?? (right.ratio !== undefined ? right.ratio : undefined);
+      const denominator = right.ratio_denominator ?? (right.ratio !== undefined ? 1 : undefined);
+      if (numerator !== undefined && denominator !== undefined) {
+        ratio = { numerator: typeof numerator === 'number' ? numerator.toString() : String(numerator), denominator: typeof denominator === 'number' ? denominator.toString() : String(denominator) };
+      }
+
+      return {
+        type_: right.type,
+        conversion_mechanism: mechanism,
+        conversion_trigger: trigger,
+        converts_to_stock_class_id: right.converts_to_stock_class_id,
+        ratio: ratio ? { tag: 'Some', value: ratio } : null,
+        percent_of_capitalization: right.percent_of_capitalization !== undefined ? { tag: 'Some', value: typeof right.percent_of_capitalization === 'number' ? right.percent_of_capitalization.toString() : String(right.percent_of_capitalization) } : null,
+        conversion_price: right.conversion_price ? { tag: 'Some', value: monetaryToDaml(right.conversion_price) } : null,
+        reference_share_price: right.reference_share_price ? { tag: 'Some', value: monetaryToDaml(right.reference_share_price) } : null,
+        reference_valuation_price_per_share: right.reference_valuation_price_per_share ? { tag: 'Some', value: monetaryToDaml(right.reference_valuation_price_per_share) } : null,
+        discount_rate: right.discount_rate !== undefined ? { tag: 'Some', value: typeof right.discount_rate === 'number' ? right.discount_rate.toString() : String(right.discount_rate) } : null,
+        valuation_cap: right.valuation_cap ? { tag: 'Some', value: monetaryToDaml(right.valuation_cap) } : null,
+        floor_price_per_share: right.floor_price_per_share ? { tag: 'Some', value: monetaryToDaml(right.floor_price_per_share) } : null,
+        ceiling_price_per_share: right.ceiling_price_per_share ? { tag: 'Some', value: monetaryToDaml(right.ceiling_price_per_share) } : null,
+        custom_description: right.custom_description ? { tag: 'Some', value: right.custom_description } : null,
+        expires_at: right.expires_at ? dateStringToDAMLTime(right.expires_at) : null
+      };
+    }),
+    liquidation_preference_multiple: stockClassData.liquidation_preference_multiple ?
+      (typeof stockClassData.liquidation_preference_multiple === 'number' ?
+        stockClassData.liquidation_preference_multiple.toString() : stockClassData.liquidation_preference_multiple) : null,
+    participation_cap_multiple: stockClassData.participation_cap_multiple ?
+      (typeof stockClassData.participation_cap_multiple === 'number' ?
+        stockClassData.participation_cap_multiple.toString() : stockClassData.participation_cap_multiple) : null,
+    comments: stockClassData.comments || []
+  };
+}
 
 export interface CreateStockClassParams {
   /** Contract ID of the Issuer contract */
@@ -34,98 +123,7 @@ export interface CreateStockClassParams {
   stockClassData: OcfStockClassData;
 }
 
-export interface CreateStockClassResult {
-  contractId: string; // Contract ID of the created StockClass
-  updateId: string;
-}
-
-/**
- * Create a stock class by exercising the CreateStockClass choice on an Issuer contract
- *
- * This function requires the FeaturedAppRight contract details to be provided for disclosed contracts,
- * which is necessary for cross-domain contract interactions in Canton.
- *
- * @example
- * ```typescript
- * const featuredAppRightContractDetails = {
- *   contractId: "abcdef1234567890",
- *   createdEventBlob: "serialized_featured_app_right_blob_here",
- *   synchronizerId: "featured_sync_id_here",
- *   templateId: "FeaturedAppRight:template:id:here"
- * };
- *
- * const result = await createStockClass(client, {
- *   issuerContractId: "1234567890abcdef",
- *   featuredAppRightContractDetails,
- *   issuerParty: "issuer_party_id",
- *   stockClassData: {
- *     name: "Series A Preferred",
- *     class_type: "PREFERRED",
- *     default_id_prefix: "SA-",
- *     initial_shares_authorized: "1000000",
- *     votes_per_share: "1",
- *     seniority: "1",
- *     // ... other stock class data
- *   }
- * });
- * ```
- *
- * @param client - The ledger JSON API client
- * @param params - Parameters for creating a stock class, including the contract details for disclosed contracts
- * @returns Promise resolving to the result of the stock class creation
- */
-export async function createStockClass(
-  client: LedgerJsonApiClient,
-  params: CreateStockClassParams
-): Promise<CreateStockClassResult> {
-  // Create the choice arguments for CreateStockClass
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockClass = {
-    stock_class_data: stockClassDataToDaml(params.stockClassData)
-  };
-
-  // Submit the choice to the Issuer contract
-  const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-          contractId: params.issuerContractId,
-          choice: 'CreateStockClass',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
-  }) as SubmitAndWaitForTransactionTreeResponse;
-
-  const created = findCreatedEventByTemplateId(
-    response,
-    Fairmint.OpenCapTable.StockClass.StockClass.templateId
-  );
-  if (!created) {
-    throw new Error('Expected CreatedTreeEvent not found');
-  }
-
-  const stockClassContractId = created.CreatedTreeEvent.value.contractId;
-
-  return {
-    contractId: stockClassContractId,
-    updateId: response.transactionTree.updateId
-  };
-}
-
-export function buildCreateStockClassCommand(params: CreateStockClassParams): {
-  command: Command;
-  disclosedContracts: DisclosedContract[];
-} {
+export function buildCreateStockClassCommand(params: CreateStockClassParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockClass = {
     stock_class_data: stockClassDataToDaml(params.stockClassData)
   };

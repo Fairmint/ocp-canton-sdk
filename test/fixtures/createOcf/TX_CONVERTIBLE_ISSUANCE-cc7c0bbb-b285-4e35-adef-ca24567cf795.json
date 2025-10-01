@@ -1,0 +1,401 @@
+{
+  "testContext": {
+    "issuerParty": "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "008064eaebd012b4dd0b29ec4fa51aee7073c6b3af3f20396869dbefa5fca829c9ca111220f003b1afa3a2e9e7e5f5da71e6f189011becdb3387f4324c4e6cf1f9d3940247"
+  },
+  "db": {
+    "id": "cc7c0bbb-b285-4e35-adef-ca24567cf795",
+    "date": "2023-11-01",
+    "comments": [],
+    "custom_id": "CN-2",
+    "seniority": 1,
+    "object_type": "TX_CONVERTIBLE_ISSUANCE",
+    "security_id": "07dc6a31-3852-42b2-9e36-3be2698a4eb9",
+    "stakeholder_id": "3469aae5-32a0-4d59-a106-d74538f1bdd9",
+    "convertible_type": "SAFE",
+    "investment_amount": {
+      "amount": "25000",
+      "currency": "USD"
+    },
+    "conversion_triggers": [
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "nickname": "Next Financing",
+        "trigger_id": "cd1f2ac7-1d39-4c2d-b6cb-77e395cbc415",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "SAFE_CONVERSION",
+            "conversion_mfn": false,
+            "conversion_timing": "POST_MONEY",
+            "conversion_valuation_cap": {
+              "amount": "7000000",
+              "currency": "USD"
+            }
+          },
+          "converts_to_future_round": true
+        },
+        "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)",
+        "trigger_description": "Conversion at Next Equity Financing"
+      }
+    ],
+    "security_law_exemptions": [
+      {
+        "description": "Regulation D 506(b)",
+        "jurisdiction": "US"
+      }
+    ]
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "008064eaebd012b4dd0b29ec4fa51aee7073c6b3af3f20396869dbefa5fca829c9ca111220f003b1afa3a2e9e7e5f5da71e6f189011becdb3387f4324c4e6cf1f9d3940247",
+      "choice": "CreateConvertibleIssuance",
+      "choiceArgument": {
+        "issuance_data": {
+          "id": "cc7c0bbb-b285-4e35-adef-ca24567cf795",
+          "date": "2023-11-01T00:00:00.000Z",
+          "security_id": "07dc6a31-3852-42b2-9e36-3be2698a4eb9",
+          "custom_id": "CN-2",
+          "stakeholder_id": "3469aae5-32a0-4d59-a106-d74538f1bdd9",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": null,
+          "security_law_exemptions": [
+            {
+              "description": "Regulation D 506(b)",
+              "jurisdiction": "US"
+            }
+          ],
+          "investment_amount": {
+            "amount": "25000",
+            "currency": "USD"
+          },
+          "convertible_type": "OcfConvertibleSafe",
+          "conversion_triggers": [
+            {
+              "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+              "trigger_id": "cd1f2ac7-1d39-4c2d-b6cb-77e395cbc415",
+              "nickname": "Next Financing",
+              "trigger_description": "Conversion at Next Equity Financing",
+              "conversion_right": {
+                "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                "conversion_mechanism": {
+                  "tag": "OcfConvMechSAFE",
+                  "value": {
+                    "conversion_discount": null,
+                    "conversion_valuation_cap": {
+                      "amount": "7000000",
+                      "currency": "USD"
+                    },
+                    "exit_multiple": null,
+                    "conversion_mfn": false,
+                    "conversion_timing": "OcfConversionTimingPostMoney",
+                    "capitalization_definition": null,
+                    "capitalization_definition_rules": null
+                  }
+                },
+                "converts_to_future_round": true,
+                "converts_to_stock_class_id": null
+              },
+              "trigger_date": null,
+              "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)"
+            }
+          ],
+          "pro_rata": null,
+          "seniority": "1",
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220b7e3c0354bfb1cc9ed6fad7dc65da6e157ea690d9a085d0311544fdc8ec981cb",
+        "commandId": "submit-and-wait-for-transaction-tree-1759327960993-jkeu97",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T14:12:41.893984Z",
+        "offset": 805324,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 805324,
+                "nodeId": 0,
+                "contractId": "008064eaebd012b4dd0b29ec4fa51aee7073c6b3af3f20396869dbefa5fca829c9ca111220f003b1afa3a2e9e7e5f5da71e6f189011becdb3387f4324c4e6cf1f9d3940247",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateConvertibleIssuance",
+                "choiceArgument": {
+                  "issuance_data": {
+                    "id": "cc7c0bbb-b285-4e35-adef-ca24567cf795",
+                    "convertible_type": "OcfConvertibleSafe",
+                    "custom_id": "CN-2",
+                    "date": "2023-11-01T00:00:00Z",
+                    "investment_amount": {
+                      "amount": "25000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "07dc6a31-3852-42b2-9e36-3be2698a4eb9",
+                    "seniority": "1",
+                    "stakeholder_id": "3469aae5-32a0-4d59-a106-d74538f1bdd9",
+                    "comments": [],
+                    "conversion_triggers": [
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechSAFE",
+                            "value": {
+                              "conversion_mfn": false,
+                              "capitalization_definition": null,
+                              "capitalization_definition_rules": null,
+                              "conversion_discount": null,
+                              "conversion_timing": "OcfConversionTimingPostMoney",
+                              "conversion_valuation_cap": {
+                                "amount": "7000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": null
+                        },
+                        "trigger_id": "cd1f2ac7-1d39-4c2d-b6cb-77e395cbc415",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Next Financing",
+                        "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)",
+                        "trigger_date": null,
+                        "trigger_description": "Conversion at Next Equity Financing"
+                      }
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Regulation D 506(b)",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "pro_rata": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "actingParties": [
+                  "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00799f409eabe83a394041030efce438dd1b1b049c4916417fe66a3020c13d4f6dca1112200e256d3de76e627893aa43cf1e32a3ed924f6efe1cfea51db86cb0e815f88c21",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 805324,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00d696a991d719d1e5ffecc7d7aa43d2600ce9aea07e4f15cf5da3df3a4ce5071dca1112201c8a01ec9503ca4de6f2c6cee812fb155c07ae8e1ff5668a1733b643037d6729"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 805324,
+                "nodeId": 2,
+                "contractId": "00d696a991d719d1e5ffecc7d7aa43d2600ce9aea07e4f15cf5da3df3a4ce5071dca1112201c8a01ec9503ca4de6f2c6cee812fb155c07ae8e1ff5668a1733b643037d6729",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T14:12:41.893984Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 805324,
+                "nodeId": 3,
+                "contractId": "00799f409eabe83a394041030efce438dd1b1b049c4916417fe66a3020c13d4f6dca1112200e256d3de76e627893aa43cf1e32a3ed924f6efe1cfea51db86cb0e815f88c21",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.ConvertibleIssuance:ConvertibleIssuance",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "issuance_data": {
+                    "id": "cc7c0bbb-b285-4e35-adef-ca24567cf795",
+                    "convertible_type": "OcfConvertibleSafe",
+                    "custom_id": "CN-2",
+                    "date": "2023-11-01T00:00:00Z",
+                    "investment_amount": {
+                      "amount": "25000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "07dc6a31-3852-42b2-9e36-3be2698a4eb9",
+                    "seniority": "1",
+                    "stakeholder_id": "3469aae5-32a0-4d59-a106-d74538f1bdd9",
+                    "comments": [],
+                    "conversion_triggers": [
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechSAFE",
+                            "value": {
+                              "conversion_mfn": false,
+                              "capitalization_definition": null,
+                              "capitalization_definition_rules": null,
+                              "conversion_discount": null,
+                              "conversion_timing": "OcfConversionTimingPostMoney",
+                              "conversion_valuation_cap": {
+                                "amount": "7000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": null
+                        },
+                        "trigger_id": "cd1f2ac7-1d39-4c2d-b6cb-77e395cbc415",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Next Financing",
+                        "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)",
+                        "trigger_date": null,
+                        "trigger_description": "Conversion at Next Equity Financing"
+                      }
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Regulation D 506(b)",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "pro_rata": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T14:12:41.893984Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-240bf63a47f8de10131f34e94fd36082-18823fe5aae3954b-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T14:12:42.117658Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_CONVERTIBLE_ISSUANCE",
+    "id": "cc7c0bbb-b285-4e35-adef-ca24567cf795",
+    "date": "2023-11-01",
+    "security_id": "07dc6a31-3852-42b2-9e36-3be2698a4eb9",
+    "custom_id": "CN-2",
+    "stakeholder_id": "3469aae5-32a0-4d59-a106-d74538f1bdd9",
+    "investment_amount": {
+      "amount": "25000.0000000000",
+      "currency": "USD"
+    },
+    "convertible_type": "SAFE",
+    "conversion_triggers": [
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "trigger_id": "cd1f2ac7-1d39-4c2d-b6cb-77e395cbc415",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "SAFE_CONVERSION",
+            "conversion_mfn": false,
+            "conversion_valuation_cap": {
+              "amount": "7000000.0000000000",
+              "currency": "USD"
+            },
+            "conversion_timing": "POST_MONEY"
+          },
+          "converts_to_future_round": true
+        },
+        "nickname": "Next Financing",
+        "trigger_description": "Conversion at Next Equity Financing",
+        "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)"
+      }
+    ],
+    "seniority": 1,
+    "security_law_exemptions": [
+      {
+        "description": "Regulation D 506(b)",
+        "jurisdiction": "US"
+      }
+    ]
+  }
+}

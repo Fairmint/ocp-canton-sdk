@@ -1,0 +1,236 @@
+{
+  "testContext": {
+    "issuerParty": "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "007e260d66d96b0fd4bd4468c5ad036b1654b9102cd94b20bcdd15cfb060ac9e12ca111220afbfe8573df685f604aa39b6054a6dcb0b001e9fd5c8f467705b338e2417729d"
+  },
+  "db": {
+    "id": "f011a4a1-5a4a-4130-8f80-a9135d3eb12d",
+    "name": {
+      "legal_name": "hggjh"
+    },
+    "object_type": "STAKEHOLDER",
+    "stakeholder_type": "INSTITUTION",
+    "issuer_assigned_id": "did:privy:clwz4h84j00pwqbmgk0oh2yhu",
+    "current_relationships": [
+      "INVESTOR"
+    ]
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "007e260d66d96b0fd4bd4468c5ad036b1654b9102cd94b20bcdd15cfb060ac9e12ca111220afbfe8573df685f604aa39b6054a6dcb0b001e9fd5c8f467705b338e2417729d",
+      "choice": "CreateStakeholder",
+      "choiceArgument": {
+        "stakeholder_data": {
+          "id": "f011a4a1-5a4a-4130-8f80-a9135d3eb12d",
+          "name": {
+            "legal_name": "hggjh",
+            "first_name": null,
+            "last_name": null
+          },
+          "stakeholder_type": "OcfStakeholderTypeInstitution",
+          "issuer_assigned_id": "did:privy:clwz4h84j00pwqbmgk0oh2yhu",
+          "primary_contact": null,
+          "contact_info": null,
+          "addresses": [],
+          "tax_ids": [],
+          "comments": [],
+          "current_relationships": [
+            "OcfRelInvestor"
+          ]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "12201218942a938094895cf9071a35c2da0101c408d25b3876817a0171e238d2c7b5",
+        "commandId": "submit-and-wait-for-transaction-tree-1759325971623-zfdqe1",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T13:39:32.490326Z",
+        "offset": 804521,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804521,
+                "nodeId": 0,
+                "contractId": "007e260d66d96b0fd4bd4468c5ad036b1654b9102cd94b20bcdd15cfb060ac9e12ca111220afbfe8573df685f604aa39b6054a6dcb0b001e9fd5c8f467705b338e2417729d",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateStakeholder",
+                "choiceArgument": {
+                  "stakeholder_data": {
+                    "id": "f011a4a1-5a4a-4130-8f80-a9135d3eb12d",
+                    "name": {
+                      "legal_name": "hggjh",
+                      "first_name": null,
+                      "last_name": null
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeInstitution",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": [
+                      "OcfRelInvestor"
+                    ],
+                    "tax_ids": [],
+                    "contact_info": null,
+                    "current_status": null,
+                    "issuer_assigned_id": "did:privy:clwz4h84j00pwqbmgk0oh2yhu",
+                    "primary_contact": null
+                  }
+                },
+                "actingParties": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00d21b44b3e946f44b9c0a53859e35949410869abfd36a53fb5d712bd494b76b6fca11122041d445298765e440ef37738b6d59932a6c47a134061ddf15364500adca9c143c",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804521,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00c9cd6e1d1d26aec11517c69b25166ec496574c91da60824a75c826fef1c54b01ca1112209e0d48ef6a2a85a408c48677e3d11b40aab8233efd0b699b325925009c4e985b"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804521,
+                "nodeId": 2,
+                "contractId": "00c9cd6e1d1d26aec11517c69b25166ec496574c91da60824a75c826fef1c54b01ca1112209e0d48ef6a2a85a408c48677e3d11b40aab8233efd0b699b325925009c4e985b",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T13:39:32.490326Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804521,
+                "nodeId": 3,
+                "contractId": "00d21b44b3e946f44b9c0a53859e35949410869abfd36a53fb5d712bd494b76b6fca11122041d445298765e440ef37738b6d59932a6c47a134061ddf15364500adca9c143c",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Stakeholder:Stakeholder",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "stakeholder_data": {
+                    "id": "f011a4a1-5a4a-4130-8f80-a9135d3eb12d",
+                    "name": {
+                      "legal_name": "hggjh",
+                      "first_name": null,
+                      "last_name": null
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeInstitution",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": [
+                      "OcfRelInvestor"
+                    ],
+                    "tax_ids": [],
+                    "contact_info": null,
+                    "current_status": null,
+                    "issuer_assigned_id": "did:privy:clwz4h84j00pwqbmgk0oh2yhu",
+                    "primary_contact": null
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T13:39:32.490326Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-3a90432b6bbf1f1898ffdc91d664ef15-9d1d06cfab5fc87c-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T13:39:32.757971Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "STAKEHOLDER",
+    "id": "f011a4a1-5a4a-4130-8f80-a9135d3eb12d",
+    "name": {
+      "legal_name": "hggjh"
+    },
+    "stakeholder_type": "INSTITUTION",
+    "issuer_assigned_id": "did:privy:clwz4h84j00pwqbmgk0oh2yhu",
+    "current_relationships": [
+      "INVESTOR"
+    ],
+    "addresses": [],
+    "tax_ids": []
+  }
+}

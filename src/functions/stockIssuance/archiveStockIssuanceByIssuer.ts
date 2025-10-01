@@ -8,31 +8,6 @@ export interface ArchiveStockIssuanceByIssuerParams {
   issuerParty: string;
 }
 
-export interface ArchiveStockIssuanceByIssuerResult {
-  updateId: string;
-}
-
-export async function archiveStockIssuanceByIssuer(
-  client: LedgerJsonApiClient,
-  params: ArchiveStockIssuanceByIssuerParams
-): Promise<ArchiveStockIssuanceByIssuerResult> {
-  const response = (await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.StockIssuance.StockIssuance.templateId,
-          contractId: params.contractId,
-          choice: 'ArchiveByIssuer',
-          choiceArgument: {}
-        }
-      }
-    ]
-  })) as SubmitAndWaitForTransactionTreeResponse;
-
-  return { updateId: response.transactionTree.updateId };
-}
-
 export function buildArchiveStockIssuanceByIssuerCommand(params: { contractId: string; }): Command {
   return {
     ExerciseCommand: {

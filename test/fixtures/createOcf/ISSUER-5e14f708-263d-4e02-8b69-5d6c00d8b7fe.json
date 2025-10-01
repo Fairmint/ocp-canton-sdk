@@ -1,0 +1,389 @@
+{
+  "testContext": {
+    "issuerParty": "5e14f7::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerAuthorizationContractDetails": {
+      "contractId": "00e1d135f1e6d149d442c3560bfcc097ab8577c477fa293dff8b76c300ab340184ca1112209ee9755c9fa8949723cfa6e1cac6b50bb15946881236f20fcb01d66f3fe488b8",
+      "updateId": "1220f809a7ebbcdbcb2a91aca669a312a925e225ee3efb5d07ab52f5c72f7e79c650",
+      "createdEventBlob": "CgMyLjESywUKRQDh0TXx5tFJ1ELDVgv8wJerhXfEd/opPf+LdsMAqzQBhMoREiCe6XVcn6iUlyPPpuHKxrULsVlGiBI28g/LAdZvP+SIuBIQT3BlbkNhcFRhYmxlLXYyNRqEAQpAZTM2NTdhYjVjMjA5MDM2MWJlOTM2Y2I2NjYxMWY5NWRmNGFiZjY5MTFjM2M5NDE3MmFmY2YyZTljMjZmNzVmNhIIRmFpcm1pbnQSDE9wZW5DYXBUYWJsZRITSXNzdWVyQXV0aG9yaXphdGlvbhoTSXNzdWVyQXV0aG9yaXphdGlvbiKJAmqGAgqDAgqAAmr9AQpQCk46TDVlMTRmNzo6MTIyMGVhNzBlYTJjYmZlNmJlNDMxZjM0YzczMjNlMjQ5YzYyNGEwMmZiMjIwOWQyYjczZmFiZDdlZWExZmU4NGRmMzQKXgpcOlpGYWlybWludC12YWxpZGF0b3ItMTo6MTIyMGNkZGFmMzU0ZmIxMmQ0Y2JkZWUzZDMxNDQzMGFhNmZkMjZkNjA2MGI5ZjM1YzM0YTAyMjg4NWUzYzY4MWVjNjMKSQpHSkUANTP/nU5vA77w6rqS6IIen58YVWXCzbWXeiESvRlOmRXKERIgwWU763OZ3GZobdxyC966JBirfeHxvXI3w4nmLM0MfBcqWkZhaXJtaW50LXZhbGlkYXRvci0xOjoxMjIwY2RkYWYzNTRmYjEyZDRjYmRlZTNkMzE0NDMwYWE2ZmQyNmQ2MDYwYjlmMzVjMzRhMDIyODg1ZTNjNjgxZWM2MzJMNWUxNGY3OjoxMjIwZWE3MGVhMmNiZmU2YmU0MzFmMzRjNzMyM2UyNDljNjI0YTAyZmIyMjA5ZDJiNzNmYWJkN2VlYTFmZTg0ZGYzNDl5aWr9CkAGAEIqCiYKJAgBEiCKg1f4AZdr8m7tRhDTL8p5B1iF2ykd/zeT8SquG0VWQBAe",
+      "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+      "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
+      "response": {
+        "transactionTree": {
+          "updateId": "1220f809a7ebbcdbcb2a91aca669a312a925e225ee3efb5d07ab52f5c72f7e79c650",
+          "commandId": "submit-and-wait-for-transaction-tree-1759265805472-ylcnl6",
+          "workflowId": "",
+          "effectiveAt": "2025-09-30T20:56:45.724025Z",
+          "offset": 1935557,
+          "eventsById": {
+            "0": {
+              "ExercisedTreeEvent": {
+                "value": {
+                  "offset": 1935557,
+                  "nodeId": 0,
+                  "contractId": "0053aaae8102e24b36cbaf751ac89ed6d30864ac475dfc094705adc3f95690a8d6ca111220e8ba67b332c676fa79d649b59fa7346e500d892042e9ebef32dfcaa82bbba941",
+                  "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.OcpFactory:OcpFactory",
+                  "interfaceId": null,
+                  "choice": "AuthorizeIssuer",
+                  "choiceArgument": {
+                    "issuer": "5e14f7::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                  },
+                  "actingParties": [
+                    "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                  ],
+                  "consuming": false,
+                  "witnessParties": [
+                    "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                  ],
+                  "lastDescendantNodeId": 1,
+                  "exerciseResult": "00e1d135f1e6d149d442c3560bfcc097ab8577c477fa293dff8b76c300ab340184ca1112209ee9755c9fa8949723cfa6e1cac6b50bb15946881236f20fcb01d66f3fe488b8",
+                  "packageName": "OpenCapTable-v25",
+                  "implementedInterfaces": []
+                }
+              }
+            },
+            "1": {
+              "CreatedTreeEvent": {
+                "value": {
+                  "offset": 1935557,
+                  "nodeId": 1,
+                  "contractId": "00e1d135f1e6d149d442c3560bfcc097ab8577c477fa293dff8b76c300ab340184ca1112209ee9755c9fa8949723cfa6e1cac6b50bb15946881236f20fcb01d66f3fe488b8",
+                  "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
+                  "contractKey": null,
+                  "createArgument": {
+                    "context": {
+                      "issuer": "5e14f7::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                      "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                    }
+                  },
+                  "createdEventBlob": "",
+                  "interfaceViews": [],
+                  "witnessParties": [
+                    "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                  ],
+                  "signatories": [
+                    "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                  ],
+                  "observers": [
+                    "5e14f7::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                  ],
+                  "createdAt": "2025-09-30T20:56:45.724025Z",
+                  "packageName": "OpenCapTable-v25"
+                }
+              }
+            }
+          },
+          "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+          "traceContext": {
+            "traceparent": "00-cda176c717fac9c7be2442f34f4e5fed-53768eddaf13f8e3-01",
+            "tracestate": null
+          },
+          "recordTime": "2025-09-30T20:56:45.973175Z"
+        }
+      }
+    }
+  },
+  "db": {
+    "id": "5e14f708-263d-4e02-8b69-5d6c00d8b7fe",
+    "dba": "Magnetic 3D",
+    "email": {
+      "email_type": "BUSINESS",
+      "email_address": "support@magnetic3d.com"
+    },
+    "address": {
+      "city": "New York City",
+      "country": "US",
+      "postal_code": "10017",
+      "address_type": "LEGAL",
+      "street_suite": "450 Lexington Avenue, 4th floor",
+      "country_subdivision": "NY"
+    },
+    "tax_ids": [
+      {
+        "tax_id": "208420066",
+        "country": "US"
+      }
+    ],
+    "comments": [],
+    "legal_name": "Magnetic Media Holdings, Inc.",
+    "object_type": "ISSUER",
+    "formation_date": "2006-11-13",
+    "country_of_formation": "US",
+    "initial_shares_authorized": "1500",
+    "country_subdivision_of_formation": "DE"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
+      "contractId": "00e1d135f1e6d149d442c3560bfcc097ab8577c477fa293dff8b76c300ab340184ca1112209ee9755c9fa8949723cfa6e1cac6b50bb15946881236f20fcb01d66f3fe488b8",
+      "choice": "CreateIssuer",
+      "choiceArgument": {
+        "issuer_data": {
+          "id": "5e14f708-263d-4e02-8b69-5d6c00d8b7fe",
+          "legal_name": "Magnetic Media Holdings, Inc.",
+          "country_of_formation": "US",
+          "dba": "Magnetic 3D",
+          "formation_date": "2006-11-13T00:00:00.000Z",
+          "country_subdivision_of_formation": "DE",
+          "country_subdivision_name_of_formation": null,
+          "tax_ids": [
+            {
+              "tax_id": "208420066",
+              "country": "US"
+            }
+          ],
+          "email": {
+            "email_type": "OcfEmailTypeBusiness",
+            "email_address": "support@magnetic3d.com"
+          },
+          "phone": null,
+          "address": {
+            "address_type": "OcfAddressTypeLegal",
+            "street_suite": "450 Lexington Avenue, 4th floor",
+            "city": "New York City",
+            "country_subdivision": "NY",
+            "country": "US",
+            "postal_code": "10017"
+          },
+          "initial_shares_authorized": {
+            "tag": "OcfInitialSharesNumeric",
+            "value": "1500"
+          },
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "updateId": "1220a73aa2e243becfc6ccad98c00278e97e2dcf9e0699e02bd9e36766cf7e6a18b8",
+      "commandId": "submit-and-wait-for-transaction-tree-1759265809536-48vprh",
+      "workflowId": "",
+      "effectiveAt": "2025-09-30T20:56:50.677566Z",
+      "offset": 781196,
+      "eventsById": {
+        "0": {
+          "ExercisedTreeEvent": {
+            "value": {
+              "offset": 781196,
+              "nodeId": 0,
+              "contractId": "00e1d135f1e6d149d442c3560bfcc097ab8577c477fa293dff8b76c300ab340184ca1112209ee9755c9fa8949723cfa6e1cac6b50bb15946881236f20fcb01d66f3fe488b8",
+              "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
+              "interfaceId": null,
+              "choice": "CreateIssuer",
+              "choiceArgument": {
+                "issuer_data": {
+                  "id": "5e14f708-263d-4e02-8b69-5d6c00d8b7fe",
+                  "country_of_formation": "US",
+                  "formation_date": "2006-11-13T00:00:00Z",
+                  "legal_name": "Magnetic Media Holdings, Inc.",
+                  "comments": [],
+                  "tax_ids": [
+                    {
+                      "country": "US",
+                      "tax_id": "208420066"
+                    }
+                  ],
+                  "address": {
+                    "address_type": "OcfAddressTypeLegal",
+                    "country": "US",
+                    "city": "New York City",
+                    "country_subdivision": "NY",
+                    "postal_code": "10017",
+                    "street_suite": "450 Lexington Avenue, 4th floor"
+                  },
+                  "country_subdivision_of_formation": "DE",
+                  "country_subdivision_name_of_formation": null,
+                  "dba": "Magnetic 3D",
+                  "email": {
+                    "email_address": "support@magnetic3d.com",
+                    "email_type": "OcfEmailTypeBusiness"
+                  },
+                  "initial_shares_authorized": {
+                    "tag": "OcfInitialSharesNumeric",
+                    "value": "1500.0000000000"
+                  },
+                  "phone": null
+                }
+              },
+              "actingParties": [
+                "5e14f7::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "consuming": true,
+              "witnessParties": [
+                "5e14f7::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "lastDescendantNodeId": 3,
+              "exerciseResult": "00dbffa400271543188da962bf9afd5dde1a206d3253ba70e619b71f3e2e3b7ab9ca1112201b2216ba826a852266cfc4a7a40a3fa291b09ebc9eed1a95ec762fb1ab7e1718",
+              "packageName": "OpenCapTable-v25",
+              "implementedInterfaces": []
+            }
+          }
+        },
+        "1": {
+          "ExercisedTreeEvent": {
+            "value": {
+              "offset": 781196,
+              "nodeId": 1,
+              "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+              "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+              "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+              "choice": "FeaturedAppRight_CreateActivityMarker",
+              "choiceArgument": {
+                "beneficiaries": [
+                  {
+                    "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "weight": "1.0000000000"
+                  }
+                ]
+              },
+              "actingParties": [
+                "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+              ],
+              "consuming": false,
+              "witnessParties": [
+                "5e14f7::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "lastDescendantNodeId": 2,
+              "exerciseResult": {
+                "activityMarkerCids": [
+                  "003988fcb9c3525214138be4493621eb6f2b7e7a8ece257b42411036797ba7f2a8ca11122050c9d1f5c718675852f17c39846ae11efff688475cd9d223ce4ef4e8a7f61721"
+                ]
+              },
+              "packageName": "splice-amulet",
+              "implementedInterfaces": []
+            }
+          }
+        },
+        "2": {
+          "CreatedTreeEvent": {
+            "value": {
+              "offset": 781196,
+              "nodeId": 2,
+              "contractId": "003988fcb9c3525214138be4493621eb6f2b7e7a8ece257b42411036797ba7f2a8ca11122050c9d1f5c718675852f17c39846ae11efff688475cd9d223ce4ef4e8a7f61721",
+              "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+              "contractKey": null,
+              "createArgument": {
+                "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                "weight": "1.0000000000"
+              },
+              "createdEventBlob": "",
+              "interfaceViews": [],
+              "witnessParties": [
+                "5e14f7::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "signatories": [
+                "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+              ],
+              "observers": [
+                "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+              ],
+              "createdAt": "2025-09-30T20:56:50.677566Z",
+              "packageName": "splice-amulet"
+            }
+          }
+        },
+        "3": {
+          "CreatedTreeEvent": {
+            "value": {
+              "offset": 781196,
+              "nodeId": 3,
+              "contractId": "00dbffa400271543188da962bf9afd5dde1a206d3253ba70e619b71f3e2e3b7ab9ca1112201b2216ba826a852266cfc4a7a40a3fa291b09ebc9eed1a95ec762fb1ab7e1718",
+              "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+              "contractKey": null,
+              "createArgument": {
+                "context": {
+                  "issuer": "5e14f7::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                },
+                "issuer_data": {
+                  "id": "5e14f708-263d-4e02-8b69-5d6c00d8b7fe",
+                  "country_of_formation": "US",
+                  "formation_date": "2006-11-13T00:00:00Z",
+                  "legal_name": "Magnetic Media Holdings, Inc.",
+                  "comments": [],
+                  "tax_ids": [
+                    {
+                      "country": "US",
+                      "tax_id": "208420066"
+                    }
+                  ],
+                  "address": {
+                    "address_type": "OcfAddressTypeLegal",
+                    "country": "US",
+                    "city": "New York City",
+                    "country_subdivision": "NY",
+                    "postal_code": "10017",
+                    "street_suite": "450 Lexington Avenue, 4th floor"
+                  },
+                  "country_subdivision_of_formation": "DE",
+                  "country_subdivision_name_of_formation": null,
+                  "dba": "Magnetic 3D",
+                  "email": {
+                    "email_address": "support@magnetic3d.com",
+                    "email_type": "OcfEmailTypeBusiness"
+                  },
+                  "initial_shares_authorized": {
+                    "tag": "OcfInitialSharesNumeric",
+                    "value": "1500.0000000000"
+                  },
+                  "phone": null
+                }
+              },
+              "createdEventBlob": "",
+              "interfaceViews": [],
+              "witnessParties": [
+                "5e14f7::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+              ],
+              "signatories": [
+                "5e14f7::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+              ],
+              "observers": [],
+              "createdAt": "2025-09-30T20:56:50.677566Z",
+              "packageName": "OpenCapTable-v25"
+            }
+          }
+        }
+      },
+      "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+      "traceContext": {
+        "traceparent": "00-c1e70ff7b38c6d1f40dd5cbd4e505e95-53aba897226e7c1d-01",
+        "tracestate": null
+      },
+      "recordTime": "2025-09-30T20:56:50.973899Z"
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "ISSUER",
+    "id": "5e14f708-263d-4e02-8b69-5d6c00d8b7fe",
+    "legal_name": "Magnetic Media Holdings, Inc.",
+    "country_of_formation": "US",
+    "formation_date": "2006-11-13",
+    "tax_ids": [
+      {
+        "country": "US",
+        "tax_id": "208420066"
+      }
+    ],
+    "comments": [],
+    "dba": "Magnetic 3D",
+    "country_subdivision_of_formation": "DE",
+    "email": {
+      "email_type": "BUSINESS",
+      "email_address": "support@magnetic3d.com"
+    },
+    "address": {
+      "address_type": "LEGAL",
+      "country": "US",
+      "street_suite": "450 Lexington Avenue, 4th floor",
+      "city": "New York City",
+      "country_subdivision": "NY",
+      "postal_code": "10017"
+    },
+    "initial_shares_authorized": "1500.0000000000"
+  }
+}

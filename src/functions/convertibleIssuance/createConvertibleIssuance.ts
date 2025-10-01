@@ -2,7 +2,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Monetary } from '../../types/native';
+import { Monetary, CommandWithDisclosedContracts } from '../../types';
 import { monetaryToDaml, dateStringToDAMLTime } from '../../utils/typeConversions';
 
 export interface CreateConvertibleIssuanceParams {
@@ -26,11 +26,6 @@ export interface CreateConvertibleIssuanceParams {
     seniority: number;
     comments?: string[];
   };
-}
-
-export interface CreateConvertibleIssuanceResult {
-  contractId: string;
-  updateId: string;
 }
 
 interface IssuerCreateArgShape { context?: { system_operator?: string } }
@@ -326,79 +321,7 @@ function buildTriggerToDaml(
   } as any;
 }
 
-export async function createConvertibleIssuance(
-  client: LedgerJsonApiClient,
-  params: CreateConvertibleIssuanceParams
-): Promise<CreateConvertibleIssuanceResult> {
-  type TreeEvent = SubmitAndWaitForTransactionTreeResponse['transactionTree']['eventsById'][string];
-  type CreatedEvent = Extract<TreeEvent, { CreatedTreeEvent: unknown }>;
-  function isCreatedEvent(e: TreeEvent): e is CreatedEvent {
-    return 'CreatedTreeEvent' in e;
-  }
-  const d = params.issuanceData;
-  const issuance_data: Fairmint.OpenCapTable.ConvertibleIssuance.OcfConvertibleIssuanceTxData = {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    custom_id: d.custom_id,
-    stakeholder_id: d.stakeholder_id,
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-    consideration_text: d.consideration_text ?? null,
-    security_law_exemptions: d.security_law_exemptions,
-    investment_amount: monetaryToDaml(d.investment_amount),
-    convertible_type: convertibleTypeToDaml(d.convertible_type),
-    conversion_triggers: d.conversion_triggers.map((t, idx) => buildTriggerToDaml(t, idx, d.id)),
-    pro_rata: d.pro_rata !== undefined && d.pro_rata !== null ? (typeof d.pro_rata === 'number' ? d.pro_rata.toString() : d.pro_rata) : null,
-    seniority: d.seniority.toString(),
-    comments: d.comments || []
-  };
-
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateConvertibleIssuance = {
-    issuance_data
-  };
-
-  const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-          contractId: params.issuerContractId,
-          choice: 'CreateConvertibleIssuance',
-          choiceArgument: choiceArguments
-        }
-      }
-    ],
-    disclosedContracts: [
-      {
-        templateId: params.featuredAppRightContractDetails.templateId,
-        contractId: params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-      }
-    ]
-  }) as SubmitAndWaitForTransactionTreeResponse;
-
-  const created = Object.values(response.transactionTree.eventsById).find(
-    (e): e is CreatedEvent => {
-      if (!isCreatedEvent(e)) return false;
-      const templateId = e.CreatedTreeEvent.value.templateId;
-      return templateId.endsWith(':Fairmint.OpenCapTable.ConvertibleIssuance:ConvertibleIssuance');
-    }
-  );
-  if (!created) throw new Error('Expected ConvertibleIssuance CreatedTreeEvent not found');
-
-  return {
-    contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: response.transactionTree.updateId
-  };
-}
-
-export function buildCreateConvertibleIssuanceCommand(params: CreateConvertibleIssuanceParams): {
-  command: Command;
-  disclosedContracts: DisclosedContract[];
-} {
+export function buildCreateConvertibleIssuanceCommand(params: CreateConvertibleIssuanceParams): CommandWithDisclosedContracts {
   const d = params.issuanceData;
   const issuance_data: Fairmint.OpenCapTable.ConvertibleIssuance.OcfConvertibleIssuanceTxData = {
     id: d.id,

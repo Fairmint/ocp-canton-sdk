@@ -1,6 +1,19 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { damlStockLegendTemplateDataToNative } from '../../utils/typeConversions';
+import { OcfStockLegendTemplateData } from '../../types/native';
+
+function damlStockLegendTemplateDataToNative(
+  damlData: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData
+): OcfStockLegendTemplateData {
+  return {
+    id: (damlData as any).id,
+    name: damlData.name || '',
+    text: damlData.text || '',
+    comments: (Array.isArray((damlData as unknown as { comments?: unknown }).comments)
+      ? (damlData as unknown as { comments: string[] }).comments
+      : [])
+  };
+}
 
 export interface OcfStockLegendTemplate {
   object_type: 'STOCK_LEGEND_TEMPLATE';

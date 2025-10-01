@@ -8,30 +8,6 @@ export interface ArchiveStockLegendTemplateByIssuerParams {
   issuerParty: string;
 }
 
-export interface ArchiveStockLegendTemplateByIssuerResult {
-  updateId: string;
-}
-
-export async function archiveStockLegendTemplateByIssuer(
-  client: LedgerJsonApiClient,
-  params: ArchiveStockLegendTemplateByIssuerParams
-): Promise<ArchiveStockLegendTemplateByIssuerResult> {
-  const response = (await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.StockLegendTemplate.StockLegendTemplate.templateId,
-          contractId: params.contractId,
-          choice: 'ArchiveByIssuer',
-          choiceArgument: {}
-        }
-      }
-    ]
-  })) as SubmitAndWaitForTransactionTreeResponse;
-
-  return { updateId: response.transactionTree.updateId };
-}
 
 export function buildArchiveStockLegendTemplateByIssuerCommand(params: { contractId: string; }): Command {
   return {

@@ -1,0 +1,204 @@
+{
+  "testContext": {
+    "issuerParty": "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "007e260d66d96b0fd4bd4468c5ad036b1654b9102cd94b20bcdd15cfb060ac9e12ca111220afbfe8573df685f604aa39b6054a6dcb0b001e9fd5c8f467705b338e2417729d"
+  },
+  "db": {
+    "id": "b70a23d3-0d68-4381-a32b-791a00172d46",
+    "md5": "d7acc4c968bdff9bc9369b0c34703814",
+    "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e",
+    "comments": [
+      "filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"
+    ],
+    "object_type": "DOCUMENT",
+    "related_objects": []
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "007e260d66d96b0fd4bd4468c5ad036b1654b9102cd94b20bcdd15cfb060ac9e12ca111220afbfe8573df685f604aa39b6054a6dcb0b001e9fd5c8f467705b338e2417729d",
+      "choice": "CreateDocument",
+      "choiceArgument": {
+        "document_data": {
+          "id": "b70a23d3-0d68-4381-a32b-791a00172d46",
+          "path": null,
+          "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e",
+          "md5": "d7acc4c968bdff9bc9369b0c34703814",
+          "related_objects": [],
+          "comments": [
+            "filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"
+          ]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220b765b71319faca93375ae0223556ba9b1a364174f30b4cdcc05419e9ffaaa3a8",
+        "commandId": "submit-and-wait-for-transaction-tree-1759325940202-1wd7eq",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T13:39:01.117108Z",
+        "offset": 804506,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804506,
+                "nodeId": 0,
+                "contractId": "007e260d66d96b0fd4bd4468c5ad036b1654b9102cd94b20bcdd15cfb060ac9e12ca111220afbfe8573df685f604aa39b6054a6dcb0b001e9fd5c8f467705b338e2417729d",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateDocument",
+                "choiceArgument": {
+                  "document_data": {
+                    "id": "b70a23d3-0d68-4381-a32b-791a00172d46",
+                    "md5": "d7acc4c968bdff9bc9369b0c34703814",
+                    "comments": [
+                      "filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"
+                    ],
+                    "related_objects": [],
+                    "path": null,
+                    "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e"
+                  }
+                },
+                "actingParties": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00c25a95e16b1edc4cf4e47c376a8319dae16a526f3c0a04ddcc752dd928e574fcca1112206e6d6919c4cdb5311c7fa34cac4f895fc2e10be0301ebdc40aabb1b9e3f8ec22",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804506,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00fa432dfb2665d01dbef76475a4467a234f1ae86a245cd43de67f35f15539eb6aca11122012ec190040f8ae93728be378f27b3267be52e598ef8ee13ed538d0527dcd5505"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804506,
+                "nodeId": 2,
+                "contractId": "00fa432dfb2665d01dbef76475a4467a234f1ae86a245cd43de67f35f15539eb6aca11122012ec190040f8ae93728be378f27b3267be52e598ef8ee13ed538d0527dcd5505",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T13:39:01.117108Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804506,
+                "nodeId": 3,
+                "contractId": "00c25a95e16b1edc4cf4e47c376a8319dae16a526f3c0a04ddcc752dd928e574fcca1112206e6d6919c4cdb5311c7fa34cac4f895fc2e10be0301ebdc40aabb1b9e3f8ec22",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Document:Document",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "document_data": {
+                    "id": "b70a23d3-0d68-4381-a32b-791a00172d46",
+                    "md5": "d7acc4c968bdff9bc9369b0c34703814",
+                    "comments": [
+                      "filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"
+                    ],
+                    "related_objects": [],
+                    "path": null,
+                    "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e"
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T13:39:01.117108Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-b64f744eb1d7a40b85b7a0904e3a85b5-86c215adaf984e7e-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T13:39:01.371433Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "DOCUMENT",
+    "id": "b70a23d3-0d68-4381-a32b-791a00172d46",
+    "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e",
+    "md5": "d7acc4c968bdff9bc9369b0c34703814",
+    "related_objects": [],
+    "comments": [
+      "filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"
+    ]
+  }
+}

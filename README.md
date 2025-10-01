@@ -43,6 +43,13 @@ This README is for SDK contributors and AI assistants. For end users/consumers, 
 ### Data conversion
 - Map inputs using native OCF types from `types/native`
 - Perform conversions in `utils/typeConversions.ts`; reject invalid shapes immediately
+- **Never hide data issues with defensive checks or fallback values**
+  - If DAML defines a field as an array, trust it's an array—don't check with `Array.isArray()` and provide empty array fallbacks
+  - DAML arrays are never null or undefined, so don't check for that either (e.g., `arr && arr.length` → just `arr.length`)
+  - If data is malformed, let it throw naturally so issues surface immediately
+  - This applies to all conversions: fail fast rather than silently handling unexpected data
+  - Example of what NOT to do: `Array.isArray(data) ? data : []` ❌ or `data && data.length` ❌
+  - Example of what to do: `data as ExpectedType[]` ✅ and `data.length` ✅
 
 ### Batching
 - Use `TransactionBatch` for multi-command submissions; prefer `buildXCommand` helpers to ensure types are correct
@@ -55,6 +62,8 @@ This README is for SDK contributors and AI assistants. For end users/consumers, 
 ### Testing
 - Unit-test conversions and param validation
 - Prefer deterministic fixtures and golden samples for OCF objects
+- All OCF fixtures are validated against the official OCF JSON schemas (see `test/utils/ocfSchemaValidator.ts`)
+- The OCF schemas are maintained as a git submodule at `../Open-Cap-Format-OCF/`
 
 ### Documentation
 - Contributor guidance lives here
@@ -67,6 +76,35 @@ This README is for SDK contributors and AI assistants. For end users/consumers, 
 - Errors are actionable; no silent fallbacks
 - Functions added to the relevant `index.ts` barrels and `OcpClient`
 - Add `buildXCommand` variant where batching is expected
+
+### OCF Schema Validation
+
+This SDK includes automated validation of all OCF data against the official [Open Cap Format JSON schemas](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF).
+
+**Setup:**
+```bash
+# Initialize/update the OCF schema submodule
+git submodule update --init --recursive
+```
+
+**Usage in tests:**
+```typescript
+import { validateOcfObject } from './test/utils/ocfSchemaValidator';
+
+// Validate any OCF object
+await validateOcfObject({
+  object_type: 'ISSUER',
+  id: '...',
+  legal_name: 'Example Inc.',
+  // ... other fields
+});
+```
+
+The validator automatically validates both:
+- Input fixtures (`fixture.db`) - Data being sent to Canton
+- Output results - Data returned from `get*AsOcf` methods
+
+All 78+ test fixtures pass validation for both input and output data.
 
 ### License
 MIT

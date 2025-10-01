@@ -2,6 +2,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { CommandWithDisclosedContracts } from '../../types';
 import { dateStringToDAMLTime } from '../../utils/typeConversions';
 
 export interface CreateStockCancellationParams {
@@ -19,44 +20,9 @@ export interface CreateStockCancellationParams {
   };
 }
 
-export interface CreateStockCancellationResult { contractId: string; updateId: string }
-
 interface IssuerCreateArgShape { context?: { system_operator?: string } }
 
-export async function createStockCancellation(
-  client: LedgerJsonApiClient,
-  params: CreateStockCancellationParams
-): Promise<CreateStockCancellationResult> {
-  const d = params.cancellationData;
-  const cancellation_data: any = {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
-    balance_security_id: d.balance_security_id ?? null,
-    reason_text: d.reason_text,
-    comments: d.comments || []
-  } as any;
-
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockCancellation = { cancellation_data } as any;
-
-  const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [ { ExerciseCommand: { templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId, contractId: params.issuerContractId, choice: 'CreateStockCancellation', choiceArgument: choiceArguments as any } } ],
-    disclosedContracts: [ { templateId: params.featuredAppRightContractDetails.templateId, contractId: params.featuredAppRightContractDetails.contractId, createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob, synchronizerId: params.featuredAppRightContractDetails.synchronizerId } ]
-  }) as SubmitAndWaitForTransactionTreeResponse;
-
-  const created = Object.values(response.transactionTree.eventsById).find((e: any) => {
-    const templateId = (e as any).CreatedTreeEvent?.value?.templateId;
-    if (!templateId) return false;
-    return templateId.endsWith(':Fairmint.OpenCapTable.StockCancellation:StockCancellation');
-  }) as any;
-  if (!created) throw new Error('Expected StockCancellation CreatedTreeEvent not found');
-
-  return { contractId: created.CreatedTreeEvent.value.contractId, updateId: response.transactionTree.updateId };
-}
-
-export function buildCreateStockCancellationCommand(params: CreateStockCancellationParams): { command: Command; disclosedContracts: DisclosedContract[] } {
+export function buildCreateStockCancellationCommand(params: CreateStockCancellationParams): CommandWithDisclosedContracts {
   const d = params.cancellationData;
   const cancellation_data: any = {
     id: d.id,
