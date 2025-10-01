@@ -3,17 +3,22 @@ import { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json
 import {
   CreateIssuerParams, buildCreateIssuerCommand,
   GetIssuerAsOcfParams, GetIssuerAsOcfResult, getIssuerAsOcf,
-  buildCreateValuationCommand,
+  buildArchiveIssuerByIssuerCommand,
   CreateStockClassParams, buildCreateStockClassCommand,
   GetStockClassAsOcfParams, GetStockClassAsOcfResult, getStockClassAsOcf,
   buildArchiveStockClassByIssuerCommand,
-  CreateCompanyValuationReportParams, buildCreateCompanyValuationReportCommand
+  CreateCompanyValuationReportParams, buildCreateCompanyValuationReportCommand,
+  GetEquityCompensationExerciseEventAsOcfParams,
+  GetEquityCompensationIssuanceEventAsOcfParams,
+  buildCreateEquityCompensationExerciseCommand,
+  buildCreateEquityCompensationIssuanceCommand,
+  getEquityCompensationExerciseEventAsOcf,
+  getEquityCompensationIssuanceEventAsOcf
 } from './functions';
 import { buildCreateStakeholderCommand, GetStakeholderAsOcfParams, getStakeholderAsOcf, buildArchiveStakeholderByIssuerCommand } from './functions/stakeholder';
 import { buildCreateStockLegendTemplateCommand, GetStockLegendTemplateAsOcfParams, getStockLegendTemplateAsOcf, buildArchiveStockLegendTemplateByIssuerCommand } from './functions/stockLegendTemplate';
-import { GetValuationAsOcfParams, getValuationAsOcf, buildArchiveValuationByIssuerCommand } from './functions/valuation';
 import { buildCreateVestingTermsCommand, GetVestingTermsAsOcfParams, getVestingTermsAsOcf, buildArchiveVestingTermsByIssuerCommand } from './functions/vestingTerms';
-import { buildCreateStockPlanCommand, GetStockPlanAsOcfParams, getStockPlanAsOcf, buildArchiveStockPlanByIssuerCommand, GetEquityCompensationIssuanceEventAsOcfParams, GetEquityCompensationExerciseEventAsOcfParams, getEquityCompensationIssuanceEventAsOcf, getEquityCompensationExerciseEventAsOcf, buildCreateEquityCompensationIssuanceCommand, buildCreateEquityCompensationExerciseCommand } from './functions/stockPlan';
+import { buildCreateStockPlanCommand, GetStockPlanAsOcfParams, getStockPlanAsOcf, buildArchiveStockPlanByIssuerCommand} from './functions/stockPlan';
 import { buildCreateWarrantIssuanceCommand, GetWarrantIssuanceAsOcfParams, getWarrantIssuanceAsOcf, buildArchiveWarrantIssuanceByIssuerCommand } from './functions/warrantIssuance';
 import { buildCreateConvertibleIssuanceCommand, GetConvertibleIssuanceAsOcfParams, getConvertibleIssuanceAsOcf, buildArchiveConvertibleIssuanceByIssuerCommand } from './functions/convertibleIssuance';
 import { buildCreateStockCancellationCommand, GetStockCancellationEventAsOcfParams, getStockCancellationEventAsOcf, buildArchiveStockCancellationByIssuerCommand } from './functions/stockCancellation';
@@ -33,6 +38,7 @@ export class OcpClient {
 
   public issuer: {
     buildCreateIssuerCommand: (params: CreateIssuerParams) => CommandWithDisclosedContracts;
+    buildArchiveIssuerByIssuerCommand: (params: { contractId: string }) => Command;
     getIssuerAsOcf: (params: GetIssuerAsOcfParams) => Promise<GetIssuerAsOcfResult>;
   };
 
@@ -58,12 +64,6 @@ export class OcpClient {
     buildCreateStockLegendTemplateCommand: (params: import('./functions').CreateStockLegendTemplateParams) => CommandWithDisclosedContracts;
     buildArchiveStockLegendTemplateByIssuerCommand: (params: { contractId: string }) => Command;
     getStockLegendTemplateAsOcf: (params: GetStockLegendTemplateAsOcfParams) => Promise<import('./functions').GetStockLegendTemplateAsOcfResult>;
-  };
-
-  public valuation: {
-    buildCreateValuationCommand: (params: import('./functions').CreateValuationParams) => CommandWithDisclosedContracts;
-    buildArchiveValuationByIssuerCommand: (params: { contractId: string }) => Command;
-    getValuationAsOcf: (params: GetValuationAsOcfParams) => Promise<import('./functions').GetValuationAsOcfResult>;
   };
 
   public vestingTerms: {
@@ -137,6 +137,7 @@ export class OcpClient {
 
     this.issuer = {
       buildCreateIssuerCommand: (params: CreateIssuerParams) => buildCreateIssuerCommand(params),
+      buildArchiveIssuerByIssuerCommand: (params) => buildArchiveIssuerByIssuerCommand(params),
       getIssuerAsOcf: (params: GetIssuerAsOcfParams) => getIssuerAsOcf(this.client, params)
     };
 
@@ -161,12 +162,6 @@ export class OcpClient {
       buildCreateStockLegendTemplateCommand: (params) => buildCreateStockLegendTemplateCommand(params),
       buildArchiveStockLegendTemplateByIssuerCommand: (params) => buildArchiveStockLegendTemplateByIssuerCommand(params),
       getStockLegendTemplateAsOcf: (params) => getStockLegendTemplateAsOcf(this.client, params)
-    };
-
-    this.valuation = {
-      buildCreateValuationCommand: (params) => buildCreateValuationCommand(params),
-      buildArchiveValuationByIssuerCommand: (params) => buildArchiveValuationByIssuerCommand(params),
-      getValuationAsOcf: (params) => getValuationAsOcf(this.client, params)
     };
 
     this.vestingTerms = {

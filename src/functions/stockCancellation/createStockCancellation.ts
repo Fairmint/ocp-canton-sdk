@@ -20,31 +20,7 @@ export interface CreateStockCancellationParams {
   };
 }
 
-export interface CreateStockCancellationResult { contractId: string; updateId: string; response: SubmitAndWaitForTransactionTreeResponse }
-
 interface IssuerCreateArgShape { context?: { system_operator?: string } }
-
-export async function createStockCancellation(
-  client: LedgerJsonApiClient,
-  params: CreateStockCancellationParams
-): Promise<CreateStockCancellationResult> {
-  const { command, disclosedContracts } = buildCreateStockCancellationCommand(params);
-
-  const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [command],
-    disclosedContracts
-  }) as SubmitAndWaitForTransactionTreeResponse;
-
-  const created = Object.values((response.transactionTree as any)?.eventsById ?? (response.transactionTree as any)?.transaction?.eventsById).find((e: any) => {
-    const templateId = (e as any).CreatedTreeEvent?.value?.templateId;
-    if (!templateId) return false;
-    return templateId.endsWith(':Fairmint.OpenCapTable.StockCancellation:StockCancellation');
-  }) as any;
-  if (!created) throw new Error('Expected StockCancellation CreatedTreeEvent not found');
-
-  return { contractId: created.CreatedTreeEvent.value.contractId, updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
-}
 
 export function buildCreateStockCancellationCommand(params: CreateStockCancellationParams): CommandWithDisclosedContracts {
   const d = params.cancellationData;

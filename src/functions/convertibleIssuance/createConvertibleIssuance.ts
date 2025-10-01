@@ -28,12 +28,6 @@ export interface CreateConvertibleIssuanceParams {
   };
 }
 
-export interface CreateConvertibleIssuanceResult {
-  contractId: string;
-  updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
-}
-
 interface IssuerCreateArgShape { context?: { system_operator?: string } }
 
 type ConversionTriggerTypeInput =
@@ -325,40 +319,6 @@ function buildTriggerToDaml(
     trigger_date: trigger_dateStr ? dateStringToDAMLTime(trigger_dateStr) : null,
     trigger_condition
   } as any;
-}
-
-export async function createConvertibleIssuance(
-  client: LedgerJsonApiClient,
-  params: CreateConvertibleIssuanceParams
-): Promise<CreateConvertibleIssuanceResult> {
-  type TreeEvent = SubmitAndWaitForTransactionTreeResponse['transactionTree']['eventsById'][string];
-  type CreatedEvent = Extract<TreeEvent, { CreatedTreeEvent: unknown }>;
-  function isCreatedEvent(e: TreeEvent): e is CreatedEvent {
-    return 'CreatedTreeEvent' in e;
-  }
-
-  const { command, disclosedContracts } = buildCreateConvertibleIssuanceCommand(params);
-
-  const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [command],
-    disclosedContracts
-  }) as SubmitAndWaitForTransactionTreeResponse;
-
-  const created = Object.values((response.transactionTree as any)?.eventsById ?? (response.transactionTree as any)?.transaction?.eventsById ?? {}).find(
-    (e: any): e is CreatedEvent => {
-      if (!isCreatedEvent(e)) return false;
-      const templateId = (e as CreatedEvent).CreatedTreeEvent.value.templateId;
-      return templateId.endsWith(':Fairmint.OpenCapTable.ConvertibleIssuance:ConvertibleIssuance');
-    }
-  );
-  if (!created) throw new Error('Expected ConvertibleIssuance CreatedTreeEvent not found');
-
-  return {
-    contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
-    response
-  };
 }
 
 export function buildCreateConvertibleIssuanceCommand(params: CreateConvertibleIssuanceParams): CommandWithDisclosedContracts {

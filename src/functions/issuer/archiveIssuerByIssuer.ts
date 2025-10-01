@@ -1,22 +1,19 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
-export interface ArchiveStakeholderByIssuerParams {
+export interface ArchiveIssuerByIssuerParams {
   contractId: string;
   issuerParty: string;
 }
 
-export function buildArchiveStakeholderByIssuerCommand(params: {
-  contractId: string;
-}): Command {
+export function buildArchiveIssuerByIssuerCommand(params: { contractId: string; }): Command {
   return {
     ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Stakeholder.Stakeholder.templateId,
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
       contractId: params.contractId,
       choice: 'ArchiveByIssuer',
       choiceArgument: {}
     }
   };
 }
-
 

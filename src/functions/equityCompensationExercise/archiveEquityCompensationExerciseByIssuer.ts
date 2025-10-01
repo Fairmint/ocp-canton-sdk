@@ -8,22 +8,6 @@ export interface ArchiveEquityCompensationExerciseByIssuerParams {
   issuerParty: string;
 }
 
-export interface ArchiveEquityCompensationExerciseByIssuerResult {
-  updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
-}
-
-export async function archiveEquityCompensationExerciseByIssuer(
-  client: LedgerJsonApiClient,
-  params: ArchiveEquityCompensationExerciseByIssuerParams
-): Promise<ArchiveEquityCompensationExerciseByIssuerResult> {
-  const response = (await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [buildArchiveEquityCompensationExerciseByIssuerCommand({ contractId: params.contractId })]
-  })) as SubmitAndWaitForTransactionTreeResponse;
-
-  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
-}
 
 export function buildArchiveEquityCompensationExerciseByIssuerCommand(params: { contractId: string; }): Command {
   return {

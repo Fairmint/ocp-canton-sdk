@@ -8,22 +8,6 @@ export interface ArchiveConvertibleIssuanceByIssuerParams {
   issuerParty: string;
 }
 
-export interface ArchiveConvertibleIssuanceByIssuerResult {
-  updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
-}
-
-export async function archiveConvertibleIssuanceByIssuer(
-  client: LedgerJsonApiClient,
-  params: ArchiveConvertibleIssuanceByIssuerParams
-): Promise<ArchiveConvertibleIssuanceByIssuerResult> {
-  const response = (await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [buildArchiveConvertibleIssuanceByIssuerCommand({ contractId: params.contractId })]
-  })) as SubmitAndWaitForTransactionTreeResponse;
-
-  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
-}
 
 export function buildArchiveConvertibleIssuanceByIssuerCommand(params: { contractId: string; }): Command {
   return {

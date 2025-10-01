@@ -4,18 +4,6 @@ import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-s
 import { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
 export interface ArchiveStockPlanPoolAdjustmentByIssuerParams { contractId: string; issuerParty: string }
-export interface ArchiveStockPlanPoolAdjustmentByIssuerResult { updateId: string; response: SubmitAndWaitForTransactionTreeResponse }
-
-export async function archiveStockPlanPoolAdjustmentByIssuer(
-  client: LedgerJsonApiClient,
-  params: ArchiveStockPlanPoolAdjustmentByIssuerParams
-): Promise<ArchiveStockPlanPoolAdjustmentByIssuerResult> {
-  const response = (await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [buildArchiveStockPlanPoolAdjustmentByIssuerCommand({ contractId: params.contractId })]
-  })) as SubmitAndWaitForTransactionTreeResponse;
-  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
-}
 
 export function buildArchiveStockPlanPoolAdjustmentByIssuerCommand(params: { contractId: string; }): Command {
   return {

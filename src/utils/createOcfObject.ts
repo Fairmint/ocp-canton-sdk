@@ -1,6 +1,7 @@
 import { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
-import { CommandWithDisclosedContracts } from '../types';
+import { CommandWithDisclosedContracts, OcfStockClassData } from '../types';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpClient } from '../OcpClient';
 
 export interface CreateOcfObjectParams {
   /** Contract ID of the Issuer contract */
@@ -59,7 +60,7 @@ export interface CreateOcfObjectParams {
  */
 export type BuildCreateOcfObjectCommandFunction = (params: CreateOcfObjectParams) => CommandWithDisclosedContracts[];
 
-export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfObjectCommandFunction {
+export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCreateOcfObjectCommandFunction {
   return (params: CreateOcfObjectParams): CommandWithDisclosedContracts[] => {
     const { issuerContractId, featuredAppRightContractDetails, issuerParty, ocfData, previousContractId } = params;
     
@@ -87,7 +88,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            stockClassData: ocfData
+            stockClassData: ocfData as any
           });
 
         case 'STAKEHOLDER':
@@ -95,7 +96,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            stakeholderData: ocfData
+            stakeholderData: ocfData as any
           });
 
         case 'STOCK_LEGEND_TEMPLATE':
@@ -103,7 +104,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            templateData: ocfData
+            templateData: ocfData as any
           });
 
         case 'VESTING_TERMS':
@@ -111,7 +112,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            vestingTermsData: ocfData
+            vestingTermsData: ocfData as any
           });
 
         case 'STOCK_PLAN':
@@ -119,7 +120,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            planData: ocfData
+            planData: ocfData as any
           });
 
         case 'TX_STOCK_ISSUANCE':
@@ -127,7 +128,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            issuanceData: ocfData
+            issuanceData: ocfData as any
           });
 
         case 'TX_STOCK_CANCELLATION':
@@ -135,7 +136,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            cancellationData: ocfData
+            cancellationData: ocfData as any
           });
 
         case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
@@ -143,7 +144,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            adjustmentData: ocfData
+            adjustmentData: ocfData as any
           });
 
         case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
@@ -151,7 +152,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            adjustmentData: ocfData
+            adjustmentData: ocfData as any
           });
 
         case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
@@ -159,7 +160,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            adjustmentData: ocfData
+            adjustmentData: ocfData as any
           });
 
         case 'TX_EQUITY_COMPENSATION_ISSUANCE':
@@ -167,7 +168,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            issuanceData: ocfData
+            issuanceData: ocfData as any
           });
 
         case 'TX_EQUITY_COMPENSATION_EXERCISE':
@@ -175,7 +176,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            exerciseData: ocfData
+            exerciseData: ocfData as any
           });
 
         case 'DOCUMENT':
@@ -183,7 +184,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            documentData: ocfData
+            documentData: ocfData as any
           });
 
         case 'TX_WARRANT_ISSUANCE':
@@ -191,7 +192,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            issuanceData: ocfData
+            issuanceData: ocfData as any
           });
 
         case 'TX_CONVERTIBLE_ISSUANCE':
@@ -199,7 +200,7 @@ export function buildCreateOcfObjectCommandFactory(client: any): BuildCreateOcfO
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            issuanceData: ocfData
+            issuanceData: ocfData as any
           });
 
         default:
@@ -309,45 +310,3 @@ function buildArchiveCommand(
       throw new Error(`Archive not supported for object type: ${objectType}`);
   }
 }
-
-/**
- * Template ID mapping for OCF object types to their corresponding Daml template IDs.
- * Used to find the created contract in the transaction tree response.
- */
-function getTemplateIdForObjectType(objectType: string): string {
-  switch (objectType) {
-    case 'STOCK_CLASS':
-      return Fairmint.OpenCapTable.StockClass.StockClass.templateId;
-    case 'STAKEHOLDER':
-      return Fairmint.OpenCapTable.Stakeholder.Stakeholder.templateId;
-    case 'STOCK_LEGEND_TEMPLATE':
-      return Fairmint.OpenCapTable.StockLegendTemplate.StockLegendTemplate.templateId;
-    case 'VESTING_TERMS':
-      return Fairmint.OpenCapTable.VestingTerms.VestingTerms.templateId;
-    case 'STOCK_PLAN':
-      return Fairmint.OpenCapTable.StockPlan.StockPlan.templateId;
-    case 'TX_STOCK_ISSUANCE':
-      return Fairmint.OpenCapTable.StockIssuance.StockIssuance.templateId;
-    case 'TX_STOCK_CANCELLATION':
-      return Fairmint.OpenCapTable.StockCancellation.StockCancellation.templateId;
-    case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
-      return Fairmint.OpenCapTable.IssuerAuthorizedSharesAdjustment.IssuerAuthorizedSharesAdjustment.templateId;
-    case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
-      return Fairmint.OpenCapTable.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment.templateId;
-    case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
-      return Fairmint.OpenCapTable.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId;
-    case 'TX_EQUITY_COMPENSATION_ISSUANCE':
-      return Fairmint.OpenCapTable.EquityCompensationIssuance.EquityCompensationIssuance.templateId;
-    case 'TX_EQUITY_COMPENSATION_EXERCISE':
-      return Fairmint.OpenCapTable.EquityCompensationExercise.EquityCompensationExercise.templateId;
-    case 'DOCUMENT':
-      return Fairmint.OpenCapTable.Document.Document.templateId;
-    case 'TX_WARRANT_ISSUANCE':
-      return Fairmint.OpenCapTable.WarrantIssuance.WarrantIssuance.templateId;
-    case 'TX_CONVERTIBLE_ISSUANCE':
-      return Fairmint.OpenCapTable.ConvertibleIssuance.ConvertibleIssuance.templateId;
-    default:
-      throw new Error(`Unsupported object type: ${objectType}`);
-  }
-}
-

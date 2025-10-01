@@ -39,12 +39,6 @@ export interface CreateWarrantIssuanceParams {
   };
 }
 
-export interface CreateWarrantIssuanceResult {
-  contractId: string;
-  updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
-}
-
 type WarrantTriggerTypeInput =
   | 'AUTOMATIC_ON_CONDITION'
   | 'AUTOMATIC_ON_DATE'
@@ -230,34 +224,6 @@ function buildWarrantTrigger(
     conversion_right,
     trigger_date: trigger_dateStr ? dateStringToDAMLTime(trigger_dateStr) : null,
     trigger_condition
-  };
-}
-
-export async function createWarrantIssuance(
-  client: LedgerJsonApiClient,
-  params: CreateWarrantIssuanceParams
-): Promise<CreateWarrantIssuanceResult> {
-  const { command, disclosedContracts } = buildCreateWarrantIssuanceCommand(params);
-
-  const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [command],
-    disclosedContracts
-  }) as SubmitAndWaitForTransactionTreeResponse;
-
-  type TreeEvent = SubmitAndWaitForTransactionTreeResponse['transactionTree']['eventsById'][string];
-  type CreatedEvent = Extract<TreeEvent, { CreatedTreeEvent: unknown }>;
-  const created = Object.values((response.transactionTree as any)?.eventsById ?? (response.transactionTree as any)?.transaction?.eventsById ?? {}).find((e: any): e is CreatedEvent => {
-    if (!('CreatedTreeEvent' in e)) return false;
-    const templateId = (e as CreatedEvent).CreatedTreeEvent.value.templateId;
-    return templateId.endsWith(':Fairmint.OpenCapTable.WarrantIssuance:WarrantIssuance');
-  });
-  if (!created) throw new Error('Expected WarrantIssuance CreatedTreeEvent not found');
-
-  return {
-    contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
-    response
   };
 }
 

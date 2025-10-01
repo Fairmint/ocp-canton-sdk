@@ -20,30 +20,6 @@ export interface CreateEquityCompensationExerciseParams {
   };
 }
 
-export interface CreateEquityCompensationExerciseResult { contractId: string; updateId: string; response: SubmitAndWaitForTransactionTreeResponse }
-
-export async function createEquityCompensationExercise(
-  client: LedgerJsonApiClient,
-  params: CreateEquityCompensationExerciseParams
-): Promise<CreateEquityCompensationExerciseResult> {
-  const { command, disclosedContracts } = buildCreateEquityCompensationExerciseCommand(params);
-
-  const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [command],
-    disclosedContracts
-  }) as SubmitAndWaitForTransactionTreeResponse;
-
-  const created = Object.values((response.transactionTree as any)?.eventsById ?? (response.transactionTree as any)?.transaction?.eventsById).find((e: any) => {
-    const templateId = (e as any).CreatedTreeEvent?.value?.templateId;
-    if (!templateId) return false;
-    return templateId.endsWith(':Fairmint.OpenCapTable.EquityCompensationExercise:EquityCompensationExercise');
-  }) as any;
-  if (!created) throw new Error('Expected EquityCompensationExercise CreatedTreeEvent not found');
-
-  return { contractId: created.CreatedTreeEvent.value.contractId, updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
-}
-
 export function buildCreateEquityCompensationExerciseCommand(params: CreateEquityCompensationExerciseParams): CommandWithDisclosedContracts {
   const d = params.exerciseData;
   const exercise_data: any = {

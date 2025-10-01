@@ -71,30 +71,6 @@ export interface CreateEquityCompensationIssuanceParams {
   };
 }
 
-export interface CreateEquityCompensationIssuanceResult { contractId: string; updateId: string; response: SubmitAndWaitForTransactionTreeResponse }
-
-export async function createEquityCompensationIssuance(
-  client: LedgerJsonApiClient,
-  params: CreateEquityCompensationIssuanceParams
-): Promise<CreateEquityCompensationIssuanceResult> {
-  const { command, disclosedContracts } = buildCreateEquityCompensationIssuanceCommand(params);
-
-  const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [command],
-    disclosedContracts
-  }) as SubmitAndWaitForTransactionTreeResponse;
-
-  type TreeEvent = SubmitAndWaitForTransactionTreeResponse['transactionTree']['eventsById'][string];
-  type CreatedEvent = Extract<TreeEvent, { CreatedTreeEvent: unknown }>;
-  const created = Object.values((response.transactionTree as any)?.eventsById ?? (response.transactionTree as any)?.transaction?.eventsById ?? {}).find((e: any): e is CreatedEvent =>
-    'CreatedTreeEvent' in e && (e as CreatedEvent).CreatedTreeEvent.value.templateId.endsWith(':Fairmint.OpenCapTable.EquityCompensationIssuance:EquityCompensationIssuance')
-  );
-  if (!created) throw new Error('Expected EquityCompensationIssuance CreatedTreeEvent not found');
-
-  return { contractId: created.CreatedTreeEvent.value.contractId, updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
-}
-
 export function buildCreateEquityCompensationIssuanceCommand(params: CreateEquityCompensationIssuanceParams): CommandWithDisclosedContracts {
   const d = params.issuanceData;
   const emptyToNull = (v: string | undefined): string | null => (v === '' ? null : (v ?? null));

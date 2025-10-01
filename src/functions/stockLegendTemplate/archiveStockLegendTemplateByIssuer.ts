@@ -8,22 +8,6 @@ export interface ArchiveStockLegendTemplateByIssuerParams {
   issuerParty: string;
 }
 
-export interface ArchiveStockLegendTemplateByIssuerResult {
-  updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
-}
-
-export async function archiveStockLegendTemplateByIssuer(
-  client: LedgerJsonApiClient,
-  params: ArchiveStockLegendTemplateByIssuerParams
-): Promise<ArchiveStockLegendTemplateByIssuerResult> {
-  const response = (await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [buildArchiveStockLegendTemplateByIssuerCommand({ contractId: params.contractId })]
-  })) as SubmitAndWaitForTransactionTreeResponse;
-
-  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
-}
 
 export function buildArchiveStockLegendTemplateByIssuerCommand(params: { contractId: string; }): Command {
   return {

@@ -8,22 +8,6 @@ export interface ArchiveVestingTermsByIssuerParams {
   issuerParty: string;
 }
 
-export interface ArchiveVestingTermsByIssuerResult {
-  updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
-}
-
-export async function archiveVestingTermsByIssuer(
-  client: LedgerJsonApiClient,
-  params: ArchiveVestingTermsByIssuerParams
-): Promise<ArchiveVestingTermsByIssuerResult> {
-  const response = (await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [buildArchiveVestingTermsByIssuerCommand({ contractId: params.contractId })]
-  })) as SubmitAndWaitForTransactionTreeResponse;
-
-  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
-}
 
 export function buildArchiveVestingTermsByIssuerCommand(params: { contractId: string; }): Command {
   return {

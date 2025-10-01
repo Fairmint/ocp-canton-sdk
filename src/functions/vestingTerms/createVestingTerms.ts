@@ -115,42 +115,10 @@ export interface CreateVestingTermsParams {
   vestingTermsData: OcfVestingTermsData;
 }
 
-export interface CreateVestingTermsResult {
-  contractId: string;
-  updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
-}
-
 /**
  * Create vesting terms by exercising the CreateVestingTerms choice on an Issuer contract
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/VestingTerms.schema.json
  */
-export async function createVestingTerms(
-  client: LedgerJsonApiClient,
-  params: CreateVestingTermsParams
-): Promise<CreateVestingTermsResult> {
-  const { command, disclosedContracts } = buildCreateVestingTermsCommand(params);
-
-  const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [command],
-    disclosedContracts
-  }) as SubmitAndWaitForTransactionTreeResponse;
-
-  const created = findCreatedEventByTemplateId(
-    response,
-    Fairmint.OpenCapTable.VestingTerms.VestingTerms.templateId
-  );
-  if (!created) {
-    throw new Error(`Expected CreatedTreeEvent not found for template ${Fairmint.OpenCapTable.VestingTerms.VestingTerms.templateId}`);
-  }
-
-  return {
-    contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
-    response
-  };
-}
 
 export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams): CommandWithDisclosedContracts {
   const damlArgs: Fairmint.OpenCapTable.Issuer.CreateVestingTerms = {
@@ -172,8 +140,7 @@ export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams)
         return {
           ...c,
           portion,
-          trigger,
-        };
+          trigger };
       })
     }
   };
