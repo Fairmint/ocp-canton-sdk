@@ -27,6 +27,7 @@ import { buildCreateStockClassAuthorizedSharesAdjustmentCommand, GetStockClassAu
 import { buildCreateStockPlanPoolAdjustmentCommand, GetStockPlanPoolAdjustmentEventAsOcfParams, getStockPlanPoolAdjustmentEventAsOcf, buildArchiveStockPlanPoolAdjustmentByIssuerCommand } from './functions/stockPlanPoolAdjustment';
 import { buildCreateDocumentCommand, GetDocumentAsOcfParams, getDocumentAsOcf, buildArchiveDocumentByIssuerCommand } from './functions/document';
 import { buildCreateStockIssuanceCommand, GetStockIssuanceAsOcfParams, getStockIssuanceAsOcf, buildArchiveStockIssuanceByIssuerCommand } from './functions/stockIssuance';
+import { authorizeIssuer, AuthorizeIssuerParams, AuthorizeIssuerResult, withdrawAuthorization, WithdrawAuthorizationParams, WithdrawAuthorizationResult } from './functions/issuerAuthorization';
 import { CommandWithDisclosedContracts } from './types';
 import { 
   buildCreateOcfObjectCommandFactory,
@@ -130,6 +131,11 @@ export class OcpClient {
     getDocumentAsOcf: (params: GetDocumentAsOcfParams) => Promise<import('./functions').GetDocumentAsOcfResult>;
   };
 
+  public issuerAuthorization: {
+    authorizeIssuer: (params: AuthorizeIssuerParams) => Promise<AuthorizeIssuerResult>;
+    withdrawAuthorization: (params: WithdrawAuthorizationParams) => Promise<WithdrawAuthorizationResult>;
+  };
+
   public buildCreateOcfObjectCommand: (params: CreateOcfObjectParams) => CommandWithDisclosedContracts[];
 
   constructor(config?: ClientConfig) {
@@ -226,6 +232,11 @@ export class OcpClient {
       buildCreateStockIssuanceCommand: (params) => buildCreateStockIssuanceCommand(params),
       buildArchiveStockIssuanceByIssuerCommand: (params) => buildArchiveStockIssuanceByIssuerCommand(params),
       getStockIssuanceAsOcf: (params) => getStockIssuanceAsOcf(this.client, params)
+    };
+
+    this.issuerAuthorization = {
+      authorizeIssuer: (params) => authorizeIssuer(this.client, params),
+      withdrawAuthorization: (params) => withdrawAuthorization(this.client, params)
     };
 
     this.buildCreateOcfObjectCommand = buildCreateOcfObjectCommandFactory(this);

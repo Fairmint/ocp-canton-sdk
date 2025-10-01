@@ -20,6 +20,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -35,6 +36,17 @@ jobs:
 
       - name: Run tests
         run: npm run test:ci
+
+      - name: Prepare release
+        run: npm run prepare-release
+
+      - name: Commit version bump and changelog
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add package.json CHANGELOG.md
+          git commit -m "chore: prepare release $(node -p "require('./package.json').version")" || echo "No changes to commit"
+          git push
 
       - name: Publish to NPM
         run: npm publish
