@@ -1,5 +1,5 @@
 import { ClientConfig, getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import { OcfIssuerData, OcfStakeholderData, OcfStockClassData, OcfStockLegendTemplateData, OcfVestingTermsData, OcfStockPlanData, OcfStockIssuanceData, OcfDocumentData, OcpClient } from '../../src';
+import { OcpClient } from '../../src';
 import { setTransactionTreeFixtureData, clearTransactionTreeFixture, setEventsFixtureData, clearEventsFixture, convertTransactionTreeToEventsResponse } from '../utils/fixtureHelpers';
 import { validateOcfObject } from '../utils/ocfSchemaValidator';
 import * as fs from 'fs';
@@ -116,139 +116,20 @@ describe('OCP Client - Dynamic Create Tests', () => {
         const featuredAppRight = await getFeaturedAppRightContractDetails(validatorApi);
         const client = new OcpClient(config);
 
-        let result;
-        switch (fixture.db.object_type) {
-          case 'ISSUER':
-            result = await client.issuer.createIssuer({
+        // ISSUER has different input requirements, so handle it separately
+        const result = fixture.db.object_type === 'ISSUER'
+          ? await client.issuer.createIssuer({
               featuredAppRightContractDetails: featuredAppRight,
               issuerParty: fixture.testContext.issuerParty,
-              issuerData: fixture.db as unknown as OcfIssuerData,
+              issuerData: fixture.db as any,
               issuerAuthorizationContractDetails: fixture.testContext.issuerAuthorizationContractDetails!
-            });
-            break;
-          case 'STOCK_CLASS':
-            result = await client.stockClass.createStockClass({
+            })
+          : await client.createOcfObject({
               issuerContractId: fixture.testContext.issuerContractId,
               featuredAppRightContractDetails: featuredAppRight,
               issuerParty: fixture.testContext.issuerParty,
-              stockClassData: fixture.db as unknown as OcfStockClassData
+              ocfData: fixture.db as { object_type: string; [key: string]: unknown }
             });
-            break;
-          case 'STAKEHOLDER':
-            result = await client.stakeholder.createStakeholder({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              stakeholderData: fixture.db as unknown as OcfStakeholderData
-            });
-            break;
-          case 'STOCK_LEGEND_TEMPLATE':
-            result = await client.stockLegendTemplate.createStockLegendTemplate({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              templateData: fixture.db as unknown as OcfStockLegendTemplateData
-            });
-            break;
-          case 'VESTING_TERMS':
-            result = await client.vestingTerms.createVestingTerms({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              vestingTermsData: fixture.db as unknown as OcfVestingTermsData
-            });
-            break;
-          case 'STOCK_PLAN':
-            result = await client.stockPlan.createStockPlan({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              planData: fixture.db as unknown as OcfStockPlanData
-            });
-            break;
-          case 'TX_STOCK_ISSUANCE':
-            result = await client.stockIssuance.createStockIssuance({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              issuanceData: fixture.db as unknown as OcfStockIssuanceData
-            });
-            break;
-          case 'TX_STOCK_CANCELLATION':
-            result = await client.stockCancellation.createStockCancellation({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              cancellationData: fixture.db as any
-            });
-            break;
-          case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
-            result = await client.issuerAuthorizedSharesAdjustment.createIssuerAuthorizedSharesAdjustment({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              adjustmentData: fixture.db as any
-            });
-            break;
-          case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
-            result = await client.stockClassAuthorizedSharesAdjustment.createStockClassAuthorizedSharesAdjustment({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              adjustmentData: fixture.db as any
-            });
-            break;
-          case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
-            result = await client.stockPlanPoolAdjustment.createStockPlanPoolAdjustment({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              adjustmentData: fixture.db as any
-            });
-            break;
-          case 'TX_EQUITY_COMPENSATION_ISSUANCE':
-            result = await client.stockPlan.createEquityCompensationIssuance({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              issuanceData: fixture.db as any
-            });
-            break;
-          case 'TX_EQUITY_COMPENSATION_EXERCISE':
-            result = await client.stockPlan.createEquityCompensationExercise({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              exerciseData: fixture.db as any
-            });
-            break;
-          case 'DOCUMENT':
-            result = await client.document.createDocument({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              documentData: fixture.db as any
-            });
-            break;
-          case 'TX_WARRANT_ISSUANCE':
-            result = await client.warrantIssuance.createWarrantIssuance({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              issuanceData: fixture.db as any
-            });
-            break;
-          case 'TX_CONVERTIBLE_ISSUANCE':
-            result = await client.convertibleIssuance.createConvertibleIssuance({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              issuanceData: fixture.db as any
-            });
-            break;
-          default:
-            throw new Error(`Unsupported object type: ${fixture.db.object_type}`);
-        }
 
         // Verify result structure
         expect(result).toBeDefined();

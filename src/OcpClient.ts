@@ -10,6 +10,12 @@ import {
   addObserversToCompanyValuationReport, AddObserversToCompanyValuationReportParams, AddObserversToCompanyValuationReportResult
 } from './functions';
 import { CommandWithDisclosedContracts } from './types';
+import { 
+  createOcfObjectFactory, 
+  buildCreateOcfObjectCommandFactory,
+  CreateOcfObjectParams, 
+  CreateOcfObjectResult 
+} from './utils/createOcfObject';
 
 export class OcpClient {
   public readonly client: LedgerJsonApiClient;
@@ -143,6 +149,9 @@ export class OcpClient {
   public issuerAuthorization: {
     withdrawAuthorization: (params: import('./functions').WithdrawAuthorizationParams) => Promise<import('./functions').WithdrawAuthorizationResult>;
   };
+
+  public buildCreateOcfObjectCommand: (params: CreateOcfObjectParams) => CommandWithDisclosedContracts[];
+  public createOcfObject: (params: CreateOcfObjectParams) => Promise<CreateOcfObjectResult>;
 
   constructor(config?: ClientConfig) {
     this.client = new LedgerJsonApiClient(config);
@@ -321,6 +330,9 @@ export class OcpClient {
       getStockIssuanceAsOcf: (params) => { const { getStockIssuanceAsOcf } = require('./functions/stockIssuance'); return getStockIssuanceAsOcf(this.client, params); },
       archiveStockIssuanceByIssuer: (params) => { const { archiveStockIssuanceByIssuer } = require('./functions/stockIssuance'); return archiveStockIssuanceByIssuer(this.client, params); }
     };
+
+    this.buildCreateOcfObjectCommand = buildCreateOcfObjectCommandFactory(this);
+    this.createOcfObject = createOcfObjectFactory(this);
   }
 
   public createBatch(params: { actAs: string[]; readAs?: string[] }): TransactionBatch {
