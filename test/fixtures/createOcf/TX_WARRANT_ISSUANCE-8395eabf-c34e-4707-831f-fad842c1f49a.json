@@ -1,0 +1,385 @@
+{
+  "testContext": {
+    "issuerParty": "6c9c23::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00fb85b7d9198ddb2c94c4ab8b1fb5377af0330a95033ae077693a4619b62dfbedca111220b94415227d060251ba85041579ed9cb45e086be000d8e4085b941e9ae7100b89"
+  },
+  "db": {
+    "id": "8395eabf-c34e-4707-831f-fad842c1f49a",
+    "date": "2023-07-31",
+    "comments": [],
+    "custom_id": "W-1",
+    "object_type": "TX_WARRANT_ISSUANCE",
+    "security_id": "62f5522a-5f57-4d8b-8a58-13ec889efc2b",
+    "purchase_price": {
+      "amount": "1000000.00",
+      "currency": "USD"
+    },
+    "stakeholder_id": "154ea2f1-9a28-44ab-9550-469bd8389b73",
+    "quantity_source": "UNSPECIFIED",
+    "exercise_triggers": [
+      {
+        "type": "ELECTIVE_AT_WILL",
+        "nickname": "3 years anniversary from the Issue Date",
+        "trigger_id": "c37301da-18ef-4d2a-9bd2-b41651034175",
+        "conversion_right": {
+          "type": "WARRANT_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION",
+            "converts_to_percent": "0.1"
+          }
+        },
+        "trigger_description": "The Holder may exercise, in whole or in part at any time prior to July 31, 2026 by physical or electronic delivery, and by the payment to the Company, by certified, cashiers check or other check acceptable to the Company or by wire transfer to an account designated by the Company, of an amount equal to the Warrant Price Per Share multiplied by the number of Warrant Shares being purchased (the “Exercise Price”)."
+      }
+    ],
+    "security_law_exemptions": [
+      {
+        "description": "Regulation D 506(b)",
+        "jurisdiction": "US"
+      }
+    ],
+    "warrant_expiration_date": "2026-07-31"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "00fb85b7d9198ddb2c94c4ab8b1fb5377af0330a95033ae077693a4619b62dfbedca111220b94415227d060251ba85041579ed9cb45e086be000d8e4085b941e9ae7100b89",
+      "choice": "CreateWarrantIssuance",
+      "choiceArgument": {
+        "issuance_data": {
+          "id": "8395eabf-c34e-4707-831f-fad842c1f49a",
+          "date": "2023-07-31T00:00:00.000Z",
+          "security_id": "62f5522a-5f57-4d8b-8a58-13ec889efc2b",
+          "custom_id": "W-1",
+          "stakeholder_id": "154ea2f1-9a28-44ab-9550-469bd8389b73",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": null,
+          "security_law_exemptions": [
+            {
+              "description": "Regulation D 506(b)",
+              "jurisdiction": "US"
+            }
+          ],
+          "quantity": null,
+          "quantity_source": "OcfQuantityUnspecified",
+          "exercise_price": null,
+          "purchase_price": {
+            "amount": "1000000.00",
+            "currency": "USD"
+          },
+          "exercise_triggers": [
+            {
+              "type_": "OcfTriggerTypeTypeElectiveAtWill",
+              "trigger_id": "c37301da-18ef-4d2a-9bd2-b41651034175",
+              "nickname": "3 years anniversary from the Issue Date",
+              "trigger_description": "The Holder may exercise, in whole or in part at any time prior to July 31, 2026 by physical or electronic delivery, and by the payment to the Company, by certified, cashiers check or other check acceptable to the Company or by wire transfer to an account designated by the Company, of an amount equal to the Warrant Price Per Share multiplied by the number of Warrant Shares being purchased (the “Exercise Price”).",
+              "conversion_right": {
+                "tag": "OcfRightWarrant",
+                "value": {
+                  "type_": "WARRANT_CONVERSION_RIGHT",
+                  "conversion_mechanism": {
+                    "tag": "OcfWarrantMechanismPercentCapitalization",
+                    "value": {
+                      "converts_to_percent": "0.1",
+                      "capitalization_definition": null,
+                      "capitalization_definition_rules": null
+                    }
+                  },
+                  "converts_to_future_round": null,
+                  "converts_to_stock_class_id": null
+                }
+              },
+              "trigger_date": null,
+              "trigger_condition": null
+            }
+          ],
+          "warrant_expiration_date": "2026-07-31T00:00:00.000Z",
+          "vesting_terms_id": null,
+          "vestings": [],
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220ede3f9795fd5bb1c4e48ec9b25b415049b57601671e5fb2f0c71e85624da2d92",
+        "commandId": "submit-and-wait-for-transaction-tree-1759327967777-qj7ajj",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T14:12:48.723840Z",
+        "offset": 805327,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 805327,
+                "nodeId": 0,
+                "contractId": "00fb85b7d9198ddb2c94c4ab8b1fb5377af0330a95033ae077693a4619b62dfbedca111220b94415227d060251ba85041579ed9cb45e086be000d8e4085b941e9ae7100b89",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateWarrantIssuance",
+                "choiceArgument": {
+                  "issuance_data": {
+                    "id": "8395eabf-c34e-4707-831f-fad842c1f49a",
+                    "custom_id": "W-1",
+                    "date": "2023-07-31T00:00:00Z",
+                    "purchase_price": {
+                      "amount": "1000000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "62f5522a-5f57-4d8b-8a58-13ec889efc2b",
+                    "stakeholder_id": "154ea2f1-9a28-44ab-9550-469bd8389b73",
+                    "comments": [],
+                    "exercise_triggers": [
+                      {
+                        "conversion_right": {
+                          "tag": "OcfRightWarrant",
+                          "value": {
+                            "conversion_mechanism": {
+                              "tag": "OcfWarrantMechanismPercentCapitalization",
+                              "value": {
+                                "converts_to_percent": "0.1000000000",
+                                "capitalization_definition": null,
+                                "capitalization_definition_rules": null
+                              }
+                            },
+                            "type_": "WARRANT_CONVERSION_RIGHT",
+                            "converts_to_future_round": null,
+                            "converts_to_stock_class_id": null
+                          }
+                        },
+                        "trigger_id": "c37301da-18ef-4d2a-9bd2-b41651034175",
+                        "type_": "OcfTriggerTypeTypeElectiveAtWill",
+                        "nickname": "3 years anniversary from the Issue Date",
+                        "trigger_condition": null,
+                        "trigger_date": null,
+                        "trigger_description": "The Holder may exercise, in whole or in part at any time prior to July 31, 2026 by physical or electronic delivery, and by the payment to the Company, by certified, cashiers check or other check acceptable to the Company or by wire transfer to an account designated by the Company, of an amount equal to the Warrant Price Per Share multiplied by the number of Warrant Shares being purchased (the “Exercise Price”)."
+                      }
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Regulation D 506(b)",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "vestings": [],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "exercise_price": null,
+                    "quantity": null,
+                    "quantity_source": "OcfQuantityUnspecified",
+                    "stockholder_approval_date": null,
+                    "vesting_terms_id": null,
+                    "warrant_expiration_date": "2026-07-31T00:00:00Z"
+                  }
+                },
+                "actingParties": [
+                  "6c9c23::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "6c9c23::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "000dfb64cbd418e05a3a3859d923383cc8acc09ea8099db46455f6877dd4604cc4ca111220039f7f637df2241b77631365e7b386a4daf2434f109ee3baa6c84beb18668d28",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 805327,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "6c9c23::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "003cd144c23cc4fedcc1c0297c28eedeaf09ac81b395f1f77200b9b71601e7ef06ca111220caf2be3df5fd22855a6d0feb45e3be0c5b06ee1c3106d576aa015ac87f2fa055"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 805327,
+                "nodeId": 2,
+                "contractId": "003cd144c23cc4fedcc1c0297c28eedeaf09ac81b395f1f77200b9b71601e7ef06ca111220caf2be3df5fd22855a6d0feb45e3be0c5b06ee1c3106d576aa015ac87f2fa055",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "6c9c23::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T14:12:48.723840Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 805327,
+                "nodeId": 3,
+                "contractId": "000dfb64cbd418e05a3a3859d923383cc8acc09ea8099db46455f6877dd4604cc4ca111220039f7f637df2241b77631365e7b386a4daf2434f109ee3baa6c84beb18668d28",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.WarrantIssuance:WarrantIssuance",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "6c9c23::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "issuance_data": {
+                    "id": "8395eabf-c34e-4707-831f-fad842c1f49a",
+                    "custom_id": "W-1",
+                    "date": "2023-07-31T00:00:00Z",
+                    "purchase_price": {
+                      "amount": "1000000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "62f5522a-5f57-4d8b-8a58-13ec889efc2b",
+                    "stakeholder_id": "154ea2f1-9a28-44ab-9550-469bd8389b73",
+                    "comments": [],
+                    "exercise_triggers": [
+                      {
+                        "conversion_right": {
+                          "tag": "OcfRightWarrant",
+                          "value": {
+                            "conversion_mechanism": {
+                              "tag": "OcfWarrantMechanismPercentCapitalization",
+                              "value": {
+                                "converts_to_percent": "0.1000000000",
+                                "capitalization_definition": null,
+                                "capitalization_definition_rules": null
+                              }
+                            },
+                            "type_": "WARRANT_CONVERSION_RIGHT",
+                            "converts_to_future_round": null,
+                            "converts_to_stock_class_id": null
+                          }
+                        },
+                        "trigger_id": "c37301da-18ef-4d2a-9bd2-b41651034175",
+                        "type_": "OcfTriggerTypeTypeElectiveAtWill",
+                        "nickname": "3 years anniversary from the Issue Date",
+                        "trigger_condition": null,
+                        "trigger_date": null,
+                        "trigger_description": "The Holder may exercise, in whole or in part at any time prior to July 31, 2026 by physical or electronic delivery, and by the payment to the Company, by certified, cashiers check or other check acceptable to the Company or by wire transfer to an account designated by the Company, of an amount equal to the Warrant Price Per Share multiplied by the number of Warrant Shares being purchased (the “Exercise Price”)."
+                      }
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Regulation D 506(b)",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "vestings": [],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "exercise_price": null,
+                    "quantity": null,
+                    "quantity_source": "OcfQuantityUnspecified",
+                    "stockholder_approval_date": null,
+                    "vesting_terms_id": null,
+                    "warrant_expiration_date": "2026-07-31T00:00:00Z"
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "6c9c23::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "6c9c23::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T14:12:48.723840Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-f37df482ccc38455838a993356c4dbee-f4b62952d1e5dd3b-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T14:12:48.817865Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_WARRANT_ISSUANCE",
+    "id": "8395eabf-c34e-4707-831f-fad842c1f49a",
+    "date": "2023-07-31",
+    "security_id": "62f5522a-5f57-4d8b-8a58-13ec889efc2b",
+    "custom_id": "W-1",
+    "stakeholder_id": "154ea2f1-9a28-44ab-9550-469bd8389b73",
+    "quantity": null,
+    "exercise_price": null,
+    "purchase_price": {
+      "amount": "1000000.0000000000",
+      "currency": "USD"
+    },
+    "exercise_triggers": [
+      {
+        "type": "ELECTIVE_AT_WILL",
+        "trigger_id": "c37301da-18ef-4d2a-9bd2-b41651034175",
+        "conversion_right": {
+          "type": "WARRANT_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION",
+            "converts_to_percent": "0.1000000000"
+          }
+        },
+        "nickname": "3 years anniversary from the Issue Date",
+        "trigger_description": "The Holder may exercise, in whole or in part at any time prior to July 31, 2026 by physical or electronic delivery, and by the payment to the Company, by certified, cashiers check or other check acceptable to the Company or by wire transfer to an account designated by the Company, of an amount equal to the Warrant Price Per Share multiplied by the number of Warrant Shares being purchased (the “Exercise Price”)."
+      }
+    ],
+    "warrant_expiration_date": "2026-07-31",
+    "security_law_exemptions": [
+      {
+        "description": "Regulation D 506(b)",
+        "jurisdiction": "US"
+      }
+    ]
+  }
+}

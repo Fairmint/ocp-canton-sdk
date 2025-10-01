@@ -1,6 +1,7 @@
 import { ClientConfig, getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { OcfIssuerData, OcfStakeholderData, OcfStockClassData, OcfStockLegendTemplateData, OcfVestingTermsData, OcfStockPlanData, OcfStockIssuanceData, OcfDocumentData, OcpClient } from '../../src';
 import { setTransactionTreeFixtureData, clearTransactionTreeFixture, setEventsFixtureData, clearEventsFixture, convertTransactionTreeToEventsResponse } from '../utils/fixtureHelpers';
+import { validateOcfObject } from '../utils/ocfSchemaValidator';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
@@ -104,6 +105,9 @@ describe('OCP Client - Dynamic Create Tests', () => {
       });
 
       test('validates request and returns expected response', async () => {
+        // Validate input OCF data against schema
+        await validateOcfObject(fixture.db);
+
         const config: ClientConfig = {
           network: 'devnet'
         };
@@ -226,6 +230,22 @@ describe('OCP Client - Dynamic Create Tests', () => {
               documentData: fixture.db as any
             });
             break;
+          case 'TX_WARRANT_ISSUANCE':
+            result = await client.warrantIssuance.createWarrantIssuance({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              issuanceData: fixture.db as any
+            });
+            break;
+          case 'TX_CONVERTIBLE_ISSUANCE':
+            result = await client.convertibleIssuance.createConvertibleIssuance({
+              issuerContractId: fixture.testContext.issuerContractId,
+              featuredAppRightContractDetails: featuredAppRight,
+              issuerParty: fixture.testContext.issuerParty,
+              issuanceData: fixture.db as any
+            });
+            break;
           default:
             throw new Error(`Unsupported object type: ${fixture.db.object_type}`);
         }
@@ -325,13 +345,28 @@ describe('OCP Client - Dynamic Create Tests', () => {
               result = await client.document.getDocumentAsOcf({ contractId });
               expectedOcf = { document: fixture.onchain_ocf, contractId };
               break;
+            case 'TX_WARRANT_ISSUANCE':
+              result = await client.warrantIssuance.getWarrantIssuanceAsOcf({ contractId });
+              expectedOcf = { event: fixture.onchain_ocf, contractId };
+              break;
+            case 'TX_CONVERTIBLE_ISSUANCE':
+              result = await client.convertibleIssuance.getConvertibleIssuanceAsOcf({ contractId });
+              expectedOcf = { event: fixture.onchain_ocf, contractId };
+              break;
             default:
-              // Skip unsupported types for now
-              return;
+              throw new Error(`Unsupported object type: ${fixture.db.object_type}`);
           }
 
           // Verify the result matches expected OCF
           expect(result).toEqual(expectedOcf);
+
+          // Validate the returned OCF data against schema
+          // Extract the actual OCF object from the result (remove contractId wrapper)
+          const ocfData = Object.values(result).find((val) => 
+            typeof val === 'object' && val !== null && 'object_type' in val
+          ) as Record<string, unknown>;
+          
+          // TODO await validateOcfObject(ocfData);
         } finally {
           clearEventsFixture();
         }

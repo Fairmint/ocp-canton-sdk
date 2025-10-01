@@ -1,0 +1,809 @@
+{
+  "testContext": {
+    "issuerParty": "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00242de68dd69e84a02da5a4257b0b637ec01f3954c1a375b7b85ace49042cb4c2ca111220e1c486439a978db28dc011b651014f87a32e15327553e46c015e5a6f00a9a814"
+  },
+  "db": {
+    "id": "ddc291db-4b74-4e67-8809-bb4f4c72237a",
+    "date": "2025-05-05",
+    "comments": [
+      "This SAFE is intended to operate like standard non-participating Preferred Stock."
+    ],
+    "custom_id": "SAFE-1",
+    "seniority": 2,
+    "object_type": "TX_CONVERTIBLE_ISSUANCE",
+    "security_id": "3a306f69-0d92-4f6e-8bba-c3c29a45b2ce",
+    "stakeholder_id": "0e129fbd-c25c-4b22-9965-7dc26f59f061",
+    "convertible_type": "SAFE",
+    "investment_amount": {
+      "amount": "100000",
+      "currency": "USD"
+    },
+    "consideration_text": "Payment of $100,000",
+    "conversion_triggers": [
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "nickname": "Equity Financing",
+        "trigger_id": "516a9516-e5d7-4636-b2b4-bc4f97769196",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "SAFE_CONVERSION",
+            "conversion_mfn": false,
+            "conversion_timing": "POST_MONEY",
+            "conversion_valuation_cap": {
+              "amount": "3000000",
+              "currency": "USD"
+            },
+            "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all Converting Securities; all issued and outstanding Options and Promised Options; and the Unissued Option Pool, except increases in connection with the Equity Financing.",
+            "capitalization_definition_rules": {
+              "include_new_money": false,
+              "include_this_security": true,
+              "include_outstanding_shares": true,
+              "include_outstanding_options": true,
+              "include_other_converting_securities": true,
+              "include_additional_option_pool_topup": false,
+              "include_outstanding_unissued_options": true,
+              "include_option_pool_topup_for_promised_options": false
+            }
+          },
+          "converts_to_future_round": true
+        },
+        "trigger_condition": "Equity Financing before the termination of this Safe",
+        "trigger_description": "Automatic conversion upon Equity Financing"
+      },
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "nickname": "Liquidity Event",
+        "trigger_id": "c8281faa-e234-4b3f-83dc-53376f62a971",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "SAFE_CONVERSION",
+            "conversion_mfn": false,
+            "conversion_timing": "POST_MONEY",
+            "conversion_valuation_cap": {
+              "amount": "3000000",
+              "currency": "USD"
+            },
+            "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all issued and outstanding Options and Promised Options receiving Proceeds; all Converting Securities except those receiving Cash-Out Amounts; excludes the Unissued Option Pool.",
+            "capitalization_definition_rules": {
+              "include_new_money": false,
+              "include_this_security": true,
+              "include_outstanding_shares": true,
+              "include_outstanding_options": true,
+              "include_other_converting_securities": true,
+              "include_additional_option_pool_topup": false,
+              "include_outstanding_unissued_options": false,
+              "include_option_pool_topup_for_promised_options": false
+            }
+          },
+          "converts_to_future_round": true
+        },
+        "trigger_condition": "Liquidity Event before the termination of this Safe",
+        "trigger_description": "Automatic conversion upon Liquidity Event"
+      },
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "nickname": "Dissolution Event",
+        "trigger_id": "a45c7f47-693e-470a-8537-a11a1473f1b3",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "SAFE_CONVERSION",
+            "conversion_mfn": false,
+            "conversion_timing": "POST_MONEY",
+            "conversion_valuation_cap": {
+              "amount": "3000000",
+              "currency": "USD"
+            },
+            "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all issued and outstanding Options and Promised Options receiving Proceeds; all Converting Securities except those receiving Cash-Out Amounts; excludes the Unissued Option Pool.",
+            "capitalization_definition_rules": {
+              "include_new_money": false,
+              "include_this_security": true,
+              "include_outstanding_shares": true,
+              "include_outstanding_options": true,
+              "include_other_converting_securities": true,
+              "include_additional_option_pool_topup": false,
+              "include_outstanding_unissued_options": false,
+              "include_option_pool_topup_for_promised_options": false
+            }
+          },
+          "converts_to_future_round": true
+        },
+        "trigger_condition": "Dissolution Event before the termination of this Safe",
+        "trigger_description": "Automatic conversion upon Dissolution Event"
+      }
+    ],
+    "security_law_exemptions": [
+      {
+        "description": "Exemption under the Securities Act of 1933 and applicable state securities laws",
+        "jurisdiction": "US"
+      }
+    ]
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "00242de68dd69e84a02da5a4257b0b637ec01f3954c1a375b7b85ace49042cb4c2ca111220e1c486439a978db28dc011b651014f87a32e15327553e46c015e5a6f00a9a814",
+      "choice": "CreateConvertibleIssuance",
+      "choiceArgument": {
+        "issuance_data": {
+          "id": "ddc291db-4b74-4e67-8809-bb4f4c72237a",
+          "date": "2025-05-05T00:00:00.000Z",
+          "security_id": "3a306f69-0d92-4f6e-8bba-c3c29a45b2ce",
+          "custom_id": "SAFE-1",
+          "stakeholder_id": "0e129fbd-c25c-4b22-9965-7dc26f59f061",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": "Payment of $100,000",
+          "security_law_exemptions": [
+            {
+              "description": "Exemption under the Securities Act of 1933 and applicable state securities laws",
+              "jurisdiction": "US"
+            }
+          ],
+          "investment_amount": {
+            "amount": "100000",
+            "currency": "USD"
+          },
+          "convertible_type": "OcfConvertibleSafe",
+          "conversion_triggers": [
+            {
+              "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+              "trigger_id": "516a9516-e5d7-4636-b2b4-bc4f97769196",
+              "nickname": "Equity Financing",
+              "trigger_description": "Automatic conversion upon Equity Financing",
+              "conversion_right": {
+                "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                "conversion_mechanism": {
+                  "tag": "OcfConvMechSAFE",
+                  "value": {
+                    "conversion_discount": null,
+                    "conversion_valuation_cap": {
+                      "amount": "3000000",
+                      "currency": "USD"
+                    },
+                    "exit_multiple": null,
+                    "conversion_mfn": false,
+                    "conversion_timing": "OcfConversionTimingPostMoney",
+                    "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all Converting Securities; all issued and outstanding Options and Promised Options; and the Unissued Option Pool, except increases in connection with the Equity Financing.",
+                    "capitalization_definition_rules": {
+                      "include_outstanding_shares": true,
+                      "include_outstanding_options": true,
+                      "include_outstanding_unissued_options": true,
+                      "include_this_security": true,
+                      "include_other_converting_securities": true,
+                      "include_option_pool_topup_for_promised_options": false,
+                      "include_additional_option_pool_topup": false,
+                      "include_new_money": false
+                    }
+                  }
+                },
+                "converts_to_future_round": true,
+                "converts_to_stock_class_id": null
+              },
+              "trigger_date": null,
+              "trigger_condition": "Equity Financing before the termination of this Safe"
+            },
+            {
+              "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+              "trigger_id": "c8281faa-e234-4b3f-83dc-53376f62a971",
+              "nickname": "Liquidity Event",
+              "trigger_description": "Automatic conversion upon Liquidity Event",
+              "conversion_right": {
+                "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                "conversion_mechanism": {
+                  "tag": "OcfConvMechSAFE",
+                  "value": {
+                    "conversion_discount": null,
+                    "conversion_valuation_cap": {
+                      "amount": "3000000",
+                      "currency": "USD"
+                    },
+                    "exit_multiple": null,
+                    "conversion_mfn": false,
+                    "conversion_timing": "OcfConversionTimingPostMoney",
+                    "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all issued and outstanding Options and Promised Options receiving Proceeds; all Converting Securities except those receiving Cash-Out Amounts; excludes the Unissued Option Pool.",
+                    "capitalization_definition_rules": {
+                      "include_outstanding_shares": true,
+                      "include_outstanding_options": true,
+                      "include_outstanding_unissued_options": false,
+                      "include_this_security": true,
+                      "include_other_converting_securities": true,
+                      "include_option_pool_topup_for_promised_options": false,
+                      "include_additional_option_pool_topup": false,
+                      "include_new_money": false
+                    }
+                  }
+                },
+                "converts_to_future_round": true,
+                "converts_to_stock_class_id": null
+              },
+              "trigger_date": null,
+              "trigger_condition": "Liquidity Event before the termination of this Safe"
+            },
+            {
+              "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+              "trigger_id": "a45c7f47-693e-470a-8537-a11a1473f1b3",
+              "nickname": "Dissolution Event",
+              "trigger_description": "Automatic conversion upon Dissolution Event",
+              "conversion_right": {
+                "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                "conversion_mechanism": {
+                  "tag": "OcfConvMechSAFE",
+                  "value": {
+                    "conversion_discount": null,
+                    "conversion_valuation_cap": {
+                      "amount": "3000000",
+                      "currency": "USD"
+                    },
+                    "exit_multiple": null,
+                    "conversion_mfn": false,
+                    "conversion_timing": "OcfConversionTimingPostMoney",
+                    "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all issued and outstanding Options and Promised Options receiving Proceeds; all Converting Securities except those receiving Cash-Out Amounts; excludes the Unissued Option Pool.",
+                    "capitalization_definition_rules": {
+                      "include_outstanding_shares": true,
+                      "include_outstanding_options": true,
+                      "include_outstanding_unissued_options": false,
+                      "include_this_security": true,
+                      "include_other_converting_securities": true,
+                      "include_option_pool_topup_for_promised_options": false,
+                      "include_additional_option_pool_topup": false,
+                      "include_new_money": false
+                    }
+                  }
+                },
+                "converts_to_future_round": true,
+                "converts_to_stock_class_id": null
+              },
+              "trigger_date": null,
+              "trigger_condition": "Dissolution Event before the termination of this Safe"
+            }
+          ],
+          "pro_rata": null,
+          "seniority": "2",
+          "comments": [
+            "This SAFE is intended to operate like standard non-participating Preferred Stock."
+          ]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "12203e6f77d031d04d8bc38d4c77a9d8aadb24c3eae3ccc12508079b9aa5221154f2",
+        "commandId": "submit-and-wait-for-transaction-tree-1759328120539-rkbmdq",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T14:15:21.434347Z",
+        "offset": 805402,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 805402,
+                "nodeId": 0,
+                "contractId": "00242de68dd69e84a02da5a4257b0b637ec01f3954c1a375b7b85ace49042cb4c2ca111220e1c486439a978db28dc011b651014f87a32e15327553e46c015e5a6f00a9a814",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateConvertibleIssuance",
+                "choiceArgument": {
+                  "issuance_data": {
+                    "id": "ddc291db-4b74-4e67-8809-bb4f4c72237a",
+                    "convertible_type": "OcfConvertibleSafe",
+                    "custom_id": "SAFE-1",
+                    "date": "2025-05-05T00:00:00Z",
+                    "investment_amount": {
+                      "amount": "100000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "3a306f69-0d92-4f6e-8bba-c3c29a45b2ce",
+                    "seniority": "2",
+                    "stakeholder_id": "0e129fbd-c25c-4b22-9965-7dc26f59f061",
+                    "comments": [
+                      "This SAFE is intended to operate like standard non-participating Preferred Stock."
+                    ],
+                    "conversion_triggers": [
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechSAFE",
+                            "value": {
+                              "conversion_mfn": false,
+                              "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all Converting Securities; all issued and outstanding Options and Promised Options; and the Unissued Option Pool, except increases in connection with the Equity Financing.",
+                              "capitalization_definition_rules": {
+                                "include_additional_option_pool_topup": false,
+                                "include_new_money": false,
+                                "include_option_pool_topup_for_promised_options": false,
+                                "include_other_converting_securities": true,
+                                "include_outstanding_options": true,
+                                "include_outstanding_shares": true,
+                                "include_outstanding_unissued_options": true,
+                                "include_this_security": true
+                              },
+                              "conversion_discount": null,
+                              "conversion_timing": "OcfConversionTimingPostMoney",
+                              "conversion_valuation_cap": {
+                                "amount": "3000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": null
+                        },
+                        "trigger_id": "516a9516-e5d7-4636-b2b4-bc4f97769196",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Equity Financing",
+                        "trigger_condition": "Equity Financing before the termination of this Safe",
+                        "trigger_date": null,
+                        "trigger_description": "Automatic conversion upon Equity Financing"
+                      },
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechSAFE",
+                            "value": {
+                              "conversion_mfn": false,
+                              "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all issued and outstanding Options and Promised Options receiving Proceeds; all Converting Securities except those receiving Cash-Out Amounts; excludes the Unissued Option Pool.",
+                              "capitalization_definition_rules": {
+                                "include_additional_option_pool_topup": false,
+                                "include_new_money": false,
+                                "include_option_pool_topup_for_promised_options": false,
+                                "include_other_converting_securities": true,
+                                "include_outstanding_options": true,
+                                "include_outstanding_shares": true,
+                                "include_outstanding_unissued_options": false,
+                                "include_this_security": true
+                              },
+                              "conversion_discount": null,
+                              "conversion_timing": "OcfConversionTimingPostMoney",
+                              "conversion_valuation_cap": {
+                                "amount": "3000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": null
+                        },
+                        "trigger_id": "c8281faa-e234-4b3f-83dc-53376f62a971",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Liquidity Event",
+                        "trigger_condition": "Liquidity Event before the termination of this Safe",
+                        "trigger_date": null,
+                        "trigger_description": "Automatic conversion upon Liquidity Event"
+                      },
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechSAFE",
+                            "value": {
+                              "conversion_mfn": false,
+                              "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all issued and outstanding Options and Promised Options receiving Proceeds; all Converting Securities except those receiving Cash-Out Amounts; excludes the Unissued Option Pool.",
+                              "capitalization_definition_rules": {
+                                "include_additional_option_pool_topup": false,
+                                "include_new_money": false,
+                                "include_option_pool_topup_for_promised_options": false,
+                                "include_other_converting_securities": true,
+                                "include_outstanding_options": true,
+                                "include_outstanding_shares": true,
+                                "include_outstanding_unissued_options": false,
+                                "include_this_security": true
+                              },
+                              "conversion_discount": null,
+                              "conversion_timing": "OcfConversionTimingPostMoney",
+                              "conversion_valuation_cap": {
+                                "amount": "3000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": null
+                        },
+                        "trigger_id": "a45c7f47-693e-470a-8537-a11a1473f1b3",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Dissolution Event",
+                        "trigger_condition": "Dissolution Event before the termination of this Safe",
+                        "trigger_date": null,
+                        "trigger_description": "Automatic conversion upon Dissolution Event"
+                      }
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Exemption under the Securities Act of 1933 and applicable state securities laws",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "board_approval_date": null,
+                    "consideration_text": "Payment of $100,000",
+                    "pro_rata": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "actingParties": [
+                  "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "0062c265306da0dedadd5714b4b18da428d71a9daa5d0ce124a99e90139387890eca111220b32d25b057cd2223817b6e8674cf640b0a12c68188fb02e8d08a1f1f197e8cba",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 805402,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "0053a1299fcdce7b378fb4e1bbb1ddf1bd21c2f495a065358dd854db70a30b8ccaca1112205dbd4c979703a748a181915dcf3b77355e31ac1826fe844955afb2da690f027e"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 805402,
+                "nodeId": 2,
+                "contractId": "0053a1299fcdce7b378fb4e1bbb1ddf1bd21c2f495a065358dd854db70a30b8ccaca1112205dbd4c979703a748a181915dcf3b77355e31ac1826fe844955afb2da690f027e",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T14:15:21.434347Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 805402,
+                "nodeId": 3,
+                "contractId": "0062c265306da0dedadd5714b4b18da428d71a9daa5d0ce124a99e90139387890eca111220b32d25b057cd2223817b6e8674cf640b0a12c68188fb02e8d08a1f1f197e8cba",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.ConvertibleIssuance:ConvertibleIssuance",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "issuance_data": {
+                    "id": "ddc291db-4b74-4e67-8809-bb4f4c72237a",
+                    "convertible_type": "OcfConvertibleSafe",
+                    "custom_id": "SAFE-1",
+                    "date": "2025-05-05T00:00:00Z",
+                    "investment_amount": {
+                      "amount": "100000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "3a306f69-0d92-4f6e-8bba-c3c29a45b2ce",
+                    "seniority": "2",
+                    "stakeholder_id": "0e129fbd-c25c-4b22-9965-7dc26f59f061",
+                    "comments": [
+                      "This SAFE is intended to operate like standard non-participating Preferred Stock."
+                    ],
+                    "conversion_triggers": [
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechSAFE",
+                            "value": {
+                              "conversion_mfn": false,
+                              "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all Converting Securities; all issued and outstanding Options and Promised Options; and the Unissued Option Pool, except increases in connection with the Equity Financing.",
+                              "capitalization_definition_rules": {
+                                "include_additional_option_pool_topup": false,
+                                "include_new_money": false,
+                                "include_option_pool_topup_for_promised_options": false,
+                                "include_other_converting_securities": true,
+                                "include_outstanding_options": true,
+                                "include_outstanding_shares": true,
+                                "include_outstanding_unissued_options": true,
+                                "include_this_security": true
+                              },
+                              "conversion_discount": null,
+                              "conversion_timing": "OcfConversionTimingPostMoney",
+                              "conversion_valuation_cap": {
+                                "amount": "3000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": null
+                        },
+                        "trigger_id": "516a9516-e5d7-4636-b2b4-bc4f97769196",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Equity Financing",
+                        "trigger_condition": "Equity Financing before the termination of this Safe",
+                        "trigger_date": null,
+                        "trigger_description": "Automatic conversion upon Equity Financing"
+                      },
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechSAFE",
+                            "value": {
+                              "conversion_mfn": false,
+                              "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all issued and outstanding Options and Promised Options receiving Proceeds; all Converting Securities except those receiving Cash-Out Amounts; excludes the Unissued Option Pool.",
+                              "capitalization_definition_rules": {
+                                "include_additional_option_pool_topup": false,
+                                "include_new_money": false,
+                                "include_option_pool_topup_for_promised_options": false,
+                                "include_other_converting_securities": true,
+                                "include_outstanding_options": true,
+                                "include_outstanding_shares": true,
+                                "include_outstanding_unissued_options": false,
+                                "include_this_security": true
+                              },
+                              "conversion_discount": null,
+                              "conversion_timing": "OcfConversionTimingPostMoney",
+                              "conversion_valuation_cap": {
+                                "amount": "3000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": null
+                        },
+                        "trigger_id": "c8281faa-e234-4b3f-83dc-53376f62a971",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Liquidity Event",
+                        "trigger_condition": "Liquidity Event before the termination of this Safe",
+                        "trigger_date": null,
+                        "trigger_description": "Automatic conversion upon Liquidity Event"
+                      },
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechSAFE",
+                            "value": {
+                              "conversion_mfn": false,
+                              "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all issued and outstanding Options and Promised Options receiving Proceeds; all Converting Securities except those receiving Cash-Out Amounts; excludes the Unissued Option Pool.",
+                              "capitalization_definition_rules": {
+                                "include_additional_option_pool_topup": false,
+                                "include_new_money": false,
+                                "include_option_pool_topup_for_promised_options": false,
+                                "include_other_converting_securities": true,
+                                "include_outstanding_options": true,
+                                "include_outstanding_shares": true,
+                                "include_outstanding_unissued_options": false,
+                                "include_this_security": true
+                              },
+                              "conversion_discount": null,
+                              "conversion_timing": "OcfConversionTimingPostMoney",
+                              "conversion_valuation_cap": {
+                                "amount": "3000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": null
+                        },
+                        "trigger_id": "a45c7f47-693e-470a-8537-a11a1473f1b3",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Dissolution Event",
+                        "trigger_condition": "Dissolution Event before the termination of this Safe",
+                        "trigger_date": null,
+                        "trigger_description": "Automatic conversion upon Dissolution Event"
+                      }
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Exemption under the Securities Act of 1933 and applicable state securities laws",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "board_approval_date": null,
+                    "consideration_text": "Payment of $100,000",
+                    "pro_rata": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T14:15:21.434347Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-107cf1d8eef2778ea1866ad6afbf7d17-fe3760dfa6ba636b-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T14:15:21.455948Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_CONVERTIBLE_ISSUANCE",
+    "id": "ddc291db-4b74-4e67-8809-bb4f4c72237a",
+    "date": "2025-05-05",
+    "security_id": "3a306f69-0d92-4f6e-8bba-c3c29a45b2ce",
+    "custom_id": "SAFE-1",
+    "stakeholder_id": "0e129fbd-c25c-4b22-9965-7dc26f59f061",
+    "investment_amount": {
+      "amount": "100000.0000000000",
+      "currency": "USD"
+    },
+    "consideration_text": "Payment of $100,000",
+    "convertible_type": "SAFE",
+    "conversion_triggers": [
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "trigger_id": "516a9516-e5d7-4636-b2b4-bc4f97769196",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "SAFE_CONVERSION",
+            "conversion_mfn": false,
+            "conversion_valuation_cap": {
+              "amount": "3000000.0000000000",
+              "currency": "USD"
+            },
+            "conversion_timing": "POST_MONEY",
+            "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all Converting Securities; all issued and outstanding Options and Promised Options; and the Unissued Option Pool, except increases in connection with the Equity Financing.",
+            "capitalization_definition_rules": {
+              "include_additional_option_pool_topup": false,
+              "include_new_money": false,
+              "include_option_pool_topup_for_promised_options": false,
+              "include_other_converting_securities": true,
+              "include_outstanding_options": true,
+              "include_outstanding_shares": true,
+              "include_outstanding_unissued_options": true,
+              "include_this_security": true
+            }
+          },
+          "converts_to_future_round": true
+        },
+        "nickname": "Equity Financing",
+        "trigger_description": "Automatic conversion upon Equity Financing",
+        "trigger_condition": "Equity Financing before the termination of this Safe"
+      },
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "trigger_id": "c8281faa-e234-4b3f-83dc-53376f62a971",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "SAFE_CONVERSION",
+            "conversion_mfn": false,
+            "conversion_valuation_cap": {
+              "amount": "3000000.0000000000",
+              "currency": "USD"
+            },
+            "conversion_timing": "POST_MONEY",
+            "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all issued and outstanding Options and Promised Options receiving Proceeds; all Converting Securities except those receiving Cash-Out Amounts; excludes the Unissued Option Pool.",
+            "capitalization_definition_rules": {
+              "include_additional_option_pool_topup": false,
+              "include_new_money": false,
+              "include_option_pool_topup_for_promised_options": false,
+              "include_other_converting_securities": true,
+              "include_outstanding_options": true,
+              "include_outstanding_shares": true,
+              "include_outstanding_unissued_options": false,
+              "include_this_security": true
+            }
+          },
+          "converts_to_future_round": true
+        },
+        "nickname": "Liquidity Event",
+        "trigger_description": "Automatic conversion upon Liquidity Event",
+        "trigger_condition": "Liquidity Event before the termination of this Safe"
+      },
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "trigger_id": "a45c7f47-693e-470a-8537-a11a1473f1b3",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "SAFE_CONVERSION",
+            "conversion_mfn": false,
+            "conversion_valuation_cap": {
+              "amount": "3000000.0000000000",
+              "currency": "USD"
+            },
+            "conversion_timing": "POST_MONEY",
+            "capitalization_definition": "Includes all shares of Capital Stock issued and outstanding; all issued and outstanding Options and Promised Options receiving Proceeds; all Converting Securities except those receiving Cash-Out Amounts; excludes the Unissued Option Pool.",
+            "capitalization_definition_rules": {
+              "include_additional_option_pool_topup": false,
+              "include_new_money": false,
+              "include_option_pool_topup_for_promised_options": false,
+              "include_other_converting_securities": true,
+              "include_outstanding_options": true,
+              "include_outstanding_shares": true,
+              "include_outstanding_unissued_options": false,
+              "include_this_security": true
+            }
+          },
+          "converts_to_future_round": true
+        },
+        "nickname": "Dissolution Event",
+        "trigger_description": "Automatic conversion upon Dissolution Event",
+        "trigger_condition": "Dissolution Event before the termination of this Safe"
+      }
+    ],
+    "seniority": 2,
+    "security_law_exemptions": [
+      {
+        "description": "Exemption under the Securities Act of 1933 and applicable state securities laws",
+        "jurisdiction": "US"
+      }
+    ],
+    "comments": [
+      "This SAFE is intended to operate like standard non-participating Preferred Stock."
+    ]
+  }
+}

@@ -1,0 +1,196 @@
+{
+  "testContext": {
+    "issuerParty": "e97d53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00cd906c03324abcb5bc56eb6be6f425a5939a3b8933b45f769432b104d71eae5fca111220c173c7dd7d37d6a0330d4eb954e806466e0a0db41cd1b9678f3a6b2b6761a58d"
+  },
+  "db": {
+    "id": "41082b2f-6853-5877-405e-e09ae6b1550b",
+    "date": "2024-11-07",
+    "comments": [],
+    "issuer_id": "e97d5329-4902-4db5-94df-03f6bab6e0f2",
+    "object_type": "TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT",
+    "new_shares_authorized": "125000"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "00cd906c03324abcb5bc56eb6be6f425a5939a3b8933b45f769432b104d71eae5fca111220c173c7dd7d37d6a0330d4eb954e806466e0a0db41cd1b9678f3a6b2b6761a58d",
+      "choice": "CreateIssuerAuthorizedSharesAdjustment",
+      "choiceArgument": {
+        "adjustment_data": {
+          "id": "41082b2f-6853-5877-405e-e09ae6b1550b",
+          "date": "2024-11-07T00:00:00.000Z",
+          "issuer_id": "e97d5329-4902-4db5-94df-03f6bab6e0f2",
+          "new_shares_authorized": "125000",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "12209b09dfdae4e119f6329027db887713a8adc3d1aa71283591db5f1674bad0679a",
+        "commandId": "submit-and-wait-for-transaction-tree-1759326344458-zsfvwj",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T13:45:45.367305Z",
+        "offset": 804774,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804774,
+                "nodeId": 0,
+                "contractId": "00cd906c03324abcb5bc56eb6be6f425a5939a3b8933b45f769432b104d71eae5fca111220c173c7dd7d37d6a0330d4eb954e806466e0a0db41cd1b9678f3a6b2b6761a58d",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateIssuerAuthorizedSharesAdjustment",
+                "choiceArgument": {
+                  "adjustment_data": {
+                    "id": "41082b2f-6853-5877-405e-e09ae6b1550b",
+                    "date": "2024-11-07T00:00:00Z",
+                    "issuer_id": "e97d5329-4902-4db5-94df-03f6bab6e0f2",
+                    "new_shares_authorized": "125000.0000000000",
+                    "comments": [],
+                    "board_approval_date": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "actingParties": [
+                  "e97d53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "e97d53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "004d6a3c82a00d16fd09d2dd36980abce342a521502751c53157bc907a9907940aca111220dfb43fb317928148a390b7b1725ab2b2c128e90de6e9f75ed7be92890bfc919c",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804774,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "e97d53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00991ff253b23f5d55024f12fb66ad3fecd7177228a368002c6f4dc331673dd2e3ca111220affe86f0e924d813053f8d4062752ef77042caacf9e264946d08f1c56abbc92c"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804774,
+                "nodeId": 2,
+                "contractId": "00991ff253b23f5d55024f12fb66ad3fecd7177228a368002c6f4dc331673dd2e3ca111220affe86f0e924d813053f8d4062752ef77042caacf9e264946d08f1c56abbc92c",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "e97d53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T13:45:45.367305Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804774,
+                "nodeId": 3,
+                "contractId": "004d6a3c82a00d16fd09d2dd36980abce342a521502751c53157bc907a9907940aca111220dfb43fb317928148a390b7b1725ab2b2c128e90de6e9f75ed7be92890bfc919c",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.IssuerAuthorizedSharesAdjustment:IssuerAuthorizedSharesAdjustment",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "e97d53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "adjustment_data": {
+                    "id": "41082b2f-6853-5877-405e-e09ae6b1550b",
+                    "date": "2024-11-07T00:00:00Z",
+                    "issuer_id": "e97d5329-4902-4db5-94df-03f6bab6e0f2",
+                    "new_shares_authorized": "125000.0000000000",
+                    "comments": [],
+                    "board_approval_date": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "e97d53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "e97d53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T13:45:45.367305Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-973562bb243f503e420ce1eeaf3ea020-8ab47fd7e6e42b89-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T13:45:45.371784Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT",
+    "id": "41082b2f-6853-5877-405e-e09ae6b1550b",
+    "date": "2024-11-07",
+    "issuer_id": "e97d5329-4902-4db5-94df-03f6bab6e0f2",
+    "new_shares_authorized": "125000.0000000000"
+  }
+}

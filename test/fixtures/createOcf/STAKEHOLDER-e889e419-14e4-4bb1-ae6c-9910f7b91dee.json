@@ -4,29 +4,39 @@
     "issuerContractId": "007e260d66d96b0fd4bd4468c5ad036b1654b9102cd94b20bcdd15cfb060ac9e12ca111220afbfe8573df685f604aa39b6054a6dcb0b001e9fd5c8f467705b338e2417729d"
   },
   "db": {
-    "id": "dbdaa605-661f-448c-8a65-eff3e0fb1233",
-    "md5": "482bf1d622fb4250abbf335ac56f1dfd",
-    "uri": "s3://series-private/s3_dev/portal/028fc334-d093-4618-b95f-6035ad336a8e/6e440146d79176d963ad764a2c8d7359f92cf808",
-    "comments": [
-      "filename: The_source_employees_X_Usa_User_Equity_Grant_Agreement_-_Signed_October_17,_2024.pdf"
-    ],
-    "object_type": "DOCUMENT",
-    "related_objects": []
+    "id": "e889e419-14e4-4bb1-ae6c-9910f7b91dee",
+    "name": {
+      "legal_name": "Hello"
+    },
+    "object_type": "STAKEHOLDER",
+    "stakeholder_type": "INSTITUTION",
+    "issuer_assigned_id": "did:privy:clve7316c0lktv6la3o14mfmn",
+    "current_relationships": [
+      "INVESTOR"
+    ]
   },
   "request": {
     "ExerciseCommand": {
       "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
       "contractId": "007e260d66d96b0fd4bd4468c5ad036b1654b9102cd94b20bcdd15cfb060ac9e12ca111220afbfe8573df685f604aa39b6054a6dcb0b001e9fd5c8f467705b338e2417729d",
-      "choice": "CreateDocument",
+      "choice": "CreateStakeholder",
       "choiceArgument": {
-        "document_data": {
-          "id": "dbdaa605-661f-448c-8a65-eff3e0fb1233",
-          "path": null,
-          "uri": "s3://series-private/s3_dev/portal/028fc334-d093-4618-b95f-6035ad336a8e/6e440146d79176d963ad764a2c8d7359f92cf808",
-          "md5": "482bf1d622fb4250abbf335ac56f1dfd",
-          "related_objects": [],
-          "comments": [
-            "filename: The_source_employees_X_Usa_User_Equity_Grant_Agreement_-_Signed_October_17,_2024.pdf"
+        "stakeholder_data": {
+          "id": "e889e419-14e4-4bb1-ae6c-9910f7b91dee",
+          "name": {
+            "legal_name": "Hello",
+            "first_name": null,
+            "last_name": null
+          },
+          "stakeholder_type": "OcfStakeholderTypeInstitution",
+          "issuer_assigned_id": "did:privy:clve7316c0lktv6la3o14mfmn",
+          "primary_contact": null,
+          "contact_info": null,
+          "addresses": [],
+          "tax_ids": [],
+          "comments": [],
+          "current_relationships": [
+            "OcfRelInvestor"
           ]
         }
       }
@@ -35,31 +45,40 @@
   "response": {
     "transactionTree": {
       "transaction": {
-        "updateId": "122020cd355388448424926cb1f1586ba6b0e53e1389305b3134b4297a8101524455",
-        "commandId": "submit-and-wait-for-transaction-tree-1759326125854-b9io93",
+        "updateId": "1220aa112a6bd45e6b855bf29d6c949820e29eac722ed253aa2c6bcbe6190fedf409",
+        "commandId": "submit-and-wait-for-transaction-tree-1759325965636-60ar51",
         "workflowId": "",
-        "effectiveAt": "2025-10-01T13:42:06.789460Z",
-        "offset": 804602,
+        "effectiveAt": "2025-10-01T13:39:26.525622Z",
+        "offset": 804518,
         "eventsById": {
           "0": {
             "ExercisedTreeEvent": {
               "value": {
-                "offset": 804602,
+                "offset": 804518,
                 "nodeId": 0,
                 "contractId": "007e260d66d96b0fd4bd4468c5ad036b1654b9102cd94b20bcdd15cfb060ac9e12ca111220afbfe8573df685f604aa39b6054a6dcb0b001e9fd5c8f467705b338e2417729d",
                 "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
                 "interfaceId": null,
-                "choice": "CreateDocument",
+                "choice": "CreateStakeholder",
                 "choiceArgument": {
-                  "document_data": {
-                    "id": "dbdaa605-661f-448c-8a65-eff3e0fb1233",
-                    "md5": "482bf1d622fb4250abbf335ac56f1dfd",
-                    "comments": [
-                      "filename: The_source_employees_X_Usa_User_Equity_Grant_Agreement_-_Signed_October_17,_2024.pdf"
+                  "stakeholder_data": {
+                    "id": "e889e419-14e4-4bb1-ae6c-9910f7b91dee",
+                    "name": {
+                      "legal_name": "Hello",
+                      "first_name": null,
+                      "last_name": null
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeInstitution",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": [
+                      "OcfRelInvestor"
                     ],
-                    "related_objects": [],
-                    "path": null,
-                    "uri": "s3://series-private/s3_dev/portal/028fc334-d093-4618-b95f-6035ad336a8e/6e440146d79176d963ad764a2c8d7359f92cf808"
+                    "tax_ids": [],
+                    "contact_info": null,
+                    "current_status": null,
+                    "issuer_assigned_id": "did:privy:clve7316c0lktv6la3o14mfmn",
+                    "primary_contact": null
                   }
                 },
                 "actingParties": [
@@ -70,7 +89,7 @@
                   "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
                 ],
                 "lastDescendantNodeId": 3,
-                "exerciseResult": "0099cf95669f0cf02915668456cfd500ca04e2d9390b6acdb70a7ade68488e72d7ca11122012166a2f4e640d5d2fddd5a0c4ec5b3d8137396279472814018599946168a3c1",
+                "exerciseResult": "00ed38d9715cabf421aec09e8b981d847118c31f0a355cf3f3097aa3129fbb5af9ca111220f713b4c607d32a08d0db5cb7e450594761174a19797ae66d0a6d798a4b043882",
                 "packageName": "OpenCapTable-v25",
                 "implementedInterfaces": []
               }
@@ -79,7 +98,7 @@
           "1": {
             "ExercisedTreeEvent": {
               "value": {
-                "offset": 804602,
+                "offset": 804518,
                 "nodeId": 1,
                 "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
                 "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
@@ -103,7 +122,7 @@
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
-                    "00c3477286cc92770b6204c05c5b1d32e01dc1642eaa727363e8c9f5699b168e06ca111220b7ff8c4e67cfcf3d311cfca8a840b105519829d2386a455a7e60624d9b9531cc"
+                    "0049d0e55ab1372d540cb3b6a74146547f2d0fa15d3dbfde909f27e9f1b2167b3bca1112209b8af5a235b51a71ee02677fe49d412a2fd09f176176aff56d7d838c2734ba41"
                   ]
                 },
                 "packageName": "splice-amulet",
@@ -114,9 +133,9 @@
           "2": {
             "CreatedTreeEvent": {
               "value": {
-                "offset": 804602,
+                "offset": 804518,
                 "nodeId": 2,
-                "contractId": "00c3477286cc92770b6204c05c5b1d32e01dc1642eaa727363e8c9f5699b168e06ca111220b7ff8c4e67cfcf3d311cfca8a840b105519829d2386a455a7e60624d9b9531cc",
+                "contractId": "0049d0e55ab1372d540cb3b6a74146547f2d0fa15d3dbfde909f27e9f1b2167b3bca1112209b8af5a235b51a71ee02677fe49d412a2fd09f176176aff56d7d838c2734ba41",
                 "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
                 "contractKey": null,
                 "createArgument": {
@@ -136,7 +155,7 @@
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
-                "createdAt": "2025-10-01T13:42:06.789460Z",
+                "createdAt": "2025-10-01T13:39:26.525622Z",
                 "packageName": "splice-amulet"
               }
             }
@@ -144,10 +163,10 @@
           "3": {
             "CreatedTreeEvent": {
               "value": {
-                "offset": 804602,
+                "offset": 804518,
                 "nodeId": 3,
-                "contractId": "0099cf95669f0cf02915668456cfd500ca04e2d9390b6acdb70a7ade68488e72d7ca11122012166a2f4e640d5d2fddd5a0c4ec5b3d8137396279472814018599946168a3c1",
-                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Document:Document",
+                "contractId": "00ed38d9715cabf421aec09e8b981d847118c31f0a355cf3f3097aa3129fbb5af9ca111220f713b4c607d32a08d0db5cb7e450594761174a19797ae66d0a6d798a4b043882",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Stakeholder:Stakeholder",
                 "contractKey": null,
                 "createArgument": {
                   "context": {
@@ -155,15 +174,24 @@
                     "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                     "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
                   },
-                  "document_data": {
-                    "id": "dbdaa605-661f-448c-8a65-eff3e0fb1233",
-                    "md5": "482bf1d622fb4250abbf335ac56f1dfd",
-                    "comments": [
-                      "filename: The_source_employees_X_Usa_User_Equity_Grant_Agreement_-_Signed_October_17,_2024.pdf"
+                  "stakeholder_data": {
+                    "id": "e889e419-14e4-4bb1-ae6c-9910f7b91dee",
+                    "name": {
+                      "legal_name": "Hello",
+                      "first_name": null,
+                      "last_name": null
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeInstitution",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": [
+                      "OcfRelInvestor"
                     ],
-                    "related_objects": [],
-                    "path": null,
-                    "uri": "s3://series-private/s3_dev/portal/028fc334-d093-4618-b95f-6035ad336a8e/6e440146d79176d963ad764a2c8d7359f92cf808"
+                    "tax_ids": [],
+                    "contact_info": null,
+                    "current_status": null,
+                    "issuer_assigned_id": "did:privy:clve7316c0lktv6la3o14mfmn",
+                    "primary_contact": null
                   }
                 },
                 "createdEventBlob": "",
@@ -176,7 +204,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "observers": [],
-                "createdAt": "2025-10-01T13:42:06.789460Z",
+                "createdAt": "2025-10-01T13:39:26.525622Z",
                 "packageName": "OpenCapTable-v25"
               }
             }
@@ -184,21 +212,25 @@
         },
         "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
         "traceContext": {
-          "traceparent": "00-efa1aaa3b6691f69783244c1f7707102-abe0f89368e4ca16-01",
+          "traceparent": "00-1c17eab6fd7a51c7fbbf1aee03f5b7f6-663f1538cd966854-01",
           "tracestate": null
         },
-        "recordTime": "2025-10-01T13:42:06.454355Z"
+        "recordTime": "2025-10-01T13:39:26.637483Z"
       }
     }
   },
   "onchain_ocf": {
-    "object_type": "DOCUMENT",
-    "id": "dbdaa605-661f-448c-8a65-eff3e0fb1233",
-    "uri": "s3://series-private/s3_dev/portal/028fc334-d093-4618-b95f-6035ad336a8e/6e440146d79176d963ad764a2c8d7359f92cf808",
-    "md5": "482bf1d622fb4250abbf335ac56f1dfd",
-    "related_objects": [],
-    "comments": [
-      "filename: The_source_employees_X_Usa_User_Equity_Grant_Agreement_-_Signed_October_17,_2024.pdf"
-    ]
+    "object_type": "STAKEHOLDER",
+    "id": "e889e419-14e4-4bb1-ae6c-9910f7b91dee",
+    "name": {
+      "legal_name": "Hello"
+    },
+    "stakeholder_type": "INSTITUTION",
+    "issuer_assigned_id": "did:privy:clve7316c0lktv6la3o14mfmn",
+    "current_relationships": [
+      "INVESTOR"
+    ],
+    "addresses": [],
+    "tax_ids": []
   }
 }

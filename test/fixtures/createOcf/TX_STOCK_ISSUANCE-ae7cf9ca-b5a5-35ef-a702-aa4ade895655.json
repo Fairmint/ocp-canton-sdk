@@ -1,0 +1,326 @@
+{
+  "testContext": {
+    "issuerParty": "514e87::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00f90fbbb8d52d51c7826cadfea95287a2df5795e1f90d6d54165143b91f84d85cca111220f129063493227614230c442a5f855fd918788a77511b10232970e4b04b19d11b"
+  },
+  "db": {
+    "id": "ae7cf9ca-b5a5-35ef-a702-aa4ade895655",
+    "date": "2023-11-06",
+    "comments": [
+      "{\"fairmintData\":{\"date\":\"2023-11-06\",\"series_id\":\"7336e51b-bdde-4611-9457-e9121a2b897f\"}}"
+    ],
+    "quantity": "99800",
+    "custom_id": "CS-1",
+    "cost_basis": {
+      "amount": "0",
+      "currency": "USD"
+    },
+    "object_type": "TX_STOCK_ISSUANCE",
+    "security_id": "365aa40b-1f58-8c44-4d53-4d93c0aa7975",
+    "share_price": {
+      "amount": "0.01",
+      "currency": "USD"
+    },
+    "stock_plan_id": "00000000-0000-0000-0000-000000000000",
+    "stakeholder_id": "3b7a6cf5-6d78-4961-9e13-a3d0db2afe77",
+    "stock_class_id": "45cdc1c2-6ea7-46a0-bdc3-989337143439",
+    "stock_legend_ids": [],
+    "vesting_terms_id": "00000000-0000-0000-0000-000000000000",
+    "consideration_text": "",
+    "share_numbers_issued": [
+      {
+        "ending_share_number": "0",
+        "starting_share_number": "0"
+      }
+    ],
+    "security_law_exemptions": [
+      {
+        "description": "Issued under Israeli Securities Law, which typically allows founders to receive shares without the need for public registration under exemptions similar to private placement rules in other jurisdictions. The specific Israeli exemption may align with the principles of private offering as found in Section 15A(b)(1) of the Israeli Securities Law, 1968.",
+        "jurisdiction": "Israel"
+      }
+    ]
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "00f90fbbb8d52d51c7826cadfea95287a2df5795e1f90d6d54165143b91f84d85cca111220f129063493227614230c442a5f855fd918788a77511b10232970e4b04b19d11b",
+      "choice": "CreateStockIssuance",
+      "choiceArgument": {
+        "issuance_data": {
+          "id": "ae7cf9ca-b5a5-35ef-a702-aa4ade895655",
+          "date": "2023-11-06T00:00:00.000Z",
+          "security_id": "365aa40b-1f58-8c44-4d53-4d93c0aa7975",
+          "custom_id": "CS-1",
+          "stakeholder_id": "3b7a6cf5-6d78-4961-9e13-a3d0db2afe77",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": null,
+          "security_law_exemptions": [
+            {
+              "description": "Issued under Israeli Securities Law, which typically allows founders to receive shares without the need for public registration under exemptions similar to private placement rules in other jurisdictions. The specific Israeli exemption may align with the principles of private offering as found in Section 15A(b)(1) of the Israeli Securities Law, 1968.",
+              "jurisdiction": "Israel"
+            }
+          ],
+          "stock_class_id": "45cdc1c2-6ea7-46a0-bdc3-989337143439",
+          "stock_plan_id": "00000000-0000-0000-0000-000000000000",
+          "share_numbers_issued": [],
+          "share_price": {
+            "amount": "0.01",
+            "currency": "USD"
+          },
+          "quantity": "99800",
+          "vesting_terms_id": "00000000-0000-0000-0000-000000000000",
+          "vestings": [],
+          "cost_basis": {
+            "amount": "0",
+            "currency": "USD"
+          },
+          "stock_legend_ids": [],
+          "issuance_type": null,
+          "comments": [
+            "{\"fairmintData\":{\"date\":\"2023-11-06\",\"series_id\":\"7336e51b-bdde-4611-9457-e9121a2b897f\"}}"
+          ]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220999b48cc0b5cc26ad78a3bb0928bdcf027ab85038cd025c2461ebfd527e5f0ec",
+        "commandId": "submit-and-wait-for-transaction-tree-1759326050923-fos53e",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T13:40:51.883897Z",
+        "offset": 804559,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804559,
+                "nodeId": 0,
+                "contractId": "00f90fbbb8d52d51c7826cadfea95287a2df5795e1f90d6d54165143b91f84d85cca111220f129063493227614230c442a5f855fd918788a77511b10232970e4b04b19d11b",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateStockIssuance",
+                "choiceArgument": {
+                  "issuance_data": {
+                    "id": "ae7cf9ca-b5a5-35ef-a702-aa4ade895655",
+                    "custom_id": "CS-1",
+                    "date": "2023-11-06T00:00:00Z",
+                    "quantity": "99800.0000000000",
+                    "security_id": "365aa40b-1f58-8c44-4d53-4d93c0aa7975",
+                    "share_price": {
+                      "amount": "0.0100000000",
+                      "currency": "USD"
+                    },
+                    "stakeholder_id": "3b7a6cf5-6d78-4961-9e13-a3d0db2afe77",
+                    "stock_class_id": "45cdc1c2-6ea7-46a0-bdc3-989337143439",
+                    "comments": [
+                      "{\"fairmintData\":{\"date\":\"2023-11-06\",\"series_id\":\"7336e51b-bdde-4611-9457-e9121a2b897f\"}}"
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Issued under Israeli Securities Law, which typically allows founders to receive shares without the need for public registration under exemptions similar to private placement rules in other jurisdictions. The specific Israeli exemption may align with the principles of private offering as found in Section 15A(b)(1) of the Israeli Securities Law, 1968.",
+                        "jurisdiction": "Israel"
+                      }
+                    ],
+                    "share_numbers_issued": [],
+                    "stock_legend_ids": [],
+                    "vestings": [],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "cost_basis": {
+                      "amount": "0.0000000000",
+                      "currency": "USD"
+                    },
+                    "issuance_type": null,
+                    "stock_plan_id": "00000000-0000-0000-0000-000000000000",
+                    "stockholder_approval_date": null,
+                    "vesting_terms_id": "00000000-0000-0000-0000-000000000000"
+                  }
+                },
+                "actingParties": [
+                  "514e87::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "514e87::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00d9db7ae909abb7f5b83e48d567118f1c5f285675a42da8695d20c379bd20c300ca111220ace82c07bfbae910f1c1b1e13a09e2c460c29323e63e8881baa9c73f50d6433a",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804559,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "514e87::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "006a5cbb1ff1827f6019d55f8ebd854823a09624883afefb6efc385977ca9c0c80ca111220685c46f3b2d13d6579e624a8232f186facc67f95fde234b78f740699953f20c0"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804559,
+                "nodeId": 2,
+                "contractId": "006a5cbb1ff1827f6019d55f8ebd854823a09624883afefb6efc385977ca9c0c80ca111220685c46f3b2d13d6579e624a8232f186facc67f95fde234b78f740699953f20c0",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "514e87::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T13:40:51.883897Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804559,
+                "nodeId": 3,
+                "contractId": "00d9db7ae909abb7f5b83e48d567118f1c5f285675a42da8695d20c379bd20c300ca111220ace82c07bfbae910f1c1b1e13a09e2c460c29323e63e8881baa9c73f50d6433a",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.StockIssuance:StockIssuance",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "514e87::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "issuance_data": {
+                    "id": "ae7cf9ca-b5a5-35ef-a702-aa4ade895655",
+                    "custom_id": "CS-1",
+                    "date": "2023-11-06T00:00:00Z",
+                    "quantity": "99800.0000000000",
+                    "security_id": "365aa40b-1f58-8c44-4d53-4d93c0aa7975",
+                    "share_price": {
+                      "amount": "0.0100000000",
+                      "currency": "USD"
+                    },
+                    "stakeholder_id": "3b7a6cf5-6d78-4961-9e13-a3d0db2afe77",
+                    "stock_class_id": "45cdc1c2-6ea7-46a0-bdc3-989337143439",
+                    "comments": [
+                      "{\"fairmintData\":{\"date\":\"2023-11-06\",\"series_id\":\"7336e51b-bdde-4611-9457-e9121a2b897f\"}}"
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Issued under Israeli Securities Law, which typically allows founders to receive shares without the need for public registration under exemptions similar to private placement rules in other jurisdictions. The specific Israeli exemption may align with the principles of private offering as found in Section 15A(b)(1) of the Israeli Securities Law, 1968.",
+                        "jurisdiction": "Israel"
+                      }
+                    ],
+                    "share_numbers_issued": [],
+                    "stock_legend_ids": [],
+                    "vestings": [],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "cost_basis": {
+                      "amount": "0.0000000000",
+                      "currency": "USD"
+                    },
+                    "issuance_type": null,
+                    "stock_plan_id": "00000000-0000-0000-0000-000000000000",
+                    "stockholder_approval_date": null,
+                    "vesting_terms_id": "00000000-0000-0000-0000-000000000000"
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "514e87::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "514e87::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T13:40:51.883897Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-ddd59f2ebb32319ec4bb1c0ec4bd8915-3a530638c73e5849-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T13:40:52.070299Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_STOCK_ISSUANCE",
+    "id": "ae7cf9ca-b5a5-35ef-a702-aa4ade895655",
+    "date": "2023-11-06",
+    "security_id": "365aa40b-1f58-8c44-4d53-4d93c0aa7975",
+    "custom_id": "CS-1",
+    "stakeholder_id": "3b7a6cf5-6d78-4961-9e13-a3d0db2afe77",
+    "security_law_exemptions": [
+      {
+        "description": "Issued under Israeli Securities Law, which typically allows founders to receive shares without the need for public registration under exemptions similar to private placement rules in other jurisdictions. The specific Israeli exemption may align with the principles of private offering as found in Section 15A(b)(1) of the Israeli Securities Law, 1968.",
+        "jurisdiction": "Israel"
+      }
+    ],
+    "stock_class_id": "45cdc1c2-6ea7-46a0-bdc3-989337143439",
+    "stock_plan_id": "00000000-0000-0000-0000-000000000000",
+    "share_price": {
+      "amount": "0.0100000000",
+      "currency": "USD"
+    },
+    "quantity": "99800.0000000000",
+    "vesting_terms_id": "00000000-0000-0000-0000-000000000000",
+    "cost_basis": {
+      "amount": "0.0000000000",
+      "currency": "USD"
+    },
+    "stock_legend_ids": [],
+    "comments": [
+      "{\"fairmintData\":{\"date\":\"2023-11-06\",\"series_id\":\"7336e51b-bdde-4611-9457-e9121a2b897f\"}}"
+    ]
+  }
+}

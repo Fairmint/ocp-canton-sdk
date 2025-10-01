@@ -1,0 +1,488 @@
+{
+  "testContext": {
+    "issuerParty": "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "0019dabd34885de087b85c648702f2982d5d914b637f9f715637b0ae7ebe425ed9ca11122082e2f75ae84a2c77639b624a0784265234204291dbac187f4867019d8b23be75"
+  },
+  "db": {
+    "id": "e7742df1-7c48-47e9-9c03-9c0cc2b83278",
+    "name": "SOIRÉ Goods Founder's Stock Vesting",
+    "comments": [],
+    "description": "Vesting terms for 8,000,000 shares issued to Kash Rogers under the Founder's Stock Purchase Agreement dated August 8, 2024. The vesting schedule includes 10% immediate vesting, a 1-year cliff for 15%, and monthly vesting over 36 months for the remaining 75%.",
+    "object_type": "VESTING_TERMS",
+    "allocation_type": "CUMULATIVE_ROUNDING",
+    "vesting_conditions": [
+      {
+        "id": "immediate-vesting",
+        "trigger": {
+          "type": "VESTING_START_DATE"
+        },
+        "quantity": "800000",
+        "description": "10% of the shares (800,000 shares) vest immediately upon execution of the agreement.",
+        "next_condition_ids": [
+          "cliff-vesting"
+        ]
+      },
+      {
+        "id": "cliff-vesting",
+        "trigger": {
+          "type": "VESTING_SCHEDULE_RELATIVE",
+          "period": {
+            "type": "MONTHS",
+            "length": 12,
+            "occurrences": 1,
+            "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+          },
+          "relative_to_condition_id": "immediate-vesting"
+        },
+        "quantity": "1200000",
+        "description": "15% of the shares (1,200,000 shares) vest on the first anniversary of the agreement.",
+        "next_condition_ids": [
+          "monthly-vesting"
+        ]
+      },
+      {
+        "id": "monthly-vesting",
+        "portion": {
+          "numerator": "1",
+          "remainder": false,
+          "denominator": "36"
+        },
+        "trigger": {
+          "type": "VESTING_SCHEDULE_RELATIVE",
+          "period": {
+            "type": "MONTHS",
+            "length": 1,
+            "occurrences": 36,
+            "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+          },
+          "relative_to_condition_id": "cliff-vesting"
+        },
+        "description": "The remaining 75% of the shares (6,000,000 shares) vest in equal monthly installments over 36 months.",
+        "next_condition_ids": []
+      }
+    ]
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "0019dabd34885de087b85c648702f2982d5d914b637f9f715637b0ae7ebe425ed9ca11122082e2f75ae84a2c77639b624a0784265234204291dbac187f4867019d8b23be75",
+      "choice": "CreateVestingTerms",
+      "choiceArgument": {
+        "vesting_terms_data": {
+          "id": "e7742df1-7c48-47e9-9c03-9c0cc2b83278",
+          "name": "SOIRÉ Goods Founder's Stock Vesting",
+          "description": "Vesting terms for 8,000,000 shares issued to Kash Rogers under the Founder's Stock Purchase Agreement dated August 8, 2024. The vesting schedule includes 10% immediate vesting, a 1-year cliff for 15%, and monthly vesting over 36 months for the remaining 75%.",
+          "allocation_type": "OcfAllocationCumulativeRounding",
+          "vesting_conditions": [
+            {
+              "id": "immediate-vesting",
+              "description": "10% of the shares (800,000 shares) vest immediately upon execution of the agreement.",
+              "portion": null,
+              "quantity": "800000",
+              "trigger": {
+                "tag": "OcfVestingStartTrigger",
+                "value": {}
+              },
+              "next_condition_ids": [
+                "cliff-vesting"
+              ]
+            },
+            {
+              "id": "cliff-vesting",
+              "description": "15% of the shares (1,200,000 shares) vest on the first anniversary of the agreement.",
+              "portion": null,
+              "quantity": "1200000",
+              "trigger": {
+                "tag": "OcfVestingScheduleRelativeTrigger",
+                "value": {
+                  "period": {
+                    "tag": "OcfVestingPeriodMonths",
+                    "value": {
+                      "length_": "12",
+                      "occurrences": "1",
+                      "day_of_month": "OcfVestingStartDayOrLast",
+                      "cliff_installment": null
+                    }
+                  },
+                  "relative_to_condition_id": "immediate-vesting"
+                }
+              },
+              "next_condition_ids": [
+                "monthly-vesting"
+              ]
+            },
+            {
+              "id": "monthly-vesting",
+              "description": "The remaining 75% of the shares (6,000,000 shares) vest in equal monthly installments over 36 months.",
+              "portion": {
+                "numerator": "1",
+                "denominator": "36",
+                "remainder": false
+              },
+              "quantity": null,
+              "trigger": {
+                "tag": "OcfVestingScheduleRelativeTrigger",
+                "value": {
+                  "period": {
+                    "tag": "OcfVestingPeriodMonths",
+                    "value": {
+                      "length_": "1",
+                      "occurrences": "36",
+                      "day_of_month": "OcfVestingStartDayOrLast",
+                      "cliff_installment": null
+                    }
+                  },
+                  "relative_to_condition_id": "cliff-vesting"
+                }
+              },
+              "next_condition_ids": []
+            }
+          ],
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "12207ce0a534849b8dcf0be80a423cffce3f61693baf72053dc62f37050c17a16124",
+        "commandId": "submit-and-wait-for-transaction-tree-1759326001148-nf0pf5",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T13:40:02.036669Z",
+        "offset": 804536,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804536,
+                "nodeId": 0,
+                "contractId": "0019dabd34885de087b85c648702f2982d5d914b637f9f715637b0ae7ebe425ed9ca11122082e2f75ae84a2c77639b624a0784265234204291dbac187f4867019d8b23be75",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateVestingTerms",
+                "choiceArgument": {
+                  "vesting_terms_data": {
+                    "id": "e7742df1-7c48-47e9-9c03-9c0cc2b83278",
+                    "allocation_type": "OcfAllocationCumulativeRounding",
+                    "description": "Vesting terms for 8,000,000 shares issued to Kash Rogers under the Founder's Stock Purchase Agreement dated August 8, 2024. The vesting schedule includes 10% immediate vesting, a 1-year cliff for 15%, and monthly vesting over 36 months for the remaining 75%.",
+                    "name": "SOIRÉ Goods Founder's Stock Vesting",
+                    "comments": [],
+                    "vesting_conditions": [
+                      {
+                        "id": "immediate-vesting",
+                        "trigger": {
+                          "tag": "OcfVestingStartTrigger",
+                          "value": {}
+                        },
+                        "next_condition_ids": [
+                          "cliff-vesting"
+                        ],
+                        "description": "10% of the shares (800,000 shares) vest immediately upon execution of the agreement.",
+                        "portion": null,
+                        "quantity": "800000.0000000000"
+                      },
+                      {
+                        "id": "cliff-vesting",
+                        "trigger": {
+                          "tag": "OcfVestingScheduleRelativeTrigger",
+                          "value": {
+                            "period": {
+                              "tag": "OcfVestingPeriodMonths",
+                              "value": {
+                                "length_": "12",
+                                "occurrences": "1",
+                                "day_of_month": "OcfVestingStartDayOrLast",
+                                "cliff_installment": null
+                              }
+                            },
+                            "relative_to_condition_id": "immediate-vesting"
+                          }
+                        },
+                        "next_condition_ids": [
+                          "monthly-vesting"
+                        ],
+                        "description": "15% of the shares (1,200,000 shares) vest on the first anniversary of the agreement.",
+                        "portion": null,
+                        "quantity": "1200000.0000000000"
+                      },
+                      {
+                        "id": "monthly-vesting",
+                        "trigger": {
+                          "tag": "OcfVestingScheduleRelativeTrigger",
+                          "value": {
+                            "period": {
+                              "tag": "OcfVestingPeriodMonths",
+                              "value": {
+                                "length_": "1",
+                                "occurrences": "36",
+                                "day_of_month": "OcfVestingStartDayOrLast",
+                                "cliff_installment": null
+                              }
+                            },
+                            "relative_to_condition_id": "cliff-vesting"
+                          }
+                        },
+                        "next_condition_ids": [],
+                        "description": "The remaining 75% of the shares (6,000,000 shares) vest in equal monthly installments over 36 months.",
+                        "portion": {
+                          "numerator": "1.0000000000",
+                          "denominator": "36.0000000000",
+                          "remainder": false
+                        },
+                        "quantity": null
+                      }
+                    ]
+                  }
+                },
+                "actingParties": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00c12da3926912609255924140be78fae21e55bb099bee33e1d27124259edd1331ca1112203ade1a1f8b63146cfea3bdde42bf817a126536030a87f1fb731be615ed8f0d8d",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804536,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00d72cc33d8b1b9806a62423b5572ec30b97c89d86887512c0c12b3e75fba4c834ca1112206b47b3a82238ed0b145c2e47b3a1e5a5cf9e69031a8e792a06076ec93eff3cf8"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804536,
+                "nodeId": 2,
+                "contractId": "00d72cc33d8b1b9806a62423b5572ec30b97c89d86887512c0c12b3e75fba4c834ca1112206b47b3a82238ed0b145c2e47b3a1e5a5cf9e69031a8e792a06076ec93eff3cf8",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T13:40:02.036669Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804536,
+                "nodeId": 3,
+                "contractId": "00c12da3926912609255924140be78fae21e55bb099bee33e1d27124259edd1331ca1112203ade1a1f8b63146cfea3bdde42bf817a126536030a87f1fb731be615ed8f0d8d",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.VestingTerms:VestingTerms",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "vesting_terms_data": {
+                    "id": "e7742df1-7c48-47e9-9c03-9c0cc2b83278",
+                    "allocation_type": "OcfAllocationCumulativeRounding",
+                    "description": "Vesting terms for 8,000,000 shares issued to Kash Rogers under the Founder's Stock Purchase Agreement dated August 8, 2024. The vesting schedule includes 10% immediate vesting, a 1-year cliff for 15%, and monthly vesting over 36 months for the remaining 75%.",
+                    "name": "SOIRÉ Goods Founder's Stock Vesting",
+                    "comments": [],
+                    "vesting_conditions": [
+                      {
+                        "id": "immediate-vesting",
+                        "trigger": {
+                          "tag": "OcfVestingStartTrigger",
+                          "value": {}
+                        },
+                        "next_condition_ids": [
+                          "cliff-vesting"
+                        ],
+                        "description": "10% of the shares (800,000 shares) vest immediately upon execution of the agreement.",
+                        "portion": null,
+                        "quantity": "800000.0000000000"
+                      },
+                      {
+                        "id": "cliff-vesting",
+                        "trigger": {
+                          "tag": "OcfVestingScheduleRelativeTrigger",
+                          "value": {
+                            "period": {
+                              "tag": "OcfVestingPeriodMonths",
+                              "value": {
+                                "length_": "12",
+                                "occurrences": "1",
+                                "day_of_month": "OcfVestingStartDayOrLast",
+                                "cliff_installment": null
+                              }
+                            },
+                            "relative_to_condition_id": "immediate-vesting"
+                          }
+                        },
+                        "next_condition_ids": [
+                          "monthly-vesting"
+                        ],
+                        "description": "15% of the shares (1,200,000 shares) vest on the first anniversary of the agreement.",
+                        "portion": null,
+                        "quantity": "1200000.0000000000"
+                      },
+                      {
+                        "id": "monthly-vesting",
+                        "trigger": {
+                          "tag": "OcfVestingScheduleRelativeTrigger",
+                          "value": {
+                            "period": {
+                              "tag": "OcfVestingPeriodMonths",
+                              "value": {
+                                "length_": "1",
+                                "occurrences": "36",
+                                "day_of_month": "OcfVestingStartDayOrLast",
+                                "cliff_installment": null
+                              }
+                            },
+                            "relative_to_condition_id": "cliff-vesting"
+                          }
+                        },
+                        "next_condition_ids": [],
+                        "description": "The remaining 75% of the shares (6,000,000 shares) vest in equal monthly installments over 36 months.",
+                        "portion": {
+                          "numerator": "1.0000000000",
+                          "denominator": "36.0000000000",
+                          "remainder": false
+                        },
+                        "quantity": null
+                      }
+                    ]
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "4f567c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T13:40:02.036669Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-8db0f9743461a6f2a0df9298153ffd75-db05591b19460050-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T13:40:02.320226Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "VESTING_TERMS",
+    "id": "e7742df1-7c48-47e9-9c03-9c0cc2b83278",
+    "name": "SOIRÉ Goods Founder's Stock Vesting",
+    "description": "Vesting terms for 8,000,000 shares issued to Kash Rogers under the Founder's Stock Purchase Agreement dated August 8, 2024. The vesting schedule includes 10% immediate vesting, a 1-year cliff for 15%, and monthly vesting over 36 months for the remaining 75%.",
+    "allocation_type": "CUMULATIVE_ROUNDING",
+    "vesting_conditions": [
+      {
+        "id": "immediate-vesting",
+        "description": "10% of the shares (800,000 shares) vest immediately upon execution of the agreement.",
+        "quantity": "800000.0000000000",
+        "trigger": {
+          "type": "VESTING_START_DATE"
+        },
+        "next_condition_ids": [
+          "cliff-vesting"
+        ]
+      },
+      {
+        "id": "cliff-vesting",
+        "description": "15% of the shares (1,200,000 shares) vest on the first anniversary of the agreement.",
+        "quantity": "1200000.0000000000",
+        "trigger": {
+          "type": "VESTING_SCHEDULE_RELATIVE",
+          "period": {
+            "type": "MONTHS",
+            "length": 12,
+            "occurrences": 1,
+            "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+          },
+          "relative_to_condition_id": "immediate-vesting"
+        },
+        "next_condition_ids": [
+          "monthly-vesting"
+        ]
+      },
+      {
+        "id": "monthly-vesting",
+        "description": "The remaining 75% of the shares (6,000,000 shares) vest in equal monthly installments over 36 months.",
+        "trigger": {
+          "type": "VESTING_SCHEDULE_RELATIVE",
+          "period": {
+            "type": "MONTHS",
+            "length": 1,
+            "occurrences": 36,
+            "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+          },
+          "relative_to_condition_id": "cliff-vesting"
+        },
+        "next_condition_ids": [],
+        "portion": {
+          "numerator": "1.0000000000",
+          "denominator": "36.0000000000",
+          "remainder": false
+        }
+      }
+    ],
+    "comments": []
+  }
+}

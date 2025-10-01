@@ -12,7 +12,6 @@ import {
   Email,
   Address,
   Phone,
-  TaxId,
   OcfIssuerData,
   OcfStockClassData,
   StakeholderType,
@@ -28,21 +27,17 @@ import {
 } from '../types/native';
 import type {
   AllocationType,
-  PeriodType,
-  VestingPeriod,
-  VestingTrigger,
   VestingConditionPortion,
   VestingCondition,
   OcfVestingTermsData
 } from '../types/native';
-import type { OcfStockIssuanceData, SecurityExemption, ShareNumberRange, VestingSimple, StockIssuanceType } from '../types/native';
+import type { OcfStockIssuanceData, SecurityExemption, ShareNumberRange, StockIssuanceType } from '../types/native';
 import type {
   OcfStockPlanData,
   StockPlanCancellationBehavior,
   OcfEquityCompensationIssuanceData,
   CompensationType,
   TerminationWindow,
-  Vesting
 } from '../types/native';
 import type { ConversionMechanism, ConversionTrigger, StockClassConversionRight } from '../types/native';
 

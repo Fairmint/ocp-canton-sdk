@@ -55,6 +55,8 @@ This README is for SDK contributors and AI assistants. For end users/consumers, 
 ### Testing
 - Unit-test conversions and param validation
 - Prefer deterministic fixtures and golden samples for OCF objects
+- All OCF fixtures are validated against the official OCF JSON schemas (see `test/utils/ocfSchemaValidator.ts`)
+- The OCF schemas are maintained as a git submodule at `../Open-Cap-Format-OCF/`
 
 ### Documentation
 - Contributor guidance lives here
@@ -67,6 +69,35 @@ This README is for SDK contributors and AI assistants. For end users/consumers, 
 - Errors are actionable; no silent fallbacks
 - Functions added to the relevant `index.ts` barrels and `OcpClient`
 - Add `buildXCommand` variant where batching is expected
+
+### OCF Schema Validation
+
+This SDK includes automated validation of all OCF data against the official [Open Cap Format JSON schemas](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF).
+
+**Setup:**
+```bash
+# Initialize/update the OCF schema submodule
+git submodule update --init --recursive
+```
+
+**Usage in tests:**
+```typescript
+import { validateOcfObject } from './test/utils/ocfSchemaValidator';
+
+// Validate any OCF object
+await validateOcfObject({
+  object_type: 'ISSUER',
+  id: '...',
+  legal_name: 'Example Inc.',
+  // ... other fields
+});
+```
+
+The validator automatically validates both:
+- Input fixtures (`fixture.db`) - Data being sent to Canton
+- Output results - Data returned from `get*AsOcf` methods
+
+All 78+ test fixtures pass validation for both input and output data.
 
 ### License
 MIT

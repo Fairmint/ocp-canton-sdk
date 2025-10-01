@@ -1,0 +1,186 @@
+{
+  "testContext": {
+    "issuerParty": "e54482::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00e5ad247bad5e1bcf0a6acef85d8a6ef84f21bceabf526e072686afcc78c8677fca111220d9bba6a806b149c2d641a9f4439a11ef2e3f934dbdb518aebde3dd62fc495318"
+  },
+  "db": {
+    "id": "cace5e26-9aa1-4f27-a1ca-bf3ae83ef9c6",
+    "name": "SECURITIES ACT LEGEND",
+    "text": "THE SECURITIES REPRESENTED HEREBY HAVE NOT BEEN REGISTERED UNDER THE SECURITIES ACT OF 1933, AS AMENDED (THE “SECURITIES ACT”), OR UNDER THE SECURITIES LAWS OF CERTAIN STATES. THESE SECURITIES ARE SUBJECT TO RESTRICTIONS ON TRANSFERABILITY AND RESALE AND MAY NOT BE TRANSFERRED OR RESOLD EXCEPT AS PERMITTED UNDER THE SECURITIES ACT AND APPLICABLE STATE SECURITIES LAWS, PURSUANT TO REGISTRATION OR EXEMPTION THEREFROM. INVESTORS SHOULD BE AWARE THAT THEY MAY BE REQUIRED TO BEAR THE FINANCIAL RISKS OF THIS INVESTMENT FOR AN INDEFINITE PERIOD OF TIME. THE ISSUER OF THESE SECURITIES MAY REQUIRE AN OPINION OF COUNSEL IN FORM AND SUBSTANCE SATISFACTORY TO THE ISSUER TO THE EFFECT THAT ANY PROPOSED TRANSFER OR RESALE IS IN COMPLIANCE WITH THE SECURITIES ACT AND ANY APPLICABLE STATE SECURITIES LAWS.",
+    "comments": [],
+    "object_type": "STOCK_LEGEND_TEMPLATE"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "00e5ad247bad5e1bcf0a6acef85d8a6ef84f21bceabf526e072686afcc78c8677fca111220d9bba6a806b149c2d641a9f4439a11ef2e3f934dbdb518aebde3dd62fc495318",
+      "choice": "CreateStockLegendTemplate",
+      "choiceArgument": {
+        "template_data": {
+          "id": "cace5e26-9aa1-4f27-a1ca-bf3ae83ef9c6",
+          "name": "SECURITIES ACT LEGEND",
+          "text": "THE SECURITIES REPRESENTED HEREBY HAVE NOT BEEN REGISTERED UNDER THE SECURITIES ACT OF 1933, AS AMENDED (THE “SECURITIES ACT”), OR UNDER THE SECURITIES LAWS OF CERTAIN STATES. THESE SECURITIES ARE SUBJECT TO RESTRICTIONS ON TRANSFERABILITY AND RESALE AND MAY NOT BE TRANSFERRED OR RESOLD EXCEPT AS PERMITTED UNDER THE SECURITIES ACT AND APPLICABLE STATE SECURITIES LAWS, PURSUANT TO REGISTRATION OR EXEMPTION THEREFROM. INVESTORS SHOULD BE AWARE THAT THEY MAY BE REQUIRED TO BEAR THE FINANCIAL RISKS OF THIS INVESTMENT FOR AN INDEFINITE PERIOD OF TIME. THE ISSUER OF THESE SECURITIES MAY REQUIRE AN OPINION OF COUNSEL IN FORM AND SUBSTANCE SATISFACTORY TO THE ISSUER TO THE EFFECT THAT ANY PROPOSED TRANSFER OR RESALE IS IN COMPLIANCE WITH THE SECURITIES ACT AND ANY APPLICABLE STATE SECURITIES LAWS.",
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220643d21bfefa7596eedbe30df8050bfad62cf9dd28c3e44f9649ffff84141d1c5",
+        "commandId": "submit-and-wait-for-transaction-tree-1759326308406-0hf0ea",
+        "workflowId": "",
+        "effectiveAt": "2025-10-01T13:45:09.432860Z",
+        "offset": 804760,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804760,
+                "nodeId": 0,
+                "contractId": "00e5ad247bad5e1bcf0a6acef85d8a6ef84f21bceabf526e072686afcc78c8677fca111220d9bba6a806b149c2d641a9f4439a11ef2e3f934dbdb518aebde3dd62fc495318",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateStockLegendTemplate",
+                "choiceArgument": {
+                  "template_data": {
+                    "id": "cace5e26-9aa1-4f27-a1ca-bf3ae83ef9c6",
+                    "name": "SECURITIES ACT LEGEND",
+                    "text": "THE SECURITIES REPRESENTED HEREBY HAVE NOT BEEN REGISTERED UNDER THE SECURITIES ACT OF 1933, AS AMENDED (THE “SECURITIES ACT”), OR UNDER THE SECURITIES LAWS OF CERTAIN STATES. THESE SECURITIES ARE SUBJECT TO RESTRICTIONS ON TRANSFERABILITY AND RESALE AND MAY NOT BE TRANSFERRED OR RESOLD EXCEPT AS PERMITTED UNDER THE SECURITIES ACT AND APPLICABLE STATE SECURITIES LAWS, PURSUANT TO REGISTRATION OR EXEMPTION THEREFROM. INVESTORS SHOULD BE AWARE THAT THEY MAY BE REQUIRED TO BEAR THE FINANCIAL RISKS OF THIS INVESTMENT FOR AN INDEFINITE PERIOD OF TIME. THE ISSUER OF THESE SECURITIES MAY REQUIRE AN OPINION OF COUNSEL IN FORM AND SUBSTANCE SATISFACTORY TO THE ISSUER TO THE EFFECT THAT ANY PROPOSED TRANSFER OR RESALE IS IN COMPLIANCE WITH THE SECURITIES ACT AND ANY APPLICABLE STATE SECURITIES LAWS.",
+                    "comments": []
+                  }
+                },
+                "actingParties": [
+                  "e54482::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "e54482::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00ef211c23d26aeddaab33167ee6e0a955262872af6fa9a75221815ca01ff2ba7aca111220a9c9da0a714d04aed354929140c5d75f65d3af44512741a640bfe654aaf6051d",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 804760,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "e54482::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "004fdb58fa81a1b41c7a5092daeeecfebaf591d373057d91059d36bb40d2405a5fca111220da80f58db094732b6c991298cf182e5603e1defb00b57f2431eaa38582a804a7"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804760,
+                "nodeId": 2,
+                "contractId": "004fdb58fa81a1b41c7a5092daeeecfebaf591d373057d91059d36bb40d2405a5fca111220da80f58db094732b6c991298cf182e5603e1defb00b57f2431eaa38582a804a7",
+                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "e54482::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-01T13:45:09.432860Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 804760,
+                "nodeId": 3,
+                "contractId": "00ef211c23d26aeddaab33167ee6e0a955262872af6fa9a75221815ca01ff2ba7aca111220a9c9da0a714d04aed354929140c5d75f65d3af44512741a640bfe654aaf6051d",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.StockLegendTemplate:StockLegendTemplate",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "e54482::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "template_data": {
+                    "id": "cace5e26-9aa1-4f27-a1ca-bf3ae83ef9c6",
+                    "name": "SECURITIES ACT LEGEND",
+                    "text": "THE SECURITIES REPRESENTED HEREBY HAVE NOT BEEN REGISTERED UNDER THE SECURITIES ACT OF 1933, AS AMENDED (THE “SECURITIES ACT”), OR UNDER THE SECURITIES LAWS OF CERTAIN STATES. THESE SECURITIES ARE SUBJECT TO RESTRICTIONS ON TRANSFERABILITY AND RESALE AND MAY NOT BE TRANSFERRED OR RESOLD EXCEPT AS PERMITTED UNDER THE SECURITIES ACT AND APPLICABLE STATE SECURITIES LAWS, PURSUANT TO REGISTRATION OR EXEMPTION THEREFROM. INVESTORS SHOULD BE AWARE THAT THEY MAY BE REQUIRED TO BEAR THE FINANCIAL RISKS OF THIS INVESTMENT FOR AN INDEFINITE PERIOD OF TIME. THE ISSUER OF THESE SECURITIES MAY REQUIRE AN OPINION OF COUNSEL IN FORM AND SUBSTANCE SATISFACTORY TO THE ISSUER TO THE EFFECT THAT ANY PROPOSED TRANSFER OR RESALE IS IN COMPLIANCE WITH THE SECURITIES ACT AND ANY APPLICABLE STATE SECURITIES LAWS.",
+                    "comments": []
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "e54482::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "e54482::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-01T13:45:09.432860Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-6f576066ae47e640f155100be6b013f6-9e6daf9a6a391532-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-01T13:45:09.655047Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "STOCK_LEGEND_TEMPLATE",
+    "id": "cace5e26-9aa1-4f27-a1ca-bf3ae83ef9c6",
+    "name": "SECURITIES ACT LEGEND",
+    "text": "THE SECURITIES REPRESENTED HEREBY HAVE NOT BEEN REGISTERED UNDER THE SECURITIES ACT OF 1933, AS AMENDED (THE “SECURITIES ACT”), OR UNDER THE SECURITIES LAWS OF CERTAIN STATES. THESE SECURITIES ARE SUBJECT TO RESTRICTIONS ON TRANSFERABILITY AND RESALE AND MAY NOT BE TRANSFERRED OR RESOLD EXCEPT AS PERMITTED UNDER THE SECURITIES ACT AND APPLICABLE STATE SECURITIES LAWS, PURSUANT TO REGISTRATION OR EXEMPTION THEREFROM. INVESTORS SHOULD BE AWARE THAT THEY MAY BE REQUIRED TO BEAR THE FINANCIAL RISKS OF THIS INVESTMENT FOR AN INDEFINITE PERIOD OF TIME. THE ISSUER OF THESE SECURITIES MAY REQUIRE AN OPINION OF COUNSEL IN FORM AND SUBSTANCE SATISFACTORY TO THE ISSUER TO THE EFFECT THAT ANY PROPOSED TRANSFER OR RESALE IS IN COMPLIANCE WITH THE SECURITIES ACT AND ANY APPLICABLE STATE SECURITIES LAWS.",
+    "comments": []
+  }
+}
