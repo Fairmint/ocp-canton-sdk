@@ -39,8 +39,8 @@ class OcfSchemaValidator {
     // Add format validators
     addFormats(this.ajv);
 
-    // Resolve the schema directory path
-    this.schemaDir = path.resolve(__dirname, '../../..', 'Open-Cap-Format-OCF/schema');
+    // Resolve the schema directory path (from submodule in project root)
+    this.schemaDir = path.resolve(__dirname, '../..', 'Open-Cap-Format-OCF/schema');
     
     if (!fs.existsSync(this.schemaDir)) {
       throw new Error(`Schema directory not found at: ${this.schemaDir}`);
