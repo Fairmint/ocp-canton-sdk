@@ -366,7 +366,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
             typeof val === 'object' && val !== null && 'object_type' in val
           ) as Record<string, unknown>;
           
-          // TODO await validateOcfObject(ocfData);
+          await validateOcfObject(ocfData);
         } finally {
           clearEventsFixture();
         }
