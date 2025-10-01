@@ -2,8 +2,19 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcfStockClassData, CommandWithDisclosedContracts } from '../../types';
-import { dateStringToDAMLTime, monetaryToDaml, stockClassTypeToDaml } from '../../utils/typeConversions';
+import { OcfStockClassData, CommandWithDisclosedContracts, StockClassType } from '../../types';
+import { dateStringToDAMLTime, monetaryToDaml } from '../../utils/typeConversions';
+
+function stockClassTypeToDaml(stockClassType: StockClassType): any {
+  switch (stockClassType) {
+    case 'PREFERRED':
+      return 'OcfStockClassTypePreferred';
+    case 'COMMON':
+      return 'OcfStockClassTypeCommon';
+    default:
+      throw new Error(`Unknown stock class type: ${stockClassType}`);
+  }
+}
 
 function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
   if (!stockClassData.id) throw new Error('stockClassData.id is required');

@@ -1,7 +1,18 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { damlTimeToDateString, damlMonetaryToNative, damlStockClassTypeToNative } from '../../utils/typeConversions';
-import { OcfStockClassData, ConversionMechanism, ConversionTrigger, StockClassConversionRight } from '../../types/native';
+import { damlTimeToDateString, damlMonetaryToNative } from '../../utils/typeConversions';
+import { OcfStockClassData, ConversionMechanism, ConversionTrigger, StockClassConversionRight, StockClassType } from '../../types/native';
+
+function damlStockClassTypeToNative(damlType: any): StockClassType {
+  switch (damlType) {
+    case 'OcfStockClassTypePreferred':
+      return 'PREFERRED';
+    case 'OcfStockClassTypeCommon':
+      return 'COMMON';
+    default:
+      throw new Error(`Unknown DAML stock class type: ${damlType}`);
+  }
+}
 
 function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.OcfStockClassData): OcfStockClassData {
   const dAny = damlData as unknown as Record<string, unknown>;

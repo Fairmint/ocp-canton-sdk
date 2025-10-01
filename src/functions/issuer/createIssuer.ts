@@ -2,8 +2,43 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcfIssuerData, CommandWithDisclosedContracts } from '../../types';
-import { dateStringToDAMLTime, emailToDaml, phoneToDaml, addressToDaml } from '../../utils/typeConversions';
+import { OcfIssuerData, CommandWithDisclosedContracts, EmailType, PhoneType } from '../../types';
+import { dateStringToDAMLTime, addressToDaml } from '../../utils/typeConversions';
+
+function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfEmailType {
+  switch (emailType) {
+    case 'PERSONAL': return 'OcfEmailTypePersonal';
+    case 'BUSINESS': return 'OcfEmailTypeBusiness';
+    case 'OTHER': return 'OcfEmailTypeOther';
+    default: throw new Error(`Unknown email type: ${emailType}`);
+  }
+}
+
+function emailToDaml(email: OcfIssuerData['email']): Fairmint.OpenCapTable.Types.OcfEmail | null {
+  if (!email) return null;
+  return {
+    email_type: emailTypeToDaml(email.email_type),
+    email_address: email.email_address
+  };
+}
+
+function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfPhoneType {
+  switch (phoneType) {
+    case 'HOME': return 'OcfPhoneHome';
+    case 'MOBILE': return 'OcfPhoneMobile';
+    case 'BUSINESS': return 'OcfPhoneBusiness';
+    case 'OTHER': return 'OcfPhoneOther';
+    default: throw new Error(`Unknown phone type: ${phoneType}`);
+  }
+}
+
+function phoneToDaml(phone: OcfIssuerData['phone']): Fairmint.OpenCapTable.Types.OcfPhone | null {
+  if (!phone) return null;
+  return {
+    phone_type: phoneTypeToDaml(phone.phone_type),
+    phone_number: phone.phone_number
+  };
+}
 
 function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issuer.OcfIssuerData {
   if (!issuerData.id) throw new Error('issuerData.id is required');

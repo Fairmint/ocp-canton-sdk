@@ -2,14 +2,80 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcfStakeholderData, CommandWithDisclosedContracts, Name } from '../../types';
-import { stakeholderTypeToDaml, contactInfoToDaml, contactInfoWithoutNameToDaml, addressToDaml } from '../../utils/typeConversions';
+import { OcfStakeholderData, CommandWithDisclosedContracts, Name, StakeholderType, EmailType, PhoneType, ContactInfo, ContactInfoWithoutName } from '../../types';
+import { addressToDaml } from '../../utils/typeConversions';
+
+function stakeholderTypeToDaml(stakeholderType: StakeholderType): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderType {
+  switch (stakeholderType) {
+    case 'INDIVIDUAL':
+      return 'OcfStakeholderTypeIndividual';
+    case 'INSTITUTION':
+      return 'OcfStakeholderTypeInstitution';
+    default:
+      throw new Error(`Unknown stakeholder type: ${stakeholderType}`);
+  }
+}
+
+function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfEmailType {
+  switch (emailType) {
+    case 'PERSONAL': return 'OcfEmailTypePersonal';
+    case 'BUSINESS': return 'OcfEmailTypeBusiness';
+    case 'OTHER': return 'OcfEmailTypeOther';
+    default: throw new Error(`Unknown email type: ${emailType}`);
+  }
+}
+
+function emailToDaml(email: { email_type: EmailType; email_address: string }): Fairmint.OpenCapTable.Types.OcfEmail {
+  return {
+    email_type: emailTypeToDaml(email.email_type),
+    email_address: email.email_address
+  };
+}
+
+function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfPhoneType {
+  switch (phoneType) {
+    case 'HOME': return 'OcfPhoneHome';
+    case 'MOBILE': return 'OcfPhoneMobile';
+    case 'BUSINESS': return 'OcfPhoneBusiness';
+    case 'OTHER': return 'OcfPhoneOther';
+    default: throw new Error(`Unknown phone type: ${phoneType}`);
+  }
+}
+
+function phoneToDaml(phone: { phone_type: PhoneType; phone_number: string }): Fairmint.OpenCapTable.Types.OcfPhone {
+  return {
+    phone_type: phoneTypeToDaml(phone.phone_type),
+    phone_number: phone.phone_number
+  };
+}
 
 function nameToDaml(n: Name): Fairmint.OpenCapTable.Stakeholder.OcfName {
   return {
     legal_name: n.legal_name,
     first_name: n.first_name || null,
     last_name: n.last_name || null
+  };
+}
+
+function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.Stakeholder.OcfContactInfo {
+  return {
+    name: nameToDaml(info.name),
+    phone_numbers: (info.phone_numbers || []).map(phoneToDaml),
+    emails: (info.emails || []).map(emailToDaml)
+  };
+}
+
+function contactInfoWithoutNameToDaml(info: ContactInfoWithoutName): Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName | null {
+  const phones = (info.phone_numbers || []).map(phoneToDaml);
+  const emails = (info.emails || []).map(emailToDaml);
+  
+  if (phones.length === 0 && emails.length === 0) {
+    return null;
+  }
+
+  return {
+    phone_numbers: phones,
+    emails: emails
   };
 }
 

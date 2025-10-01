@@ -1,7 +1,77 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { damlStakeholderTypeToNative, damlContactInfoToNative, damlContactInfoWithoutNameToNative, damlAddressToNative } from '../../utils/typeConversions';
-import { OcfStakeholderData, Name } from '../../types/native';
+import { damlAddressToNative } from '../../utils/typeConversions';
+import { OcfStakeholderData, Name, StakeholderType, EmailType, PhoneType, ContactInfo, ContactInfoWithoutName, Email, Phone } from '../../types/native';
+
+function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailType): EmailType {
+  switch (damlType) {
+    case 'OcfEmailTypePersonal': return 'PERSONAL';
+    case 'OcfEmailTypeBusiness': return 'BUSINESS';
+    case 'OcfEmailTypeOther': return 'OTHER';
+    default: throw new Error(`Unknown DAML email type: ${damlType}`);
+  }
+}
+
+function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.OcfEmail): Email {
+  return {
+    email_type: damlEmailTypeToNative(damlEmail.email_type),
+    email_address: damlEmail.email_address
+  };
+}
+
+function damlPhoneTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfPhoneType): PhoneType {
+  switch (damlType) {
+    case 'OcfPhoneHome': return 'HOME';
+    case 'OcfPhoneMobile': return 'MOBILE';
+    case 'OcfPhoneBusiness': return 'BUSINESS';
+    case 'OcfPhoneOther': return 'OTHER';
+    default: throw new Error(`Unknown DAML phone type: ${damlType}`);
+  }
+}
+
+function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): Phone {
+  return {
+    phone_type: damlPhoneTypeToNative(phone.phone_type),
+    phone_number: phone.phone_number
+  };
+}
+
+function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.Stakeholder.OcfContactInfo): ContactInfo {
+  const name: Name = {
+    legal_name: damlInfo.name.legal_name || '',
+    ...(damlInfo.name.first_name ? { first_name: damlInfo.name.first_name } : {}),
+    ...(damlInfo.name.last_name ? { last_name: damlInfo.name.last_name } : {})
+  };
+  const phones: Phone[] = (damlInfo.phone_numbers || []).map(damlPhoneToNative);
+  const emails: Email[] = (damlInfo.emails || []).map(damlEmailToNative);
+  return {
+    name,
+    phone_numbers: phones,
+    emails
+  } as ContactInfo;
+}
+
+function damlContactInfoWithoutNameToNative(
+  damlInfo: Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName
+): ContactInfoWithoutName {
+  const phones: Phone[] = (damlInfo.phone_numbers || []).map(damlPhoneToNative);
+  const emails: Email[] = (damlInfo.emails || []).map(damlEmailToNative);
+  return {
+    phone_numbers: phones,
+    emails
+  } as ContactInfoWithoutName;
+}
+
+function damlStakeholderTypeToNative(damlType: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderType): StakeholderType {
+  switch (damlType) {
+    case 'OcfStakeholderTypeIndividual':
+      return 'INDIVIDUAL';
+    case 'OcfStakeholderTypeInstitution':
+      return 'INSTITUTION';
+    default:
+      throw new Error(`Unknown DAML stakeholder type: ${damlType}`);
+  }
+}
 
 function damlStakeholderDataToNative(
   damlData: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData

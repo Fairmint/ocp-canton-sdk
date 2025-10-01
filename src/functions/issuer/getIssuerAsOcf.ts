@@ -1,7 +1,40 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { damlTimeToDateString, damlEmailToNative, damlPhoneToNative, damlAddressToNative } from '../../utils/typeConversions';
-import { OcfIssuerData } from '../../types/native';
+import { damlTimeToDateString, damlAddressToNative } from '../../utils/typeConversions';
+import { OcfIssuerData, EmailType, PhoneType } from '../../types/native';
+
+function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailType): EmailType {
+  switch (damlType) {
+    case 'OcfEmailTypePersonal': return 'PERSONAL';
+    case 'OcfEmailTypeBusiness': return 'BUSINESS';
+    case 'OcfEmailTypeOther': return 'OTHER';
+    default: throw new Error(`Unknown DAML email type: ${damlType}`);
+  }
+}
+
+function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.OcfEmail): OcfIssuerData['email'] {
+  return {
+    email_type: damlEmailTypeToNative(damlEmail.email_type),
+    email_address: damlEmail.email_address
+  };
+}
+
+function damlPhoneTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfPhoneType): PhoneType {
+  switch (damlType) {
+    case 'OcfPhoneHome': return 'HOME';
+    case 'OcfPhoneMobile': return 'MOBILE';
+    case 'OcfPhoneBusiness': return 'BUSINESS';
+    case 'OcfPhoneOther': return 'OTHER';
+    default: throw new Error(`Unknown DAML phone type: ${damlType}`);
+  }
+}
+
+function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): OcfIssuerData['phone'] {
+  return {
+    phone_type: damlPhoneTypeToNative(phone.phone_type),
+    phone_number: phone.phone_number
+  };
+}
 
 function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.OcfIssuerData): OcfIssuerData {
   const normalizeInitialShares = (v: unknown): OcfIssuerData['initial_shares_authorized'] | undefined => {
