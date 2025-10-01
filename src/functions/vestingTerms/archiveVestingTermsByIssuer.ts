@@ -19,16 +19,7 @@ export async function archiveVestingTermsByIssuer(
 ): Promise<ArchiveVestingTermsByIssuerResult> {
   const response = (await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.VestingTerms.VestingTerms.templateId,
-          contractId: params.contractId,
-          choice: 'ArchiveByIssuer',
-          choiceArgument: {}
-        }
-      }
-    ]
+    commands: [buildArchiveVestingTermsByIssuerCommand({ contractId: params.contractId })]
   })) as SubmitAndWaitForTransactionTreeResponse;
 
   return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };

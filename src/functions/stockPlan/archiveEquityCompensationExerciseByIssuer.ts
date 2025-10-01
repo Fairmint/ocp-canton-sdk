@@ -3,29 +3,36 @@ import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
-export interface ArchiveStockPlanPoolAdjustmentByIssuerParams { contractId: string; issuerParty: string }
-export interface ArchiveStockPlanPoolAdjustmentByIssuerResult { updateId: string; response: SubmitAndWaitForTransactionTreeResponse }
+export interface ArchiveEquityCompensationExerciseByIssuerParams {
+  contractId: string;
+  issuerParty: string;
+}
 
-export async function archiveStockPlanPoolAdjustmentByIssuer(
+export interface ArchiveEquityCompensationExerciseByIssuerResult {
+  updateId: string;
+  response: SubmitAndWaitForTransactionTreeResponse;
+}
+
+export async function archiveEquityCompensationExerciseByIssuer(
   client: LedgerJsonApiClient,
-  params: ArchiveStockPlanPoolAdjustmentByIssuerParams
-): Promise<ArchiveStockPlanPoolAdjustmentByIssuerResult> {
+  params: ArchiveEquityCompensationExerciseByIssuerParams
+): Promise<ArchiveEquityCompensationExerciseByIssuerResult> {
   const response = (await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [buildArchiveStockPlanPoolAdjustmentByIssuerCommand({ contractId: params.contractId })]
+    commands: [buildArchiveEquityCompensationExerciseByIssuerCommand({ contractId: params.contractId })]
   })) as SubmitAndWaitForTransactionTreeResponse;
+
   return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
 }
 
-export function buildArchiveStockPlanPoolAdjustmentByIssuerCommand(params: { contractId: string; }): Command {
+export function buildArchiveEquityCompensationExerciseByIssuerCommand(params: { contractId: string; }): Command {
   return {
     ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId,
+      templateId: Fairmint.OpenCapTable.EquityCompensationExercise.EquityCompensationExercise.templateId,
       contractId: params.contractId,
       choice: 'ArchiveByIssuer',
       choiceArgument: {}
     }
   };
 }
-
 

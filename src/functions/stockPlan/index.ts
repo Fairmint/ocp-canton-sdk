@@ -5,3 +5,5 @@ export * from './archiveStockPlanByIssuer';
 export * from './getEquityCompensationIssuanceEventAsOcf';
 export * from './createEquityCompensationIssuance';
 export * from './createEquityCompensationExercise';
+export * from './archiveEquityCompensationIssuanceByIssuer';
+export * from './archiveEquityCompensationExerciseByIssuer';

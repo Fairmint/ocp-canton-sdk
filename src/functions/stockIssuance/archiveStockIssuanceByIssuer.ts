@@ -19,16 +19,7 @@ export async function archiveStockIssuanceByIssuer(
 ): Promise<ArchiveStockIssuanceByIssuerResult> {
   const response = (await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.StockIssuance.StockIssuance.templateId,
-          contractId: params.contractId,
-          choice: 'ArchiveByIssuer',
-          choiceArgument: {}
-        }
-      }
-    ]
+    commands: [buildArchiveStockIssuanceByIssuerCommand({ contractId: params.contractId })]
   })) as SubmitAndWaitForTransactionTreeResponse;
 
   return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };

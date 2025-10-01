@@ -19,16 +19,7 @@ export async function archiveStockLegendTemplateByIssuer(
 ): Promise<ArchiveStockLegendTemplateByIssuerResult> {
   const response = (await client.submitAndWaitForTransactionTree({
     actAs: [params.issuerParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: Fairmint.OpenCapTable.StockLegendTemplate.StockLegendTemplate.templateId,
-          contractId: params.contractId,
-          choice: 'ArchiveByIssuer',
-          choiceArgument: {}
-        }
-      }
-    ]
+    commands: [buildArchiveStockLegendTemplateByIssuerCommand({ contractId: params.contractId })]
   })) as SubmitAndWaitForTransactionTreeResponse;
 
   return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };

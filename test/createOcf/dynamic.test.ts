@@ -223,7 +223,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
               issuerContractId: fixture.testContext.issuerContractId,
               featuredAppRightContractDetails: featuredAppRight,
               issuerParty: fixture.testContext.issuerParty,
-              documentData: fixture.db as unknown as OcfDocumentData
+              documentData: fixture.db as any
             });
             break;
           default:
