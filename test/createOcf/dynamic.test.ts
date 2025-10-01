@@ -139,6 +139,87 @@ describe('OCP Client - Dynamic Create Tests', () => {
         expect(result.updateId).toBeDefined();
       });
 
+      test('builds archive and create commands when previousContractId is provided', async () => {
+        // Skip this test for types that don't support archiving or have different requirements
+        const unsupportedTypes = ['ISSUER', 'TX_EQUITY_COMPENSATION_EXERCISE', 'TX_EQUITY_COMPENSATION_ISSUANCE'];
+        if (unsupportedTypes.includes(fixture.db.object_type as string)) {
+          return;
+        }
+
+        const config: ClientConfig = {
+          network: 'devnet'
+        };
+
+        const validatorApi = new ValidatorApiClient(config);
+        const featuredAppRight = await getFeaturedAppRightContractDetails(validatorApi);
+        const client = new OcpClient(config);
+
+        // Build commands without previousContractId
+        const commandsWithoutArchive = client.buildCreateOcfObjectCommand({
+          issuerContractId: fixture.testContext.issuerContractId,
+          featuredAppRightContractDetails: featuredAppRight,
+          issuerParty: fixture.testContext.issuerParty,
+          ocfData: fixture.db as { object_type: string; [key: string]: unknown }
+        });
+
+        // Should return array with 1 command (create only)
+        expect(Array.isArray(commandsWithoutArchive)).toBe(true);
+        expect(commandsWithoutArchive.length).toBe(1);
+        expect(commandsWithoutArchive[0]).toHaveProperty('command');
+        expect(commandsWithoutArchive[0]).toHaveProperty('disclosedContracts');
+        expect(commandsWithoutArchive[0].command).toHaveProperty('ExerciseCommand');
+        
+        // Build commands with previousContractId
+        const previousContractId = 'placeholder-previous-contract-id-123';
+        const commandsWithArchive = client.buildCreateOcfObjectCommand({
+          issuerContractId: fixture.testContext.issuerContractId,
+          featuredAppRightContractDetails: featuredAppRight,
+          issuerParty: fixture.testContext.issuerParty,
+          ocfData: fixture.db as { object_type: string; [key: string]: unknown },
+          previousContractId
+        });
+
+        // Should return array with 2 commands (archive + create)
+        expect(Array.isArray(commandsWithArchive)).toBe(true);
+        expect(commandsWithArchive.length).toBe(2);
+        
+        // First command should be archive
+        const archiveCommand = commandsWithArchive[0];
+        expect(archiveCommand).toHaveProperty('command');
+        expect(archiveCommand).toHaveProperty('disclosedContracts');
+        expect(archiveCommand.command).toHaveProperty('ExerciseCommand');
+        
+        // Type guard to ensure ExerciseCommand exists
+        if ('ExerciseCommand' in archiveCommand.command) {
+          expect(archiveCommand.command.ExerciseCommand).toHaveProperty('contractId', previousContractId);
+          // Archive command choice should contain 'Archive'
+          expect(archiveCommand.command.ExerciseCommand.choice).toContain('Archive');
+        } else {
+          throw new Error('Expected archive command to be an ExerciseCommand');
+        }
+        
+        // Second command should be create (same as without archive)
+        const createCommand = commandsWithArchive[1];
+        expect(createCommand).toHaveProperty('command');
+        expect(createCommand).toHaveProperty('disclosedContracts');
+        expect(createCommand.command).toHaveProperty('ExerciseCommand');
+        
+        // Create command should match the one built without archive
+        if ('ExerciseCommand' in createCommand.command && 'ExerciseCommand' in commandsWithoutArchive[0].command) {
+          expect(createCommand.command.ExerciseCommand.choice).toBe(
+            commandsWithoutArchive[0].command.ExerciseCommand.choice
+          );
+        } else {
+          throw new Error('Expected create command to be an ExerciseCommand');
+        }
+        
+        // Both commands should have disclosed contracts
+        expect(Array.isArray(archiveCommand.disclosedContracts)).toBe(true);
+        expect(archiveCommand.disclosedContracts.length).toBeGreaterThan(0);
+        expect(Array.isArray(createCommand.disclosedContracts)).toBe(true);
+        expect(createCommand.disclosedContracts.length).toBeGreaterThan(0);
+      });
+
       test('get*AsOcf returns expected OCF data', async () => {
         // Determine where the response is located
         const response = fixture.response || fixture.testContext.issuerAuthorizationContractDetails?.response;

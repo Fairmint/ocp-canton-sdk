@@ -234,112 +234,84 @@ function buildArchiveCommand(
 ): CommandWithDisclosedContracts {
   const { issuerContractId, featuredAppRightContractDetails, issuerParty, contractId } = params;
   
-  // Archive commands follow pattern: archive*ByIssuer with buildArchive*ByIssuerCommand
+  // Archive commands just need the basic command - disclosed contracts come from the issuer
+  const disclosedContracts = [
+    {
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+      contractId: issuerContractId,
+      createdEventBlob: '',
+      synchronizerId: ''
+    },
+    featuredAppRightContractDetails
+  ];
+  
+  // Build the basic archive command - all archive functions just need contractId
   switch (objectType) {
-    case 'STOCK_CLASS': {
-      return client.stockClass.buildArchiveStockClassByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        stockClassContractId: contractId
-      });
-    }
-    case 'STAKEHOLDER': {
-      return client.stakeholder.buildArchiveStakeholderByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        stakeholderContractId: contractId
-      });
-    }
-    case 'STOCK_LEGEND_TEMPLATE': {
-      return client.stockLegendTemplate.buildArchiveStockLegendTemplateByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        stockLegendTemplateContractId: contractId
-      });
-    }
-    case 'VESTING_TERMS': {
-      return client.vestingTerms.buildArchiveVestingTermsByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        vestingTermsContractId: contractId
-      });
-    }
-    case 'STOCK_PLAN': {
-      return client.stockPlan.buildArchiveStockPlanByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        stockPlanContractId: contractId
-      });
-    }
-    case 'TX_STOCK_ISSUANCE': {
-      return client.stockIssuance.buildArchiveStockIssuanceByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        stockIssuanceContractId: contractId
-      });
-    }
-    case 'TX_STOCK_CANCELLATION': {
-      return client.stockCancellation.buildArchiveStockCancellationByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        stockCancellationContractId: contractId
-      });
-    }
-    case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT': {
-      return client.issuerAuthorizedSharesAdjustment.buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        issuerAuthorizedSharesAdjustmentContractId: contractId
-      });
-    }
-    case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT': {
-      return client.stockClassAuthorizedSharesAdjustment.buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        stockClassAuthorizedSharesAdjustmentContractId: contractId
-      });
-    }
-    case 'TX_STOCK_PLAN_POOL_ADJUSTMENT': {
-      return client.stockPlanPoolAdjustment.buildArchiveStockPlanPoolAdjustmentByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        stockPlanPoolAdjustmentContractId: contractId
-      });
-    }
-    case 'DOCUMENT': {
-      return client.document.buildArchiveDocumentByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        documentContractId: contractId
-      });
-    }
-    case 'TX_WARRANT_ISSUANCE': {
-      return client.warrantIssuance.buildArchiveWarrantIssuanceByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        warrantIssuanceContractId: contractId
-      });
-    }
-    case 'TX_CONVERTIBLE_ISSUANCE': {
-      return client.convertibleIssuance.buildArchiveConvertibleIssuanceByIssuerCommand({
-        issuerContractId,
-        featuredAppRightContractDetails,
-        issuerParty,
-        convertibleIssuanceContractId: contractId
-      });
-    }
+    case 'STOCK_CLASS':
+      return {
+        command: client.stockClass.buildArchiveStockClassByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'STAKEHOLDER':
+      return {
+        command: client.stakeholder.buildArchiveStakeholderByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'STOCK_LEGEND_TEMPLATE':
+      return {
+        command: client.stockLegendTemplate.buildArchiveStockLegendTemplateByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'VESTING_TERMS':
+      return {
+        command: client.vestingTerms.buildArchiveVestingTermsByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'STOCK_PLAN':
+      return {
+        command: client.stockPlan.buildArchiveStockPlanByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'TX_STOCK_ISSUANCE':
+      return {
+        command: client.stockIssuance.buildArchiveStockIssuanceByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'TX_STOCK_CANCELLATION':
+      return {
+        command: client.stockCancellation.buildArchiveStockCancellationByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
+      return {
+        command: client.issuerAuthorizedSharesAdjustment.buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
+      return {
+        command: client.stockClassAuthorizedSharesAdjustment.buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
+      return {
+        command: client.stockPlanPoolAdjustment.buildArchiveStockPlanPoolAdjustmentByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'DOCUMENT':
+      return {
+        command: client.document.buildArchiveDocumentByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'TX_WARRANT_ISSUANCE':
+      return {
+        command: client.warrantIssuance.buildArchiveWarrantIssuanceByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
+    case 'TX_CONVERTIBLE_ISSUANCE':
+      return {
+        command: client.convertibleIssuance.buildArchiveConvertibleIssuanceByIssuerCommand({ contractId }),
+        disclosedContracts
+      };
     default:
       throw new Error(`Archive not supported for object type: ${objectType}`);
   }
