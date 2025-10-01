@@ -1,7 +1,5 @@
 import { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 import { CommandWithDisclosedContracts } from '../types';
-import { LedgerJsonApiClient, findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk';
-import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
 export interface CreateOcfObjectParams {
@@ -17,11 +15,6 @@ export interface CreateOcfObjectParams {
   previousContractId?: string;
 }
 
-export interface CreateOcfObjectResult {
-  contractId: string;
-  updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
-}
 
 /**
  * Builds command(s) for creating OCF objects based on their object_type.
@@ -358,78 +351,3 @@ function getTemplateIdForObjectType(objectType: string): string {
   }
 }
 
-/**
- * Creates an OCF object by building the command(s) and executing them in a batch transaction.
- * 
- * This function uses buildCreateOcfObjectCommand internally and then submits the
- * command(s) to the ledger. If previousContractId is provided, it will archive the
- * old contract and create the new one in a single batch transaction.
- * 
- * Note: ISSUER object_type is not supported as it has different input requirements.
- * Use client.issuer.createIssuer() directly for creating issuers.
- * 
- * @example
- * ```typescript
- * // Create new object
- * const result = await client.createOcfObject({
- *   issuerContractId: 'issuer-contract-id',
- *   featuredAppRightContractDetails: featuredAppRight,
- *   issuerParty: 'party::issuer',
- *   ocfData: {
- *     object_type: 'STAKEHOLDER',
- *     id: 'stakeholder-1',
- *     name: { legal_name: 'John Doe' },
- *     stakeholder_type: 'INDIVIDUAL'
- *   }
- * });
- * 
- * // Archive old and create new in one transaction
- * const result = await client.createOcfObject({
- *   issuerContractId: 'issuer-contract-id',
- *   featuredAppRightContractDetails: featuredAppRight,
- *   issuerParty: 'party::issuer',
- *   previousContractId: 'old-contract-id',
- *   ocfData: { ... }
- * });
- * ```
- * 
- * @param params - Parameters for creating the OCF object
- * @returns Promise resolving to the result of the object creation
- */
-export type CreateOcfObjectFunction = (params: CreateOcfObjectParams) => Promise<CreateOcfObjectResult>;
-
-export function createOcfObjectFactory(client: any): CreateOcfObjectFunction {
-  const buildCommands = buildCreateOcfObjectCommandFactory(client);
-  
-  return async (params: CreateOcfObjectParams): Promise<CreateOcfObjectResult> => {
-    const commandsWithDisclosed = buildCommands(params);
-    
-    // Collect all commands and disclosed contracts
-    const commands = commandsWithDisclosed.map(c => c.command);
-    const allDisclosedContracts = commandsWithDisclosed.flatMap(c => c.disclosedContracts);
-    
-    // Remove duplicate disclosed contracts (same contractId)
-    const uniqueDisclosedContracts = Array.from(
-      new Map(allDisclosedContracts.map(dc => [dc.contractId, dc])).values()
-    );
-    
-    const response = await client.client.submitAndWaitForTransactionTree({
-      actAs: [params.issuerParty],
-      commands,
-      disclosedContracts: uniqueDisclosedContracts
-    }) as SubmitAndWaitForTransactionTreeResponse;
-
-    const templateId = getTemplateIdForObjectType(params.ocfData.object_type);
-    const created = findCreatedEventByTemplateId(response, templateId);
-    
-    if (!created) {
-      throw new Error('Expected CreatedTreeEvent not found');
-    }
-
-    return {
-      contractId: created.CreatedTreeEvent.value.contractId,
-      updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
-      response
-    };
-  };
-}

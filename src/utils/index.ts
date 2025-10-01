@@ -1,2 +1,2 @@
 export * from './typeConversions';
-export type { CreateOcfObjectParams, CreateOcfObjectResult } from './createOcfObject';
+export type { CreateOcfObjectParams } from './createOcfObject';

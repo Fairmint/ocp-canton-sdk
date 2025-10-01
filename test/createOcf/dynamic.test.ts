@@ -1,10 +1,12 @@
-import { ClientConfig, getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
+import { ClientConfig, getFeaturedAppRightContractDetails, ValidatorApiClient, findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk';
 import { OcpClient } from '../../src';
 import { setTransactionTreeFixtureData, clearTransactionTreeFixture, setEventsFixtureData, clearEventsFixture, convertTransactionTreeToEventsResponse } from '../utils/fixtureHelpers';
 import { validateOcfObject } from '../utils/ocfSchemaValidator';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 interface TestFixture {
   functionName: string;
@@ -116,27 +118,47 @@ describe('OCP Client - Dynamic Create Tests', () => {
         const featuredAppRight = await getFeaturedAppRightContractDetails(validatorApi);
         const client = new OcpClient(config);
 
-        // ISSUER has different input requirements, so handle it separately
-        const result = fixture.db.object_type === 'ISSUER'
-          ? await client.issuer.createIssuer({
+        // Build the command based on object type
+        const commandWithDisclosed = fixture.db.object_type === 'ISSUER'
+          ? client.issuer.buildCreateIssuerCommand({
               featuredAppRightContractDetails: featuredAppRight,
               issuerParty: fixture.testContext.issuerParty,
               issuerData: fixture.db as any,
               issuerAuthorizationContractDetails: fixture.testContext.issuerAuthorizationContractDetails!
             })
-          : await client.createOcfObject({
+          : client.buildCreateOcfObjectCommand({
               issuerContractId: fixture.testContext.issuerContractId,
               featuredAppRightContractDetails: featuredAppRight,
               issuerParty: fixture.testContext.issuerParty,
               ocfData: fixture.db as { object_type: string; [key: string]: unknown }
-            });
+            })[0]; // For non-ISSUER types, we get an array, take the first command
+
+        // Execute the command
+        const response = await client.client.submitAndWaitForTransactionTree({
+          actAs: [fixture.testContext.issuerParty],
+          commands: [commandWithDisclosed.command],
+          disclosedContracts: commandWithDisclosed.disclosedContracts
+        }) as SubmitAndWaitForTransactionTreeResponse;
 
         // Verify result structure
-        expect(result).toBeDefined();
-        expect(result.contractId).toBeDefined();
-        expect(typeof result.contractId).toBe('string');
-        expect(result.contractId.length).toBeGreaterThan(0);
-        expect(result.updateId).toBeDefined();
+        expect(response).toBeDefined();
+        expect(response.transactionTree).toBeDefined();
+        
+        // Access eventsById - fixtures have the structure transactionTree.transaction.eventsById
+        const transaction = (response.transactionTree as any).transaction || response.transactionTree;
+        expect(transaction.eventsById).toBeDefined();
+        expect(Object.keys(transaction.eventsById).length).toBeGreaterThan(0);
+        
+        // Find any created event
+        const createdEvent = Object.values(transaction.eventsById).find(
+          (event: any) => event.CreatedTreeEvent
+        );
+        
+        expect(createdEvent).toBeDefined();
+        const contractId = (createdEvent as any).CreatedTreeEvent.value.contractId;
+        expect(contractId).toBeDefined();
+        expect(typeof contractId).toBe('string');
+        expect(contractId.length).toBeGreaterThan(0);
       });
 
       test('builds archive and create commands when previousContractId is provided', async () => {
