@@ -13,6 +13,7 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc -p tsconfig.tests.json --noEmit",
+    "prepare-release": "ts-node scripts/prepare-release.ts",
     "script:authorize": "ts-node scripts/authorizeIssuer.ts",
     "script:create-issuer": "ts-node scripts/createIssuer.ts",
     "script:get-issuer-ocf": "ts-node scripts/getIssuerAsOcf.ts",
