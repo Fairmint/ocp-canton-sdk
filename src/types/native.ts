@@ -190,7 +190,7 @@ export interface OcfIssuerData {
   /** The country where the issuer company was legally formed (ISO 3166-1 alpha-2) */
   country_of_formation: string;
   /** Optional comments related to the issuer */
-  comments: string[];
+  comments?: string[];
   /** The tax ids for this issuer company */
   tax_ids: TaxId[];
   /** The headquarters address of the issuing company */
@@ -272,9 +272,9 @@ export interface ContactInfo {
   /** Contact name */
   name: Name;
   /** Phone numbers */
-  phone_numbers: Phone[];
+  phone_numbers?: Phone[];
   /** Email addresses */
-  emails: Email[];
+  emails?: Email[];
 }
 
 /**
@@ -283,9 +283,9 @@ export interface ContactInfo {
  */
 export interface ContactInfoWithoutName {
   /** Phone numbers */
-  phone_numbers: Phone[];
+  phone_numbers?: Phone[];
   /** Email addresses */
-  emails: Email[];
+  emails?: Email[];
 }
 
 /**
@@ -302,7 +302,7 @@ export interface OcfStakeholderData {
   /** Alternate ID assigned by issuer */
   issuer_assigned_id?: string;
   /** Current relationship(s) to issuer */
-  current_relationships: string[];
+  current_relationships?: string[];
   /** Current employment/engagement status */
   current_status?:
     | 'ACTIVE'
@@ -319,11 +319,11 @@ export interface OcfStakeholderData {
   /** Contact info without name */
   contact_info?: ContactInfoWithoutName;
   /** Mailing or legal addresses */
-  addresses: Address[];
+  addresses?: Address[];
   /** Tax identification numbers */
-  tax_ids: TaxId[];
+  tax_ids?: TaxId[];
   /** Unstructured comments */
-  comments: string[];
+  comments?: string[];
 }
 
 /**
@@ -338,7 +338,7 @@ export interface OcfStockLegendTemplateData {
   /** The full text of the stock legend */
   text: string;
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
 }
 
 /**
@@ -610,7 +610,7 @@ export interface OcfVestingTermsData {
   /** Conditions and triggers that describe the graph of vesting schedules and events */
   vesting_conditions: VestingCondition[];
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
 }
 
 // ===== Stock Plan Types =====
@@ -636,7 +636,7 @@ export interface OcfStockPlanData {
   /** List of stock class ids associated with this plan */
   stock_class_ids: string[];
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
 }
 
 // ===== Equity Compensation Issuance Types =====

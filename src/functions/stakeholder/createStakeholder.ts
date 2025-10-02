@@ -85,16 +85,16 @@ function nameToDaml(n: Name): Fairmint.OpenCapTable.Stakeholder.OcfName {
 function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.Stakeholder.OcfContactInfo {
   return {
     name: nameToDaml(info.name),
-    phone_numbers: info.phone_numbers.map(phoneToDaml),
-    emails: info.emails.map(emailToDaml),
+    phone_numbers: (info.phone_numbers ?? []).map(phoneToDaml),
+    emails: (info.emails ?? []).map(emailToDaml),
   };
 }
 
 function contactInfoWithoutNameToDaml(
   info: ContactInfoWithoutName
 ): Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName | null {
-  const phones = info.phone_numbers.map(phoneToDaml);
-  const emails = info.emails.map(emailToDaml);
+  const phones = (info.phone_numbers ?? []).map(phoneToDaml);
+  const emails = (info.emails ?? []).map(emailToDaml);
 
   if (phones.length === 0 && emails.length === 0) {
     return null;
@@ -111,7 +111,7 @@ function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.
 
   const dataWithSingular = data as OcfStakeholderData & { current_relationship?: string };
   const relationships =
-    data.current_relationships && data.current_relationships.length > 0
+    (data.current_relationships ?? []).length > 0
       ? data.current_relationships
       : dataWithSingular.current_relationship
         ? [dataWithSingular.current_relationship]
@@ -135,10 +135,10 @@ function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.
     issuer_assigned_id: data.issuer_assigned_id ?? null,
     primary_contact: data.primary_contact ? contactInfoToDaml(data.primary_contact) : null,
     contact_info: data.contact_info ? contactInfoWithoutNameToDaml(data.contact_info) : null,
-    addresses: data.addresses ? data.addresses.map(addressToDaml) : [],
-    tax_ids: data.tax_ids ? data.tax_ids : [],
+    addresses: (data.addresses ?? []).map(addressToDaml),
+    tax_ids: data.tax_ids ?? [],
     comments: cleanComments(data.comments),
-    current_relationships: relationships.length ? relationships.map(mapRel) : [],
+    current_relationships: relationships?.map(mapRel) ?? [],
     current_status: data.current_status
       ? data.current_status === 'ACTIVE'
         ? 'OcfStakeholderStatusActive'
