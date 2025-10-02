@@ -45,7 +45,9 @@ export async function getStockCancellationEventAsOcf(
   params: GetStockCancellationEventAsOcfParams
 ): Promise<GetStockCancellationEventAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!res.created?.createdEvent?.createArgument) throw new Error('Missing createArgument');
+  if (!res.created?.createdEvent?.createArgument) {
+    throw new Error('Missing createArgument');
+  }
   const d = res.created.createdEvent.createArgument as CreateArgument;
   const data = d.cancellation_data ?? d; // template stores as cancellation_data
 

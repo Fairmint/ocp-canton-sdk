@@ -213,7 +213,12 @@ export async function getConvertibleIssuanceAsOcf(
                   }
                 : {}),
               ...(value.conversion_valuation_cap
-                ? { conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap)! }
+                ? {
+                    conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap) ?? {
+                      amount: '',
+                      currency: '',
+                    },
+                  }
                 : {}),
               ...(value.conversion_timing ? { conversion_timing: mapTiming(value.conversion_timing) } : {}),
               ...(value.capitalization_definition
@@ -263,7 +268,14 @@ export async function getConvertibleIssuanceAsOcf(
             const mech: ValuationBasedMechanism = {
               type: 'VALUATION_BASED_CONVERSION',
               valuation_type: value.valuation_type,
-              ...(value.valuation_amount ? { valuation_amount: mapMonetary(value.valuation_amount)! } : {}),
+              ...(value.valuation_amount
+                ? {
+                    valuation_amount: mapMonetary(value.valuation_amount) ?? {
+                      amount: '',
+                      currency: '',
+                    },
+                  }
+                : {}),
               ...(value.capitalization_definition
                 ? { capitalization_definition: value.capitalization_definition }
                 : {}),
@@ -286,7 +298,14 @@ export async function getConvertibleIssuanceAsOcf(
                         : value.discount_percentage,
                   }
                 : {}),
-              ...(value.discount_amount ? { discount_amount: mapMonetary(value.discount_amount)! } : {}),
+              ...(value.discount_amount
+                ? {
+                    discount_amount: mapMonetary(value.discount_amount) ?? {
+                      amount: '',
+                      currency: '',
+                    },
+                  }
+                : {}),
             } as SharePriceBasedMechanism;
             return mech;
           }
@@ -324,23 +343,23 @@ export async function getConvertibleIssuanceAsOcf(
             const mech: NoteConversionMechanism = {
               type: 'CONVERTIBLE_NOTE_CONVERSION',
               interest_rates,
-              ...(value?.day_count_convention
+              ...(value.day_count_convention
                 ? {
                     day_count_convention: safeString(value.day_count_convention).endsWith('Actual365')
                       ? 'ACTUAL_365'
                       : '30_360',
                   }
                 : {}),
-              ...(value?.interest_payout
+              ...(value.interest_payout
                 ? {
                     interest_payout: safeString(value.interest_payout).endsWith('Deferred') ? 'DEFERRED' : 'CASH',
                   }
                 : {}),
-              ...(value?.interest_accrual_period
+              ...(value.interest_accrual_period
                 ? { interest_accrual_period: accrualFromDaml(value.interest_accrual_period) }
                 : {}),
-              ...(value?.compounding_type ? { compounding_type: compoundingFromDaml(value.compounding_type) } : {}),
-              ...(value?.conversion_discount !== undefined && value?.conversion_discount !== null
+              ...(value.compounding_type ? { compounding_type: compoundingFromDaml(value.compounding_type) } : {}),
+              ...(value.conversion_discount !== undefined && value.conversion_discount !== null
                 ? {
                     conversion_discount:
                       typeof value.conversion_discount === 'number'
@@ -348,29 +367,34 @@ export async function getConvertibleIssuanceAsOcf(
                         : value.conversion_discount,
                   }
                 : {}),
-              ...(value?.conversion_valuation_cap
-                ? { conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap)! }
-                : {}),
-              ...(value?.capitalization_definition
-                ? { capitalization_definition: value.capitalization_definition }
-                : {}),
-              ...(value?.capitalization_definition_rules
-                ? { capitalization_definition_rules: value.capitalization_definition_rules }
-                : {}),
-              ...(value?.exit_multiple
+              ...(value.conversion_valuation_cap
                 ? {
-                    exit_multiple: {
-                      numerator: String((value.exit_multiple as Record<string, unknown>)?.numerator),
-                      denominator: String((value.exit_multiple as Record<string, unknown>)?.denominator),
+                    conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap) ?? {
+                      amount: '',
+                      currency: '',
                     },
                   }
                 : {}),
-              ...(value?.conversion_mfn ? { conversion_mfn: Boolean(value.conversion_mfn) } : {}),
+              ...(value.capitalization_definition
+                ? { capitalization_definition: value.capitalization_definition }
+                : {}),
+              ...(value.capitalization_definition_rules
+                ? { capitalization_definition_rules: value.capitalization_definition_rules }
+                : {}),
+              ...(value.exit_multiple
+                ? {
+                    exit_multiple: {
+                      numerator: String((value.exit_multiple as Record<string, unknown>).numerator),
+                      denominator: String((value.exit_multiple as Record<string, unknown>).denominator),
+                    },
+                  }
+                : {}),
+              ...(value.conversion_mfn ? { conversion_mfn: Boolean(value.conversion_mfn) } : {}),
             } as NoteConversionMechanism;
             return mech;
           }
           case 'OcfConvMechCustom': {
-            if (!value?.custom_conversion_description) {
+            if (!value.custom_conversion_description) {
               throw new Error('CUSTOM_CONVERSION missing custom_conversion_description');
             }
             const mech: CustomConversionMechanism = {
@@ -472,7 +496,7 @@ export async function getConvertibleIssuanceAsOcf(
       ? { stockholder_approval_date: d.stockholder_approval_date.split('T')[0] }
       : {}),
     investment_amount: {
-      amount: typeof investmentAmount?.amount === 'number' ? String(investmentAmount.amount) : investmentAmount.amount,
+      amount: typeof investmentAmount.amount === 'number' ? String(investmentAmount.amount) : investmentAmount.amount,
       currency: investmentAmount.currency,
     },
     ...(typeof d.consideration_text === 'string' && d.consideration_text.length

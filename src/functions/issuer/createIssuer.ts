@@ -64,7 +64,7 @@ function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issu
     formation_date: dateStringToDAMLTime(issuerData.formation_date),
     country_subdivision_of_formation: issuerData.country_subdivision_of_formation ?? null,
     country_subdivision_name_of_formation: issuerData.country_subdivision_name_of_formation ?? null,
-    tax_ids: issuerData.tax_ids || [],
+    tax_ids: issuerData.tax_ids,
     email: issuerData.email ? emailToDaml(issuerData.email) : null,
     phone: issuerData.phone ? phoneToDaml(issuerData.phone) : null,
     address: issuerData.address ? addressToDaml(issuerData.address) : null,

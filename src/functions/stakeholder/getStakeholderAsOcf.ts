@@ -104,7 +104,7 @@ function damlStakeholderDataToNative(
   const dAny = damlData as unknown as Record<string, unknown>;
   const nameData = dAny.name as Record<string, unknown> | undefined;
   const name: Name = {
-    legal_name: (nameData?.legal_name ?? '') as string,
+    legal_name: ((nameData?.legal_name as string | undefined) ?? ''),
     ...(nameData?.first_name ? { first_name: nameData.first_name as string } : {}),
     ...(nameData?.last_name ? { last_name: nameData.last_name as string } : {}),
   };
@@ -234,7 +234,7 @@ export async function getStakeholderAsOcf(
     contractId: params.contractId,
   });
 
-  if (!eventsResponse.created?.createdEvent?.createArgument) {
+  if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
 

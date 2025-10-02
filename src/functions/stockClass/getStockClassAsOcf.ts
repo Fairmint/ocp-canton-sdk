@@ -363,7 +363,7 @@ export async function getStockClassAsOcf(
     contractId: params.contractId,
   });
 
-  if (!eventsResponse.created?.createdEvent?.createArgument) {
+  if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
 

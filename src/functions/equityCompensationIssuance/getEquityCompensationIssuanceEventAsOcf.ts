@@ -43,7 +43,7 @@ export async function getEquityCompensationIssuanceEventAsOcf(
   params: GetEquityCompensationIssuanceEventAsOcfParams
 ): Promise<GetEquityCompensationIssuanceEventAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!res.created?.createdEvent?.createArgument) throw new Error('Missing createArgument');
+  if (!res.created?.createdEvent.createArgument) throw new Error('Missing createArgument');
   const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
   const d = (arg.issuance_data ?? arg) as Record<string, unknown>;
 

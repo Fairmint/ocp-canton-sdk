@@ -258,7 +258,7 @@ export async function getVestingTermsAsOcf(
   params: GetVestingTermsAsOcfParams
 ): Promise<GetVestingTermsAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!eventsResponse.created?.createdEvent?.createArgument) {
+  if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
   const { createArgument } = eventsResponse.created.createdEvent;

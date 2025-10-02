@@ -45,7 +45,7 @@ export async function getStockClassAuthorizedSharesAdjustmentEventAsOcf(
   params: GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams
 ): Promise<GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!res.created?.createdEvent?.createArgument) throw new Error('Missing createArgument');
+  if (!res.created?.createdEvent.createArgument) throw new Error('Missing createArgument');
   const arg = res.created.createdEvent.createArgument as CreateArgument;
   const d = arg.adjustment_data ?? arg;
 
