@@ -85,16 +85,16 @@ function nameToDaml(n: Name): Fairmint.OpenCapTable.Stakeholder.OcfName {
 function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.Stakeholder.OcfContactInfo {
   return {
     name: nameToDaml(info.name),
-    phone_numbers: info.phone_numbers.map(phoneToDaml),
-    emails: info.emails.map(emailToDaml),
+    phone_numbers: (info.phone_numbers || []).map(phoneToDaml),
+    emails: (info.emails || []).map(emailToDaml),
   };
 }
 
 function contactInfoWithoutNameToDaml(
   info: ContactInfoWithoutName
 ): Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName | null {
-  const phones = info.phone_numbers.map(phoneToDaml);
-  const emails = info.emails.map(emailToDaml);
+  const phones = (info.phone_numbers || []).map(phoneToDaml);
+  const emails = (info.emails || []).map(emailToDaml);
 
   if (phones.length === 0 && emails.length === 0) {
     return null;

@@ -272,9 +272,9 @@ export interface ContactInfo {
   /** Contact name */
   name: Name;
   /** Phone numbers */
-  phone_numbers: Phone[];
+  phone_numbers?: Phone[];
   /** Email addresses */
-  emails: Email[];
+  emails?: Email[];
 }
 
 /**
@@ -283,9 +283,9 @@ export interface ContactInfo {
  */
 export interface ContactInfoWithoutName {
   /** Phone numbers */
-  phone_numbers: Phone[];
+  phone_numbers?: Phone[];
   /** Email addresses */
-  emails: Email[];
+  emails?: Email[];
 }
 
 /**
