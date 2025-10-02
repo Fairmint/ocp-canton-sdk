@@ -24,7 +24,7 @@ function hasSystemOperator(arg: unknown): arg is Required<Pick<CompanyValuationR
 /**
  * Update the company valuation on a CompanyValuationReport by exercising SetCompanyValuation.
  */
-export async function updateCompanyValuation(
+export async function updateCompanyValuationReport(
   client: LedgerJsonApiClient,
   params: UpdateCompanyValuationParams
 ): Promise<UpdateCompanyValuationResult> {
