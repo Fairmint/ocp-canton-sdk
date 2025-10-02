@@ -13,7 +13,11 @@ import {
   buildCreateEquityCompensationExerciseCommand,
   buildCreateEquityCompensationIssuanceCommand,
   getEquityCompensationExerciseEventAsOcf,
-  getEquityCompensationIssuanceEventAsOcf
+  getEquityCompensationIssuanceEventAsOcf,
+  addObserversToCompanyValuationReport,
+  createCompanyValuationReport,
+  updateCompanyValuationReport,
+  UpdateCompanyValuationParams
 } from './functions';
 import { buildCreateStakeholderCommand, GetStakeholderAsOcfParams, getStakeholderAsOcf, buildArchiveStakeholderByIssuerCommand } from './functions/stakeholder';
 import { buildCreateStockLegendTemplateCommand, GetStockLegendTemplateAsOcfParams, getStockLegendTemplateAsOcf, buildArchiveStockLegendTemplateByIssuerCommand } from './functions/stockLegendTemplate';
@@ -50,6 +54,21 @@ export class OcpClient {
   };
 
   public companyValuationReport: {
+    addObserversToCompanyValuationReport: (params: {
+      companyValuationReportContractId: string;
+      added: string[];
+    }) => Promise<{
+      contractId: string;
+      updateId: string;
+    }>;
+    createCompanyValuationReport: (params: CreateCompanyValuationReportParams) => Promise<{
+      contractId: string;
+      updateId: string;
+    }>;
+    updateCompanyValuationReport: (client: LedgerJsonApiClient, params: UpdateCompanyValuationParams) => Promise<{
+      contractId: string;
+      updateId: string;
+    }>;
     buildCreateCompanyValuationReportCommand: (
       params: CreateCompanyValuationReportParams
     ) => CommandWithDisclosedContracts;
@@ -155,7 +174,13 @@ export class OcpClient {
 
     this.companyValuationReport = {
       buildCreateCompanyValuationReportCommand: (params: CreateCompanyValuationReportParams) =>
-        buildCreateCompanyValuationReportCommand(this.client, params)
+        buildCreateCompanyValuationReportCommand(this.client, params),
+      addObserversToCompanyValuationReport: (params: { companyValuationReportContractId: string; added: string[] }) =>
+        addObserversToCompanyValuationReport(this.client, params),
+      createCompanyValuationReport: (params: CreateCompanyValuationReportParams) =>
+        createCompanyValuationReport(this.client, params),
+      updateCompanyValuationReport: (client: LedgerJsonApiClient, params: UpdateCompanyValuationParams) =>
+        updateCompanyValuationReport(this.client, params)
     };
 
     this.stakeholder = {

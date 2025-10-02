@@ -1,3 +1,3 @@
 export * from './addObserversToCompanyValuationReport';
 export * from './createCompanyValuationReport';
-export * from './updateCompanyValuation';
+export * from './updateCompanyValuationReport';
