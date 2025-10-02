@@ -72,7 +72,7 @@ export function convertTransactionTreeToEventsResponse(
   synchronizerId: string
 ): Record<string, unknown> {
   // Handle both structures: response.transactionTree.eventsById and response.transactionTree.transaction.eventsById
-  const transactionTree = (response as any).transactionTree;
+  const transactionTree = response.transactionTree as any;
   const eventsById = transactionTree?.eventsById ?? transactionTree?.transaction?.eventsById;
 
   if (!eventsById) {

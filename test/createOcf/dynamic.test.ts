@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import { OcpClient } from '../../src';
+import { OcfIssuerData, OcpClient } from '../../src';
 import {
   setTransactionTreeFixtureData,
   clearTransactionTreeFixture,
@@ -130,7 +130,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
             ? client.issuer.buildCreateIssuerCommand({
                 featuredAppRightContractDetails: featuredAppRight,
                 issuerParty: fixture.testContext.issuerParty,
-                issuerData: fixture.db as any,
+                issuerData: fixture.db as unknown as OcfIssuerData,
                 issuerAuthorizationContractDetails: fixture.testContext.issuerAuthorizationContractDetails!,
               })
             : client.buildCreateOcfObjectCommand({
