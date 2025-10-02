@@ -126,8 +126,9 @@ function objectTypeToNative(
 }
 
 function damlDocumentDataToNative(d: Fairmint.OpenCapTable.Document.OcfDocument): OcfDocumentData {
+  const docWithId = d as unknown as { id?: string };
   return {
-    id: (d as any).id,
+    id: docWithId.id ?? '',
     ...(d.path ? { path: d.path || undefined } : {}),
     ...(d.uri ? { uri: d.uri || undefined } : {}),
     md5: d.md5,
@@ -164,11 +165,12 @@ export async function getDocumentAsOcf(
   function hasDocumentData(
     arg: unknown
   ): arg is { document_data: Fairmint.OpenCapTable.Document.OcfDocument } {
+    const record = arg as Record<string, unknown>;
     return (
       typeof arg === 'object' &&
       arg !== null &&
-      'document_data' in (arg as any) &&
-      typeof (arg as any).document_data === 'object'
+      'document_data' in record &&
+      typeof record.document_data === 'object'
     );
   }
 
@@ -177,7 +179,7 @@ export async function getDocumentAsOcf(
   }
 
   const native = damlDocumentDataToNative(createArgument.document_data);
-  const { id, ...rest } = native as any;
+  const { id, ...rest } = native;
   const ocf = {
     object_type: 'DOCUMENT' as const,
     id,

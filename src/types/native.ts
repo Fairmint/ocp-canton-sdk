@@ -676,6 +676,17 @@ export interface TerminationWindow {
 }
 
 export interface OcfEquityCompensationIssuanceData {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  stock_plan_id?: string;
+  stock_class_id?: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  vesting_terms_id?: string;
   /** Type of equity compensation instrument */
   compensation_type: CompensationType;
   /** Quantity granted/issued */
@@ -709,18 +720,27 @@ export type SimpleTrigger = 'AUTOMATIC' | 'OPTIONAL';
  * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/ConvertibleIssuance.schema.json
  */
 export interface OcfConvertibleIssuanceDataNative {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
   /** Amount invested and outstanding on date of issuance of this convertible */
   investment_amount: Monetary;
   /** What kind of convertible instrument is this (of the supported, enumerated types) */
   convertible_type: ConvertibleType;
   /** Convertible - Conversion Trigger Array (simplified) */
-  conversion_triggers: SimpleTrigger[];
+  conversion_triggers: unknown[];
   /** If different convertible instruments have seniority over one another, use this value to build a seniority stack */
   seniority: number;
   /** What pro-rata (if any) is the holder entitled to buy at the next round? */
   pro_rata?: string | number;
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
 }
 
 /**
@@ -729,18 +749,83 @@ export interface OcfConvertibleIssuanceDataNative {
  * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/WarrantIssuance.schema.json
  */
 export interface OcfWarrantIssuanceDataNative {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
   /** Quantity of shares the warrant is exercisable for */
-  quantity: string | number;
+  quantity?: string | number;
+  quantity_source?: 'UNSPECIFIED' | 'HUMAN_ESTIMATED' | 'MACHINE_ESTIMATED' | 'INSTRUMENT_FIXED' | 'INSTRUMENT_MAX' | 'INSTRUMENT_MIN';
+  ratio_numerator?: string | number;
+  ratio_denominator?: string | number;
+  percent_of_outstanding?: string | number;
   /** The exercise price of the warrant */
   exercise_price?: Monetary;
   /** Actual purchase price of the warrant (sum up purported value of all consideration, including in-kind) */
   purchase_price: Monetary;
-  /** Warrant Issuance - Exercise Trigger Array (simplified) */
-  exercise_triggers: SimpleTrigger[];
+  /** Warrant Issuance - Exercise Trigger Array (complex nested type) */
+  exercise_triggers: unknown[];
   /** What is expiration date of the warrant (if applicable) */
   warrant_expiration_date?: string;
   /** Identifier of the VestingTerms to which this security is subject */
   vesting_terms_id?: string;
+  /** Conversion triggers (complex nested type) */
+  conversion_triggers?: unknown[];
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
+}
+
+export interface OcfStockCancellationTxData {
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string | number;
+  balance_security_id?: string;
+  reason_text: string;
+  comments?: string[];
+}
+
+export interface OcfIssuerAuthorizedSharesAdjustmentTxData {
+  id: string;
+  date: string;
+  issuer_id: string;
+  new_shares_authorized: string | number;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  comments?: string[];
+}
+
+export interface OcfStockClassAuthorizedSharesAdjustmentTxData {
+  id: string;
+  date: string;
+  stock_class_id: string;
+  new_shares_authorized: string | number;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  comments?: string[];
+}
+
+export interface OcfStockPlanPoolAdjustmentTxData {
+  id: string;
+  date: string;
+  stock_plan_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  shares_reserved: string | number;
+  comments?: string[];
+}
+
+export interface OcfEquityCompensationExerciseTxData {
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string | number;
+  consideration_text?: string;
+  resulting_security_ids: string[];
+  comments?: string[];
 }

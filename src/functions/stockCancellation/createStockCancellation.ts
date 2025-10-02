@@ -1,6 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { dateStringToDAMLTime, cleanComments, numberToString } from '../../utils/typeConversions';
-import type { CommandWithDisclosedContracts } from '../../types';
+import type { CommandWithDisclosedContracts, OcfStockCancellationTxData } from '../../types';
 import type {
   Command,
   DisclosedContract,
@@ -10,15 +10,7 @@ export interface CreateStockCancellationParams {
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
-  cancellationData: {
-    id: string;
-    date: string;
-    security_id: string;
-    quantity: string | number;
-    balance_security_id?: string;
-    reason_text: string;
-    comments?: string[];
-  };
+  cancellationData: OcfStockCancellationTxData;
 }
 
 export function buildCreateStockCancellationCommand(

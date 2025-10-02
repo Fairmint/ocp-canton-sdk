@@ -1,4 +1,10 @@
+import { safeString } from '../../utils/typeConversions';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+
+type CapitalizationDefinitionRules = {
+  exclude_external_entities?: boolean;
+  include_capital_in_ratio?: boolean;
+};
 
 type ConversionTriggerType =
   | 'AUTOMATIC_ON_CONDITION'
@@ -20,7 +26,7 @@ type SafeConversionMechanism = {
   conversion_valuation_cap?: { amount: string; currency: string };
   conversion_timing?: 'PRE_MONEY' | 'POST_MONEY';
   capitalization_definition?: string;
-  capitalization_definition_rules?: any;
+  capitalization_definition_rules?: CapitalizationDefinitionRules;
   exit_multiple?: { numerator: string; denominator: string };
 };
 
@@ -28,7 +34,7 @@ type PercentCapitalizationMechanism = {
   type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
   converts_to_percent: string;
   capitalization_definition?: string;
-  capitalization_definition_rules?: any;
+  capitalization_definition_rules?: CapitalizationDefinitionRules;
 };
 
 type FixedAmountMechanism = {
@@ -41,7 +47,7 @@ type ValuationBasedMechanism = {
   valuation_type?: string;
   valuation_amount?: { amount: string; currency: string };
   capitalization_definition?: string;
-  capitalization_definition_rules?: any;
+  capitalization_definition_rules?: CapitalizationDefinitionRules;
 };
 
 type SharePriceBasedMechanism = {
@@ -66,7 +72,7 @@ type NoteConversionMechanism = {
   conversion_discount?: string;
   conversion_valuation_cap?: { amount: string; currency: string };
   capitalization_definition?: string;
-  capitalization_definition_rules?: any;
+  capitalization_definition_rules?: CapitalizationDefinitionRules;
   exit_multiple?: { numerator: string; denominator: string } | null;
   conversion_mfn?: boolean;
 };
@@ -141,7 +147,7 @@ export async function getConvertibleIssuanceAsOcf(
   if (!arg || typeof arg !== 'object' || !('issuance_data' in arg)) {
     throw new Error('Unexpected createArgument for ConvertibleIssuance');
   }
-  const d = (arg as { issuance_data: Record<string, any> }).issuance_data;
+  const d = (arg as { issuance_data: Record<string, unknown> }).issuance_data;
 
   const typeMap: Record<string, 'NOTE' | 'SAFE' | 'SECURITY'> = {
     OcfConvertibleNote: 'NOTE',
@@ -167,13 +173,21 @@ export async function getConvertibleIssuanceAsOcf(
 
     const mapMechanism = (m: unknown): ConvertibleConversionRight['conversion_mechanism'] => {
       // Handle both string enum and DAML variant { tag, value }
-      const mapMonetary = (mon: any): { amount: string; currency: string } | undefined => {
-        if (!mon) return undefined;
-        const amount = typeof mon.amount === 'number' ? String(mon.amount) : mon.amount;
-        return { amount, currency: mon.currency };
+      const mapMonetary = (
+        mon: unknown
+      ): { amount: string; currency: string } | undefined => {
+        if (!mon || typeof mon !== 'object') return undefined;
+        const amount =
+          typeof (mon as Record<string, unknown>).amount === 'number'
+            ? String((mon as Record<string, unknown>).amount)
+            : (mon as Record<string, unknown>).amount;
+        return {
+          amount: amount as string,
+          currency: (mon as Record<string, unknown>).currency as string,
+        };
       };
       const mapTiming = (t: unknown): 'PRE_MONEY' | 'POST_MONEY' | undefined => {
-        const s = String(t ?? '');
+        const s = safeString(t);
         if (s.endsWith('PreMoney')) return 'PRE_MONEY';
         if (s.endsWith('PostMoney')) return 'POST_MONEY';
         return undefined;
@@ -184,8 +198,8 @@ export async function getConvertibleIssuanceAsOcf(
       }
 
       if (m && typeof m === 'object') {
-        const tag = (m as any).tag as string | undefined;
-        const value = (m as any).value as Record<string, any> | undefined;
+        const tag = (m as Record<string, unknown>).tag as string | undefined;
+        const value = (m as Record<string, unknown>).value as Record<string, unknown> | undefined;
         switch (tag) {
           case 'OcfConvMechSAFE': {
             const mech: SafeConversionMechanism = {
@@ -214,12 +228,12 @@ export async function getConvertibleIssuanceAsOcf(
               ...(value?.exit_multiple
                 ? {
                     exit_multiple: {
-                      numerator: String(value.exit_multiple?.numerator),
-                      denominator: String(value.exit_multiple?.denominator),
+                      numerator: String((value.exit_multiple as Record<string, unknown>)?.numerator),
+                      denominator: String((value.exit_multiple as Record<string, unknown>)?.denominator),
                     },
                   }
                 : {}),
-            };
+            } as SafeConversionMechanism;
             return mech;
           }
           case 'OcfConvMechPercentCapitalization': {
@@ -285,18 +299,21 @@ export async function getConvertibleIssuanceAsOcf(
           }
           case 'OcfConvMechNote': {
             const interest_rates = Array.isArray(value?.interest_rates)
-              ? value.interest_rates.map((ir: any) => ({
-                  rate: typeof ir?.rate === 'number' ? String(ir.rate) : ir?.rate,
-                  accrual_start_date: (ir?.accrual_start_date as string).split('T')[0],
-                  ...(ir?.accrual_end_date
-                    ? { accrual_end_date: (ir.accrual_end_date as string).split('T')[0] }
-                    : {}),
-                }))
+              ? value.interest_rates.map((ir: unknown) => {
+                  const irObj = ir as Record<string, unknown>;
+                  return {
+                    rate: typeof irObj?.rate === 'number' ? String(irObj.rate) : (irObj?.rate as string),
+                    accrual_start_date: (irObj?.accrual_start_date as string).split('T')[0],
+                    ...(irObj?.accrual_end_date
+                      ? { accrual_end_date: (irObj.accrual_end_date as string).split('T')[0] }
+                      : {}),
+                  };
+                })
               : null;
             const accrualFromDaml = (
               v: unknown
             ): 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL' | undefined => {
-              const s = String(v ?? '');
+              const s = safeString(v);
               if (s.endsWith('OcfAccrualDaily') || s === 'OcfAccrualDaily') return 'DAILY';
               if (s.endsWith('OcfAccrualMonthly') || s === 'OcfAccrualMonthly') return 'MONTHLY';
               if (s.endsWith('OcfAccrualQuarterly') || s === 'OcfAccrualQuarterly')
@@ -307,25 +324,25 @@ export async function getConvertibleIssuanceAsOcf(
               return undefined;
             };
             const compoundingFromDaml = (v: unknown): string | undefined => {
-              const s = String(v ?? '');
+              const s = safeString(v);
               if (!s) return undefined;
               if (s === 'OcfSimple') return 'SIMPLE';
               if (s === 'OcfCompounding') return 'COMPOUNDING';
-              throw new Error(`Unknown compounding_type: ${v}`);
+              throw new Error(`Unknown compounding_type: ${safeString(v)}`);
             };
             const mech: NoteConversionMechanism = {
               type: 'CONVERTIBLE_NOTE_CONVERSION',
               interest_rates,
               ...(value?.day_count_convention
                 ? {
-                    day_count_convention: String(value.day_count_convention).endsWith('Actual365')
+                    day_count_convention: safeString(value.day_count_convention).endsWith('Actual365')
                       ? 'ACTUAL_365'
                       : '30_360',
                   }
                 : {}),
               ...(value?.interest_payout
                 ? {
-                    interest_payout: String(value.interest_payout).endsWith('Deferred')
+                    interest_payout: safeString(value.interest_payout).endsWith('Deferred')
                       ? 'DEFERRED'
                       : 'CASH',
                   }
@@ -356,8 +373,8 @@ export async function getConvertibleIssuanceAsOcf(
               ...(value?.exit_multiple
                 ? {
                     exit_multiple: {
-                      numerator: String(value.exit_multiple?.numerator),
-                      denominator: String(value.exit_multiple?.denominator),
+                      numerator: String((value.exit_multiple as Record<string, unknown>)?.numerator),
+                      denominator: String((value.exit_multiple as Record<string, unknown>)?.denominator),
                     },
                   }
                 : {}),
@@ -371,7 +388,7 @@ export async function getConvertibleIssuanceAsOcf(
             }
             const mech: CustomConversionMechanism = {
               type: 'CUSTOM_CONVERSION',
-              custom_conversion_description: value.custom_conversion_description,
+              custom_conversion_description: value.custom_conversion_description as string,
             };
             return mech;
           }
@@ -384,7 +401,7 @@ export async function getConvertibleIssuanceAsOcf(
     };
 
     return ts.map((raw, idx) => {
-      const r = (raw ?? {}) as Record<string, any>;
+      const r = (raw ?? {}) as Record<string, unknown>;
       const tag =
         typeof r.type_ === 'string'
           ? r.type_
@@ -420,7 +437,10 @@ export async function getConvertibleIssuanceAsOcf(
         typeof r.conversion_right === 'object' &&
         'OcfRightConvertible' in r.conversion_right
       ) {
-        const right = r.conversion_right.OcfRightConvertible as Record<string, any>;
+        const right = (r.conversion_right as Record<string, unknown>).OcfRightConvertible as Record<
+          string,
+          unknown
+        >;
         conversion_right = {
           type: 'CONVERTIBLE_CONVERSION_RIGHT',
           conversion_mechanism: mapMechanism(right.conversion_mechanism),
@@ -472,13 +492,16 @@ export async function getConvertibleIssuanceAsOcf(
     });
   };
 
+  const investmentAmount = d.investment_amount as { amount: number | string; currency: string };
+  const comments = d.comments as string[];
+
   const event: OcfConvertibleIssuanceEvent = {
     object_type: 'TX_CONVERTIBLE_ISSUANCE',
-    id: (d as any).id,
+    id: d.id as string,
     date: (d.date as string).split('T')[0],
-    security_id: d.security_id,
-    custom_id: d.custom_id,
-    stakeholder_id: d.stakeholder_id,
+    security_id: d.security_id as string,
+    custom_id: d.custom_id as string,
+    stakeholder_id: d.stakeholder_id as string,
     ...(typeof d.board_approval_date === 'string' && d.board_approval_date.length
       ? { board_approval_date: d.board_approval_date.split('T')[0] }
       : {}),
@@ -487,10 +510,10 @@ export async function getConvertibleIssuanceAsOcf(
       : {}),
     investment_amount: {
       amount:
-        typeof d.investment_amount?.amount === 'number'
-          ? String(d.investment_amount.amount)
-          : d.investment_amount.amount,
-      currency: d.investment_amount.currency,
+        typeof investmentAmount?.amount === 'number'
+          ? String(investmentAmount.amount)
+          : investmentAmount.amount,
+      currency: investmentAmount.currency,
     },
     ...(typeof d.consideration_text === 'string' && d.consideration_text.length
       ? { consideration_text: d.consideration_text }
@@ -499,17 +522,17 @@ export async function getConvertibleIssuanceAsOcf(
     conversion_triggers: convertTriggers(
       d.conversion_triggers as unknown[],
       typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
-      (d as any).id as string
+      d.id as string
     ),
     ...(d.pro_rata !== null && d.pro_rata !== undefined
-      ? { pro_rata: typeof d.pro_rata === 'number' ? String(d.pro_rata) : d.pro_rata }
+      ? { pro_rata: typeof d.pro_rata === 'number' ? String(d.pro_rata) : (d.pro_rata as string) }
       : {}),
     seniority: typeof d.seniority === 'number' ? d.seniority : Number(d.seniority),
     security_law_exemptions: d.security_law_exemptions as Array<{
       description: string;
       jurisdiction: string;
     }>,
-    ...(d.comments.length ? { comments: d.comments } : {}),
+    ...(comments.length ? { comments } : {}),
   };
 
   return { event, contractId: params.contractId };

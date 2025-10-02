@@ -1,6 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { dateStringToDAMLTime, cleanComments, numberToString } from '../../utils/typeConversions';
-import type { CommandWithDisclosedContracts } from '../../types';
+import type { CommandWithDisclosedContracts, OcfEquityCompensationExerciseTxData } from '../../types';
 import type {
   Command,
   DisclosedContract,
@@ -10,15 +10,7 @@ export interface CreateEquityCompensationExerciseParams {
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
-  exerciseData: {
-    id: string;
-    date: string;
-    security_id: string;
-    quantity: string | number;
-    consideration_text?: string;
-    resulting_security_ids: string[];
-    comments?: string[];
-  };
+  exerciseData: OcfEquityCompensationExerciseTxData;
 }
 
 export function buildCreateEquityCompensationExerciseCommand(

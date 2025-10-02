@@ -222,6 +222,7 @@ function quantitySourceToDamlEnum(
     case 'INSTRUMENT_MIN':
       return 'OcfQuantityInstrumentMin';
     default:
+      const exhaustiveCheck: never = qs;
       throw new Error(`Unknown quantity_source: ${qs}`);
   }
 }

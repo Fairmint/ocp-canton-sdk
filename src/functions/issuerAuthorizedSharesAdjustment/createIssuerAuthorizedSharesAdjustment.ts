@@ -1,6 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { dateStringToDAMLTime, cleanComments, numberToString } from '../../utils/typeConversions';
-import type { CommandWithDisclosedContracts } from '../../types';
+import type { CommandWithDisclosedContracts, OcfIssuerAuthorizedSharesAdjustmentTxData } from '../../types';
 import type {
   Command,
   DisclosedContract,
@@ -10,15 +10,7 @@ export interface CreateIssuerAuthorizedSharesAdjustmentParams {
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
-  adjustmentData: {
-    id: string;
-    date: string;
-    issuer_id: string;
-    new_shares_authorized: string | number;
-    board_approval_date?: string;
-    stockholder_approval_date?: string;
-    comments?: string[];
-  };
+  adjustmentData: OcfIssuerAuthorizedSharesAdjustmentTxData;
 }
 
 export function buildCreateIssuerAuthorizedSharesAdjustmentCommand(

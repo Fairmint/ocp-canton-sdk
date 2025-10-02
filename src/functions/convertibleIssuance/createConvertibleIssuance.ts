@@ -4,6 +4,7 @@ import {
   dateStringToDAMLTime,
   cleanComments,
   safeString,
+  numberToString,
 } from '../../utils/typeConversions';
 import type { Monetary, CommandWithDisclosedContracts } from '../../types';
 import type {
@@ -32,10 +33,6 @@ export interface CreateConvertibleIssuanceParams {
     seniority: number;
     comments?: string[];
   };
-}
-
-interface IssuerCreateArgShape {
-  context?: { system_operator?: string };
 }
 
 type ConversionTriggerTypeInput =
@@ -71,13 +68,15 @@ export type ConversionTriggerInput =
       };
     };
 
-function convertibleTypeToDaml(t: 'NOTE' | 'SAFE' | 'SECURITY'): any {
+function convertibleTypeToDaml(
+  t: 'NOTE' | 'SAFE' | 'SECURITY'
+): Fairmint.OpenCapTable.Types.OcfConvertibleType {
   switch (t) {
     case 'NOTE':
       return 'OcfConvertibleNote';
     case 'SAFE':
       return 'OcfConvertibleSafe';
-    default:
+    case 'SECURITY':
       return 'OcfConvertibleSecurity';
   }
 }
@@ -86,7 +85,9 @@ function normalizeTriggerType(t: ConversionTriggerTypeInput): ConversionTriggerT
   return t;
 }
 
-function triggerTypeToDamlEnum(t: ConversionTriggerTypeInput): any {
+function triggerTypeToDamlEnum(
+  t: ConversionTriggerTypeInput
+): Fairmint.OpenCapTable.Types.OcfConversionTriggerType {
   switch (t) {
     case 'AUTOMATIC_ON_DATE':
       return 'OcfTriggerTypeTypeAutomaticOnDate';
@@ -100,14 +101,16 @@ function triggerTypeToDamlEnum(t: ConversionTriggerTypeInput): any {
       return 'OcfTriggerTypeTypeUnspecified';
     case 'AUTOMATIC_ON_CONDITION':
       return 'OcfTriggerTypeTypeAutomaticOnCondition';
-    default:
-      throw new Error(`Unknown convertible trigger type: ${t}`);
+    default: {
+      const exhaustiveCheck: never = t;
+      throw new Error(`Unknown convertible trigger type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 
 function mechanismInputToDamlEnum(
   m: ConvertibleConversionMechanismInput | (Record<string, unknown> & { type?: string }) | undefined
-): any {
+): Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism {
   const dayCountToDaml = (v: unknown): Fairmint.OpenCapTable.Types.OcfDayCountType => {
     const s = safeString(v).toUpperCase();
     if (s === 'ACTUAL_365') return 'OcfDayCountActual365';
@@ -121,22 +124,25 @@ function mechanismInputToDamlEnum(
     throw new Error(`Unknown interest_payout: ${safeString(v)}`);
   };
   if (m && typeof m === 'object') {
-    const typeStr = String(m.type || '').toUpperCase();
+    const typeStr = String(m.type ?? '').toUpperCase();
 
     // Helper: map capitalization_definition_rules plain booleans to DAML type
-    const mapCapRules = (rules: any) => {
+    const mapCapRules = (
+      rules: unknown
+    ): Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules | null => {
       if (!rules || typeof rules !== 'object') return null;
+      const r = rules as Record<string, unknown>;
       return {
-        include_outstanding_shares: !!rules.include_outstanding_shares,
-        include_outstanding_options: !!rules.include_outstanding_options,
-        include_outstanding_unissued_options: !!rules.include_outstanding_unissued_options,
-        include_this_security: !!rules.include_this_security,
-        include_other_converting_securities: !!rules.include_other_converting_securities,
+        include_outstanding_shares: !!r.include_outstanding_shares,
+        include_outstanding_options: !!r.include_outstanding_options,
+        include_outstanding_unissued_options: !!r.include_outstanding_unissued_options,
+        include_this_security: !!r.include_this_security,
+        include_other_converting_securities: !!r.include_other_converting_securities,
         include_option_pool_topup_for_promised_options:
-          !!rules.include_option_pool_topup_for_promised_options,
-        include_additional_option_pool_topup: !!rules.include_additional_option_pool_topup,
-        include_new_money: !!rules.include_new_money,
-      } as unknown as Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules;
+          !!r.include_option_pool_topup_for_promised_options,
+        include_additional_option_pool_topup: !!r.include_additional_option_pool_topup,
+        include_new_money: !!r.include_new_money,
+      } as Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules;
     };
 
     const safeTiming = (v: unknown): string | null => {
@@ -149,33 +155,40 @@ function mechanismInputToDamlEnum(
     switch (typeStr) {
       case 'SAFE_CONVERSION': {
         const anyM = m as Record<string, unknown>;
+        const exitMultipleValue = (() => {
+          const r = (anyM as { exit_multiple?: unknown }).exit_multiple as
+            | { numerator?: string | number; denominator?: string | number }
+            | undefined;
+          if (!r) return null;
+          const num = r.numerator !== undefined ? String(r.numerator) : undefined;
+          const den = r.denominator !== undefined ? String(r.denominator) : undefined;
+          if (!num || !den) return null;
+          return { numerator: num, denominator: den };
+        })();
         return {
           tag: 'OcfConvMechSAFE',
           value: {
             conversion_discount: anyM.conversion_discount ?? null,
             conversion_valuation_cap: anyM.conversion_valuation_cap
-              ? monetaryToDaml(anyM.conversion_valuation_cap as any)
+              ? monetaryToDaml(anyM.conversion_valuation_cap as Monetary)
               : null,
-            exit_multiple: ((): any => {
-              const r = (anyM as { exit_multiple?: unknown }).exit_multiple as
-                | { numerator?: string | number; denominator?: string | number }
-                | undefined;
-              if (!r) return null;
-              const num = r.numerator !== undefined ? String(r.numerator) : undefined;
-              const den = r.denominator !== undefined ? String(r.denominator) : undefined;
-              if (!num || !den) return null;
-              return { numerator: num, denominator: den };
-            })(),
+            exit_multiple: exitMultipleValue,
             conversion_mfn: (anyM.conversion_mfn as boolean | null) ?? null,
             conversion_timing: safeTiming(anyM.conversion_timing),
-            capitalization_definition: (anyM.capitalization_definition as string) || null,
+            capitalization_definition: (anyM.capitalization_definition as string | undefined) ?? null,
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
           },
-        } as any;
+        } as Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism;
       }
       case 'CONVERTIBLE_NOTE_CONVERSION': {
         const anyM = m as Record<string, unknown>;
-        const mapIR = (arr: any): any[] =>
+        const mapIR = (
+          arr: unknown
+        ): Array<{
+          rate: unknown;
+          accrual_start_date: string | null;
+          accrual_end_date: string | null;
+        }> =>
           Array.isArray(arr)
             ? arr.map((ir) => ({
                 rate: ir?.rate ?? null,
@@ -233,14 +246,14 @@ function mechanismInputToDamlEnum(
             compounding_type: compoundingToDaml(anyM.compounding_type),
             conversion_discount: anyM.conversion_discount ?? null,
             conversion_valuation_cap: anyM.conversion_valuation_cap
-              ? monetaryToDaml(anyM.conversion_valuation_cap as any)
+              ? monetaryToDaml(anyM.conversion_valuation_cap as Monetary)
               : null,
-            capitalization_definition: (anyM.capitalization_definition as string) || null,
+            capitalization_definition: (anyM.capitalization_definition as string | undefined) ?? null,
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
             exit_multiple: null,
             conversion_mfn: (anyM.conversion_mfn as boolean | null) ?? null,
           },
-        } as any;
+        } as Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism;
       }
       case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION': {
         const anyM = m as Record<string, unknown>;
@@ -251,14 +264,11 @@ function mechanismInputToDamlEnum(
         return {
           tag: 'OcfConvMechPercentCapitalization',
           value: {
-            converts_to_percent:
-              typeof anyM.converts_to_percent === 'number'
-                ? String(anyM.converts_to_percent)
-                : (anyM.converts_to_percent as string) || '0',
-            capitalization_definition: (anyM.capitalization_definition as string) || null,
+            converts_to_percent: numberToString(anyM.converts_to_percent as string | number),
+            capitalization_definition: (anyM.capitalization_definition as string | undefined) ?? null,
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
           },
-        } as any;
+        } as Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism;
       }
       case 'FIXED_AMOUNT_CONVERSION': {
         const anyM = m as Record<string, unknown>;
@@ -267,12 +277,9 @@ function mechanismInputToDamlEnum(
         return {
           tag: 'OcfConvMechFixedAmount',
           value: {
-            converts_to_quantity:
-              typeof anyM.converts_to_quantity === 'number'
-                ? String(anyM.converts_to_quantity)
-                : (anyM.converts_to_quantity as string) || '0',
+            converts_to_quantity: numberToString(anyM.converts_to_quantity as string | number),
           },
-        } as any;
+        } as Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism;
       }
       case 'VALUATION_BASED_CONVERSION': {
         const anyM = m as Record<string, unknown>;
@@ -281,14 +288,14 @@ function mechanismInputToDamlEnum(
         return {
           tag: 'OcfConvMechValuationBased',
           value: {
-            valuation_type: anyM.valuation_type as any,
+            valuation_type: anyM.valuation_type as string,
             valuation_amount: anyM.valuation_amount
-              ? monetaryToDaml(anyM.valuation_amount as any)
+              ? monetaryToDaml(anyM.valuation_amount as Monetary)
               : null,
-            capitalization_definition: (anyM.capitalization_definition as string) || null,
+            capitalization_definition: (anyM.capitalization_definition as string | undefined) ?? null,
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
           },
-        } as any;
+        } as Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism;
       }
       case 'SHARE_PRICE_BASED_CONVERSION': {
         const anyM = m as Record<string, unknown>;
@@ -299,12 +306,14 @@ function mechanismInputToDamlEnum(
           value: {
             description: anyM.description,
             discount: Boolean(anyM.discount),
-            discount_percentage: (anyM.discount_percentage as any) ?? null,
+            discount_percentage: anyM.discount_percentage
+              ? numberToString(anyM.discount_percentage as string | number)
+              : null,
             discount_amount: anyM.discount_amount
-              ? monetaryToDaml(anyM.discount_amount as any)
+              ? monetaryToDaml(anyM.discount_amount as Monetary)
               : null,
           },
-        } as any;
+        } as Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism;
       }
       case 'CUSTOM_CONVERSION': {
         const anyM = m as Record<string, unknown>;
@@ -316,7 +325,7 @@ function mechanismInputToDamlEnum(
         return {
           tag: 'OcfConvMechCustom',
           value: { custom_conversion_description: desc },
-        } as any;
+        } as Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism;
       }
       default: {
         throw new Error(`Unknown conversion mechanism: ${typeStr}`);
@@ -327,7 +336,7 @@ function mechanismInputToDamlEnum(
   throw new Error('conversion_right.conversion_mechanism is required');
 }
 
-function buildConvertibleRight(input: ConversionTriggerInput | undefined): any {
+function buildConvertibleRight(input: ConversionTriggerInput | undefined) {
   const details =
     typeof input === 'object' && input !== null && 'conversion_right' in input
       ? input.conversion_right
@@ -338,16 +347,19 @@ function buildConvertibleRight(input: ConversionTriggerInput | undefined): any {
       ? details.converts_to_future_round
       : null;
   const convertsToStockClassId = details?.converts_to_stock_class_id ?? null;
-  const convertibleRight: any = {
+  return {
     type_: 'CONVERTIBLE_CONVERSION_RIGHT',
     conversion_mechanism: mechanism,
     converts_to_future_round: convertsToFutureRound,
     converts_to_stock_class_id: convertsToStockClassId,
-  } as any;
-  return convertibleRight;
+  };
 }
 
-function buildTriggerToDaml(t: ConversionTriggerInput, index: number, issuanceId: string): any {
+function buildTriggerToDaml(
+  t: ConversionTriggerInput,
+  _index: number,
+  _issuanceId: string
+) {
   const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
   if (typeof t !== 'object' || !t.trigger_id)
@@ -368,7 +380,7 @@ function buildTriggerToDaml(t: ConversionTriggerInput, index: number, issuanceId
     conversion_right,
     trigger_date: trigger_dateStr ? dateStringToDAMLTime(trigger_dateStr) : null,
     trigger_condition,
-  } as any;
+  };
 }
 
 export function buildCreateConvertibleIssuanceCommand(
