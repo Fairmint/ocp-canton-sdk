@@ -1,5 +1,5 @@
-export type { CreateOcfObjectParams, BuildCreateOcfObjectCommandFunction } from './createOcfObject';
 export { buildCreateOcfObjectCommandFactory } from './createOcfObject';
-export * from './typeConversions';
+export type { BuildCreateOcfObjectCommandFunction, CreateOcfObjectParams } from './createOcfObject';
 export * from './ocfMetadata';
 export * from './transactionHelpers';
+export * from './typeConversions';

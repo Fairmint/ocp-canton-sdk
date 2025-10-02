@@ -1,8 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
-/**
- * OCF object types supported by the SDK
- */
+/** OCF object types supported by the SDK */
 export type OcfObjectType =
   | 'STOCK_CLASS'
   | 'STAKEHOLDER'
@@ -20,9 +18,7 @@ export type OcfObjectType =
   | 'TX_EQUITY_COMPENSATION_ISSUANCE'
   | 'TX_EQUITY_COMPENSATION_EXERCISE';
 
-/**
- * Metadata about each OCF object type including template IDs and data paths
- */
+/** Metadata about each OCF object type including template IDs and data paths */
 interface OcfTypeMetadata {
   /** DAML template ID */
   templateId: string;
@@ -30,10 +26,7 @@ interface OcfTypeMetadata {
   ocfIdPath: string[];
 }
 
-/**
- * Central registry of OCF type metadata
- * Maps each OCF object type to its DAML template ID and OCF ID extraction path
- */
+/** Central registry of OCF type metadata Maps each OCF object type to its DAML template ID and OCF ID extraction path */
 export const OCF_METADATA: Record<OcfObjectType, OcfTypeMetadata> = {
   STOCK_CLASS: {
     templateId: Fairmint.OpenCapTable.StockClass.StockClass.templateId,
@@ -48,8 +41,7 @@ export const OCF_METADATA: Record<OcfObjectType, OcfTypeMetadata> = {
     ocfIdPath: ['plan_data', 'id'],
   },
   STOCK_LEGEND_TEMPLATE: {
-    templateId:
-      Fairmint.OpenCapTable.StockLegendTemplate.StockLegendTemplate.templateId,
+    templateId: Fairmint.OpenCapTable.StockLegendTemplate.StockLegendTemplate.templateId,
     ocfIdPath: ['template_data', 'id'],
   },
   DOCUMENT: {
@@ -65,70 +57,51 @@ export const OCF_METADATA: Record<OcfObjectType, OcfTypeMetadata> = {
     ocfIdPath: ['issuance_data', 'id'],
   },
   TX_WARRANT_ISSUANCE: {
-    templateId:
-      Fairmint.OpenCapTable.WarrantIssuance.WarrantIssuance.templateId,
+    templateId: Fairmint.OpenCapTable.WarrantIssuance.WarrantIssuance.templateId,
     ocfIdPath: ['issuance_data', 'id'],
   },
   TX_CONVERTIBLE_ISSUANCE: {
-    templateId:
-      Fairmint.OpenCapTable.ConvertibleIssuance.ConvertibleIssuance.templateId,
+    templateId: Fairmint.OpenCapTable.ConvertibleIssuance.ConvertibleIssuance.templateId,
     ocfIdPath: ['issuance_data', 'id'],
   },
   TX_STOCK_PLAN_POOL_ADJUSTMENT: {
-    templateId:
-      Fairmint.OpenCapTable.StockPlanPoolAdjustment.StockPlanPoolAdjustment
-        .templateId,
+    templateId: Fairmint.OpenCapTable.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId,
     ocfIdPath: ['adjustment_data', 'id'],
   },
   TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT: {
     templateId:
-      Fairmint.OpenCapTable.StockClassAuthorizedSharesAdjustment
-        .StockClassAuthorizedSharesAdjustment.templateId,
+      Fairmint.OpenCapTable.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment.templateId,
     ocfIdPath: ['adjustment_data', 'id'],
   },
   TX_STOCK_CANCELLATION: {
-    templateId:
-      Fairmint.OpenCapTable.StockCancellation.StockCancellation.templateId,
+    templateId: Fairmint.OpenCapTable.StockCancellation.StockCancellation.templateId,
     ocfIdPath: ['cancellation_data', 'id'],
   },
   TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: {
-    templateId:
-      Fairmint.OpenCapTable.IssuerAuthorizedSharesAdjustment
-        .IssuerAuthorizedSharesAdjustment.templateId,
+    templateId: Fairmint.OpenCapTable.IssuerAuthorizedSharesAdjustment.IssuerAuthorizedSharesAdjustment.templateId,
     ocfIdPath: ['adjustment_data', 'id'],
   },
   TX_EQUITY_COMPENSATION_ISSUANCE: {
-    templateId:
-      Fairmint.OpenCapTable.EquityCompensationIssuance.EquityCompensationIssuance
-        .templateId,
+    templateId: Fairmint.OpenCapTable.EquityCompensationIssuance.EquityCompensationIssuance.templateId,
     ocfIdPath: ['issuance_data', 'id'],
   },
   TX_EQUITY_COMPENSATION_EXERCISE: {
-    templateId:
-      Fairmint.OpenCapTable.EquityCompensationExercise.EquityCompensationExercise
-        .templateId,
+    templateId: Fairmint.OpenCapTable.EquityCompensationExercise.EquityCompensationExercise.templateId,
     ocfIdPath: ['exercise_data', 'id'],
   },
 };
 
-/**
- * Get metadata for a specific OCF object type
- */
+/** Get metadata for a specific OCF object type */
 export function getOcfMetadata(type: OcfObjectType): OcfTypeMetadata {
   return OCF_METADATA[type];
 }
 
-/**
- * Get all supported OCF object types
- */
+/** Get all supported OCF object types */
 export function getAllOcfTypes(): OcfObjectType[] {
   return Object.keys(OCF_METADATA) as OcfObjectType[];
 }
 
-/**
- * Check if a given string is a valid OCF object type
- */
+/** Check if a given string is a valid OCF object type */
 export function isValidOcfType(type: string): type is OcfObjectType {
   return type in OCF_METADATA;
 }
-

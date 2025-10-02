@@ -1,8 +1,6 @@
 import { OCF_METADATA, type OcfObjectType } from './ocfMetadata';
 
-/**
- * Represents a created event from a transaction tree
- */
+/** Represents a created event from a transaction tree */
 export interface CreatedTreeEvent {
   CreatedTreeEvent: {
     value: {
@@ -15,6 +13,7 @@ export interface CreatedTreeEvent {
 
 /**
  * Safely access nested properties in an object
+ *
  * @param obj - The object to traverse
  * @param path - Array of keys representing the path to the desired property
  * @returns The value at the path, or undefined if not found
@@ -30,14 +29,12 @@ export function safeGet(obj: unknown, path: string[]): unknown {
 
 /**
  * Find all created events in a transaction tree that match a specific template ID
+ *
  * @param treeResponse - The transaction tree response from the ledger
  * @param expectedTemplateId - The template ID to filter by
  * @returns Array of matching created events
  */
-export function findCreatedEventsByTemplateId(
-  treeResponse: unknown,
-  expectedTemplateId: string
-): CreatedTreeEvent[] {
+export function findCreatedEventsByTemplateId(treeResponse: unknown, expectedTemplateId: string): CreatedTreeEvent[] {
   const results: CreatedTreeEvent[] = [];
   if (!treeResponse || typeof treeResponse !== 'object') return results;
 
@@ -59,14 +56,11 @@ export function findCreatedEventsByTemplateId(
       (event as Record<string, unknown>).CreatedTreeEvent &&
       typeof (event as Record<string, unknown>).CreatedTreeEvent === 'object'
     ) {
-      const createdEvent = (event as Record<string, unknown>)
-        .CreatedTreeEvent as { value?: { templateId?: string } };
+      const createdEvent = (event as Record<string, unknown>).CreatedTreeEvent as { value?: { templateId?: string } };
       const templateId = createdEvent.value?.templateId;
 
       if (templateId) {
-        const actualSuffix = templateId.includes(':')
-          ? templateId.substring(templateId.indexOf(':') + 1)
-          : templateId;
+        const actualSuffix = templateId.includes(':') ? templateId.substring(templateId.indexOf(':') + 1) : templateId;
 
         if (actualSuffix === expectedSuffix) {
           results.push(event as CreatedTreeEvent);
@@ -79,39 +73,32 @@ export function findCreatedEventsByTemplateId(
 
 /**
  * Extract the OCF ID from a created event's arguments
+ *
  * @param event - The created event
  * @param ocfType - The OCF object type
  * @returns The OCF ID string, or undefined if not found
  */
-export function extractOcfIdFromEvent(
-  event: CreatedTreeEvent,
-  ocfType: OcfObjectType
-): string | undefined {
+export function extractOcfIdFromEvent(event: CreatedTreeEvent, ocfType: OcfObjectType): string | undefined {
   const metadata = OCF_METADATA[ocfType];
-  const ocfId = safeGet(
-    event.CreatedTreeEvent.value.createArgument,
-    metadata.ocfIdPath
-  );
+  const ocfId = safeGet(event.CreatedTreeEvent.value.createArgument, metadata.ocfIdPath);
   return typeof ocfId === 'string' ? ocfId : undefined;
 }
 
 /**
  * Build a map of OCF IDs to contract IDs from a transaction tree for a specific type
+ *
  * @param treeResponse - The transaction tree response
  * @param ocfType - The OCF object type to extract
  * @returns Map of OCF ID to contract ID
  */
-export function buildOcfIdToContractIdMap(
-  treeResponse: unknown,
-  ocfType: OcfObjectType
-): Map<string, string> {
+export function buildOcfIdToContractIdMap(treeResponse: unknown, ocfType: OcfObjectType): Map<string, string> {
   const metadata = OCF_METADATA[ocfType];
   const events = findCreatedEventsByTemplateId(treeResponse, metadata.templateId);
   const ocfIdMap = new Map<string, string>();
 
   for (const event of events) {
     const ocfId = extractOcfIdFromEvent(event, ocfType);
-    const contractId = event.CreatedTreeEvent.value.contractId;
+    const { contractId } = event.CreatedTreeEvent.value;
     if (ocfId && contractId) {
       ocfIdMap.set(ocfId, contractId);
     }
@@ -122,12 +109,11 @@ export function buildOcfIdToContractIdMap(
 
 /**
  * Build maps of OCF IDs to contract IDs for all OCF types in a transaction
+ *
  * @param treeResponse - The transaction tree response
  * @returns Map of OCF type to (OCF ID -> contract ID) map
  */
-export function buildAllOcfIdMaps(
-  treeResponse: unknown
-): Map<OcfObjectType, Map<string, string>> {
+export function buildAllOcfIdMaps(treeResponse: unknown): Map<OcfObjectType, Map<string, string>> {
   const allMaps = new Map<OcfObjectType, Map<string, string>>();
 
   for (const [type] of Object.entries(OCF_METADATA)) {
@@ -140,12 +126,11 @@ export function buildAllOcfIdMaps(
 
 /**
  * Build arrays of created events for all OCF types in a transaction
+ *
  * @param treeResponse - The transaction tree response
  * @returns Map of OCF type to array of created events
  */
-export function buildAllOcfEventArrays(
-  treeResponse: unknown
-): Map<OcfObjectType, CreatedTreeEvent[]> {
+export function buildAllOcfEventArrays(treeResponse: unknown): Map<OcfObjectType, CreatedTreeEvent[]> {
   const allArrays = new Map<OcfObjectType, CreatedTreeEvent[]>();
 
   for (const [type, metadata] of Object.entries(OCF_METADATA)) {
@@ -156,4 +141,3 @@ export function buildAllOcfEventArrays(
 
   return allArrays;
 }
-
