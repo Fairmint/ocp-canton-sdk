@@ -26,7 +26,7 @@
     "ecmaVersion": 2020,
     "sourceType": "module"
   },
-  "plugins": ["@typescript-eslint", "import", "unused-imports"],
+  "plugins": ["@typescript-eslint", "unused-imports"],
   "root": true,
   "rules": {
     "@typescript-eslint/no-explicit-any": "error",
@@ -97,17 +97,7 @@
         "argsIgnorePattern": "^_"
       }
     ],
-    "import/order": [
-      "warn",
-      {
-        "groups": ["builtin", "external", "internal", "parent", "sibling", "index", "object", "type"],
-        "newlines-between": "never",
-        "alphabetize": {
-          "order": "asc",
-          "caseInsensitive": true
-        }
-      }
-    ],
+    "import/order": "off",
     "import/no-duplicates": "warn",
     "import/no-unresolved": "off",
     "import/no-named-as-default": "off",

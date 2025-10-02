@@ -101,7 +101,7 @@ export interface GetStockIssuanceAsOcfResult {
     stock_class_id: string;
     share_price: Monetary;
     quantity: string | number;
-    security_law_exemptions: SecurityExemption[];
+    security_law_exemptions?: SecurityExemption[];
   };
 }
 
@@ -125,9 +125,9 @@ export async function getStockIssuanceAsOcf(
   const ocf = {
     object_type: 'TX_STOCK_ISSUANCE' as const,
     ...rest,
-    ...(share_numbers_issued.length > 0 ? { share_numbers_issued } : {}),
-    ...(vestings.length > 0 ? { vestings } : {}),
-    ...(comments.length > 0 ? { comments } : {}),
+    ...(share_numbers_issued && share_numbers_issued.length > 0 ? { share_numbers_issued } : {}),
+    ...(vestings && vestings.length > 0 ? { vestings } : {}),
+    ...(comments && comments.length > 0 ? { comments } : {}),
     ...(issuance_type ? { issuance_type } : {}),
   };
   return { contractId: params.contractId, stockIssuance: ocf };

@@ -39,11 +39,12 @@ export async function addObserversToCompanyValuationReport(
     contractId: params.companyValuationReportContractId,
   });
 
-  if (!eventsResponse.created?.createdEvent?.createArgument) {
+  const createdEvent = eventsResponse.created?.createdEvent;
+  if (!createdEvent?.createArgument) {
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
 
-  const { createArgument } = eventsResponse.created.createdEvent;
+  const { createArgument } = createdEvent;
   if (!hasSystemOperator(createArgument)) {
     throw new Error('System operator not found in contract create argument');
   }

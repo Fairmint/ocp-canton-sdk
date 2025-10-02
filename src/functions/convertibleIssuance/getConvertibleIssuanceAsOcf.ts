@@ -196,15 +196,15 @@ export async function getConvertibleIssuanceAsOcf(
       if (m && typeof m === 'object') {
         const tag = (m as Record<string, unknown>).tag as string | undefined;
         const value = (m as Record<string, unknown>).value as Record<string, unknown> | undefined;
-        if (!tag) {
-          throw new Error('Conversion mechanism tag is required');
+        if (!tag || !value) {
+          throw new Error('Conversion mechanism tag and value are required');
         }
         switch (tag) {
           case 'OcfConvMechSAFE': {
             const mech: SafeConversionMechanism = {
               type: 'SAFE_CONVERSION',
-              conversion_mfn: Boolean(value?.conversion_mfn),
-              ...(value?.conversion_discount !== undefined && value?.conversion_discount !== null
+              conversion_mfn: Boolean(value.conversion_mfn),
+              ...(value.conversion_discount !== undefined && value.conversion_discount !== null
                 ? {
                     conversion_discount:
                       typeof value.conversion_discount === 'number'
@@ -212,21 +212,21 @@ export async function getConvertibleIssuanceAsOcf(
                         : value.conversion_discount,
                   }
                 : {}),
-              ...(value?.conversion_valuation_cap
+              ...(value.conversion_valuation_cap
                 ? { conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap)! }
                 : {}),
-              ...(value?.conversion_timing ? { conversion_timing: mapTiming(value.conversion_timing) } : {}),
-              ...(value?.capitalization_definition
+              ...(value.conversion_timing ? { conversion_timing: mapTiming(value.conversion_timing) } : {}),
+              ...(value.capitalization_definition
                 ? { capitalization_definition: value.capitalization_definition }
                 : {}),
-              ...(value?.capitalization_definition_rules
+              ...(value.capitalization_definition_rules
                 ? { capitalization_definition_rules: value.capitalization_definition_rules }
                 : {}),
-              ...(value?.exit_multiple
+              ...(value.exit_multiple
                 ? {
                     exit_multiple: {
-                      numerator: String((value.exit_multiple as Record<string, unknown>)?.numerator),
-                      denominator: String((value.exit_multiple as Record<string, unknown>)?.denominator),
+                      numerator: String((value.exit_multiple as Record<string, unknown>).numerator),
+                      denominator: String((value.exit_multiple as Record<string, unknown>).denominator),
                     },
                   }
                 : {}),
@@ -237,13 +237,13 @@ export async function getConvertibleIssuanceAsOcf(
             const mech: PercentCapitalizationMechanism = {
               type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
               converts_to_percent:
-                typeof value?.converts_to_percent === 'number'
-                  ? String(value?.converts_to_percent)
-                  : value?.converts_to_percent,
-              ...(value?.capitalization_definition
+                typeof value.converts_to_percent === 'number'
+                  ? String(value.converts_to_percent)
+                  : value.converts_to_percent,
+              ...(value.capitalization_definition
                 ? { capitalization_definition: value.capitalization_definition }
                 : {}),
-              ...(value?.capitalization_definition_rules
+              ...(value.capitalization_definition_rules
                 ? { capitalization_definition_rules: value.capitalization_definition_rules }
                 : {}),
             } as PercentCapitalizationMechanism;
@@ -253,21 +253,21 @@ export async function getConvertibleIssuanceAsOcf(
             const mech: FixedAmountMechanism = {
               type: 'FIXED_AMOUNT_CONVERSION',
               converts_to_quantity:
-                typeof value?.converts_to_quantity === 'number'
-                  ? String(value?.converts_to_quantity)
-                  : value?.converts_to_quantity,
+                typeof value.converts_to_quantity === 'number'
+                  ? String(value.converts_to_quantity)
+                  : value.converts_to_quantity,
             } as FixedAmountMechanism;
             return mech;
           }
           case 'OcfConvMechValuationBased': {
             const mech: ValuationBasedMechanism = {
               type: 'VALUATION_BASED_CONVERSION',
-              valuation_type: value?.valuation_type,
-              ...(value?.valuation_amount ? { valuation_amount: mapMonetary(value.valuation_amount)! } : {}),
-              ...(value?.capitalization_definition
+              valuation_type: value.valuation_type,
+              ...(value.valuation_amount ? { valuation_amount: mapMonetary(value.valuation_amount)! } : {}),
+              ...(value.capitalization_definition
                 ? { capitalization_definition: value.capitalization_definition }
                 : {}),
-              ...(value?.capitalization_definition_rules
+              ...(value.capitalization_definition_rules
                 ? { capitalization_definition_rules: value.capitalization_definition_rules }
                 : {}),
             } as ValuationBasedMechanism;
@@ -276,9 +276,9 @@ export async function getConvertibleIssuanceAsOcf(
           case 'OcfConvMechSharePriceBased': {
             const mech: SharePriceBasedMechanism = {
               type: 'SHARE_PRICE_BASED_CONVERSION',
-              description: value?.description,
-              discount: Boolean(value?.discount),
-              ...(value?.discount_percentage !== undefined && value?.discount_percentage !== null
+              description: value.description,
+              discount: Boolean(value.discount),
+              ...(value.discount_percentage !== undefined && value.discount_percentage !== null
                 ? {
                     discount_percentage:
                       typeof value.discount_percentage === 'number'
@@ -286,18 +286,18 @@ export async function getConvertibleIssuanceAsOcf(
                         : value.discount_percentage,
                   }
                 : {}),
-              ...(value?.discount_amount ? { discount_amount: mapMonetary(value.discount_amount)! } : {}),
+              ...(value.discount_amount ? { discount_amount: mapMonetary(value.discount_amount)! } : {}),
             } as SharePriceBasedMechanism;
             return mech;
           }
           case 'OcfConvMechNote': {
-            const interest_rates = Array.isArray(value?.interest_rates)
+            const interest_rates = Array.isArray(value.interest_rates)
               ? value.interest_rates.map((ir: unknown) => {
                   const irObj = ir as Record<string, unknown>;
                   return {
-                    rate: typeof irObj?.rate === 'number' ? String(irObj.rate) : (irObj?.rate as string),
-                    accrual_start_date: (irObj?.accrual_start_date as string).split('T')[0],
-                    ...(irObj?.accrual_end_date
+                    rate: typeof irObj.rate === 'number' ? String(irObj.rate) : (irObj.rate as string),
+                    accrual_start_date: (irObj.accrual_start_date as string).split('T')[0],
+                    ...(irObj.accrual_end_date
                       ? { accrual_end_date: (irObj.accrual_end_date as string).split('T')[0] }
                       : {}),
                   };

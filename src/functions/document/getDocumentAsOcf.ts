@@ -154,7 +154,7 @@ export async function getDocumentAsOcf(
   params: GetDocumentAsOcfParams
 ): Promise<GetDocumentAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!eventsResponse.created || !eventsResponse.created.createdEvent.createArgument) {
+  if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new Error('No createArgument found for contract');
   }
 

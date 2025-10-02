@@ -501,13 +501,13 @@ export interface OcfStockIssuanceData {
   /** Unstructured text description of consideration provided in exchange for security issuance */
   consideration_text?: string;
   /** List of security law exemptions (and applicable jurisdictions) for this security */
-  security_law_exemptions: SecurityExemption[];
+  security_law_exemptions?: SecurityExemption[];
   /** Identifier of the stock class of the issued security */
   stock_class_id: string;
   /** Identifier for the stock plan, if applicable */
   stock_plan_id?: string;
   /** Share number ranges (if any) associated with this issuance */
-  share_numbers_issued: ShareNumberRange[];
+  share_numbers_issued?: ShareNumberRange[];
   /** Price per share paid for the stock */
   share_price: Monetary;
   /** Quantity of shares issued */
@@ -515,15 +515,15 @@ export interface OcfStockIssuanceData {
   /** Reference to vesting terms object, if used instead of inline vestings */
   vesting_terms_id?: string;
   /** Vesting schedule entries associated directly with this issuance */
-  vestings: VestingSimple[];
+  vestings?: VestingSimple[];
   /** Cost basis for the shares issued */
   cost_basis?: Monetary;
   /** Stock legends that apply to this issuance (schema minItems: 1; implementation may allow empty) */
-  stock_legend_ids: string[];
+  stock_legend_ids?: string[];
   /** Type of stock issuance (e.g., RSA, Founders) */
   issuance_type?: StockIssuanceType;
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
 }
 
 // ===== Vesting Terms Types =====

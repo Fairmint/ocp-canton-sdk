@@ -51,12 +51,12 @@ export function buildCreateStockIssuanceCommand(params: CreateStockIssuanceParam
       board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
       stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
       consideration_text: optionalString(d.consideration_text),
-      security_law_exemptions: d.security_law_exemptions.map((e) => ({
+      security_law_exemptions: (d.security_law_exemptions ?? []).map((e) => ({
         description: e.description,
         jurisdiction: e.jurisdiction,
       })),
       stock_plan_id: d.stock_plan_id ?? null,
-      share_numbers_issued: d.share_numbers_issued
+      share_numbers_issued: (d.share_numbers_issued ?? [])
         .filter((range) => !(range.starting_share_number === '0' && range.ending_share_number === '0'))
         .map((r) => ({
           starting_share_number: numberToString(r.starting_share_number),
@@ -65,12 +65,12 @@ export function buildCreateStockIssuanceCommand(params: CreateStockIssuanceParam
       share_price: monetaryToDaml(d.share_price),
       quantity: numberToString(d.quantity),
       vesting_terms_id: d.vesting_terms_id ?? null,
-      vestings: d.vestings.map((v) => ({
+      vestings: (d.vestings ?? []).map((v) => ({
         date: dateStringToDAMLTime(v.date),
         amount: numberToString(v.amount),
       })),
       cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,
-      stock_legend_ids: d.stock_legend_ids,
+      stock_legend_ids: d.stock_legend_ids ?? [],
       issuance_type: getIssuanceType(d.issuance_type),
       comments: cleanComments(d.comments),
     },
