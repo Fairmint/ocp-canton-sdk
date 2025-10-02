@@ -116,8 +116,7 @@ export function buildOcfIdToContractIdMap(treeResponse: unknown, ocfType: OcfObj
 export function buildAllOcfIdMaps(treeResponse: unknown): Map<OcfObjectType, Map<string, string>> {
   const allMaps = new Map<OcfObjectType, Map<string, string>>();
 
-  for (const [type] of Object.entries(OCF_METADATA)) {
-    const ocfType = type as OcfObjectType;
+  for (const ocfType of Object.keys(OCF_METADATA) as OcfObjectType[]) {
     allMaps.set(ocfType, buildOcfIdToContractIdMap(treeResponse, ocfType));
   }
 
