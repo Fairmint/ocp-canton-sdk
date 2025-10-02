@@ -261,6 +261,8 @@ export async function getStakeholderAsOcf(
   const ocfStakeholder: OcfStakeholder = {
     object_type: 'STAKEHOLDER',
     ...native,
+    addresses: native.addresses ?? [],
+    tax_ids: native.tax_ids ?? [],
   };
 
   return { stakeholder: ocfStakeholder, contractId: params.contractId };
