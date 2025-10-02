@@ -191,7 +191,6 @@ function vestingConditionToDaml(
 function vestingTermsDataToDaml(
   d: OcfVestingTermsData
 ): Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData {
-  cleanComments(d);
   if (!d.id) throw new Error('vestingTerms.id is required');
   return {
     id: d.id,
@@ -199,7 +198,7 @@ function vestingTermsDataToDaml(
     description: d.description,
     allocation_type: allocationTypeToDaml(d.allocation_type),
     vesting_conditions: d.vesting_conditions.map(vestingConditionToDaml),
-    comments: d.comments || [],
+    comments: cleanComments(d.comments),
   };
 }
 
@@ -223,9 +222,14 @@ export function buildCreateVestingTermsCommand(
   } as any;
 
   // Normalize Optional fields for JSON API: use direct value for Some, null for None
+  const vtData = damlArgs.vesting_terms_data;
   const choiceArguments: any = {
     vesting_terms_data: {
-      ...damlArgs.vesting_terms_data,
+      id: vtData.id,
+      name: vtData.name,
+      description: vtData.description,
+      allocation_type: vtData.allocation_type,
+      comments: vtData.comments,
       vesting_conditions: (damlArgs as any).vesting_terms_data.vesting_conditions.map((c: any) => {
         const portion = c.portion && c.portion.tag === 'Some' ? c.portion.value : null;
         const trigger = ((): any => {
@@ -235,7 +239,10 @@ export function buildCreateVestingTermsCommand(
           return c.trigger;
         })();
         return {
-          ...c,
+          id: c.id,
+          description: c.description,
+          quantity: c.quantity,
+          next_condition_ids: c.next_condition_ids,
           portion,
           trigger,
         };

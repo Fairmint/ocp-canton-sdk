@@ -1,5 +1,5 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { dateStringToDAMLTime, cleanComments } from '../../utils/typeConversions';
+import { dateStringToDAMLTime, cleanComments, numberToString } from '../../utils/typeConversions';
 import type { CommandWithDisclosedContracts } from '../../types';
 import type {
   Command,
@@ -21,43 +21,32 @@ export interface CreateStockCancellationParams {
   };
 }
 
-interface IssuerCreateArgShape {
-  context?: { system_operator?: string };
-}
-
 export function buildCreateStockCancellationCommand(
   params: CreateStockCancellationParams
 ): CommandWithDisclosedContracts {
-  const d = params.cancellationData;
-  cleanComments(d);
-  const cancellation_data: any = {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
-    balance_security_id: d.balance_security_id ?? null,
-    reason_text: d.reason_text,
-    comments: d.comments || [],
-  } as any;
+  const { cancellationData: d } = params;
 
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockCancellation = {
-    cancellation_data,
-  } as any;
+    cancellation_data: {
+      id: d.id,
+      security_id: d.security_id,
+      reason_text: d.reason_text,
+      date: dateStringToDAMLTime(d.date),
+      quantity: numberToString(d.quantity),
+      balance_security_id: d.balance_security_id ?? null,
+      comments: cleanComments(d.comments),
+    },
+  };
   const command: Command = {
     ExerciseCommand: {
       templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
       contractId: params.issuerContractId,
       choice: 'CreateStockCancellation',
-      choiceArgument: choiceArguments as any,
+      choiceArgument: choiceArguments,
     },
   };
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
+
+  const disclosedContracts: DisclosedContract[] = [params.featuredAppRightContractDetails];
+
   return { command, disclosedContracts };
 }

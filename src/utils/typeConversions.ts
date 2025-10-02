@@ -34,6 +34,53 @@ export function damlTimeToDateString(timeString: string): string {
   return timeString.split('T')[0];
 }
 
+/**
+ * Convert a number or string to a string
+ * Used for DAML numeric fields that require string values
+ */
+export function numberToString(value: number | string): string {
+  return typeof value === 'number' ? value.toString() : value;
+}
+
+/**
+ * Convert a number, string, null or undefined to a string or undefined
+ * Used for optional DAML numeric fields that require string values
+ */
+export function optionalNumberToString(
+  value: number | string | null | undefined
+): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  return typeof value === 'number' ? value.toString() : value;
+}
+
+/**
+ * Convert an optional string to null if it's empty or undefined
+ * Used for DAML optional text fields where empty strings should be null
+ */
+export function optionalString(value: string | undefined): string | null {
+  return value === '' || value === undefined ? null : value;
+}
+
+/**
+ * Safely convert an unknown value to a string
+ * Returns empty string if value is null, undefined, or not a string/number
+ * Used when parsing DAML values that might be in various formats
+ */
+export function safeString(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return value.toString();
+  // For objects, try to get a meaningful string representation
+  if (typeof value === 'object' && value !== null) {
+    // Handle DAML tagged unions
+    if ('tag' in value && typeof (value as { tag?: unknown }).tag === 'string') {
+      return (value as { tag: string }).tag;
+    }
+  }
+  return '';
+}
+
+
 // ===== Monetary Value Conversions =====
 
 export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.OcfMonetary {
@@ -115,16 +162,17 @@ export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Ocf
 /**
  * Remove empty string entries from comments array (mutates in place and returns the object)
  */
-export function cleanComments<T extends { comments?: Array<string | null | undefined> }>(
-  data: T
-): T {
-  if (Array.isArray(data.comments)) {
-    const filtered = data.comments.filter(
+export function cleanComments(
+  comments?: Array<string | null>
+): Array<string> {
+  if (Array.isArray(comments)) {
+    const filtered = comments.filter(
       (c): c is string => typeof c === 'string' && c.trim() !== ''
     );
-    data.comments = filtered.length > 0 ? filtered : undefined;
+    return filtered.length > 0 ? filtered : [];
   }
-  return data;
+
+  return [];
 }
 
 // ===== Transaction Response Helpers =====

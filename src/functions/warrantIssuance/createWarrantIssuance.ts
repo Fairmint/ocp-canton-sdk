@@ -1,5 +1,11 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { monetaryToDaml, dateStringToDAMLTime } from '../../utils/typeConversions';
+import {
+  monetaryToDaml,
+  dateStringToDAMLTime,
+  cleanComments,
+  numberToString,
+  optionalString,
+} from '../../utils/typeConversions';
 import type { Monetary, CommandWithDisclosedContracts } from '../../types';
 import type {
   Command,
@@ -95,7 +101,9 @@ function normalizeTriggerType(t: WarrantTriggerTypeInput): WarrantTriggerTypeInp
   return t;
 }
 
-function triggerTypeToDamlEnum(t: WarrantTriggerTypeInput): any {
+function triggerTypeToDamlEnum(
+  t: WarrantTriggerTypeInput
+): Fairmint.OpenCapTable.Types.OcfConversionTriggerType {
   switch (t) {
     case 'AUTOMATIC_ON_DATE':
       return 'OcfTriggerTypeTypeAutomaticOnDate';
@@ -109,12 +117,16 @@ function triggerTypeToDamlEnum(t: WarrantTriggerTypeInput): any {
       return 'OcfTriggerTypeTypeUnspecified';
     case 'AUTOMATIC_ON_CONDITION':
       return 'OcfTriggerTypeTypeAutomaticOnCondition';
-    default:
-      throw new Error(`Unknown warrant trigger type: ${t}`);
+    default: {
+      const exhaustiveCheck: never = t;
+      throw new Error(`Unknown warrant trigger type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 
-function warrantMechanismToDamlVariant(m?: WarrantConversionMechanismInput): any {
+function warrantMechanismToDamlVariant(
+  m?: WarrantConversionMechanismInput
+): Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism {
   if (!m) {
     throw new Error('conversion_right.conversion_mechanism is required for warrant issuance');
   }
@@ -123,29 +135,24 @@ function warrantMechanismToDamlVariant(m?: WarrantConversionMechanismInput): any
       return {
         tag: 'OcfWarrantMechanismCustom',
         value: { custom_conversion_description: m.custom_conversion_description },
-      } as any;
+      } as Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism;
     case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
-          converts_to_percent:
-            typeof m.converts_to_percent === 'number'
-              ? m.converts_to_percent.toString()
-              : m.converts_to_percent,
+          converts_to_percent: numberToString(m.converts_to_percent),
           capitalization_definition: m.capitalization_definition ?? null,
-          capitalization_definition_rules: m.capitalization_definition_rules ?? null,
+          capitalization_definition_rules: (m.capitalization_definition_rules ??
+            null) as Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules | null,
         },
-      } as any;
+      } as Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism;
     case 'FIXED_AMOUNT_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismFixedAmount',
         value: {
-          converts_to_quantity:
-            typeof m.converts_to_quantity === 'number'
-              ? m.converts_to_quantity.toString()
-              : m.converts_to_quantity,
+          converts_to_quantity: numberToString(m.converts_to_quantity),
         },
-      } as any;
+      } as Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism;
     case 'VALUATION_BASED_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismValuationBased',
@@ -153,9 +160,10 @@ function warrantMechanismToDamlVariant(m?: WarrantConversionMechanismInput): any
           valuation_type: m.valuation_type,
           valuation_amount: m.valuation_amount ? monetaryToDaml(m.valuation_amount) : null,
           capitalization_definition: m.capitalization_definition ?? null,
-          capitalization_definition_rules: m.capitalization_definition_rules ?? null,
+          capitalization_definition_rules: (m.capitalization_definition_rules ??
+            null) as Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules | null,
         },
-      } as any;
+      } as Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism;
     case 'SHARE_PRICE_BASED_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismSharePriceBased',
@@ -164,19 +172,17 @@ function warrantMechanismToDamlVariant(m?: WarrantConversionMechanismInput): any
           discount: m.discount,
           discount_percentage:
             m.discount_percentage !== undefined && m.discount_percentage !== null
-              ? typeof m.discount_percentage === 'number'
-                ? m.discount_percentage.toString()
-                : m.discount_percentage
+              ? numberToString(m.discount_percentage)
               : null,
           discount_amount: m.discount_amount ? monetaryToDaml(m.discount_amount) : null,
         },
-      } as any;
-    default:
-      throw new Error(`Unknown warrant conversion mechanism type: ${(m as any).type}`);
+      } as Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism;
   }
 }
 
-function buildWarrantRight(input: WarrantExerciseTriggerInput | undefined): any {
+function buildWarrantRight(
+  input: WarrantExerciseTriggerInput | undefined
+): Fairmint.OpenCapTable.Types.OcfAnyConversionRight {
   const details =
     typeof input === 'object' && input !== null && 'conversion_right' in input
       ? input.conversion_right
@@ -187,17 +193,15 @@ function buildWarrantRight(input: WarrantExerciseTriggerInput | undefined): any 
       ? details.converts_to_future_round
       : null;
   const converts_to_stock_class_id = details?.converts_to_stock_class_id ?? null;
-  const warrantRight: any = {
-    type_: 'WARRANT_CONVERSION_RIGHT',
-    conversion_mechanism: mechanism,
-    converts_to_future_round,
-    converts_to_stock_class_id,
-  };
-  const anyRight = {
+  return {
     tag: 'OcfRightWarrant',
-    value: warrantRight,
-  } as unknown as any;
-  return anyRight;
+    value: {
+      type_: 'WARRANT_CONVERSION_RIGHT',
+      conversion_mechanism: mechanism,
+      converts_to_future_round,
+      converts_to_stock_class_id,
+    },
+  } as Fairmint.OpenCapTable.Types.OcfAnyConversionRight;
 }
 
 function quantitySourceToDamlEnum(
@@ -222,7 +226,7 @@ function quantitySourceToDamlEnum(
   }
 }
 
-function buildWarrantTrigger(t: WarrantExerciseTriggerInput, index: number, ocfId: string): any {
+function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _ocfId: string) {
   const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
   if (typeof t !== 'object' || !t.trigger_id)
@@ -263,14 +267,9 @@ export function buildCreateWarrantIssuanceCommand(
     stockholder_approval_date: d.stockholder_approval_date
       ? dateStringToDAMLTime(d.stockholder_approval_date)
       : null,
-    consideration_text: d.consideration_text ?? null,
+    consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions,
-    quantity:
-      d.quantity !== undefined && d.quantity !== null
-        ? typeof d.quantity === 'number'
-          ? d.quantity.toString()
-          : d.quantity
-        : null,
+    quantity: d.quantity !== undefined && d.quantity !== null ? numberToString(d.quantity) : null,
     quantity_source: quantitySourceDaml,
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),
@@ -279,11 +278,11 @@ export function buildCreateWarrantIssuanceCommand(
       ? dateStringToDAMLTime(d.warrant_expiration_date)
       : null,
     vesting_terms_id: d.vesting_terms_id ?? null,
-    vestings: (d.vestings || []).map((v) => ({
+    vestings: (d.vestings ?? []).map((v) => ({
       date: dateStringToDAMLTime(v.date),
-      amount: typeof v.amount === 'number' ? v.amount.toString() : v.amount,
+      amount: numberToString(v.amount),
     })),
-    comments: d.comments || [],
+    comments: cleanComments(d.comments),
   };
 
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateWarrantIssuance = {

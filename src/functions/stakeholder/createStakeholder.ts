@@ -117,7 +117,6 @@ function contactInfoWithoutNameToDaml(
 function stakeholderDataToDaml(
   data: OcfStakeholderData
 ): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData {
-  cleanComments(data);
   if (!data.id) throw new Error('stakeholder.id is required');
   const payload: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData = {
     id: data.id,
@@ -128,7 +127,7 @@ function stakeholderDataToDaml(
     contact_info: data.contact_info ? contactInfoWithoutNameToDaml(data.contact_info) : null,
     addresses: (data.addresses || []).map(addressToDaml),
     tax_ids: data.tax_ids || [],
-    comments: data.comments || [],
+    comments: cleanComments(data.comments),
   } as any;
 
   const dataWithSingular = data as OcfStakeholderData & { current_relationship?: string };

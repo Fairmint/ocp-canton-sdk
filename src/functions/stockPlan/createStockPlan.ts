@@ -31,7 +31,6 @@ function cancellationBehaviorToDaml(
 function stockPlanDataToDaml(
   d: OcfStockPlanData
 ): Fairmint.OpenCapTable.StockPlan.OcfStockPlanData {
-  cleanComments(d);
   if (!d.id) throw new Error('stockPlan.id is required');
   return {
     id: d.id,
@@ -46,7 +45,7 @@ function stockPlanDataToDaml(
         : d.initial_shares_reserved,
     default_cancellation_behavior: cancellationBehaviorToDaml(d.default_cancellation_behavior),
     stock_class_ids: d.stock_class_ids,
-    comments: d.comments || [],
+    comments: cleanComments(d.comments),
   };
 }
 

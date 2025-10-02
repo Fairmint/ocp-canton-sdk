@@ -18,32 +18,32 @@ function stockClassTypeToDaml(stockClassType: StockClassType): any {
 }
 
 function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
-  const cleaned = cleanComments(stockClassData);
-  if (!cleaned.id) throw new Error('stockClassData.id is required');
+  const d = stockClassData;
+  if (!d.id) throw new Error('stockClassData.id is required');
   return {
-    id: cleaned.id,
-    name: cleaned.name,
-    class_type: stockClassTypeToDaml(cleaned.class_type),
-    default_id_prefix: cleaned.default_id_prefix,
+    id: d.id,
+    name: d.name,
+    class_type: stockClassTypeToDaml(d.class_type),
+    default_id_prefix: d.default_id_prefix,
     initial_shares_authorized:
-      typeof cleaned.initial_shares_authorized === 'number'
-        ? cleaned.initial_shares_authorized.toString()
-        : cleaned.initial_shares_authorized,
+      typeof d.initial_shares_authorized === 'number'
+        ? d.initial_shares_authorized.toString()
+        : d.initial_shares_authorized,
     votes_per_share:
-      typeof cleaned.votes_per_share === 'number'
-        ? cleaned.votes_per_share.toString()
-        : cleaned.votes_per_share,
+      typeof d.votes_per_share === 'number'
+        ? d.votes_per_share.toString()
+        : d.votes_per_share,
     seniority:
-      typeof cleaned.seniority === 'number' ? cleaned.seniority.toString() : cleaned.seniority,
-    board_approval_date: cleaned.board_approval_date
-      ? dateStringToDAMLTime(cleaned.board_approval_date)
+      typeof d.seniority === 'number' ? d.seniority.toString() : d.seniority,
+    board_approval_date: d.board_approval_date
+      ? dateStringToDAMLTime(d.board_approval_date)
       : null,
-    stockholder_approval_date: cleaned.stockholder_approval_date
-      ? dateStringToDAMLTime(cleaned.stockholder_approval_date)
+    stockholder_approval_date: d.stockholder_approval_date
+      ? dateStringToDAMLTime(d.stockholder_approval_date)
       : null,
-    par_value: cleaned.par_value ? monetaryToDaml(cleaned.par_value) : null,
-    price_per_share: cleaned.price_per_share ? monetaryToDaml(cleaned.price_per_share) : null,
-    conversion_rights: (cleaned.conversion_rights || []).map((right) => {
+    par_value: d.par_value ? monetaryToDaml(d.par_value) : null,
+    price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share) : null,
+    conversion_rights: (d.conversion_rights || []).map((right) => {
       const mechanism: any =
         right.conversion_mechanism === 'RATIO_CONVERSION'
           ? 'OcfConversionMechanismRatioConversion'
@@ -130,17 +130,17 @@ function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
         expires_at: right.expires_at ? dateStringToDAMLTime(right.expires_at) : null,
       };
     }),
-    liquidation_preference_multiple: cleaned.liquidation_preference_multiple
-      ? typeof cleaned.liquidation_preference_multiple === 'number'
-        ? cleaned.liquidation_preference_multiple.toString()
-        : cleaned.liquidation_preference_multiple
+    liquidation_preference_multiple: d.liquidation_preference_multiple
+      ? typeof d.liquidation_preference_multiple === 'number'
+        ? d.liquidation_preference_multiple.toString()
+        : d.liquidation_preference_multiple
       : null,
-    participation_cap_multiple: cleaned.participation_cap_multiple
-      ? typeof cleaned.participation_cap_multiple === 'number'
-        ? cleaned.participation_cap_multiple.toString()
-        : cleaned.participation_cap_multiple
+    participation_cap_multiple: d.participation_cap_multiple
+      ? typeof d.participation_cap_multiple === 'number'
+        ? d.participation_cap_multiple.toString()
+        : d.participation_cap_multiple
       : null,
-    comments: cleaned.comments || [],
+    comments: cleanComments(d.comments),
   };
 }
 

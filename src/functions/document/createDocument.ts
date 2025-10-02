@@ -138,7 +138,6 @@ function objectTypeToDaml(
 }
 
 function documentDataToDaml(d: OcfDocumentData): Fairmint.OpenCapTable.Document.OcfDocument {
-  cleanComments(d);
   if (!d.id) throw new Error('document.id is required');
   if (!d.md5) throw new Error('document.md5 is required');
   if (!d.path && !d.uri) throw new Error('document requires path or uri');
@@ -151,7 +150,7 @@ function documentDataToDaml(d: OcfDocumentData): Fairmint.OpenCapTable.Document.
       object_type: objectTypeToDaml(r.object_type),
       object_id: r.object_id,
     })),
-    comments: d.comments || [],
+    comments: cleanComments(d.comments),
   };
 }
 

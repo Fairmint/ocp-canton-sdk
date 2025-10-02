@@ -9,13 +9,12 @@ import type {
 function stockLegendTemplateDataToDaml(
   data: OcfStockLegendTemplateData
 ): Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData {
-  cleanComments(data);
   if (!data.id) throw new Error('stockLegendTemplate.id is required');
   return {
     id: data.id,
     name: data.name,
     text: data.text,
-    comments: data.comments || [],
+    comments: cleanComments(data.comments),
   };
 }
 

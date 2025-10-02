@@ -1,5 +1,5 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { dateStringToDAMLTime, cleanComments } from '../../utils/typeConversions';
+import { dateStringToDAMLTime, cleanComments, numberToString } from '../../utils/typeConversions';
 import type { CommandWithDisclosedContracts } from '../../types';
 import type {
   Command,
@@ -21,48 +21,33 @@ export interface CreateIssuerAuthorizedSharesAdjustmentParams {
   };
 }
 
-interface IssuerCreateArgShape {
-  context?: { system_operator?: string };
-}
-
 export function buildCreateIssuerAuthorizedSharesAdjustmentCommand(
   params: CreateIssuerAuthorizedSharesAdjustmentParams
 ): CommandWithDisclosedContracts {
-  const d = params.adjustmentData;
-  cleanComments(d);
-  const adjustment_data: any = {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    issuer_id: d.issuer_id,
-    new_shares_authorized:
-      typeof d.new_shares_authorized === 'number'
-        ? d.new_shares_authorized.toString()
-        : d.new_shares_authorized,
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date
-      ? dateStringToDAMLTime(d.stockholder_approval_date)
-      : null,
-    comments: d.comments || [],
-  } as any;
+  const { adjustmentData: d } = params;
 
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateIssuerAuthorizedSharesAdjustment = {
-    adjustment_data,
-  } as any;
+    adjustment_data: {
+      id: d.id,
+      issuer_id: d.issuer_id,
+      date: dateStringToDAMLTime(d.date),
+      new_shares_authorized: numberToString(d.new_shares_authorized),
+      board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
+      stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+      comments: cleanComments(d.comments),
+    },
+  };
+
   const command: Command = {
     ExerciseCommand: {
       templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
       contractId: params.issuerContractId,
       choice: 'CreateIssuerAuthorizedSharesAdjustment',
-      choiceArgument: choiceArguments as any,
+      choiceArgument: choiceArguments,
     },
   };
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
+
+  const disclosedContracts: DisclosedContract[] = [params.featuredAppRightContractDetails];
+
   return { command, disclosedContracts };
 }

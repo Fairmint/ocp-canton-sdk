@@ -60,7 +60,6 @@ function phoneToDaml(phone: OcfIssuerData['phone']): Fairmint.OpenCapTable.Types
 }
 
 function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issuer.OcfIssuerData {
-  cleanComments(issuerData);
   if (!issuerData.id) throw new Error('issuerData.id is required');
   return {
     id: issuerData.id,
@@ -91,7 +90,7 @@ function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issu
             return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
           })()
         : null,
-    comments: issuerData.comments || [],
+    comments: cleanComments(issuerData.comments),
   };
 }
 

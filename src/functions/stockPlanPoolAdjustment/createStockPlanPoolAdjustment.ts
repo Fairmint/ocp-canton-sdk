@@ -1,5 +1,5 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { dateStringToDAMLTime, cleanComments } from '../../utils/typeConversions';
+import { dateStringToDAMLTime, cleanComments, numberToString } from '../../utils/typeConversions';
 import type { CommandWithDisclosedContracts } from '../../types';
 import type {
   Command,
@@ -21,46 +21,33 @@ export interface CreateStockPlanPoolAdjustmentParams {
   };
 }
 
-interface IssuerCreateArgShape {
-  context?: { system_operator?: string };
-}
-
 export function buildCreateStockPlanPoolAdjustmentCommand(
   params: CreateStockPlanPoolAdjustmentParams
 ): CommandWithDisclosedContracts {
-  const d = params.adjustmentData;
-  cleanComments(d);
-  const adjustment_data: any = {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    stock_plan_id: d.stock_plan_id,
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date
-      ? dateStringToDAMLTime(d.stockholder_approval_date)
-      : null,
-    shares_reserved:
-      typeof d.shares_reserved === 'number' ? d.shares_reserved.toString() : d.shares_reserved,
-    comments: d.comments || [],
-  } as any;
+  const { adjustmentData: d } = params;
 
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlanPoolAdjustment = {
-    adjustment_data,
-  } as any;
+    adjustment_data: {
+      id: d.id,
+      stock_plan_id: d.stock_plan_id,
+      date: dateStringToDAMLTime(d.date),
+      board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
+      stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+      shares_reserved: numberToString(d.shares_reserved),
+      comments: cleanComments(d.comments),
+    },
+  };
+
   const command: Command = {
     ExerciseCommand: {
       templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
       contractId: params.issuerContractId,
       choice: 'CreateStockPlanPoolAdjustment',
-      choiceArgument: choiceArguments as any,
+      choiceArgument: choiceArguments,
     },
   };
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
+
+  const disclosedContracts: DisclosedContract[] = [params.featuredAppRightContractDetails];
+
   return { command, disclosedContracts };
 }

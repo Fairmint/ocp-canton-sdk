@@ -1,5 +1,10 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { monetaryToDaml, dateStringToDAMLTime, cleanComments } from '../../utils/typeConversions';
+import {
+  monetaryToDaml,
+  dateStringToDAMLTime,
+  cleanComments,
+  safeString,
+} from '../../utils/typeConversions';
 import type { Monetary, CommandWithDisclosedContracts } from '../../types';
 import type {
   Command,
@@ -104,16 +109,16 @@ function mechanismInputToDamlEnum(
   m: ConvertibleConversionMechanismInput | (Record<string, unknown> & { type?: string }) | undefined
 ): any {
   const dayCountToDaml = (v: unknown): Fairmint.OpenCapTable.Types.OcfDayCountType => {
-    const s = String(v ?? '').toUpperCase();
+    const s = safeString(v).toUpperCase();
     if (s === 'ACTUAL_365') return 'OcfDayCountActual365';
     if (s === '30_360') return 'OcfDayCount30_360';
-    throw new Error(`Unknown day_count_convention: ${v}`);
+    throw new Error(`Unknown day_count_convention: ${safeString(v)}`);
   };
   const payoutToDaml = (v: unknown): Fairmint.OpenCapTable.Types.OcfInterestPayoutType => {
-    const s = String(v ?? '').toUpperCase();
+    const s = safeString(v).toUpperCase();
     if (s === 'DEFERRED') return 'OcfInterestPayoutDeferred';
     if (s === 'CASH') return 'OcfInterestPayoutCash';
-    throw new Error(`Unknown interest_payout: ${v}`);
+    throw new Error(`Unknown interest_payout: ${safeString(v)}`);
   };
   if (m && typeof m === 'object') {
     const typeStr = String(m.type || '').toUpperCase();
@@ -134,8 +139,8 @@ function mechanismInputToDamlEnum(
       } as unknown as Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules;
     };
 
-    const safeTiming = (v: unknown): any => {
-      const s = String(v ?? '').toUpperCase();
+    const safeTiming = (v: unknown): string | null => {
+      const s = safeString(v).toUpperCase();
       if (s === 'PRE_MONEY') return 'OcfConversionTimingPreMoney';
       if (s === 'POST_MONEY') return 'OcfConversionTimingPostMoney';
       return null;
@@ -182,8 +187,8 @@ function mechanismInputToDamlEnum(
                   : null,
               }))
             : [];
-        const accrualToDaml = (v: unknown): any => {
-          const s = String(v ?? '').toUpperCase();
+        const accrualToDaml = (v: unknown): string => {
+          const s = safeString(v).toUpperCase();
           switch (s) {
             case 'DAILY':
               return 'OcfAccrualDaily';
@@ -196,17 +201,17 @@ function mechanismInputToDamlEnum(
             case 'ANNUAL':
               return 'OcfAccrualAnnual';
             default:
-              throw new Error(`Unknown interest_accrual_period: ${v}`);
+              throw new Error(`Unknown interest_accrual_period: ${safeString(v)}`);
           }
         };
-        const compoundingToDaml = (v: unknown): any => {
+        const compoundingToDaml = (v: unknown): string => {
           // Pass-through if already DAML tag; otherwise map common strings
-          const s = String(v ?? '');
-          if (s.startsWith('Ocf')) return s as any;
+          const s = safeString(v);
+          if (s.startsWith('Ocf')) return s;
           const u = s.toUpperCase();
           if (u === 'SIMPLE') return 'OcfSimple';
           if (u === 'COMPOUNDING') return 'OcfCompounding';
-          throw new Error(`Unknown compounding_type: ${v}`);
+          throw new Error(`Unknown compounding_type: ${safeString(v)}`);
         };
         if (!Array.isArray(anyM.interest_rates))
           throw new Error('CONVERTIBLE_NOTE_CONVERSION requires interest_rates');
@@ -370,7 +375,6 @@ export function buildCreateConvertibleIssuanceCommand(
   params: CreateConvertibleIssuanceParams
 ): CommandWithDisclosedContracts {
   const d = params.issuanceData;
-  cleanComments(d);
   const issuance_data: Fairmint.OpenCapTable.ConvertibleIssuance.OcfConvertibleIssuanceTxData = {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -393,7 +397,7 @@ export function buildCreateConvertibleIssuanceCommand(
           : d.pro_rata
         : null,
     seniority: d.seniority.toString(),
-    comments: d.comments || [],
+    comments: cleanComments(d.comments),
   };
 
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateConvertibleIssuance = {
