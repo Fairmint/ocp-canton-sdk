@@ -4,6 +4,7 @@ import type {
   SecurityExemption,
   ShareNumberRange,
   StockIssuanceType,
+  Monetary,
 } from '../../types/native';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
@@ -23,7 +24,7 @@ function damlShareNumberRangeToNative(
   };
 }
 
-function damlStockIssuanceTypeToNative(t: any): StockIssuanceType | undefined {
+function damlStockIssuanceTypeToNative(t: string): StockIssuanceType | undefined {
   switch (t) {
     case 'OcfStockIssuanceRSA':
       return 'RSA';
@@ -38,8 +39,9 @@ function damlStockIssuanceDataToNative(
   d: Fairmint.OpenCapTable.StockIssuance.OcfStockIssuanceData
 ): OcfStockIssuanceData {
   const anyD = d as unknown as { [k: string]: unknown };
+  const dataWithId = anyD as { id?: string };
   return {
-    id: (d as any).id,
+    id: dataWithId.id ?? '',
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     custom_id: d.custom_id,
@@ -84,7 +86,7 @@ function damlStockIssuanceDataToNative(
       : [],
     ...((anyD as { issuance_type?: unknown }).issuance_type !== undefined && {
       issuance_type: damlStockIssuanceTypeToNative(
-        (anyD as { issuance_type?: unknown }).issuance_type
+        (anyD as { issuance_type?: unknown }).issuance_type as string
       ),
     }),
     comments:
@@ -101,7 +103,7 @@ export interface GetStockIssuanceAsOcfParams {
 
 export interface GetStockIssuanceAsOcfResult {
   contractId: string;
-  stockIssuance: OcfStockIssuanceData & { object_type: 'TX_STOCK_ISSUANCE'; id?: string };
+  stockIssuance: Partial<OcfStockIssuanceData> & { object_type: 'TX_STOCK_ISSUANCE'; id: string; date: string; security_id: string; custom_id: string; stakeholder_id: string; stock_class_id: string; share_price: Monetary; quantity: string | number; security_law_exemptions: SecurityExemption[] };
 }
 
 export async function getStockIssuanceAsOcf(
@@ -114,17 +116,19 @@ export async function getStockIssuanceAsOcf(
     throw new Error('Missing createArgument for StockIssuance');
   }
   const arg = created.createArgument as Fairmint.OpenCapTable.StockIssuance.StockIssuance;
-  const native = damlStockIssuanceDataToNative((arg as any).issuance_data);
-  const { id, share_numbers_issued, vestings, comments, issuance_type, ...rest } = native as any;
+  const argWithData = arg as unknown as { issuance_data?: Fairmint.OpenCapTable.StockIssuance.OcfStockIssuanceData };
+  if (!argWithData.issuance_data) {
+    throw new Error('Missing issuance_data in StockIssuance');
+  }
+  const native = damlStockIssuanceDataToNative(argWithData.issuance_data);
+  const { share_numbers_issued, vestings, comments, issuance_type, ...rest } = native;
+  
   const ocf = {
     object_type: 'TX_STOCK_ISSUANCE' as const,
-    id,
     ...rest,
     ...(share_numbers_issued.length > 0 ? { share_numbers_issued } : {}),
-    ...(rest.stock_legend_ids.length > 0 ? { stock_legend_ids: rest.stock_legend_ids } : {}),
-    security_law_exemptions: rest.security_law_exemptions,
-    ...(comments.length > 0 ? { comments } : {}),
     ...(vestings.length > 0 ? { vestings } : {}),
+    ...(comments.length > 0 ? { comments } : {}),
     ...(issuance_type ? { issuance_type } : {}),
   };
   return { contractId: params.contractId, stockIssuance: ocf };

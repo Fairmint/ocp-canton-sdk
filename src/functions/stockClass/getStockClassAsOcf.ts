@@ -9,7 +9,7 @@ import type {
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
-function damlStockClassTypeToNative(damlType: any): StockClassType {
+function damlStockClassTypeToNative(damlType: string): StockClassType {
   switch (damlType) {
     case 'OcfStockClassTypePreferred':
       return 'PREFERRED';
@@ -37,8 +37,9 @@ function damlStockClassDataToNative(
     }
   }
 
+  const dataWithId = dAny as { id?: string };
   return {
-    id: typeof (dAny as any).id === 'string' ? (dAny as any).id : '',
+    id: typeof dataWithId.id === 'string' ? dataWithId.id : '',
     name: damlData.name || '',
     class_type: damlStockClassTypeToNative(damlData.class_type),
     default_id_prefix: damlData.default_id_prefix || '',
@@ -292,7 +293,7 @@ export interface OcfStockClass {
     /** The type of conversion right */
     conversion_mechanism: string;
     /** Additional conversion right details */
-    [key: string]: any;
+    [key: string]: unknown;
   }>;
 
   /** The liquidation preference per share for this stock class */
@@ -370,11 +371,12 @@ export async function getStockClassAsOcf(
   function hasStockClassData(
     arg: unknown
   ): arg is { stock_class_data: Fairmint.OpenCapTable.StockClass.OcfStockClassData } {
+    const record = arg as Record<string, unknown>;
     return (
       typeof arg === 'object' &&
       arg !== null &&
-      'stock_class_data' in arg &&
-      typeof (arg as any).stock_class_data === 'object'
+      'stock_class_data' in record &&
+      typeof record.stock_class_data === 'object'
     );
   }
 
@@ -438,7 +440,7 @@ export async function getStockClassAsOcf(
           : participation_cap_multiple,
     }),
     ...(Array.isArray(conversion_rights) && conversion_rights.length > 0
-      ? { conversion_rights }
+      ? { conversion_rights: conversion_rights as unknown as Array<{conversion_mechanism: string; [key: string]: unknown}> }
       : {}),
   };
 

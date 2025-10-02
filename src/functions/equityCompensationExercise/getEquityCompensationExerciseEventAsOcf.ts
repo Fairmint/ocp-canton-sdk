@@ -33,22 +33,23 @@ export async function getEquityCompensationExerciseEventAsOcf(
   if (!eventsResponse.created?.createdEvent?.createArgument) {
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
-  const createArgument = eventsResponse.created.createdEvent.createArgument as any;
+  const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
   // Some events nest OCF data under a specific key; fall back to root for backward compatibility
-  const d = createArgument.exercise_data || createArgument;
+  const d: Record<string, unknown> =
+    (createArgument.exercise_data as Record<string, unknown> | undefined) || createArgument;
 
   const ocf: OcfEquityCompensationExercise = {
     object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
-    id: d.id,
-    quantity: typeof d.quantity === 'number' ? String(d.quantity) : d.quantity,
-    security_id: d.security_id,
+    id: d.id as string,
+    quantity: typeof d.quantity === 'number' ? String(d.quantity) : (d.quantity as string),
+    security_id: d.security_id as string,
     date: (d.date as string).split('T')[0],
-    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
+    ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),
     ...(Array.isArray(d.resulting_security_ids) && d.resulting_security_ids.length
-      ? { resulting_security_ids: d.resulting_security_ids }
+      ? { resulting_security_ids: d.resulting_security_ids as string[] }
       : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
+    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments as string[] } : {}),
   };
 
   return { event: ocf, contractId: params.contractId };

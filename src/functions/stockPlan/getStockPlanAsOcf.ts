@@ -3,7 +3,7 @@ import type { OcfStockPlanData, StockPlanCancellationBehavior } from '../../type
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
-function damlCancellationBehaviorToNative(b: any): StockPlanCancellationBehavior | undefined {
+function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehavior | undefined {
   switch (b) {
     case 'OcfPlanCancelRetire':
       return 'RETIRE';
@@ -21,8 +21,9 @@ function damlCancellationBehaviorToNative(b: any): StockPlanCancellationBehavior
 function damlStockPlanDataToNative(
   d: Fairmint.OpenCapTable.StockPlan.OcfStockPlanData
 ): OcfStockPlanData {
+  const dataWithId = d as unknown as { id?: string };
   return {
-    id: (d as any).id,
+    id: dataWithId.id ?? '',
     plan_name: d.plan_name || '',
     ...(d.board_approval_date && {
       board_approval_date: damlTimeToDateString(d.board_approval_date),
@@ -77,23 +78,19 @@ export async function getStockPlanAsOcf(
   if (!eventsResponse.created?.createdEvent?.createArgument) {
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
-  const createArgument = eventsResponse.created.createdEvent.createArgument as any;
+  const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
   if (!('plan_data' in createArgument)) {
     throw new Error('plan_data not found in contract create argument');
   }
 
-  const native = damlStockPlanDataToNative(createArgument.plan_data);
-  const { id, ...nativeWithoutId } = native as any;
+  const native = damlStockPlanDataToNative(
+    createArgument.plan_data as Fairmint.OpenCapTable.StockPlan.OcfStockPlanData
+  );
 
   const ocf: OcfStockPlan = {
     object_type: 'STOCK_PLAN',
-    id,
-    ...nativeWithoutId,
-    comments: Array.isArray((native as any).comments) ? (native as any).comments : [],
-    ...(Array.isArray((native as any).stock_class_ids)
-      ? { stock_class_ids: (native as any).stock_class_ids }
-      : {}),
+    ...native,
   };
 
   return { stockPlan: ocf, contractId: params.contractId };

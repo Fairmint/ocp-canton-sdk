@@ -105,11 +105,12 @@ function damlStakeholderTypeToNative(
 function damlStakeholderDataToNative(
   damlData: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData
 ): OcfStakeholderData {
-  const dAny = damlData as unknown as { [k: string]: any };
+  const dAny = damlData as unknown as { [k: string]: unknown };
+  const nameData = dAny.name as Record<string, unknown> | undefined;
   const name: Name = {
-    legal_name: (dAny.name?.legal_name || '') as string,
-    ...(dAny.name?.first_name ? { first_name: dAny.name.first_name } : {}),
-    ...(dAny.name?.last_name ? { last_name: dAny.name.last_name } : {}),
+    legal_name: (nameData?.legal_name || '') as string,
+    ...(nameData?.first_name ? { first_name: nameData.first_name as string } : {}),
+    ...(nameData?.last_name ? { last_name: nameData.last_name as string } : {}),
   };
   const mapRelBack = (s: string): string | undefined => {
     switch (s) {
@@ -134,39 +135,42 @@ function damlStakeholderDataToNative(
   const relationships: string[] = Array.isArray(dAny.current_relationships)
     ? (dAny.current_relationships as string[]).map((r) => mapRelBack(r) || 'OTHER')
     : [];
+  const dataWithId = dAny as { id?: string };
   const native: OcfStakeholderData = {
-    ...(dAny.id ? { id: dAny.id as string } : {}),
+    id: dataWithId.id || '',
     name,
     stakeholder_type: damlStakeholderTypeToNative(damlData.stakeholder_type),
-    ...(damlData.issuer_assigned_id && { issuer_assigned_id: damlData.issuer_assigned_id }),
+    ...(damlData.issuer_assigned_id ? { issuer_assigned_id: damlData.issuer_assigned_id } : {}),
     current_relationships: relationships,
-    ...(dAny.current_status && {
-      current_status: ((): string | undefined => {
-        const s = dAny.current_status as string;
-        switch (s) {
-          case 'OcfStakeholderStatusActive':
-            return 'ACTIVE';
-          case 'OcfStakeholderStatusLeaveOfAbsence':
-            return 'LEAVE_OF_ABSENCE';
-          case 'OcfStakeholderStatusTerminationVoluntaryOther':
-            return 'TERMINATION_VOLUNTARY_OTHER';
-          case 'OcfStakeholderStatusTerminationVoluntaryGoodCause':
-            return 'TERMINATION_VOLUNTARY_GOOD_CAUSE';
-          case 'OcfStakeholderStatusTerminationVoluntaryRetirement':
-            return 'TERMINATION_VOLUNTARY_RETIREMENT';
-          case 'OcfStakeholderStatusTerminationInvoluntaryOther':
-            return 'TERMINATION_INVOLUNTARY_OTHER';
-          case 'OcfStakeholderStatusTerminationInvoluntaryDeath':
-            return 'TERMINATION_INVOLUNTARY_DEATH';
-          case 'OcfStakeholderStatusTerminationInvoluntaryDisability':
-            return 'TERMINATION_INVOLUNTARY_DISABILITY';
-          case 'OcfStakeholderStatusTerminationInvoluntaryWithCause':
-            return 'TERMINATION_INVOLUNTARY_WITH_CAUSE';
-          default:
-            return undefined;
+    ...(dAny.current_status
+      ? {
+          current_status: ((): string | undefined => {
+            const s = dAny.current_status as string;
+            switch (s) {
+              case 'OcfStakeholderStatusActive':
+                return 'ACTIVE';
+              case 'OcfStakeholderStatusLeaveOfAbsence':
+                return 'LEAVE_OF_ABSENCE';
+              case 'OcfStakeholderStatusTerminationVoluntaryOther':
+                return 'TERMINATION_VOLUNTARY_OTHER';
+              case 'OcfStakeholderStatusTerminationVoluntaryGoodCause':
+                return 'TERMINATION_VOLUNTARY_GOOD_CAUSE';
+              case 'OcfStakeholderStatusTerminationVoluntaryRetirement':
+                return 'TERMINATION_VOLUNTARY_RETIREMENT';
+              case 'OcfStakeholderStatusTerminationInvoluntaryOther':
+                return 'TERMINATION_INVOLUNTARY_OTHER';
+              case 'OcfStakeholderStatusTerminationInvoluntaryDeath':
+                return 'TERMINATION_INVOLUNTARY_DEATH';
+              case 'OcfStakeholderStatusTerminationInvoluntaryDisability':
+                return 'TERMINATION_INVOLUNTARY_DISABILITY';
+              case 'OcfStakeholderStatusTerminationInvoluntaryWithCause':
+                return 'TERMINATION_INVOLUNTARY_WITH_CAUSE';
+              default:
+                return undefined;
+            }
+          })(),
         }
-      })(),
-    }),
+      : {}),
     ...(damlData.primary_contact && {
       primary_contact: damlContactInfoToNative(damlData.primary_contact),
     }),
@@ -175,9 +179,10 @@ function damlStakeholderDataToNative(
     }),
     addresses: (damlData.addresses || []).map(damlAddressToNative),
     tax_ids: damlData.tax_ids || [],
-    comments: Array.isArray((dAny as { comments?: unknown }).comments)
-      ? (dAny as { comments: string[] }).comments
-      : [],
+    ...(Array.isArray((dAny as { comments?: unknown }).comments) &&
+    ((dAny as { comments: string[] }).comments).length > 0
+      ? { comments: (dAny as { comments: string[] }).comments }
+      : {}),
   } as OcfStakeholderData;
   return native;
 }
@@ -245,11 +250,12 @@ export async function getStakeholderAsOcf(
   function hasStakeholderData(
     arg: unknown
   ): arg is { stakeholder_data: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData } {
+    const record = arg as Record<string, unknown>;
     return (
       typeof arg === 'object' &&
       arg !== null &&
-      'stakeholder_data' in arg &&
-      typeof (arg as any).stakeholder_data === 'object'
+      'stakeholder_data' in record &&
+      typeof record.stakeholder_data === 'object'
     );
   }
 
@@ -258,27 +264,10 @@ export async function getStakeholderAsOcf(
   }
 
   const native = damlStakeholderDataToNative(createArgument.stakeholder_data);
-  const { id, ...nativeWithoutId } = native as any;
 
   const ocfStakeholder: OcfStakeholder = {
     object_type: 'STAKEHOLDER',
-    id,
-    name: nativeWithoutId.name,
-    stakeholder_type: nativeWithoutId.stakeholder_type,
-    ...(nativeWithoutId.issuer_assigned_id && {
-      issuer_assigned_id: nativeWithoutId.issuer_assigned_id,
-    }),
-    ...(Array.isArray(nativeWithoutId.current_relationships) &&
-    nativeWithoutId.current_relationships.length > 0
-      ? { current_relationships: nativeWithoutId.current_relationships }
-      : {}),
-    ...(nativeWithoutId.primary_contact && { primary_contact: nativeWithoutId.primary_contact }),
-    ...(nativeWithoutId.contact_info && { contact_info: nativeWithoutId.contact_info }),
-    addresses: nativeWithoutId.addresses,
-    tax_ids: nativeWithoutId.tax_ids,
-    ...(Array.isArray(nativeWithoutId.comments) && nativeWithoutId.comments.length > 0
-      ? { comments: nativeWithoutId.comments }
-      : {}),
+    ...native,
   };
 
   return { stakeholder: ocfStakeholder, contractId: params.contractId };
