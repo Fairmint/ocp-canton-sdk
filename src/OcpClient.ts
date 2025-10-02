@@ -17,7 +17,9 @@ import {
   addObserversToCompanyValuationReport,
   createCompanyValuationReport,
   updateCompanyValuationReport,
-  UpdateCompanyValuationParams
+  UpdateCompanyValuationParams,
+  CreateCompanyValuationReportResult,
+  UpdateCompanyValuationResult
 } from './functions';
 import { buildCreateStakeholderCommand, GetStakeholderAsOcfParams, getStakeholderAsOcf, buildArchiveStakeholderByIssuerCommand } from './functions/stakeholder';
 import { buildCreateStockLegendTemplateCommand, GetStockLegendTemplateAsOcfParams, getStockLegendTemplateAsOcf, buildArchiveStockLegendTemplateByIssuerCommand } from './functions/stockLegendTemplate';
@@ -61,14 +63,8 @@ export class OcpClient {
       contractId: string;
       updateId: string;
     }>;
-    createCompanyValuationReport: (params: CreateCompanyValuationReportParams) => Promise<{
-      contractId: string;
-      updateId: string;
-    }>;
-    updateCompanyValuationReport: (params: UpdateCompanyValuationParams) => Promise<{
-      contractId: string;
-      updateId: string;
-    }>;
+    createCompanyValuationReport: (params: CreateCompanyValuationReportParams) => Promise<CreateCompanyValuationReportResult>;
+    updateCompanyValuationReport: (params: UpdateCompanyValuationParams) => Promise<UpdateCompanyValuationResult>;
     buildCreateCompanyValuationReportCommand: (
       params: CreateCompanyValuationReportParams
     ) => CommandWithDisclosedContracts;
