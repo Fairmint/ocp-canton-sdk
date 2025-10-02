@@ -2,21 +2,21 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcpClient } from '../OcpClient';
 import type {
   CommandWithDisclosedContracts,
-  OcfStockClassData,
-  OcfStakeholderData,
-  OcfStockLegendTemplateData,
-  OcfVestingTermsData,
-  OcfStockPlanData,
-  OcfStockIssuanceData,
-  OcfStockCancellationTxData,
-  OcfIssuerAuthorizedSharesAdjustmentTxData,
-  OcfStockClassAuthorizedSharesAdjustmentTxData,
-  OcfStockPlanPoolAdjustmentTxData,
-  OcfEquityCompensationIssuanceData,
-  OcfEquityCompensationExerciseTxData,
-  OcfDocumentData,
-  OcfWarrantIssuanceDataNative,
   OcfConvertibleIssuanceDataNative,
+  OcfDocumentData,
+  OcfEquityCompensationExerciseTxData,
+  OcfEquityCompensationIssuanceData,
+  OcfIssuerAuthorizedSharesAdjustmentTxData,
+  OcfStakeholderData,
+  OcfStockCancellationTxData,
+  OcfStockClassAuthorizedSharesAdjustmentTxData,
+  OcfStockClassData,
+  OcfStockIssuanceData,
+  OcfStockLegendTemplateData,
+  OcfStockPlanData,
+  OcfStockPlanPoolAdjustmentTxData,
+  OcfVestingTermsData,
+  OcfWarrantIssuanceDataNative,
 } from '../types';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 
@@ -36,40 +36,38 @@ export interface CreateOcfObjectParams {
 /**
  * Builds command(s) for creating OCF objects based on their object_type.
  *
- * This function inspects the object_type field in the OCF data and routes to the
- * appropriate buildCreate*Command function. If previousContractId is provided,
- * it will also build an archive command for the old contract.
+ * This function inspects the object_type field in the OCF data and routes to the appropriate buildCreate*Command
+ * function. If previousContractId is provided, it will also build an archive command for the old contract.
  *
- * Returns an array of commands and their disclosed contracts that can be used
- * in a batch or executed directly.
+ * Returns an array of commands and their disclosed contracts that can be used in a batch or executed directly.
  *
- * Note: ISSUER object_type is not supported as it has different input requirements.
- * Use client.issuer.buildCreateIssuerCommand() directly for creating issuers.
+ * Note: ISSUER object_type is not supported as it has different input requirements. Use
+ * client.issuer.buildCreateIssuerCommand() directly for creating issuers.
  *
  * @example
- * ```typescript
- * // Create new object
- * const commands = client.buildCreateOcfObjectCommand({
- *   issuerContractId: 'issuer-contract-id',
- *   featuredAppRightContractDetails: featuredAppRight,
- *   issuerParty: 'party::issuer',
- *   ocfData: {
- *     object_type: 'STAKEHOLDER',
- *     id: 'stakeholder-1',
- *     name: { legal_name: 'John Doe' },
- *     stakeholder_type: 'INDIVIDUAL'
- *   }
- * });
+ *   ```typescript
+ *   // Create new object
+ *   const commands = client.buildCreateOcfObjectCommand({
+ *     issuerContractId: 'issuer-contract-id',
+ *     featuredAppRightContractDetails: featuredAppRight,
+ *     issuerParty: 'party::issuer',
+ *     ocfData: {
+ *       object_type: 'STAKEHOLDER',
+ *       id: 'stakeholder-1',
+ *       name: { legal_name: 'John Doe' },
+ *       stakeholder_type: 'INDIVIDUAL'
+ *     }
+ *   });
  *
- * // Archive old and create new
- * const commands = client.buildCreateOcfObjectCommand({
- *   issuerContractId: 'issuer-contract-id',
- *   featuredAppRightContractDetails: featuredAppRight,
- *   issuerParty: 'party::issuer',
- *   previousContractId: 'old-contract-id',
- *   ocfData: { ... }
- * });
- * ```
+ *   // Archive old and create new
+ *   const commands = client.buildCreateOcfObjectCommand({
+ *     issuerContractId: 'issuer-contract-id',
+ *     featuredAppRightContractDetails: featuredAppRight,
+ *     issuerParty: 'party::issuer',
+ *     previousContractId: 'old-contract-id',
+ *     ocfData: { ... }
+ *   });
+ *   ```;
  *
  * @param params - Parameters for building the OCF object command(s)
  * @returns Array of commands with their disclosed contracts
@@ -233,9 +231,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
   };
 }
 
-/**
- * Builds an archive command for the given object type.
- */
+/** Builds an archive command for the given object type. */
 function buildArchiveCommand(
   client: OcpClient,
   objectType: string,

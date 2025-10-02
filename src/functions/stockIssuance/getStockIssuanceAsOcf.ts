@@ -1,10 +1,10 @@
-import { damlTimeToDateString, damlMonetaryToNative } from '../../utils/typeConversions';
+import { damlMonetaryToNative, damlTimeToDateString } from '../../utils/typeConversions';
 import type {
+  Monetary,
   OcfStockIssuanceData,
   SecurityExemption,
   ShareNumberRange,
   StockIssuanceType,
-  Monetary,
 } from '../../types/native';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';

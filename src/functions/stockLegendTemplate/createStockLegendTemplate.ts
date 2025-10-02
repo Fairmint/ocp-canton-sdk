@@ -1,6 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { cleanComments } from '../../utils/typeConversions';
-import type { OcfStockLegendTemplateData, CommandWithDisclosedContracts } from '../../types';
+import type { CommandWithDisclosedContracts, OcfStockLegendTemplateData } from '../../types';
 import type {
   Command,
   DisclosedContract,

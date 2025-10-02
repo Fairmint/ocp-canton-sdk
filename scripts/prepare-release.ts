@@ -5,10 +5,10 @@
  *
  * Prepares a new release by incrementing version and generating changelog.
  *
- * Usage:
- *   npm run prepare-release
+ * Usage: npm run prepare-release
  *
  * Features:
+ *
  * - Increments patch version in package.json
  * - Creates changelog from commits since last tag
  * - Links commits to GitHub PRs
@@ -25,9 +25,7 @@ interface PackageJson {
   [key: string]: unknown;
 }
 
-/**
- * Check if a git tag exists
- */
+/** Check if a git tag exists */
 function tagExists(tag: string): boolean {
   try {
     execSync(`git rev-parse "refs/tags/${tag}"`, { stdio: 'ignore' });
@@ -37,9 +35,7 @@ function tagExists(tag: string): boolean {
   }
 }
 
-/**
- * Find the next available version by incrementing patch until we find one that doesn't exist
- */
+/** Find the next available version by incrementing patch until we find one that doesn't exist */
 function findNextAvailableVersion(major: number, minor: number, startPatch: number): string {
   let patch = startPatch;
   let version: string;
@@ -53,8 +49,8 @@ function findNextAvailableVersion(major: number, minor: number, startPatch: numb
 }
 
 /**
- * Prepare release by incrementing version and generating changelog
- * This script can be run locally to test the release process
+ * Prepare release by incrementing version and generating changelog This script can be run locally to test the release
+ * process
  */
 function prepareRelease(): void {
   try {

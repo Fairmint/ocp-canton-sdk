@@ -1,7 +1,7 @@
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { cleanComments, extractUpdateId } from '../../utils/typeConversions';
-import type { OcfDocumentData, CommandWithDisclosedContracts, OcfObjectReference } from '../../types';
+import type { CommandWithDisclosedContracts, OcfDocumentData, OcfObjectReference } from '../../types';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type {

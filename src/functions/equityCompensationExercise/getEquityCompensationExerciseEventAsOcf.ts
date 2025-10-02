@@ -22,8 +22,8 @@ export interface GetEquityCompensationExerciseEventAsOcfResult {
 }
 
 /**
- * Read a PlanSecurityExerciseEvent and return a generic OCF EquityCompensationExercise object.
- * Schema: https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/exercise/EquityCompensationExercise.schema.json
+ * Read a PlanSecurityExerciseEvent and return a generic OCF EquityCompensationExercise object. Schema:
+ * https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/exercise/EquityCompensationExercise.schema.json
  */
 export async function getEquityCompensationExerciseEventAsOcf(
   client: LedgerJsonApiClient,

@@ -1,5 +1,5 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { dateStringToDAMLTime, cleanComments, numberToString } from '../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, numberToString } from '../../utils/typeConversions';
 import type { CommandWithDisclosedContracts, OcfStockCancellationTxData } from '../../types';
 import type {
   Command,

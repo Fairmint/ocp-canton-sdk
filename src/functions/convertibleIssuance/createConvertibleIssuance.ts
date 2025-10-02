@@ -1,12 +1,12 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import {
-  monetaryToDaml,
-  dateStringToDAMLTime,
   cleanComments,
-  safeString,
+  dateStringToDAMLTime,
+  monetaryToDaml,
   numberToString,
+  safeString,
 } from '../../utils/typeConversions';
-import type { Monetary, CommandWithDisclosedContracts } from '../../types';
+import type { CommandWithDisclosedContracts, Monetary } from '../../types';
 import type {
   Command,
   DisclosedContract,
@@ -127,14 +127,14 @@ function mechanismInputToDamlEnum(
       if (!rules || typeof rules !== 'object') return null;
       const r = rules as Record<string, unknown>;
       return {
-        include_outstanding_shares: !!r.include_outstanding_shares,
-        include_outstanding_options: !!r.include_outstanding_options,
-        include_outstanding_unissued_options: !!r.include_outstanding_unissued_options,
-        include_this_security: !!r.include_this_security,
-        include_other_converting_securities: !!r.include_other_converting_securities,
-        include_option_pool_topup_for_promised_options: !!r.include_option_pool_topup_for_promised_options,
-        include_additional_option_pool_topup: !!r.include_additional_option_pool_topup,
-        include_new_money: !!r.include_new_money,
+        include_outstanding_shares: Boolean(r.include_outstanding_shares),
+        include_outstanding_options: Boolean(r.include_outstanding_options),
+        include_outstanding_unissued_options: Boolean(r.include_outstanding_unissued_options),
+        include_this_security: Boolean(r.include_this_security),
+        include_other_converting_securities: Boolean(r.include_other_converting_securities),
+        include_option_pool_topup_for_promised_options: Boolean(r.include_option_pool_topup_for_promised_options),
+        include_additional_option_pool_topup: Boolean(r.include_additional_option_pool_topup),
+        include_new_money: Boolean(r.include_new_money),
       } as Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules;
     };
 
@@ -220,8 +220,9 @@ function mechanismInputToDamlEnum(
         if (!Array.isArray(anyM.interest_rates)) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires interest_rates');
         if (!anyM.day_count_convention) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires day_count_convention');
         if (!anyM.interest_payout) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires interest_payout');
-        if (!anyM.interest_accrual_period)
+        if (!anyM.interest_accrual_period) {
           throw new Error('CONVERTIBLE_NOTE_CONVERSION requires interest_accrual_period');
+        }
         if (!anyM.compounding_type) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires compounding_type');
         return {
           tag: 'OcfConvMechNote',
@@ -244,8 +245,9 @@ function mechanismInputToDamlEnum(
       }
       case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION': {
         const anyM = m as Record<string, unknown>;
-        if (anyM.converts_to_percent === undefined)
+        if (anyM.converts_to_percent === undefined) {
           throw new Error('FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION requires converts_to_percent');
+        }
         return {
           tag: 'OcfConvMechPercentCapitalization',
           value: {
@@ -257,8 +259,9 @@ function mechanismInputToDamlEnum(
       }
       case 'FIXED_AMOUNT_CONVERSION': {
         const anyM = m as Record<string, unknown>;
-        if (anyM.converts_to_quantity === undefined)
+        if (anyM.converts_to_quantity === undefined) {
           throw new Error('FIXED_AMOUNT_CONVERSION requires converts_to_quantity');
+        }
         return {
           tag: 'OcfConvMechFixedAmount',
           value: {
@@ -281,8 +284,9 @@ function mechanismInputToDamlEnum(
       }
       case 'SHARE_PRICE_BASED_CONVERSION': {
         const anyM = m as Record<string, unknown>;
-        if (!anyM.description || typeof anyM.description !== 'string')
+        if (!anyM.description || typeof anyM.description !== 'string') {
           throw new Error('SHARE_PRICE_BASED_CONVERSION requires description');
+        }
         return {
           tag: 'OcfConvMechSharePriceBased',
           value: {
@@ -334,8 +338,9 @@ function buildConvertibleRight(input: ConversionTriggerInput | undefined) {
 function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuanceId: string) {
   const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
-  if (typeof t !== 'object' || !t.trigger_id)
+  if (typeof t !== 'object' || !t.trigger_id) {
     throw new Error('trigger_id is required for each convertible conversion trigger');
+  }
   const { trigger_id } = t;
   const nickname = typeof t === 'object' && t.nickname ? t.nickname : null;
   const trigger_description = typeof t === 'object' && t.trigger_description ? t.trigger_description : null;

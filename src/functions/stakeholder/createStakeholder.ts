@@ -1,14 +1,14 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { addressToDaml, cleanComments } from '../../utils/typeConversions';
 import type {
-  OcfStakeholderData,
   CommandWithDisclosedContracts,
-  Name,
-  StakeholderType,
-  EmailType,
-  PhoneType,
   ContactInfo,
   ContactInfoWithoutName,
+  EmailType,
+  Name,
+  OcfStakeholderData,
+  PhoneType,
+  StakeholderType,
 } from '../../types';
 import type {
   Command,

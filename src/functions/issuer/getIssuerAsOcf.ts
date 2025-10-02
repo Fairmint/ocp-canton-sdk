@@ -1,5 +1,5 @@
-import { damlTimeToDateString, damlAddressToNative } from '../../utils/typeConversions';
-import type { OcfIssuerData, EmailType, PhoneType } from '../../types/native';
+import { damlAddressToNative, damlTimeToDateString } from '../../utils/typeConversions';
+import type { EmailType, OcfIssuerData, PhoneType } from '../../types/native';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
@@ -73,16 +73,19 @@ function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.OcfIssuer
   };
 
   if (damlData.dba) out.dba = damlData.dba;
-  if (damlData.country_subdivision_of_formation)
+  if (damlData.country_subdivision_of_formation) {
     out.country_subdivision_of_formation = damlData.country_subdivision_of_formation;
-  if (damlData.country_subdivision_name_of_formation)
+  }
+  if (damlData.country_subdivision_name_of_formation) {
     out.country_subdivision_name_of_formation = damlData.country_subdivision_name_of_formation;
+  }
   if (damlData.tax_ids?.length) out.tax_ids = damlData.tax_ids;
   if (damlData.email) out.email = damlEmailToNative(damlData.email);
   if (damlData.phone) out.phone = damlPhoneToNative(damlData.phone);
   if (damlData.address) out.address = damlAddressToNative(damlData.address);
-  if ((damlData as unknown as { comments?: string[] }).comments)
+  if ((damlData as unknown as { comments?: string[] }).comments) {
     out.comments = (damlData as unknown as { comments: string[] }).comments;
+  }
 
   const isa = (damlData as unknown as { initial_shares_authorized?: unknown }).initial_shares_authorized;
   const normalizedIsa = normalizeInitialShares(isa);
@@ -92,8 +95,9 @@ function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.OcfIssuer
 }
 
 /**
- * OCF Issuer object according to the Open Cap Table Coalition schema
- * Object describing the issuer of the cap table (the company whose cap table this is)
+ * OCF Issuer object according to the Open Cap Table Coalition schema Object describing the issuer of the cap table (the
+ * company whose cap table this is)
+ *
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/Issuer.schema.json
  */
 export interface OcfIssuer {

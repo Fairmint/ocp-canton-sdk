@@ -1,3 +1,3 @@
+export * from './archiveStakeholderByIssuer';
 export * from './createStakeholder';
 export * from './getStakeholderAsOcf';
-export * from './archiveStakeholderByIssuer';

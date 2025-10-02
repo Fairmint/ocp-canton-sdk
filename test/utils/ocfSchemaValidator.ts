@@ -1,8 +1,8 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import type { ValidateFunction } from 'ajv';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import type { ValidateFunction } from 'ajv';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Map of object_type to schema file paths relative to the schema directory
 const SCHEMA_MAP: Record<string, string> = {
@@ -27,9 +27,9 @@ const SCHEMA_MAP: Record<string, string> = {
 };
 
 class OcfSchemaValidator {
-  private ajv: Ajv;
-  private schemaDir: string;
-  private validators: Map<string, ValidateFunction> = new Map();
+  private readonly ajv: Ajv;
+  private readonly schemaDir: string;
+  private readonly validators: Map<string, ValidateFunction> = new Map();
 
   constructor() {
     this.ajv = new Ajv({
@@ -50,10 +50,8 @@ class OcfSchemaValidator {
     }
   }
 
-  /**
-   * Load a schema file from the filesystem
-   */
-  private loadSchemaFromFile(uri: string): Promise<Record<string, unknown>> {
+  /** Load a schema file from the filesystem */
+  private async loadSchemaFromFile(uri: string): Promise<Record<string, unknown>> {
     // Extract the relative path from the URI
     const match = uri.match(/Open-Cap-Format-OCF\/main\/schema\/(.+)$/);
     if (!match) {
@@ -71,9 +69,7 @@ class OcfSchemaValidator {
     return Promise.resolve(JSON.parse(fileContent));
   }
 
-  /**
-   * Get or compile a validator for a specific object type
-   */
+  /** Get or compile a validator for a specific object type */
   private async getValidator(objectType: string): Promise<ValidateFunction> {
     if (this.validators.has(objectType)) {
       return this.validators.get(objectType)!;
@@ -99,9 +95,7 @@ class OcfSchemaValidator {
     return validator;
   }
 
-  /**
-   * Validate an OCF object against its schema
-   */
+  /** Validate an OCF object against its schema */
   async validate(ocfObject: Record<string, unknown>): Promise<{ valid: boolean; errors: string[] }> {
     const objectType = ocfObject.object_type as string;
     if (!objectType) {
@@ -138,17 +132,13 @@ class OcfSchemaValidator {
 // Singleton instance
 let validatorInstance: OcfSchemaValidator | undefined;
 
-/**
- * Get the global validator instance
- */
+/** Get the global validator instance */
 export function getOcfValidator(): OcfSchemaValidator {
   validatorInstance ??= new OcfSchemaValidator();
   return validatorInstance;
 }
 
-/**
- * Validate an OCF object
- */
+/** Validate an OCF object */
 export async function validateOcfObject(ocfObject: Record<string, unknown>): Promise<void> {
   const validator = getOcfValidator();
   const result = await validator.validate(ocfObject);

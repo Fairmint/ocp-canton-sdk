@@ -1,11 +1,4 @@
 {
-  "root": true,
-  "parser": "@typescript-eslint/parser",
-  "parserOptions": {
-    "project": ["./tsconfig.json", "./tsconfig.tests.json"],
-    "ecmaVersion": 2020,
-    "sourceType": "module"
-  },
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
@@ -14,12 +7,31 @@
     "plugin:import/typescript",
     "prettier"
   ],
+  "ignorePatterns": ["dist", "node_modules", "coverage", "docs", "*.js", "*.mjs", "Open-Cap-Format-OCF"],
+  "overrides": [
+    {
+      "files": ["scripts/**/*", "test/**/*"],
+      "rules": {
+        "no-console": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-require-imports": "off",
+        "@typescript-eslint/explicit-module-boundary-types": "off",
+        "@typescript-eslint/no-non-null-assertion": "off"
+      }
+    }
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "project": ["./tsconfig.json", "./tsconfig.tests.json"],
+    "ecmaVersion": 2020,
+    "sourceType": "module"
+  },
   "plugins": ["@typescript-eslint", "import", "unused-imports"],
+  "root": true,
   "rules": {
     "@typescript-eslint/no-explicit-any": "error",
     "@typescript-eslint/no-unused-vars": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
-    "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/no-floating-promises": "error",
     "@typescript-eslint/no-misused-promises": "error",
     "@typescript-eslint/await-thenable": "error",
@@ -53,6 +65,28 @@
     "@typescript-eslint/prefer-string-starts-ends-with": "warn",
     "@typescript-eslint/prefer-includes": "warn",
     "@typescript-eslint/prefer-reduce-type-parameter": "warn",
+    "@typescript-eslint/explicit-module-boundary-types": ["warn", { "allowArgumentsExplicitlyTypedAsAny": true }],
+    "@typescript-eslint/naming-convention": [
+      "warn",
+      {
+        "selector": "typeLike",
+        "format": ["PascalCase"]
+      },
+      {
+        "selector": "variable",
+        "modifiers": ["const", "global"],
+        "format": ["camelCase", "UPPER_CASE", "PascalCase"]
+      }
+    ],
+    "@typescript-eslint/switch-exhaustiveness-check": "warn",
+    "@typescript-eslint/promise-function-async": "warn",
+    "@typescript-eslint/no-unnecessary-condition": "warn",
+    "@typescript-eslint/prefer-readonly": "warn",
+    "@typescript-eslint/no-non-null-assertion": "warn",
+    "@typescript-eslint/no-confusing-void-expression": ["warn", { "ignoreArrowShorthand": true }],
+    "@typescript-eslint/no-meaningless-void-operator": "warn",
+    "@typescript-eslint/no-unnecessary-boolean-literal-compare": "warn",
+    "@typescript-eslint/prefer-return-this-type": "warn",
     "unused-imports/no-unused-imports": "error",
     "unused-imports/no-unused-vars": [
       "warn",
@@ -95,18 +129,30 @@
     "no-unneeded-ternary": "warn",
     "no-lonely-if": "warn",
     "prefer-object-spread": "warn",
-    "no-else-return": ["warn", { "allowElseIf": false }]
+    "no-else-return": ["warn", { "allowElseIf": false }],
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "no-throw-literal": "error",
+    "no-implicit-coercion": "warn",
+    "no-return-await": "off",
+    "@typescript-eslint/return-await": ["error", "in-try-catch"],
+    "curly": ["warn", "multi-line", "consistent"],
+    "default-case-last": "warn",
+    "no-caller": "error",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-extend-native": "error",
+    "no-iterator": "error",
+    "no-labels": "error",
+    "no-proto": "error",
+    "no-script-url": "error",
+    "no-sequences": "error",
+    "radix": "warn",
+    "no-shadow": "off",
+    "@typescript-eslint/no-shadow": ["warn", { "ignoreTypeValueShadow": true }],
+    "no-new-wrappers": "error",
+    "no-array-constructor": "off",
+    "@typescript-eslint/no-array-constructor": "error"
   },
-  "overrides": [
-    {
-      "files": ["scripts/**/*", "test/**/*"],
-      "rules": {
-        "no-console": "off",
-        "@typescript-eslint/no-explicit-any": "off",
-        "@typescript-eslint/no-require-imports": "off"
-      }
-    }
-  ],
   "settings": {
     "import/resolver": {
       "typescript": {
@@ -115,6 +161,5 @@
       },
       "node": true
     }
-  },
-  "ignorePatterns": ["dist", "node_modules", "coverage", "docs", "*.js", "*.mjs", "Open-Cap-Format-OCF"]
+  }
 }

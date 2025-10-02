@@ -114,7 +114,7 @@ export async function getEquityCompensationIssuanceEventAsOcf(
     ...(exercise_price ? { exercise_price } : {}),
     ...(base_price ? { base_price } : {}),
     ...(d.early_exercisable !== null && d.early_exercisable !== undefined
-      ? { early_exercisable: !!d.early_exercisable }
+      ? { early_exercisable: Boolean(d.early_exercisable) }
       : {}),
     ...(d.expiration_date ? { expiration_date: (d.expiration_date as string).split('T')[0] } : {}),
     ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),

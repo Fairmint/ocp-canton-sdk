@@ -17,6 +17,7 @@ export interface AuthorizeIssuerResult extends DisclosedContract {
 
 /**
  * Authorize an issuer using the OCP Factory contract
+ *
  * @param client - The ledger JSON API client
  * @param params - Parameters for authorizing an issuer
  * @returns Promise resolving to the result of the authorization
@@ -29,7 +30,9 @@ export async function authorizeIssuer(
   const network = client.getNetwork();
 
   // Select the appropriate contract ID based on the network
-  const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData];
+  const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData] as
+    | (typeof factoryContractIdData)[keyof typeof factoryContractIdData]
+    | undefined;
   if (!networkData) {
     throw new Error(`Unsupported network: ${network}`);
   }

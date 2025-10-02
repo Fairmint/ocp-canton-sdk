@@ -1,6 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { dateStringToDAMLTime, addressToDaml, cleanComments } from '../../utils/typeConversions';
-import type { OcfIssuerData, CommandWithDisclosedContracts, EmailType, PhoneType } from '../../types';
+import { addressToDaml, cleanComments, dateStringToDAMLTime } from '../../utils/typeConversions';
+import type { CommandWithDisclosedContracts, EmailType, OcfIssuerData, PhoneType } from '../../types';
 import type {
   Command,
   DisclosedContract,
@@ -98,18 +98,19 @@ export interface CreateIssuerParams {
    * Issuer data to create
    *
    * Schema: https://schema.opencaptablecoalition.com/v/1.2.0/objects/Issuer.schema.json
-   * - legal_name: Legal name of the issuer
-   * - formation_date: Date of formation (YYYY-MM-DD)
-   * - country_of_formation: Country of formation (ISO 3166-1 alpha-2)
-   * - dba (optional): Doing Business As name
-   * - country_subdivision_of_formation (optional): Subdivision code of formation (ISO 3166-2)
-   * - country_subdivision_name_of_formation (optional): Text name of subdivision of formation
-   * - tax_ids (optional): Issuer tax IDs
-   * - email (optional): Work email
-   * - phone (optional): Phone number in ITU E.123 format
-   * - address (optional): Headquarters address
-   * - initial_shares_authorized (optional): Initial authorized shares (enum or numeric)
-   * - comments (optional): Additional comments
+   *
+   * - Legal_name: Legal name of the issuer
+   * - Formation_date: Date of formation (YYYY-MM-DD)
+   * - Country_of_formation: Country of formation (ISO 3166-1 alpha-2)
+   * - Dba (optional): Doing Business As name
+   * - Country_subdivision_of_formation (optional): Subdivision code of formation (ISO 3166-2)
+   * - Country_subdivision_name_of_formation (optional): Text name of subdivision of formation
+   * - Tax_ids (optional): Issuer tax IDs
+   * - Email (optional): Work email
+   * - Phone (optional): Phone number in ITU E.123 format
+   * - Address (optional): Headquarters address
+   * - Initial_shares_authorized (optional): Initial authorized shares (enum or numeric)
+   * - Comments (optional): Additional comments
    */
   issuerData: OcfIssuerData;
 }

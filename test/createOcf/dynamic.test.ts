@@ -1,18 +1,18 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import { type OcfIssuerData, OcpClient } from '../../src';
-import {
-  setTransactionTreeFixtureData,
-  clearTransactionTreeFixture,
-  setEventsFixtureData,
-  clearEventsFixture,
-  convertTransactionTreeToEventsResponse,
-} from '../utils/fixtureHelpers';
-import { validateOcfObject } from '../utils/ocfSchemaValidator';
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
+import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
+import * as fs from 'fs';
+import * as path from 'path';
+import { type OcfIssuerData, OcpClient } from '../../src';
+import {
+  clearEventsFixture,
+  clearTransactionTreeFixture,
+  convertTransactionTreeToEventsResponse,
+  setEventsFixtureData,
+  setTransactionTreeFixtureData,
+} from '../utils/fixtureHelpers';
+import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
 interface TestFixture {
   functionName: string;

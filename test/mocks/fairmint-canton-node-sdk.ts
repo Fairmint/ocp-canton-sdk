@@ -4,7 +4,7 @@ import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 export class LedgerJsonApiClient {
-  private config?: ClientConfig;
+  private readonly config?: ClientConfig;
   public static __instances: LedgerJsonApiClient[] = [];
   public lastAuthToken?: string;
   private __getAuthToken?: () => Promise<string> | string;
@@ -73,7 +73,7 @@ export class LedgerJsonApiClient {
 
 export class AuthenticationManager {
   constructor(private readonly config?: ClientConfig) {}
-  getAuthToken(): Promise<string | undefined> {
+  async getAuthToken(): Promise<string | undefined> {
     // Mock implementation - returns undefined
     return Promise.resolve(undefined);
   }

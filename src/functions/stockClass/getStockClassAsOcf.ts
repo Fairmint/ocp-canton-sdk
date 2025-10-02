@@ -1,8 +1,8 @@
-import { damlTimeToDateString, damlMonetaryToNative } from '../../utils/typeConversions';
+import { damlMonetaryToNative, damlTimeToDateString } from '../../utils/typeConversions';
 import type {
-  OcfStockClassData,
   ConversionMechanism,
   ConversionTrigger,
+  OcfStockClassData,
   StockClassConversionRight,
   StockClassType,
 } from '../../types/native';
@@ -67,8 +67,9 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.O
                 : 'FIXED_AMOUNT_CONVERSION';
           const rt = right.conversion_trigger as unknown;
           let tag: string | undefined;
-          if (typeof rt === 'string') tag = rt;
-          else if (rt && typeof rt === 'object' && 'tag' in rt) {
+          if (typeof rt === 'string') {
+            tag = rt;
+          } else if (rt && typeof rt === 'object' && 'tag' in rt) {
             const { tag: tagValue } = rt as { tag: string };
             tag = tagValue;
           }
@@ -230,8 +231,9 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.O
 }
 
 /**
- * OCF Stock Class object according to the Open Cap Table Coalition schema
- * Object describing a class of stock issued by the issuer
+ * OCF Stock Class object according to the Open Cap Table Coalition schema Object describing a class of stock issued by
+ * the issuer
+ *
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/StockClass.schema.json
  */
 export interface OcfStockClass {
@@ -244,7 +246,10 @@ export interface OcfStockClass {
   /** The type of this stock class (e.g. Preferred or Common) */
   class_type: 'PREFERRED' | 'COMMON';
 
-  /** Default prefix for certificate numbers in certificated shares (e.g. CS- in CS-1). If certificate IDs have a dash, the prefix should end in the dash like CS- */
+  /**
+   * Default prefix for certificate numbers in certificated shares (e.g. CS- in CS-1). If certificate IDs have a dash,
+   * the prefix should end in the dash like CS-
+   */
   default_id_prefix: string;
 
   /** The initial number of shares authorized for this stock class */
@@ -276,10 +281,14 @@ export interface OcfStockClass {
   };
 
   /**
-   * Seniority of the stock - determines repayment priority. Seniority is ordered by increasing number so that stock classes with a higher seniority have higher repayment priority. The following properties hold for all stock classes for a given company:
-   * a) transitivity: stock classes are absolutely stackable by seniority and in increasing numerical order,
-   * b) non-uniqueness: multiple stock classes can have the same Seniority number and therefore have the same liquidation/repayment order.
-   * In practice, stock classes with same seniority may be created at different points in time and (for example, an extension of an existing preferred financing round), and also a new stock class can be created with seniority between two existing stock classes, in which case it is assigned some decimal number between the numbers representing seniority of the respective classes.
+   * Seniority of the stock - determines repayment priority. Seniority is ordered by increasing number so that stock
+   * classes with a higher seniority have higher repayment priority. The following properties hold for all stock classes
+   * for a given company: a) transitivity: stock classes are absolutely stackable by seniority and in increasing
+   * numerical order, b) non-uniqueness: multiple stock classes can have the same Seniority number and therefore have
+   * the same liquidation/repayment order. In practice, stock classes with same seniority may be created at different
+   * points in time and (for example, an extension of an existing preferred financing round), and also a new stock class
+   * can be created with seniority between two existing stock classes, in which case it is assigned some decimal number
+   * between the numbers representing seniority of the respective classes.
    */
   seniority: string | number;
 
@@ -319,33 +328,32 @@ export interface GetStockClassAsOcfResult {
 /**
  * Retrieve a stock class contract by ID and return it as an OCF JSON object
  *
- * This function fetches the stock class contract data from the ledger and transforms it
- * into the Open Cap Table Coalition (OCF) format according to the official schema.
- *
- * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/StockClass.schema.json
+ * This function fetches the stock class contract data from the ledger and transforms it into the Open Cap Table
+ * Coalition (OCF) format according to the official schema.
  *
  * @example
- * ```typescript
- * const result = await getStockClassAsOcf(client, {
- *   contractId: "1234567890abcdef"
- * });
+ *   ```typescript
+ *   const result = await getStockClassAsOcf(client, {
+ *     contractId: "1234567890abcdef"
+ *   });
  *
- * console.log(result.stockClass);
- * // {
- * //   object_type: "STOCK_CLASS",
- * //   name: "Series A Preferred",
- * //   class_type: "PREFERRED",
- * //   default_id_prefix: "SA-",
- * //   initial_shares_authorized: "1000000",
- * //   votes_per_share: "1",
- * //   seniority: "1",
- * //   // ... other fields
- * // }
- * ```
+ *   console.log(result.stockClass);
+ *   // {
+ *   //   object_type: "STOCK_CLASS",
+ *   //   name: "Series A Preferred",
+ *   //   class_type: "PREFERRED",
+ *   //   default_id_prefix: "SA-",
+ *   //   initial_shares_authorized: "1000000",
+ *   //   votes_per_share: "1",
+ *   //   seniority: "1",
+ *   //   // ... other fields
+ *   // }
+ *   ```;
  *
  * @param client - The ledger JSON API client
  * @param params - Parameters for retrieving the stock class
  * @returns Promise resolving to the OCF StockClass object
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/StockClass.schema.json
  */
 export async function getStockClassAsOcf(
   client: LedgerJsonApiClient,

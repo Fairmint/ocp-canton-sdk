@@ -1,14 +1,14 @@
 import { damlAddressToNative } from '../../utils/typeConversions';
 import type {
-  OcfStakeholderData,
-  Name,
-  StakeholderType,
-  EmailType,
-  PhoneType,
   ContactInfo,
   ContactInfoWithoutName,
   Email,
+  EmailType,
+  Name,
+  OcfStakeholderData,
   Phone,
+  PhoneType,
+  StakeholderType,
 } from '../../types/native';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
@@ -225,9 +225,7 @@ export interface GetStakeholderAsOcfResult {
   contractId: string;
 }
 
-/**
- * Retrieve a stakeholder contract by ID and return it as an OCF JSON object
- */
+/** Retrieve a stakeholder contract by ID and return it as an OCF JSON object */
 export async function getStakeholderAsOcf(
   client: LedgerJsonApiClient,
   params: GetStakeholderAsOcfParams

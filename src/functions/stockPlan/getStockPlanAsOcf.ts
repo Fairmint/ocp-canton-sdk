@@ -64,6 +64,7 @@ export interface GetStockPlanAsOcfResult {
 
 /**
  * Retrieve a stock plan contract and return it as an OCF JSON object
+ *
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/StockPlan.schema.json
  */
 export async function getStockPlanAsOcf(

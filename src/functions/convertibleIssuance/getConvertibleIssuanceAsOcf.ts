@@ -130,9 +130,7 @@ export interface GetConvertibleIssuanceAsOcfResult {
   contractId: string;
 }
 
-/**
- * Retrieve a ConvertibleIssuance contract and return it as an OCF JSON object
- */
+/** Retrieve a ConvertibleIssuance contract and return it as an OCF JSON object */
 export async function getConvertibleIssuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleIssuanceAsOcfParams
@@ -198,6 +196,9 @@ export async function getConvertibleIssuanceAsOcf(
       if (m && typeof m === 'object') {
         const tag = (m as Record<string, unknown>).tag as string | undefined;
         const value = (m as Record<string, unknown>).value as Record<string, unknown> | undefined;
+        if (!tag) {
+          throw new Error('Conversion mechanism tag is required');
+        }
         switch (tag) {
           case 'OcfConvMechSAFE': {
             const mech: SafeConversionMechanism = {
@@ -276,7 +277,7 @@ export async function getConvertibleIssuanceAsOcf(
             const mech: SharePriceBasedMechanism = {
               type: 'SHARE_PRICE_BASED_CONVERSION',
               description: value?.description,
-              discount: !!value?.discount,
+              discount: Boolean(value?.discount),
               ...(value?.discount_percentage !== undefined && value?.discount_percentage !== null
                 ? {
                     discount_percentage:
@@ -364,7 +365,7 @@ export async function getConvertibleIssuanceAsOcf(
                     },
                   }
                 : {}),
-              ...(value?.conversion_mfn ? { conversion_mfn: !!value.conversion_mfn } : {}),
+              ...(value?.conversion_mfn ? { conversion_mfn: Boolean(value.conversion_mfn) } : {}),
             } as NoteConversionMechanism;
             return mech;
           }

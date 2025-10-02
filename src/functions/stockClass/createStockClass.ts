@@ -1,6 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { dateStringToDAMLTime, monetaryToDaml, cleanComments } from '../../utils/typeConversions';
-import type { OcfStockClassData, CommandWithDisclosedContracts, StockClassType } from '../../types';
+import { cleanComments, dateStringToDAMLTime, monetaryToDaml } from '../../utils/typeConversions';
+import type { CommandWithDisclosedContracts, OcfStockClassData, StockClassType } from '../../types';
 import type {
   Command,
   DisclosedContract,
@@ -152,20 +152,24 @@ export interface CreateStockClassParams {
    * Stock class data to create
    *
    * Schema: https://schema.opencaptablecoalition.com/v/1.2.0/objects/StockClass.schema.json
-   * - name: Name for the stock type (e.g. Series A Preferred or Class A Common)
-   * - class_type: The type of this stock class (e.g. Preferred or Common)
-   * - default_id_prefix: Default prefix for certificate numbers in certificated shares (e.g. CS- in CS-1). If certificate IDs have a dash, the prefix should end in the dash like CS-
-   * - initial_shares_authorized: The initial number of shares authorized for this stock class
-   * - board_approval_date (optional): Date on which the board approved the stock class (YYYY-MM-DD)
-   * - stockholder_approval_date (optional): Date on which the stockholders approved the stock class (YYYY-MM-DD)
-   * - votes_per_share: The number of votes each share of this stock class gets
-   * - par_value (optional): Per-share par value of this stock class
-   * - price_per_share (optional): Per-share price this stock class was issued for
-   * - seniority: Seniority of the stock - determines repayment priority. Seniority is ordered by increasing number so that stock classes with a higher seniority have higher repayment priority. Multiple stock classes can share the same seniority.
-   * - conversion_rights (optional): List of stock class conversion rights possible for this stock class
-   * - liquidation_preference_multiple (optional): The liquidation preference per share for this stock class
-   * - participation_cap_multiple (optional): The participation cap multiple per share for this stock class
-   * - comments (optional): Additional comments or notes about the stock class
+   *
+   * - Name: Name for the stock type (e.g. Series A Preferred or Class A Common)
+   * - Class_type: The type of this stock class (e.g. Preferred or Common)
+   * - Default_id_prefix: Default prefix for certificate numbers in certificated shares (e.g. CS- in CS-1). If certificate
+   *   IDs have a dash, the prefix should end in the dash like CS-
+   * - Initial_shares_authorized: The initial number of shares authorized for this stock class
+   * - Board_approval_date (optional): Date on which the board approved the stock class (YYYY-MM-DD)
+   * - Stockholder_approval_date (optional): Date on which the stockholders approved the stock class (YYYY-MM-DD)
+   * - Votes_per_share: The number of votes each share of this stock class gets
+   * - Par_value (optional): Per-share par value of this stock class
+   * - Price_per_share (optional): Per-share price this stock class was issued for
+   * - Seniority: Seniority of the stock - determines repayment priority. Seniority is ordered by increasing number so
+   *   that stock classes with a higher seniority have higher repayment priority. Multiple stock classes can share the
+   *   same seniority.
+   * - Conversion_rights (optional): List of stock class conversion rights possible for this stock class
+   * - Liquidation_preference_multiple (optional): The liquidation preference per share for this stock class
+   * - Participation_cap_multiple (optional): The participation cap multiple per share for this stock class
+   * - Comments (optional): Additional comments or notes about the stock class
    */
   stockClassData: OcfStockClassData;
 }

@@ -23,15 +23,13 @@ function hasSystemOperator(
   arg: unknown
 ): arg is Required<Pick<CompanyValuationReportCreateArgumentShape, 'system_operator'>> {
   return (
-    !!arg &&
+    Boolean(arg) &&
     typeof arg === 'object' &&
     typeof (arg as CompanyValuationReportCreateArgumentShape).system_operator === 'string'
   );
 }
 
-/**
- * Add observers to a CompanyValuationReport by exercising AddObservers.
- */
+/** Add observers to a CompanyValuationReport by exercising AddObservers. */
 export async function addObserversToCompanyValuationReport(
   client: LedgerJsonApiClient,
   params: AddObserversToCompanyValuationReportParams

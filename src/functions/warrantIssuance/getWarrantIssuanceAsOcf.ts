@@ -176,7 +176,7 @@ export async function getWarrantIssuanceAsOcf(
         return {
           type: 'SHARE_PRICE_BASED_CONVERSION',
           description: String(value.description),
-          discount: !!value.discount,
+          discount: Boolean(value.discount),
           ...(value.discount_percentage !== undefined &&
           value.discount_percentage !== null &&
           (typeof value.discount_percentage === 'number' || typeof value.discount_percentage === 'string')
@@ -276,7 +276,7 @@ export async function getWarrantIssuanceAsOcf(
 
   const exercise_price = d.exercise_price ? mapMonetary(d.exercise_price as Record<string, unknown>) : undefined;
 
-  const purchase_price_obj = d.purchase_price as Record<string, unknown>;
+  const purchase_price_obj = d.purchase_price as Record<string, unknown> | null | undefined;
   if (!purchase_price_obj) {
     throw new Error('Missing required purchase_price');
   }

@@ -23,15 +23,13 @@ function hasSystemOperator(
   arg: unknown
 ): arg is Required<Pick<CompanyValuationReportCreateArgumentShape, 'system_operator'>> {
   return (
-    !!arg &&
+    Boolean(arg) &&
     typeof arg === 'object' &&
     typeof (arg as CompanyValuationReportCreateArgumentShape).system_operator === 'string'
   );
 }
 
-/**
- * Update the company valuation on a CompanyValuationReport by exercising SetCompanyValuation.
- */
+/** Update the company valuation on a CompanyValuationReport by exercising SetCompanyValuation. */
 export async function updateCompanyValuationReport(
   client: LedgerJsonApiClient,
   params: UpdateCompanyValuationParams

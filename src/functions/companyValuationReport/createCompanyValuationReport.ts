@@ -22,28 +22,27 @@ export interface CreateCompanyValuationReportResult {
 }
 
 /**
- * Create a CompanyValuationReport by exercising the CreateCompanyValuationReport choice
- * on the OCP Factory contract.
+ * Create a CompanyValuationReport by exercising the CreateCompanyValuationReport choice on the OCP Factory contract.
  *
- * This function requires the FeaturedAppRight contract details to be provided for disclosed contracts,
- * which is necessary for cross-domain contract interactions in Canton.
+ * This function requires the FeaturedAppRight contract details to be provided for disclosed contracts, which is
+ * necessary for cross-domain contract interactions in Canton.
  *
  * @example
- * ```typescript
- * const featuredAppRightContractDetails = {
- *   contractId: "1234567890abcdef",
- *   createdEventBlob: "serialized_contract_blob_here",
- *   synchronizerId: "sync_id_here",
- *   templateId: "FeaturedAppRight:template:id:here"
- * };
+ *   ```typescript
+ *   const featuredAppRightContractDetails = {
+ *     contractId: "1234567890abcdef",
+ *     createdEventBlob: "serialized_contract_blob_here",
+ *     synchronizerId: "sync_id_here",
+ *     templateId: "FeaturedAppRight:template:id:here"
+ *   };
  *
- * const result = await createCompanyValuationReport(client, {
- *   companyId: "company123",
- *   companyValuation: "1000000",
- *   observers: ["observer1", "observer2"],
- *   featuredAppRightContractDetails
- * });
- * ```
+ *   const result = await createCompanyValuationReport(client, {
+ *     companyId: "company123",
+ *     companyValuation: "1000000",
+ *     observers: ["observer1", "observer2"],
+ *     featuredAppRightContractDetails
+ *   });
+ *   ```;
  */
 export async function createCompanyValuationReport(
   client: LedgerJsonApiClient,
@@ -76,7 +75,9 @@ export function buildCreateCompanyValuationReportCommand(
   params: CreateCompanyValuationReportParams
 ): CommandWithDisclosedContracts {
   const network = client.getNetwork();
-  const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData];
+  const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData] as
+    | (typeof factoryContractIdData)[keyof typeof factoryContractIdData]
+    | undefined;
   if (!networkData) {
     throw new Error(`Unsupported network: ${network}`);
   }

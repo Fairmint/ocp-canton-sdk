@@ -1,6 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { dateStringToDAMLTime, cleanComments } from '../../utils/typeConversions';
-import type { OcfStockPlanData, CommandWithDisclosedContracts, StockPlanCancellationBehavior } from '../../types';
+import { cleanComments, dateStringToDAMLTime } from '../../utils/typeConversions';
+import type { CommandWithDisclosedContracts, OcfStockPlanData, StockPlanCancellationBehavior } from '../../types';
 import type {
   Command,
   DisclosedContract,

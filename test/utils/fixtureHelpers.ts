@@ -21,52 +21,43 @@ let currentEventsFixture: Record<string, unknown> | null = null;
 
 /**
  * Configure the mock with a fixture object directly (no file I/O)
+ *
  * @param fixture - The fixture object to use
  */
 export function setTransactionTreeFixtureData(fixture: TransactionTreeFixture): void {
   currentFixture = fixture;
 }
 
-/**
- * Clear the current fixture configuration
- */
+/** Clear the current fixture configuration */
 export function clearTransactionTreeFixture(): void {
   currentFixture = null;
 }
 
-/**
- * Get the current fixture (used internally by mocks)
- */
+/** Get the current fixture (used internally by mocks) */
 export function getCurrentFixture(): TransactionTreeFixture | null {
   return currentFixture;
 }
 
 /**
  * Configure the mock with events fixture data for getEventsByContractId
+ *
  * @param eventsData - The events response object to use
  */
 export function setEventsFixtureData(eventsData: Record<string, unknown>): void {
   currentEventsFixture = eventsData;
 }
 
-/**
- * Clear the current events fixture configuration
- */
+/** Clear the current events fixture configuration */
 export function clearEventsFixture(): void {
   currentEventsFixture = null;
 }
 
-/**
- * Get the current events fixture (used internally by mocks)
- */
+/** Get the current events fixture (used internally by mocks) */
 export function getCurrentEventsFixture(): Record<string, unknown> | null {
   return currentEventsFixture;
 }
 
-/**
- * Convert transaction tree response to events response format
- * Extracts the created event from the transaction tree
- */
+/** Convert transaction tree response to events response format Extracts the created event from the transaction tree */
 export function convertTransactionTreeToEventsResponse(
   response: SubmitAndWaitForTransactionTreeResponse | Record<string, unknown>,
   synchronizerId: string
@@ -102,8 +93,8 @@ export function convertTransactionTreeToEventsResponse(
 }
 
 /**
- * Validate that an actual request matches the expected request from the fixture
- * Performs a flexible match that ignores dynamic fields and format differences
+ * Validate that an actual request matches the expected request from the fixture Performs a flexible match that ignores
+ * dynamic fields and format differences
  */
 export function validateRequestMatchesFixture(actualRequest: Record<string, unknown>): void {
   if (!currentFixture) {
@@ -123,8 +114,8 @@ export function validateRequestMatchesFixture(actualRequest: Record<string, unkn
 }
 
 /**
- * Configure a client instance to use fixture-based mocking
- * This spy function will validate requests and return fixture responses
+ * Configure a client instance to use fixture-based mocking This spy function will validate requests and return fixture
+ * responses
  */
 export function configureClientWithFixture(client: unknown): jest.SpyInstance {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,11 +1,11 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { dateStringToDAMLTime, cleanComments } from '../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime } from '../../utils/typeConversions';
 import type {
-  OcfVestingTermsData,
-  CommandWithDisclosedContracts,
   AllocationType,
-  VestingConditionPortion,
+  CommandWithDisclosedContracts,
+  OcfVestingTermsData,
   VestingCondition,
+  VestingConditionPortion,
 } from '../../types';
 import type {
   Command,
@@ -112,16 +112,18 @@ function mapOcfDayOfMonthToDaml(day: string): OcfVestingDay {
 function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger {
   const type: string | undefined = typeof t?.type === 'string' ? t.type.toUpperCase() : undefined;
 
-  if (type === 'VESTING_START_DATE')
+  if (type === 'VESTING_START_DATE') {
     return {
       tag: 'OcfVestingStartTrigger',
       value: {},
     } as Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger;
-  if (type === 'VESTING_EVENT')
+  }
+  if (type === 'VESTING_EVENT') {
     return {
       tag: 'OcfVestingEventTrigger',
       value: {},
     } as Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger;
+  }
   if (type === 'VESTING_SCHEDULE_ABSOLUTE') {
     const date: string | undefined = 'date' in t ? (t.date ?? t.at) : undefined;
     if (!date) throw new Error('Vesting absolute trigger requires date');
@@ -137,12 +139,14 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVes
     const occurrencesVal = p?.occurrences;
     const cliffVal = p?.cliff_installment;
     const lengthNum = Number(lengthVal);
-    if (occurrencesVal === undefined || occurrencesVal === null)
+    if (occurrencesVal === undefined || occurrencesVal === null) {
       throw new Error('Missing vesting relative period occurrences');
+    }
     const occurrencesNum = Number(occurrencesVal);
     if (!Number.isFinite(lengthNum) || lengthNum <= 0) throw new Error('Invalid vesting relative period length');
-    if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1)
+    if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1) {
       throw new Error('Invalid vesting relative period occurrences');
+    }
     let period:
       | {
           tag: 'OcfVestingPeriodDays';
@@ -167,8 +171,9 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVes
         },
       };
     } else {
-      if (p?.day_of_month === undefined || p?.day_of_month === null)
+      if (p?.day_of_month === undefined || p?.day_of_month === null) {
         throw new Error('Missing vesting relative period day_of_month for MONTHS');
+      }
       period = {
         tag: 'OcfVestingPeriodMonths',
         value: {
@@ -238,6 +243,7 @@ export interface CreateVestingTermsParams {
 
 /**
  * Create vesting terms by exercising the CreateVestingTerms choice on an Issuer contract
+ *
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/VestingTerms.schema.json
  */
 

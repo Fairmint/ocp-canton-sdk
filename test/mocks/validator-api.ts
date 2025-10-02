@@ -1,6 +1,6 @@
 // Minimal mock for validator API that reads fixtures
 
-export function lookupFeaturedAppRight({ partyId }: { partyId: string }) {
+export async function lookupFeaturedAppRight({ partyId }: { partyId: string }) {
   // partyId is a simplified alias in tests like 'fairmint'
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const path = require('path');
@@ -23,7 +23,7 @@ export function lookupFeaturedAppRight({ partyId }: { partyId: string }) {
   return Promise.resolve(data);
 }
 
-export function getAmuletRules() {
+export async function getAmuletRules() {
   // Not needed for current tests; keep a stub
   return Promise.resolve({ amulet_rules: { contract: {}, dso: '' } });
 }

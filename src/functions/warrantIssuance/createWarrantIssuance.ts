@@ -1,12 +1,12 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import {
-  monetaryToDaml,
-  dateStringToDAMLTime,
   cleanComments,
+  dateStringToDAMLTime,
+  monetaryToDaml,
   numberToString,
   optionalString,
 } from '../../utils/typeConversions';
-import type { Monetary, CommandWithDisclosedContracts } from '../../types';
+import type { CommandWithDisclosedContracts, Monetary } from '../../types';
 import type {
   Command,
   DisclosedContract,
@@ -225,8 +225,9 @@ function quantitySourceToDamlEnum(
 function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _ocfId: string) {
   const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
-  if (typeof t !== 'object' || !t.trigger_id)
+  if (typeof t !== 'object' || !t.trigger_id) {
     throw new Error('trigger_id is required for each warrant exercise trigger');
+  }
   const { trigger_id } = t;
   const nickname = typeof t.nickname === 'string' ? t.nickname : null;
   const trigger_description = typeof t.trigger_description === 'string' ? t.trigger_description : null;

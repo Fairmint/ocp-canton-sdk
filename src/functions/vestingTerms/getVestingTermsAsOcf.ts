@@ -1,7 +1,7 @@
 import { damlTimeToDateString } from '../../utils/typeConversions';
 import type {
-  OcfVestingTermsData,
   AllocationType,
+  OcfVestingTermsData,
   VestingCondition,
   VestingConditionPortion,
 } from '../../types/native';
@@ -97,8 +97,9 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
     if (occRaw === undefined || occRaw === null) throw new Error('Missing vesting period occurrences');
     const occ = Number(occRaw);
     if (!Number.isFinite(occ) || occ < 1) throw new Error('Invalid vesting period occurrences');
-    if (v.day_of_month === undefined || v.day_of_month === null)
+    if (v.day_of_month === undefined || v.day_of_month === null) {
       throw new Error('Missing vesting period day_of_month for MONTHS');
+    }
     const dayOfMonth = v.day_of_month;
     if (typeof dayOfMonth !== 'string') {
       throw new Error('day_of_month must be a string');
@@ -249,6 +250,7 @@ export interface GetVestingTermsAsOcfResult {
 
 /**
  * Retrieve vesting terms and return them as an OCF JSON object
+ *
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/VestingTerms.schema.json
  */
 export async function getVestingTermsAsOcf(
