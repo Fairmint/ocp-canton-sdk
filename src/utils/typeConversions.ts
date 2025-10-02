@@ -62,8 +62,10 @@ function addressTypeToDaml(addressType: AddressType): Fairmint.OpenCapTable.Type
       return 'OcfAddressTypeContact';
     case 'OTHER':
       return 'OcfAddressTypeOther';
-    default:
-      throw new Error(`Unknown address type: ${addressType}`);
+    default: {
+      const exhaustiveCheck: never = addressType;
+      throw new Error(`Unknown address type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 
@@ -77,8 +79,10 @@ function damlAddressTypeToNative(
       return 'CONTACT';
     case 'OcfAddressTypeOther':
       return 'OTHER';
-    default:
-      throw new Error(`Unknown DAML address type: ${damlType}`);
+    default: {
+      const exhaustiveCheck: never = damlType;
+      throw new Error(`Unknown DAML address type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 

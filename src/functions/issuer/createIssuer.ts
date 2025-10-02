@@ -44,8 +44,10 @@ function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfP
       return 'OcfPhoneBusiness';
     case 'OTHER':
       return 'OcfPhoneOther';
-    default:
-      throw new Error(`Unknown phone type: ${phoneType}`);
+    default: {
+      const exhaustiveCheck: never = phoneType;
+      throw new Error(`Unknown phone type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 

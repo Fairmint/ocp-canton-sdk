@@ -173,7 +173,7 @@ export async function getConvertibleIssuanceAsOcf(
         return { amount, currency: mon.currency };
       };
       const mapTiming = (t: unknown): 'PRE_MONEY' | 'POST_MONEY' | undefined => {
-        const s = String(t || '');
+        const s = String(t ?? '');
         if (s.endsWith('PreMoney')) return 'PRE_MONEY';
         if (s.endsWith('PostMoney')) return 'POST_MONEY';
         return undefined;
@@ -296,7 +296,7 @@ export async function getConvertibleIssuanceAsOcf(
             const accrualFromDaml = (
               v: unknown
             ): 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL' | undefined => {
-              const s = String(v || '');
+              const s = String(v ?? '');
               if (s.endsWith('OcfAccrualDaily') || s === 'OcfAccrualDaily') return 'DAILY';
               if (s.endsWith('OcfAccrualMonthly') || s === 'OcfAccrualMonthly') return 'MONTHLY';
               if (s.endsWith('OcfAccrualQuarterly') || s === 'OcfAccrualQuarterly')
@@ -307,7 +307,7 @@ export async function getConvertibleIssuanceAsOcf(
               return undefined;
             };
             const compoundingFromDaml = (v: unknown): string | undefined => {
-              const s = String(v || '');
+              const s = String(v ?? '');
               if (!s) return undefined;
               if (s === 'OcfSimple') return 'SIMPLE';
               if (s === 'OcfCompounding') return 'COMPOUNDING';

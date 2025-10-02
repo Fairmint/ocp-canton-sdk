@@ -10,7 +10,7 @@
       "first_name": "Georgie",
       "legal_name": "Georgie Doe"
     },
-    "comments": [],
+    "comments": [""],
     "addresses": [
       {
         "city": "Pasig",

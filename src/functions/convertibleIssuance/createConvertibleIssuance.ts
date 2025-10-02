@@ -104,13 +104,13 @@ function mechanismInputToDamlEnum(
   m: ConvertibleConversionMechanismInput | (Record<string, unknown> & { type?: string }) | undefined
 ): any {
   const dayCountToDaml = (v: unknown): Fairmint.OpenCapTable.Types.OcfDayCountType => {
-    const s = String(v || '').toUpperCase();
+    const s = String(v ?? '').toUpperCase();
     if (s === 'ACTUAL_365') return 'OcfDayCountActual365';
     if (s === '30_360') return 'OcfDayCount30_360';
     throw new Error(`Unknown day_count_convention: ${v}`);
   };
   const payoutToDaml = (v: unknown): Fairmint.OpenCapTable.Types.OcfInterestPayoutType => {
-    const s = String(v || '').toUpperCase();
+    const s = String(v ?? '').toUpperCase();
     if (s === 'DEFERRED') return 'OcfInterestPayoutDeferred';
     if (s === 'CASH') return 'OcfInterestPayoutCash';
     throw new Error(`Unknown interest_payout: ${v}`);
@@ -135,7 +135,7 @@ function mechanismInputToDamlEnum(
     };
 
     const safeTiming = (v: unknown): any => {
-      const s = String(v || '').toUpperCase();
+      const s = String(v ?? '').toUpperCase();
       if (s === 'PRE_MONEY') return 'OcfConversionTimingPreMoney';
       if (s === 'POST_MONEY') return 'OcfConversionTimingPostMoney';
       return null;
@@ -183,7 +183,7 @@ function mechanismInputToDamlEnum(
               }))
             : [];
         const accrualToDaml = (v: unknown): any => {
-          const s = String(v || '').toUpperCase();
+          const s = String(v ?? '').toUpperCase();
           switch (s) {
             case 'DAILY':
               return 'OcfAccrualDaily';
@@ -201,7 +201,7 @@ function mechanismInputToDamlEnum(
         };
         const compoundingToDaml = (v: unknown): any => {
           // Pass-through if already DAML tag; otherwise map common strings
-          const s = String(v || '');
+          const s = String(v ?? '');
           if (s.startsWith('Ocf')) return s as any;
           const u = s.toUpperCase();
           if (u === 'SIMPLE') return 'OcfSimple';

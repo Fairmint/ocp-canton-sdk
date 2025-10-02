@@ -23,8 +23,10 @@ function stakeholderTypeToDaml(
       return 'OcfStakeholderTypeIndividual';
     case 'INSTITUTION':
       return 'OcfStakeholderTypeInstitution';
-    default:
-      throw new Error(`Unknown stakeholder type: ${stakeholderType}`);
+    default: {
+      const exhaustiveCheck: never = stakeholderType;
+      throw new Error(`Unknown stakeholder type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 
@@ -36,8 +38,10 @@ function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfE
       return 'OcfEmailTypeBusiness';
     case 'OTHER':
       return 'OcfEmailTypeOther';
-    default:
-      throw new Error(`Unknown email type: ${emailType}`);
+    default: {
+      const exhaustiveCheck: never = emailType;
+      throw new Error(`Unknown email type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 
@@ -61,8 +65,10 @@ function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfP
       return 'OcfPhoneBusiness';
     case 'OTHER':
       return 'OcfPhoneOther';
-    default:
-      throw new Error(`Unknown phone type: ${phoneType}`);
+    default: {
+      const exhaustiveCheck: never = phoneType;
+      throw new Error(`Unknown phone type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 

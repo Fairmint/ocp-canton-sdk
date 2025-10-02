@@ -21,8 +21,10 @@ function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailTyp
       return 'BUSINESS';
     case 'OcfEmailTypeOther':
       return 'OTHER';
-    default:
-      throw new Error(`Unknown DAML email type: ${damlType}`);
+    default: {
+      const exhaustiveCheck: never = damlType;
+      throw new Error(`Unknown DAML email type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 
@@ -43,8 +45,10 @@ function damlPhoneTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfPhoneTyp
       return 'BUSINESS';
     case 'OcfPhoneOther':
       return 'OTHER';
-    default:
-      throw new Error(`Unknown DAML phone type: ${damlType}`);
+    default: {
+      const exhaustiveCheck: never = damlType;
+      throw new Error(`Unknown DAML phone type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 
@@ -91,8 +95,10 @@ function damlStakeholderTypeToNative(
       return 'INDIVIDUAL';
     case 'OcfStakeholderTypeInstitution':
       return 'INSTITUTION';
-    default:
-      throw new Error(`Unknown DAML stakeholder type: ${damlType}`);
+    default: {
+      const exhaustiveCheck: never = damlType;
+      throw new Error(`Unknown DAML stakeholder type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 
