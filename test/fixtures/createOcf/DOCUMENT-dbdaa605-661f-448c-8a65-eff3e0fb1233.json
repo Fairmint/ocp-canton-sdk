@@ -7,9 +7,7 @@
     "id": "dbdaa605-661f-448c-8a65-eff3e0fb1233",
     "md5": "482bf1d622fb4250abbf335ac56f1dfd",
     "uri": "s3://series-private/s3_dev/portal/028fc334-d093-4618-b95f-6035ad336a8e/6e440146d79176d963ad764a2c8d7359f92cf808",
-    "comments": [
-      "filename: The_source_employees_X_Usa_User_Equity_Grant_Agreement_-_Signed_October_17,_2024.pdf"
-    ],
+    "comments": ["filename: The_source_employees_X_Usa_User_Equity_Grant_Agreement_-_Signed_October_17,_2024.pdf"],
     "object_type": "DOCUMENT",
     "related_objects": []
   },
@@ -25,9 +23,7 @@
           "uri": "s3://series-private/s3_dev/portal/028fc334-d093-4618-b95f-6035ad336a8e/6e440146d79176d963ad764a2c8d7359f92cf808",
           "md5": "482bf1d622fb4250abbf335ac56f1dfd",
           "related_objects": [],
-          "comments": [
-            "filename: The_source_employees_X_Usa_User_Equity_Grant_Agreement_-_Signed_October_17,_2024.pdf"
-          ]
+          "comments": ["filename: The_source_employees_X_Usa_User_Equity_Grant_Agreement_-_Signed_October_17,_2024.pdf"]
         }
       }
     }
@@ -62,13 +58,9 @@
                     "uri": "s3://series-private/s3_dev/portal/028fc334-d093-4618-b95f-6035ad336a8e/6e440146d79176d963ad764a2c8d7359f92cf808"
                   }
                 },
-                "actingParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "0099cf95669f0cf02915668456cfd500ca04e2d9390b6acdb70a7ade68488e72d7ca11122012166a2f4e640d5d2fddd5a0c4ec5b3d8137396279472814018599946168a3c1",
                 "packageName": "OpenCapTable-v25",
@@ -97,9 +89,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -127,12 +117,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -168,9 +154,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -197,8 +181,6 @@
     "uri": "s3://series-private/s3_dev/portal/028fc334-d093-4618-b95f-6035ad336a8e/6e440146d79176d963ad764a2c8d7359f92cf808",
     "md5": "482bf1d622fb4250abbf335ac56f1dfd",
     "related_objects": [],
-    "comments": [
-      "filename: The_source_employees_X_Usa_User_Equity_Grant_Agreement_-_Signed_October_17,_2024.pdf"
-    ]
+    "comments": ["filename: The_source_employees_X_Usa_User_Equity_Grant_Agreement_-_Signed_October_17,_2024.pdf"]
   }
 }

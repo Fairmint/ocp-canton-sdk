@@ -183,13 +183,9 @@
                     "stockholder_approval_date": null
                   }
                 },
-                "actingParties": [
-                  "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00799f409eabe83a394041030efce438dd1b1b049c4916417fe66a3020c13d4f6dca1112200e256d3de76e627893aa43cf1e32a3ed924f6efe1cfea51db86cb0e815f88c21",
                 "packageName": "OpenCapTable-v25",
@@ -218,9 +214,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -248,12 +242,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -333,9 +323,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                   "d793f6::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"

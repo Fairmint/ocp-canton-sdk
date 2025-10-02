@@ -1,16 +1,23 @@
+import type {
+  Command,
+  DisclosedContract,
+} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcfIssuerData, CommandWithDisclosedContracts, EmailType, PhoneType } from '../../types';
-import { dateStringToDAMLTime, addressToDaml } from '../../utils/typeConversions';
+import type { CommandWithDisclosedContracts, EmailType, OcfIssuerData, PhoneType } from '../../types';
+import { addressToDaml, cleanComments, dateStringToDAMLTime } from '../../utils/typeConversions';
 
 function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfEmailType {
   switch (emailType) {
-    case 'PERSONAL': return 'OcfEmailTypePersonal';
-    case 'BUSINESS': return 'OcfEmailTypeBusiness';
-    case 'OTHER': return 'OcfEmailTypeOther';
-    default: throw new Error(`Unknown email type: ${emailType}`);
+    case 'PERSONAL':
+      return 'OcfEmailTypePersonal';
+    case 'BUSINESS':
+      return 'OcfEmailTypeBusiness';
+    case 'OTHER':
+      return 'OcfEmailTypeOther';
+    default: {
+      const exhaustiveCheck: never = emailType;
+      throw new Error(`Unknown email type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 
@@ -18,17 +25,24 @@ function emailToDaml(email: OcfIssuerData['email']): Fairmint.OpenCapTable.Types
   if (!email) return null;
   return {
     email_type: emailTypeToDaml(email.email_type),
-    email_address: email.email_address
+    email_address: email.email_address,
   };
 }
 
 function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfPhoneType {
   switch (phoneType) {
-    case 'HOME': return 'OcfPhoneHome';
-    case 'MOBILE': return 'OcfPhoneMobile';
-    case 'BUSINESS': return 'OcfPhoneBusiness';
-    case 'OTHER': return 'OcfPhoneOther';
-    default: throw new Error(`Unknown phone type: ${phoneType}`);
+    case 'HOME':
+      return 'OcfPhoneHome';
+    case 'MOBILE':
+      return 'OcfPhoneMobile';
+    case 'BUSINESS':
+      return 'OcfPhoneBusiness';
+    case 'OTHER':
+      return 'OcfPhoneOther';
+    default: {
+      const exhaustiveCheck: never = phoneType;
+      throw new Error(`Unknown phone type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 
@@ -36,7 +50,7 @@ function phoneToDaml(phone: OcfIssuerData['phone']): Fairmint.OpenCapTable.Types
   if (!phone) return null;
   return {
     phone_type: phoneTypeToDaml(phone.phone_type),
-    phone_number: phone.phone_number
+    phone_number: phone.phone_number,
   };
 }
 
@@ -46,20 +60,23 @@ function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issu
     id: issuerData.id,
     legal_name: issuerData.legal_name,
     country_of_formation: issuerData.country_of_formation,
-    dba: issuerData.dba || null,
+    dba: issuerData.dba ?? null,
     formation_date: dateStringToDAMLTime(issuerData.formation_date),
-    country_subdivision_of_formation: issuerData.country_subdivision_of_formation || null,
-    country_subdivision_name_of_formation: issuerData.country_subdivision_name_of_formation || null,
-    tax_ids: issuerData.tax_ids || [],
+    country_subdivision_of_formation: issuerData.country_subdivision_of_formation ?? null,
+    country_subdivision_name_of_formation: issuerData.country_subdivision_name_of_formation ?? null,
+    tax_ids: issuerData.tax_ids,
     email: issuerData.email ? emailToDaml(issuerData.email) : null,
     phone: issuerData.phone ? phoneToDaml(issuerData.phone) : null,
     address: issuerData.address ? addressToDaml(issuerData.address) : null,
     initial_shares_authorized:
-      issuerData.initial_shares_authorized !== undefined && issuerData.initial_shares_authorized !== null
+      issuerData.initial_shares_authorized !== undefined
         ? ((): Fairmint.OpenCapTable.Issuer.OcfIssuerData['initial_shares_authorized'] => {
             const v = issuerData.initial_shares_authorized;
             if (typeof v === 'number' || (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v))) {
-              return { tag: 'OcfInitialSharesNumeric', value: typeof v === 'number' ? v.toString() : v };
+              return {
+                tag: 'OcfInitialSharesNumeric',
+                value: typeof v === 'number' ? v.toString() : v,
+              };
             }
             if (v === 'UNLIMITED') {
               return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
@@ -67,7 +84,7 @@ function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issu
             return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
           })()
         : null,
-    comments: issuerData.comments || []
+    comments: cleanComments(issuerData.comments),
   };
 }
 
@@ -81,25 +98,26 @@ export interface CreateIssuerParams {
    * Issuer data to create
    *
    * Schema: https://schema.opencaptablecoalition.com/v/1.2.0/objects/Issuer.schema.json
-   * - legal_name: Legal name of the issuer
-   * - formation_date: Date of formation (YYYY-MM-DD)
-   * - country_of_formation: Country of formation (ISO 3166-1 alpha-2)
-   * - dba (optional): Doing Business As name
-   * - country_subdivision_of_formation (optional): Subdivision code of formation (ISO 3166-2)
-   * - country_subdivision_name_of_formation (optional): Text name of subdivision of formation
-   * - tax_ids (optional): Issuer tax IDs
-   * - email (optional): Work email
-   * - phone (optional): Phone number in ITU E.123 format
-   * - address (optional): Headquarters address
-   * - initial_shares_authorized (optional): Initial authorized shares (enum or numeric)
-   * - comments (optional): Additional comments
+   *
+   * - Legal_name: Legal name of the issuer
+   * - Formation_date: Date of formation (YYYY-MM-DD)
+   * - Country_of_formation: Country of formation (ISO 3166-1 alpha-2)
+   * - Dba (optional): Doing Business As name
+   * - Country_subdivision_of_formation (optional): Subdivision code of formation (ISO 3166-2)
+   * - Country_subdivision_name_of_formation (optional): Text name of subdivision of formation
+   * - Tax_ids (optional): Issuer tax IDs
+   * - Email (optional): Work email
+   * - Phone (optional): Phone number in ITU E.123 format
+   * - Address (optional): Headquarters address
+   * - Initial_shares_authorized (optional): Initial authorized shares (enum or numeric)
+   * - Comments (optional): Additional comments
    */
   issuerData: OcfIssuerData;
 }
 
 export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.IssuerAuthorization.CreateIssuer = {
-    issuer_data: issuerDataToDaml(params.issuerData)
+    issuer_data: issuerDataToDaml(params.issuerData),
   };
 
   const command: Command = {
@@ -107,8 +125,8 @@ export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWit
       templateId: Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId,
       contractId: params.issuerAuthorizationContractDetails.contractId,
       choice: 'CreateIssuer',
-      choiceArgument: choiceArguments
-    }
+      choiceArgument: choiceArguments,
+    },
   };
 
   const disclosedContracts: DisclosedContract[] = [
@@ -116,14 +134,14 @@ export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWit
       templateId: params.issuerAuthorizationContractDetails.templateId,
       contractId: params.issuerAuthorizationContractDetails.contractId,
       createdEventBlob: params.issuerAuthorizationContractDetails.createdEventBlob,
-      synchronizerId: params.issuerAuthorizationContractDetails.synchronizerId
+      synchronizerId: params.issuerAuthorizationContractDetails.synchronizerId,
     },
     {
       templateId: params.featuredAppRightContractDetails.templateId,
       contractId: params.featuredAppRightContractDetails.contractId,
       createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-    }
+      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
+    },
   ];
 
   return { command, disclosedContracts };

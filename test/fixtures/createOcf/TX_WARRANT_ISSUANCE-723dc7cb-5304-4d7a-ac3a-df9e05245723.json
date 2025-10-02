@@ -6,9 +6,7 @@
   "db": {
     "id": "723dc7cb-5304-4d7a-ac3a-df9e05245723",
     "date": "2023-07-31",
-    "comments": [
-      "use-case: Warrant without a stock class id, ie general."
-    ],
+    "comments": ["use-case: Warrant without a stock class id, ie general."],
     "custom_id": "W-1",
     "object_type": "TX_WARRANT_ISSUANCE",
     "security_id": "e857ee31-31ef-4afb-a8ef-812c06a0671c",
@@ -98,9 +96,7 @@
           "warrant_expiration_date": "2026-07-31T00:00:00.000Z",
           "vesting_terms_id": null,
           "vestings": [],
-          "comments": [
-            "use-case: Warrant without a stock class id, ie general."
-          ]
+          "comments": ["use-case: Warrant without a stock class id, ie general."]
         }
       }
     }
@@ -134,9 +130,7 @@
                     },
                     "security_id": "e857ee31-31ef-4afb-a8ef-812c06a0671c",
                     "stakeholder_id": "2f94dd9c-22b6-4c5e-9dad-accd3d674596",
-                    "comments": [
-                      "use-case: Warrant without a stock class id, ie general."
-                    ],
+                    "comments": ["use-case: Warrant without a stock class id, ie general."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -180,13 +174,9 @@
                     "warrant_expiration_date": "2026-07-31T00:00:00Z"
                   }
                 },
-                "actingParties": [
-                  "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00121fbbaca2632a11785c918201465ad063290612728358f7bfa469ebae21ae39ca111220a48960ebb512edf90844059bd1e00800a70700a625771dc518bb202dcab3807c",
                 "packageName": "OpenCapTable-v25",
@@ -215,9 +205,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -245,12 +233,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -283,9 +267,7 @@
                     },
                     "security_id": "e857ee31-31ef-4afb-a8ef-812c06a0671c",
                     "stakeholder_id": "2f94dd9c-22b6-4c5e-9dad-accd3d674596",
-                    "comments": [
-                      "use-case: Warrant without a stock class id, ie general."
-                    ],
+                    "comments": ["use-case: Warrant without a stock class id, ie general."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -331,9 +313,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -387,8 +367,6 @@
         "jurisdiction": "US"
       }
     ],
-    "comments": [
-      "use-case: Warrant without a stock class id, ie general."
-    ]
+    "comments": ["use-case: Warrant without a stock class id, ie general."]
   }
 }

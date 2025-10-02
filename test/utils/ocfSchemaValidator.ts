@@ -1,4 +1,5 @@
-import Ajv, { ValidateFunction } from 'ajv';
+import type { ValidateFunction } from 'ajv';
+import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -13,8 +14,10 @@ const SCHEMA_MAP: Record<string, string> = {
   STOCK_PLAN: 'objects/StockPlan.schema.json',
   TX_STOCK_ISSUANCE: 'objects/transactions/issuance/StockIssuance.schema.json',
   TX_STOCK_CANCELLATION: 'objects/transactions/cancellation/StockCancellation.schema.json',
-  TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: 'objects/transactions/adjustment/IssuerAuthorizedSharesAdjustment.schema.json',
-  TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT: 'objects/transactions/adjustment/StockClassAuthorizedSharesAdjustment.schema.json',
+  TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT:
+    'objects/transactions/adjustment/IssuerAuthorizedSharesAdjustment.schema.json',
+  TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT:
+    'objects/transactions/adjustment/StockClassAuthorizedSharesAdjustment.schema.json',
   TX_STOCK_PLAN_POOL_ADJUSTMENT: 'objects/transactions/adjustment/StockPlanPoolAdjustment.schema.json',
   TX_EQUITY_COMPENSATION_ISSUANCE: 'objects/transactions/issuance/EquityCompensationIssuance.schema.json',
   TX_EQUITY_COMPENSATION_EXERCISE: 'objects/transactions/exercise/EquityCompensationExercise.schema.json',
@@ -24,32 +27,30 @@ const SCHEMA_MAP: Record<string, string> = {
 };
 
 class OcfSchemaValidator {
-  private ajv: Ajv;
-  private schemaDir: string;
-  private validators: Map<string, ValidateFunction> = new Map();
+  private readonly ajv: Ajv;
+  private readonly schemaDir: string;
+  private readonly validators: Map<string, ValidateFunction> = new Map();
 
   constructor() {
     this.ajv = new Ajv({
       allErrors: true,
-      strict: false,
+      strict: false, // TODO enable strict mode, at least on the outputs
       validateFormats: true,
       loadSchema: this.loadSchemaFromFile.bind(this),
     });
-    
+
     // Add format validators
     addFormats(this.ajv);
 
     // Resolve the schema directory path (from submodule in project root)
     this.schemaDir = path.resolve(__dirname, '../..', 'Open-Cap-Format-OCF/schema');
-    
+
     if (!fs.existsSync(this.schemaDir)) {
       throw new Error(`Schema directory not found at: ${this.schemaDir}`);
     }
   }
 
-  /**
-   * Load a schema file from the filesystem
-   */
+  /** Load a schema file from the filesystem */
   private async loadSchemaFromFile(uri: string): Promise<Record<string, unknown>> {
     // Extract the relative path from the URI
     const match = uri.match(/Open-Cap-Format-OCF\/main\/schema\/(.+)$/);
@@ -65,12 +66,10 @@ class OcfSchemaValidator {
     }
 
     const fileContent = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(fileContent);
+    return Promise.resolve(JSON.parse(fileContent));
   }
 
-  /**
-   * Get or compile a validator for a specific object type
-   */
+  /** Get or compile a validator for a specific object type */
   private async getValidator(objectType: string): Promise<ValidateFunction> {
     if (this.validators.has(objectType)) {
       return this.validators.get(objectType)!;
@@ -96,9 +95,7 @@ class OcfSchemaValidator {
     return validator;
   }
 
-  /**
-   * Validate an OCF object against its schema
-   */
+  /** Validate an OCF object against its schema */
   async validate(ocfObject: Record<string, unknown>): Promise<{ valid: boolean; errors: string[] }> {
     const objectType = ocfObject.object_type as string;
     if (!objectType) {
@@ -114,10 +111,10 @@ class OcfSchemaValidator {
 
       if (!valid && validator.errors) {
         const errors = validator.errors.map((error) => {
-          const path = error.instancePath || '';
-          const message = error.message || '';
-          const params = error.params ? JSON.stringify(error.params) : '';
-          return `${path} ${message} ${params}`.trim();
+          const errorPath = error.instancePath;
+          const message = error.message ?? '';
+          const params = JSON.stringify(error.params);
+          return `${errorPath} ${message} ${params}`.trim();
         });
         return { valid: false, errors };
       }
@@ -135,19 +132,13 @@ class OcfSchemaValidator {
 // Singleton instance
 let validatorInstance: OcfSchemaValidator | undefined;
 
-/**
- * Get the global validator instance
- */
+/** Get the global validator instance */
 export function getOcfValidator(): OcfSchemaValidator {
-  if (!validatorInstance) {
-    validatorInstance = new OcfSchemaValidator();
-  }
+  validatorInstance ??= new OcfSchemaValidator();
   return validatorInstance;
 }
 
-/**
- * Validate an OCF object
- */
+/** Validate an OCF object */
 export async function validateOcfObject(ocfObject: Record<string, unknown>): Promise<void> {
   const validator = getOcfValidator();
   const result = await validator.validate(ocfObject);
@@ -157,4 +148,3 @@ export async function validateOcfObject(ocfObject: Record<string, unknown>): Pro
     throw new Error(errorMessage);
   }
 }
-

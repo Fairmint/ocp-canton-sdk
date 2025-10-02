@@ -1,6 +1,7 @@
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { extractUpdateId } from '../../utils/typeConversions';
 
 export interface WithdrawAuthorizationParams {
   issuerAuthorizationContractId: string;
@@ -16,7 +17,7 @@ export async function withdrawAuthorization(
   client: LedgerJsonApiClient,
   params: WithdrawAuthorizationParams
 ): Promise<WithdrawAuthorizationResult> {
-  const response = await client.submitAndWaitForTransactionTree({
+  const response = (await client.submitAndWaitForTransactionTree({
     actAs: [params.systemOperatorParty],
     commands: [
       {
@@ -24,11 +25,14 @@ export async function withdrawAuthorization(
           templateId: Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId,
           contractId: params.issuerAuthorizationContractId,
           choice: 'WithdrawAuthorization',
-          choiceArgument: {}
-        }
-      }
-    ]
-  }) as SubmitAndWaitForTransactionTreeResponse;
+          choiceArgument: {},
+        },
+      },
+    ],
+  })) as SubmitAndWaitForTransactionTreeResponse;
 
-  return { updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId, response };
+  return {
+    updateId: extractUpdateId(response),
+    response,
+  };
 }

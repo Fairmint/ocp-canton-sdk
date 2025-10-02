@@ -13,9 +13,7 @@
     "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
     "security_id": "26c68d5a-fa46-4e66-8844-863cae209c9c",
     "consideration_text": "Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement.",
-    "resulting_security_ids": [
-      "72dfefd2-6394-e2b9-90a6-4dd60f22b633"
-    ]
+    "resulting_security_ids": ["72dfefd2-6394-e2b9-90a6-4dd60f22b633"]
   },
   "request": {
     "ExerciseCommand": {
@@ -29,9 +27,7 @@
           "security_id": "26c68d5a-fa46-4e66-8844-863cae209c9c",
           "quantity": "5",
           "consideration_text": "Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement.",
-          "resulting_security_ids": [
-            "72dfefd2-6394-e2b9-90a6-4dd60f22b633"
-          ],
+          "resulting_security_ids": ["72dfefd2-6394-e2b9-90a6-4dd60f22b633"],
           "comments": [
             "Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024."
           ]
@@ -66,19 +62,13 @@
                     "comments": [
                       "Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024."
                     ],
-                    "resulting_security_ids": [
-                      "72dfefd2-6394-e2b9-90a6-4dd60f22b633"
-                    ],
+                    "resulting_security_ids": ["72dfefd2-6394-e2b9-90a6-4dd60f22b633"],
                     "consideration_text": "Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement."
                   }
                 },
-                "actingParties": [
-                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00b3c971903b6d4509365272184636f70c9b22e4f2251d9873b0c7f8b0dc01db65ca1112205635ab099fa8284fa1947f0f765d349e14ffa01c265c6a15a1ffdde0bca2170c",
                 "packageName": "OpenCapTable-v25",
@@ -107,9 +97,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -137,12 +125,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -173,17 +157,13 @@
                     "comments": [
                       "Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024."
                     ],
-                    "resulting_security_ids": [
-                      "72dfefd2-6394-e2b9-90a6-4dd60f22b633"
-                    ],
+                    "resulting_security_ids": ["72dfefd2-6394-e2b9-90a6-4dd60f22b633"],
                     "consideration_text": "Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement."
                   }
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -211,11 +191,7 @@
     "security_id": "26c68d5a-fa46-4e66-8844-863cae209c9c",
     "date": "2024-06-30",
     "consideration_text": "Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement.",
-    "resulting_security_ids": [
-      "72dfefd2-6394-e2b9-90a6-4dd60f22b633"
-    ],
-    "comments": [
-      "Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024."
-    ]
+    "resulting_security_ids": ["72dfefd2-6394-e2b9-90a6-4dd60f22b633"],
+    "comments": ["Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024."]
   }
 }

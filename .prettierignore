@@ -1,0 +1,8 @@
+dist
+node_modules
+coverage
+docs
+*.lock
+*.log
+Open-Cap-Format-OCF
+

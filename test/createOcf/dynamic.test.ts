@@ -1,12 +1,18 @@
-import { ClientConfig, getFeaturedAppRightContractDetails, ValidatorApiClient, findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk';
-import { OcpClient } from '../../src';
-import { setTransactionTreeFixtureData, clearTransactionTreeFixture, setEventsFixtureData, clearEventsFixture, convertTransactionTreeToEventsResponse } from '../utils/fixtureHelpers';
-import { validateOcfObject } from '../utils/ocfSchemaValidator';
+import type { ClientConfig } from '@fairmint/canton-node-sdk';
+import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
+import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { type OcfIssuerData, OcpClient } from '../../src';
+import {
+  clearEventsFixture,
+  clearTransactionTreeFixture,
+  convertTransactionTreeToEventsResponse,
+  setEventsFixtureData,
+  setTransactionTreeFixtureData,
+} from '../utils/fixtureHelpers';
+import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
 interface TestFixture {
   functionName: string;
@@ -28,19 +34,19 @@ interface TestFixture {
 // Load all fixtures from the fixtures directory
 function loadFixtures(): Array<{ name: string; fixture: TestFixture }> {
   const fixturesDir = path.join(__dirname, '../fixtures/createOcf');
-  
+
   if (!fs.existsSync(fixturesDir)) {
     return [];
   }
 
-  const files = fs.readdirSync(fixturesDir).filter(f => f.endsWith('.json'));
-  
-  return files.map(filename => {
+  const files = fs.readdirSync(fixturesDir).filter((f) => f.endsWith('.json'));
+
+  return files.map((filename) => {
     const fixturePath = path.join(fixturesDir, filename);
     const fileContent = fs.readFileSync(fixturePath, 'utf-8');
     const fixture = JSON.parse(fileContent) as TestFixture;
     const testName = filename.replace('.json', '');
-    
+
     return { name: testName, fixture };
   });
 }
@@ -59,16 +65,16 @@ describe('OCP Client - Dynamic Create Tests', () => {
     describe(name, () => {
       beforeEach(async () => {
         const config: ClientConfig = {
-          network: 'devnet'
+          network: 'devnet',
         };
         const validatorApi = new ValidatorApiClient(config);
 
         // Set up the fixture data directly without file I/O
         const featuredAppRight = await getFeaturedAppRightContractDetails(validatorApi);
-        
+
         // Build the expected disclosed contracts array
         const disclosedContracts: DisclosedContract[] = [];
-        
+
         // For issuer creation, include the issuer authorization contract
         if (fixture.db.object_type === 'ISSUER' && fixture.testContext.issuerAuthorizationContractDetails) {
           // Extract only the required DisclosedContract fields
@@ -77,10 +83,10 @@ describe('OCP Client - Dynamic Create Tests', () => {
             contractId: authContract.contractId,
             createdEventBlob: authContract.createdEventBlob,
             synchronizerId: authContract.synchronizerId,
-            templateId: authContract.templateId
+            templateId: authContract.templateId,
           });
         }
-        
+
         // Always include the featured app right
         disclosedContracts.push(featuredAppRight);
 
@@ -95,10 +101,10 @@ describe('OCP Client - Dynamic Create Tests', () => {
               commands: [fixture.request],
               actAs: [fixture.testContext.issuerParty],
               disclosedContracts,
-            }
+            },
           },
         };
-        
+
         setTransactionTreeFixtureData(fixtureData);
       });
 
@@ -111,7 +117,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
         await validateOcfObject(fixture.db);
 
         const config: ClientConfig = {
-          network: 'devnet'
+          network: 'devnet',
         };
 
         const validatorApi = new ValidatorApiClient(config);
@@ -119,43 +125,42 @@ describe('OCP Client - Dynamic Create Tests', () => {
         const client = new OcpClient(config);
 
         // Build the command based on object type
-        const commandWithDisclosed = fixture.db.object_type === 'ISSUER'
-          ? client.issuer.buildCreateIssuerCommand({
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              issuerData: fixture.db as any,
-              issuerAuthorizationContractDetails: fixture.testContext.issuerAuthorizationContractDetails!
-            })
-          : client.buildCreateOcfObjectCommand({
-              issuerContractId: fixture.testContext.issuerContractId,
-              featuredAppRightContractDetails: featuredAppRight,
-              issuerParty: fixture.testContext.issuerParty,
-              ocfData: fixture.db as { object_type: string; [key: string]: unknown }
-            })[0]; // For non-ISSUER types, we get an array, take the first command
+        const commandWithDisclosed =
+          fixture.db.object_type === 'ISSUER'
+            ? client.issuer.buildCreateIssuerCommand({
+                featuredAppRightContractDetails: featuredAppRight,
+                issuerParty: fixture.testContext.issuerParty,
+                issuerData: fixture.db as unknown as OcfIssuerData,
+                issuerAuthorizationContractDetails: fixture.testContext.issuerAuthorizationContractDetails!,
+              })
+            : client.buildCreateOcfObjectCommand({
+                issuerContractId: fixture.testContext.issuerContractId,
+                featuredAppRightContractDetails: featuredAppRight,
+                issuerParty: fixture.testContext.issuerParty,
+                ocfData: fixture.db as { object_type: string; [key: string]: unknown },
+              })[0]; // For non-ISSUER types, we get an array, take the first command
 
         // Execute the command
-        const response = await client.client.submitAndWaitForTransactionTree({
+        const response = (await client.client.submitAndWaitForTransactionTree({
           actAs: [fixture.testContext.issuerParty],
           commands: [commandWithDisclosed.command],
-          disclosedContracts: commandWithDisclosed.disclosedContracts
-        }) as SubmitAndWaitForTransactionTreeResponse;
+          disclosedContracts: commandWithDisclosed.disclosedContracts,
+        })) as SubmitAndWaitForTransactionTreeResponse;
 
         // Verify result structure
         expect(response).toBeDefined();
         expect(response.transactionTree).toBeDefined();
-        
+
         // Access eventsById - fixtures have the structure transactionTree.transaction.eventsById
-        const transaction = (response.transactionTree as any).transaction || response.transactionTree;
+        const transaction = (response.transactionTree as any).transaction ?? response.transactionTree;
         expect(transaction.eventsById).toBeDefined();
         expect(Object.keys(transaction.eventsById).length).toBeGreaterThan(0);
-        
+
         // Find any created event
-        const createdEvent = Object.values(transaction.eventsById).find(
-          (event: any) => event.CreatedTreeEvent
-        );
-        
+        const createdEvent = Object.values(transaction.eventsById).find((event: any) => event.CreatedTreeEvent);
+
         expect(createdEvent).toBeDefined();
-        const contractId = (createdEvent as any).CreatedTreeEvent.value.contractId;
+        const { contractId } = (createdEvent as any).CreatedTreeEvent.value;
         expect(contractId).toBeDefined();
         expect(typeof contractId).toBe('string');
         expect(contractId.length).toBeGreaterThan(0);
@@ -169,7 +174,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
         }
 
         const config: ClientConfig = {
-          network: 'devnet'
+          network: 'devnet',
         };
 
         const validatorApi = new ValidatorApiClient(config);
@@ -181,7 +186,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
           issuerContractId: fixture.testContext.issuerContractId,
           featuredAppRightContractDetails: featuredAppRight,
           issuerParty: fixture.testContext.issuerParty,
-          ocfData: fixture.db as { object_type: string; [key: string]: unknown }
+          ocfData: fixture.db as { object_type: string; [key: string]: unknown },
         });
 
         // Should return array with 1 command (create only)
@@ -190,7 +195,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
         expect(commandsWithoutArchive[0]).toHaveProperty('command');
         expect(commandsWithoutArchive[0]).toHaveProperty('disclosedContracts');
         expect(commandsWithoutArchive[0].command).toHaveProperty('ExerciseCommand');
-        
+
         // Build commands with previousContractId
         const previousContractId = 'placeholder-previous-contract-id-123';
         const commandsWithArchive = client.buildCreateOcfObjectCommand({
@@ -198,19 +203,19 @@ describe('OCP Client - Dynamic Create Tests', () => {
           featuredAppRightContractDetails: featuredAppRight,
           issuerParty: fixture.testContext.issuerParty,
           ocfData: fixture.db as { object_type: string; [key: string]: unknown },
-          previousContractId
+          previousContractId,
         });
 
         // Should return array with 2 commands (archive + create)
         expect(Array.isArray(commandsWithArchive)).toBe(true);
         expect(commandsWithArchive.length).toBe(2);
-        
+
         // First command should be archive
         const archiveCommand = commandsWithArchive[0];
         expect(archiveCommand).toHaveProperty('command');
         expect(archiveCommand).toHaveProperty('disclosedContracts');
         expect(archiveCommand.command).toHaveProperty('ExerciseCommand');
-        
+
         // Type guard to ensure ExerciseCommand exists
         if ('ExerciseCommand' in archiveCommand.command) {
           expect(archiveCommand.command.ExerciseCommand).toHaveProperty('contractId', previousContractId);
@@ -219,13 +224,13 @@ describe('OCP Client - Dynamic Create Tests', () => {
         } else {
           throw new Error('Expected archive command to be an ExerciseCommand');
         }
-        
+
         // Second command should be create (same as without archive)
         const createCommand = commandsWithArchive[1];
         expect(createCommand).toHaveProperty('command');
         expect(createCommand).toHaveProperty('disclosedContracts');
         expect(createCommand.command).toHaveProperty('ExerciseCommand');
-        
+
         // Create command should match the one built without archive
         if ('ExerciseCommand' in createCommand.command && 'ExerciseCommand' in commandsWithoutArchive[0].command) {
           expect(createCommand.command.ExerciseCommand.choice).toBe(
@@ -234,7 +239,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
         } else {
           throw new Error('Expected create command to be an ExerciseCommand');
         }
-        
+
         // Both commands should have disclosed contracts
         expect(Array.isArray(archiveCommand.disclosedContracts)).toBe(true);
         expect(archiveCommand.disclosedContracts.length).toBeGreaterThan(0);
@@ -244,8 +249,9 @@ describe('OCP Client - Dynamic Create Tests', () => {
 
       test('get*AsOcf returns expected OCF data', async () => {
         // Determine where the response is located
-        const response = fixture.response || fixture.testContext.issuerAuthorizationContractDetails?.response;
-        const synchronizerId = fixture.synchronizerId || fixture.testContext.issuerAuthorizationContractDetails?.synchronizerId || '';
+        const response = fixture.response ?? fixture.testContext.issuerAuthorizationContractDetails?.response;
+        const synchronizerId =
+          fixture.synchronizerId ?? fixture.testContext.issuerAuthorizationContractDetails?.synchronizerId ?? '';
 
         // Skip this test if there's no response data (required for events mock)
         if (!response) {
@@ -253,14 +259,11 @@ describe('OCP Client - Dynamic Create Tests', () => {
         }
 
         const config: ClientConfig = {
-          network: 'devnet'
+          network: 'devnet',
         };
 
         // Convert the transaction tree response to events format
-        const eventsResponse = convertTransactionTreeToEventsResponse(
-          response,
-          synchronizerId
-        );
+        const eventsResponse = convertTransactionTreeToEventsResponse(response, synchronizerId);
 
         // Set up the events fixture
         setEventsFixtureData(eventsResponse);
@@ -302,27 +305,40 @@ describe('OCP Client - Dynamic Create Tests', () => {
               expectedOcf = { stockIssuance: fixture.onchain_ocf, contractId };
               break;
             case 'TX_STOCK_CANCELLATION':
-              result = await client.stockCancellation.getStockCancellationEventAsOcf({ contractId });
+              result = await client.stockCancellation.getStockCancellationEventAsOcf({
+                contractId,
+              });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
-              result = await client.issuerAuthorizedSharesAdjustment.getIssuerAuthorizedSharesAdjustmentEventAsOcf({ contractId });
+              result = await client.issuerAuthorizedSharesAdjustment.getIssuerAuthorizedSharesAdjustmentEventAsOcf({
+                contractId,
+              });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
-              result = await client.stockClassAuthorizedSharesAdjustment.getStockClassAuthorizedSharesAdjustmentEventAsOcf({ contractId });
+              result =
+                await client.stockClassAuthorizedSharesAdjustment.getStockClassAuthorizedSharesAdjustmentEventAsOcf({
+                  contractId,
+                });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
-              result = await client.stockPlanPoolAdjustment.getStockPlanPoolAdjustmentEventAsOcf({ contractId });
+              result = await client.stockPlanPoolAdjustment.getStockPlanPoolAdjustmentEventAsOcf({
+                contractId,
+              });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_EQUITY_COMPENSATION_ISSUANCE':
-              result = await client.stockPlan.getEquityCompensationIssuanceEventAsOcf({ contractId });
+              result = await client.stockPlan.getEquityCompensationIssuanceEventAsOcf({
+                contractId,
+              });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_EQUITY_COMPENSATION_EXERCISE':
-              result = await client.stockPlan.getEquityCompensationExerciseEventAsOcf({ contractId });
+              result = await client.stockPlan.getEquityCompensationExerciseEventAsOcf({
+                contractId,
+              });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'DOCUMENT':
@@ -338,7 +354,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             default:
-              throw new Error(`Unsupported object type: ${fixture.db.object_type}`);
+              throw new Error(`Unsupported object type: ${String(fixture.db.object_type)}`);
           }
 
           // Verify the result matches expected OCF
@@ -346,10 +362,10 @@ describe('OCP Client - Dynamic Create Tests', () => {
 
           // Validate the returned OCF data against schema
           // Extract the actual OCF object from the result (remove contractId wrapper)
-          const ocfData = Object.values(result).find((val) => 
-            typeof val === 'object' && val !== null && 'object_type' in val
+          const ocfData = Object.values(result).find(
+            (val) => typeof val === 'object' && val !== null && 'object_type' in val
           ) as Record<string, unknown>;
-          
+
           await validateOcfObject(ocfData);
         } finally {
           clearEventsFixture();

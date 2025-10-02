@@ -6,9 +6,7 @@
   "db": {
     "id": "eb228ce0-1d2f-44b0-aec2-21c515bc5a9d",
     "date": "2024-11-22",
-    "comments": [
-      "use-case: Warrant with a stock class id, ie series-a-preferred-id."
-    ],
+    "comments": ["use-case: Warrant with a stock class id, ie series-a-preferred-id."],
     "quantity": "100000",
     "custom_id": "W-1",
     "object_type": "TX_WARRANT_ISSUANCE",
@@ -96,9 +94,7 @@
           "warrant_expiration_date": "2032-02-01T00:00:00.000Z",
           "vesting_terms_id": null,
           "vestings": [],
-          "comments": [
-            "use-case: Warrant with a stock class id, ie series-a-preferred-id."
-          ]
+          "comments": ["use-case: Warrant with a stock class id, ie series-a-preferred-id."]
         }
       }
     }
@@ -132,9 +128,7 @@
                     },
                     "security_id": "48271af0-c8dc-490f-891c-7390a6501367",
                     "stakeholder_id": "060a2306-1df2-4c87-a0a4-b4cc7071e025",
-                    "comments": [
-                      "use-case: Warrant with a stock class id, ie series-a-preferred-id."
-                    ],
+                    "comments": ["use-case: Warrant with a stock class id, ie series-a-preferred-id."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -174,13 +168,9 @@
                     "warrant_expiration_date": "2032-02-01T00:00:00Z"
                   }
                 },
-                "actingParties": [
-                  "68c563::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["68c563::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "68c563::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["68c563::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00a633c735b636c22823b047c0eb721b5668fa5d205f3004ec388fa2e077872086ca111220681cfbd1c79bef0b90a81d8e8862ef6ddec8c37f2048427fae9f631646231ee9",
                 "packageName": "OpenCapTable-v25",
@@ -209,9 +199,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "68c563::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["68c563::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -239,12 +227,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "68c563::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["68c563::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -277,9 +261,7 @@
                     },
                     "security_id": "48271af0-c8dc-490f-891c-7390a6501367",
                     "stakeholder_id": "060a2306-1df2-4c87-a0a4-b4cc7071e025",
-                    "comments": [
-                      "use-case: Warrant with a stock class id, ie series-a-preferred-id."
-                    ],
+                    "comments": ["use-case: Warrant with a stock class id, ie series-a-preferred-id."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -321,9 +303,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "68c563::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["68c563::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "68c563::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -379,9 +359,7 @@
     ],
     "quantity_source": "HUMAN_ESTIMATED",
     "warrant_expiration_date": "2032-02-01",
-    "comments": [
-      "use-case: Warrant with a stock class id, ie series-a-preferred-id."
-    ],
+    "comments": ["use-case: Warrant with a stock class id, ie series-a-preferred-id."],
     "security_law_exemptions": []
   }
 }

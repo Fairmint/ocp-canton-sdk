@@ -6,9 +6,7 @@
   "db": {
     "id": "72a00893-ace6-4a9e-9881-5e79a06af2b2",
     "date": "2024-05-28",
-    "comments": [
-      "This SAFE includes both a valuation cap and a discount rate for conversion."
-    ],
+    "comments": ["This SAFE includes both a valuation cap and a discount rate for conversion."],
     "custom_id": "CN-5",
     "seniority": 1,
     "object_type": "TX_CONVERTIBLE_ISSUANCE",
@@ -196,9 +194,7 @@
           ],
           "pro_rata": null,
           "seniority": "1",
-          "comments": [
-            "This SAFE includes both a valuation cap and a discount rate for conversion."
-          ]
+          "comments": ["This SAFE includes both a valuation cap and a discount rate for conversion."]
         }
       }
     }
@@ -234,9 +230,7 @@
                     "security_id": "1b39a78d-24b1-4be4-b3aa-bd2bcd716130",
                     "seniority": "1",
                     "stakeholder_id": "a3829b26-acb9-4273-a63a-946fff5ccc24",
-                    "comments": [
-                      "This SAFE includes both a valuation cap and a discount rate for conversion."
-                    ],
+                    "comments": ["This SAFE includes both a valuation cap and a discount rate for conversion."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -325,13 +319,9 @@
                     "stockholder_approval_date": null
                   }
                 },
-                "actingParties": [
-                  "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00f6cce179c96f3f4192bd870bdef449215821d68e8098f67b08c68ee2534875cdca111220ffebe91328259d2671830413e29485dfb8864d91c7c02e17252c2aacf9354c4c",
                 "packageName": "OpenCapTable-v25",
@@ -360,9 +350,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -390,12 +378,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -430,9 +414,7 @@
                     "security_id": "1b39a78d-24b1-4be4-b3aa-bd2bcd716130",
                     "seniority": "1",
                     "stakeholder_id": "a3829b26-acb9-4273-a63a-946fff5ccc24",
-                    "comments": [
-                      "This SAFE includes both a valuation cap and a discount rate for conversion."
-                    ],
+                    "comments": ["This SAFE includes both a valuation cap and a discount rate for conversion."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -523,9 +505,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -631,8 +611,6 @@
         "jurisdiction": "US"
       }
     ],
-    "comments": [
-      "This SAFE includes both a valuation cap and a discount rate for conversion."
-    ]
+    "comments": ["This SAFE includes both a valuation cap and a discount rate for conversion."]
   }
 }

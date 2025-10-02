@@ -1,15 +1,12 @@
 {
-  "entryPoints": [
-    "src/index.ts"
-  ],
-  "out": "docs",
-  "tsconfig": "tsconfig.json",
-  "name": "Open Cap Table Protocol Canton SDK",
-  "includeVersion": true,
-  "excludePrivate": true,
-  "excludeInternal": true,
+  "categorizeByGroup": true,
   "cleanOutputDir": true,
+  "entryPoints": ["src/index.ts"],
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "includeVersion": true,
+  "name": "Open Cap Table Protocol Canton SDK",
+  "out": "docs",
   "readme": "none",
-  "categorizeByGroup": true
+  "tsconfig": "tsconfig.json"
 }
-

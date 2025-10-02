@@ -18,9 +18,7 @@
         },
         "quantity": "0",
         "description": "Vesting start date for the founders' stock",
-        "next_condition_ids": [
-          "cliff"
-        ]
+        "next_condition_ids": ["cliff"]
       },
       {
         "id": "cliff",
@@ -40,9 +38,7 @@
           "relative_to_condition_id": "vesting-start"
         },
         "description": "25% of the total shares (500,000 shares) vest at the one-year cliff (April 1, 2024)",
-        "next_condition_ids": [
-          "monthly-thereafter"
-        ]
+        "next_condition_ids": ["monthly-thereafter"]
       },
       {
         "id": "monthly-thereafter",
@@ -87,9 +83,7 @@
                 "tag": "OcfVestingStartTrigger",
                 "value": {}
               },
-              "next_condition_ids": [
-                "cliff"
-              ]
+              "next_condition_ids": ["cliff"]
             },
             {
               "id": "cliff",
@@ -115,9 +109,7 @@
                   "relative_to_condition_id": "vesting-start"
                 }
               },
-              "next_condition_ids": [
-                "monthly-thereafter"
-              ]
+              "next_condition_ids": ["monthly-thereafter"]
             },
             {
               "id": "monthly-thereafter",
@@ -183,9 +175,7 @@
                           "tag": "OcfVestingStartTrigger",
                           "value": {}
                         },
-                        "next_condition_ids": [
-                          "cliff"
-                        ],
+                        "next_condition_ids": ["cliff"],
                         "description": "Vesting start date for the founders' stock",
                         "portion": null,
                         "quantity": "0.0000000000"
@@ -207,9 +197,7 @@
                             "relative_to_condition_id": "vesting-start"
                           }
                         },
-                        "next_condition_ids": [
-                          "monthly-thereafter"
-                        ],
+                        "next_condition_ids": ["monthly-thereafter"],
                         "description": "25% of the total shares (500,000 shares) vest at the one-year cliff (April 1, 2024)",
                         "portion": {
                           "numerator": "12.0000000000",
@@ -247,13 +235,9 @@
                     ]
                   }
                 },
-                "actingParties": [
-                  "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "005f4be27787729851f50cee7ee6d7b7bcfd63530bf3ddeaade5b4349ddc24fb09ca111220f5a8365368823d21adb377363cb29695f543544bb3c634044b89113dc31aae41",
                 "packageName": "OpenCapTable-v25",
@@ -282,9 +266,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -312,12 +294,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -353,9 +331,7 @@
                           "tag": "OcfVestingStartTrigger",
                           "value": {}
                         },
-                        "next_condition_ids": [
-                          "cliff"
-                        ],
+                        "next_condition_ids": ["cliff"],
                         "description": "Vesting start date for the founders' stock",
                         "portion": null,
                         "quantity": "0.0000000000"
@@ -377,9 +353,7 @@
                             "relative_to_condition_id": "vesting-start"
                           }
                         },
-                        "next_condition_ids": [
-                          "monthly-thereafter"
-                        ],
+                        "next_condition_ids": ["monthly-thereafter"],
                         "description": "25% of the total shares (500,000 shares) vest at the one-year cliff (April 1, 2024)",
                         "portion": {
                           "numerator": "12.0000000000",
@@ -419,9 +393,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                   "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
@@ -456,9 +428,7 @@
         "trigger": {
           "type": "VESTING_START_DATE"
         },
-        "next_condition_ids": [
-          "cliff"
-        ]
+        "next_condition_ids": ["cliff"]
       },
       {
         "id": "cliff",
@@ -473,9 +443,7 @@
           },
           "relative_to_condition_id": "vesting-start"
         },
-        "next_condition_ids": [
-          "monthly-thereafter"
-        ],
+        "next_condition_ids": ["monthly-thereafter"],
         "portion": {
           "numerator": "12.0000000000",
           "denominator": "48.0000000000",

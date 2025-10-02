@@ -1,43 +1,44 @@
+import type {
+  Command,
+  DisclosedContract,
+} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { CommandWithDisclosedContracts } from '../../types';
-import { dateStringToDAMLTime } from '../../utils/typeConversions';
+import type { CommandWithDisclosedContracts, OcfStockCancellationTxData } from '../../types';
+import { cleanComments, dateStringToDAMLTime, numberToString } from '../../utils/typeConversions';
 
 export interface CreateStockCancellationParams {
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
-  cancellationData: {
-    id: string;
-    date: string;
-    security_id: string;
-    quantity: string | number;
-    balance_security_id?: string;
-    reason_text: string;
-    comments?: string[];
-  };
+  cancellationData: OcfStockCancellationTxData;
 }
 
-interface IssuerCreateArgShape { context?: { system_operator?: string } }
+export function buildCreateStockCancellationCommand(
+  params: CreateStockCancellationParams
+): CommandWithDisclosedContracts {
+  const { cancellationData: d } = params;
 
-export function buildCreateStockCancellationCommand(params: CreateStockCancellationParams): CommandWithDisclosedContracts {
-  const d = params.cancellationData;
-  const cancellation_data: any = {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
-    balance_security_id: d.balance_security_id ?? null,
-    reason_text: d.reason_text,
-    comments: d.comments || []
-  } as any;
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockCancellation = {
+    cancellation_data: {
+      id: d.id,
+      security_id: d.security_id,
+      reason_text: d.reason_text,
+      date: dateStringToDAMLTime(d.date),
+      quantity: numberToString(d.quantity),
+      balance_security_id: d.balance_security_id ?? null,
+      comments: cleanComments(d.comments),
+    },
+  };
+  const command: Command = {
+    ExerciseCommand: {
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+      contractId: params.issuerContractId,
+      choice: 'CreateStockCancellation',
+      choiceArgument: choiceArguments,
+    },
+  };
 
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockCancellation = { cancellation_data } as any;
-  const command: Command = { ExerciseCommand: { templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId, contractId: params.issuerContractId, choice: 'CreateStockCancellation', choiceArgument: choiceArguments as any } };
-  const disclosedContracts: DisclosedContract[] = [ { templateId: params.featuredAppRightContractDetails.templateId, contractId: params.featuredAppRightContractDetails.contractId, createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob, synchronizerId: params.featuredAppRightContractDetails.synchronizerId } ];
+  const disclosedContracts: DisclosedContract[] = [params.featuredAppRightContractDetails];
+
   return { command, disclosedContracts };
 }
-
-

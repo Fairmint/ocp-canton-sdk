@@ -6,9 +6,7 @@
   "db": {
     "id": "9fa6b0a2-4e3f-435d-9f63-4f9d69389904",
     "date": "2023-07-31",
-    "comments": [
-      "use-case: Warrant without a stock_class_id is treated as a convertible."
-    ],
+    "comments": ["use-case: Warrant without a stock_class_id is treated as a convertible."],
     "custom_id": "W-1",
     "object_type": "TX_WARRANT_ISSUANCE",
     "security_id": "426297b4-b156-4504-b0fd-111c1da69b07",
@@ -98,9 +96,7 @@
           "warrant_expiration_date": "2026-07-31T00:00:00.000Z",
           "vesting_terms_id": null,
           "vestings": [],
-          "comments": [
-            "use-case: Warrant without a stock_class_id is treated as a convertible."
-          ]
+          "comments": ["use-case: Warrant without a stock_class_id is treated as a convertible."]
         }
       }
     }
@@ -134,9 +130,7 @@
                     },
                     "security_id": "426297b4-b156-4504-b0fd-111c1da69b07",
                     "stakeholder_id": "5862cfd1-abce-4313-8838-e1a2bf28618d",
-                    "comments": [
-                      "use-case: Warrant without a stock_class_id is treated as a convertible."
-                    ],
+                    "comments": ["use-case: Warrant without a stock_class_id is treated as a convertible."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -180,13 +174,9 @@
                     "warrant_expiration_date": "2026-07-31T00:00:00Z"
                   }
                 },
-                "actingParties": [
-                  "6b2e1c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["6b2e1c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "6b2e1c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["6b2e1c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "003ffd6b12a440f8e317fd772ed7c38432738c3136cbfab34d2bc85c6988ae1c7aca111220ed69daa8740e175ead7b62ed94e12bb1db4184ac070d10568aedafeb22edec94",
                 "packageName": "OpenCapTable-v25",
@@ -215,9 +205,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "6b2e1c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["6b2e1c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -245,12 +233,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "6b2e1c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["6b2e1c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -283,9 +267,7 @@
                     },
                     "security_id": "426297b4-b156-4504-b0fd-111c1da69b07",
                     "stakeholder_id": "5862cfd1-abce-4313-8838-e1a2bf28618d",
-                    "comments": [
-                      "use-case: Warrant without a stock_class_id is treated as a convertible."
-                    ],
+                    "comments": ["use-case: Warrant without a stock_class_id is treated as a convertible."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -331,9 +313,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "6b2e1c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["6b2e1c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "6b2e1c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -387,8 +367,6 @@
         "jurisdiction": "US"
       }
     ],
-    "comments": [
-      "use-case: Warrant without a stock_class_id is treated as a convertible."
-    ]
+    "comments": ["use-case: Warrant without a stock_class_id is treated as a convertible."]
   }
 }

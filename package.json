@@ -5,24 +5,29 @@
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "publishConfig": {
-    "access": "public"
-  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch",
     "clean": "rm -rf dist",
-    "typecheck": "tsc -p tsconfig.tests.json --noEmit",
+    "dev": "tsc --watch",
+    "docs": "typedoc",
+    "docs:clean": "rm -rf docs",
+    "fix": "npm run lint:fix && npm run format:fix",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "prepare-release": "ts-node scripts/prepare-release.ts",
     "script:authorize": "ts-node scripts/authorizeIssuer.ts",
     "script:create-issuer": "ts-node scripts/createIssuer.ts",
     "script:get-issuer-ocf": "ts-node scripts/getIssuerAsOcf.ts",
-    "docs": "typedoc",
-    "docs:clean": "rm -rf docs",
     "test": "npm run -s typecheck && jest --passWithNoTests",
+    "test:ci": "npm run -s typecheck && jest --runInBand",
     "test:coverage": "jest --coverage --passWithNoTests",
     "test:watch": "jest --watch",
-    "test:ci": "npm run -s typecheck && jest --runInBand"
+    "typecheck": "tsc -p tsconfig.tests.json --noEmit"
   },
   "dependencies": {
     "@daml/ledger": "2.10.2",
@@ -33,15 +38,25 @@
   "devDependencies": {
     "@types/jest": "30.0.0",
     "@types/node": "24.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.17.0",
+    "@typescript-eslint/parser": "^8.17.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.3",
+    "eslint-plugin-unused-imports": "^4.1.4",
     "jest": "30.2.0",
+    "prettier": "^3.4.2",
+    "prettier-plugin-jsdoc": "^1.3.0",
+    "prettier-plugin-organize-imports": "^4.1.0",
+    "prettier-plugin-packagejson": "^2.5.5",
     "ts-jest": "29.4.4",
     "ts-node": "10.9.2",
     "typedoc": "^0.28.0",
     "typescript": "5.9.3"
   },
-  "files": [
-    "dist"
-  ]
+  "publishConfig": {
+    "access": "public"
+  }
 }

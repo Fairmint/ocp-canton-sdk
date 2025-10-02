@@ -20,7 +20,8 @@ open docs/index.html
 
 ## CI publishing
 
-A workflow at `.github/workflows/docs.yml` builds docs on pushes to `main` and deploys to GitHub Pages.
+A workflow at `.github/workflows/docs.yml` builds docs on pushes to `main` and deploys to GitHub
+Pages.
 
 ### One-time repo setup
 
@@ -39,5 +40,3 @@ No secrets are required; it uses `GITHUB_TOKEN` with pages:write.
 
 - If docs are empty, ensure `src/index.ts` re-exports public symbols.
 - If CI fails on `npm ci`, ensure `package-lock.json` is up to date.
-
-

@@ -1,5 +1,3 @@
-export * from './getStockPlanPoolAdjustmentEventAsOcf';
 export * from './archiveStockPlanPoolAdjustmentByIssuer';
 export * from './createStockPlanPoolAdjustment';
-
-
+export * from './getStockPlanPoolAdjustmentEventAsOcf';

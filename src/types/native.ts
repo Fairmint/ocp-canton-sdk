@@ -1,33 +1,28 @@
 /**
- * Clean TypeScript types that provide a better developer experience
- * compared to the raw DAML types. These types use simple string literals
- * for enums and standard TypeScript objects for complex types.
+ * Clean TypeScript types that provide a better developer experience compared to the raw DAML types. These types use
+ * simple string literals for enums and standard TypeScript objects for complex types.
  */
 
 /**
- * Enum - Email Type
- * Type of e-mail address
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/EmailType.schema.json
+ * Enum - Email Type Type of e-mail address OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/EmailType.schema.json
  */
 export type EmailType = 'PERSONAL' | 'BUSINESS' | 'OTHER';
 
 /**
- * Enum - Address Type
- * Type of address (legal, contact, or other)
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/AddressType.schema.json
+ * Enum - Address Type Type of address (legal, contact, or other) OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/AddressType.schema.json
  */
 export type AddressType = 'LEGAL' | 'CONTACT' | 'OTHER';
 /**
- * Enum - Phone Type
- * Type of phone number (home, mobile, business, other)
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/PhoneType.schema.json
+ * Enum - Phone Type Type of phone number (home, mobile, business, other) OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/PhoneType.schema.json
  */
 export type PhoneType = 'HOME' | 'MOBILE' | 'BUSINESS' | 'OTHER';
 
 /**
- * Type - Phone
- * Type representation of a phone number
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/Phone.schema.json
+ * Type - Phone Type representation of a phone number OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/Phone.schema.json
  */
 export interface Phone {
   /** Type of phone number (e.g., home, mobile, business, other) */
@@ -37,8 +32,8 @@ export interface Phone {
 }
 
 /**
- * Type - Name
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/Name.schema.json
+ * Type - Name OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/Name.schema.json
  */
 export interface Name {
   /** Full legal name */
@@ -49,52 +44,50 @@ export interface Name {
   last_name?: string;
 }
 
-
 /**
- * Enum - Stock Class Type
- * Type of stock class (common or preferred)
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StockClassType.schema.json
+ * Enum - Stock Class Type Type of stock class (common or preferred) OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StockClassType.schema.json
  */
 export type StockClassType = 'PREFERRED' | 'COMMON';
 
 /**
- * Conversion Mechanisms (shared)
- * Mechanism by which conversion occurs (see schema for full list)
- * OCF (primitive): https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/primitives/types/conversion_mechanisms/ConversionMechanism.schema.json
+ * Conversion Mechanisms (shared) Mechanism by which conversion occurs (see schema for full list) OCF (primitive):
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/primitives/types/conversion_mechanisms/ConversionMechanism.schema.json
  */
 export type ConversionMechanism = 'RATIO_CONVERSION' | 'PERCENT_CONVERSION' | 'FIXED_AMOUNT_CONVERSION';
 
 /**
- * Enum - Conversion Trigger Type
- * Type of conversion trigger
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/ConversionTriggerType.schema.json
+ * Enum - Conversion Trigger Type Type of conversion trigger OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/ConversionTriggerType.schema.json
  */
-export type ConversionTrigger = 'AUTOMATIC_ON_CONDITION' | 'AUTOMATIC_ON_DATE' | 'ELECTIVE_ON_CONDITION' | 'ELECTIVE_ON_DATE' | 'ELECTIVE_AT_WILL';
+export type ConversionTrigger =
+  | 'AUTOMATIC_ON_CONDITION'
+  | 'AUTOMATIC_ON_DATE'
+  | 'ELECTIVE_ON_CONDITION'
+  | 'ELECTIVE_ON_DATE'
+  | 'ELECTIVE_AT_WILL';
 
 /**
- * Enum - Rounding Type
- * Rounding method for numeric values
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/RoundingType.schema.json
+ * Enum - Rounding Type Rounding method for numeric values OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/RoundingType.schema.json
  */
 export type RoundingType = 'DOWN' | 'UP' | 'NEAREST' | 'NORMAL';
 
 /**
- * Enum - Authorized Shares
- * Enumeration of special values for authorized shares when not using a numeric value
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/AuthorizedShares.schema.json
+ * Enum - Authorized Shares Enumeration of special values for authorized shares when not using a numeric value OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/AuthorizedShares.schema.json
  */
 export type AuthorizedShares = 'NOT_APPLICABLE' | 'UNLIMITED';
 
 /**
- * Initial shares authorized type (can be either numeric or enum)
- * Type representing the number of shares initially authorized
+ * Initial shares authorized type (can be either numeric or enum) Type representing the number of shares initially
+ * authorized
  */
 export type InitialSharesAuthorized = number | string;
 
 /**
- * Type - Monetary
- * Type representation of a money amount and currency
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/Monetary.schema.json
+ * Type - Monetary Type representation of a money amount and currency OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/Monetary.schema.json
  */
 export interface Monetary {
   /** Amount of money in the given currency */
@@ -104,9 +97,8 @@ export interface Monetary {
 }
 
 /**
- * Type - Email
- * Type representation of an email address
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/Email.schema.json
+ * Type - Email Type representation of an email address OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/Email.schema.json
  */
 export interface Email {
   /** Type of e-mail address (e.g. personal or business) */
@@ -115,10 +107,7 @@ export interface Email {
   email_address: string;
 }
 
-/**
- * Type - Address
- * Type representation of an address
- */
+/** Type - Address Type representation of an address */
 export interface Address {
   /** Type of address (legal, contact, or other) */
   address_type: AddressType;
@@ -135,9 +124,8 @@ export interface Address {
 }
 
 /**
- * Type - Tax ID
- * Type representation of a tax identifier and issuing country
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/TaxID.schema.json
+ * Type - Tax ID Type representation of a tax identifier and issuing country OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/TaxID.schema.json
  */
 export interface TaxId {
   /** Country code where the tax ID is issued (ISO 3166-1 alpha-2) */
@@ -147,8 +135,8 @@ export interface TaxId {
 }
 
 /**
- * Stock Class Conversion Right (shared)
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/conversion_rights/StockClassConversionRight.schema.json
+ * Stock Class Conversion Right (shared) OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/conversion_rights/StockClassConversionRight.schema.json
  */
 export interface StockClassConversionRight {
   /** Type descriptor of conversion right */
@@ -189,9 +177,8 @@ export interface StockClassConversionRight {
 }
 
 /**
- * Object - Issuer
- * Object describing the issuer of the cap table (the company whose cap table this is).
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Issuer.schema.json
+ * Object - Issuer Object describing the issuer of the cap table (the company whose cap table this is). OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Issuer.schema.json
  */
 export interface OcfIssuerData {
   /** Identifier for the object */
@@ -223,29 +210,40 @@ export interface OcfIssuerData {
 }
 
 /**
- * Object - Stock Class
- * Object describing a class of stock issued by the issuer
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/StockClass.schema.json
+ * Object - Stock Class Object describing a class of stock issued by the issuer OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/StockClass.schema.json
  */
 export interface OcfStockClassData {
   /** Identifier for the object */
   id: string;
   /** The type of this stock class (e.g. Preferred or Common) */
   class_type: StockClassType;
-  /** Default prefix for certificate numbers in certificated shares (e.g. CS- in CS-1). If certificate IDs have a dash, the prefix should end in the dash like CS- */
+  /**
+   * Default prefix for certificate numbers in certificated shares (e.g. CS- in CS-1). If certificate IDs have a dash,
+   * the prefix should end in the dash like CS-
+   */
   default_id_prefix: string;
   /** The initial number of shares authorized for this stock class */
   initial_shares_authorized: string | number;
   /** Name for the stock type (e.g. Series A Preferred or Class A Common) */
   name: string;
-  /** Seniority of the stock - determines repayment priority. Seniority is ordered by increasing number so that stock classes with a higher seniority have higher repayment priority. The following properties hold for all stock classes for a given company: (a) transitivity: stock classes are absolutely stackable by seniority and in increasing numerical order, (b) non-uniqueness: multiple stock classes can have the same Seniority number and therefore have the same liquidation/repayment order. In practice, stock classes with same seniority may be created at different points in time and (for example, an extension of an existing preferred financing round), and also a new stock class can be created with seniority between two existing stock classes, in which case it is assigned some decimal number between the numbers representing seniority of the respective classes. */
+  /**
+   * Seniority of the stock - determines repayment priority. Seniority is ordered by increasing number so that stock
+   * classes with a higher seniority have higher repayment priority. The following properties hold for all stock classes
+   * for a given company: (a) transitivity: stock classes are absolutely stackable by seniority and in increasing
+   * numerical order, (b) non-uniqueness: multiple stock classes can have the same Seniority number and therefore have
+   * the same liquidation/repayment order. In practice, stock classes with same seniority may be created at different
+   * points in time and (for example, an extension of an existing preferred financing round), and also a new stock class
+   * can be created with seniority between two existing stock classes, in which case it is assigned some decimal number
+   * between the numbers representing seniority of the respective classes.
+   */
   seniority: string | number;
   /** The number of votes each share of this stock class gets */
   votes_per_share: string | number;
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
   /** List of stock class conversion rights possible for this stock class */
-  conversion_rights: StockClassConversionRight[];
+  conversion_rights?: StockClassConversionRight[];
   /** Date on which the board approved the stock class */
   board_approval_date?: string;
   /** The liquidation preference per share for this stock class */
@@ -261,15 +259,14 @@ export interface OcfStockClassData {
 }
 
 /**
- * Enum - Stakeholder Type
- * Stakeholder type (Individual or Institution)
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StakeholderType.schema.json
+ * Enum - Stakeholder Type Stakeholder type (Individual or Institution) OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StakeholderType.schema.json
  */
 export type StakeholderType = 'INDIVIDUAL' | 'INSTITUTION';
 
 /**
- * Type - Contact Info
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/ContactInfo.schema.json
+ * Type - Contact Info OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/ContactInfo.schema.json
  */
 export interface ContactInfo {
   /** Contact name */
@@ -281,8 +278,8 @@ export interface ContactInfo {
 }
 
 /**
- * Type - Contact Info Without Name
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/ContactInfoWithoutName.schema.json
+ * Type - Contact Info Without Name OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/ContactInfoWithoutName.schema.json
  */
 export interface ContactInfoWithoutName {
   /** Phone numbers */
@@ -292,9 +289,8 @@ export interface ContactInfoWithoutName {
 }
 
 /**
- * Object - Stakeholder
- * Object describing a stakeholder in the issuer's cap table
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Stakeholder.schema.json
+ * Object - Stakeholder Object describing a stakeholder in the issuer's cap table OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Stakeholder.schema.json
  */
 export interface OcfStakeholderData {
   /** Identifier for the object */
@@ -331,9 +327,8 @@ export interface OcfStakeholderData {
 }
 
 /**
- * Object - Stock Legend Template
- * Object describing a stock legend template
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/StockLegendTemplate.schema.json
+ * Object - Stock Legend Template Object describing a stock legend template OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/StockLegendTemplate.schema.json
  */
 export interface OcfStockLegendTemplateData {
   /** Identifier for the object */
@@ -347,9 +342,8 @@ export interface OcfStockLegendTemplateData {
 }
 
 /**
- * Type - Object Reference
- * A type representing a reference to any kind of OCF object
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/ObjectReference.schema.json
+ * Type - Object Reference A type representing a reference to any kind of OCF object OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/ObjectReference.schema.json
  */
 export interface OcfObjectReference {
   /** Type of the referenced object */
@@ -415,9 +409,8 @@ export interface OcfObjectReference {
 }
 
 /**
- * Object - Document
- * Object describing a document
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Document.schema.json
+ * Object - Document Object describing a document OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Document.schema.json
  */
 export interface OcfDocumentData {
   /** Identifier for the object */
@@ -429,22 +422,20 @@ export interface OcfDocumentData {
   /** MD5 hash of the document contents (32-character hex) */
   md5: string;
   /** References to related OCF objects */
-  related_objects: OcfObjectReference[];
+  related_objects?: OcfObjectReference[];
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
 }
 
 /**
- * Enum - Valuation Type
- * Enumeration of valuation types
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/ValuationType.schema.json
+ * Enum - Valuation Type Enumeration of valuation types OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/ValuationType.schema.json
  */
 export type ValuationType = '409A';
 
 /**
- * Object - Valuation
- * Object describing a valuation used in the cap table
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Valuation.schema.json
+ * Object - Valuation Object describing a valuation used in the cap table OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Valuation.schema.json
  */
 export interface OcfValuationData {
   /** Identifier for the object */
@@ -510,13 +501,13 @@ export interface OcfStockIssuanceData {
   /** Unstructured text description of consideration provided in exchange for security issuance */
   consideration_text?: string;
   /** List of security law exemptions (and applicable jurisdictions) for this security */
-  security_law_exemptions: SecurityExemption[];
+  security_law_exemptions?: SecurityExemption[];
   /** Identifier of the stock class of the issued security */
   stock_class_id: string;
   /** Identifier for the stock plan, if applicable */
   stock_plan_id?: string;
   /** Share number ranges (if any) associated with this issuance */
-  share_numbers_issued: ShareNumberRange[];
+  share_numbers_issued?: ShareNumberRange[];
   /** Price per share paid for the stock */
   share_price: Monetary;
   /** Quantity of shares issued */
@@ -524,15 +515,15 @@ export interface OcfStockIssuanceData {
   /** Reference to vesting terms object, if used instead of inline vestings */
   vesting_terms_id?: string;
   /** Vesting schedule entries associated directly with this issuance */
-  vestings: VestingSimple[];
+  vestings?: VestingSimple[];
   /** Cost basis for the shares issued */
   cost_basis?: Monetary;
   /** Stock legends that apply to this issuance (schema minItems: 1; implementation may allow empty) */
-  stock_legend_ids: string[];
+  stock_legend_ids?: string[];
   /** Type of stock issuance (e.g., RSA, Founders) */
   issuance_type?: StockIssuanceType;
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
 }
 
 // ===== Vesting Terms Types =====
@@ -546,23 +537,33 @@ export type AllocationType =
   | 'BACK_LOADED_SINGLE_TRANCHE'
   | 'FRACTIONAL';
 
-/** Primitive - Vesting Period Type (Days/Months)
- * Abstract type for periods of time; concrete days/months variants below.
- * OCF (primitive): https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/primitives/types/vesting/VestingPeriod.schema.json
- * OCF (days):      https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingPeriodInDays.schema.json
- * OCF (months):    https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingPeriodInMonths.schema.json
+/**
+ * Primitive - Vesting Period Type (Days/Months) Abstract type for periods of time; concrete days/months variants below.
+ * OCF (primitive):
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/primitives/types/vesting/VestingPeriod.schema.json
+ * OCF (days):
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingPeriodInDays.schema.json
+ * OCF (months):
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingPeriodInMonths.schema.json
  */
 export type PeriodType = 'DAYS' | 'MONTHS';
 
-export type VestingPeriod = { type: PeriodType; value: number };
+export interface VestingPeriod {
+  type: PeriodType;
+  value: number;
+}
 
 /**
- * Primitive - Vesting Condition Trigger Type and specific triggers
- * OCF (primitive): https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/primitives/types/vesting/VestingConditionTrigger.schema.json
- * OCF (start):     https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingStartTrigger.schema.json
- * OCF (absolute):  https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingScheduleAbsoluteTrigger.schema.json
- * OCF (relative):  https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingScheduleRelativeTrigger.schema.json
- * OCF (event):     https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingEventTrigger.schema.json
+ * Primitive - Vesting Condition Trigger Type and specific triggers OCF (primitive):
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/primitives/types/vesting/VestingConditionTrigger.schema.json
+ * OCF (start):
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingStartTrigger.schema.json
+ * OCF (absolute):
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingScheduleAbsoluteTrigger.schema.json
+ * OCF (relative):
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingScheduleRelativeTrigger.schema.json
+ * OCF (event):
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingEventTrigger.schema.json
  */
 export type VestingTrigger =
   | { kind: 'START' }
@@ -595,9 +596,8 @@ export interface VestingCondition {
 }
 
 /**
- * Object - Vesting Terms
- * Object describing the terms under which a security vests
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/VestingTerms.schema.json
+ * Object - Vesting Terms Object describing the terms under which a security vests OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/VestingTerms.schema.json
  */
 export interface OcfVestingTermsData {
   id: string;
@@ -669,6 +669,17 @@ export interface TerminationWindow {
 }
 
 export interface OcfEquityCompensationIssuanceData {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  stock_plan_id?: string;
+  stock_class_id?: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  vesting_terms_id?: string;
   /** Type of equity compensation instrument */
   compensation_type: CompensationType;
   /** Quantity granted/issued */
@@ -680,15 +691,15 @@ export interface OcfEquityCompensationIssuanceData {
   /** Whether early exercise is permitted */
   early_exercisable?: boolean;
   /** List of security law exemptions (and applicable jurisdictions) for this security */
-  security_law_exemptions: SecurityExemption[];
+  security_law_exemptions?: SecurityExemption[];
   /** Vesting events for the grant */
-  vestings: Vesting[];
+  vestings?: Vesting[];
   /** Expiration date of instrument */
   expiration_date?: string;
   /** Termination exercise windows after termination events */
-  termination_exercise_windows: TerminationWindow[];
+  termination_exercise_windows?: TerminationWindow[];
   /** Unstructured text comments */
-  comments: string[];
+  comments?: string[];
 }
 
 // ===== Convertible & Warrant Issuance Types =====
@@ -697,43 +708,123 @@ export type ConvertibleType = 'NOTE' | 'SAFE' | 'SECURITY';
 export type SimpleTrigger = 'AUTOMATIC' | 'OPTIONAL';
 
 /**
- * Object - Convertible Issuance Transaction (native subset)
- * Object describing convertible instrument issuance transaction by the issuer and held by a stakeholder
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/ConvertibleIssuance.schema.json
+ * Object - Convertible Issuance Transaction (native subset) Object describing convertible instrument issuance
+ * transaction by the issuer and held by a stakeholder OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/ConvertibleIssuance.schema.json
  */
 export interface OcfConvertibleIssuanceDataNative {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
   /** Amount invested and outstanding on date of issuance of this convertible */
   investment_amount: Monetary;
   /** What kind of convertible instrument is this (of the supported, enumerated types) */
   convertible_type: ConvertibleType;
   /** Convertible - Conversion Trigger Array (simplified) */
-  conversion_triggers: SimpleTrigger[];
+  conversion_triggers: unknown[];
   /** If different convertible instruments have seniority over one another, use this value to build a seniority stack */
   seniority: number;
   /** What pro-rata (if any) is the holder entitled to buy at the next round? */
   pro_rata?: string | number;
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
 }
 
 /**
- * Object - Warrant Issuance Transaction (native subset)
- * Object describing warrant issuance transaction by the issuer and held by a stakeholder
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/WarrantIssuance.schema.json
+ * Object - Warrant Issuance Transaction (native subset) Object describing warrant issuance transaction by the issuer
+ * and held by a stakeholder OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/WarrantIssuance.schema.json
  */
 export interface OcfWarrantIssuanceDataNative {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
   /** Quantity of shares the warrant is exercisable for */
-  quantity: string | number;
+  quantity?: string | number;
+  quantity_source?:
+    | 'UNSPECIFIED'
+    | 'HUMAN_ESTIMATED'
+    | 'MACHINE_ESTIMATED'
+    | 'INSTRUMENT_FIXED'
+    | 'INSTRUMENT_MAX'
+    | 'INSTRUMENT_MIN';
+  ratio_numerator?: string | number;
+  ratio_denominator?: string | number;
+  percent_of_outstanding?: string | number;
   /** The exercise price of the warrant */
   exercise_price?: Monetary;
   /** Actual purchase price of the warrant (sum up purported value of all consideration, including in-kind) */
   purchase_price: Monetary;
-  /** Warrant Issuance - Exercise Trigger Array (simplified) */
-  exercise_triggers: SimpleTrigger[];
+  /** Warrant Issuance - Exercise Trigger Array (complex nested type) */
+  exercise_triggers: unknown[];
   /** What is expiration date of the warrant (if applicable) */
   warrant_expiration_date?: string;
   /** Identifier of the VestingTerms to which this security is subject */
   vesting_terms_id?: string;
+  /** Conversion triggers (complex nested type) */
+  conversion_triggers?: unknown[];
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
+}
+
+export interface OcfStockCancellationTxData {
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string | number;
+  balance_security_id?: string;
+  reason_text: string;
+  comments?: string[];
+}
+
+export interface OcfIssuerAuthorizedSharesAdjustmentTxData {
+  id: string;
+  date: string;
+  issuer_id: string;
+  new_shares_authorized: string | number;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  comments?: string[];
+}
+
+export interface OcfStockClassAuthorizedSharesAdjustmentTxData {
+  id: string;
+  date: string;
+  stock_class_id: string;
+  new_shares_authorized: string | number;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  comments?: string[];
+}
+
+export interface OcfStockPlanPoolAdjustmentTxData {
+  id: string;
+  date: string;
+  stock_plan_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  shares_reserved: string | number;
+  comments?: string[];
+}
+
+export interface OcfEquityCompensationExerciseTxData {
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string | number;
+  consideration_text?: string;
+  resulting_security_ids: string[];
+  comments?: string[];
 }

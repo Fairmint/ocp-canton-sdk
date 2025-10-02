@@ -1,17 +1,22 @@
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcfStockLegendTemplateData } from '../../types/native';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { OcfStockLegendTemplateData } from '../../types/native';
+
+interface DamlDataWithId extends Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData {
+  id: string;
+}
 
 function damlStockLegendTemplateDataToNative(
   damlData: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData
 ): OcfStockLegendTemplateData {
+  const dataWithId = damlData as DamlDataWithId;
   return {
-    id: (damlData as any).id,
+    id: dataWithId.id,
     name: damlData.name || '',
     text: damlData.text || '',
-    comments: (Array.isArray((damlData as unknown as { comments?: unknown }).comments)
+    comments: Array.isArray((damlData as unknown as { comments?: unknown }).comments)
       ? (damlData as unknown as { comments: string[] }).comments
-      : [])
+      : [],
   };
 }
 
@@ -37,25 +42,32 @@ export async function getStockLegendTemplateAsOcf(
   params: GetStockLegendTemplateAsOcfParams
 ): Promise<GetStockLegendTemplateAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!eventsResponse.created?.createdEvent?.createArgument) {
+  if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
-  const createArgument = eventsResponse.created.createdEvent.createArgument;
+  const { createArgument } = eventsResponse.created.createdEvent;
 
-  function hasTemplateData(arg: unknown): arg is { template_data: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData } {
-    return typeof arg === 'object' && arg !== null && 'template_data' in arg && typeof (arg as any).template_data === 'object';
+  interface HasTemplateData {
+    template_data: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData;
+  }
+
+  function hasTemplateData(arg: unknown): arg is HasTemplateData {
+    return (
+      typeof arg === 'object' &&
+      arg !== null &&
+      'template_data' in arg &&
+      typeof (arg as { template_data: unknown }).template_data === 'object'
+    );
   }
   if (!hasTemplateData(createArgument)) {
     throw new Error('Template data not found in contract create argument');
   }
 
   const native = damlStockLegendTemplateDataToNative(createArgument.template_data);
-  const { id, ...nativeWithoutId } = native as any;
 
   const ocf: OcfStockLegendTemplate = {
     object_type: 'STOCK_LEGEND_TEMPLATE',
-    id,
-    ...nativeWithoutId
+    ...native,
   };
 
   return { stockLegendTemplate: ocf, contractId: params.contractId };

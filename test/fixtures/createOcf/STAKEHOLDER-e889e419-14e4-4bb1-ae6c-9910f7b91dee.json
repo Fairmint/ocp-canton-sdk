@@ -11,9 +11,7 @@
     "object_type": "STAKEHOLDER",
     "stakeholder_type": "INSTITUTION",
     "issuer_assigned_id": "did:privy:clve7316c0lktv6la3o14mfmn",
-    "current_relationships": [
-      "INVESTOR"
-    ]
+    "current_relationships": ["INVESTOR"]
   },
   "request": {
     "ExerciseCommand": {
@@ -35,9 +33,7 @@
           "addresses": [],
           "tax_ids": [],
           "comments": [],
-          "current_relationships": [
-            "OcfRelInvestor"
-          ]
+          "current_relationships": ["OcfRelInvestor"]
         }
       }
     }
@@ -71,9 +67,7 @@
                     "stakeholder_type": "OcfStakeholderTypeInstitution",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": null,
                     "current_status": null,
@@ -81,13 +75,9 @@
                     "primary_contact": null
                   }
                 },
-                "actingParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00ed38d9715cabf421aec09e8b981d847118c31f0a355cf3f3097aa3129fbb5af9ca111220f713b4c607d32a08d0db5cb7e450594761174a19797ae66d0a6d798a4b043882",
                 "packageName": "OpenCapTable-v25",
@@ -116,9 +106,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -146,12 +134,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -184,9 +168,7 @@
                     "stakeholder_type": "OcfStakeholderTypeInstitution",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": null,
                     "current_status": null,
@@ -196,9 +178,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -227,9 +207,7 @@
     },
     "stakeholder_type": "INSTITUTION",
     "issuer_assigned_id": "did:privy:clve7316c0lktv6la3o14mfmn",
-    "current_relationships": [
-      "INVESTOR"
-    ],
+    "current_relationships": ["INVESTOR"],
     "addresses": [],
     "tax_ids": []
   }

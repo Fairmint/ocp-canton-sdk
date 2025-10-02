@@ -40,4 +40,3 @@ Add `GITHUB_TOKEN` environment variable in your CircleCI project settings
 - Navigate to CircleCI Project Settings
 - Go to Environment Variables section and add new variable named `GITHUB_TOKEN` with your GitHub
   token
-
