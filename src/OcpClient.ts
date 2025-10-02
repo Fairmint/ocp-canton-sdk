@@ -65,7 +65,7 @@ export class OcpClient {
       contractId: string;
       updateId: string;
     }>;
-    updateCompanyValuationReport: (client: LedgerJsonApiClient, params: UpdateCompanyValuationParams) => Promise<{
+    updateCompanyValuationReport: (params: UpdateCompanyValuationParams) => Promise<{
       contractId: string;
       updateId: string;
     }>;
@@ -179,7 +179,7 @@ export class OcpClient {
         addObserversToCompanyValuationReport(this.client, params),
       createCompanyValuationReport: (params: CreateCompanyValuationReportParams) =>
         createCompanyValuationReport(this.client, params),
-      updateCompanyValuationReport: (client: LedgerJsonApiClient, params: UpdateCompanyValuationParams) =>
+      updateCompanyValuationReport: (params: UpdateCompanyValuationParams) =>
         updateCompanyValuationReport(this.client, params)
     };
 
