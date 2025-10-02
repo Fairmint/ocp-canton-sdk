@@ -104,7 +104,7 @@ function damlStakeholderDataToNative(
   const dAny = damlData as unknown as Record<string, unknown>;
   const nameData = dAny.name as Record<string, unknown> | undefined;
   const name: Name = {
-    legal_name: ((nameData?.legal_name as string | undefined) ?? ''),
+    legal_name: (nameData?.legal_name as string | undefined) ?? '',
     ...(nameData?.first_name ? { first_name: nameData.first_name as string } : {}),
     ...(nameData?.last_name ? { last_name: nameData.last_name as string } : {}),
   };
