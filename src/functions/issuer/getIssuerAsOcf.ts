@@ -68,8 +68,9 @@ function damlIssuerDataToNative(
     return undefined;
   };
 
+  const dataWithId = damlData as unknown as { id?: string };
   const out: OcfIssuerData = {
-    id: (damlData as any).id,
+    id: dataWithId.id || '',
     legal_name: damlData.legal_name,
     country_of_formation: damlData.country_of_formation,
     formation_date: damlTimeToDateString(damlData.formation_date),
@@ -144,7 +145,7 @@ export async function getIssuerAsOcf(
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
 
-  const createArgument = eventsResponse.created.createdEvent.createArgument as any;
+  const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
   if (!('issuer_data' in createArgument)) {
     throw new Error('Issuer data not found in contract create argument');
   }

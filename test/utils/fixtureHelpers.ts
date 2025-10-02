@@ -73,7 +73,7 @@ export function convertTransactionTreeToEventsResponse(
 ): Record<string, unknown> {
   // Handle both structures: response.transactionTree.eventsById and response.transactionTree.transaction.eventsById
   const transactionTree = (response as any).transactionTree;
-  const eventsById = transactionTree?.eventsById || transactionTree?.transaction?.eventsById;
+  const eventsById = transactionTree?.eventsById ?? transactionTree?.transaction?.eventsById;
 
   if (!eventsById) {
     throw new Error('No eventsById in transaction tree');
@@ -81,7 +81,7 @@ export function convertTransactionTreeToEventsResponse(
 
   // Find the created event (usually the last event with CreatedTreeEvent)
   let createdEvent: Record<string, unknown> | null = null;
-  for (const [nodeId, event] of Object.entries(eventsById)) {
+  for (const [_nodeId, event] of Object.entries(eventsById)) {
     const eventData = event as Record<string, unknown>;
     if (eventData.CreatedTreeEvent) {
       createdEvent = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<

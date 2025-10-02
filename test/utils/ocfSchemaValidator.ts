@@ -122,8 +122,8 @@ class OcfSchemaValidator {
 
       if (!valid && validator.errors) {
         const errors = validator.errors.map((error) => {
-          const path = error.instancePath || '';
-          const message = error.message || '';
+          const path = error.instancePath ?? '';
+          const message = error.message ?? '';
           const params = error.params ? JSON.stringify(error.params) : '';
           return `${path} ${message} ${params}`.trim();
         });
@@ -147,9 +147,7 @@ let validatorInstance: OcfSchemaValidator | undefined;
  * Get the global validator instance
  */
 export function getOcfValidator(): OcfSchemaValidator {
-  if (!validatorInstance) {
-    validatorInstance = new OcfSchemaValidator();
-  }
+  validatorInstance ??= new OcfSchemaValidator();
   return validatorInstance;
 }
 

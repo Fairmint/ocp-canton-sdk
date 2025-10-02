@@ -136,11 +136,11 @@ function damlAddressTypeToNative(
 export function addressToDaml(address: Address): Fairmint.OpenCapTable.Types.OcfAddress {
   return {
     address_type: addressTypeToDaml(address.address_type),
-    street_suite: address.street_suite || null,
-    city: address.city || null,
-    country_subdivision: address.country_subdivision || null,
+    street_suite: address.street_suite ?? null,
+    city: address.city ?? null,
+    country_subdivision: address.country_subdivision ?? null,
     country: address.country,
-    postal_code: address.postal_code || null,
+    postal_code: address.postal_code ?? null,
   };
 }
 

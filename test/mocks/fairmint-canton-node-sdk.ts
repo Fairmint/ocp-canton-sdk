@@ -35,7 +35,7 @@ export class LedgerJsonApiClient {
     }
   );
 
-  public getEventsByContractId = jest.fn(async (req: { contractId: string }) => {
+  public getEventsByContractId = jest.fn((req: { contractId: string }) => {
     // Allow tests to override via helper
     const override = (this as any).__eventsResponseOverride;
     if (override) return override;
@@ -64,7 +64,7 @@ export class LedgerJsonApiClient {
   }
 
   public getNetwork(): string {
-    return this.config?.network || 'dev';
+    return this.config?.network ?? 'dev';
   }
 
   __setEventsResponse(resp: any) {
@@ -80,10 +80,8 @@ export class LedgerJsonApiClient {
 export class AuthenticationManager {
   constructor(private readonly config?: ClientConfig) {}
   async getAuthToken(): Promise<string | undefined> {
-    const provider = this.getAuthToken;
-    if (!provider) return undefined;
-    const value = await provider();
-    return typeof value === 'string' ? value : value ? String(value) : undefined;
+    // Mock implementation - returns undefined
+    return undefined;
   }
 }
 
@@ -108,7 +106,7 @@ export class BaseClient {
 
 export class ValidatorApiClient extends BaseClient {
   public static __instances: ValidatorApiClient[] = [];
-  public lookupFeaturedAppRight = jest.fn(async () => {
+  public lookupFeaturedAppRight = jest.fn(() => {
     const path = require('path');
     const fs = require('fs');
     const fixturePath = path.join(
@@ -121,7 +119,7 @@ export class ValidatorApiClient extends BaseClient {
     const data = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
     return data;
   });
-  public getAmuletRules = jest.fn(async () => {
+  public getAmuletRules = jest.fn(() => {
     const path = require('path');
     const fs = require('fs');
     const fixturePath = path.join(__dirname, '..', 'fixtures', 'validatorApi', 'amulet-rules.json');
@@ -150,11 +148,11 @@ export async function getFeaturedAppRightContractDetails(
   // The featured-apps endpoint may not include the synchronizer/domain id.
   // Fallback to amulet rules which reliably expose the domain_id to use as synchronizerId.
   const amuletRules = await validatorApi.getAmuletRules();
-  const synchronizerIdFromRules = amuletRules?.amulet_rules?.domain_id || '';
+  const synchronizerIdFromRules = amuletRules?.amulet_rules?.domain_id ?? '';
   return {
     contractId: featuredAppRight.featured_app_right.contract_id,
     createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
-    synchronizerId: featuredAppRight?.featured_app_right?.domain_id || synchronizerIdFromRules,
+    synchronizerId: featuredAppRight?.featured_app_right?.domain_id ?? synchronizerIdFromRules,
     templateId: featuredAppRight.featured_app_right.template_id,
   };
 }
@@ -167,7 +165,7 @@ export function findCreatedEventByTemplateId(response: any, templateId: string):
 
   // Mock implementation - look for CreatedTreeEvent in the transactionTree
   if (eventsById) {
-    for (const [key, event] of Object.entries(eventsById)) {
+    for (const [_key, event] of Object.entries(eventsById)) {
       const eventData = event as any;
       const eventTemplateId = eventData?.CreatedTreeEvent?.value?.templateId;
 

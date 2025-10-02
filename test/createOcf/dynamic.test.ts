@@ -157,7 +157,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
 
         // Access eventsById - fixtures have the structure transactionTree.transaction.eventsById
         const transaction =
-          (response.transactionTree as any).transaction || response.transactionTree;
+          (response.transactionTree as any).transaction ?? response.transactionTree;
         expect(transaction.eventsById).toBeDefined();
         expect(Object.keys(transaction.eventsById).length).toBeGreaterThan(0);
 
@@ -267,10 +267,10 @@ describe('OCP Client - Dynamic Create Tests', () => {
       test('get*AsOcf returns expected OCF data', async () => {
         // Determine where the response is located
         const response =
-          fixture.response || fixture.testContext.issuerAuthorizationContractDetails?.response;
+          fixture.response ?? fixture.testContext.issuerAuthorizationContractDetails?.response;
         const synchronizerId =
-          fixture.synchronizerId ||
-          fixture.testContext.issuerAuthorizationContractDetails?.synchronizerId ||
+          fixture.synchronizerId ??
+          fixture.testContext.issuerAuthorizationContractDetails?.synchronizerId ??
           '';
 
         // Skip this test if there's no response data (required for events mock)
@@ -375,7 +375,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             default:
-              throw new Error(`Unsupported object type: ${fixture.db.object_type}`);
+              throw new Error(`Unsupported object type: ${String(fixture.db.object_type)}`);
           }
 
           // Verify the result matches expected OCF

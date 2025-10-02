@@ -260,7 +260,7 @@ function buildArchiveCommand(
     contractId: string;
   }
 ): CommandWithDisclosedContracts {
-  const { issuerContractId, featuredAppRightContractDetails, issuerParty, contractId } = params;
+  const { issuerContractId, featuredAppRightContractDetails, issuerParty: _issuerParty, contractId } = params;
 
   // Archive commands just need the basic command - disclosed contracts come from the issuer
   const disclosedContracts = [
