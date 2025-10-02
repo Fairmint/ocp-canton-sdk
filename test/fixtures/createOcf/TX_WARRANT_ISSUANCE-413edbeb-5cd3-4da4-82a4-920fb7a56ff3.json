@@ -6,9 +6,7 @@
   "db": {
     "id": "413edbeb-5cd3-4da4-82a4-920fb7a56ff3",
     "date": "2023-07-31",
-    "comments": [
-      "use-case: Warrant without a stock_class_id is treated as a convertible."
-    ],
+    "comments": ["use-case: Warrant without a stock_class_id is treated as a convertible."],
     "quantity": "0",
     "custom_id": "W-1",
     "object_type": "TX_WARRANT_ISSUANCE",
@@ -99,9 +97,7 @@
           "warrant_expiration_date": "2026-07-31T00:00:00.000Z",
           "vesting_terms_id": null,
           "vestings": [],
-          "comments": [
-            "use-case: Warrant without a stock_class_id is treated as a convertible."
-          ]
+          "comments": ["use-case: Warrant without a stock_class_id is treated as a convertible."]
         }
       }
     }
@@ -390,8 +386,6 @@
         "jurisdiction": "US"
       }
     ],
-    "comments": [
-      "use-case: Warrant without a stock_class_id is treated as a convertible."
-    ]
+    "comments": ["use-case: Warrant without a stock_class_id is treated as a convertible."]
   }
 }

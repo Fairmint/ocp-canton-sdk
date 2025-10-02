@@ -1,7 +1,5 @@
 {
-  "entryPoints": [
-    "src/index.ts"
-  ],
+  "entryPoints": ["src/index.ts"],
   "out": "docs",
   "tsconfig": "tsconfig.json",
   "name": "Open Cap Table Protocol Canton SDK",
@@ -12,4 +10,3 @@
   "readme": "none",
   "categorizeByGroup": true
 }
-

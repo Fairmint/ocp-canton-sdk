@@ -22,7 +22,12 @@
     "test": "npm run -s typecheck && jest --passWithNoTests",
     "test:coverage": "jest --coverage --passWithNoTests",
     "test:watch": "jest --watch",
-    "test:ci": "npm run -s typecheck && jest --runInBand"
+    "test:ci": "npm run -s typecheck && jest --runInBand",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "fix": "npm run lint:fix && npm run format:fix"
   },
   "dependencies": {
     "@daml/ledger": "2.10.2",
@@ -33,9 +38,17 @@
   "devDependencies": {
     "@types/jest": "30.0.0",
     "@types/node": "24.3.1",
+    "@typescript-eslint/eslint-plugin": "^8.17.0",
+    "@typescript-eslint/parser": "^8.17.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.3",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-unused-imports": "^4.1.4",
     "jest": "30.2.0",
+    "prettier": "^3.4.2",
     "ts-jest": "29.4.4",
     "ts-node": "10.9.2",
     "typedoc": "^0.28.0",

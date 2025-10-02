@@ -31,5 +31,3 @@ export function getAmuletRules() {
 export function getPartyId() {
   return 'fairmint';
 }
-
-

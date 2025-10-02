@@ -1,6 +1,4 @@
-import path from 'path';
-import fs from 'fs';
-import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 export interface TransactionTreeFixture {
   timestamp: string;
@@ -76,7 +74,7 @@ export function convertTransactionTreeToEventsResponse(
   // Handle both structures: response.transactionTree.eventsById and response.transactionTree.transaction.eventsById
   const transactionTree = (response as any).transactionTree;
   const eventsById = transactionTree?.eventsById || transactionTree?.transaction?.eventsById;
-  
+
   if (!eventsById) {
     throw new Error('No eventsById in transaction tree');
   }
@@ -86,7 +84,10 @@ export function convertTransactionTreeToEventsResponse(
   for (const [nodeId, event] of Object.entries(eventsById)) {
     const eventData = event as Record<string, unknown>;
     if (eventData.CreatedTreeEvent) {
-      createdEvent = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
+      createdEvent = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<
+        string,
+        unknown
+      >;
     }
   }
 
@@ -97,9 +98,9 @@ export function convertTransactionTreeToEventsResponse(
   return {
     created: {
       createdEvent,
-      synchronizerId
+      synchronizerId,
     },
-    archived: null
+    archived: null,
   };
 }
 

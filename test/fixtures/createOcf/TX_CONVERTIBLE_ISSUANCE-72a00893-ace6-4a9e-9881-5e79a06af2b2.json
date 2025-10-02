@@ -6,9 +6,7 @@
   "db": {
     "id": "72a00893-ace6-4a9e-9881-5e79a06af2b2",
     "date": "2024-05-28",
-    "comments": [
-      "This SAFE includes both a valuation cap and a discount rate for conversion."
-    ],
+    "comments": ["This SAFE includes both a valuation cap and a discount rate for conversion."],
     "custom_id": "CN-5",
     "seniority": 1,
     "object_type": "TX_CONVERTIBLE_ISSUANCE",
@@ -631,8 +629,6 @@
         "jurisdiction": "US"
       }
     ],
-    "comments": [
-      "This SAFE includes both a valuation cap and a discount rate for conversion."
-    ]
+    "comments": ["This SAFE includes both a valuation cap and a discount rate for conversion."]
   }
 }

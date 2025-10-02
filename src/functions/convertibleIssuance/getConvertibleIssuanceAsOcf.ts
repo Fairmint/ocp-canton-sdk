@@ -1,5 +1,4 @@
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 
 type ConversionTriggerType =
   | 'AUTOMATIC_ON_CONDITION'
@@ -55,7 +54,11 @@ type SharePriceBasedMechanism = {
 
 type NoteConversionMechanism = {
   type: 'CONVERTIBLE_NOTE_CONVERSION';
-  interest_rates: Array<{ rate: string; accrual_start_date: string; accrual_end_date?: string }> | null;
+  interest_rates: Array<{
+    rate: string;
+    accrual_start_date: string;
+    accrual_end_date?: string;
+  }> | null;
   day_count_convention?: 'ACTUAL_365' | '30_360';
   interest_payout?: 'DEFERRED' | 'CASH';
   interest_accrual_period?: string;
@@ -143,7 +146,7 @@ export async function getConvertibleIssuanceAsOcf(
   const typeMap: Record<string, 'NOTE' | 'SAFE' | 'SECURITY'> = {
     OcfConvertibleNote: 'NOTE',
     OcfConvertibleSafe: 'SAFE',
-    OcfConvertibleSecurity: 'SECURITY'
+    OcfConvertibleSecurity: 'SECURITY',
   };
 
   const convertTriggers = (
@@ -152,7 +155,6 @@ export async function getConvertibleIssuanceAsOcf(
     issuanceId: string
   ): ConversionTrigger[] => {
     if (!Array.isArray(ts)) return [];
-
 
     const mapTagToType = (tag: string): ConversionTriggerType => {
       if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
@@ -190,31 +192,59 @@ export async function getConvertibleIssuanceAsOcf(
               type: 'SAFE_CONVERSION',
               conversion_mfn: Boolean(value?.conversion_mfn),
               ...(value?.conversion_discount !== undefined && value?.conversion_discount !== null
-                ? { conversion_discount: typeof value.conversion_discount === 'number' ? String(value.conversion_discount) : value.conversion_discount }
+                ? {
+                    conversion_discount:
+                      typeof value.conversion_discount === 'number'
+                        ? String(value.conversion_discount)
+                        : value.conversion_discount,
+                  }
                 : {}),
-              ...(value?.conversion_valuation_cap ? { conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap)! } : {}),
-              ...(value?.conversion_timing ? { conversion_timing: mapTiming(value.conversion_timing) } : {}),
-              ...(value?.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
-              ...(value?.capitalization_definition_rules ? { capitalization_definition_rules: value.capitalization_definition_rules } : {}),
+              ...(value?.conversion_valuation_cap
+                ? { conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap)! }
+                : {}),
+              ...(value?.conversion_timing
+                ? { conversion_timing: mapTiming(value.conversion_timing) }
+                : {}),
+              ...(value?.capitalization_definition
+                ? { capitalization_definition: value.capitalization_definition }
+                : {}),
+              ...(value?.capitalization_definition_rules
+                ? { capitalization_definition_rules: value.capitalization_definition_rules }
+                : {}),
               ...(value?.exit_multiple
-                ? { exit_multiple: { numerator: String(value.exit_multiple?.numerator), denominator: String(value.exit_multiple?.denominator) } }
-                : {})
+                ? {
+                    exit_multiple: {
+                      numerator: String(value.exit_multiple?.numerator),
+                      denominator: String(value.exit_multiple?.denominator),
+                    },
+                  }
+                : {}),
             };
             return mech;
           }
           case 'OcfConvMechPercentCapitalization': {
             const mech: PercentCapitalizationMechanism = {
               type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-              converts_to_percent: typeof value?.converts_to_percent === 'number' ? String(value?.converts_to_percent) : value?.converts_to_percent,
-              ...(value?.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
-              ...(value?.capitalization_definition_rules ? { capitalization_definition_rules: value.capitalization_definition_rules } : {})
+              converts_to_percent:
+                typeof value?.converts_to_percent === 'number'
+                  ? String(value?.converts_to_percent)
+                  : value?.converts_to_percent,
+              ...(value?.capitalization_definition
+                ? { capitalization_definition: value.capitalization_definition }
+                : {}),
+              ...(value?.capitalization_definition_rules
+                ? { capitalization_definition_rules: value.capitalization_definition_rules }
+                : {}),
             } as PercentCapitalizationMechanism;
             return mech;
           }
           case 'OcfConvMechFixedAmount': {
             const mech: FixedAmountMechanism = {
               type: 'FIXED_AMOUNT_CONVERSION',
-              converts_to_quantity: typeof value?.converts_to_quantity === 'number' ? String(value?.converts_to_quantity) : value?.converts_to_quantity
+              converts_to_quantity:
+                typeof value?.converts_to_quantity === 'number'
+                  ? String(value?.converts_to_quantity)
+                  : value?.converts_to_quantity,
             } as FixedAmountMechanism;
             return mech;
           }
@@ -222,9 +252,15 @@ export async function getConvertibleIssuanceAsOcf(
             const mech: ValuationBasedMechanism = {
               type: 'VALUATION_BASED_CONVERSION',
               valuation_type: value?.valuation_type,
-              ...(value?.valuation_amount ? { valuation_amount: mapMonetary(value.valuation_amount)! } : {}),
-              ...(value?.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
-              ...(value?.capitalization_definition_rules ? { capitalization_definition_rules: value.capitalization_definition_rules } : {})
+              ...(value?.valuation_amount
+                ? { valuation_amount: mapMonetary(value.valuation_amount)! }
+                : {}),
+              ...(value?.capitalization_definition
+                ? { capitalization_definition: value.capitalization_definition }
+                : {}),
+              ...(value?.capitalization_definition_rules
+                ? { capitalization_definition_rules: value.capitalization_definition_rules }
+                : {}),
             } as ValuationBasedMechanism;
             return mech;
           }
@@ -234,26 +270,39 @@ export async function getConvertibleIssuanceAsOcf(
               description: value?.description,
               discount: !!value?.discount,
               ...(value?.discount_percentage !== undefined && value?.discount_percentage !== null
-                ? { discount_percentage: typeof value.discount_percentage === 'number' ? String(value.discount_percentage) : value.discount_percentage }
+                ? {
+                    discount_percentage:
+                      typeof value.discount_percentage === 'number'
+                        ? String(value.discount_percentage)
+                        : value.discount_percentage,
+                  }
                 : {}),
-              ...(value?.discount_amount ? { discount_amount: mapMonetary(value.discount_amount)! } : {})
+              ...(value?.discount_amount
+                ? { discount_amount: mapMonetary(value.discount_amount)! }
+                : {}),
             } as SharePriceBasedMechanism;
             return mech;
           }
           case 'OcfConvMechNote': {
             const interest_rates = Array.isArray(value?.interest_rates)
-              ? (value!.interest_rates as any[]).map((ir: any) => ({
+              ? value.interest_rates.map((ir: any) => ({
                   rate: typeof ir?.rate === 'number' ? String(ir.rate) : ir?.rate,
                   accrual_start_date: (ir?.accrual_start_date as string).split('T')[0],
-                  ...(ir?.accrual_end_date ? { accrual_end_date: (ir.accrual_end_date as string).split('T')[0] } : {})
+                  ...(ir?.accrual_end_date
+                    ? { accrual_end_date: (ir.accrual_end_date as string).split('T')[0] }
+                    : {}),
                 }))
               : null;
-            const accrualFromDaml = (v: unknown): 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL' | undefined => {
+            const accrualFromDaml = (
+              v: unknown
+            ): 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL' | undefined => {
               const s = String(v || '');
               if (s.endsWith('OcfAccrualDaily') || s === 'OcfAccrualDaily') return 'DAILY';
               if (s.endsWith('OcfAccrualMonthly') || s === 'OcfAccrualMonthly') return 'MONTHLY';
-              if (s.endsWith('OcfAccrualQuarterly') || s === 'OcfAccrualQuarterly') return 'QUARTERLY';
-              if (s.endsWith('OcfAccrualSemiAnnual') || s === 'OcfAccrualSemiAnnual') return 'SEMI_ANNUAL';
+              if (s.endsWith('OcfAccrualQuarterly') || s === 'OcfAccrualQuarterly')
+                return 'QUARTERLY';
+              if (s.endsWith('OcfAccrualSemiAnnual') || s === 'OcfAccrualSemiAnnual')
+                return 'SEMI_ANNUAL';
               if (s.endsWith('OcfAccrualAnnual') || s === 'OcfAccrualAnnual') return 'ANNUAL';
               return undefined;
             };
@@ -269,30 +318,50 @@ export async function getConvertibleIssuanceAsOcf(
               interest_rates,
               ...(value?.day_count_convention
                 ? {
-                    day_count_convention:
-                      String(value.day_count_convention).endsWith('Actual365')
-                        ? 'ACTUAL_365'
-                        : '30_360'
+                    day_count_convention: String(value.day_count_convention).endsWith('Actual365')
+                      ? 'ACTUAL_365'
+                      : '30_360',
                   }
                 : {}),
               ...(value?.interest_payout
                 ? {
-                    interest_payout:
-                      String(value.interest_payout).endsWith('Deferred')
-                        ? 'DEFERRED'
-                        : 'CASH'
+                    interest_payout: String(value.interest_payout).endsWith('Deferred')
+                      ? 'DEFERRED'
+                      : 'CASH',
                   }
                 : {}),
-              ...(value?.interest_accrual_period ? { interest_accrual_period: accrualFromDaml(value.interest_accrual_period) } : {}),
-              ...(value?.compounding_type ? { compounding_type: compoundingFromDaml(value.compounding_type) } : {}),
-              ...(value?.conversion_discount !== undefined && value?.conversion_discount !== null
-                ? { conversion_discount: typeof value.conversion_discount === 'number' ? String(value.conversion_discount) : value.conversion_discount }
+              ...(value?.interest_accrual_period
+                ? { interest_accrual_period: accrualFromDaml(value.interest_accrual_period) }
                 : {}),
-              ...(value?.conversion_valuation_cap ? { conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap)! } : {}),
-              ...(value?.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
-              ...(value?.capitalization_definition_rules ? { capitalization_definition_rules: value.capitalization_definition_rules } : {}),
-              ...(value?.exit_multiple ? { exit_multiple: { numerator: String(value.exit_multiple?.numerator), denominator: String(value.exit_multiple?.denominator) } } : {}),
-              ...(value?.conversion_mfn ? { conversion_mfn: !!value.conversion_mfn } : {})
+              ...(value?.compounding_type
+                ? { compounding_type: compoundingFromDaml(value.compounding_type) }
+                : {}),
+              ...(value?.conversion_discount !== undefined && value?.conversion_discount !== null
+                ? {
+                    conversion_discount:
+                      typeof value.conversion_discount === 'number'
+                        ? String(value.conversion_discount)
+                        : value.conversion_discount,
+                  }
+                : {}),
+              ...(value?.conversion_valuation_cap
+                ? { conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap)! }
+                : {}),
+              ...(value?.capitalization_definition
+                ? { capitalization_definition: value.capitalization_definition }
+                : {}),
+              ...(value?.capitalization_definition_rules
+                ? { capitalization_definition_rules: value.capitalization_definition_rules }
+                : {}),
+              ...(value?.exit_multiple
+                ? {
+                    exit_multiple: {
+                      numerator: String(value.exit_multiple?.numerator),
+                      denominator: String(value.exit_multiple?.denominator),
+                    },
+                  }
+                : {}),
+              ...(value?.conversion_mfn ? { conversion_mfn: !!value.conversion_mfn } : {}),
             } as NoteConversionMechanism;
             return mech;
           }
@@ -302,7 +371,7 @@ export async function getConvertibleIssuanceAsOcf(
             }
             const mech: CustomConversionMechanism = {
               type: 'CUSTOM_CONVERSION',
-              custom_conversion_description: value.custom_conversion_description
+              custom_conversion_description: value.custom_conversion_description,
             };
             return mech;
           }
@@ -316,36 +385,74 @@ export async function getConvertibleIssuanceAsOcf(
 
     return ts.map((raw, idx) => {
       const r = (raw ?? {}) as Record<string, any>;
-      const tag = typeof r.type_ === 'string' ? r.type_ : (typeof r.tag === 'string' ? r.tag : (typeof raw === 'string' ? raw : ''));
+      const tag =
+        typeof r.type_ === 'string'
+          ? r.type_
+          : typeof r.tag === 'string'
+            ? r.tag
+            : typeof raw === 'string'
+              ? raw
+              : '';
       const type: ConversionTriggerType = mapTagToType(String(tag));
-      const trigger_id: string = typeof r.trigger_id === 'string' && r.trigger_id.length ? r.trigger_id : `${issuanceId}-trigger-${idx + 1}`;
-      const nickname: string | undefined = typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
-      const trigger_description: string | undefined = typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-      const trigger_date: string | undefined = typeof r.trigger_date === 'string' && r.trigger_date.length ? (r.trigger_date as string).split('T')[0] : undefined;
-      const trigger_condition: string | undefined = typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
+      const trigger_id: string =
+        typeof r.trigger_id === 'string' && r.trigger_id.length
+          ? r.trigger_id
+          : `${issuanceId}-trigger-${idx + 1}`;
+      const nickname: string | undefined =
+        typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
+      const trigger_description: string | undefined =
+        typeof r.trigger_description === 'string' && r.trigger_description.length
+          ? r.trigger_description
+          : undefined;
+      const trigger_date: string | undefined =
+        typeof r.trigger_date === 'string' && r.trigger_date.length
+          ? r.trigger_date.split('T')[0]
+          : undefined;
+      const trigger_condition: string | undefined =
+        typeof r.trigger_condition === 'string' && r.trigger_condition.length
+          ? r.trigger_condition
+          : undefined;
 
       // Parse conversion_right if present and convertible variant is used
       let conversion_right: ConvertibleConversionRight | undefined;
-      if (r.conversion_right && typeof r.conversion_right === 'object' && 'OcfRightConvertible' in r.conversion_right) {
-        const right = (r.conversion_right as any).OcfRightConvertible as Record<string, any>;
+      if (
+        r.conversion_right &&
+        typeof r.conversion_right === 'object' &&
+        'OcfRightConvertible' in r.conversion_right
+      ) {
+        const right = r.conversion_right.OcfRightConvertible as Record<string, any>;
         conversion_right = {
           type: 'CONVERTIBLE_CONVERSION_RIGHT',
           conversion_mechanism: mapMechanism(right.conversion_mechanism),
-          ...(typeof right.converts_to_future_round === 'boolean' ? { converts_to_future_round: right.converts_to_future_round } : {}),
-          ...(typeof right.converts_to_stock_class_id === 'string' && right.converts_to_stock_class_id.length
+          ...(typeof right.converts_to_future_round === 'boolean'
+            ? { converts_to_future_round: right.converts_to_future_round }
+            : {}),
+          ...(typeof right.converts_to_stock_class_id === 'string' &&
+          right.converts_to_stock_class_id.length
             ? { converts_to_stock_class_id: right.converts_to_stock_class_id }
-            : {})
+            : {}),
         };
-      } else if (r.conversion_right && typeof r.conversion_right === 'object' && 'conversion_mechanism' in r.conversion_right) {
+      } else if (
+        r.conversion_right &&
+        typeof r.conversion_right === 'object' &&
+        'conversion_mechanism' in r.conversion_right
+      ) {
         // Handle direct convertible right shape (no OcfRightConvertible wrapper)
-        const right = r.conversion_right as { conversion_mechanism: unknown; converts_to_future_round?: boolean; converts_to_stock_class_id?: string };
+        const right = r.conversion_right as {
+          conversion_mechanism: unknown;
+          converts_to_future_round?: boolean;
+          converts_to_stock_class_id?: string;
+        };
         conversion_right = {
           type: 'CONVERTIBLE_CONVERSION_RIGHT',
           conversion_mechanism: mapMechanism(right.conversion_mechanism),
-          ...(typeof right.converts_to_future_round === 'boolean' ? { converts_to_future_round: right.converts_to_future_round } : {}),
-          ...(typeof right.converts_to_stock_class_id === 'string' && right.converts_to_stock_class_id.length
+          ...(typeof right.converts_to_future_round === 'boolean'
+            ? { converts_to_future_round: right.converts_to_future_round }
+            : {}),
+          ...(typeof right.converts_to_stock_class_id === 'string' &&
+          right.converts_to_stock_class_id.length
             ? { converts_to_stock_class_id: right.converts_to_stock_class_id }
-            : {})
+            : {}),
         };
       }
       if (!conversion_right) {
@@ -359,7 +466,7 @@ export async function getConvertibleIssuanceAsOcf(
         ...(nickname ? { nickname } : {}),
         ...(trigger_description ? { trigger_description } : {}),
         ...(trigger_date ? { trigger_date } : {}),
-        ...(trigger_condition ? { trigger_condition } : {})
+        ...(trigger_condition ? { trigger_condition } : {}),
       };
       return trigger;
     });
@@ -373,29 +480,37 @@ export async function getConvertibleIssuanceAsOcf(
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
     ...(typeof d.board_approval_date === 'string' && d.board_approval_date.length
-      ? { board_approval_date: (d.board_approval_date as string).split('T')[0] }
+      ? { board_approval_date: d.board_approval_date.split('T')[0] }
       : {}),
     ...(typeof d.stockholder_approval_date === 'string' && d.stockholder_approval_date.length
-      ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }
+      ? { stockholder_approval_date: d.stockholder_approval_date.split('T')[0] }
       : {}),
     investment_amount: {
-      amount: typeof d.investment_amount?.amount === 'number' ? String(d.investment_amount.amount) : d.investment_amount.amount,
-      currency: d.investment_amount.currency
+      amount:
+        typeof d.investment_amount?.amount === 'number'
+          ? String(d.investment_amount.amount)
+          : d.investment_amount.amount,
+      currency: d.investment_amount.currency,
     },
-    ...(typeof d.consideration_text === 'string' && d.consideration_text.length ? { consideration_text: d.consideration_text } : {}),
+    ...(typeof d.consideration_text === 'string' && d.consideration_text.length
+      ? { consideration_text: d.consideration_text }
+      : {}),
     convertible_type: typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
     conversion_triggers: convertTriggers(
       d.conversion_triggers as unknown[],
       typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
       (d as any).id as string
     ),
-    ...(d.pro_rata !== null && d.pro_rata !== undefined ? { pro_rata: typeof d.pro_rata === 'number' ? String(d.pro_rata) : d.pro_rata } : {}),
+    ...(d.pro_rata !== null && d.pro_rata !== undefined
+      ? { pro_rata: typeof d.pro_rata === 'number' ? String(d.pro_rata) : d.pro_rata }
+      : {}),
     seniority: typeof d.seniority === 'number' ? d.seniority : Number(d.seniority),
-    security_law_exemptions: d.security_law_exemptions as Array<{ description: string; jurisdiction: string }>,
-    ...(d.comments.length ? { comments: d.comments } : {})
+    security_law_exemptions: d.security_law_exemptions as Array<{
+      description: string;
+      jurisdiction: string;
+    }>,
+    ...(d.comments.length ? { comments: d.comments } : {}),
   };
 
   return { event, contractId: params.contractId };
 }
-
-

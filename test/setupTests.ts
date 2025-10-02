@@ -4,5 +4,3 @@ afterEach(() => {
   // Don't reset modules as it clears fixture state
   // jest.resetModules();
 });
-
-

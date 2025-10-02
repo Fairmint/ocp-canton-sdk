@@ -1,4 +1,4 @@
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 
 export interface OcfEquityCompensationExercise {
   object_type: 'TX_EQUITY_COMPENSATION_EXERCISE';
@@ -40,12 +40,14 @@ export async function getEquityCompensationExerciseEventAsOcf(
 
   const ocf: OcfEquityCompensationExercise = {
     object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
-    id: (d as any).id,
+    id: d.id,
     quantity: typeof d.quantity === 'number' ? String(d.quantity) : d.quantity,
     security_id: d.security_id,
     date: (d.date as string).split('T')[0],
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
-    ...(Array.isArray(d.resulting_security_ids) && d.resulting_security_ids.length ? { resulting_security_ids: d.resulting_security_ids } : {}),
+    ...(Array.isArray(d.resulting_security_ids) && d.resulting_security_ids.length
+      ? { resulting_security_ids: d.resulting_security_ids }
+      : {}),
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };
 

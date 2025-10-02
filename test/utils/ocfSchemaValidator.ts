@@ -1,7 +1,8 @@
-import Ajv, { ValidateFunction } from 'ajv';
-import addFormats from 'ajv-formats';
 import * as fs from 'fs';
 import * as path from 'path';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+import type { ValidateFunction } from 'ajv';
 
 // Map of object_type to schema file paths relative to the schema directory
 const SCHEMA_MAP: Record<string, string> = {
@@ -13,11 +14,16 @@ const SCHEMA_MAP: Record<string, string> = {
   STOCK_PLAN: 'objects/StockPlan.schema.json',
   TX_STOCK_ISSUANCE: 'objects/transactions/issuance/StockIssuance.schema.json',
   TX_STOCK_CANCELLATION: 'objects/transactions/cancellation/StockCancellation.schema.json',
-  TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: 'objects/transactions/adjustment/IssuerAuthorizedSharesAdjustment.schema.json',
-  TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT: 'objects/transactions/adjustment/StockClassAuthorizedSharesAdjustment.schema.json',
-  TX_STOCK_PLAN_POOL_ADJUSTMENT: 'objects/transactions/adjustment/StockPlanPoolAdjustment.schema.json',
-  TX_EQUITY_COMPENSATION_ISSUANCE: 'objects/transactions/issuance/EquityCompensationIssuance.schema.json',
-  TX_EQUITY_COMPENSATION_EXERCISE: 'objects/transactions/exercise/EquityCompensationExercise.schema.json',
+  TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT:
+    'objects/transactions/adjustment/IssuerAuthorizedSharesAdjustment.schema.json',
+  TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT:
+    'objects/transactions/adjustment/StockClassAuthorizedSharesAdjustment.schema.json',
+  TX_STOCK_PLAN_POOL_ADJUSTMENT:
+    'objects/transactions/adjustment/StockPlanPoolAdjustment.schema.json',
+  TX_EQUITY_COMPENSATION_ISSUANCE:
+    'objects/transactions/issuance/EquityCompensationIssuance.schema.json',
+  TX_EQUITY_COMPENSATION_EXERCISE:
+    'objects/transactions/exercise/EquityCompensationExercise.schema.json',
   TX_WARRANT_ISSUANCE: 'objects/transactions/issuance/WarrantIssuance.schema.json',
   TX_CONVERTIBLE_ISSUANCE: 'objects/transactions/issuance/ConvertibleIssuance.schema.json',
   DOCUMENT: 'objects/Document.schema.json',
@@ -35,13 +41,13 @@ class OcfSchemaValidator {
       validateFormats: true,
       loadSchema: this.loadSchemaFromFile.bind(this),
     });
-    
+
     // Add format validators
     addFormats(this.ajv);
 
     // Resolve the schema directory path (from submodule in project root)
     this.schemaDir = path.resolve(__dirname, '../..', 'Open-Cap-Format-OCF/schema');
-    
+
     if (!fs.existsSync(this.schemaDir)) {
       throw new Error(`Schema directory not found at: ${this.schemaDir}`);
     }
@@ -99,7 +105,9 @@ class OcfSchemaValidator {
   /**
    * Validate an OCF object against its schema
    */
-  async validate(ocfObject: Record<string, unknown>): Promise<{ valid: boolean; errors: string[] }> {
+  async validate(
+    ocfObject: Record<string, unknown>
+  ): Promise<{ valid: boolean; errors: string[] }> {
     const objectType = ocfObject.object_type as string;
     if (!objectType) {
       return {
@@ -157,4 +165,3 @@ export async function validateOcfObject(ocfObject: Record<string, unknown>): Pro
     throw new Error(errorMessage);
   }
 }
-

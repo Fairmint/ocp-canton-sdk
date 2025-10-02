@@ -1,4 +1,4 @@
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 
 export interface OcfIssuerAuthorizedSharesAdjustmentEvent {
   object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT';
@@ -11,8 +11,13 @@ export interface OcfIssuerAuthorizedSharesAdjustmentEvent {
   comments?: string[];
 }
 
-export interface GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams { contractId: string }
-export interface GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult { event: OcfIssuerAuthorizedSharesAdjustmentEvent; contractId: string }
+export interface GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams {
+  contractId: string;
+}
+export interface GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult {
+  event: OcfIssuerAuthorizedSharesAdjustmentEvent;
+  contractId: string;
+}
 
 export async function getIssuerAuthorizedSharesAdjustmentEventAsOcf(
   client: LedgerJsonApiClient,
@@ -24,15 +29,20 @@ export async function getIssuerAuthorizedSharesAdjustmentEventAsOcf(
   const d = arg.adjustment_data || arg;
   const event: OcfIssuerAuthorizedSharesAdjustmentEvent = {
     object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
-    id: (d as any).id,
+    id: d.id,
     date: (d.date as string).split('T')[0],
     issuer_id: d.issuer_id,
-    new_shares_authorized: typeof d.new_shares_authorized === 'number' ? String(d.new_shares_authorized) : d.new_shares_authorized,
-    ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
-    ...(d.stockholder_approval_date ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {})
+    new_shares_authorized:
+      typeof d.new_shares_authorized === 'number'
+        ? String(d.new_shares_authorized)
+        : d.new_shares_authorized,
+    ...(d.board_approval_date
+      ? { board_approval_date: (d.board_approval_date as string).split('T')[0] }
+      : {}),
+    ...(d.stockholder_approval_date
+      ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }
+      : {}),
+    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };
   return { event, contractId: params.contractId };
 }
-
-

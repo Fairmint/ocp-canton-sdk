@@ -11,9 +11,7 @@
     "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
     "security_id": "e031b69e-35cc-4137-a6bb-1354272f7a05",
     "consideration_text": "1.00 USD",
-    "resulting_security_ids": [
-      "dc0c9107-9de0-b57c-d50d-760af27858f2"
-    ]
+    "resulting_security_ids": ["dc0c9107-9de0-b57c-d50d-760af27858f2"]
   },
   "request": {
     "ExerciseCommand": {
@@ -27,9 +25,7 @@
           "security_id": "e031b69e-35cc-4137-a6bb-1354272f7a05",
           "quantity": "8",
           "consideration_text": "1.00 USD",
-          "resulting_security_ids": [
-            "dc0c9107-9de0-b57c-d50d-760af27858f2"
-          ],
+          "resulting_security_ids": ["dc0c9107-9de0-b57c-d50d-760af27858f2"],
           "comments": []
         }
       }
@@ -60,9 +56,7 @@
                     "quantity": "8.0000000000",
                     "security_id": "e031b69e-35cc-4137-a6bb-1354272f7a05",
                     "comments": [],
-                    "resulting_security_ids": [
-                      "dc0c9107-9de0-b57c-d50d-760af27858f2"
-                    ],
+                    "resulting_security_ids": ["dc0c9107-9de0-b57c-d50d-760af27858f2"],
                     "consideration_text": "1.00 USD"
                   }
                 },
@@ -165,9 +159,7 @@
                     "quantity": "8.0000000000",
                     "security_id": "e031b69e-35cc-4137-a6bb-1354272f7a05",
                     "comments": [],
-                    "resulting_security_ids": [
-                      "dc0c9107-9de0-b57c-d50d-760af27858f2"
-                    ],
+                    "resulting_security_ids": ["dc0c9107-9de0-b57c-d50d-760af27858f2"],
                     "consideration_text": "1.00 USD"
                   }
                 },
@@ -203,8 +195,6 @@
     "security_id": "e031b69e-35cc-4137-a6bb-1354272f7a05",
     "date": "2023-07-15",
     "consideration_text": "1.00 USD",
-    "resulting_security_ids": [
-      "dc0c9107-9de0-b57c-d50d-760af27858f2"
-    ]
+    "resulting_security_ids": ["dc0c9107-9de0-b57c-d50d-760af27858f2"]
   }
 }

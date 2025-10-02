@@ -13,9 +13,7 @@
     "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
     "security_id": "26c68d5a-fa46-4e66-8844-863cae209c9c",
     "consideration_text": "Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement.",
-    "resulting_security_ids": [
-      "72dfefd2-6394-e2b9-90a6-4dd60f22b633"
-    ]
+    "resulting_security_ids": ["72dfefd2-6394-e2b9-90a6-4dd60f22b633"]
   },
   "request": {
     "ExerciseCommand": {
@@ -29,9 +27,7 @@
           "security_id": "26c68d5a-fa46-4e66-8844-863cae209c9c",
           "quantity": "5",
           "consideration_text": "Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement.",
-          "resulting_security_ids": [
-            "72dfefd2-6394-e2b9-90a6-4dd60f22b633"
-          ],
+          "resulting_security_ids": ["72dfefd2-6394-e2b9-90a6-4dd60f22b633"],
           "comments": [
             "Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024."
           ]
@@ -66,9 +62,7 @@
                     "comments": [
                       "Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024."
                     ],
-                    "resulting_security_ids": [
-                      "72dfefd2-6394-e2b9-90a6-4dd60f22b633"
-                    ],
+                    "resulting_security_ids": ["72dfefd2-6394-e2b9-90a6-4dd60f22b633"],
                     "consideration_text": "Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement."
                   }
                 },
@@ -173,9 +167,7 @@
                     "comments": [
                       "Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024."
                     ],
-                    "resulting_security_ids": [
-                      "72dfefd2-6394-e2b9-90a6-4dd60f22b633"
-                    ],
+                    "resulting_security_ids": ["72dfefd2-6394-e2b9-90a6-4dd60f22b633"],
                     "consideration_text": "Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement."
                   }
                 },
@@ -211,9 +203,7 @@
     "security_id": "26c68d5a-fa46-4e66-8844-863cae209c9c",
     "date": "2024-06-30",
     "consideration_text": "Purchase of 5 shares of Common Stock at $1 per share under the Stock Purchase Agreement.",
-    "resulting_security_ids": [
-      "72dfefd2-6394-e2b9-90a6-4dd60f22b633"
-    ],
+    "resulting_security_ids": ["72dfefd2-6394-e2b9-90a6-4dd60f22b633"],
     "comments": [
       "Exercise of stock option for 5 shares as per the Stock Purchase Agreement executed on June 30, 2024."
     ]

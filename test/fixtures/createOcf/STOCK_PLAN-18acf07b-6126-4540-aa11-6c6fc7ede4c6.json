@@ -8,9 +8,7 @@
     "comments": [],
     "plan_name": "Options Pool",
     "object_type": "STOCK_PLAN",
-    "stock_class_ids": [
-      "a4f085c3-c584-4380-876c-da8ed5b03815"
-    ],
+    "stock_class_ids": ["a4f085c3-c584-4380-876c-da8ed5b03815"],
     "initial_shares_reserved": "1000000",
     "default_cancellation_behavior": "RETURN_TO_POOL"
   },
@@ -27,9 +25,7 @@
           "stockholder_approval_date": null,
           "initial_shares_reserved": "1000000",
           "default_cancellation_behavior": "OcfPlanCancelReturnToPool",
-          "stock_class_ids": [
-            "a4f085c3-c584-4380-876c-da8ed5b03815"
-          ],
+          "stock_class_ids": ["a4f085c3-c584-4380-876c-da8ed5b03815"],
           "comments": []
         }
       }
@@ -59,9 +55,7 @@
                     "initial_shares_reserved": "1000000.0000000000",
                     "plan_name": "Options Pool",
                     "comments": [],
-                    "stock_class_ids": [
-                      "a4f085c3-c584-4380-876c-da8ed5b03815"
-                    ],
+                    "stock_class_ids": ["a4f085c3-c584-4380-876c-da8ed5b03815"],
                     "board_approval_date": null,
                     "default_cancellation_behavior": "OcfPlanCancelReturnToPool",
                     "stockholder_approval_date": null
@@ -165,9 +159,7 @@
                     "initial_shares_reserved": "1000000.0000000000",
                     "plan_name": "Options Pool",
                     "comments": [],
-                    "stock_class_ids": [
-                      "a4f085c3-c584-4380-876c-da8ed5b03815"
-                    ],
+                    "stock_class_ids": ["a4f085c3-c584-4380-876c-da8ed5b03815"],
                     "board_approval_date": null,
                     "default_cancellation_behavior": "OcfPlanCancelReturnToPool",
                     "stockholder_approval_date": null
@@ -204,9 +196,7 @@
     "plan_name": "Options Pool",
     "initial_shares_reserved": "1000000.0000000000",
     "default_cancellation_behavior": "RETURN_TO_POOL",
-    "stock_class_ids": [
-      "a4f085c3-c584-4380-876c-da8ed5b03815"
-    ],
+    "stock_class_ids": ["a4f085c3-c584-4380-876c-da8ed5b03815"],
     "comments": []
   }
 }

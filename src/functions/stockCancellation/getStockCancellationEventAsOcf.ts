@@ -1,4 +1,4 @@
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 
 export interface OcfStockCancellationEvent {
   object_type: 'TX_STOCK_CANCELLATION';
@@ -11,8 +11,13 @@ export interface OcfStockCancellationEvent {
   comments?: string[];
 }
 
-export interface GetStockCancellationEventAsOcfParams { contractId: string }
-export interface GetStockCancellationEventAsOcfResult { event: OcfStockCancellationEvent; contractId: string }
+export interface GetStockCancellationEventAsOcfParams {
+  contractId: string;
+}
+export interface GetStockCancellationEventAsOcfResult {
+  event: OcfStockCancellationEvent;
+  contractId: string;
+}
 
 export async function getStockCancellationEventAsOcf(
   client: LedgerJsonApiClient,
@@ -24,15 +29,13 @@ export async function getStockCancellationEventAsOcf(
   const data = d.cancellation_data || d; // template stores as cancellation_data
   const event: OcfStockCancellationEvent = {
     object_type: 'TX_STOCK_CANCELLATION',
-    id: (data as any).id,
+    id: data.id,
     date: (data.date as string).split('T')[0],
     security_id: data.security_id,
     quantity: typeof data.quantity === 'number' ? String(data.quantity) : data.quantity,
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
     reason_text: data.reason_text,
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {})
+    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
   return { event, contractId: params.contractId };
 }
-
-

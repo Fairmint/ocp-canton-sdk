@@ -6,9 +6,7 @@
   "db": {
     "id": "e5c2d9c0-37e2-44c3-8218-d4d2e79149e7",
     "date": "2025-04-02",
-    "comments": [
-      "This SAFE includes a post-money valuation cap of $20,000,000 USD."
-    ],
+    "comments": ["This SAFE includes a post-money valuation cap of $20,000,000 USD."],
     "custom_id": "97662e15abc21f1e722f23f840f240aa193e1422",
     "seniority": 2,
     "object_type": "TX_CONVERTIBLE_ISSUANCE",
@@ -263,9 +261,7 @@
           ],
           "pro_rata": null,
           "seniority": "2",
-          "comments": [
-            "This SAFE includes a post-money valuation cap of $20,000,000 USD."
-          ]
+          "comments": ["This SAFE includes a post-money valuation cap of $20,000,000 USD."]
         }
       }
     }
@@ -802,8 +798,6 @@
         "jurisdiction": "US"
       }
     ],
-    "comments": [
-      "This SAFE includes a post-money valuation cap of $20,000,000 USD."
-    ]
+    "comments": ["This SAFE includes a post-money valuation cap of $20,000,000 USD."]
   }
 }

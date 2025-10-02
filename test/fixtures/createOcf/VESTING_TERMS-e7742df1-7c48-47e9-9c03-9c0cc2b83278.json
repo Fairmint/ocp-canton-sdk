@@ -18,9 +18,7 @@
         },
         "quantity": "800000",
         "description": "10% of the shares (800,000 shares) vest immediately upon execution of the agreement.",
-        "next_condition_ids": [
-          "cliff-vesting"
-        ]
+        "next_condition_ids": ["cliff-vesting"]
       },
       {
         "id": "cliff-vesting",
@@ -36,9 +34,7 @@
         },
         "quantity": "1200000",
         "description": "15% of the shares (1,200,000 shares) vest on the first anniversary of the agreement.",
-        "next_condition_ids": [
-          "monthly-vesting"
-        ]
+        "next_condition_ids": ["monthly-vesting"]
       },
       {
         "id": "monthly-vesting",
@@ -83,9 +79,7 @@
                 "tag": "OcfVestingStartTrigger",
                 "value": {}
               },
-              "next_condition_ids": [
-                "cliff-vesting"
-              ]
+              "next_condition_ids": ["cliff-vesting"]
             },
             {
               "id": "cliff-vesting",
@@ -107,9 +101,7 @@
                   "relative_to_condition_id": "immediate-vesting"
                 }
               },
-              "next_condition_ids": [
-                "monthly-vesting"
-              ]
+              "next_condition_ids": ["monthly-vesting"]
             },
             {
               "id": "monthly-vesting",
@@ -175,9 +167,7 @@
                           "tag": "OcfVestingStartTrigger",
                           "value": {}
                         },
-                        "next_condition_ids": [
-                          "cliff-vesting"
-                        ],
+                        "next_condition_ids": ["cliff-vesting"],
                         "description": "10% of the shares (800,000 shares) vest immediately upon execution of the agreement.",
                         "portion": null,
                         "quantity": "800000.0000000000"
@@ -199,9 +189,7 @@
                             "relative_to_condition_id": "immediate-vesting"
                           }
                         },
-                        "next_condition_ids": [
-                          "monthly-vesting"
-                        ],
+                        "next_condition_ids": ["monthly-vesting"],
                         "description": "15% of the shares (1,200,000 shares) vest on the first anniversary of the agreement.",
                         "portion": null,
                         "quantity": "1200000.0000000000"
@@ -341,9 +329,7 @@
                           "tag": "OcfVestingStartTrigger",
                           "value": {}
                         },
-                        "next_condition_ids": [
-                          "cliff-vesting"
-                        ],
+                        "next_condition_ids": ["cliff-vesting"],
                         "description": "10% of the shares (800,000 shares) vest immediately upon execution of the agreement.",
                         "portion": null,
                         "quantity": "800000.0000000000"
@@ -365,9 +351,7 @@
                             "relative_to_condition_id": "immediate-vesting"
                           }
                         },
-                        "next_condition_ids": [
-                          "monthly-vesting"
-                        ],
+                        "next_condition_ids": ["monthly-vesting"],
                         "description": "15% of the shares (1,200,000 shares) vest on the first anniversary of the agreement.",
                         "portion": null,
                         "quantity": "1200000.0000000000"
@@ -440,9 +424,7 @@
         "trigger": {
           "type": "VESTING_START_DATE"
         },
-        "next_condition_ids": [
-          "cliff-vesting"
-        ]
+        "next_condition_ids": ["cliff-vesting"]
       },
       {
         "id": "cliff-vesting",
@@ -458,9 +440,7 @@
           },
           "relative_to_condition_id": "immediate-vesting"
         },
-        "next_condition_ids": [
-          "monthly-vesting"
-        ]
+        "next_condition_ids": ["monthly-vesting"]
       },
       {
         "id": "monthly-vesting",

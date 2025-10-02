@@ -16,8 +16,8 @@
  * - Saves changelog to CHANGELOG.md
  */
 
-import fs from 'fs';
 import { execSync } from 'child_process';
+import fs from 'fs';
 import path from 'path';
 
 interface PackageJson {
@@ -40,11 +40,7 @@ function tagExists(tag: string): boolean {
 /**
  * Find the next available version by incrementing patch until we find one that doesn't exist
  */
-function findNextAvailableVersion(
-  major: number,
-  minor: number,
-  startPatch: number
-): string {
+function findNextAvailableVersion(major: number, minor: number, startPatch: number): string {
   let patch = startPatch;
   let version: string;
 
@@ -64,9 +60,7 @@ function prepareRelease(): void {
   try {
     // Read package.json
     const packageJsonPath: string = path.join(process.cwd(), 'package.json');
-    const packageJson: PackageJson = JSON.parse(
-      fs.readFileSync(packageJsonPath, 'utf8')
-    );
+    const packageJson: PackageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
     const currentVersion: string = packageJson.version;
     console.log(`Current version: ${currentVersion}`);
@@ -78,9 +72,9 @@ function prepareRelease(): void {
       throw new Error('Invalid version format. Expected format: x.y.z');
     }
 
-    const major: number = versionParts[0]!;
-    const minor: number = versionParts[1]!;
-    const patch: number = versionParts[2]!;
+    const major: number = versionParts[0];
+    const minor: number = versionParts[1];
+    const patch: number = versionParts[2];
 
     // Find next available version (increment patch until we find one that doesn't exist)
     const newVersion: string = findNextAvailableVersion(major, minor, patch);
@@ -89,10 +83,7 @@ function prepareRelease(): void {
 
     // Update version in package.json (without git tag)
     packageJson.version = newVersion;
-    fs.writeFileSync(
-      packageJsonPath,
-      JSON.stringify(packageJson, null, 2) + '\n'
-    );
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
 
     console.log('✅ Updated package.json with new version');
 
@@ -109,9 +100,7 @@ function prepareRelease(): void {
       }).trim();
     } catch {
       // No previous tag, get commits ahead of main branch
-      console.log(
-        'No previous tag found, getting commits ahead of main branch'
-      );
+      console.log('No previous tag found, getting commits ahead of main branch');
       commits = execSync('git log --oneline --format="%s" main..HEAD', {
         encoding: 'utf8',
       }).trim();
@@ -123,11 +112,9 @@ function prepareRelease(): void {
     }
 
     // Extract PR numbers and create changelog
-    const commitLines: string[] = commits
-      .split('\n')
-      .map((commit: string): string => {
-        return `- ${commit}`;
-      });
+    const commitLines: string[] = commits.split('\n').map((commit: string): string => {
+      return `- ${commit}`;
+    });
 
     const changelog: string = commitLines.join('\n');
 
@@ -166,9 +153,7 @@ function prepareRelease(): void {
     console.log(`\n🎯 Ready for release! Next steps:`);
     console.log(`1. Review the changes above`);
     console.log(`2. Run: npm publish (if ready to publish)`);
-    console.log(
-      `3. Run: git tag -a "v${newVersion}" -m "${tagMessage.replace(/\n/g, '\\n')}"`
-    );
+    console.log(`3. Run: git tag -a "v${newVersion}" -m "${tagMessage.replace(/\n/g, '\\n')}"`);
     console.log(`4. Run: git push origin "v${newVersion}"`);
   } catch (error) {
     console.error('❌ Error preparing release:', (error as Error).message);
@@ -182,4 +167,3 @@ if (require.main === module) {
 }
 
 export { prepareRelease };
-

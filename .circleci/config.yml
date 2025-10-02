@@ -25,17 +25,9 @@ jobs:
             - node_modules
             - package-lock.json
       - run:
-          name: Build
+          name: Lint & format
           command: |
-            npm run build
-      - run:
-          name: Type Check
-          command: |
-            npm run typecheck
-      - run:
-          name: Run Tests
-          command: |
-            npm run test:ci
+            npm run fix
       - run:
           name: Check for changes and commit
           command: |
@@ -85,6 +77,18 @@ jobs:
               exit 1
             fi
       - run:
+          name: Build
+          command: |
+            npm run build
+      - run:
+          name: Type Check
+          command: |
+            npm run typecheck
+      - run:
+          name: Run Tests
+          command: |
+            npm run test:ci
+      - run:
           name: Docs # Just verifies doc generation works, actual publishing happens in GitHub Actions
           command: |
             npm run docs
@@ -93,4 +97,3 @@ workflows:
   build-and-test-workflow:
     jobs:
       - build-and-test
-

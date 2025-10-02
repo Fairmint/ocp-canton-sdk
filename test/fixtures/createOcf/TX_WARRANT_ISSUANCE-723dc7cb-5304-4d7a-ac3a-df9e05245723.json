@@ -6,9 +6,7 @@
   "db": {
     "id": "723dc7cb-5304-4d7a-ac3a-df9e05245723",
     "date": "2023-07-31",
-    "comments": [
-      "use-case: Warrant without a stock class id, ie general."
-    ],
+    "comments": ["use-case: Warrant without a stock class id, ie general."],
     "custom_id": "W-1",
     "object_type": "TX_WARRANT_ISSUANCE",
     "security_id": "e857ee31-31ef-4afb-a8ef-812c06a0671c",
@@ -98,9 +96,7 @@
           "warrant_expiration_date": "2026-07-31T00:00:00.000Z",
           "vesting_terms_id": null,
           "vestings": [],
-          "comments": [
-            "use-case: Warrant without a stock class id, ie general."
-          ]
+          "comments": ["use-case: Warrant without a stock class id, ie general."]
         }
       }
     }
@@ -134,9 +130,7 @@
                     },
                     "security_id": "e857ee31-31ef-4afb-a8ef-812c06a0671c",
                     "stakeholder_id": "2f94dd9c-22b6-4c5e-9dad-accd3d674596",
-                    "comments": [
-                      "use-case: Warrant without a stock class id, ie general."
-                    ],
+                    "comments": ["use-case: Warrant without a stock class id, ie general."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -283,9 +277,7 @@
                     },
                     "security_id": "e857ee31-31ef-4afb-a8ef-812c06a0671c",
                     "stakeholder_id": "2f94dd9c-22b6-4c5e-9dad-accd3d674596",
-                    "comments": [
-                      "use-case: Warrant without a stock class id, ie general."
-                    ],
+                    "comments": ["use-case: Warrant without a stock class id, ie general."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -387,8 +379,6 @@
         "jurisdiction": "US"
       }
     ],
-    "comments": [
-      "use-case: Warrant without a stock class id, ie general."
-    ]
+    "comments": ["use-case: Warrant without a stock class id, ie general."]
   }
 }

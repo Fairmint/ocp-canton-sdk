@@ -1,9 +1,14 @@
+import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js/lib';
-import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/reports-factory-contract-id.json';
-import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
-import { CommandWithDisclosedContracts } from '../../types';
+import { extractUpdateId } from '../../utils/typeConversions';
+import type { CommandWithDisclosedContracts } from '../../types';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type {
+  Command,
+  DisclosedContract,
+} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 
 export interface CreateCompanyValuationReportParams {
   companyId: string;
@@ -49,10 +54,10 @@ export async function createCompanyValuationReport(
 ): Promise<CreateCompanyValuationReportResult> {
   const { command, disclosedContracts } = buildCreateCompanyValuationReportCommand(client, params);
 
-  const response = await client.submitAndWaitForTransactionTree({
+  const response = (await client.submitAndWaitForTransactionTree({
     commands: [command],
-    disclosedContracts
-  }) as SubmitAndWaitForTransactionTreeResponse;
+    disclosedContracts,
+  })) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = findCreatedEventByTemplateId(
     response,
@@ -64,8 +69,8 @@ export async function createCompanyValuationReport(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: (response.transactionTree as any)?.updateId ?? (response.transactionTree as any)?.transaction?.updateId,
-    response
+    updateId: extractUpdateId(response),
+    response,
   };
 }
 
@@ -79,21 +84,23 @@ export function buildCreateCompanyValuationReportCommand(
     throw new Error(`Unsupported network: ${network}`);
   }
 
-  const choiceArguments: Fairmint.OpenCapTableReports.ReportsFactory.CreateCompanyValuationReport = {
-    company_id: params.companyId,
-    company_valuation: typeof params.companyValuation === 'number'
-      ? params.companyValuation.toString()
-      : params.companyValuation,
-    observers: params.observers ?? []
-  };
+  const choiceArguments: Fairmint.OpenCapTableReports.ReportsFactory.CreateCompanyValuationReport =
+    {
+      company_id: params.companyId,
+      company_valuation:
+        typeof params.companyValuation === 'number'
+          ? params.companyValuation.toString()
+          : params.companyValuation,
+      observers: params.observers ?? [],
+    };
 
   const command: Command = {
     ExerciseCommand: {
       templateId: networkData.templateId,
       contractId: networkData.reportsFactoryContractId,
       choice: 'CreateCompanyValuationReport',
-      choiceArgument: choiceArguments
-    }
+      choiceArgument: choiceArguments,
+    },
   };
 
   const disclosedContracts: DisclosedContract[] = [
@@ -101,8 +108,8 @@ export function buildCreateCompanyValuationReportCommand(
       templateId: params.featuredAppRightContractDetails.templateId,
       contractId: params.featuredAppRightContractDetails.contractId,
       createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-    }
+      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
+    },
   ];
 
   return { command, disclosedContracts };

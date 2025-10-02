@@ -1,9 +1,10 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { CommandWithDisclosedContracts } from '../../types';
-import { dateStringToDAMLTime } from '../../utils/typeConversions';
+import { dateStringToDAMLTime, cleanComments } from '../../utils/typeConversions';
+import type { CommandWithDisclosedContracts } from '../../types';
+import type {
+  Command,
+  DisclosedContract,
+} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
 export interface CreateStockPlanPoolAdjustmentParams {
   issuerContractId: string;
@@ -20,24 +21,46 @@ export interface CreateStockPlanPoolAdjustmentParams {
   };
 }
 
-interface IssuerCreateArgShape { context?: { system_operator?: string } }
+interface IssuerCreateArgShape {
+  context?: { system_operator?: string };
+}
 
-export function buildCreateStockPlanPoolAdjustmentCommand(params: CreateStockPlanPoolAdjustmentParams): CommandWithDisclosedContracts {
+export function buildCreateStockPlanPoolAdjustmentCommand(
+  params: CreateStockPlanPoolAdjustmentParams
+): CommandWithDisclosedContracts {
   const d = params.adjustmentData;
+  cleanComments(d);
   const adjustment_data: any = {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     stock_plan_id: d.stock_plan_id,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-    shares_reserved: typeof d.shares_reserved === 'number' ? d.shares_reserved.toString() : d.shares_reserved,
-    comments: d.comments || []
+    stockholder_approval_date: d.stockholder_approval_date
+      ? dateStringToDAMLTime(d.stockholder_approval_date)
+      : null,
+    shares_reserved:
+      typeof d.shares_reserved === 'number' ? d.shares_reserved.toString() : d.shares_reserved,
+    comments: d.comments || [],
   } as any;
 
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlanPoolAdjustment = { adjustment_data } as any;
-  const command: Command = { ExerciseCommand: { templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId, contractId: params.issuerContractId, choice: 'CreateStockPlanPoolAdjustment', choiceArgument: choiceArguments as any } };
-  const disclosedContracts: DisclosedContract[] = [ { templateId: params.featuredAppRightContractDetails.templateId, contractId: params.featuredAppRightContractDetails.contractId, createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob, synchronizerId: params.featuredAppRightContractDetails.synchronizerId } ];
+  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlanPoolAdjustment = {
+    adjustment_data,
+  } as any;
+  const command: Command = {
+    ExerciseCommand: {
+      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
+      contractId: params.issuerContractId,
+      choice: 'CreateStockPlanPoolAdjustment',
+      choiceArgument: choiceArguments as any,
+    },
+  };
+  const disclosedContracts: DisclosedContract[] = [
+    {
+      templateId: params.featuredAppRightContractDetails.templateId,
+      contractId: params.featuredAppRightContractDetails.contractId,
+      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
+      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
+    },
+  ];
   return { command, disclosedContracts };
 }
-
-

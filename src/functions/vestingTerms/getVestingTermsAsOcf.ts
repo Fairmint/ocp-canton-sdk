@@ -1,64 +1,114 @@
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { damlTimeToDateString } from '../../utils/typeConversions';
-import { OcfVestingTermsData, AllocationType, VestingCondition, VestingConditionPortion } from '../../types/native';
+import type {
+  OcfVestingTermsData,
+  AllocationType,
+  VestingCondition,
+  VestingConditionPortion,
+} from '../../types/native';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
-function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.VestingTerms.OcfAllocationType): AllocationType {
+function damlAllocationTypeToNative(
+  t: Fairmint.OpenCapTable.VestingTerms.OcfAllocationType
+): AllocationType {
   switch (t) {
-    case 'OcfAllocationCumulativeRounding': return 'CUMULATIVE_ROUNDING';
-    case 'OcfAllocationCumulativeRoundDown': return 'CUMULATIVE_ROUND_DOWN';
-    case 'OcfAllocationFrontLoaded': return 'FRONT_LOADED';
-    case 'OcfAllocationBackLoaded': return 'BACK_LOADED';
-    case 'OcfAllocationFrontLoadedToSingleTranche': return 'FRONT_LOADED_SINGLE_TRANCHE';
-    case 'OcfAllocationBackLoadedToSingleTranche': return 'BACK_LOADED_SINGLE_TRANCHE';
-    case 'OcfAllocationFractional': return 'FRACTIONAL';
-    default: throw new Error(`Unknown DAML allocation type: ${t}`);
+    case 'OcfAllocationCumulativeRounding':
+      return 'CUMULATIVE_ROUNDING';
+    case 'OcfAllocationCumulativeRoundDown':
+      return 'CUMULATIVE_ROUND_DOWN';
+    case 'OcfAllocationFrontLoaded':
+      return 'FRONT_LOADED';
+    case 'OcfAllocationBackLoaded':
+      return 'BACK_LOADED';
+    case 'OcfAllocationFrontLoadedToSingleTranche':
+      return 'FRONT_LOADED_SINGLE_TRANCHE';
+    case 'OcfAllocationBackLoadedToSingleTranche':
+      return 'BACK_LOADED_SINGLE_TRANCHE';
+    case 'OcfAllocationFractional':
+      return 'FRACTIONAL';
+    default:
+      throw new Error(`Unknown DAML allocation type: ${t}`);
   }
 }
 
 function mapDamlDayOfMonthToOcf(day: any): string {
   const table: Record<string, string> = {
-    OcfVestingDay01: '01', OcfVestingDay02: '02', OcfVestingDay03: '03', OcfVestingDay04: '04', OcfVestingDay05: '05',
-    OcfVestingDay06: '06', OcfVestingDay07: '07', OcfVestingDay08: '08', OcfVestingDay09: '09', OcfVestingDay10: '10',
-    OcfVestingDay11: '11', OcfVestingDay12: '12', OcfVestingDay13: '13', OcfVestingDay14: '14', OcfVestingDay15: '15',
-    OcfVestingDay16: '16', OcfVestingDay17: '17', OcfVestingDay18: '18', OcfVestingDay19: '19', OcfVestingDay20: '20',
-    OcfVestingDay21: '21', OcfVestingDay22: '22', OcfVestingDay23: '23', OcfVestingDay24: '24', OcfVestingDay25: '25',
-    OcfVestingDay26: '26', OcfVestingDay27: '27', OcfVestingDay28: '28',
+    OcfVestingDay01: '01',
+    OcfVestingDay02: '02',
+    OcfVestingDay03: '03',
+    OcfVestingDay04: '04',
+    OcfVestingDay05: '05',
+    OcfVestingDay06: '06',
+    OcfVestingDay07: '07',
+    OcfVestingDay08: '08',
+    OcfVestingDay09: '09',
+    OcfVestingDay10: '10',
+    OcfVestingDay11: '11',
+    OcfVestingDay12: '12',
+    OcfVestingDay13: '13',
+    OcfVestingDay14: '14',
+    OcfVestingDay15: '15',
+    OcfVestingDay16: '16',
+    OcfVestingDay17: '17',
+    OcfVestingDay18: '18',
+    OcfVestingDay19: '19',
+    OcfVestingDay20: '20',
+    OcfVestingDay21: '21',
+    OcfVestingDay22: '22',
+    OcfVestingDay23: '23',
+    OcfVestingDay24: '24',
+    OcfVestingDay25: '25',
+    OcfVestingDay26: '26',
+    OcfVestingDay27: '27',
+    OcfVestingDay28: '28',
     OcfVestingDay29OrLast: '29_OR_LAST_DAY_OF_MONTH',
     OcfVestingDay30OrLast: '30_OR_LAST_DAY_OF_MONTH',
     OcfVestingDay31OrLast: '31_OR_LAST_DAY_OF_MONTH',
-    OcfVestingStartDayOrLast: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH'
+    OcfVestingStartDayOrLast: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
   };
   return table[day] || 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH';
 }
 
-function damlVestingPeriodToNative(p: any): { tag: 'DAYS' | 'MONTHS'; length: number; occurrences: number; day_of_month?: string; cliff_installment?: number } {
+function damlVestingPeriodToNative(p: any): {
+  tag: 'DAYS' | 'MONTHS';
+  length: number;
+  occurrences: number;
+  day_of_month?: string;
+  cliff_installment?: number;
+} {
   if (p.tag === 'OcfVestingPeriodDays') {
     const v = p.value || {};
     const occRaw = v.occurrences;
-    if (occRaw === undefined || occRaw === null) throw new Error('Missing vesting period occurrences');
+    if (occRaw === undefined || occRaw === null)
+      throw new Error('Missing vesting period occurrences');
     const occ = Number(occRaw);
     if (!Number.isFinite(occ) || occ < 1) throw new Error('Invalid vesting period occurrences');
     return {
       tag: 'DAYS',
       length: Number(v.length_),
       occurrences: occ,
-      ...(v.cliff_installment !== null && v.cliff_installment !== undefined ? { cliff_installment: Number(v.cliff_installment) } : {})
+      ...(v.cliff_installment !== null && v.cliff_installment !== undefined
+        ? { cliff_installment: Number(v.cliff_installment) }
+        : {}),
     };
   }
   if (p.tag === 'OcfVestingPeriodMonths') {
     const v = p.value || {};
     const occRaw = v.occurrences;
-    if (occRaw === undefined || occRaw === null) throw new Error('Missing vesting period occurrences');
+    if (occRaw === undefined || occRaw === null)
+      throw new Error('Missing vesting period occurrences');
     const occ = Number(occRaw);
     if (!Number.isFinite(occ) || occ < 1) throw new Error('Invalid vesting period occurrences');
-    if (v.day_of_month === undefined || v.day_of_month === null) throw new Error('Missing vesting period day_of_month for MONTHS');
+    if (v.day_of_month === undefined || v.day_of_month === null)
+      throw new Error('Missing vesting period day_of_month for MONTHS');
     return {
       tag: 'MONTHS',
       length: Number(v.length_),
       occurrences: occ,
       day_of_month: mapDamlDayOfMonthToOcf(v.day_of_month),
-      ...(v.cliff_installment !== null && v.cliff_installment !== undefined ? { cliff_installment: Number(v.cliff_installment) } : {})
+      ...(v.cliff_installment !== null && v.cliff_installment !== undefined
+        ? { cliff_installment: Number(v.cliff_installment) }
+        : {}),
     };
   }
   throw new Error('Unknown DAML vesting period');
@@ -93,9 +143,9 @@ function damlVestingTriggerToNative(t: any): any {
           length: p.length,
           occurrences: p.occurrences,
           day_of_month: p.day_of_month || 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
-          ...(p.cliff_installment !== undefined ? { cliff_installment: p.cliff_installment } : {})
+          ...(p.cliff_installment !== undefined ? { cliff_installment: p.cliff_installment } : {}),
         },
-        relative_to_condition_id: value.relative_to_condition_id
+        relative_to_condition_id: value.relative_to_condition_id,
       };
     }
     return {
@@ -104,30 +154,34 @@ function damlVestingTriggerToNative(t: any): any {
         type: 'DAYS',
         length: p.length,
         occurrences: p.occurrences,
-        ...(p.cliff_installment !== undefined ? { cliff_installment: p.cliff_installment } : {})
+        ...(p.cliff_installment !== undefined ? { cliff_installment: p.cliff_installment } : {}),
       },
-      relative_to_condition_id: value.relative_to_condition_id
+      relative_to_condition_id: value.relative_to_condition_id,
     };
   }
 
   throw new Error('Unknown DAML vesting trigger');
 }
 
-function damlVestingConditionPortionToNative(p: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion): VestingConditionPortion {
+function damlVestingConditionPortionToNative(
+  p: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion
+): VestingConditionPortion {
   return {
     numerator: p.numerator,
     denominator: p.denominator,
-    remainder: p.remainder
+    remainder: p.remainder,
   };
 }
 
-function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition): VestingCondition {
+function damlVestingConditionToNative(
+  c: Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition
+): VestingCondition {
   const native: VestingCondition = {
     id: (c as any).id || '',
     ...(c.description && { description: c.description }),
     ...(c.quantity && { quantity: c.quantity }),
     trigger: damlVestingTriggerToNative(c.trigger),
-    next_condition_ids: c.next_condition_ids || []
+    next_condition_ids: c.next_condition_ids || [],
   };
   const portionUnknown = c.portion as unknown;
   if (portionUnknown) {
@@ -137,7 +191,9 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfV
       (portionUnknown as { tag: unknown }).tag === 'Some' &&
       'value' in portionUnknown
     ) {
-      const value = (portionUnknown as { value: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion }).value;
+      const value = (
+        portionUnknown as { value: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion }
+      ).value;
       native.portion = damlVestingConditionPortionToNative(value);
     } else if (typeof portionUnknown === 'object') {
       native.portion = damlVestingConditionPortionToNative(
@@ -148,16 +204,18 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfV
   return native;
 }
 
-function damlVestingTermsDataToNative(d: Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData): OcfVestingTermsData {
+function damlVestingTermsDataToNative(
+  d: Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData
+): OcfVestingTermsData {
   return {
     id: (d as any).id,
     name: d.name || '',
     description: d.description || '',
     allocation_type: damlAllocationTypeToNative(d.allocation_type),
     vesting_conditions: (d.vesting_conditions || []).map(damlVestingConditionToNative),
-    comments: (Array.isArray((d as unknown as { comments?: unknown }).comments)
+    comments: Array.isArray((d as unknown as { comments?: unknown }).comments)
       ? (d as unknown as { comments: string[] }).comments
-      : [])
+      : [],
   };
 }
 
@@ -194,8 +252,15 @@ export async function getVestingTermsAsOcf(
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument;
 
-  function hasData(arg: unknown): arg is { vesting_terms_data: Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData } {
-    return typeof arg === 'object' && arg !== null && 'vesting_terms_data' in arg && typeof (arg as any).vesting_terms_data === 'object';
+  function hasData(
+    arg: unknown
+  ): arg is { vesting_terms_data: Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData } {
+    return (
+      typeof arg === 'object' &&
+      arg !== null &&
+      'vesting_terms_data' in arg &&
+      typeof (arg as any).vesting_terms_data === 'object'
+    );
   }
   if (!hasData(createArgument)) {
     throw new Error('Vesting terms data not found in contract create argument');
@@ -207,8 +272,8 @@ export async function getVestingTermsAsOcf(
   const ocf: OcfVestingTerms = {
     object_type: 'VESTING_TERMS',
     id,
-    ...nativeWithoutId
-  } as any;
+    ...nativeWithoutId,
+  };
 
   return { vestingTerms: ocf, contractId: params.contractId };
 }

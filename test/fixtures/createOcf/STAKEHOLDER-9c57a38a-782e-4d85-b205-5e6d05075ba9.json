@@ -11,9 +11,7 @@
     "object_type": "STAKEHOLDER",
     "stakeholder_type": "INSTITUTION",
     "issuer_assigned_id": "did:privy:clwyzkvtm02ypn0w2sf9f96b9",
-    "current_relationships": [
-      "INVESTOR"
-    ]
+    "current_relationships": ["INVESTOR"]
   },
   "request": {
     "ExerciseCommand": {
@@ -35,9 +33,7 @@
           "addresses": [],
           "tax_ids": [],
           "comments": [],
-          "current_relationships": [
-            "OcfRelInvestor"
-          ]
+          "current_relationships": ["OcfRelInvestor"]
         }
       }
     }
@@ -71,9 +67,7 @@
                     "stakeholder_type": "OcfStakeholderTypeInstitution",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": null,
                     "current_status": null,
@@ -184,9 +178,7 @@
                     "stakeholder_type": "OcfStakeholderTypeInstitution",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": null,
                     "current_status": null,
@@ -227,9 +219,7 @@
     },
     "stakeholder_type": "INSTITUTION",
     "issuer_assigned_id": "did:privy:clwyzkvtm02ypn0w2sf9f96b9",
-    "current_relationships": [
-      "INVESTOR"
-    ],
+    "current_relationships": ["INVESTOR"],
     "addresses": [],
     "tax_ids": []
   }

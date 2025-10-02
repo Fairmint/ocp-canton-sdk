@@ -11,9 +11,7 @@
     "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
     "security_id": "b5cf6652-4827-422e-8649-1160979df073",
     "consideration_text": "1.00 USD",
-    "resulting_security_ids": [
-      "aa40eddc-3ef2-1e0a-1dc2-791129170b83"
-    ]
+    "resulting_security_ids": ["aa40eddc-3ef2-1e0a-1dc2-791129170b83"]
   },
   "request": {
     "ExerciseCommand": {
@@ -27,9 +25,7 @@
           "security_id": "b5cf6652-4827-422e-8649-1160979df073",
           "quantity": "5",
           "consideration_text": "1.00 USD",
-          "resulting_security_ids": [
-            "aa40eddc-3ef2-1e0a-1dc2-791129170b83"
-          ],
+          "resulting_security_ids": ["aa40eddc-3ef2-1e0a-1dc2-791129170b83"],
           "comments": []
         }
       }
@@ -60,9 +56,7 @@
                     "quantity": "5.0000000000",
                     "security_id": "b5cf6652-4827-422e-8649-1160979df073",
                     "comments": [],
-                    "resulting_security_ids": [
-                      "aa40eddc-3ef2-1e0a-1dc2-791129170b83"
-                    ],
+                    "resulting_security_ids": ["aa40eddc-3ef2-1e0a-1dc2-791129170b83"],
                     "consideration_text": "1.00 USD"
                   }
                 },
@@ -165,9 +159,7 @@
                     "quantity": "5.0000000000",
                     "security_id": "b5cf6652-4827-422e-8649-1160979df073",
                     "comments": [],
-                    "resulting_security_ids": [
-                      "aa40eddc-3ef2-1e0a-1dc2-791129170b83"
-                    ],
+                    "resulting_security_ids": ["aa40eddc-3ef2-1e0a-1dc2-791129170b83"],
                     "consideration_text": "1.00 USD"
                   }
                 },
@@ -203,8 +195,6 @@
     "security_id": "b5cf6652-4827-422e-8649-1160979df073",
     "date": "2023-01-02",
     "consideration_text": "1.00 USD",
-    "resulting_security_ids": [
-      "aa40eddc-3ef2-1e0a-1dc2-791129170b83"
-    ]
+    "resulting_security_ids": ["aa40eddc-3ef2-1e0a-1dc2-791129170b83"]
   }
 }

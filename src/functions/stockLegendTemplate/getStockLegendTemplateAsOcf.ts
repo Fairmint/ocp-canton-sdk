@@ -1,6 +1,6 @@
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcfStockLegendTemplateData } from '../../types/native';
+import type { OcfStockLegendTemplateData } from '../../types/native';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
 function damlStockLegendTemplateDataToNative(
   damlData: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData
@@ -9,9 +9,9 @@ function damlStockLegendTemplateDataToNative(
     id: (damlData as any).id,
     name: damlData.name || '',
     text: damlData.text || '',
-    comments: (Array.isArray((damlData as unknown as { comments?: unknown }).comments)
+    comments: Array.isArray((damlData as unknown as { comments?: unknown }).comments)
       ? (damlData as unknown as { comments: string[] }).comments
-      : [])
+      : [],
   };
 }
 
@@ -42,8 +42,15 @@ export async function getStockLegendTemplateAsOcf(
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument;
 
-  function hasTemplateData(arg: unknown): arg is { template_data: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData } {
-    return typeof arg === 'object' && arg !== null && 'template_data' in arg && typeof (arg as any).template_data === 'object';
+  function hasTemplateData(arg: unknown): arg is {
+    template_data: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData;
+  } {
+    return (
+      typeof arg === 'object' &&
+      arg !== null &&
+      'template_data' in arg &&
+      typeof (arg as any).template_data === 'object'
+    );
   }
   if (!hasTemplateData(createArgument)) {
     throw new Error('Template data not found in contract create argument');
@@ -55,7 +62,7 @@ export async function getStockLegendTemplateAsOcf(
   const ocf: OcfStockLegendTemplate = {
     object_type: 'STOCK_LEGEND_TEMPLATE',
     id,
-    ...nativeWithoutId
+    ...nativeWithoutId,
   };
 
   return { stockLegendTemplate: ocf, contractId: params.contractId };

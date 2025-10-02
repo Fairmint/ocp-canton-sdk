@@ -6,9 +6,7 @@
   "db": {
     "id": "eb228ce0-1d2f-44b0-aec2-21c515bc5a9d",
     "date": "2024-11-22",
-    "comments": [
-      "use-case: Warrant with a stock class id, ie series-a-preferred-id."
-    ],
+    "comments": ["use-case: Warrant with a stock class id, ie series-a-preferred-id."],
     "quantity": "100000",
     "custom_id": "W-1",
     "object_type": "TX_WARRANT_ISSUANCE",
@@ -96,9 +94,7 @@
           "warrant_expiration_date": "2032-02-01T00:00:00.000Z",
           "vesting_terms_id": null,
           "vestings": [],
-          "comments": [
-            "use-case: Warrant with a stock class id, ie series-a-preferred-id."
-          ]
+          "comments": ["use-case: Warrant with a stock class id, ie series-a-preferred-id."]
         }
       }
     }
@@ -379,9 +375,7 @@
     ],
     "quantity_source": "HUMAN_ESTIMATED",
     "warrant_expiration_date": "2032-02-01",
-    "comments": [
-      "use-case: Warrant with a stock class id, ie series-a-preferred-id."
-    ],
+    "comments": ["use-case: Warrant with a stock class id, ie series-a-preferred-id."],
     "security_law_exemptions": []
   }
 }

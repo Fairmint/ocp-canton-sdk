@@ -1,9 +1,10 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { findCreatedEventByTemplateId, LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcfStockClassData, CommandWithDisclosedContracts, StockClassType } from '../../types';
-import { dateStringToDAMLTime, monetaryToDaml } from '../../utils/typeConversions';
+import { dateStringToDAMLTime, monetaryToDaml, cleanComments } from '../../utils/typeConversions';
+import type { OcfStockClassData, CommandWithDisclosedContracts, StockClassType } from '../../types';
+import type {
+  Command,
+  DisclosedContract,
+} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
 function stockClassTypeToDaml(stockClassType: StockClassType): any {
   switch (stockClassType) {
@@ -17,30 +18,38 @@ function stockClassTypeToDaml(stockClassType: StockClassType): any {
 }
 
 function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
-  if (!stockClassData.id) throw new Error('stockClassData.id is required');
+  const cleaned = cleanComments(stockClassData);
+  if (!cleaned.id) throw new Error('stockClassData.id is required');
   return {
-    id: stockClassData.id,
-    name: stockClassData.name,
-    class_type: stockClassTypeToDaml(stockClassData.class_type),
-    default_id_prefix: stockClassData.default_id_prefix,
-    initial_shares_authorized: typeof stockClassData.initial_shares_authorized === 'number'
-      ? stockClassData.initial_shares_authorized.toString()
-      : stockClassData.initial_shares_authorized,
-    votes_per_share: typeof stockClassData.votes_per_share === 'number' ?
-      stockClassData.votes_per_share.toString() : stockClassData.votes_per_share,
-    seniority: typeof stockClassData.seniority === 'number' ?
-      stockClassData.seniority.toString() : stockClassData.seniority,
-    board_approval_date: stockClassData.board_approval_date ? dateStringToDAMLTime(stockClassData.board_approval_date) : null,
-    stockholder_approval_date: stockClassData.stockholder_approval_date ? dateStringToDAMLTime(stockClassData.stockholder_approval_date) : null,
-    par_value: stockClassData.par_value ? monetaryToDaml(stockClassData.par_value) : null,
-    price_per_share: stockClassData.price_per_share ? monetaryToDaml(stockClassData.price_per_share) : null,
-    conversion_rights: (stockClassData.conversion_rights || []).map((right) => {
+    id: cleaned.id,
+    name: cleaned.name,
+    class_type: stockClassTypeToDaml(cleaned.class_type),
+    default_id_prefix: cleaned.default_id_prefix,
+    initial_shares_authorized:
+      typeof cleaned.initial_shares_authorized === 'number'
+        ? cleaned.initial_shares_authorized.toString()
+        : cleaned.initial_shares_authorized,
+    votes_per_share:
+      typeof cleaned.votes_per_share === 'number'
+        ? cleaned.votes_per_share.toString()
+        : cleaned.votes_per_share,
+    seniority:
+      typeof cleaned.seniority === 'number' ? cleaned.seniority.toString() : cleaned.seniority,
+    board_approval_date: cleaned.board_approval_date
+      ? dateStringToDAMLTime(cleaned.board_approval_date)
+      : null,
+    stockholder_approval_date: cleaned.stockholder_approval_date
+      ? dateStringToDAMLTime(cleaned.stockholder_approval_date)
+      : null,
+    par_value: cleaned.par_value ? monetaryToDaml(cleaned.par_value) : null,
+    price_per_share: cleaned.price_per_share ? monetaryToDaml(cleaned.price_per_share) : null,
+    conversion_rights: (cleaned.conversion_rights || []).map((right) => {
       const mechanism: any =
         right.conversion_mechanism === 'RATIO_CONVERSION'
           ? 'OcfConversionMechanismRatioConversion'
           : right.conversion_mechanism === 'PERCENT_CONVERSION'
-          ? 'OcfConversionMechanismPercentCapitalizationConversion'
-          : 'OcfConversionMechanismFixedAmountConversion';
+            ? 'OcfConversionMechanismPercentCapitalizationConversion'
+            : 'OcfConversionMechanismFixedAmountConversion';
 
       const trigger: any = (() => {
         switch (right.conversion_trigger) {
@@ -60,10 +69,15 @@ function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
       })();
 
       let ratio: { numerator: string; denominator: string } | null = null;
-      const numerator = right.ratio_numerator ?? (right.ratio !== undefined ? right.ratio : undefined);
+      const numerator =
+        right.ratio_numerator ?? (right.ratio !== undefined ? right.ratio : undefined);
       const denominator = right.ratio_denominator ?? (right.ratio !== undefined ? 1 : undefined);
       if (numerator !== undefined && denominator !== undefined) {
-        ratio = { numerator: typeof numerator === 'number' ? numerator.toString() : String(numerator), denominator: typeof denominator === 'number' ? denominator.toString() : String(denominator) };
+        ratio = {
+          numerator: typeof numerator === 'number' ? numerator.toString() : String(numerator),
+          denominator:
+            typeof denominator === 'number' ? denominator.toString() : String(denominator),
+        };
       }
 
       return {
@@ -72,25 +86,61 @@ function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
         conversion_trigger: trigger,
         converts_to_stock_class_id: right.converts_to_stock_class_id,
         ratio: ratio ? { tag: 'Some', value: ratio } : null,
-        percent_of_capitalization: right.percent_of_capitalization !== undefined ? { tag: 'Some', value: typeof right.percent_of_capitalization === 'number' ? right.percent_of_capitalization.toString() : String(right.percent_of_capitalization) } : null,
-        conversion_price: right.conversion_price ? { tag: 'Some', value: monetaryToDaml(right.conversion_price) } : null,
-        reference_share_price: right.reference_share_price ? { tag: 'Some', value: monetaryToDaml(right.reference_share_price) } : null,
-        reference_valuation_price_per_share: right.reference_valuation_price_per_share ? { tag: 'Some', value: monetaryToDaml(right.reference_valuation_price_per_share) } : null,
-        discount_rate: right.discount_rate !== undefined ? { tag: 'Some', value: typeof right.discount_rate === 'number' ? right.discount_rate.toString() : String(right.discount_rate) } : null,
-        valuation_cap: right.valuation_cap ? { tag: 'Some', value: monetaryToDaml(right.valuation_cap) } : null,
-        floor_price_per_share: right.floor_price_per_share ? { tag: 'Some', value: monetaryToDaml(right.floor_price_per_share) } : null,
-        ceiling_price_per_share: right.ceiling_price_per_share ? { tag: 'Some', value: monetaryToDaml(right.ceiling_price_per_share) } : null,
-        custom_description: right.custom_description ? { tag: 'Some', value: right.custom_description } : null,
-        expires_at: right.expires_at ? dateStringToDAMLTime(right.expires_at) : null
+        percent_of_capitalization:
+          right.percent_of_capitalization !== undefined
+            ? {
+                tag: 'Some',
+                value:
+                  typeof right.percent_of_capitalization === 'number'
+                    ? right.percent_of_capitalization.toString()
+                    : String(right.percent_of_capitalization),
+              }
+            : null,
+        conversion_price: right.conversion_price
+          ? { tag: 'Some', value: monetaryToDaml(right.conversion_price) }
+          : null,
+        reference_share_price: right.reference_share_price
+          ? { tag: 'Some', value: monetaryToDaml(right.reference_share_price) }
+          : null,
+        reference_valuation_price_per_share: right.reference_valuation_price_per_share
+          ? { tag: 'Some', value: monetaryToDaml(right.reference_valuation_price_per_share) }
+          : null,
+        discount_rate:
+          right.discount_rate !== undefined
+            ? {
+                tag: 'Some',
+                value:
+                  typeof right.discount_rate === 'number'
+                    ? right.discount_rate.toString()
+                    : String(right.discount_rate),
+              }
+            : null,
+        valuation_cap: right.valuation_cap
+          ? { tag: 'Some', value: monetaryToDaml(right.valuation_cap) }
+          : null,
+        floor_price_per_share: right.floor_price_per_share
+          ? { tag: 'Some', value: monetaryToDaml(right.floor_price_per_share) }
+          : null,
+        ceiling_price_per_share: right.ceiling_price_per_share
+          ? { tag: 'Some', value: monetaryToDaml(right.ceiling_price_per_share) }
+          : null,
+        custom_description: right.custom_description
+          ? { tag: 'Some', value: right.custom_description }
+          : null,
+        expires_at: right.expires_at ? dateStringToDAMLTime(right.expires_at) : null,
       };
     }),
-    liquidation_preference_multiple: stockClassData.liquidation_preference_multiple ?
-      (typeof stockClassData.liquidation_preference_multiple === 'number' ?
-        stockClassData.liquidation_preference_multiple.toString() : stockClassData.liquidation_preference_multiple) : null,
-    participation_cap_multiple: stockClassData.participation_cap_multiple ?
-      (typeof stockClassData.participation_cap_multiple === 'number' ?
-        stockClassData.participation_cap_multiple.toString() : stockClassData.participation_cap_multiple) : null,
-    comments: stockClassData.comments || []
+    liquidation_preference_multiple: cleaned.liquidation_preference_multiple
+      ? typeof cleaned.liquidation_preference_multiple === 'number'
+        ? cleaned.liquidation_preference_multiple.toString()
+        : cleaned.liquidation_preference_multiple
+      : null,
+    participation_cap_multiple: cleaned.participation_cap_multiple
+      ? typeof cleaned.participation_cap_multiple === 'number'
+        ? cleaned.participation_cap_multiple.toString()
+        : cleaned.participation_cap_multiple
+      : null,
+    comments: cleaned.comments || [],
   };
 }
 
@@ -123,9 +173,11 @@ export interface CreateStockClassParams {
   stockClassData: OcfStockClassData;
 }
 
-export function buildCreateStockClassCommand(params: CreateStockClassParams): CommandWithDisclosedContracts {
+export function buildCreateStockClassCommand(
+  params: CreateStockClassParams
+): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockClass = {
-    stock_class_data: stockClassDataToDaml(params.stockClassData)
+    stock_class_data: stockClassDataToDaml(params.stockClassData),
   };
 
   const command: Command = {
@@ -133,8 +185,8 @@ export function buildCreateStockClassCommand(params: CreateStockClassParams): Co
       templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
       contractId: params.issuerContractId,
       choice: 'CreateStockClass',
-      choiceArgument: choiceArguments as any
-    }
+      choiceArgument: choiceArguments as any,
+    },
   };
 
   const disclosedContracts: DisclosedContract[] = [
@@ -142,8 +194,8 @@ export function buildCreateStockClassCommand(params: CreateStockClassParams): Co
       templateId: params.featuredAppRightContractDetails.templateId,
       contractId: params.featuredAppRightContractDetails.contractId,
       createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId
-    }
+      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
+    },
   ];
 
   return { command, disclosedContracts };

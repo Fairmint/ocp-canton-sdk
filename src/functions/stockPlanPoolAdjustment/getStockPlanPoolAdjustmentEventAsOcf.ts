@@ -1,4 +1,4 @@
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 
 export interface OcfStockPlanPoolAdjustmentEvent {
   object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT';
@@ -11,8 +11,13 @@ export interface OcfStockPlanPoolAdjustmentEvent {
   comments?: string[];
 }
 
-export interface GetStockPlanPoolAdjustmentEventAsOcfParams { contractId: string }
-export interface GetStockPlanPoolAdjustmentEventAsOcfResult { event: OcfStockPlanPoolAdjustmentEvent; contractId: string }
+export interface GetStockPlanPoolAdjustmentEventAsOcfParams {
+  contractId: string;
+}
+export interface GetStockPlanPoolAdjustmentEventAsOcfResult {
+  event: OcfStockPlanPoolAdjustmentEvent;
+  contractId: string;
+}
 
 export async function getStockPlanPoolAdjustmentEventAsOcf(
   client: LedgerJsonApiClient,
@@ -24,15 +29,18 @@ export async function getStockPlanPoolAdjustmentEventAsOcf(
   const d = arg.adjustment_data || arg;
   const event: OcfStockPlanPoolAdjustmentEvent = {
     object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
-    id: (d as any).id,
+    id: d.id,
     date: (d.date as string).split('T')[0],
     stock_plan_id: d.stock_plan_id,
-    shares_reserved: typeof d.shares_reserved === 'number' ? String(d.shares_reserved) : d.shares_reserved,
-    ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
-    ...(d.stockholder_approval_date ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {})
+    shares_reserved:
+      typeof d.shares_reserved === 'number' ? String(d.shares_reserved) : d.shares_reserved,
+    ...(d.board_approval_date
+      ? { board_approval_date: (d.board_approval_date as string).split('T')[0] }
+      : {}),
+    ...(d.stockholder_approval_date
+      ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }
+      : {}),
+    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };
   return { event, contractId: params.contractId };
 }
-
-

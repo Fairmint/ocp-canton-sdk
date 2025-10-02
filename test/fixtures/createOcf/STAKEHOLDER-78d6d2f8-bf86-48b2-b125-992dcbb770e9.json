@@ -97,9 +97,7 @@
           ],
           "tax_ids": [],
           "comments": [],
-          "current_relationships": [
-            "OcfRelEmployee"
-          ]
+          "current_relationships": ["OcfRelEmployee"]
         }
       }
     }
@@ -142,9 +140,7 @@
                       }
                     ],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelEmployee"
-                    ],
+                    "current_relationships": ["OcfRelEmployee"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [],
@@ -285,9 +281,7 @@
                       }
                     ],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelEmployee"
-                    ],
+                    "current_relationships": ["OcfRelEmployee"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [],
@@ -350,9 +344,7 @@
       "last_name": "Doe"
     },
     "stakeholder_type": "INDIVIDUAL",
-    "current_relationships": [
-      "EMPLOYEE"
-    ],
+    "current_relationships": ["EMPLOYEE"],
     "primary_contact": {
       "name": {
         "legal_name": "Georgie Doe",

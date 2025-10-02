@@ -49,7 +49,6 @@ export interface Name {
   last_name?: string;
 }
 
-
 /**
  * Enum - Stock Class Type
  * Type of stock class (common or preferred)
@@ -62,14 +61,22 @@ export type StockClassType = 'PREFERRED' | 'COMMON';
  * Mechanism by which conversion occurs (see schema for full list)
  * OCF (primitive): https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/primitives/types/conversion_mechanisms/ConversionMechanism.schema.json
  */
-export type ConversionMechanism = 'RATIO_CONVERSION' | 'PERCENT_CONVERSION' | 'FIXED_AMOUNT_CONVERSION';
+export type ConversionMechanism =
+  | 'RATIO_CONVERSION'
+  | 'PERCENT_CONVERSION'
+  | 'FIXED_AMOUNT_CONVERSION';
 
 /**
  * Enum - Conversion Trigger Type
  * Type of conversion trigger
  * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/ConversionTriggerType.schema.json
  */
-export type ConversionTrigger = 'AUTOMATIC_ON_CONDITION' | 'AUTOMATIC_ON_DATE' | 'ELECTIVE_ON_CONDITION' | 'ELECTIVE_ON_DATE' | 'ELECTIVE_AT_WILL';
+export type ConversionTrigger =
+  | 'AUTOMATIC_ON_CONDITION'
+  | 'AUTOMATIC_ON_DATE'
+  | 'ELECTIVE_ON_CONDITION'
+  | 'ELECTIVE_ON_DATE'
+  | 'ELECTIVE_AT_WILL';
 
 /**
  * Enum - Rounding Type

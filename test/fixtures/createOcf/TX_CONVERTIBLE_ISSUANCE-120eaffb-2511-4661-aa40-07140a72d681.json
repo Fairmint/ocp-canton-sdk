@@ -6,9 +6,7 @@
   "db": {
     "id": "120eaffb-2511-4661-aa40-07140a72d681",
     "date": "2024-03-28",
-    "comments": [
-      "This SAFE includes both a post-money valuation cap and a discount rate."
-    ],
+    "comments": ["This SAFE includes both a post-money valuation cap and a discount rate."],
     "custom_id": "CN-1",
     "seniority": 2,
     "object_type": "TX_CONVERTIBLE_ISSUANCE",
@@ -266,9 +264,7 @@
           ],
           "pro_rata": null,
           "seniority": "2",
-          "comments": [
-            "This SAFE includes both a post-money valuation cap and a discount rate."
-          ]
+          "comments": ["This SAFE includes both a post-money valuation cap and a discount rate."]
         }
       }
     }
@@ -808,8 +804,6 @@
         "jurisdiction": "US"
       }
     ],
-    "comments": [
-      "This SAFE includes both a post-money valuation cap and a discount rate."
-    ]
+    "comments": ["This SAFE includes both a post-money valuation cap and a discount rate."]
   }
 }

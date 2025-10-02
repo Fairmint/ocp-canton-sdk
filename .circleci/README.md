@@ -6,10 +6,10 @@ This CircleCI workflow automatically fixes and commits build-generated changes i
 
 1. Runs `npm run build`, `npm run typecheck`, and `npm run test:ci`
 2. If files were modified:
-   - Commits changes with "Auto-fix: build changes"
-   - Pushes to the branch
-   - **Fails the original build** (indicating fixes were applied)
-   - A new CircleCI build is triggered, and should succeed
+    - Commits changes with "Auto-fix: build changes"
+    - Pushes to the branch
+    - **Fails the original build** (indicating fixes were applied)
+    - A new CircleCI build is triggered, and should succeed
 3. If no changes, build succeeds
 
 ## Setup Required
@@ -21,8 +21,8 @@ Create a Personal Access Token with the following permissions:
 **For Fine-grained tokens:**
 
 - **Repository permissions:**
-  - `Contents`: Read and write access (to push commits)
-  - `Metadata`: Read-only access (to access repository information)
+    - `Contents`: Read and write access (to push commits)
+    - `Metadata`: Read-only access (to access repository information)
 
 **For Classic tokens:**
 
@@ -40,4 +40,3 @@ Add `GITHUB_TOKEN` environment variable in your CircleCI project settings
 - Navigate to CircleCI Project Settings
 - Go to Environment Variables section and add new variable named `GITHUB_TOKEN` with your GitHub
   token
-

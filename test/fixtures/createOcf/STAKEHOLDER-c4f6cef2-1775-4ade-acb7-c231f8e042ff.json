@@ -109,9 +109,7 @@
           ],
           "tax_ids": [],
           "comments": [],
-          "current_relationships": [
-            "OcfRelInvestor"
-          ]
+          "current_relationships": ["OcfRelInvestor"]
         }
       }
     }
@@ -154,9 +152,7 @@
                       }
                     ],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [],
@@ -302,9 +298,7 @@
                       }
                     ],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [],
@@ -372,9 +366,7 @@
       "last_name": "light"
     },
     "stakeholder_type": "INDIVIDUAL",
-    "current_relationships": [
-      "INVESTOR"
-    ],
+    "current_relationships": ["INVESTOR"],
     "primary_contact": {
       "name": {
         "legal_name": "test light",
