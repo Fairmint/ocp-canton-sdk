@@ -28,8 +28,10 @@ function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.VestingT
       return 'OcfAllocationBackLoadedToSingleTranche';
     case 'FRACTIONAL':
       return 'OcfAllocationFractional';
-    default:
-      throw new Error(`Unknown allocation type: ${t}`);
+    default: {
+      const exhaustiveCheck: never = t;
+      throw new Error(`Unknown allocation type: ${exhaustiveCheck as string}`);
+    }
   }
 }
 
