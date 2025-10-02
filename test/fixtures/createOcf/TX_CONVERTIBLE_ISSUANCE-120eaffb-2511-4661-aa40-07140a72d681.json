@@ -300,9 +300,7 @@
                     "security_id": "f15a4993-c50c-4953-8985-0fc2313aaeef",
                     "seniority": "2",
                     "stakeholder_id": "0b1254ff-b95a-43b6-a042-43bbbafd1094",
-                    "comments": [
-                      "This SAFE includes both a post-money valuation cap and a discount rate."
-                    ],
+                    "comments": ["This SAFE includes both a post-money valuation cap and a discount rate."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -428,13 +426,9 @@
                     "stockholder_approval_date": null
                   }
                 },
-                "actingParties": [
-                  "3ad6f9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["3ad6f9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "3ad6f9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["3ad6f9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00aadb080cdf68c231664b9846bb611061cdc84dc34343f6e520a4906f96fb18aaca11122084317387bb1b5dd0b751edc0c097ae72086437babd4b097fdd34f72cd296f537",
                 "packageName": "OpenCapTable-v25",
@@ -463,9 +457,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "3ad6f9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["3ad6f9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -493,12 +485,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "3ad6f9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["3ad6f9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -533,9 +521,7 @@
                     "security_id": "f15a4993-c50c-4953-8985-0fc2313aaeef",
                     "seniority": "2",
                     "stakeholder_id": "0b1254ff-b95a-43b6-a042-43bbbafd1094",
-                    "comments": [
-                      "This SAFE includes both a post-money valuation cap and a discount rate."
-                    ],
+                    "comments": ["This SAFE includes both a post-money valuation cap and a discount rate."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -663,9 +649,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "3ad6f9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["3ad6f9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "3ad6f9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"

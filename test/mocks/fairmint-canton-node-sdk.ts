@@ -16,10 +16,7 @@ export class LedgerJsonApiClient {
         this.lastAuthToken = typeof tok === 'string' ? tok : String(tok);
       }
       // Check if there's a fixture configured and validate request matches
-      const {
-        getCurrentFixture,
-        validateRequestMatchesFixture,
-      } = require('../utils/fixtureHelpers');
+      const { getCurrentFixture, validateRequestMatchesFixture } = require('../utils/fixtureHelpers');
       const fixture = getCurrentFixture();
       if (fixture) {
         validateRequestMatchesFixture(req);
@@ -49,9 +46,7 @@ export class LedgerJsonApiClient {
 
     // No fixture configured - this is an error
     const error: any = new Error(
-      'No events fixture configured. Use setEventsFixtureData() in your test setup. ' +
-        'Contract ID: ' +
-        req.contractId
+      'No events fixture configured. Use setEventsFixtureData() in your test setup. ' + 'Contract ID: ' + req.contractId
     );
     error.code = 404;
     error.body = { code: 'CONTRACT_EVENTS_NOT_FOUND' };
@@ -79,9 +74,9 @@ export class LedgerJsonApiClient {
 
 export class AuthenticationManager {
   constructor(private readonly config?: ClientConfig) {}
-  async getAuthToken(): Promise<string | undefined> {
+  getAuthToken(): Promise<string | undefined> {
     // Mock implementation - returns undefined
-    return undefined;
+    return Promise.resolve(undefined);
   }
 }
 
@@ -109,13 +104,7 @@ export class ValidatorApiClient extends BaseClient {
   public lookupFeaturedAppRight = jest.fn(() => {
     const path = require('path');
     const fs = require('fs');
-    const fixturePath = path.join(
-      __dirname,
-      '..',
-      'fixtures',
-      'validatorApi',
-      'featured-app-right.json'
-    );
+    const fixturePath = path.join(__dirname, '..', 'fixtures', 'validatorApi', 'featured-app-right.json');
     const data = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
     return data;
   });
@@ -138,9 +127,7 @@ export class ValidatorApiClient extends BaseClient {
 }
 
 // Export the getFeaturedAppRightContractDetails function
-export async function getFeaturedAppRightContractDetails(
-  validatorApi: ValidatorApiClient
-): Promise<any> {
+export async function getFeaturedAppRightContractDetails(validatorApi: ValidatorApiClient): Promise<any> {
   const featuredAppRight = await validatorApi.lookupFeaturedAppRight();
   if (!featuredAppRight?.featured_app_right) {
     throw new Error(`No featured app right found for party ${validatorApi.getPartyId()}`);

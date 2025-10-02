@@ -1,11 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { dateStringToDAMLTime, addressToDaml, cleanComments } from '../../utils/typeConversions';
-import type {
-  OcfIssuerData,
-  CommandWithDisclosedContracts,
-  EmailType,
-  PhoneType,
-} from '../../types';
+import type { OcfIssuerData, CommandWithDisclosedContracts, EmailType, PhoneType } from '../../types';
 import type {
   Command,
   DisclosedContract,
@@ -65,17 +60,16 @@ function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issu
     id: issuerData.id,
     legal_name: issuerData.legal_name,
     country_of_formation: issuerData.country_of_formation,
-    dba: issuerData.dba || null,
+    dba: issuerData.dba ?? null,
     formation_date: dateStringToDAMLTime(issuerData.formation_date),
-    country_subdivision_of_formation: issuerData.country_subdivision_of_formation || null,
-    country_subdivision_name_of_formation: issuerData.country_subdivision_name_of_formation || null,
-    tax_ids: issuerData.tax_ids || [],
+    country_subdivision_of_formation: issuerData.country_subdivision_of_formation ?? null,
+    country_subdivision_name_of_formation: issuerData.country_subdivision_name_of_formation ?? null,
+    tax_ids: issuerData.tax_ids ?? [],
     email: issuerData.email ? emailToDaml(issuerData.email) : null,
     phone: issuerData.phone ? phoneToDaml(issuerData.phone) : null,
     address: issuerData.address ? addressToDaml(issuerData.address) : null,
     initial_shares_authorized:
-      issuerData.initial_shares_authorized !== undefined &&
-      issuerData.initial_shares_authorized !== null
+      issuerData.initial_shares_authorized !== undefined && issuerData.initial_shares_authorized !== null
         ? ((): Fairmint.OpenCapTable.Issuer.OcfIssuerData['initial_shares_authorized'] => {
             const v = issuerData.initial_shares_authorized;
             if (typeof v === 'number' || (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v))) {
@@ -120,9 +114,7 @@ export interface CreateIssuerParams {
   issuerData: OcfIssuerData;
 }
 
-export function buildCreateIssuerCommand(
-  params: CreateIssuerParams
-): CommandWithDisclosedContracts {
+export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.IssuerAuthorization.CreateIssuer = {
     issuer_data: issuerDataToDaml(params.issuerData),
   };

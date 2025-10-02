@@ -76,10 +76,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
         const disclosedContracts: DisclosedContract[] = [];
 
         // For issuer creation, include the issuer authorization contract
-        if (
-          fixture.db.object_type === 'ISSUER' &&
-          fixture.testContext.issuerAuthorizationContractDetails
-        ) {
+        if (fixture.db.object_type === 'ISSUER' && fixture.testContext.issuerAuthorizationContractDetails) {
           // Extract only the required DisclosedContract fields
           const authContract = fixture.testContext.issuerAuthorizationContractDetails;
           disclosedContracts.push({
@@ -134,8 +131,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
                 featuredAppRightContractDetails: featuredAppRight,
                 issuerParty: fixture.testContext.issuerParty,
                 issuerData: fixture.db as any,
-                issuerAuthorizationContractDetails:
-                  fixture.testContext.issuerAuthorizationContractDetails!,
+                issuerAuthorizationContractDetails: fixture.testContext.issuerAuthorizationContractDetails!,
               })
             : client.buildCreateOcfObjectCommand({
                 issuerContractId: fixture.testContext.issuerContractId,
@@ -156,15 +152,12 @@ describe('OCP Client - Dynamic Create Tests', () => {
         expect(response.transactionTree).toBeDefined();
 
         // Access eventsById - fixtures have the structure transactionTree.transaction.eventsById
-        const transaction =
-          (response.transactionTree as any).transaction ?? response.transactionTree;
+        const transaction = (response.transactionTree as any).transaction ?? response.transactionTree;
         expect(transaction.eventsById).toBeDefined();
         expect(Object.keys(transaction.eventsById).length).toBeGreaterThan(0);
 
         // Find any created event
-        const createdEvent = Object.values(transaction.eventsById).find(
-          (event: any) => event.CreatedTreeEvent
-        );
+        const createdEvent = Object.values(transaction.eventsById).find((event: any) => event.CreatedTreeEvent);
 
         expect(createdEvent).toBeDefined();
         const contractId = (createdEvent as any).CreatedTreeEvent.value.contractId;
@@ -175,11 +168,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
 
       test('builds archive and create commands when previousContractId is provided', async () => {
         // Skip this test for types that don't support archiving or have different requirements
-        const unsupportedTypes = [
-          'ISSUER',
-          'TX_EQUITY_COMPENSATION_EXERCISE',
-          'TX_EQUITY_COMPENSATION_ISSUANCE',
-        ];
+        const unsupportedTypes = ['ISSUER', 'TX_EQUITY_COMPENSATION_EXERCISE', 'TX_EQUITY_COMPENSATION_ISSUANCE'];
         if (unsupportedTypes.includes(fixture.db.object_type as string)) {
           return;
         }
@@ -229,10 +218,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
 
         // Type guard to ensure ExerciseCommand exists
         if ('ExerciseCommand' in archiveCommand.command) {
-          expect(archiveCommand.command.ExerciseCommand).toHaveProperty(
-            'contractId',
-            previousContractId
-          );
+          expect(archiveCommand.command.ExerciseCommand).toHaveProperty('contractId', previousContractId);
           // Archive command choice should contain 'Archive'
           expect(archiveCommand.command.ExerciseCommand.choice).toContain('Archive');
         } else {
@@ -246,10 +232,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
         expect(createCommand.command).toHaveProperty('ExerciseCommand');
 
         // Create command should match the one built without archive
-        if (
-          'ExerciseCommand' in createCommand.command &&
-          'ExerciseCommand' in commandsWithoutArchive[0].command
-        ) {
+        if ('ExerciseCommand' in createCommand.command && 'ExerciseCommand' in commandsWithoutArchive[0].command) {
           expect(createCommand.command.ExerciseCommand.choice).toBe(
             commandsWithoutArchive[0].command.ExerciseCommand.choice
           );
@@ -266,12 +249,9 @@ describe('OCP Client - Dynamic Create Tests', () => {
 
       test('get*AsOcf returns expected OCF data', async () => {
         // Determine where the response is located
-        const response =
-          fixture.response ?? fixture.testContext.issuerAuthorizationContractDetails?.response;
+        const response = fixture.response ?? fixture.testContext.issuerAuthorizationContractDetails?.response;
         const synchronizerId =
-          fixture.synchronizerId ??
-          fixture.testContext.issuerAuthorizationContractDetails?.synchronizerId ??
-          '';
+          fixture.synchronizerId ?? fixture.testContext.issuerAuthorizationContractDetails?.synchronizerId ?? '';
 
         // Skip this test if there's no response data (required for events mock)
         if (!response) {
@@ -331,17 +311,16 @@ describe('OCP Client - Dynamic Create Tests', () => {
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
-              result =
-                await client.issuerAuthorizedSharesAdjustment.getIssuerAuthorizedSharesAdjustmentEventAsOcf(
-                  { contractId }
-                );
+              result = await client.issuerAuthorizedSharesAdjustment.getIssuerAuthorizedSharesAdjustmentEventAsOcf({
+                contractId,
+              });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
               result =
-                await client.stockClassAuthorizedSharesAdjustment.getStockClassAuthorizedSharesAdjustmentEventAsOcf(
-                  { contractId }
-                );
+                await client.stockClassAuthorizedSharesAdjustment.getStockClassAuthorizedSharesAdjustmentEventAsOcf({
+                  contractId,
+                });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':

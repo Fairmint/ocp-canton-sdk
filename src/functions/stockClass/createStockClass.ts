@@ -6,18 +6,22 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
-function stockClassTypeToDaml(stockClassType: StockClassType): any {
+function stockClassTypeToDaml(
+  stockClassType: StockClassType
+): 'OcfStockClassTypePreferred' | 'OcfStockClassTypeCommon' {
   switch (stockClassType) {
     case 'PREFERRED':
       return 'OcfStockClassTypePreferred';
     case 'COMMON':
       return 'OcfStockClassTypeCommon';
-    default:
-      throw new Error(`Unknown stock class type: ${stockClassType}`);
+    default: {
+      const exhaustiveCheck: never = stockClassType;
+      throw new Error(`Unknown stock class type: ${String(exhaustiveCheck)}`);
+    }
   }
 }
 
-function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
+function stockClassDataToDaml(stockClassData: OcfStockClassData): Record<string, unknown> {
   const d = stockClassData;
   if (!d.id) throw new Error('stockClassData.id is required');
   return {
@@ -29,29 +33,28 @@ function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
       typeof d.initial_shares_authorized === 'number'
         ? d.initial_shares_authorized.toString()
         : d.initial_shares_authorized,
-    votes_per_share:
-      typeof d.votes_per_share === 'number'
-        ? d.votes_per_share.toString()
-        : d.votes_per_share,
-    seniority:
-      typeof d.seniority === 'number' ? d.seniority.toString() : d.seniority,
-    board_approval_date: d.board_approval_date
-      ? dateStringToDAMLTime(d.board_approval_date)
-      : null,
-    stockholder_approval_date: d.stockholder_approval_date
-      ? dateStringToDAMLTime(d.stockholder_approval_date)
-      : null,
+    votes_per_share: typeof d.votes_per_share === 'number' ? d.votes_per_share.toString() : d.votes_per_share,
+    seniority: typeof d.seniority === 'number' ? d.seniority.toString() : d.seniority,
+    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
+    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     par_value: d.par_value ? monetaryToDaml(d.par_value) : null,
     price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share) : null,
-    conversion_rights: (d.conversion_rights || []).map((right) => {
-      const mechanism: any =
+    conversion_rights: (d.conversion_rights ?? []).map((right) => {
+      const mechanism:
+        | 'OcfConversionMechanismRatioConversion'
+        | 'OcfConversionMechanismPercentCapitalizationConversion'
+        | 'OcfConversionMechanismFixedAmountConversion' =
         right.conversion_mechanism === 'RATIO_CONVERSION'
           ? 'OcfConversionMechanismRatioConversion'
           : right.conversion_mechanism === 'PERCENT_CONVERSION'
             ? 'OcfConversionMechanismPercentCapitalizationConversion'
             : 'OcfConversionMechanismFixedAmountConversion';
 
-      const trigger: any = (() => {
+      const trigger:
+        | 'OcfTriggerTypeAutomaticOnCondition'
+        | 'OcfTriggerTypeAutomaticOnDate'
+        | 'OcfTriggerTypeElectiveAtWill'
+        | 'OcfTriggerTypeElectiveOnCondition' = (() => {
         switch (right.conversion_trigger) {
           case 'AUTOMATIC_ON_CONDITION':
             return 'OcfTriggerTypeAutomaticOnCondition';
@@ -69,14 +72,12 @@ function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
       })();
 
       let ratio: { numerator: string; denominator: string } | null = null;
-      const numerator =
-        right.ratio_numerator ?? (right.ratio !== undefined ? right.ratio : undefined);
+      const numerator = right.ratio_numerator ?? right.ratio;
       const denominator = right.ratio_denominator ?? (right.ratio !== undefined ? 1 : undefined);
       if (numerator !== undefined && denominator !== undefined) {
         ratio = {
           numerator: typeof numerator === 'number' ? numerator.toString() : String(numerator),
-          denominator:
-            typeof denominator === 'number' ? denominator.toString() : String(denominator),
+          denominator: typeof denominator === 'number' ? denominator.toString() : String(denominator),
         };
       }
 
@@ -115,18 +116,14 @@ function stockClassDataToDaml(stockClassData: OcfStockClassData): any {
                     : String(right.discount_rate),
               }
             : null,
-        valuation_cap: right.valuation_cap
-          ? { tag: 'Some', value: monetaryToDaml(right.valuation_cap) }
-          : null,
+        valuation_cap: right.valuation_cap ? { tag: 'Some', value: monetaryToDaml(right.valuation_cap) } : null,
         floor_price_per_share: right.floor_price_per_share
           ? { tag: 'Some', value: monetaryToDaml(right.floor_price_per_share) }
           : null,
         ceiling_price_per_share: right.ceiling_price_per_share
           ? { tag: 'Some', value: monetaryToDaml(right.ceiling_price_per_share) }
           : null,
-        custom_description: right.custom_description
-          ? { tag: 'Some', value: right.custom_description }
-          : null,
+        custom_description: right.custom_description ? { tag: 'Some', value: right.custom_description } : null,
         expires_at: right.expires_at ? dateStringToDAMLTime(right.expires_at) : null,
       };
     }),
@@ -173,10 +170,8 @@ export interface CreateStockClassParams {
   stockClassData: OcfStockClassData;
 }
 
-export function buildCreateStockClassCommand(
-  params: CreateStockClassParams
-): CommandWithDisclosedContracts {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockClass = {
+export function buildCreateStockClassCommand(params: CreateStockClassParams): CommandWithDisclosedContracts {
+  const choiceArguments = {
     stock_class_data: stockClassDataToDaml(params.stockClassData),
   };
 
@@ -185,7 +180,7 @@ export function buildCreateStockClassCommand(
       templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
       contractId: params.issuerContractId,
       choice: 'CreateStockClass',
-      choiceArgument: choiceArguments as any,
+      choiceArgument: choiceArguments,
     },
   };
 

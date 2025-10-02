@@ -297,9 +297,7 @@
                     "security_id": "04bc3da0-c09b-4e75-96a9-900ef22d1153",
                     "seniority": "2",
                     "stakeholder_id": "09506519-4d51-4f5a-822b-c2064822e07d",
-                    "comments": [
-                      "This SAFE includes a post-money valuation cap of $20,000,000 USD."
-                    ],
+                    "comments": ["This SAFE includes a post-money valuation cap of $20,000,000 USD."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -425,13 +423,9 @@
                     "stockholder_approval_date": null
                   }
                 },
-                "actingParties": [
-                  "58ee94::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["58ee94::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "58ee94::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["58ee94::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "009043ec345ef7e1d2436d46e728b5716e2ce816093e859f9616ccf1ac64daffcaca111220544b5059ac7035c768d11000f1b2b6301fbea428364e0adb3401b6a64747a974",
                 "packageName": "OpenCapTable-v25",
@@ -460,9 +454,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "58ee94::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["58ee94::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -490,12 +482,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "58ee94::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["58ee94::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -530,9 +518,7 @@
                     "security_id": "04bc3da0-c09b-4e75-96a9-900ef22d1153",
                     "seniority": "2",
                     "stakeholder_id": "09506519-4d51-4f5a-822b-c2064822e07d",
-                    "comments": [
-                      "This SAFE includes a post-money valuation cap of $20,000,000 USD."
-                    ],
+                    "comments": ["This SAFE includes a post-money valuation cap of $20,000,000 USD."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -660,9 +646,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "58ee94::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["58ee94::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "58ee94::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"

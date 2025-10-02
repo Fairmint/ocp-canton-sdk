@@ -12,8 +12,7 @@ module.exports = {
   },
   moduleNameMapper: {
     '^@fairmint/canton-node-sdk$': '<rootDir>/test/mocks/fairmint-canton-node-sdk.ts',
-    '^@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations$':
-      '<rootDir>/test/mocks/canton-deep.ts',
+    '^@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations$': '<rootDir>/test/mocks/canton-deep.ts',
     '^@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands$':
       '<rootDir>/test/mocks/canton-deep.ts',
   },

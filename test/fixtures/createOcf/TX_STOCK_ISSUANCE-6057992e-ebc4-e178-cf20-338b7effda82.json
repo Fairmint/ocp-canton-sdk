@@ -6,9 +6,7 @@
   "db": {
     "id": "6057992e-ebc4-e178-cf20-338b7effda82",
     "date": "2023-11-06",
-    "comments": [
-      "{\"fairmintData\":{\"date\":\"2023-11-06\",\"series_id\":\"84d80b9d-6f9e-4656-a94b-7cbf07bd3957\"}}"
-    ],
+    "comments": ["{\"fairmintData\":{\"date\":\"2023-11-06\",\"series_id\":\"84d80b9d-6f9e-4656-a94b-7cbf07bd3957\"}}"],
     "quantity": "100200",
     "custom_id": "CS-2",
     "cost_basis": {
@@ -139,13 +137,9 @@
                     "vesting_terms_id": "00000000-0000-0000-0000-000000000000"
                   }
                 },
-                "actingParties": [
-                  "e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "002eef1998e16ddeddb84f31cc7bb5e7ed7efe64a8e95f6deb114560eae3bab015ca111220ed9a3b8e8283570fad4008c26c93ebeecfa1bbf296c48a70b3b3e603e159403d",
                 "packageName": "OpenCapTable-v25",
@@ -174,9 +168,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -204,12 +196,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -270,9 +258,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                   "e5eb6f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
@@ -319,8 +305,6 @@
       "currency": "USD"
     },
     "stock_legend_ids": [],
-    "comments": [
-      "{\"fairmintData\":{\"date\":\"2023-11-06\",\"series_id\":\"84d80b9d-6f9e-4656-a94b-7cbf07bd3957\"}}"
-    ]
+    "comments": ["{\"fairmintData\":{\"date\":\"2023-11-06\",\"series_id\":\"84d80b9d-6f9e-4656-a94b-7cbf07bd3957\"}}"]
   }
 }

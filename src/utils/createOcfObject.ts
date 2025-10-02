@@ -74,21 +74,11 @@ export interface CreateOcfObjectParams {
  * @param params - Parameters for building the OCF object command(s)
  * @returns Array of commands with their disclosed contracts
  */
-export type BuildCreateOcfObjectCommandFunction = (
-  params: CreateOcfObjectParams
-) => CommandWithDisclosedContracts[];
+export type BuildCreateOcfObjectCommandFunction = (params: CreateOcfObjectParams) => CommandWithDisclosedContracts[];
 
-export function buildCreateOcfObjectCommandFactory(
-  client: OcpClient
-): BuildCreateOcfObjectCommandFunction {
+export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCreateOcfObjectCommandFunction {
   return (params: CreateOcfObjectParams): CommandWithDisclosedContracts[] => {
-    const {
-      issuerContractId,
-      featuredAppRightContractDetails,
-      issuerParty,
-      ocfData,
-      previousContractId,
-    } = params;
+    const { issuerContractId, featuredAppRightContractDetails, issuerParty, ocfData, previousContractId } = params;
 
     const commands: CommandWithDisclosedContracts[] = [];
 
@@ -116,7 +106,7 @@ export function buildCreateOcfObjectCommandFactory(
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            stockClassData: ocfData as unknown as OcfStockClassData
+            stockClassData: ocfData as unknown as OcfStockClassData,
           });
 
         case 'STAKEHOLDER':
@@ -168,24 +158,20 @@ export function buildCreateOcfObjectCommandFactory(
           });
 
         case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
-          return client.issuerAuthorizedSharesAdjustment.buildCreateIssuerAuthorizedSharesAdjustmentCommand(
-            {
-              issuerContractId,
-              featuredAppRightContractDetails,
-              issuerParty,
-              adjustmentData: ocfData as unknown as OcfIssuerAuthorizedSharesAdjustmentTxData,
-            }
-          );
+          return client.issuerAuthorizedSharesAdjustment.buildCreateIssuerAuthorizedSharesAdjustmentCommand({
+            issuerContractId,
+            featuredAppRightContractDetails,
+            issuerParty,
+            adjustmentData: ocfData as unknown as OcfIssuerAuthorizedSharesAdjustmentTxData,
+          });
 
         case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
-          return client.stockClassAuthorizedSharesAdjustment.buildCreateStockClassAuthorizedSharesAdjustmentCommand(
-            {
-              issuerContractId,
-              featuredAppRightContractDetails,
-              issuerParty,
-              adjustmentData: ocfData as unknown as OcfStockClassAuthorizedSharesAdjustmentTxData,
-            }
-          );
+          return client.stockClassAuthorizedSharesAdjustment.buildCreateStockClassAuthorizedSharesAdjustmentCommand({
+            issuerContractId,
+            featuredAppRightContractDetails,
+            issuerParty,
+            adjustmentData: ocfData as unknown as OcfStockClassAuthorizedSharesAdjustmentTxData,
+          });
 
         case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
           return client.stockPlanPoolAdjustment.buildCreateStockPlanPoolAdjustmentCommand({
@@ -316,18 +302,17 @@ function buildArchiveCommand(
       };
     case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
       return {
-        command:
-          client.issuerAuthorizedSharesAdjustment.buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand(
-            { contractId }
-          ),
+        command: client.issuerAuthorizedSharesAdjustment.buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand({
+          contractId,
+        }),
         disclosedContracts,
       };
     case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
       return {
         command:
-          client.stockClassAuthorizedSharesAdjustment.buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand(
-            { contractId }
-          ),
+          client.stockClassAuthorizedSharesAdjustment.buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand({
+            contractId,
+          }),
         disclosedContracts,
       };
     case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':

@@ -18,9 +18,7 @@ function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehav
   }
 }
 
-function damlStockPlanDataToNative(
-  d: Fairmint.OpenCapTable.StockPlan.OcfStockPlanData
-): OcfStockPlanData {
+function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.StockPlan.OcfStockPlanData): OcfStockPlanData {
   const dataWithId = d as unknown as { id?: string };
   return {
     id: dataWithId.id ?? '',
@@ -33,9 +31,7 @@ function damlStockPlanDataToNative(
     }),
     initial_shares_reserved: d.initial_shares_reserved || '0',
     ...(d.default_cancellation_behavior && {
-      default_cancellation_behavior: damlCancellationBehaviorToNative(
-        d.default_cancellation_behavior
-      ),
+      default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior),
     }),
     stock_class_ids: Array.isArray((d as unknown as { stock_class_ids?: unknown }).stock_class_ids)
       ? (d as unknown as { stock_class_ids: string[] }).stock_class_ids

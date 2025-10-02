@@ -12,9 +12,7 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
-function allocationTypeToDaml(
-  t: AllocationType
-): Fairmint.OpenCapTable.VestingTerms.OcfAllocationType {
+function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.VestingTerms.OcfAllocationType {
   switch (t) {
     case 'CUMULATIVE_ROUNDING':
       return 'OcfAllocationCumulativeRounding';
@@ -35,9 +33,43 @@ function allocationTypeToDaml(
   }
 }
 
-function mapOcfDayOfMonthToDaml(day: string): any {
-  const d = (day || '').toString().toUpperCase();
-  const table: Record<string, any> = {
+type OcfVestingDay =
+  | 'OcfVestingDay01'
+  | 'OcfVestingDay02'
+  | 'OcfVestingDay03'
+  | 'OcfVestingDay04'
+  | 'OcfVestingDay05'
+  | 'OcfVestingDay06'
+  | 'OcfVestingDay07'
+  | 'OcfVestingDay08'
+  | 'OcfVestingDay09'
+  | 'OcfVestingDay10'
+  | 'OcfVestingDay11'
+  | 'OcfVestingDay12'
+  | 'OcfVestingDay13'
+  | 'OcfVestingDay14'
+  | 'OcfVestingDay15'
+  | 'OcfVestingDay16'
+  | 'OcfVestingDay17'
+  | 'OcfVestingDay18'
+  | 'OcfVestingDay19'
+  | 'OcfVestingDay20'
+  | 'OcfVestingDay21'
+  | 'OcfVestingDay22'
+  | 'OcfVestingDay23'
+  | 'OcfVestingDay24'
+  | 'OcfVestingDay25'
+  | 'OcfVestingDay26'
+  | 'OcfVestingDay27'
+  | 'OcfVestingDay28'
+  | 'OcfVestingDay29OrLast'
+  | 'OcfVestingDay30OrLast'
+  | 'OcfVestingDay31OrLast'
+  | 'OcfVestingStartDayOrLast';
+
+function mapOcfDayOfMonthToDaml(day: string): OcfVestingDay {
+  const d = (day ?? '').toString().toUpperCase();
+  const table: Record<string, OcfVestingDay> = {
     '01': 'OcfVestingDay01',
     '02': 'OcfVestingDay02',
     '03': 'OcfVestingDay03',
@@ -71,10 +103,11 @@ function mapOcfDayOfMonthToDaml(day: string): any {
     '31_OR_LAST_DAY_OF_MONTH': 'OcfVestingDay31OrLast',
     VESTING_START_DAY_OR_LAST_DAY_OF_MONTH: 'OcfVestingStartDayOrLast',
   };
-  return table[d] || 'OcfVestingStartDayOrLast';
+  return table[d] ?? 'OcfVestingStartDayOrLast';
 }
 
-function vestingTriggerToDaml(t: any): any {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger {
   const type: string | undefined = typeof t?.type === 'string' ? t.type.toUpperCase() : undefined;
 
   if (type === 'VESTING_START_DATE')
@@ -88,14 +121,16 @@ function vestingTriggerToDaml(t: any): any {
       value: {},
     } as Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger;
   if (type === 'VESTING_SCHEDULE_ABSOLUTE') {
-    const date: string | undefined = t?.date || t?.at;
+    const date: string | undefined = 'date' in t ? (t.date ?? t.at) : undefined;
     if (!date) throw new Error('Vesting absolute trigger requires date');
-    return { tag: 'OcfVestingScheduleAbsoluteTrigger', value: dateStringToDAMLTime(date) };
+    return {
+      tag: 'OcfVestingScheduleAbsoluteTrigger',
+      value: dateStringToDAMLTime(date),
+    } as unknown as Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger;
   }
   if (type === 'VESTING_SCHEDULE_RELATIVE') {
-    const p = t?.period || {};
-    const pType: 'DAYS' | 'MONTHS' =
-      (p?.type || '').toString().toUpperCase() === 'MONTHS' ? 'MONTHS' : 'DAYS';
+    const p = t?.period ?? {};
+    const pType: 'DAYS' | 'MONTHS' = (p?.type ?? '').toString().toUpperCase() === 'MONTHS' ? 'MONTHS' : 'DAYS';
     const lengthVal = p?.length ?? p?.value;
     const occurrencesVal = p?.occurrences;
     const cliffVal = p?.cliff_installment;
@@ -103,8 +138,7 @@ function vestingTriggerToDaml(t: any): any {
     if (occurrencesVal === undefined || occurrencesVal === null)
       throw new Error('Missing vesting relative period occurrences');
     const occurrencesNum: number = Number(occurrencesVal);
-    if (!Number.isFinite(lengthNum) || lengthNum <= 0)
-      throw new Error('Invalid vesting relative period length');
+    if (!Number.isFinite(lengthNum) || lengthNum <= 0) throw new Error('Invalid vesting relative period length');
     if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1)
       throw new Error('Invalid vesting relative period occurrences');
     let period:
@@ -117,7 +151,7 @@ function vestingTriggerToDaml(t: any): any {
           value: {
             length_: string;
             occurrences: string;
-            day_of_month: any;
+            day_of_month: OcfVestingDay;
             cliff_installment: string | null;
           };
         };
@@ -165,32 +199,23 @@ function vestingConditionPortionToDaml(
   };
 }
 
-function vestingConditionToDaml(
-  c: VestingCondition
-): Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition {
+function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition {
   return {
     id: c.id,
-    description: c.description || null,
+    description: c.description ?? null,
     portion: c.portion
       ? ({
           tag: 'Some',
           value: vestingConditionPortionToDaml(c.portion),
         } as unknown as Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition['portion'])
       : null,
-    quantity:
-      c.quantity !== undefined
-        ? typeof c.quantity === 'number'
-          ? c.quantity.toString()
-          : c.quantity
-        : null,
+    quantity: c.quantity !== undefined ? (typeof c.quantity === 'number' ? c.quantity.toString() : c.quantity) : null,
     trigger: vestingTriggerToDaml(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };
 }
 
-function vestingTermsDataToDaml(
-  d: OcfVestingTermsData
-): Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData {
+function vestingTermsDataToDaml(d: OcfVestingTermsData): Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData {
   if (!d.id) throw new Error('vestingTerms.id is required');
   return {
     id: d.id,
@@ -214,30 +239,54 @@ export interface CreateVestingTermsParams {
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/VestingTerms.schema.json
  */
 
-export function buildCreateVestingTermsCommand(
-  params: CreateVestingTermsParams
-): CommandWithDisclosedContracts {
-  const damlArgs: Fairmint.OpenCapTable.Issuer.CreateVestingTerms = {
+export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams): CommandWithDisclosedContracts {
+  const damlArgs = {
     vesting_terms_data: vestingTermsDataToDaml(params.vestingTermsData),
-  } as any;
+  };
 
   // Normalize Optional fields for JSON API: use direct value for Some, null for None
   const vtData = damlArgs.vesting_terms_data;
-  const choiceArguments: any = {
+
+  interface VestingConditionJson {
+    id: string;
+    description: string | null;
+    quantity: string | null;
+    next_condition_ids: string[];
+    portion: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion | null;
+    trigger: Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger;
+  }
+
+  const choiceArguments = {
     vesting_terms_data: {
       id: vtData.id,
       name: vtData.name,
       description: vtData.description,
       allocation_type: vtData.allocation_type,
       comments: vtData.comments,
-      vesting_conditions: (damlArgs as any).vesting_terms_data.vesting_conditions.map((c: any) => {
-        const portion = c.portion && c.portion.tag === 'Some' ? c.portion.value : null;
-        const trigger = ((): any => {
+      vesting_conditions: damlArgs.vesting_terms_data.vesting_conditions.map((c): VestingConditionJson => {
+        // Extract portion value from Optional<OcfVestingConditionPortion>
+        let portion: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion | null = null;
+        if (c.portion && typeof c.portion === 'object' && 'tag' in c.portion) {
+          const portionOpt = c.portion as {
+            tag: string;
+            value?: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion;
+          };
+          if (portionOpt.tag === 'Some' && portionOpt.value) {
+            portion = portionOpt.value;
+          }
+        }
+
+        // Normalize trigger for JSON API
+        const trigger = ((): Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger => {
           if (c.trigger && typeof c.trigger === 'object' && 'tag' in c.trigger) {
-            return 'value' in c.trigger ? c.trigger : { ...c.trigger, value: null };
+            const t = c.trigger as { tag: string; value?: unknown };
+            return 'value' in t
+              ? c.trigger
+              : ({ tag: t.tag, value: null } as unknown as Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger);
           }
           return c.trigger;
         })();
+
         return {
           id: c.id,
           description: c.description,

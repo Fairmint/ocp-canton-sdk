@@ -37,7 +37,7 @@ export async function getEquityCompensationExerciseEventAsOcf(
 
   // Some events nest OCF data under a specific key; fall back to root for backward compatibility
   const d: Record<string, unknown> =
-    (createArgument.exercise_data as Record<string, unknown> | undefined) || createArgument;
+    (createArgument.exercise_data as Record<string, unknown> | undefined) ?? createArgument;
 
   const ocf: OcfEquityCompensationExercise = {
     object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',

@@ -128,9 +128,7 @@
                     },
                     "security_id": "32235b38-eff7-4389-a26a-fa80e64fb87d",
                     "stakeholder_id": "7a42d7de-501f-41e7-81b6-f01bbcd730bb",
-                    "comments": [
-                      "use-case: Warrant with a stock class id, ie series-a-preferred-id."
-                    ],
+                    "comments": ["use-case: Warrant with a stock class id, ie series-a-preferred-id."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -170,13 +168,9 @@
                     "warrant_expiration_date": "2032-02-01T00:00:00Z"
                   }
                 },
-                "actingParties": [
-                  "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "009c99b788b848a7bee24455cd6f5566fadde7f409971e79204b9237b535aae885ca1112201216ccb91d84fe1e321c319d8b312fd247af5a08e4217b91ba3398d8da627c7f",
                 "packageName": "OpenCapTable-v25",
@@ -205,9 +199,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -235,12 +227,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -273,9 +261,7 @@
                     },
                     "security_id": "32235b38-eff7-4389-a26a-fa80e64fb87d",
                     "stakeholder_id": "7a42d7de-501f-41e7-81b6-f01bbcd730bb",
-                    "comments": [
-                      "use-case: Warrant with a stock class id, ie series-a-preferred-id."
-                    ],
+                    "comments": ["use-case: Warrant with a stock class id, ie series-a-preferred-id."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -317,9 +303,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "257503::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"

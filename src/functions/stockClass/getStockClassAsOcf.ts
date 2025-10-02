@@ -20,9 +20,7 @@ function damlStockClassTypeToNative(damlType: string): StockClassType {
   }
 }
 
-function damlStockClassDataToNative(
-  damlData: Fairmint.OpenCapTable.StockClass.OcfStockClassData
-): OcfStockClassData {
+function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.OcfStockClassData): OcfStockClassData {
   const dAny = damlData as unknown as Record<string, unknown>;
   let initialShares: string = '0';
   const isa = dAny.initial_shares_authorized;
@@ -64,8 +62,7 @@ function damlStockClassDataToNative(
           const mechanism: ConversionMechanism =
             right.conversion_mechanism === 'OcfConversionMechanismRatioConversion'
               ? 'RATIO_CONVERSION'
-              : right.conversion_mechanism ===
-                  'OcfConversionMechanismPercentCapitalizationConversion'
+              : right.conversion_mechanism === 'OcfConversionMechanismPercentCapitalizationConversion'
                 ? 'PERCENT_CONVERSION'
                 : 'FIXED_AMOUNT_CONVERSION';
           const rt = right.conversion_trigger as unknown;
@@ -88,11 +85,7 @@ function damlStockClassDataToNative(
           let ratioValue: number | undefined;
           const ratioRaw = (right as unknown as { ratio?: unknown }).ratio;
           if (ratioRaw && typeof ratioRaw === 'object') {
-            if (
-              'tag' in ratioRaw &&
-              (ratioRaw as { tag: unknown }).tag === 'Some' &&
-              'value' in ratioRaw
-            ) {
+            if ('tag' in ratioRaw && (ratioRaw as { tag: unknown }).tag === 'Some' && 'value' in ratioRaw) {
               const r = (ratioRaw as { value: { numerator?: string; denominator?: string } }).value;
               const num = parseFloat((r.numerator as string) || '1');
               const den = parseFloat((r.denominator as string) || '1');
@@ -137,8 +130,7 @@ function damlStockClassDataToNative(
                   (rsp as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value
                 );
               }
-              const rvps = (right as unknown as Record<string, unknown>)
-                .reference_valuation_price_per_share;
+              const rvps = (right as unknown as Record<string, unknown>).reference_valuation_price_per_share;
               if (
                 rvps &&
                 typeof rvps === 'object' &&
@@ -418,11 +410,8 @@ export async function getStockClassAsOcf(
     comments: Array.isArray(comments) ? comments : [],
     // Ensure numeric values are strings for OCF compatibility
     initial_shares_authorized:
-      typeof initial_shares_authorized === 'number'
-        ? initial_shares_authorized.toString()
-        : initial_shares_authorized,
-    votes_per_share:
-      typeof votes_per_share === 'number' ? votes_per_share.toString() : votes_per_share,
+      typeof initial_shares_authorized === 'number' ? initial_shares_authorized.toString() : initial_shares_authorized,
+    votes_per_share: typeof votes_per_share === 'number' ? votes_per_share.toString() : votes_per_share,
     seniority: typeof seniority === 'number' ? seniority.toString() : seniority,
     // Add optional monetary fields with proper string conversion
     ...(par_value && { par_value: ensureStringAmount(par_value) }),
@@ -440,7 +429,12 @@ export async function getStockClassAsOcf(
           : participation_cap_multiple,
     }),
     ...(Array.isArray(conversion_rights) && conversion_rights.length > 0
-      ? { conversion_rights: conversion_rights as unknown as Array<{conversion_mechanism: string; [key: string]: unknown}> }
+      ? {
+          conversion_rights: conversion_rights as unknown as Array<{
+            conversion_mechanism: string;
+            [key: string]: unknown;
+          }>,
+        }
       : {}),
   };
 

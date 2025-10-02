@@ -6,13 +6,10 @@ export interface ArchiveEquityCompensationIssuanceByIssuerParams {
   issuerParty: string;
 }
 
-export function buildArchiveEquityCompensationIssuanceByIssuerCommand(params: {
-  contractId: string;
-}): Command {
+export function buildArchiveEquityCompensationIssuanceByIssuerCommand(params: { contractId: string }): Command {
   return {
     ExerciseCommand: {
-      templateId:
-        Fairmint.OpenCapTable.EquityCompensationIssuance.EquityCompensationIssuance.templateId,
+      templateId: Fairmint.OpenCapTable.EquityCompensationIssuance.EquityCompensationIssuance.templateId,
       contractId: params.contractId,
       choice: 'ArchiveByIssuer',
       choiceArgument: {},

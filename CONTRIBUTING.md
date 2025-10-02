@@ -2,11 +2,13 @@
 
 ## Code Style Guide
 
-This document outlines the coding patterns and conventions used in this project to ensure consistency and maintainability.
+This document outlines the coding patterns and conventions used in this project to ensure
+consistency and maintainability.
 
 ### TypeScript Standards
 
 #### Strict Typing
+
 - **Never use `any` or `unknown`** without proper justification
 - Always specify explicit types for function parameters and return values
 - Prefer type inference for local variables where the type is obvious
@@ -25,6 +27,7 @@ function process(data: OcfStockCancellationTxData): ProcessedData {
 ```
 
 #### Type Utilities
+
 Use the type conversion utilities from `src/utils/typeConversions.ts`:
 
 - `numberToString(value)` - Convert number or string to string for DAML numeric fields
@@ -45,7 +48,7 @@ export function buildCreate{Entity}Command(
 
   // Validation (fail fast)
   if (!d.id) throw new Error('{entity}.id is required');
-  
+
   const choiceArguments: Fairmint.OpenCapTable.Issuer.Create{Entity} = {
     {entity}_data: {
       // List all fields explicitly (DO NOT use spread operator)
@@ -106,7 +109,7 @@ const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockCancellation = {
 // Don't do this - it may include extra fields or wrong types
 const choiceArguments = {
   cancellation_data: {
-    ...d,  // ❌ Spread is not allowed
+    ...d, // ❌ Spread is not allowed
     date: dateStringToDAMLTime(d.date),
   },
 };
@@ -192,10 +195,7 @@ import {
 } from '../../utils/typeConversions';
 
 // 3. Type imports
-import type {
-  OcfStockIssuanceData,
-  CommandWithDisclosedContracts,
-} from '../../types';
+import type { OcfStockIssuanceData, CommandWithDisclosedContracts } from '../../types';
 import type {
   Command,
   DisclosedContract,
@@ -256,6 +256,7 @@ npm test           # Run all tests
 - Add detail in body if needed
 
 Examples:
+
 ```
 feat(stock-cancellation): add support for optional comments
 fix(type-conversions): handle empty strings in optionalString
@@ -288,4 +289,3 @@ src/
 ## Questions?
 
 If you're unsure about a pattern or have suggestions for improvements, open an issue for discussion.
-

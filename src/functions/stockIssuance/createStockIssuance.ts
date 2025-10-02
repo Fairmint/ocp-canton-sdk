@@ -6,11 +6,7 @@ import {
   numberToString,
   optionalString,
 } from '../../utils/typeConversions';
-import type {
-  OcfStockIssuanceData,
-  CommandWithDisclosedContracts,
-  StockIssuanceType,
-} from '../../types';
+import type { OcfStockIssuanceData, CommandWithDisclosedContracts, StockIssuanceType } from '../../types';
 import type {
   Command,
   DisclosedContract,
@@ -23,9 +19,7 @@ export interface CreateStockIssuanceParams {
   issuanceData: OcfStockIssuanceData;
 }
 
-export function buildCreateStockIssuanceCommand(
-  params: CreateStockIssuanceParams
-): CommandWithDisclosedContracts {
+export function buildCreateStockIssuanceCommand(params: CreateStockIssuanceParams): CommandWithDisclosedContracts {
   const { issuanceData: d } = params;
 
   if (!d.id) throw new Error('stockIssuance.id is required');
@@ -42,7 +36,7 @@ export function buildCreateStockIssuanceCommand(
       case 'FOUNDERS_STOCK':
         return 'OcfStockIssuanceFounders';
       default:
-        throw new Error(`Unknown stock issuance type: ${t}`);
+        throw new Error(`Unknown stock issuance type: ${String(t)}`);
     }
   };
 

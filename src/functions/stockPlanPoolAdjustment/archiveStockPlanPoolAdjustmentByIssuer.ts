@@ -6,9 +6,7 @@ export interface ArchiveStockPlanPoolAdjustmentByIssuerParams {
   issuerParty: string;
 }
 
-export function buildArchiveStockPlanPoolAdjustmentByIssuerCommand(params: {
-  contractId: string;
-}): Command {
+export function buildArchiveStockPlanPoolAdjustmentByIssuerCommand(params: { contractId: string }): Command {
   return {
     ExerciseCommand: {
       templateId: Fairmint.OpenCapTable.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId,

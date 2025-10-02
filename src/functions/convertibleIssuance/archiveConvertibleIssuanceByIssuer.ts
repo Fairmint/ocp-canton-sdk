@@ -6,9 +6,7 @@ export interface ArchiveConvertibleIssuanceByIssuerParams {
   issuerParty: string;
 }
 
-export function buildArchiveConvertibleIssuanceByIssuerCommand(params: {
-  contractId: string;
-}): Command {
+export function buildArchiveConvertibleIssuanceByIssuerCommand(params: { contractId: string }): Command {
   return {
     ExerciseCommand: {
       templateId: Fairmint.OpenCapTable.ConvertibleIssuance.ConvertibleIssuance.templateId,

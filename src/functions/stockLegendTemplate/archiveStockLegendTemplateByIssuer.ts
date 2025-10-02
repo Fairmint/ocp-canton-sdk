@@ -6,9 +6,7 @@ export interface ArchiveStockLegendTemplateByIssuerParams {
   issuerParty: string;
 }
 
-export function buildArchiveStockLegendTemplateByIssuerCommand(params: {
-  contractId: string;
-}): Command {
+export function buildArchiveStockLegendTemplateByIssuerCommand(params: { contractId: string }): Command {
   return {
     ExerciseCommand: {
       templateId: Fairmint.OpenCapTable.StockLegendTemplate.StockLegendTemplate.templateId,

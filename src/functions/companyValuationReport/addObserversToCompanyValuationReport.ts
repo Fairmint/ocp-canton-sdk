@@ -60,8 +60,7 @@ export async function addObserversToCompanyValuationReport(
     commands: [
       {
         ExerciseCommand: {
-          templateId:
-            Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId,
+          templateId: Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId,
           contractId: params.companyValuationReportContractId,
           choice: 'AddObservers',
           choiceArgument: choiceArguments,

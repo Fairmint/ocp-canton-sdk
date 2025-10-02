@@ -51,16 +51,7 @@
     "import/order": [
       "warn",
       {
-        "groups": [
-          "builtin",
-          "external",
-          "internal",
-          "parent",
-          "sibling",
-          "index",
-          "object",
-          "type"
-        ],
+        "groups": ["builtin", "external", "internal", "parent", "sibling", "index", "object", "type"],
         "newlines-between": "never",
         "alphabetize": {
           "order": "asc",
@@ -93,13 +84,5 @@
       "node": true
     }
   },
-  "ignorePatterns": [
-    "dist",
-    "node_modules",
-    "coverage",
-    "docs",
-    "*.js",
-    "*.mjs",
-    "Open-Cap-Format-OCF"
-  ]
+  "ignorePatterns": ["dist", "node_modules", "coverage", "docs", "*.js", "*.mjs", "Open-Cap-Format-OCF"]
 }

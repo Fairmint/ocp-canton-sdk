@@ -46,9 +46,7 @@ export function numberToString(value: number | string): string {
  * Convert a number, string, null or undefined to a string or undefined
  * Used for optional DAML numeric fields that require string values
  */
-export function optionalNumberToString(
-  value: number | string | null | undefined
-): string | undefined {
+export function optionalNumberToString(value: number | string | null | undefined): string | undefined {
   if (value === null || value === undefined) return undefined;
   return typeof value === 'number' ? value.toString() : value;
 }
@@ -80,7 +78,6 @@ export function safeString(value: unknown): string {
   return '';
 }
 
-
 // ===== Monetary Value Conversions =====
 
 export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.OcfMonetary {
@@ -90,9 +87,7 @@ export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.
   };
 }
 
-export function damlMonetaryToNative(
-  damlMonetary: Fairmint.OpenCapTable.Types.OcfMonetary
-): Monetary {
+export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.OcfMonetary): Monetary {
   return {
     amount: damlMonetary.amount,
     currency: damlMonetary.currency,
@@ -116,9 +111,7 @@ function addressTypeToDaml(addressType: AddressType): Fairmint.OpenCapTable.Type
   }
 }
 
-function damlAddressTypeToNative(
-  damlType: Fairmint.OpenCapTable.Types.OcfAddressType
-): AddressType {
+function damlAddressTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfAddressType): AddressType {
   switch (damlType) {
     case 'OcfAddressTypeLegal':
       return 'LEGAL';
@@ -162,13 +155,9 @@ export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Ocf
 /**
  * Remove empty string entries from comments array (mutates in place and returns the object)
  */
-export function cleanComments(
-  comments?: Array<string | null>
-): Array<string> {
+export function cleanComments(comments?: Array<string | null>): Array<string> {
   if (Array.isArray(comments)) {
-    const filtered = comments.filter(
-      (c): c is string => typeof c === 'string' && c.trim() !== ''
-    );
+    const filtered = comments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
     return filtered.length > 0 ? filtered : [];
   }
 
@@ -184,17 +173,17 @@ export function cleanComments(
  */
 export function extractUpdateId(response: SubmitAndWaitForTransactionTreeResponse): string {
   const tree = response.transactionTree as Record<string, unknown>;
-  
+
   // Try direct updateId first
   if (typeof tree.updateId === 'string') {
     return tree.updateId;
   }
-  
+
   // Try transaction.updateId as fallback
   const transaction = tree.transaction as Record<string, unknown> | undefined;
   if (transaction && typeof transaction.updateId === 'string') {
     return transaction.updateId;
   }
-  
+
   throw new Error('updateId not found in transaction tree');
 }

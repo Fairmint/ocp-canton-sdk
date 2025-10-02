@@ -9,15 +9,11 @@ import type {
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
-function damlSecurityExemptionToNative(
-  e: Fairmint.OpenCapTable.Types.OcfSecurityExemption
-): SecurityExemption {
+function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.OcfSecurityExemption): SecurityExemption {
   return { description: e.description, jurisdiction: e.jurisdiction };
 }
 
-function damlShareNumberRangeToNative(
-  r: Fairmint.OpenCapTable.Types.OcfShareNumberRange
-): ShareNumberRange {
+function damlShareNumberRangeToNative(r: Fairmint.OpenCapTable.Types.OcfShareNumberRange): ShareNumberRange {
   return {
     starting_share_number: r.starting_share_number,
     ending_share_number: r.ending_share_number,
@@ -53,21 +49,17 @@ function damlStockIssuanceDataToNative(
       stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
     }),
     ...(d.consideration_text && { consideration_text: d.consideration_text }),
-    security_law_exemptions: (Array.isArray(
-      (anyD as { security_law_exemptions?: unknown }).security_law_exemptions
-    )
+    security_law_exemptions: (Array.isArray((anyD as { security_law_exemptions?: unknown }).security_law_exemptions)
       ? (anyD as { security_law_exemptions: Fairmint.OpenCapTable.Types.OcfSecurityExemption[] })
           .security_law_exemptions
       : []
     ).map(damlSecurityExemptionToNative),
     stock_class_id: d.stock_class_id,
     ...(d.stock_plan_id && { stock_plan_id: d.stock_plan_id }),
-    share_numbers_issued: Array.isArray(
-      (anyD as { share_numbers_issued?: unknown }).share_numbers_issued
-    )
-      ? (
-          anyD as { share_numbers_issued: Fairmint.OpenCapTable.Types.OcfShareNumberRange[] }
-        ).share_numbers_issued.map(damlShareNumberRangeToNative)
+    share_numbers_issued: Array.isArray((anyD as { share_numbers_issued?: unknown }).share_numbers_issued)
+      ? (anyD as { share_numbers_issued: Fairmint.OpenCapTable.Types.OcfShareNumberRange[] }).share_numbers_issued.map(
+          damlShareNumberRangeToNative
+        )
       : [],
     share_price: damlMonetaryToNative(d.share_price),
     quantity: d.quantity,
@@ -79,15 +71,11 @@ function damlStockIssuanceDataToNative(
         }))
       : [],
     ...(d.cost_basis && { cost_basis: damlMonetaryToNative(d.cost_basis) }),
-    stock_legend_ids: Array.isArray(
-      (d as unknown as { stock_legend_ids?: unknown }).stock_legend_ids
-    )
+    stock_legend_ids: Array.isArray((d as unknown as { stock_legend_ids?: unknown }).stock_legend_ids)
       ? (d as unknown as { stock_legend_ids: string[] }).stock_legend_ids
       : [],
     ...((anyD as { issuance_type?: unknown }).issuance_type !== undefined && {
-      issuance_type: damlStockIssuanceTypeToNative(
-        (anyD as { issuance_type?: unknown }).issuance_type as string
-      ),
+      issuance_type: damlStockIssuanceTypeToNative((anyD as { issuance_type?: unknown }).issuance_type as string),
     }),
     comments:
       (anyD as { comments?: unknown }).comments !== undefined &&
@@ -103,7 +91,18 @@ export interface GetStockIssuanceAsOcfParams {
 
 export interface GetStockIssuanceAsOcfResult {
   contractId: string;
-  stockIssuance: Partial<OcfStockIssuanceData> & { object_type: 'TX_STOCK_ISSUANCE'; id: string; date: string; security_id: string; custom_id: string; stakeholder_id: string; stock_class_id: string; share_price: Monetary; quantity: string | number; security_law_exemptions: SecurityExemption[] };
+  stockIssuance: Partial<OcfStockIssuanceData> & {
+    object_type: 'TX_STOCK_ISSUANCE';
+    id: string;
+    date: string;
+    security_id: string;
+    custom_id: string;
+    stakeholder_id: string;
+    stock_class_id: string;
+    share_price: Monetary;
+    quantity: string | number;
+    security_law_exemptions: SecurityExemption[];
+  };
 }
 
 export async function getStockIssuanceAsOcf(
@@ -122,7 +121,7 @@ export async function getStockIssuanceAsOcf(
   }
   const native = damlStockIssuanceDataToNative(argWithData.issuance_data);
   const { share_numbers_issued, vestings, comments, issuance_type, ...rest } = native;
-  
+
   const ocf = {
     object_type: 'TX_STOCK_ISSUANCE' as const,
     ...rest,

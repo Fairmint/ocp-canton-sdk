@@ -5,10 +5,7 @@ import { extractUpdateId } from '../../utils/typeConversions';
 import type { CommandWithDisclosedContracts } from '../../types';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
+import type { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 
 export interface CreateCompanyValuationReportParams {
   companyId: string;
@@ -84,15 +81,12 @@ export function buildCreateCompanyValuationReportCommand(
     throw new Error(`Unsupported network: ${network}`);
   }
 
-  const choiceArguments: Fairmint.OpenCapTableReports.ReportsFactory.CreateCompanyValuationReport =
-    {
-      company_id: params.companyId,
-      company_valuation:
-        typeof params.companyValuation === 'number'
-          ? params.companyValuation.toString()
-          : params.companyValuation,
-      observers: params.observers ?? [],
-    };
+  const choiceArguments: Fairmint.OpenCapTableReports.ReportsFactory.CreateCompanyValuationReport = {
+    company_id: params.companyId,
+    company_valuation:
+      typeof params.companyValuation === 'number' ? params.companyValuation.toString() : params.companyValuation,
+    observers: params.observers ?? [],
+  };
 
   const command: Command = {
     ExerciseCommand: {

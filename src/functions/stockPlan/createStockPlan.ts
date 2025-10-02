@@ -1,10 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { dateStringToDAMLTime, cleanComments } from '../../utils/typeConversions';
-import type {
-  OcfStockPlanData,
-  CommandWithDisclosedContracts,
-  StockPlanCancellationBehavior,
-} from '../../types';
+import type { OcfStockPlanData, CommandWithDisclosedContracts, StockPlanCancellationBehavior } from '../../types';
 import type {
   Command,
   DisclosedContract,
@@ -28,21 +24,15 @@ function cancellationBehaviorToDaml(
   }
 }
 
-function stockPlanDataToDaml(
-  d: OcfStockPlanData
-): Fairmint.OpenCapTable.StockPlan.OcfStockPlanData {
+function stockPlanDataToDaml(d: OcfStockPlanData): Fairmint.OpenCapTable.StockPlan.OcfStockPlanData {
   if (!d.id) throw new Error('stockPlan.id is required');
   return {
     id: d.id,
     plan_name: d.plan_name,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date
-      ? dateStringToDAMLTime(d.stockholder_approval_date)
-      : null,
+    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     initial_shares_reserved:
-      typeof d.initial_shares_reserved === 'number'
-        ? d.initial_shares_reserved.toString()
-        : d.initial_shares_reserved,
+      typeof d.initial_shares_reserved === 'number' ? d.initial_shares_reserved.toString() : d.initial_shares_reserved,
     default_cancellation_behavior: cancellationBehaviorToDaml(d.default_cancellation_behavior),
     stock_class_ids: d.stock_class_ids,
     comments: cleanComments(d.comments),
@@ -56,9 +46,7 @@ export interface CreateStockPlanParams {
   planData: OcfStockPlanData;
 }
 
-export function buildCreateStockPlanCommand(
-  params: CreateStockPlanParams
-): CommandWithDisclosedContracts {
+export function buildCreateStockPlanCommand(params: CreateStockPlanParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlan = {
     plan_data: stockPlanDataToDaml(params.planData),
   };

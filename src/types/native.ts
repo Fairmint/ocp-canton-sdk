@@ -61,10 +61,7 @@ export type StockClassType = 'PREFERRED' | 'COMMON';
  * Mechanism by which conversion occurs (see schema for full list)
  * OCF (primitive): https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/primitives/types/conversion_mechanisms/ConversionMechanism.schema.json
  */
-export type ConversionMechanism =
-  | 'RATIO_CONVERSION'
-  | 'PERCENT_CONVERSION'
-  | 'FIXED_AMOUNT_CONVERSION';
+export type ConversionMechanism = 'RATIO_CONVERSION' | 'PERCENT_CONVERSION' | 'FIXED_AMOUNT_CONVERSION';
 
 /**
  * Enum - Conversion Trigger Type
@@ -760,7 +757,13 @@ export interface OcfWarrantIssuanceDataNative {
   security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
   /** Quantity of shares the warrant is exercisable for */
   quantity?: string | number;
-  quantity_source?: 'UNSPECIFIED' | 'HUMAN_ESTIMATED' | 'MACHINE_ESTIMATED' | 'INSTRUMENT_FIXED' | 'INSTRUMENT_MAX' | 'INSTRUMENT_MIN';
+  quantity_source?:
+    | 'UNSPECIFIED'
+    | 'HUMAN_ESTIMATED'
+    | 'MACHINE_ESTIMATED'
+    | 'INSTRUMENT_FIXED'
+    | 'INSTRUMENT_MAX'
+    | 'INSTRUMENT_MIN';
   ratio_numerator?: string | number;
   ratio_denominator?: string | number;
   percent_of_outstanding?: string | number;

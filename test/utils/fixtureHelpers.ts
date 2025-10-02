@@ -84,10 +84,7 @@ export function convertTransactionTreeToEventsResponse(
   for (const [_nodeId, event] of Object.entries(eventsById)) {
     const eventData = event as Record<string, unknown>;
     if (eventData.CreatedTreeEvent) {
-      createdEvent = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<
-        string,
-        unknown
-      >;
+      createdEvent = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
     }
   }
 

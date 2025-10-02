@@ -132,10 +132,9 @@ export async function getWarrantIssuanceAsOcf(
     }
     const mObj = m as Record<string, unknown>;
     const tag = typeof mObj.tag === 'string' ? mObj.tag : typeof m === 'string' ? m : '';
-    const value = 'value' in mObj && typeof mObj.value === 'object' && mObj.value
-      ? (mObj.value as Record<string, unknown>)
-      : {};
-    
+    const value =
+      'value' in mObj && typeof mObj.value === 'object' && mObj.value ? (mObj.value as Record<string, unknown>) : {};
+
     switch (tag) {
       case 'OcfWarrantMechanismPercentCapitalization':
         return {
@@ -144,8 +143,8 @@ export async function getWarrantIssuanceAsOcf(
             typeof value.converts_to_percent === 'number'
               ? String(value.converts_to_percent)
               : String(value.converts_to_percent),
-          ...(value.capitalization_definition
-            ? { capitalization_definition: String(value.capitalization_definition) }
+          ...(value.capitalization_definition && typeof value.capitalization_definition === 'string'
+            ? { capitalization_definition: value.capitalization_definition }
             : {}),
           ...(value.capitalization_definition_rules
             ? { capitalization_definition_rules: value.capitalization_definition_rules as Record<string, unknown> }
@@ -166,8 +165,8 @@ export async function getWarrantIssuanceAsOcf(
           ...(value.valuation_amount
             ? { valuation_amount: mapMonetary(value.valuation_amount as Record<string, unknown>)! }
             : {}),
-          ...(value.capitalization_definition
-            ? { capitalization_definition: String(value.capitalization_definition) }
+          ...(value.capitalization_definition && typeof value.capitalization_definition === 'string'
+            ? { capitalization_definition: value.capitalization_definition }
             : {}),
           ...(value.capitalization_definition_rules
             ? { capitalization_definition_rules: value.capitalization_definition_rules as Record<string, unknown> }
@@ -178,12 +177,14 @@ export async function getWarrantIssuanceAsOcf(
           type: 'SHARE_PRICE_BASED_CONVERSION',
           description: String(value.description),
           discount: !!value.discount,
-          ...(value.discount_percentage !== undefined && value.discount_percentage !== null
+          ...(value.discount_percentage !== undefined &&
+          value.discount_percentage !== null &&
+          (typeof value.discount_percentage === 'number' || typeof value.discount_percentage === 'string')
             ? {
                 discount_percentage:
                   typeof value.discount_percentage === 'number'
                     ? String(value.discount_percentage)
-                    : String(value.discount_percentage),
+                    : value.discount_percentage,
               }
             : {}),
           ...(value.discount_amount
@@ -206,10 +207,8 @@ export async function getWarrantIssuanceAsOcf(
       throw new Error('Invalid warrant right: expected object with value property');
     }
     const rObj = r as { value: unknown };
-    const value = typeof rObj.value === 'object' && rObj.value
-      ? (rObj.value as Record<string, unknown>)
-      : {};
-    
+    const value = typeof rObj.value === 'object' && rObj.value ? (rObj.value as Record<string, unknown>) : {};
+
     const mech = mapWarrantMechanism(value.conversion_mechanism);
     const right: WarrantConversionRight = {
       type: 'WARRANT_CONVERSION_RIGHT',
@@ -217,8 +216,7 @@ export async function getWarrantIssuanceAsOcf(
       ...(typeof value.converts_to_future_round === 'boolean'
         ? { converts_to_future_round: value.converts_to_future_round }
         : {}),
-      ...(typeof value.converts_to_stock_class_id === 'string' &&
-      value.converts_to_stock_class_id.length
+      ...(typeof value.converts_to_stock_class_id === 'string' && value.converts_to_stock_class_id.length
         ? { converts_to_stock_class_id: value.converts_to_stock_class_id }
         : {}),
     };
@@ -240,25 +238,17 @@ export async function getWarrantIssuanceAsOcf(
         const trigger_id: string =
           typeof r.trigger_id === 'string' && r.trigger_id.length
             ? r.trigger_id
-            : `${d.id}-warrant-trigger-${idx + 1}`;
+            : `${String(d.id)}-warrant-trigger-${idx + 1}`;
         const nickname: string | undefined =
           typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
         const trigger_description: string | undefined =
-          typeof r.trigger_description === 'string' && r.trigger_description.length
-            ? r.trigger_description
-            : undefined;
+          typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
         const trigger_date: string | undefined =
-          typeof r.trigger_date === 'string' && r.trigger_date.length
-            ? r.trigger_date.split('T')[0]
-            : undefined;
+          typeof r.trigger_date === 'string' && r.trigger_date.length ? r.trigger_date.split('T')[0] : undefined;
         const trigger_condition: string | undefined =
-          typeof r.trigger_condition === 'string' && r.trigger_condition.length
-            ? r.trigger_condition
-            : undefined;
+          typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
 
-        const conversion_right: WarrantConversionRight = mapAnyRightToWarrantRight(
-          r.conversion_right
-        );
+        const conversion_right: WarrantConversionRight = mapAnyRightToWarrantRight(r.conversion_right);
 
         const t: ExerciseTrigger = {
           type,
@@ -274,20 +264,17 @@ export async function getWarrantIssuanceAsOcf(
     : [];
 
   const mapQuantitySource = (qs: unknown): OcfWarrantIssuanceEvent['quantity_source'] | undefined => {
-    if (!qs) return undefined;
-    const s = String(qs);
-    if (s.endsWith('HumanEstimated')) return 'HUMAN_ESTIMATED';
-    if (s.endsWith('MachineEstimated')) return 'MACHINE_ESTIMATED';
-    if (s.endsWith('InstrumentFixed')) return 'INSTRUMENT_FIXED';
-    if (s.endsWith('InstrumentMax')) return 'INSTRUMENT_MAX';
-    if (s.endsWith('InstrumentMin')) return 'INSTRUMENT_MIN';
-    if (s.endsWith('Unspecified')) return 'UNSPECIFIED';
+    if (!qs || typeof qs !== 'string') return undefined;
+    if (qs.endsWith('HumanEstimated')) return 'HUMAN_ESTIMATED';
+    if (qs.endsWith('MachineEstimated')) return 'MACHINE_ESTIMATED';
+    if (qs.endsWith('InstrumentFixed')) return 'INSTRUMENT_FIXED';
+    if (qs.endsWith('InstrumentMax')) return 'INSTRUMENT_MAX';
+    if (qs.endsWith('InstrumentMin')) return 'INSTRUMENT_MIN';
+    if (qs.endsWith('Unspecified')) return 'UNSPECIFIED';
     return undefined;
   };
 
-  const exercise_price = d.exercise_price
-    ? mapMonetary(d.exercise_price as Record<string, unknown>)
-    : undefined;
+  const exercise_price = d.exercise_price ? mapMonetary(d.exercise_price as Record<string, unknown>) : undefined;
 
   const purchase_price_obj = d.purchase_price as Record<string, unknown>;
   if (!purchase_price_obj) {
@@ -298,9 +285,7 @@ export async function getWarrantIssuanceAsOcf(
     throw new Error('Invalid purchase_price');
   }
 
-  const comments = Array.isArray(d.comments) && d.comments.length > 0
-    ? (d.comments as string[])
-    : undefined;
+  const comments = Array.isArray(d.comments) && d.comments.length > 0 ? (d.comments as string[]) : undefined;
 
   const event: OcfWarrantIssuanceEvent = {
     object_type: 'TX_WARRANT_ISSUANCE',
@@ -309,24 +294,26 @@ export async function getWarrantIssuanceAsOcf(
     security_id: String(d.security_id),
     custom_id: String(d.custom_id),
     stakeholder_id: String(d.stakeholder_id),
-    ...(d.quantity !== null && d.quantity !== undefined
-      ? { quantity: typeof d.quantity === 'number' ? String(d.quantity) : String(d.quantity) }
+    ...(d.quantity !== null &&
+    d.quantity !== undefined &&
+    (typeof d.quantity === 'number' || typeof d.quantity === 'string')
+      ? { quantity: typeof d.quantity === 'number' ? String(d.quantity) : d.quantity }
       : {}),
     ...(exercise_price ? { exercise_price } : {}),
     purchase_price,
     exercise_triggers,
     // If quantity provided but quantity_source missing, default to UNSPECIFIED per schema
     ...(d.quantity !== null && d.quantity !== undefined
-      ? { quantity_source: mapQuantitySource(d.quantity_source) || 'UNSPECIFIED' }
+      ? { quantity_source: mapQuantitySource(d.quantity_source) ?? 'UNSPECIFIED' }
       : {}),
     ...(d.warrant_expiration_date
       ? { warrant_expiration_date: (d.warrant_expiration_date as string).split('T')[0] }
       : {}),
-    ...(d.vesting_terms_id ? { vesting_terms_id: String(d.vesting_terms_id) } : {}),
-    security_law_exemptions: (d.security_law_exemptions as Array<{
+    ...(d.vesting_terms_id && typeof d.vesting_terms_id === 'string' ? { vesting_terms_id: d.vesting_terms_id } : {}),
+    security_law_exemptions: d.security_law_exemptions as Array<{
       description: string;
       jurisdiction: string;
-    }>),
+    }>,
     ...(comments ? { comments } : {}),
   };
 

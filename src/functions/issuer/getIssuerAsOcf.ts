@@ -18,9 +18,7 @@ function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailTyp
   }
 }
 
-function damlEmailToNative(
-  damlEmail: Fairmint.OpenCapTable.Types.OcfEmail
-): OcfIssuerData['email'] {
+function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.OcfEmail): OcfIssuerData['email'] {
   return {
     email_type: damlEmailTypeToNative(damlEmail.email_type),
     email_address: damlEmail.email_address,
@@ -51,12 +49,8 @@ function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): OcfIssu
   };
 }
 
-function damlIssuerDataToNative(
-  damlData: Fairmint.OpenCapTable.Issuer.OcfIssuerData
-): OcfIssuerData {
-  const normalizeInitialShares = (
-    v: unknown
-  ): OcfIssuerData['initial_shares_authorized'] | undefined => {
+function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.OcfIssuerData): OcfIssuerData {
+  const normalizeInitialShares = (v: unknown): OcfIssuerData['initial_shares_authorized'] | undefined => {
     if (typeof v === 'string' || typeof v === 'number') return String(v);
     if (v && typeof v === 'object' && 'tag' in (v as { tag: string })) {
       const i = v as { tag: 'OcfInitialSharesNumeric' | 'OcfInitialSharesEnum'; value?: unknown };
@@ -70,7 +64,7 @@ function damlIssuerDataToNative(
 
   const dataWithId = damlData as unknown as { id?: string };
   const out: OcfIssuerData = {
-    id: dataWithId.id || '',
+    id: dataWithId.id ?? '',
     legal_name: damlData.legal_name,
     country_of_formation: damlData.country_of_formation,
     formation_date: damlTimeToDateString(damlData.formation_date),
@@ -83,15 +77,14 @@ function damlIssuerDataToNative(
     out.country_subdivision_of_formation = damlData.country_subdivision_of_formation;
   if (damlData.country_subdivision_name_of_formation)
     out.country_subdivision_name_of_formation = damlData.country_subdivision_name_of_formation;
-  if (damlData.tax_ids && damlData.tax_ids.length) out.tax_ids = damlData.tax_ids;
+  if (damlData.tax_ids?.length) out.tax_ids = damlData.tax_ids;
   if (damlData.email) out.email = damlEmailToNative(damlData.email);
   if (damlData.phone) out.phone = damlPhoneToNative(damlData.phone);
   if (damlData.address) out.address = damlAddressToNative(damlData.address);
   if ((damlData as unknown as { comments?: string[] }).comments)
     out.comments = (damlData as unknown as { comments: string[] }).comments;
 
-  const isa = (damlData as unknown as { initial_shares_authorized?: unknown })
-    .initial_shares_authorized;
+  const isa = (damlData as unknown as { initial_shares_authorized?: unknown }).initial_shares_authorized;
   const normalizedIsa = normalizeInitialShares(isa);
   if (normalizedIsa !== undefined) out.initial_shares_authorized = normalizedIsa;
 
@@ -122,7 +115,7 @@ export interface OcfIssuer {
     country: string;
     postal_code?: string;
   };
-  initial_shares_authorized?: string | number | 'UNLIMITED' | 'NOT_APPLICABLE';
+  initial_shares_authorized?: string | number;
   id?: string;
   comments?: string[];
 }

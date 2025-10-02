@@ -12,8 +12,7 @@ export function buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand(
   return {
     ExerciseCommand: {
       templateId:
-        Fairmint.OpenCapTable.StockClassAuthorizedSharesAdjustment
-          .StockClassAuthorizedSharesAdjustment.templateId,
+        Fairmint.OpenCapTable.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment.templateId,
       contractId: params.contractId,
       choice: 'ArchiveByIssuer',
       choiceArgument: {},

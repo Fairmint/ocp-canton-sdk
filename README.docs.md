@@ -26,7 +26,7 @@ Pages.
 ### One-time repo setup
 
 - In repository Settings → Pages, set:
-    - Build and deployment: "GitHub Actions"
+  - Build and deployment: "GitHub Actions"
 - Ensure Actions permissions allow GitHub Pages deployments.
 
 No secrets are required; it uses `GITHUB_TOKEN` with pages:write.

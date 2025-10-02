@@ -6,9 +6,7 @@ export interface ArchiveStockCancellationByIssuerParams {
   issuerParty: string;
 }
 
-export function buildArchiveStockCancellationByIssuerCommand(params: {
-  contractId: string;
-}): Command {
+export function buildArchiveStockCancellationByIssuerCommand(params: { contractId: string }): Command {
   return {
     ExerciseCommand: {
       templateId: Fairmint.OpenCapTable.StockCancellation.StockCancellation.templateId,

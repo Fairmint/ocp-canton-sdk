@@ -6,14 +6,10 @@ export interface ArchiveIssuerAuthorizedSharesAdjustmentByIssuerParams {
   issuerParty: string;
 }
 
-export function buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand(params: {
-  contractId: string;
-}): Command {
+export function buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand(params: { contractId: string }): Command {
   return {
     ExerciseCommand: {
-      templateId:
-        Fairmint.OpenCapTable.IssuerAuthorizedSharesAdjustment.IssuerAuthorizedSharesAdjustment
-          .templateId,
+      templateId: Fairmint.OpenCapTable.IssuerAuthorizedSharesAdjustment.IssuerAuthorizedSharesAdjustment.templateId,
       contractId: params.contractId,
       choice: 'ArchiveByIssuer',
       choiceArgument: {},

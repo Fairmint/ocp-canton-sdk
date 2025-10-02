@@ -15,9 +15,7 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
-function stakeholderTypeToDaml(
-  stakeholderType: StakeholderType
-): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderType {
+function stakeholderTypeToDaml(stakeholderType: StakeholderType): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderType {
   switch (stakeholderType) {
     case 'INDIVIDUAL':
       return 'OcfStakeholderTypeIndividual';
@@ -45,10 +43,7 @@ function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfE
   }
 }
 
-function emailToDaml(email: {
-  email_type: EmailType;
-  email_address: string;
-}): Fairmint.OpenCapTable.Types.OcfEmail {
+function emailToDaml(email: { email_type: EmailType; email_address: string }): Fairmint.OpenCapTable.Types.OcfEmail {
   return {
     email_type: emailTypeToDaml(email.email_type),
     email_address: email.email_address,
@@ -72,10 +67,7 @@ function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfP
   }
 }
 
-function phoneToDaml(phone: {
-  phone_type: PhoneType;
-  phone_number: string;
-}): Fairmint.OpenCapTable.Types.OcfPhone {
+function phoneToDaml(phone: { phone_type: PhoneType; phone_number: string }): Fairmint.OpenCapTable.Types.OcfPhone {
   return {
     phone_type: phoneTypeToDaml(phone.phone_type),
     phone_number: phone.phone_number,
@@ -85,24 +77,24 @@ function phoneToDaml(phone: {
 function nameToDaml(n: Name): Fairmint.OpenCapTable.Stakeholder.OcfName {
   return {
     legal_name: n.legal_name,
-    first_name: n.first_name || null,
-    last_name: n.last_name || null,
+    first_name: n.first_name ?? null,
+    last_name: n.last_name ?? null,
   };
 }
 
 function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.Stakeholder.OcfContactInfo {
   return {
     name: nameToDaml(info.name),
-    phone_numbers: (info.phone_numbers || []).map(phoneToDaml),
-    emails: (info.emails || []).map(emailToDaml),
+    phone_numbers: (info.phone_numbers ?? []).map(phoneToDaml),
+    emails: (info.emails ?? []).map(emailToDaml),
   };
 }
 
 function contactInfoWithoutNameToDaml(
   info: ContactInfoWithoutName
 ): Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName | null {
-  const phones = (info.phone_numbers || []).map(phoneToDaml);
-  const emails = (info.emails || []).map(emailToDaml);
+  const phones = (info.phone_numbers ?? []).map(phoneToDaml);
+  const emails = (info.emails ?? []).map(emailToDaml);
 
   if (phones.length === 0 && emails.length === 0) {
     return null;
@@ -114,43 +106,38 @@ function contactInfoWithoutNameToDaml(
   };
 }
 
-function stakeholderDataToDaml(
-  data: OcfStakeholderData
-): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData {
+function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData {
   if (!data.id) throw new Error('stakeholder.id is required');
+
+  const dataWithSingular = data as OcfStakeholderData & { current_relationship?: string };
+  const relationships =
+    data.current_relationships ??
+    (dataWithSingular.current_relationship ? [dataWithSingular.current_relationship] : []);
+
+  const mapRel = (r: string): Fairmint.OpenCapTable.Types.OcfStakeholderRelationshipType => {
+    const v = r.toUpperCase();
+    if (v.includes('EMPLOYEE')) return 'OcfRelEmployee';
+    if (v.includes('ADVISOR')) return 'OcfRelAdvisor';
+    if (v.includes('INVESTOR')) return 'OcfRelInvestor';
+    if (v.includes('FOUNDER')) return 'OcfRelFounder';
+    if (v.includes('BOARD')) return 'OcfRelBoardMember';
+    if (v.includes('OFFICER')) return 'OcfRelOfficer';
+    return 'OcfRelOther';
+  };
+
   const payload: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData = {
     id: data.id,
     name: nameToDaml(data.name),
     stakeholder_type: stakeholderTypeToDaml(data.stakeholder_type),
-    issuer_assigned_id: data.issuer_assigned_id || null,
+    issuer_assigned_id: data.issuer_assigned_id ?? null,
     primary_contact: data.primary_contact ? contactInfoToDaml(data.primary_contact) : null,
     contact_info: data.contact_info ? contactInfoWithoutNameToDaml(data.contact_info) : null,
-    addresses: (data.addresses || []).map(addressToDaml),
-    tax_ids: data.tax_ids || [],
+    addresses: (data.addresses ?? []).map(addressToDaml),
+    tax_ids: data.tax_ids ?? [],
     comments: cleanComments(data.comments),
-  } as any;
-
-  const dataWithSingular = data as OcfStakeholderData & { current_relationship?: string };
-  const relationships =
-    data.current_relationships ||
-    (dataWithSingular.current_relationship ? [dataWithSingular.current_relationship] : []);
-
-  if (relationships && relationships.length) {
-    const mapRel = (r: string): Fairmint.OpenCapTable.Types.OcfStakeholderRelationshipType => {
-      const v = r.toUpperCase();
-      if (v.includes('EMPLOYEE')) return 'OcfRelEmployee';
-      if (v.includes('ADVISOR')) return 'OcfRelAdvisor';
-      if (v.includes('INVESTOR')) return 'OcfRelInvestor';
-      if (v.includes('FOUNDER')) return 'OcfRelFounder';
-      if (v.includes('BOARD')) return 'OcfRelBoardMember';
-      if (v.includes('OFFICER')) return 'OcfRelOfficer';
-      return 'OcfRelOther';
-    };
-    payload.current_relationships = relationships.map(mapRel);
-  }
-  if (data.current_status) {
-    const status: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderStatusType =
-      data.current_status === 'ACTIVE'
+    current_relationships: relationships?.length ? relationships.map(mapRel) : [],
+    current_status: data.current_status
+      ? data.current_status === 'ACTIVE'
         ? 'OcfStakeholderStatusActive'
         : data.current_status === 'LEAVE_OF_ABSENCE'
           ? 'OcfStakeholderStatusLeaveOfAbsence'
@@ -166,9 +153,10 @@ function stakeholderDataToDaml(
                     ? 'OcfStakeholderStatusTerminationInvoluntaryDeath'
                     : data.current_status === 'TERMINATION_INVOLUNTARY_DISABILITY'
                       ? 'OcfStakeholderStatusTerminationInvoluntaryDisability'
-                      : 'OcfStakeholderStatusTerminationInvoluntaryWithCause';
-    payload.current_status = status;
-  }
+                      : 'OcfStakeholderStatusTerminationInvoluntaryWithCause'
+      : null,
+  };
+
   return payload;
 }
 
@@ -179,12 +167,16 @@ export interface CreateStakeholderParams {
   stakeholderData: OcfStakeholderData;
 }
 
-export function buildCreateStakeholderCommand(
-  params: CreateStakeholderParams
-): CommandWithDisclosedContracts {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStakeholder = {
-    stakeholder_data: stakeholderDataToDaml(params.stakeholderData),
-  } as any;
+export function buildCreateStakeholderCommand(params: CreateStakeholderParams): CommandWithDisclosedContracts {
+  const damlData = stakeholderDataToDaml(params.stakeholderData);
+
+  // Omit current_status if it's null for JSON API compatibility
+  const { current_status, ...restData } = damlData;
+  const stakeholderDataForJson = current_status === null ? restData : damlData;
+
+  const choiceArguments = {
+    stakeholder_data: stakeholderDataForJson,
+  };
 
   const command: Command = {
     ExerciseCommand: {

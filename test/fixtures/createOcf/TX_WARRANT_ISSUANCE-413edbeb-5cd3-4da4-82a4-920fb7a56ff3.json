@@ -131,9 +131,7 @@
                     },
                     "security_id": "9b75723b-d62e-4d2d-b330-8084f51f5b1c",
                     "stakeholder_id": "629a77f4-951a-49d5-85c5-e52a61a1c9f6",
-                    "comments": [
-                      "use-case: Warrant without a stock_class_id is treated as a convertible."
-                    ],
+                    "comments": ["use-case: Warrant without a stock_class_id is treated as a convertible."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -177,13 +175,9 @@
                     "warrant_expiration_date": "2026-07-31T00:00:00Z"
                   }
                 },
-                "actingParties": [
-                  "0802c1::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["0802c1::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "0802c1::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["0802c1::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00f2e5228a4ad918406b8eb576e747391edbb65c24006f0e066851360e3fe9341cca1112205cbea7601020dbdcaaba724498a5699a3c3918fd2f0aa6f883dff0a00a5055e4",
                 "packageName": "OpenCapTable-v25",
@@ -212,9 +206,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "0802c1::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["0802c1::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -242,12 +234,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "0802c1::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["0802c1::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -280,9 +268,7 @@
                     },
                     "security_id": "9b75723b-d62e-4d2d-b330-8084f51f5b1c",
                     "stakeholder_id": "629a77f4-951a-49d5-85c5-e52a61a1c9f6",
-                    "comments": [
-                      "use-case: Warrant without a stock_class_id is treated as a convertible."
-                    ],
+                    "comments": ["use-case: Warrant without a stock_class_id is treated as a convertible."],
                     "exercise_triggers": [
                       {
                         "conversion_right": {
@@ -328,9 +314,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "0802c1::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["0802c1::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "0802c1::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"

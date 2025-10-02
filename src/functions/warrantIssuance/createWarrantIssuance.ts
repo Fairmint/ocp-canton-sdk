@@ -101,9 +101,7 @@ function normalizeTriggerType(t: WarrantTriggerTypeInput): WarrantTriggerTypeInp
   return t;
 }
 
-function triggerTypeToDamlEnum(
-  t: WarrantTriggerTypeInput
-): Fairmint.OpenCapTable.Types.OcfConversionTriggerType {
+function triggerTypeToDamlEnum(t: WarrantTriggerTypeInput): Fairmint.OpenCapTable.Types.OcfConversionTriggerType {
   switch (t) {
     case 'AUTOMATIC_ON_DATE':
       return 'OcfTriggerTypeTypeAutomaticOnDate';
@@ -184,14 +182,10 @@ function buildWarrantRight(
   input: WarrantExerciseTriggerInput | undefined
 ): Fairmint.OpenCapTable.Types.OcfAnyConversionRight {
   const details =
-    typeof input === 'object' && input !== null && 'conversion_right' in input
-      ? input.conversion_right
-      : undefined;
+    typeof input === 'object' && input !== null && 'conversion_right' in input ? input.conversion_right : undefined;
   const mechanism = warrantMechanismToDamlVariant(details?.conversion_mechanism);
   const converts_to_future_round =
-    details && typeof details.converts_to_future_round === 'boolean'
-      ? details.converts_to_future_round
-      : null;
+    details && typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null;
   const converts_to_stock_class_id = details?.converts_to_stock_class_id ?? null;
   return {
     tag: 'OcfRightWarrant',
@@ -221,9 +215,10 @@ function quantitySourceToDamlEnum(
       return 'OcfQuantityInstrumentMax';
     case 'INSTRUMENT_MIN':
       return 'OcfQuantityInstrumentMin';
-    default:
-      const exhaustiveCheck: never = qs;
-      throw new Error(`Unknown quantity_source: ${qs}`);
+    default: {
+      const _exhaustiveCheck: never = qs;
+      throw new Error(`Unknown quantity_source: ${String(qs)}`);
+    }
   }
 }
 
@@ -234,8 +229,7 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
     throw new Error('trigger_id is required for each warrant exercise trigger');
   const trigger_id = t.trigger_id;
   const nickname = typeof t.nickname === 'string' ? t.nickname : null;
-  const trigger_description =
-    typeof t.trigger_description === 'string' ? t.trigger_description : null;
+  const trigger_description = typeof t.trigger_description === 'string' ? t.trigger_description : null;
   const trigger_dateStr = typeof t.trigger_date === 'string' ? t.trigger_date : undefined;
   const trigger_condition = typeof t.trigger_condition === 'string' ? t.trigger_condition : null;
   const conversion_right = buildWarrantRight(t);
@@ -250,9 +244,7 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
   };
 }
 
-export function buildCreateWarrantIssuanceCommand(
-  params: CreateWarrantIssuanceParams
-): CommandWithDisclosedContracts {
+export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceParams): CommandWithDisclosedContracts {
   const d = params.issuanceData;
   const quantitySourceDaml =
     d.quantity !== undefined && d.quantity !== null
@@ -265,9 +257,7 @@ export function buildCreateWarrantIssuanceCommand(
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date
-      ? dateStringToDAMLTime(d.stockholder_approval_date)
-      : null,
+    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions,
     quantity: d.quantity !== undefined && d.quantity !== null ? numberToString(d.quantity) : null,
@@ -275,9 +265,7 @@ export function buildCreateWarrantIssuanceCommand(
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),
     exercise_triggers: d.exercise_triggers.map((t, idx) => buildWarrantTrigger(t, idx, d.id)),
-    warrant_expiration_date: d.warrant_expiration_date
-      ? dateStringToDAMLTime(d.warrant_expiration_date)
-      : null,
+    warrant_expiration_date: d.warrant_expiration_date ? dateStringToDAMLTime(d.warrant_expiration_date) : null,
     vesting_terms_id: d.vesting_terms_id ?? null,
     vestings: (d.vestings ?? []).map((v) => ({
       date: dateStringToDAMLTime(v.date),

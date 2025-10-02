@@ -1,11 +1,7 @@
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { cleanComments, extractUpdateId } from '../../utils/typeConversions';
-import type {
-  OcfDocumentData,
-  CommandWithDisclosedContracts,
-  OcfObjectReference,
-} from '../../types';
+import type { OcfDocumentData, CommandWithDisclosedContracts, OcfObjectReference } from '../../types';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type {
@@ -13,9 +9,7 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
-function objectTypeToDaml(
-  t: OcfObjectReference['object_type']
-): Fairmint.OpenCapTable.Document.OcfObjectType {
+function objectTypeToDaml(t: OcfObjectReference['object_type']): Fairmint.OpenCapTable.Document.OcfObjectType {
   switch (t) {
     case 'ISSUER':
       return 'OcfObjIssuer';
@@ -179,10 +173,7 @@ export async function createDocument(
     disclosedContracts,
   })) as SubmitAndWaitForTransactionTreeResponse;
 
-  const created = findCreatedEventByTemplateId(
-    response,
-    Fairmint.OpenCapTable.Document.Document.templateId
-  );
+  const created = findCreatedEventByTemplateId(response, Fairmint.OpenCapTable.Document.Document.templateId);
   if (!created) {
     throw new Error('Expected CreatedTreeEvent not found');
   }
@@ -194,9 +185,7 @@ export async function createDocument(
   };
 }
 
-export function buildCreateDocumentCommand(
-  params: CreateDocumentParams
-): CommandWithDisclosedContracts {
+export function buildCreateDocumentCommand(params: CreateDocumentParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateDocument = {
     document_data: documentDataToDaml(params.documentData),
   };

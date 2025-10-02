@@ -59,9 +59,7 @@ function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): Phone {
   };
 }
 
-function damlContactInfoToNative(
-  damlInfo: Fairmint.OpenCapTable.Stakeholder.OcfContactInfo
-): ContactInfo {
+function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.Stakeholder.OcfContactInfo): ContactInfo {
   const name: Name = {
     legal_name: damlInfo.name.legal_name || '',
     ...(damlInfo.name.first_name ? { first_name: damlInfo.name.first_name } : {}),
@@ -87,9 +85,7 @@ function damlContactInfoWithoutNameToNative(
   } as ContactInfoWithoutName;
 }
 
-function damlStakeholderTypeToNative(
-  damlType: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderType
-): StakeholderType {
+function damlStakeholderTypeToNative(damlType: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderType): StakeholderType {
   switch (damlType) {
     case 'OcfStakeholderTypeIndividual':
       return 'INDIVIDUAL';
@@ -108,7 +104,7 @@ function damlStakeholderDataToNative(
   const dAny = damlData as unknown as { [k: string]: unknown };
   const nameData = dAny.name as Record<string, unknown> | undefined;
   const name: Name = {
-    legal_name: (nameData?.legal_name || '') as string,
+    legal_name: (nameData?.legal_name ?? '') as string,
     ...(nameData?.first_name ? { first_name: nameData.first_name as string } : {}),
     ...(nameData?.last_name ? { last_name: nameData.last_name as string } : {}),
   };
@@ -133,11 +129,11 @@ function damlStakeholderDataToNative(
     }
   };
   const relationships: string[] = Array.isArray(dAny.current_relationships)
-    ? (dAny.current_relationships as string[]).map((r) => mapRelBack(r) || 'OTHER')
+    ? (dAny.current_relationships as string[]).map((r) => mapRelBack(r) ?? 'OTHER')
     : [];
   const dataWithId = dAny as { id?: string };
   const native: OcfStakeholderData = {
-    id: dataWithId.id || '',
+    id: dataWithId.id ?? '',
     name,
     stakeholder_type: damlStakeholderTypeToNative(damlData.stakeholder_type),
     ...(damlData.issuer_assigned_id ? { issuer_assigned_id: damlData.issuer_assigned_id } : {}),
@@ -179,8 +175,7 @@ function damlStakeholderDataToNative(
     }),
     addresses: (damlData.addresses || []).map(damlAddressToNative),
     tax_ids: damlData.tax_ids || [],
-    ...(Array.isArray((dAny as { comments?: unknown }).comments) &&
-    ((dAny as { comments: string[] }).comments).length > 0
+    ...(Array.isArray((dAny as { comments?: unknown }).comments) && (dAny as { comments: string[] }).comments.length > 0
       ? { comments: (dAny as { comments: string[] }).comments }
       : {}),
   } as OcfStakeholderData;

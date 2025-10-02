@@ -17,9 +17,7 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
-function compensationTypeToDaml(
-  t: CompensationType
-): Fairmint.OpenCapTable.Types.OcfCompensationType {
+function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.OcfCompensationType {
   switch (t) {
     case 'OPTION_NSO':
       return 'OcfCompensationTypeOptionNSO';
@@ -104,7 +102,7 @@ export function buildCreateEquityCompensationIssuanceCommand(
       quantity: numberToString(d.quantity),
       exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
       base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
-      early_exercisable: d.early_exercisable === undefined ? null : d.early_exercisable,
+      early_exercisable: d.early_exercisable ?? null,
       vestings: (d.vestings || []).map((v) => ({
         date: dateStringToDAMLTime(v.date),
         amount: numberToString(v.amount),

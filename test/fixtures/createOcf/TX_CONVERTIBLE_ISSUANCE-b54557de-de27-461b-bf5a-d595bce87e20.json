@@ -194,9 +194,7 @@
           ],
           "pro_rata": null,
           "seniority": "1",
-          "comments": [
-            "This SAFE includes both a valuation cap and a discount rate for conversion."
-          ]
+          "comments": ["This SAFE includes both a valuation cap and a discount rate for conversion."]
         }
       }
     }
@@ -232,9 +230,7 @@
                     "security_id": "9fbe97a2-cdbd-4d4d-b467-a8dc68e7d7db",
                     "seniority": "1",
                     "stakeholder_id": "a2e7add5-25f9-4c5c-9bec-8a16ffe375c0",
-                    "comments": [
-                      "This SAFE includes both a valuation cap and a discount rate for conversion."
-                    ],
+                    "comments": ["This SAFE includes both a valuation cap and a discount rate for conversion."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -323,13 +319,9 @@
                     "stockholder_approval_date": null
                   }
                 },
-                "actingParties": [
-                  "6c8a3c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["6c8a3c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "6c8a3c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["6c8a3c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00a09b89c3a4154daae319714b6b494c36888e2508c5d68240d11cf86bce9a8925ca111220177dccf063a37561f309d8f4c1247548dd819aa232c1877557da6e569057c8a5",
                 "packageName": "OpenCapTable-v25",
@@ -358,9 +350,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "6c8a3c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["6c8a3c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -388,12 +378,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "6c8a3c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["6c8a3c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -428,9 +414,7 @@
                     "security_id": "9fbe97a2-cdbd-4d4d-b467-a8dc68e7d7db",
                     "seniority": "1",
                     "stakeholder_id": "a2e7add5-25f9-4c5c-9bec-8a16ffe375c0",
-                    "comments": [
-                      "This SAFE includes both a valuation cap and a discount rate for conversion."
-                    ],
+                    "comments": ["This SAFE includes both a valuation cap and a discount rate for conversion."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -521,9 +505,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "6c8a3c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["6c8a3c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "6c8a3c::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"

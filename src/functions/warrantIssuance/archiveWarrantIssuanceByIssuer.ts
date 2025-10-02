@@ -6,9 +6,7 @@ export interface ArchiveWarrantIssuanceByIssuerParams {
   issuerParty: string;
 }
 
-export function buildArchiveWarrantIssuanceByIssuerCommand(params: {
-  contractId: string;
-}): Command {
+export function buildArchiveWarrantIssuanceByIssuerCommand(params: { contractId: string }): Command {
   return {
     ExerciseCommand: {
       templateId: Fairmint.OpenCapTable.WarrantIssuance.WarrantIssuance.templateId,

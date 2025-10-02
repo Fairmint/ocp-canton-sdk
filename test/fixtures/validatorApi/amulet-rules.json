@@ -17,12 +17,7 @@
             },
             "decentralizedSynchronizer": {
               "requiredSynchronizers": {
-                "map": [
-                  [
-                    "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
-                    {}
-                  ]
-                ]
+                "map": [["global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a", {}]]
               },
               "activeSynchronizer": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
               "fees": {

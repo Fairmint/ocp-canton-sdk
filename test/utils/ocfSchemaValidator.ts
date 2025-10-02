@@ -18,12 +18,9 @@ const SCHEMA_MAP: Record<string, string> = {
     'objects/transactions/adjustment/IssuerAuthorizedSharesAdjustment.schema.json',
   TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT:
     'objects/transactions/adjustment/StockClassAuthorizedSharesAdjustment.schema.json',
-  TX_STOCK_PLAN_POOL_ADJUSTMENT:
-    'objects/transactions/adjustment/StockPlanPoolAdjustment.schema.json',
-  TX_EQUITY_COMPENSATION_ISSUANCE:
-    'objects/transactions/issuance/EquityCompensationIssuance.schema.json',
-  TX_EQUITY_COMPENSATION_EXERCISE:
-    'objects/transactions/exercise/EquityCompensationExercise.schema.json',
+  TX_STOCK_PLAN_POOL_ADJUSTMENT: 'objects/transactions/adjustment/StockPlanPoolAdjustment.schema.json',
+  TX_EQUITY_COMPENSATION_ISSUANCE: 'objects/transactions/issuance/EquityCompensationIssuance.schema.json',
+  TX_EQUITY_COMPENSATION_EXERCISE: 'objects/transactions/exercise/EquityCompensationExercise.schema.json',
   TX_WARRANT_ISSUANCE: 'objects/transactions/issuance/WarrantIssuance.schema.json',
   TX_CONVERTIBLE_ISSUANCE: 'objects/transactions/issuance/ConvertibleIssuance.schema.json',
   DOCUMENT: 'objects/Document.schema.json',
@@ -37,7 +34,7 @@ class OcfSchemaValidator {
   constructor() {
     this.ajv = new Ajv({
       allErrors: true,
-      strict: false,
+      strict: false, // TODO enable strict mode, at least on the outputs
       validateFormats: true,
       loadSchema: this.loadSchemaFromFile.bind(this),
     });
@@ -56,7 +53,7 @@ class OcfSchemaValidator {
   /**
    * Load a schema file from the filesystem
    */
-  private async loadSchemaFromFile(uri: string): Promise<Record<string, unknown>> {
+  private loadSchemaFromFile(uri: string): Promise<Record<string, unknown>> {
     // Extract the relative path from the URI
     const match = uri.match(/Open-Cap-Format-OCF\/main\/schema\/(.+)$/);
     if (!match) {
@@ -71,7 +68,7 @@ class OcfSchemaValidator {
     }
 
     const fileContent = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(fileContent);
+    return Promise.resolve(JSON.parse(fileContent));
   }
 
   /**
@@ -105,9 +102,7 @@ class OcfSchemaValidator {
   /**
    * Validate an OCF object against its schema
    */
-  async validate(
-    ocfObject: Record<string, unknown>
-  ): Promise<{ valid: boolean; errors: string[] }> {
+  async validate(ocfObject: Record<string, unknown>): Promise<{ valid: boolean; errors: string[] }> {
     const objectType = ocfObject.object_type as string;
     if (!objectType) {
       return {

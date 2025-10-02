@@ -18,12 +18,12 @@ import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
 // Validate an OCF object
 await validateOcfObject({
-    object_type: 'ISSUER',
-    id: '66ff16f7-5f65-4a78-9011-fac4a8596efc',
-    legal_name: 'Example Inc.',
-    formation_date: '2019-04-23',
-    country_of_formation: 'US',
-    // ... other fields
+  object_type: 'ISSUER',
+  id: '66ff16f7-5f65-4a78-9011-fac4a8596efc',
+  legal_name: 'Example Inc.',
+  formation_date: '2019-04-23',
+  country_of_formation: 'US',
+  // ... other fields
 });
 
 // Throws an error if validation fails
