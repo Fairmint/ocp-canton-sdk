@@ -45,6 +45,9 @@ export async function getStockCancellationEventAsOcf(
   params: GetStockCancellationEventAsOcfParams
 ): Promise<GetStockCancellationEventAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
+  if (!res.created) {
+    throw new Error('Missing created event');
+  }
   if (!res.created.createdEvent.createArgument) {
     throw new Error('Missing createArgument');
   }
