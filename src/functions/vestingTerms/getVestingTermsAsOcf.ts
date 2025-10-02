@@ -203,7 +203,7 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfV
       (portionUnknown as { tag: unknown }).tag === 'Some' &&
       'value' in portionUnknown
     ) {
-      const value = (portionUnknown as { value: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion }).value;
+      const { value } = portionUnknown as { value: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion };
       native.portion = damlVestingConditionPortionToNative(value);
     } else if (typeof portionUnknown === 'object') {
       native.portion = damlVestingConditionPortionToNative(
@@ -259,7 +259,7 @@ export async function getVestingTermsAsOcf(
   if (!eventsResponse.created?.createdEvent?.createArgument) {
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
-  const createArgument = eventsResponse.created.createdEvent.createArgument;
+  const { createArgument } = eventsResponse.created.createdEvent;
 
   function hasData(
     arg: unknown

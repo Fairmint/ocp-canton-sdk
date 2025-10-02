@@ -1,10 +1,10 @@
 import { safeString } from '../../utils/typeConversions';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 
-type CapitalizationDefinitionRules = {
+interface CapitalizationDefinitionRules {
   exclude_external_entities?: boolean;
   include_capital_in_ratio?: boolean;
-};
+}
 
 type ConversionTriggerType =
   | 'AUTOMATIC_ON_CONDITION'
@@ -14,12 +14,12 @@ type ConversionTriggerType =
   | 'ELECTIVE_AT_WILL'
   | 'UNSPECIFIED';
 
-type CustomConversionMechanism = {
+interface CustomConversionMechanism {
   type: 'CUSTOM_CONVERSION';
   custom_conversion_description?: string;
-};
+}
 
-type SafeConversionMechanism = {
+interface SafeConversionMechanism {
   type: 'SAFE_CONVERSION';
   conversion_mfn: boolean;
   conversion_discount?: string;
@@ -28,37 +28,37 @@ type SafeConversionMechanism = {
   capitalization_definition?: string;
   capitalization_definition_rules?: CapitalizationDefinitionRules;
   exit_multiple?: { numerator: string; denominator: string };
-};
+}
 
-type PercentCapitalizationMechanism = {
+interface PercentCapitalizationMechanism {
   type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
   converts_to_percent: string;
   capitalization_definition?: string;
   capitalization_definition_rules?: CapitalizationDefinitionRules;
-};
+}
 
-type FixedAmountMechanism = {
+interface FixedAmountMechanism {
   type: 'FIXED_AMOUNT_CONVERSION';
   converts_to_quantity: string;
-};
+}
 
-type ValuationBasedMechanism = {
+interface ValuationBasedMechanism {
   type: 'VALUATION_BASED_CONVERSION';
   valuation_type?: string;
   valuation_amount?: { amount: string; currency: string };
   capitalization_definition?: string;
   capitalization_definition_rules?: CapitalizationDefinitionRules;
-};
+}
 
-type SharePriceBasedMechanism = {
+interface SharePriceBasedMechanism {
   type: 'SHARE_PRICE_BASED_CONVERSION';
   description?: string;
   discount: boolean;
   discount_percentage?: string;
   discount_amount?: { amount: string; currency: string };
-};
+}
 
-type NoteConversionMechanism = {
+interface NoteConversionMechanism {
   type: 'CONVERTIBLE_NOTE_CONVERSION';
   interest_rates: Array<{
     rate: string;
@@ -75,9 +75,9 @@ type NoteConversionMechanism = {
   capitalization_definition_rules?: CapitalizationDefinitionRules;
   exit_multiple?: { numerator: string; denominator: string } | null;
   conversion_mfn?: boolean;
-};
+}
 
-type ConvertibleConversionRight = {
+interface ConvertibleConversionRight {
   type: 'CONVERTIBLE_CONVERSION_RIGHT';
   conversion_mechanism:
     | CustomConversionMechanism
@@ -89,9 +89,9 @@ type ConvertibleConversionRight = {
     | NoteConversionMechanism;
   converts_to_future_round?: boolean;
   converts_to_stock_class_id?: string;
-};
+}
 
-type ConversionTrigger = {
+interface ConversionTrigger {
   type: ConversionTriggerType;
   trigger_id: string;
   conversion_right: ConvertibleConversionRight;
@@ -100,7 +100,7 @@ type ConversionTrigger = {
   // Optional fields for specific trigger subtypes
   trigger_date?: string;
   trigger_condition?: string;
-};
+}
 
 export interface OcfConvertibleIssuanceEvent {
   object_type: 'TX_CONVERTIBLE_ISSUANCE';

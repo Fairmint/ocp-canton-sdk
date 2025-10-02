@@ -558,7 +558,10 @@ export type AllocationType =
  */
 export type PeriodType = 'DAYS' | 'MONTHS';
 
-export type VestingPeriod = { type: PeriodType; value: number };
+export interface VestingPeriod {
+  type: PeriodType;
+  value: number;
+}
 
 /**
  * Primitive - Vesting Condition Trigger Type and specific triggers

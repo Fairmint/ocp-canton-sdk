@@ -158,7 +158,7 @@ export async function getDocumentAsOcf(
     throw new Error('No createArgument found for contract');
   }
 
-  const createArgument = eventsResponse.created.createdEvent.createArgument;
+  const { createArgument } = eventsResponse.created.createdEvent;
 
   function hasDocumentData(arg: unknown): arg is { document_data: Fairmint.OpenCapTable.Document.OcfDocument } {
     const record = arg as Record<string, unknown>;

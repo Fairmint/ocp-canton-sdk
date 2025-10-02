@@ -45,7 +45,7 @@ export async function updateCompanyValuationReport(
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
 
-  const createArgument = eventsResponse.created.createdEvent.createArgument;
+  const { createArgument } = eventsResponse.created.createdEvent;
   if (!hasSystemOperator(createArgument)) {
     throw new Error('System operator not found in contract create argument');
   }

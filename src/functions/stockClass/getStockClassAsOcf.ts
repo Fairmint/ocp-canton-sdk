@@ -22,7 +22,7 @@ function damlStockClassTypeToNative(damlType: string): StockClassType {
 
 function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.OcfStockClassData): OcfStockClassData {
   const dAny = damlData as unknown as Record<string, unknown>;
-  let initialShares: string = '0';
+  let initialShares = '0';
   const isa = dAny.initial_shares_authorized;
   if (typeof isa === 'string' || typeof isa === 'number') {
     initialShares = String(isa);
@@ -68,7 +68,10 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.O
           const rt = right.conversion_trigger as unknown;
           let tag: string | undefined;
           if (typeof rt === 'string') tag = rt;
-          else if (rt && typeof rt === 'object' && 'tag' in rt) tag = (rt as { tag: string }).tag;
+          else if (rt && typeof rt === 'object' && 'tag' in rt) {
+            const { tag: tagValue } = rt as { tag: string };
+            tag = tagValue;
+          }
           const trigger: ConversionTrigger =
             tag === 'OcfTriggerTypeAutomaticOnDate'
               ? 'AUTOMATIC_ON_DATE'
@@ -357,7 +360,7 @@ export async function getStockClassAsOcf(
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
 
-  const createArgument = eventsResponse.created.createdEvent.createArgument;
+  const { createArgument } = eventsResponse.created.createdEvent;
 
   // Type guard to ensure we have the expected stock class data structure
   function hasStockClassData(

@@ -45,7 +45,7 @@ export async function getStockLegendTemplateAsOcf(
   if (!eventsResponse.created?.createdEvent?.createArgument) {
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
-  const createArgument = eventsResponse.created.createdEvent.createArgument;
+  const { createArgument } = eventsResponse.created.createdEvent;
 
   interface HasTemplateData {
     template_data: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData;

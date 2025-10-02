@@ -34,7 +34,7 @@ function damlStockIssuanceTypeToNative(t: string): StockIssuanceType | undefined
 function damlStockIssuanceDataToNative(
   d: Fairmint.OpenCapTable.StockIssuance.OcfStockIssuanceData
 ): OcfStockIssuanceData {
-  const anyD = d as unknown as { [k: string]: unknown };
+  const anyD = d as unknown as Record<string, unknown>;
   const dataWithId = anyD as { id?: string };
   return {
     id: dataWithId.id ?? '',
@@ -65,7 +65,7 @@ function damlStockIssuanceDataToNative(
     quantity: d.quantity,
     ...(d.vesting_terms_id && { vesting_terms_id: d.vesting_terms_id }),
     vestings: Array.isArray((anyD as { vestings?: unknown }).vestings)
-      ? (anyD as { vestings: { date: string; amount: string }[] }).vestings.map((v) => ({
+      ? (anyD as { vestings: Array<{ date: string; amount: string }> }).vestings.map((v) => ({
           date: damlTimeToDateString(v.date),
           amount: v.amount,
         }))

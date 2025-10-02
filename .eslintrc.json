@@ -26,7 +26,10 @@
     "@typescript-eslint/no-unnecessary-type-assertion": "warn",
     "@typescript-eslint/prefer-nullish-coalescing": "warn",
     "@typescript-eslint/prefer-optional-chain": "warn",
-    "@typescript-eslint/consistent-type-imports": "off",
+    "@typescript-eslint/consistent-type-imports": [
+      "warn",
+      { "prefer": "type-imports", "fixStyle": "inline-type-imports", "disallowTypeAnnotations": false }
+    ],
     "@typescript-eslint/no-unsafe-assignment": "off",
     "@typescript-eslint/no-unsafe-member-access": "off",
     "@typescript-eslint/no-unsafe-argument": "off",
@@ -37,7 +40,19 @@
     "@typescript-eslint/require-await": "warn",
     "@typescript-eslint/unbound-method": "warn",
     "@typescript-eslint/no-redundant-type-constituents": "warn",
-    "@typescript-eslint/no-require-imports": "off",
+    "@typescript-eslint/no-require-imports": "warn",
+    "@typescript-eslint/array-type": ["warn", { "default": "array-simple" }],
+    "@typescript-eslint/consistent-type-definitions": ["warn", "interface"],
+    "@typescript-eslint/consistent-type-assertions": ["warn", { "assertionStyle": "as" }],
+    "@typescript-eslint/consistent-indexed-object-style": ["warn", "record"],
+    "@typescript-eslint/prefer-for-of": "warn",
+    "@typescript-eslint/prefer-function-type": "warn",
+    "@typescript-eslint/prefer-namespace-keyword": "warn",
+    "@typescript-eslint/prefer-as-const": "warn",
+    "@typescript-eslint/no-inferrable-types": "warn",
+    "@typescript-eslint/prefer-string-starts-ends-with": "warn",
+    "@typescript-eslint/prefer-includes": "warn",
+    "@typescript-eslint/prefer-reduce-type-parameter": "warn",
     "unused-imports/no-unused-imports": "error",
     "unused-imports/no-unused-vars": [
       "warn",
@@ -64,14 +79,31 @@
     "import/no-named-as-default": "off",
     "no-console": "warn",
     "prefer-const": "warn",
-    "no-var": "error"
+    "no-var": "error",
+    "object-shorthand": ["warn", "always"],
+    "prefer-arrow-callback": "warn",
+    "prefer-template": "warn",
+    "prefer-destructuring": ["warn", { "object": true, "array": false }],
+    "prefer-spread": "warn",
+    "prefer-rest-params": "warn",
+    "no-useless-rename": "warn",
+    "arrow-body-style": ["warn", "as-needed"],
+    "prefer-exponentiation-operator": "warn",
+    "yoda": "warn",
+    "no-useless-return": "warn",
+    "no-useless-computed-key": "warn",
+    "no-unneeded-ternary": "warn",
+    "no-lonely-if": "warn",
+    "prefer-object-spread": "warn",
+    "no-else-return": ["warn", { "allowElseIf": false }]
   },
   "overrides": [
     {
       "files": ["scripts/**/*", "test/**/*"],
       "rules": {
         "no-console": "off",
-        "@typescript-eslint/no-explicit-any": "off"
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-require-imports": "off"
       }
     }
   ],

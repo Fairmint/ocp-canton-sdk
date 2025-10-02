@@ -136,10 +136,10 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVes
     const lengthVal = p?.length ?? p?.value;
     const occurrencesVal = p?.occurrences;
     const cliffVal = p?.cliff_installment;
-    const lengthNum: number = Number(lengthVal);
+    const lengthNum = Number(lengthVal);
     if (occurrencesVal === undefined || occurrencesVal === null)
       throw new Error('Missing vesting relative period occurrences');
-    const occurrencesNum: number = Number(occurrencesVal);
+    const occurrencesNum = Number(occurrencesVal);
     if (!Number.isFinite(lengthNum) || lengthNum <= 0) throw new Error('Invalid vesting relative period length');
     if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1)
       throw new Error('Invalid vesting relative period occurrences');

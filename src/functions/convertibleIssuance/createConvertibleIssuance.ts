@@ -336,7 +336,7 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
   const typeEnum = triggerTypeToDamlEnum(normalized);
   if (typeof t !== 'object' || !t.trigger_id)
     throw new Error('trigger_id is required for each convertible conversion trigger');
-  const trigger_id = t.trigger_id;
+  const { trigger_id } = t;
   const nickname = typeof t === 'object' && t.nickname ? t.nickname : null;
   const trigger_description = typeof t === 'object' && t.trigger_description ? t.trigger_description : null;
   const trigger_dateStr = typeof t === 'object' && t.trigger_date ? t.trigger_date : undefined;

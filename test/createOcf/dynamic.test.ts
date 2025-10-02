@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import { OcfIssuerData, OcpClient } from '../../src';
+import { type OcfIssuerData, OcpClient } from '../../src';
 import {
   setTransactionTreeFixtureData,
   clearTransactionTreeFixture,
@@ -160,7 +160,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
         const createdEvent = Object.values(transaction.eventsById).find((event: any) => event.CreatedTreeEvent);
 
         expect(createdEvent).toBeDefined();
-        const contractId = (createdEvent as any).CreatedTreeEvent.value.contractId;
+        const { contractId } = (createdEvent as any).CreatedTreeEvent.value;
         expect(contractId).toBeDefined();
         expect(typeof contractId).toBe('string');
         expect(contractId.length).toBeGreaterThan(0);

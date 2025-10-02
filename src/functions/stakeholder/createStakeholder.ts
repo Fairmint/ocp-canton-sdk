@@ -102,7 +102,7 @@ function contactInfoWithoutNameToDaml(
 
   return {
     phone_numbers: phones,
-    emails: emails,
+    emails,
   };
 }
 

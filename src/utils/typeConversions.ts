@@ -155,7 +155,7 @@ export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Ocf
 /**
  * Remove empty string entries from comments array (mutates in place and returns the object)
  */
-export function cleanComments(comments?: Array<string | null>): Array<string> {
+export function cleanComments(comments?: Array<string | null>): string[] {
   if (Array.isArray(comments)) {
     const filtered = comments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
     return filtered.length > 0 ? filtered : [];

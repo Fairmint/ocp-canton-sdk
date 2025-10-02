@@ -227,7 +227,7 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
   const typeEnum = triggerTypeToDamlEnum(normalized);
   if (typeof t !== 'object' || !t.trigger_id)
     throw new Error('trigger_id is required for each warrant exercise trigger');
-  const trigger_id = t.trigger_id;
+  const { trigger_id } = t;
   const nickname = typeof t.nickname === 'string' ? t.nickname : null;
   const trigger_description = typeof t.trigger_description === 'string' ? t.trigger_description : null;
   const trigger_dateStr = typeof t.trigger_date === 'string' ? t.trigger_date : undefined;

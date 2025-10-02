@@ -25,9 +25,8 @@ export class LedgerJsonApiClient {
 
       // No fixture configured - this is an error
       throw new Error(
-        'No transaction fixture configured. Use setTransactionTreeFixtureData() in your test setup. ' +
-          'Request: ' +
-          JSON.stringify(req, null, 2)
+        `No transaction fixture configured. Use setTransactionTreeFixtureData() in your test setup. ` +
+          `Request: ${JSON.stringify(req, null, 2)}`
       );
     }
   );
@@ -46,7 +45,7 @@ export class LedgerJsonApiClient {
 
     // No fixture configured - this is an error
     const error: any = new Error(
-      'No events fixture configured. Use setEventsFixtureData() in your test setup. ' + 'Contract ID: ' + req.contractId
+      `No events fixture configured. Use setEventsFixtureData() in your test setup. ` + `Contract ID: ${req.contractId}`
     );
     error.code = 404;
     error.body = { code: 'CONTRACT_EVENTS_NOT_FOUND' };
@@ -147,7 +146,7 @@ export async function getFeaturedAppRightContractDetails(validatorApi: Validator
 // Export the findCreatedEventByTemplateId function
 export function findCreatedEventByTemplateId(response: any, templateId: string): any {
   // Handle both direct structure and nested transaction structure
-  const transactionTree = response.transactionTree;
+  const { transactionTree } = response;
   const eventsById = transactionTree?.eventsById ?? transactionTree?.transaction?.eventsById;
 
   // Mock implementation - look for CreatedTreeEvent in the transactionTree

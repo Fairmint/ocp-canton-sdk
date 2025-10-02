@@ -8,38 +8,38 @@ type ConversionTriggerType =
   | 'ELECTIVE_AT_WILL'
   | 'UNSPECIFIED';
 
-type WarrantCustomMechanism = {
+interface WarrantCustomMechanism {
   type: 'CUSTOM_CONVERSION';
   custom_conversion_description: string;
-};
+}
 
-type WarrantPercentCapMechanism = {
+interface WarrantPercentCapMechanism {
   type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
   converts_to_percent: string;
   capitalization_definition?: string;
   capitalization_definition_rules?: Record<string, unknown>;
-};
+}
 
-type WarrantFixedAmountMechanism = {
+interface WarrantFixedAmountMechanism {
   type: 'FIXED_AMOUNT_CONVERSION';
   converts_to_quantity: string;
-};
+}
 
-type WarrantValuationBasedMechanism = {
+interface WarrantValuationBasedMechanism {
   type: 'VALUATION_BASED_CONVERSION';
   valuation_type?: string;
   valuation_amount?: { amount: string; currency: string };
   capitalization_definition?: string;
   capitalization_definition_rules?: Record<string, unknown>;
-};
+}
 
-type WarrantSharePriceBasedMechanism = {
+interface WarrantSharePriceBasedMechanism {
   type: 'SHARE_PRICE_BASED_CONVERSION';
   description?: string;
   discount: boolean;
   discount_percentage?: string;
   discount_amount?: { amount: string; currency: string };
-};
+}
 
 type WarrantConversionMechanism =
   | WarrantCustomMechanism
@@ -48,14 +48,14 @@ type WarrantConversionMechanism =
   | WarrantValuationBasedMechanism
   | WarrantSharePriceBasedMechanism;
 
-type WarrantConversionRight = {
+interface WarrantConversionRight {
   type: 'WARRANT_CONVERSION_RIGHT';
   conversion_mechanism: WarrantConversionMechanism;
   converts_to_future_round?: boolean;
   converts_to_stock_class_id?: string;
-};
+}
 
-type ExerciseTrigger = {
+interface ExerciseTrigger {
   type: ConversionTriggerType;
   trigger_id: string;
   conversion_right: WarrantConversionRight;
@@ -63,7 +63,7 @@ type ExerciseTrigger = {
   trigger_description?: string;
   trigger_date?: string;
   trigger_condition?: string;
-};
+}
 
 export interface OcfWarrantIssuanceEvent {
   object_type: 'TX_WARRANT_ISSUANCE';

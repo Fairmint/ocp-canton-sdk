@@ -101,7 +101,7 @@ function damlStakeholderTypeToNative(damlType: Fairmint.OpenCapTable.Stakeholder
 function damlStakeholderDataToNative(
   damlData: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData
 ): OcfStakeholderData {
-  const dAny = damlData as unknown as { [k: string]: unknown };
+  const dAny = damlData as unknown as Record<string, unknown>;
   const nameData = dAny.name as Record<string, unknown> | undefined;
   const name: Name = {
     legal_name: (nameData?.legal_name ?? '') as string,
@@ -240,7 +240,7 @@ export async function getStakeholderAsOcf(
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
 
-  const createArgument = eventsResponse.created.createdEvent.createArgument;
+  const { createArgument } = eventsResponse.created.createdEvent;
 
   function hasStakeholderData(
     arg: unknown
