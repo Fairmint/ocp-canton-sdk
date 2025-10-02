@@ -1,5 +1,8 @@
+import type {
+  Command,
+  DisclosedContract,
+} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { cleanComments, dateStringToDAMLTime } from '../../utils/typeConversions';
 import type {
   AllocationType,
   CommandWithDisclosedContracts,
@@ -7,10 +10,7 @@ import type {
   VestingCondition,
   VestingConditionPortion,
 } from '../../types';
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { cleanComments, dateStringToDAMLTime } from '../../utils/typeConversions';
 
 function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.VestingTerms.OcfAllocationType {
   switch (t) {

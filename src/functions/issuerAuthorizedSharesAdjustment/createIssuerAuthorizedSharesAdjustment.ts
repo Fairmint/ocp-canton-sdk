@@ -1,10 +1,10 @@
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { cleanComments, dateStringToDAMLTime, numberToString } from '../../utils/typeConversions';
-import type { CommandWithDisclosedContracts, OcfIssuerAuthorizedSharesAdjustmentTxData } from '../../types';
 import type {
   Command,
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { CommandWithDisclosedContracts, OcfIssuerAuthorizedSharesAdjustmentTxData } from '../../types';
+import { cleanComments, dateStringToDAMLTime, numberToString } from '../../utils/typeConversions';
 
 export interface CreateIssuerAuthorizedSharesAdjustmentParams {
   issuerContractId: string;

@@ -1,4 +1,5 @@
-import { damlMonetaryToNative, damlTimeToDateString } from '../../utils/typeConversions';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   ConversionMechanism,
   ConversionTrigger,
@@ -6,8 +7,7 @@ import type {
   StockClassConversionRight,
   StockClassType,
 } from '../../types/native';
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { damlMonetaryToNative, damlTimeToDateString } from '../../utils/typeConversions';
 
 function damlStockClassTypeToNative(damlType: string): StockClassType {
   switch (damlType) {

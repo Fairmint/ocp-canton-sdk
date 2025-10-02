@@ -1,4 +1,5 @@
-import { damlAddressToNative } from '../../utils/typeConversions';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   ContactInfo,
   ContactInfoWithoutName,
@@ -10,8 +11,7 @@ import type {
   PhoneType,
   StakeholderType,
 } from '../../types/native';
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { damlAddressToNative } from '../../utils/typeConversions';
 
 function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailType): EmailType {
   switch (damlType) {

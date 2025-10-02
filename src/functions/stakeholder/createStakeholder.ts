@@ -1,5 +1,8 @@
+import type {
+  Command,
+  DisclosedContract,
+} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { addressToDaml, cleanComments } from '../../utils/typeConversions';
 import type {
   CommandWithDisclosedContracts,
   ContactInfo,
@@ -10,10 +13,7 @@ import type {
   PhoneType,
   StakeholderType,
 } from '../../types';
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { addressToDaml, cleanComments } from '../../utils/typeConversions';
 
 function stakeholderTypeToDaml(stakeholderType: StakeholderType): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderType {
   switch (stakeholderType) {

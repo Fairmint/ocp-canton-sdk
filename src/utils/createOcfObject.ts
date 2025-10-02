@@ -1,3 +1,4 @@
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcpClient } from '../OcpClient';
 import type {
@@ -18,7 +19,6 @@ import type {
   OcfVestingTermsData,
   OcfWarrantIssuanceDataNative,
 } from '../types';
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 
 export interface CreateOcfObjectParams {
   /** Contract ID of the Issuer contract */

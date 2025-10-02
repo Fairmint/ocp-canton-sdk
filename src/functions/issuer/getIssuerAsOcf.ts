@@ -1,7 +1,7 @@
-import { damlAddressToNative, damlTimeToDateString } from '../../utils/typeConversions';
-import type { EmailType, OcfIssuerData, PhoneType } from '../../types/native';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { EmailType, OcfIssuerData, PhoneType } from '../../types/native';
+import { damlAddressToNative, damlTimeToDateString } from '../../utils/typeConversions';
 
 function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailType): EmailType {
   switch (damlType) {

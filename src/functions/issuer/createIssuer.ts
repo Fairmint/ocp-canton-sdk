@@ -1,10 +1,10 @@
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { addressToDaml, cleanComments, dateStringToDAMLTime } from '../../utils/typeConversions';
-import type { CommandWithDisclosedContracts, EmailType, OcfIssuerData, PhoneType } from '../../types';
 import type {
   Command,
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { CommandWithDisclosedContracts, EmailType, OcfIssuerData, PhoneType } from '../../types';
+import { addressToDaml, cleanComments, dateStringToDAMLTime } from '../../utils/typeConversions';
 
 function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfEmailType {
   switch (emailType) {

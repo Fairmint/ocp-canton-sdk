@@ -1,6 +1,6 @@
-import type { OcfStockLegendTemplateData } from '../../types/native';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { OcfStockLegendTemplateData } from '../../types/native';
 
 interface DamlDataWithId extends Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData {
   id: string;

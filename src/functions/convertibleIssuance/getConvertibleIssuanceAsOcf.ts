@@ -1,5 +1,5 @@
-import { safeString } from '../../utils/typeConversions';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { safeString } from '../../utils/typeConversions';
 
 interface CapitalizationDefinitionRules {
   exclude_external_entities?: boolean;
@@ -142,7 +142,7 @@ export async function getConvertibleIssuanceAsOcf(
   }
 
   const arg = created.createArgument;
-  if (!arg || typeof arg !== 'object' || !('issuance_data' in arg)) {
+  if (typeof arg !== 'object' || !('issuance_data' in arg)) {
     throw new Error('Unexpected createArgument for ConvertibleIssuance');
   }
   const d = (arg as { issuance_data: Record<string, unknown> }).issuance_data;

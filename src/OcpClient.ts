@@ -1,4 +1,20 @@
+import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import { LedgerJsonApiClient, TransactionBatch } from '@fairmint/canton-node-sdk';
+import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import type {
+  CreateCompanyValuationReportParams,
+  CreateCompanyValuationReportResult,
+  CreateIssuerParams,
+  CreateStockClassParams,
+  GetEquityCompensationExerciseEventAsOcfParams,
+  GetEquityCompensationIssuanceEventAsOcfParams,
+  GetIssuerAsOcfParams,
+  GetIssuerAsOcfResult,
+  GetStockClassAsOcfParams,
+  GetStockClassAsOcfResult,
+  UpdateCompanyValuationParams,
+  UpdateCompanyValuationResult,
+} from './functions';
 import {
   addObserversToCompanyValuationReport,
   buildArchiveIssuerByIssuerCommand,
@@ -15,63 +31,49 @@ import {
   getStockClassAsOcf,
   updateCompanyValuationReport,
 } from './functions';
+import type { GetConvertibleIssuanceAsOcfParams } from './functions/convertibleIssuance';
 import {
   buildArchiveConvertibleIssuanceByIssuerCommand,
   buildCreateConvertibleIssuanceCommand,
   getConvertibleIssuanceAsOcf,
 } from './functions/convertibleIssuance';
+import type { GetDocumentAsOcfParams } from './functions/document';
 import {
   buildArchiveDocumentByIssuerCommand,
   buildCreateDocumentCommand,
   getDocumentAsOcf,
 } from './functions/document';
-import { authorizeIssuer, withdrawAuthorization } from './functions/issuerAuthorization';
-import {
-  buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand,
-  buildCreateIssuerAuthorizedSharesAdjustmentCommand,
-  getIssuerAuthorizedSharesAdjustmentEventAsOcf,
-} from './functions/issuerAuthorizedSharesAdjustment';
-import {
-  buildArchiveStakeholderByIssuerCommand,
-  buildCreateStakeholderCommand,
-  getStakeholderAsOcf,
-} from './functions/stakeholder';
-import {
-  buildArchiveStockCancellationByIssuerCommand,
-  buildCreateStockCancellationCommand,
-  getStockCancellationEventAsOcf,
-} from './functions/stockCancellation';
-import {
-  buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand,
-  buildCreateStockClassAuthorizedSharesAdjustmentCommand,
-  getStockClassAuthorizedSharesAdjustmentEventAsOcf,
-} from './functions/stockClassAuthorizedSharesAdjustment';
-import type {
-  CreateCompanyValuationReportParams,
-  CreateCompanyValuationReportResult,
-  CreateIssuerParams,
-  CreateStockClassParams,
-  GetEquityCompensationExerciseEventAsOcfParams,
-  GetEquityCompensationIssuanceEventAsOcfParams,
-  GetIssuerAsOcfParams,
-  GetIssuerAsOcfResult,
-  GetStockClassAsOcfParams,
-  GetStockClassAsOcfResult,
-  UpdateCompanyValuationParams,
-  UpdateCompanyValuationResult,
-} from './functions';
-import type { GetConvertibleIssuanceAsOcfParams } from './functions/convertibleIssuance';
-import type { GetDocumentAsOcfParams } from './functions/document';
 import type {
   AuthorizeIssuerParams,
   AuthorizeIssuerResult,
   WithdrawAuthorizationParams,
   WithdrawAuthorizationResult,
 } from './functions/issuerAuthorization';
+import { authorizeIssuer, withdrawAuthorization } from './functions/issuerAuthorization';
 import type { GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams } from './functions/issuerAuthorizedSharesAdjustment';
+import {
+  buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand,
+  buildCreateIssuerAuthorizedSharesAdjustmentCommand,
+  getIssuerAuthorizedSharesAdjustmentEventAsOcf,
+} from './functions/issuerAuthorizedSharesAdjustment';
 import type { GetStakeholderAsOcfParams } from './functions/stakeholder';
+import {
+  buildArchiveStakeholderByIssuerCommand,
+  buildCreateStakeholderCommand,
+  getStakeholderAsOcf,
+} from './functions/stakeholder';
 import type { GetStockCancellationEventAsOcfParams } from './functions/stockCancellation';
+import {
+  buildArchiveStockCancellationByIssuerCommand,
+  buildCreateStockCancellationCommand,
+  getStockCancellationEventAsOcf,
+} from './functions/stockCancellation';
 import type { GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams } from './functions/stockClassAuthorizedSharesAdjustment';
+import {
+  buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand,
+  buildCreateStockClassAuthorizedSharesAdjustmentCommand,
+  getStockClassAuthorizedSharesAdjustmentEventAsOcf,
+} from './functions/stockClassAuthorizedSharesAdjustment';
 import type { GetStockIssuanceAsOcfParams } from './functions/stockIssuance';
 import {
   buildArchiveStockIssuanceByIssuerCommand,
@@ -111,8 +113,6 @@ import {
 import type { CommandWithDisclosedContracts } from './types';
 import type { CreateOcfObjectParams } from './utils/createOcfObject';
 import { buildCreateOcfObjectCommandFactory } from './utils/createOcfObject';
-import type { ClientConfig } from '@fairmint/canton-node-sdk';
-import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
 export class OcpClient {
   public readonly client: LedgerJsonApiClient;

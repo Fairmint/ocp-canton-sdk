@@ -1,13 +1,13 @@
-import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { cleanComments, extractUpdateId } from '../../utils/typeConversions';
-import type { CommandWithDisclosedContracts, OcfDocumentData, OcfObjectReference } from '../../types';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type {
   Command,
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { CommandWithDisclosedContracts, OcfDocumentData, OcfObjectReference } from '../../types';
+import { cleanComments, extractUpdateId } from '../../utils/typeConversions';
 
 function objectTypeToDaml(t: OcfObjectReference['object_type']): Fairmint.OpenCapTable.Document.OcfObjectType {
   switch (t) {

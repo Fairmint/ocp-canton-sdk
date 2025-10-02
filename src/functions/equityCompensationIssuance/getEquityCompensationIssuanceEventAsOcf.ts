@@ -1,5 +1,5 @@
-import type { Vesting } from '../../types/native';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { Vesting } from '../../types/native';
 
 export interface OcfEquityCompensationIssuanceEvent {
   object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE';

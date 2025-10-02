@@ -1,4 +1,9 @@
+import type {
+  Command,
+  DisclosedContract,
+} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { CommandWithDisclosedContracts, Monetary } from '../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -6,11 +11,6 @@ import {
   numberToString,
   safeString,
 } from '../../utils/typeConversions';
-import type { CommandWithDisclosedContracts, Monetary } from '../../types';
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
 export interface CreateConvertibleIssuanceParams {
   issuerContractId: string;
@@ -321,8 +321,7 @@ function mechanismInputToDamlEnum(
 }
 
 function buildConvertibleRight(input: ConversionTriggerInput | undefined) {
-  const details =
-    typeof input === 'object' && input !== null && 'conversion_right' in input ? input.conversion_right : undefined;
+  const details = typeof input === 'object' && 'conversion_right' in input ? input.conversion_right : undefined;
   const mechanism = mechanismInputToDamlEnum(details?.conversion_mechanism);
   const convertsToFutureRound =
     details && typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null;
@@ -376,7 +375,7 @@ export function buildCreateConvertibleIssuanceCommand(
     convertible_type: convertibleTypeToDaml(d.convertible_type),
     conversion_triggers: d.conversion_triggers.map((t, idx) => buildTriggerToDaml(t, idx, d.id)),
     pro_rata:
-      d.pro_rata !== undefined && d.pro_rata !== null
+      d.pro_rata !== undefined
         ? typeof d.pro_rata === 'number'
           ? d.pro_rata.toString()
           : d.pro_rata

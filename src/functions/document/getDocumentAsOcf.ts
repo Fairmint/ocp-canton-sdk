@@ -1,6 +1,6 @@
-import type { OcfDocumentData, OcfObjectReference } from '../../types/native';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { OcfDocumentData, OcfObjectReference } from '../../types/native';
 
 function objectTypeToNative(t: Fairmint.OpenCapTable.Document.OcfObjectType): OcfObjectReference['object_type'] {
   switch (t) {

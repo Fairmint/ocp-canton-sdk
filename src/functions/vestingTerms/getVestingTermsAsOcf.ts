@@ -1,12 +1,12 @@
-import { damlTimeToDateString } from '../../utils/typeConversions';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   AllocationType,
   OcfVestingTermsData,
   VestingCondition,
   VestingConditionPortion,
 } from '../../types/native';
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { damlTimeToDateString } from '../../utils/typeConversions';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.VestingTerms.OcfAllocationType): AllocationType {
   switch (t) {

@@ -1,4 +1,5 @@
-import { damlMonetaryToNative, damlTimeToDateString } from '../../utils/typeConversions';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   Monetary,
   OcfStockIssuanceData,
@@ -6,8 +7,7 @@ import type {
   ShareNumberRange,
   StockIssuanceType,
 } from '../../types/native';
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { damlMonetaryToNative, damlTimeToDateString } from '../../utils/typeConversions';
 
 function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.OcfSecurityExemption): SecurityExemption {
   return { description: e.description, jurisdiction: e.jurisdiction };

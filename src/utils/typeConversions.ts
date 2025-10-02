@@ -5,9 +5,9 @@
  * have been moved to their respective function files.
  */
 
-import type { Address, AddressType, Monetary } from '../types/native';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { Address, AddressType, Monetary } from '../types/native';
 
 // ===== Date Conversion Helpers =====
 
