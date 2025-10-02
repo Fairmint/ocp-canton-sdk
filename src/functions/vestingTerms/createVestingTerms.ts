@@ -70,7 +70,7 @@ type OcfVestingDay =
   | 'OcfVestingStartDayOrLast';
 
 function mapOcfDayOfMonthToDaml(day: string): OcfVestingDay {
-  const d = (day ?? '').toString().toUpperCase();
+  const d = day.toString().toUpperCase();
   const table: Record<string, OcfVestingDay> = {
     '01': 'OcfVestingDay01',
     '02': 'OcfVestingDay02',
@@ -286,7 +286,7 @@ export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams)
 
         // Normalize trigger for JSON API
         const trigger = ((): Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger => {
-          if (c.trigger && typeof c.trigger === 'object' && 'tag' in c.trigger) {
+          if (typeof c.trigger === 'object' && 'tag' in c.trigger) {
             const t = c.trigger as { tag: string; value?: unknown };
             return 'value' in t
               ? c.trigger

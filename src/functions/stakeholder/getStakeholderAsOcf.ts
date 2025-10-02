@@ -65,8 +65,8 @@ function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.Stakeholder.Ocf
     ...(damlInfo.name.first_name ? { first_name: damlInfo.name.first_name } : {}),
     ...(damlInfo.name.last_name ? { last_name: damlInfo.name.last_name } : {}),
   };
-  const phones: Phone[] = (damlInfo.phone_numbers || []).map(damlPhoneToNative);
-  const emails: Email[] = (damlInfo.emails || []).map(damlEmailToNative);
+  const phones: Phone[] = damlInfo.phone_numbers.map(damlPhoneToNative);
+  const emails: Email[] = damlInfo.emails.map(damlEmailToNative);
   return {
     name,
     phone_numbers: phones,
@@ -77,8 +77,8 @@ function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.Stakeholder.Ocf
 function damlContactInfoWithoutNameToNative(
   damlInfo: Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName
 ): ContactInfoWithoutName {
-  const phones: Phone[] = (damlInfo.phone_numbers || []).map(damlPhoneToNative);
-  const emails: Email[] = (damlInfo.emails || []).map(damlEmailToNative);
+  const phones: Phone[] = damlInfo.phone_numbers.map(damlPhoneToNative);
+  const emails: Email[] = damlInfo.emails.map(damlEmailToNative);
   return {
     phone_numbers: phones,
     emails,
@@ -173,8 +173,8 @@ function damlStakeholderDataToNative(
     ...(damlData.contact_info && {
       contact_info: damlContactInfoWithoutNameToNative(damlData.contact_info),
     }),
-    addresses: (damlData.addresses || []).map(damlAddressToNative),
-    tax_ids: damlData.tax_ids || [],
+    addresses: damlData.addresses.map(damlAddressToNative),
+    tax_ids: damlData.tax_ids,
     ...(Array.isArray((dAny as { comments?: unknown }).comments) && (dAny as { comments: string[] }).comments.length > 0
       ? { comments: (dAny as { comments: string[] }).comments }
       : {}),

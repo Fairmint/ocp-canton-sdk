@@ -140,7 +140,7 @@ function documentDataToDaml(d: OcfDocumentData): Fairmint.OpenCapTable.Document.
     path: d.path ?? null,
     uri: d.uri ?? null,
     md5: d.md5,
-    related_objects: (d.related_objects || []).map((r) => ({
+    related_objects: (d.related_objects ?? []).map((r) => ({
       object_type: objectTypeToDaml(r.object_type),
       object_id: r.object_id,
     })),

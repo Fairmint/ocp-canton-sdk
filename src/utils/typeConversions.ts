@@ -61,7 +61,7 @@ export function safeString(value: unknown): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return value.toString();
   // For objects, try to get a meaningful string representation
-  if (typeof value === 'object' && value !== null) {
+  if (typeof value === 'object') {
     // Handle DAML tagged unions
     if ('tag' in value && typeof (value as { tag?: unknown }).tag === 'string') {
       return (value as { tag: string }).tag;

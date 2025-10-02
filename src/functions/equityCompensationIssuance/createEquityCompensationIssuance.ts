@@ -91,7 +91,7 @@ export function buildCreateEquityCompensationIssuanceCommand(
       board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
       stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
       consideration_text: optionalString(d.consideration_text),
-      security_law_exemptions: (d.security_law_exemptions || []).map((e) => ({
+      security_law_exemptions: (d.security_law_exemptions ?? []).map((e) => ({
         description: e.description,
         jurisdiction: e.jurisdiction,
       })),
@@ -103,12 +103,12 @@ export function buildCreateEquityCompensationIssuanceCommand(
       exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
       base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
       early_exercisable: d.early_exercisable ?? null,
-      vestings: (d.vestings || []).map((v) => ({
+      vestings: (d.vestings ?? []).map((v) => ({
         date: dateStringToDAMLTime(v.date),
         amount: numberToString(v.amount),
       })),
       expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
-      termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
+      termination_exercise_windows: (d.termination_exercise_windows ?? []).map((w) => ({
         reason: terminationWindowReasonMap[w.reason],
         period: numberToString(w.period),
         period_type: terminationWindowPeriodTypeMap[w.period_type],

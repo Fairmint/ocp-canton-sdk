@@ -79,7 +79,7 @@ function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.OcfIssuer
   if (damlData.country_subdivision_name_of_formation) {
     out.country_subdivision_name_of_formation = damlData.country_subdivision_name_of_formation;
   }
-  if (damlData.tax_ids?.length) out.tax_ids = damlData.tax_ids;
+  if (damlData.tax_ids.length) out.tax_ids = damlData.tax_ids;
   if (damlData.email) out.email = damlEmailToNative(damlData.email);
   if (damlData.phone) out.phone = damlPhoneToNative(damlData.phone);
   if (damlData.address) out.address = damlAddressToNative(damlData.address);
@@ -138,7 +138,7 @@ export async function getIssuerAsOcf(
   params: GetIssuerAsOcfParams
 ): Promise<GetIssuerAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!eventsResponse.created?.createdEvent?.createArgument) {
+  if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
 

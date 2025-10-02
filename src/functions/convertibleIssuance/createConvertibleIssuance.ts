@@ -374,12 +374,7 @@ export function buildCreateConvertibleIssuanceCommand(
     investment_amount: monetaryToDaml(d.investment_amount),
     convertible_type: convertibleTypeToDaml(d.convertible_type),
     conversion_triggers: d.conversion_triggers.map((t, idx) => buildTriggerToDaml(t, idx, d.id)),
-    pro_rata:
-      d.pro_rata !== undefined
-        ? typeof d.pro_rata === 'number'
-          ? d.pro_rata.toString()
-          : d.pro_rata
-        : null,
+    pro_rata: d.pro_rata !== undefined ? (typeof d.pro_rata === 'number' ? d.pro_rata.toString() : d.pro_rata) : null,
     seniority: d.seniority.toString(),
     comments: cleanComments(d.comments),
   };

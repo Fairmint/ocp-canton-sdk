@@ -241,9 +241,9 @@ export interface OcfStockClassData {
   /** The number of votes each share of this stock class gets */
   votes_per_share: string | number;
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
   /** List of stock class conversion rights possible for this stock class */
-  conversion_rights: StockClassConversionRight[];
+  conversion_rights?: StockClassConversionRight[];
   /** Date on which the board approved the stock class */
   board_approval_date?: string;
   /** The liquidation preference per share for this stock class */
@@ -422,9 +422,9 @@ export interface OcfDocumentData {
   /** MD5 hash of the document contents (32-character hex) */
   md5: string;
   /** References to related OCF objects */
-  related_objects: OcfObjectReference[];
+  related_objects?: OcfObjectReference[];
   /** Unstructured text comments related to and stored for the object */
-  comments: string[];
+  comments?: string[];
 }
 
 /**
@@ -691,15 +691,15 @@ export interface OcfEquityCompensationIssuanceData {
   /** Whether early exercise is permitted */
   early_exercisable?: boolean;
   /** List of security law exemptions (and applicable jurisdictions) for this security */
-  security_law_exemptions: SecurityExemption[];
+  security_law_exemptions?: SecurityExemption[];
   /** Vesting events for the grant */
-  vestings: Vesting[];
+  vestings?: Vesting[];
   /** Expiration date of instrument */
   expiration_date?: string;
   /** Termination exercise windows after termination events */
-  termination_exercise_windows: TerminationWindow[];
+  termination_exercise_windows?: TerminationWindow[];
   /** Unstructured text comments */
-  comments: string[];
+  comments?: string[];
 }
 
 // ===== Convertible & Warrant Issuance Types =====

@@ -120,7 +120,7 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
 function damlVestingTriggerToNative(
   t: string | { tag?: string; value?: Record<string, unknown> }
 ): Record<string, unknown> {
-  const tag: string | undefined = typeof t === 'string' ? t : t?.tag;
+  const tag: string | undefined = typeof t === 'string' ? t : t.tag;
 
   if (tag === 'OcfVestingStartTrigger') {
     return { type: 'VESTING_START_DATE' };
@@ -131,13 +131,13 @@ function damlVestingTriggerToNative(
   }
 
   if (tag === 'OcfVestingScheduleAbsoluteTrigger') {
-    const value = typeof t === 'string' ? undefined : t?.value;
+    const value = typeof t === 'string' ? undefined : t.value;
     if (!value || typeof value !== 'string') throw new Error('Missing value for OcfVestingScheduleAbsoluteTrigger');
     return { type: 'VESTING_SCHEDULE_ABSOLUTE', date: damlTimeToDateString(value) };
   }
 
   if (tag === 'OcfVestingScheduleRelativeTrigger') {
-    const value = typeof t === 'string' ? undefined : t?.value;
+    const value = typeof t === 'string' ? undefined : t.value;
     if (!value) throw new Error('Missing value for OcfVestingScheduleRelativeTrigger');
     const periodValue = (value as { period?: unknown }).period;
     if (
@@ -194,7 +194,7 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfV
     ...(c.description && { description: c.description }),
     ...(c.quantity && { quantity: c.quantity }),
     trigger: damlVestingTriggerToNative(c.trigger) as VestingCondition['trigger'],
-    next_condition_ids: c.next_condition_ids || [],
+    next_condition_ids: c.next_condition_ids,
   };
   const portionUnknown = c.portion as unknown;
   if (portionUnknown) {
@@ -222,7 +222,7 @@ function damlVestingTermsDataToNative(d: Fairmint.OpenCapTable.VestingTerms.OcfV
     name: d.name || '',
     description: d.description || '',
     allocation_type: damlAllocationTypeToNative(d.allocation_type),
-    vesting_conditions: (d.vesting_conditions || []).map(damlVestingConditionToNative),
+    vesting_conditions: d.vesting_conditions.map(damlVestingConditionToNative),
     comments: Array.isArray((d as unknown as { comments?: unknown }).comments)
       ? (d as unknown as { comments: string[] }).comments
       : [],

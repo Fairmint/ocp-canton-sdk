@@ -130,7 +130,7 @@ function damlDocumentDataToNative(d: Fairmint.OpenCapTable.Document.OcfDocument)
     ...(d.path ? { path: d.path || undefined } : {}),
     ...(d.uri ? { uri: d.uri || undefined } : {}),
     md5: d.md5,
-    related_objects: (d.related_objects || []).map((r) => ({
+    related_objects: d.related_objects.map((r) => ({
       object_type: objectTypeToNative(r.object_type),
       object_id: r.object_id,
     })),
@@ -154,7 +154,7 @@ export async function getDocumentAsOcf(
   params: GetDocumentAsOcfParams
 ): Promise<GetDocumentAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!eventsResponse.created?.createdEvent?.createArgument) {
+  if (!eventsResponse.created || !eventsResponse.created.createdEvent.createArgument) {
     throw new Error('No createArgument found for contract');
   }
 

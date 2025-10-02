@@ -181,8 +181,7 @@ function warrantMechanismToDamlVariant(
 function buildWarrantRight(
   input: WarrantExerciseTriggerInput | undefined
 ): Fairmint.OpenCapTable.Types.OcfAnyConversionRight {
-  const details =
-    typeof input === 'object' && input !== null && 'conversion_right' in input ? input.conversion_right : undefined;
+  const details = typeof input === 'object' && 'conversion_right' in input ? input.conversion_right : undefined;
   const mechanism = warrantMechanismToDamlVariant(details?.conversion_mechanism);
   const converts_to_future_round =
     details && typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null;
@@ -248,9 +247,11 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
 export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceParams): CommandWithDisclosedContracts {
   const d = params.issuanceData;
   const quantitySourceDaml =
-    d.quantity !== undefined && d.quantity !== null
+    d.quantity !== undefined
       ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
-      : quantitySourceToDamlEnum(d.quantity_source);
+      : d.quantity_source
+        ? quantitySourceToDamlEnum(d.quantity_source)
+        : null;
   const issuance_data: Fairmint.OpenCapTable.WarrantIssuance.OcfWarrantIssuanceData = {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -261,8 +262,8 @@ export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceP
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions,
-    quantity: d.quantity !== undefined && d.quantity !== null ? numberToString(d.quantity) : null,
-    quantity_source: quantitySourceDaml,
+    quantity: d.quantity !== undefined ? numberToString(d.quantity) : null,
+    quantity_source: quantitySourceDaml ?? null,
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),
     exercise_triggers: d.exercise_triggers.map((t, idx) => buildWarrantTrigger(t, idx, d.id)),

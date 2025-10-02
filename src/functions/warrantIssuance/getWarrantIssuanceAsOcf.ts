@@ -158,13 +158,12 @@ export async function getWarrantIssuanceAsOcf(
               ? String(value.converts_to_quantity)
               : String(value.converts_to_quantity),
         } as WarrantFixedAmountMechanism;
-      case 'OcfWarrantMechanismValuationBased':
+      case 'OcfWarrantMechanismValuationBased': {
+        const valuationAmount = mapMonetary(value.valuation_amount as Record<string, unknown>);
         return {
           type: 'VALUATION_BASED_CONVERSION',
           valuation_type: String(value.valuation_type),
-          ...(value.valuation_amount
-            ? { valuation_amount: mapMonetary(value.valuation_amount as Record<string, unknown>)! }
-            : {}),
+          ...(valuationAmount ? { valuation_amount: valuationAmount } : {}),
           ...(value.capitalization_definition && typeof value.capitalization_definition === 'string'
             ? { capitalization_definition: value.capitalization_definition }
             : {}),
@@ -172,7 +171,9 @@ export async function getWarrantIssuanceAsOcf(
             ? { capitalization_definition_rules: value.capitalization_definition_rules as Record<string, unknown> }
             : {}),
         } as WarrantValuationBasedMechanism;
-      case 'OcfWarrantMechanismSharePriceBased':
+      }
+      case 'OcfWarrantMechanismSharePriceBased': {
+        const discountAmount = mapMonetary(value.discount_amount as Record<string, unknown>);
         return {
           type: 'SHARE_PRICE_BASED_CONVERSION',
           description: String(value.description),
@@ -187,10 +188,9 @@ export async function getWarrantIssuanceAsOcf(
                     : value.discount_percentage,
               }
             : {}),
-          ...(value.discount_amount
-            ? { discount_amount: mapMonetary(value.discount_amount as Record<string, unknown>)! }
-            : {}),
+          ...(discountAmount ? { discount_amount: discountAmount } : {}),
         } as WarrantSharePriceBasedMechanism;
+      }
       case 'OcfWarrantMechanismCustom':
         return {
           type: 'CUSTOM_CONVERSION',

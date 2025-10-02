@@ -111,10 +111,10 @@ class OcfSchemaValidator {
 
       if (!valid && validator.errors) {
         const errors = validator.errors.map((error) => {
-          const path = error.instancePath ?? '';
-          const message = error.message ?? '';
+          const errorPath = error.instancePath || '';
+          const message = error.message || '';
           const params = error.params ? JSON.stringify(error.params) : '';
-          return `${path} ${message} ${params}`.trim();
+          return `${errorPath} ${message} ${params}`.trim();
         });
         return { valid: false, errors };
       }
