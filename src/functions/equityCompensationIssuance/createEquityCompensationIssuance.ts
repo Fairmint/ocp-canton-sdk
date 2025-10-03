@@ -81,6 +81,8 @@ export function buildCreateEquityCompensationIssuanceCommand(
 ): CommandWithDisclosedContracts {
   const { issuanceData: d } = params;
 
+  const filteredVestings = (d.vestings ?? []).filter((v) => Number(v.amount) > 0);
+
   const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateEquityCompensationIssuance = {
     issuance_data: {
       id: d.id,
@@ -96,14 +98,14 @@ export function buildCreateEquityCompensationIssuanceCommand(
         jurisdiction: e.jurisdiction,
       })),
       stock_plan_id: optionalString(d.stock_plan_id),
-      stock_class_id: d.stock_class_id ?? null,
-      vesting_terms_id: d.vesting_terms_id ?? null,
+      stock_class_id: optionalString(d.stock_class_id),
+      vesting_terms_id: optionalString(d.vesting_terms_id),
       compensation_type: compensationTypeToDaml(d.compensation_type),
       quantity: numberToString(d.quantity),
       exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
       base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
       early_exercisable: d.early_exercisable ?? null,
-      vestings: (d.vestings ?? []).map((v) => ({
+      vestings: filteredVestings.map((v) => ({
         date: dateStringToDAMLTime(v.date),
         amount: numberToString(v.amount),
       })),

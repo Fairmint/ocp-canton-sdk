@@ -2,9 +2,7 @@
 
 export async function lookupFeaturedAppRight({ partyId }: { partyId: string }) {
   // partyId is a simplified alias in tests like 'fairmint'
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const path = require('path');
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const fs = require('fs');
   const fixturePath = path.join(
     __dirname,

@@ -65,10 +65,12 @@ export function buildCreateStockIssuanceCommand(params: CreateStockIssuanceParam
       share_price: monetaryToDaml(d.share_price),
       quantity: numberToString(d.quantity),
       vesting_terms_id: d.vesting_terms_id ?? null,
-      vestings: (d.vestings ?? []).map((v) => ({
-        date: dateStringToDAMLTime(v.date),
-        amount: numberToString(v.amount),
-      })),
+      vestings: (d.vestings ?? [])
+        .filter((v) => Number(v.amount) > 0)
+        .map((v) => ({
+          date: dateStringToDAMLTime(v.date),
+          amount: numberToString(v.amount),
+        })),
       cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,
       stock_legend_ids: d.stock_legend_ids ?? [],
       issuance_type: getIssuanceType(d.issuance_type),
