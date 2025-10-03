@@ -1,5 +1,4 @@
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcpClient } from '../OcpClient';
 import type {
   CommandWithDisclosedContracts,
@@ -23,6 +22,8 @@ import type {
 export interface CreateOcfObjectParams {
   /** Contract ID of the Issuer contract */
   issuerContractId: string;
+  /** Details of the Issuer contract for disclosed contracts (required when previousContractId is provided) */
+  issuerContractDetails?: DisclosedContract;
   /** Details of the FeaturedAppRight contract for disclosed contracts */
   featuredAppRightContractDetails: DisclosedContract;
   /** The party that will act as the issuer */
@@ -76,14 +77,26 @@ export type BuildCreateOcfObjectCommandFunction = (params: CreateOcfObjectParams
 
 export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCreateOcfObjectCommandFunction {
   return (params: CreateOcfObjectParams): CommandWithDisclosedContracts[] => {
-    const { issuerContractId, featuredAppRightContractDetails, issuerParty, ocfData, previousContractId } = params;
+    const {
+      issuerContractId,
+      issuerContractDetails,
+      featuredAppRightContractDetails,
+      issuerParty,
+      ocfData,
+      previousContractId,
+    } = params;
 
     const commands: CommandWithDisclosedContracts[] = [];
 
     // If previousContractId is provided, add archive command first
     if (previousContractId) {
+      if (!issuerContractDetails) {
+        throw new Error(
+          'issuerContractDetails is required when previousContractId is provided (needed for disclosed contracts in archive command)'
+        );
+      }
       const archiveCommand = buildArchiveCommand(client, params.ocfData.object_type, {
-        issuerContractId,
+        issuerContractDetails,
         featuredAppRightContractDetails,
         issuerParty,
         contractId: previousContractId,
@@ -236,24 +249,16 @@ function buildArchiveCommand(
   client: OcpClient,
   objectType: string,
   params: {
-    issuerContractId: string;
+    issuerContractDetails: DisclosedContract;
     featuredAppRightContractDetails: DisclosedContract;
     issuerParty: string;
     contractId: string;
   }
 ): CommandWithDisclosedContracts {
-  const { issuerContractId, featuredAppRightContractDetails, issuerParty: _issuerParty, contractId } = params;
+  const { issuerContractDetails, featuredAppRightContractDetails, issuerParty: _issuerParty, contractId } = params;
 
-  // Archive commands just need the basic command - disclosed contracts come from the issuer
-  const disclosedContracts = [
-    {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: issuerContractId,
-      createdEventBlob: '',
-      synchronizerId: '',
-    },
-    featuredAppRightContractDetails,
-  ];
+  // Archive commands need disclosed contracts for both the issuer and featured app right
+  const disclosedContracts = [issuerContractDetails, featuredAppRightContractDetails];
 
   // Build the basic archive command - all archive functions just need contractId
   switch (objectType) {

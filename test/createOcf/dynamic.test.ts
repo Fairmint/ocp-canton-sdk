@@ -198,8 +198,16 @@ describe('OCP Client - Dynamic Create Tests', () => {
 
         // Build commands with previousContractId
         const previousContractId = 'placeholder-previous-contract-id-123';
+        // Create mock issuer contract details for testing archive functionality
+        const issuerContractDetails: DisclosedContract = {
+          contractId: fixture.testContext.issuerContractId,
+          createdEventBlob: 'mock-created-event-blob',
+          synchronizerId: 'mock-synchronizer-id',
+          templateId: 'mock-template-id',
+        };
         const commandsWithArchive = client.buildCreateOcfObjectCommand({
           issuerContractId: fixture.testContext.issuerContractId,
+          issuerContractDetails,
           featuredAppRightContractDetails: featuredAppRight,
           issuerParty: fixture.testContext.issuerParty,
           ocfData: fixture.db as { object_type: string; [key: string]: unknown },
