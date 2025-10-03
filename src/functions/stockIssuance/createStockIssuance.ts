@@ -55,7 +55,7 @@ export function buildCreateStockIssuanceCommand(params: CreateStockIssuanceParam
         description: e.description,
         jurisdiction: e.jurisdiction,
       })),
-      stock_plan_id: d.stock_plan_id ?? null,
+      stock_plan_id: optionalString(d.stock_plan_id),
       share_numbers_issued: (d.share_numbers_issued ?? [])
         .filter((range) => !(range.starting_share_number === '0' && range.ending_share_number === '0'))
         .map((r) => ({
@@ -64,7 +64,7 @@ export function buildCreateStockIssuanceCommand(params: CreateStockIssuanceParam
         })),
       share_price: monetaryToDaml(d.share_price),
       quantity: numberToString(d.quantity),
-      vesting_terms_id: d.vesting_terms_id ?? null,
+      vesting_terms_id: optionalString(d.vesting_terms_id),
       vestings: (d.vestings ?? [])
         .filter((v) => Number(v.amount) > 0)
         .map((v) => ({

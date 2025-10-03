@@ -7,7 +7,7 @@ import type {
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts, OcfDocumentData, OcfObjectReference } from '../../types';
-import { cleanComments, extractUpdateId } from '../../utils/typeConversions';
+import { cleanComments, extractUpdateId, optionalString } from '../../utils/typeConversions';
 
 function objectTypeToDaml(t: OcfObjectReference['object_type']): Fairmint.OpenCapTable.Document.OcfObjectType {
   switch (t) {
@@ -137,8 +137,8 @@ function documentDataToDaml(d: OcfDocumentData): Fairmint.OpenCapTable.Document.
   if (!d.path && !d.uri) throw new Error('document requires path or uri');
   return {
     id: d.id,
-    path: d.path ?? null,
-    uri: d.uri ?? null,
+    path: optionalString(d.path),
+    uri: optionalString(d.uri),
     md5: d.md5,
     related_objects: (d.related_objects ?? []).map((r) => ({
       object_type: objectTypeToDaml(r.object_type),
