@@ -118,7 +118,6 @@ export function validateRequestMatchesFixture(actualRequest: Record<string, unkn
  * responses
  */
 export function configureClientWithFixture(client: unknown): jest.SpyInstance {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clientWithPrivateAccess = client as any;
   return jest.spyOn(clientWithPrivateAccess.client, 'submitAndWaitForTransactionTree');
 }
