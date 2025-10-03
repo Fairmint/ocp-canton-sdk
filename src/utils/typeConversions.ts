@@ -45,9 +45,8 @@ export function optionalNumberToString(value: number | string | null | undefined
 }
 
 /**
- * Convert an optional string to null if it's empty, null, or undefined
- * Used for DAML optional text fields where empty strings should be null
- * This is critical because Daml's validateOptionalText rejects empty strings
+ * Convert an optional string to null if it's empty, null, or undefined Used for DAML optional text fields where empty
+ * strings should be null This is critical because Daml's validateOptionalText rejects empty strings
  */
 export function optionalString(value: string | null | undefined): string | null {
   return !value || value === '' ? null : value;

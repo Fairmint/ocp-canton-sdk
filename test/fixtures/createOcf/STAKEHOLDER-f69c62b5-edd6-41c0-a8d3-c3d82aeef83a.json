@@ -55,8 +55,8 @@
           "id": "f69c62b5-edd6-41c0-a8d3-c3d82aeef83a",
           "name": {
             "legal_name": "Nigel Biztest",
-            "first_name": "",
-            "last_name": ""
+            "first_name": null,
+            "last_name": null
           },
           "stakeholder_type": "OcfStakeholderTypeInstitution",
           "issuer_assigned_id": null,
