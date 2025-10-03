@@ -1,0 +1,221 @@
+{
+  "testContext": {
+    "issuerParty": "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00a5c2fb20b4f027a262e7a4723dc3c675dcf27eb5e0e6184454a97183147525a7ca111220775f766cd75f42e5b17826f90cf35631a11ab11247fad929c9424f79a4e3e7cf"
+  },
+  "db": {
+    "id": "fa656e04-6384-4da7-bc7b-1b7874b1dc09",
+    "date": "2023-08-31",
+    "comments": [
+      "Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."
+    ],
+    "quantity": "1",
+    "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
+    "security_id": "289c370c-f6bf-4b05-a7c8-0a52463f03a5",
+    "consideration_text": "1.00 USD per share for 1 share of Common Stock",
+    "resulting_security_ids": [
+      "cd509e31-5b07-f5f9-a72c-2a6a462f06e8"
+    ]
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "00a5c2fb20b4f027a262e7a4723dc3c675dcf27eb5e0e6184454a97183147525a7ca111220775f766cd75f42e5b17826f90cf35631a11ab11247fad929c9424f79a4e3e7cf",
+      "choice": "CreateEquityCompensationExercise",
+      "choiceArgument": {
+        "exercise_data": {
+          "id": "fa656e04-6384-4da7-bc7b-1b7874b1dc09",
+          "security_id": "289c370c-f6bf-4b05-a7c8-0a52463f03a5",
+          "date": "2023-08-31T00:00:00.000Z",
+          "quantity": "1",
+          "consideration_text": "1.00 USD per share for 1 share of Common Stock",
+          "resulting_security_ids": [
+            "cd509e31-5b07-f5f9-a72c-2a6a462f06e8"
+          ],
+          "comments": [
+            "Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."
+          ]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "122080c2b456e11dbd6c0aa7edadb1f9e37062fa844b89f658ac07b99b30b7129aba",
+        "commandId": "submit-and-wait-for-transaction-tree-1759549277305-mvvjcm",
+        "workflowId": "",
+        "effectiveAt": "2025-10-04T03:41:18.114803Z",
+        "offset": 841961,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 841961,
+                "nodeId": 0,
+                "contractId": "00a5c2fb20b4f027a262e7a4723dc3c675dcf27eb5e0e6184454a97183147525a7ca111220775f766cd75f42e5b17826f90cf35631a11ab11247fad929c9424f79a4e3e7cf",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateEquityCompensationExercise",
+                "choiceArgument": {
+                  "exercise_data": {
+                    "id": "fa656e04-6384-4da7-bc7b-1b7874b1dc09",
+                    "date": "2023-08-31T00:00:00Z",
+                    "quantity": "1.0000000000",
+                    "security_id": "289c370c-f6bf-4b05-a7c8-0a52463f03a5",
+                    "comments": [
+                      "Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."
+                    ],
+                    "resulting_security_ids": [
+                      "cd509e31-5b07-f5f9-a72c-2a6a462f06e8"
+                    ],
+                    "consideration_text": "1.00 USD per share for 1 share of Common Stock"
+                  }
+                },
+                "actingParties": [
+                  "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00b96e2eef01fa9cfdcaab3ad43d1e8998957dcb201c6b5cb0473b4a0e7c44c6c1ca111220afcd31ee7d03349568fd81510b2713cd4c25ce59da6f9b31886e26e24fe54a25",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 841961,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00339a1ce0a8a795f2192389a5c16d92706b576efa27eccd16b98f54eb01a191b2ca11122032257fd1b4523100939658660be2f84f9468f5794e43a2251425ea1f357446ac"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 841961,
+                "nodeId": 2,
+                "contractId": "00339a1ce0a8a795f2192389a5c16d92706b576efa27eccd16b98f54eb01a191b2ca11122032257fd1b4523100939658660be2f84f9468f5794e43a2251425ea1f357446ac",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-04T03:41:18.114803Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 841961,
+                "nodeId": 3,
+                "contractId": "00b96e2eef01fa9cfdcaab3ad43d1e8998957dcb201c6b5cb0473b4a0e7c44c6c1ca111220afcd31ee7d03349568fd81510b2713cd4c25ce59da6f9b31886e26e24fe54a25",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.EquityCompensationExercise:EquityCompensationExercise",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "exercise_data": {
+                    "id": "fa656e04-6384-4da7-bc7b-1b7874b1dc09",
+                    "date": "2023-08-31T00:00:00Z",
+                    "quantity": "1.0000000000",
+                    "security_id": "289c370c-f6bf-4b05-a7c8-0a52463f03a5",
+                    "comments": [
+                      "Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."
+                    ],
+                    "resulting_security_ids": [
+                      "cd509e31-5b07-f5f9-a72c-2a6a462f06e8"
+                    ],
+                    "consideration_text": "1.00 USD per share for 1 share of Common Stock"
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-04T03:41:18.114803Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-0931ca386b5c4ed6a596f382fc5cf897-c15e75d1df66a6c5-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-04T03:41:18.162789Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
+    "id": "fa656e04-6384-4da7-bc7b-1b7874b1dc09",
+    "quantity": "1.0000000000",
+    "security_id": "289c370c-f6bf-4b05-a7c8-0a52463f03a5",
+    "date": "2023-08-31",
+    "consideration_text": "1.00 USD per share for 1 share of Common Stock",
+    "resulting_security_ids": [
+      "cd509e31-5b07-f5f9-a72c-2a6a462f06e8"
+    ],
+    "comments": [
+      "Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."
+    ]
+  }
+}

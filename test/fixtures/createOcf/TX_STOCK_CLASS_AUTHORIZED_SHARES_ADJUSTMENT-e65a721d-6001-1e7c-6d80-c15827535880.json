@@ -1,30 +1,30 @@
 {
   "testContext": {
-    "issuerParty": "ca4530::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
-    "issuerContractId": "009bf6ae28fb2879917081bd990c931718685fc3b7fd90eede2e6757a5d5a4945dca11122076c9c1b3cc1ef19a20436c8d277fad9d2dc97b185995863bf450dfa76441a2e0"
+    "issuerParty": "807668::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00200cb1fab902ca18f63cf0e602607a448c36ad57c94457e5cc3da3570f6541feca1112208d8c6154a4e29057581b68f62cc8bac5ab46cc5a5f2e154e9ed43bf48732afe2"
   },
   "db": {
-    "id": "fa0ac9aa-15a4-40a8-a1b0-b0300996edac",
-    "date": "2022-10-31",
+    "id": "e65a721d-6001-1e7c-6d80-c15827535880",
+    "date": "2024-10-24",
     "comments": [],
-    "object_type": "TX_STOCK_PLAN_POOL_ADJUSTMENT",
-    "stock_plan_id": "eb35f1b0-b68d-497a-8f70-7821b4f3e120",
-    "shares_reserved": "400",
-    "board_approval_date": "2022-10-31"
+    "object_type": "TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT",
+    "stock_class_id": "fb13a285-96b1-4abd-a066-098ef69eb635",
+    "board_approval_date": "2022-10-31",
+    "new_shares_authorized": "4400"
   },
   "request": {
     "ExerciseCommand": {
       "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
-      "contractId": "009bf6ae28fb2879917081bd990c931718685fc3b7fd90eede2e6757a5d5a4945dca11122076c9c1b3cc1ef19a20436c8d277fad9d2dc97b185995863bf450dfa76441a2e0",
-      "choice": "CreateStockPlanPoolAdjustment",
+      "contractId": "00200cb1fab902ca18f63cf0e602607a448c36ad57c94457e5cc3da3570f6541feca1112208d8c6154a4e29057581b68f62cc8bac5ab46cc5a5f2e154e9ed43bf48732afe2",
+      "choice": "CreateStockClassAuthorizedSharesAdjustment",
       "choiceArgument": {
         "adjustment_data": {
-          "id": "fa0ac9aa-15a4-40a8-a1b0-b0300996edac",
-          "stock_plan_id": "eb35f1b0-b68d-497a-8f70-7821b4f3e120",
-          "date": "2022-10-31T00:00:00.000Z",
+          "id": "e65a721d-6001-1e7c-6d80-c15827535880",
+          "stock_class_id": "fb13a285-96b1-4abd-a066-098ef69eb635",
+          "date": "2024-10-24T00:00:00.000Z",
+          "new_shares_authorized": "4400",
           "board_approval_date": "2022-10-31T00:00:00.000Z",
           "stockholder_approval_date": null,
-          "shares_reserved": "400",
           "comments": []
         }
       }
@@ -33,41 +33,41 @@
   "response": {
     "transactionTree": {
       "transaction": {
-        "updateId": "1220a5c7af98d15c77be0e7e3e267961552eea40a61ca571efc4807492b165a8fc74",
-        "commandId": "submit-and-wait-for-transaction-tree-1759548084724-5epa17",
+        "updateId": "122077412057cff690eb2d0723cd95e6391451c064bef500ec9eaebf4744c95a48b9",
+        "commandId": "submit-and-wait-for-transaction-tree-1759543207222-mozk2b",
         "workflowId": "",
-        "effectiveAt": "2025-10-04T03:21:25.639307Z",
-        "offset": 841519,
+        "effectiveAt": "2025-10-04T02:00:08.246545Z",
+        "offset": 839605,
         "eventsById": {
           "0": {
             "ExercisedTreeEvent": {
               "value": {
-                "offset": 841519,
+                "offset": 839605,
                 "nodeId": 0,
-                "contractId": "009bf6ae28fb2879917081bd990c931718685fc3b7fd90eede2e6757a5d5a4945dca11122076c9c1b3cc1ef19a20436c8d277fad9d2dc97b185995863bf450dfa76441a2e0",
+                "contractId": "00200cb1fab902ca18f63cf0e602607a448c36ad57c94457e5cc3da3570f6541feca1112208d8c6154a4e29057581b68f62cc8bac5ab46cc5a5f2e154e9ed43bf48732afe2",
                 "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
                 "interfaceId": null,
-                "choice": "CreateStockPlanPoolAdjustment",
+                "choice": "CreateStockClassAuthorizedSharesAdjustment",
                 "choiceArgument": {
                   "adjustment_data": {
-                    "id": "fa0ac9aa-15a4-40a8-a1b0-b0300996edac",
-                    "date": "2022-10-31T00:00:00Z",
-                    "shares_reserved": "400.0000000000",
-                    "stock_plan_id": "eb35f1b0-b68d-497a-8f70-7821b4f3e120",
+                    "id": "e65a721d-6001-1e7c-6d80-c15827535880",
+                    "date": "2024-10-24T00:00:00Z",
+                    "new_shares_authorized": "4400.0000000000",
+                    "stock_class_id": "fb13a285-96b1-4abd-a066-098ef69eb635",
                     "comments": [],
                     "board_approval_date": "2022-10-31T00:00:00Z",
                     "stockholder_approval_date": null
                   }
                 },
                 "actingParties": [
-                  "ca4530::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                  "807668::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
                 ],
                 "consuming": false,
                 "witnessParties": [
-                  "ca4530::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                  "807668::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
                 ],
                 "lastDescendantNodeId": 3,
-                "exerciseResult": "004c0acb57fdcecea70261c4f4472cded63f3b1de5f52a0fd2b2ce412a7959bd9bca11122058dea8d9fdacce63ada30ea2152f6730c0d03a29cc9c6cb6c479a9e8cc587522",
+                "exerciseResult": "00061dd90aea0a9df464c1ec41d455904b60697140e4c3f014740adc4473b7ad19ca1112206f85c6454258f53452df04b7f1017b8774ebde6d6475ca7f15bd15bf37f2ff09",
                 "packageName": "OpenCapTable-v25",
                 "implementedInterfaces": []
               }
@@ -76,7 +76,7 @@
           "1": {
             "ExercisedTreeEvent": {
               "value": {
-                "offset": 841519,
+                "offset": 839605,
                 "nodeId": 1,
                 "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
                 "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
@@ -95,12 +95,12 @@
                 ],
                 "consuming": false,
                 "witnessParties": [
-                  "ca4530::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                  "807668::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
                 ],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
-                    "00b1532cbe49eda5984300bb84489c18fe35988d135a99490ad6dcdc7bb2277381ca111220e700e256335bbfa0d4322a7adc27ab92c2432a83d0f898bcc745380def86ce1f"
+                    "00afb31b5a8c9d17c80af1b865a0fd01ae9e4dc0a4d85af33b3a1f595032565dc4ca1112200108a8bdf1edc375dfdae10953002ac26f6e96cafd7d79ab5c7350361d3601e5"
                   ]
                 },
                 "packageName": "splice-amulet",
@@ -111,9 +111,9 @@
           "2": {
             "CreatedTreeEvent": {
               "value": {
-                "offset": 841519,
+                "offset": 839605,
                 "nodeId": 2,
-                "contractId": "00b1532cbe49eda5984300bb84489c18fe35988d135a99490ad6dcdc7bb2277381ca111220e700e256335bbfa0d4322a7adc27ab92c2432a83d0f898bcc745380def86ce1f",
+                "contractId": "00afb31b5a8c9d17c80af1b865a0fd01ae9e4dc0a4d85af33b3a1f595032565dc4ca1112200108a8bdf1edc375dfdae10953002ac26f6e96cafd7d79ab5c7350361d3601e5",
                 "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
                 "contractKey": null,
                 "createArgument": {
@@ -125,7 +125,7 @@
                 "createdEventBlob": "",
                 "interfaceViews": [],
                 "witnessParties": [
-                  "ca4530::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                  "807668::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
                 ],
                 "signatories": [
                   "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
@@ -133,7 +133,7 @@
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
-                "createdAt": "2025-10-04T03:21:25.639307Z",
+                "createdAt": "2025-10-04T02:00:08.246545Z",
                 "packageName": "splice-amulet"
               }
             }
@@ -141,22 +141,22 @@
           "3": {
             "CreatedTreeEvent": {
               "value": {
-                "offset": 841519,
+                "offset": 839605,
                 "nodeId": 3,
-                "contractId": "004c0acb57fdcecea70261c4f4472cded63f3b1de5f52a0fd2b2ce412a7959bd9bca11122058dea8d9fdacce63ada30ea2152f6730c0d03a29cc9c6cb6c479a9e8cc587522",
-                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.StockPlanPoolAdjustment:StockPlanPoolAdjustment",
+                "contractId": "00061dd90aea0a9df464c1ec41d455904b60697140e4c3f014740adc4473b7ad19ca1112206f85c6454258f53452df04b7f1017b8774ebde6d6475ca7f15bd15bf37f2ff09",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.StockClassAuthorizedSharesAdjustment:StockClassAuthorizedSharesAdjustment",
                 "contractKey": null,
                 "createArgument": {
                   "context": {
-                    "issuer": "ca4530::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "issuer": "807668::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                     "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                     "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
                   },
                   "adjustment_data": {
-                    "id": "fa0ac9aa-15a4-40a8-a1b0-b0300996edac",
-                    "date": "2022-10-31T00:00:00Z",
-                    "shares_reserved": "400.0000000000",
-                    "stock_plan_id": "eb35f1b0-b68d-497a-8f70-7821b4f3e120",
+                    "id": "e65a721d-6001-1e7c-6d80-c15827535880",
+                    "date": "2024-10-24T00:00:00Z",
+                    "new_shares_authorized": "4400.0000000000",
+                    "stock_class_id": "fb13a285-96b1-4abd-a066-098ef69eb635",
                     "comments": [],
                     "board_approval_date": "2022-10-31T00:00:00Z",
                     "stockholder_approval_date": null
@@ -165,14 +165,14 @@
                 "createdEventBlob": "",
                 "interfaceViews": [],
                 "witnessParties": [
-                  "ca4530::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                  "807668::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
                 ],
                 "signatories": [
-                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
-                  "ca4530::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                  "807668::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "observers": [],
-                "createdAt": "2025-10-04T03:21:25.639307Z",
+                "createdAt": "2025-10-04T02:00:08.246545Z",
                 "packageName": "OpenCapTable-v25"
               }
             }
@@ -180,19 +180,19 @@
         },
         "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
         "traceContext": {
-          "traceparent": "00-efa963ab3eb9949e85cb353753531930-1b0e6ea58eb51b16-01",
+          "traceparent": "00-b86f149b288f3fcd96c92670713f809f-41f721eb7104c3e8-01",
           "tracestate": null
         },
-        "recordTime": "2025-10-04T03:21:26.022398Z"
+        "recordTime": "2025-10-04T02:00:08.515225Z"
       }
     }
   },
   "onchain_ocf": {
-    "object_type": "TX_STOCK_PLAN_POOL_ADJUSTMENT",
-    "id": "fa0ac9aa-15a4-40a8-a1b0-b0300996edac",
-    "date": "2022-10-31",
-    "stock_plan_id": "eb35f1b0-b68d-497a-8f70-7821b4f3e120",
-    "shares_reserved": "400.0000000000",
+    "object_type": "TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT",
+    "id": "e65a721d-6001-1e7c-6d80-c15827535880",
+    "date": "2024-10-24",
+    "stock_class_id": "fb13a285-96b1-4abd-a066-098ef69eb635",
+    "new_shares_authorized": "4400.0000000000",
     "board_approval_date": "2022-10-31"
   }
 }

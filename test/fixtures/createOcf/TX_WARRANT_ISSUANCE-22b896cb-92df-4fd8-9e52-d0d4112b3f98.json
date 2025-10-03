@@ -1,7 +1,7 @@
 {
   "testContext": {
     "issuerParty": "8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
-    "issuerContractId": "006ecf7d37397182eff207b10bf4cf36c340afb9bd425ed80fa9066322c56570a9ca111220bcab083da43b58136c4bdc3ef9a71263645cc65aabbfba87d0fa46cc15ae19e2"
+    "issuerContractId": "00c497bebe8b69ee9049db0deaf21281dae7e5f49059bcc353aa4a1f80b9fd9a15ca111220e0d3f5215d3b12d2bf0eb37b919b3cf9506129c246916198f8109c3aece829c2"
   },
   "db": {
     "id": "22b896cb-92df-4fd8-9e52-d0d4112b3f98",
@@ -45,7 +45,7 @@
   "request": {
     "ExerciseCommand": {
       "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
-      "contractId": "006ecf7d37397182eff207b10bf4cf36c340afb9bd425ed80fa9066322c56570a9ca111220bcab083da43b58136c4bdc3ef9a71263645cc65aabbfba87d0fa46cc15ae19e2",
+      "contractId": "00c497bebe8b69ee9049db0deaf21281dae7e5f49059bcc353aa4a1f80b9fd9a15ca111220e0d3f5215d3b12d2bf0eb37b919b3cf9506129c246916198f8109c3aece829c2",
       "choice": "CreateWarrantIssuance",
       "choiceArgument": {
         "issuance_data": {
@@ -105,18 +105,18 @@
   "response": {
     "transactionTree": {
       "transaction": {
-        "updateId": "122045b7a7150f2677da2e85aec6d50d5d75d563493d3239ac18a6d421021b0c2912",
-        "commandId": "submit-and-wait-for-transaction-tree-1759328049629-q9ds18",
+        "updateId": "1220f87d6307456b2b801533064a468a29f428f03982509ba721c386e88a2a84056c",
+        "commandId": "submit-and-wait-for-transaction-tree-1759555207426-wtp5k0",
         "workflowId": "",
-        "effectiveAt": "2025-10-01T14:14:10.575282Z",
-        "offset": 805367,
+        "effectiveAt": "2025-10-04T05:20:08.331737Z",
+        "offset": 844767,
         "eventsById": {
           "0": {
             "ExercisedTreeEvent": {
               "value": {
-                "offset": 805367,
+                "offset": 844767,
                 "nodeId": 0,
-                "contractId": "006ecf7d37397182eff207b10bf4cf36c340afb9bd425ed80fa9066322c56570a9ca111220bcab083da43b58136c4bdc3ef9a71263645cc65aabbfba87d0fa46cc15ae19e2",
+                "contractId": "00c497bebe8b69ee9049db0deaf21281dae7e5f49059bcc353aa4a1f80b9fd9a15ca111220e0d3f5215d3b12d2bf0eb37b919b3cf9506129c246916198f8109c3aece829c2",
                 "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
                 "interfaceId": null,
                 "choice": "CreateWarrantIssuance",
@@ -173,11 +173,15 @@
                     "warrant_expiration_date": "2029-10-01T00:00:00Z"
                   }
                 },
-                "actingParties": ["8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "actingParties": [
+                  "8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
                 "consuming": false,
-                "witnessParties": ["8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "witnessParties": [
+                  "8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
                 "lastDescendantNodeId": 3,
-                "exerciseResult": "005ee48f100c86e419e9eea2ea824fe7fed5d3d3e58360ae8765b5513767aa15adca11122092b17abeafbd52abb26286305a3a60812dfb9adfb5b01bfa82b4cf1fd1ebca3a",
+                "exerciseResult": "00907bccb516f48cb824b26853a410474b3a71e85422da25146c6788a6b3313ffeca11122045ffb2177f27c969b68861faacb45fe88b61fcfef9691afd0acf89fb5ef60b62",
                 "packageName": "OpenCapTable-v25",
                 "implementedInterfaces": []
               }
@@ -186,10 +190,10 @@
           "1": {
             "ExercisedTreeEvent": {
               "value": {
-                "offset": 805367,
+                "offset": 844767,
                 "nodeId": 1,
                 "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
-                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppRight",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
                 "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
                 "choice": "FeaturedAppRight_CreateActivityMarker",
                 "choiceArgument": {
@@ -204,11 +208,13 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": ["8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "witnessParties": [
+                  "8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
-                    "00bbcef201cac51f9cb0335b12ad7b0ca3dbca2496e209dfb52fb293c467b1962bca11122056c4f05ad69ca063d7569e38cece8d4fb4fdf315c94e8a2d284a42e7acbff1df"
+                    "0073f77f17605630c027805f5cfda01698b9fc680c59cc89ba44fa5f903dd7f152ca111220e2eba0ca28a9c97a2ce8afb4c6c6fbd5456b4466d99251fb952c1cfb440b534e"
                   ]
                 },
                 "packageName": "splice-amulet",
@@ -219,10 +225,10 @@
           "2": {
             "CreatedTreeEvent": {
               "value": {
-                "offset": 805367,
+                "offset": 844767,
                 "nodeId": 2,
-                "contractId": "00bbcef201cac51f9cb0335b12ad7b0ca3dbca2496e209dfb52fb293c467b1962bca11122056c4f05ad69ca063d7569e38cece8d4fb4fdf315c94e8a2d284a42e7acbff1df",
-                "templateId": "6e9fc50fb94e56751b49f09ba2dc84da53a9d7cff08115ebb4f6b7a12d0c990c:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractId": "0073f77f17605630c027805f5cfda01698b9fc680c59cc89ba44fa5f903dd7f152ca111220e2eba0ca28a9c97a2ce8afb4c6c6fbd5456b4466d99251fb952c1cfb440b534e",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
                 "contractKey": null,
                 "createArgument": {
                   "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
@@ -232,12 +238,16 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": ["8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
-                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
+                "witnessParties": [
+                  "8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
-                "createdAt": "2025-10-01T14:14:10.575282Z",
+                "createdAt": "2025-10-04T05:20:08.331737Z",
                 "packageName": "splice-amulet"
               }
             }
@@ -245,9 +255,9 @@
           "3": {
             "CreatedTreeEvent": {
               "value": {
-                "offset": 805367,
+                "offset": 844767,
                 "nodeId": 3,
-                "contractId": "005ee48f100c86e419e9eea2ea824fe7fed5d3d3e58360ae8765b5513767aa15adca11122092b17abeafbd52abb26286305a3a60812dfb9adfb5b01bfa82b4cf1fd1ebca3a",
+                "contractId": "00907bccb516f48cb824b26853a410474b3a71e85422da25146c6788a6b3313ffeca11122045ffb2177f27c969b68861faacb45fe88b61fcfef9691afd0acf89fb5ef60b62",
                 "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.WarrantIssuance:WarrantIssuance",
                 "contractKey": null,
                 "createArgument": {
@@ -310,13 +320,15 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": ["8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "witnessParties": [
+                  "8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
                 "signatories": [
                   "8449c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "observers": [],
-                "createdAt": "2025-10-01T14:14:10.575282Z",
+                "createdAt": "2025-10-04T05:20:08.331737Z",
                 "packageName": "OpenCapTable-v25"
               }
             }
@@ -324,10 +336,10 @@
         },
         "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
         "traceContext": {
-          "traceparent": "00-e5a96b9fda69558be4eefeef546dd60b-27ecb7ed3014a622-01",
+          "traceparent": "00-8411543d4ec8800caaaeeda17ecc36a9-c1db8376a44acf84-01",
           "tracestate": null
         },
-        "recordTime": "2025-10-01T14:14:10.826026Z"
+        "recordTime": "2025-10-04T05:20:08.558530Z"
       }
     }
   },

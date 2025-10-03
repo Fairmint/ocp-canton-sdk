@@ -1,0 +1,342 @@
+{
+  "testContext": {
+    "issuerParty": "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "003b3b17ee9e6a84871795a170799b3570e48abaef64c344b8bb2519d59e4c6080ca111220f6548a856d9fd2a7bd0fb22f148301115555dae03eac2c969998038db8668cee"
+  },
+  "db": {
+    "id": "1218b853-b528-42de-bef8-67194baf83ff",
+    "name": {
+      "legal_name": "Protelicious USA Corp"
+    },
+    "tax_ids": [],
+    "comments": [],
+    "addresses": [],
+    "object_type": "STAKEHOLDER",
+    "contact_info": {
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "sheila.partrat@protelicious.com"
+        }
+      ]
+    },
+    "primary_contact": {
+      "name": {
+        "last_name": "Partrat",
+        "first_name": "Sheila",
+        "legal_name": "Sheila Partrat"
+      },
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "sheila.partrat@protelicious.com"
+        }
+      ]
+    },
+    "stakeholder_type": "INSTITUTION",
+    "current_relationship": "OTHER"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "003b3b17ee9e6a84871795a170799b3570e48abaef64c344b8bb2519d59e4c6080ca111220f6548a856d9fd2a7bd0fb22f148301115555dae03eac2c969998038db8668cee",
+      "choice": "CreateStakeholder",
+      "choiceArgument": {
+        "stakeholder_data": {
+          "id": "1218b853-b528-42de-bef8-67194baf83ff",
+          "name": {
+            "legal_name": "Protelicious USA Corp",
+            "first_name": null,
+            "last_name": null
+          },
+          "stakeholder_type": "OcfStakeholderTypeInstitution",
+          "issuer_assigned_id": null,
+          "primary_contact": {
+            "name": {
+              "legal_name": "Sheila Partrat",
+              "first_name": "Sheila",
+              "last_name": "Partrat"
+            },
+            "phone_numbers": [],
+            "emails": [
+              {
+                "email_type": "OcfEmailTypeBusiness",
+                "email_address": "sheila.partrat@protelicious.com"
+              }
+            ]
+          },
+          "contact_info": {
+            "phone_numbers": [],
+            "emails": [
+              {
+                "email_type": "OcfEmailTypeBusiness",
+                "email_address": "sheila.partrat@protelicious.com"
+              }
+            ]
+          },
+          "addresses": [],
+          "tax_ids": [],
+          "comments": [],
+          "current_relationships": [
+            "OcfRelOther"
+          ]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220ec7bcbfc141270af08f41f71e3d700b8ffb21ec3ee4672ee28e3a11480469b90",
+        "commandId": "submit-and-wait-for-transaction-tree-1759551967700-vju7vh",
+        "workflowId": "",
+        "effectiveAt": "2025-10-04T04:26:10.783424Z",
+        "offset": 843213,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 843213,
+                "nodeId": 0,
+                "contractId": "003b3b17ee9e6a84871795a170799b3570e48abaef64c344b8bb2519d59e4c6080ca111220f6548a856d9fd2a7bd0fb22f148301115555dae03eac2c969998038db8668cee",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateStakeholder",
+                "choiceArgument": {
+                  "stakeholder_data": {
+                    "id": "1218b853-b528-42de-bef8-67194baf83ff",
+                    "name": {
+                      "legal_name": "Protelicious USA Corp",
+                      "first_name": null,
+                      "last_name": null
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeInstitution",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": [
+                      "OcfRelOther"
+                    ],
+                    "tax_ids": [],
+                    "contact_info": {
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "sheila.partrat@protelicious.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    },
+                    "current_status": null,
+                    "issuer_assigned_id": null,
+                    "primary_contact": {
+                      "name": {
+                        "legal_name": "Sheila Partrat",
+                        "first_name": "Sheila",
+                        "last_name": "Partrat"
+                      },
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "sheila.partrat@protelicious.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "actingParties": [
+                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "004a588e5d74e3e3008291fa9b6f17688ba1fa01c3083869ce3f08b7079707bbf5ca111220338d8bd62b9b2b848fa5d869878efaee098a24f31a8a88ad48050d556ab99a3a",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 843213,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00ad728603ca167667c2bd107c3fce8446eef415e77e76e27e4d033447298180e9ca111220cb78fbda2acb3db8fc6c9c3380e24eacc5dc17242ce25a1dd73338fd6ca1e022"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 843213,
+                "nodeId": 2,
+                "contractId": "00ad728603ca167667c2bd107c3fce8446eef415e77e76e27e4d033447298180e9ca111220cb78fbda2acb3db8fc6c9c3380e24eacc5dc17242ce25a1dd73338fd6ca1e022",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-04T04:26:10.783424Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 843213,
+                "nodeId": 3,
+                "contractId": "004a588e5d74e3e3008291fa9b6f17688ba1fa01c3083869ce3f08b7079707bbf5ca111220338d8bd62b9b2b848fa5d869878efaee098a24f31a8a88ad48050d556ab99a3a",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Stakeholder:Stakeholder",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "stakeholder_data": {
+                    "id": "1218b853-b528-42de-bef8-67194baf83ff",
+                    "name": {
+                      "legal_name": "Protelicious USA Corp",
+                      "first_name": null,
+                      "last_name": null
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeInstitution",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": [
+                      "OcfRelOther"
+                    ],
+                    "tax_ids": [],
+                    "contact_info": {
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "sheila.partrat@protelicious.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    },
+                    "current_status": null,
+                    "issuer_assigned_id": null,
+                    "primary_contact": {
+                      "name": {
+                        "legal_name": "Sheila Partrat",
+                        "first_name": "Sheila",
+                        "last_name": "Partrat"
+                      },
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "sheila.partrat@protelicious.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-04T04:26:10.783424Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-f2ff076acf1bf520dca8188601c51d78-6f09fb69462163aa-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-04T04:26:10.873098Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "STAKEHOLDER",
+    "id": "1218b853-b528-42de-bef8-67194baf83ff",
+    "name": {
+      "legal_name": "Protelicious USA Corp"
+    },
+    "stakeholder_type": "INSTITUTION",
+    "current_relationships": [
+      "OTHER"
+    ],
+    "primary_contact": {
+      "name": {
+        "legal_name": "Sheila Partrat",
+        "first_name": "Sheila",
+        "last_name": "Partrat"
+      },
+      "phone_numbers": [],
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "sheila.partrat@protelicious.com"
+        }
+      ]
+    },
+    "contact_info": {
+      "phone_numbers": [],
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "sheila.partrat@protelicious.com"
+        }
+      ]
+    },
+    "addresses": [],
+    "tax_ids": []
+  }
+}

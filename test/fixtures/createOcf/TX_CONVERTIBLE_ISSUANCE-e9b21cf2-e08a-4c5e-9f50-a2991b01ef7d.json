@@ -1,0 +1,797 @@
+{
+  "testContext": {
+    "issuerParty": "1b2149::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "002d6eb1cf1a06dd0dbab8754089eefd3fb812b124867576b326b2c9e91a11717cca11122010aa5a4d7db788fe60e3b8c4837de844fcce46ca50e3913f6a810658c6eae5d5"
+  },
+  "db": {
+    "id": "e9b21cf2-e08a-4c5e-9f50-a2991b01ef7d",
+    "date": "2022-10-31",
+    "comments": [],
+    "custom_id": "CN-15",
+    "seniority": 1,
+    "object_type": "TX_CONVERTIBLE_ISSUANCE",
+    "security_id": "24493bb9-d5fd-46e2-bba5-f3199562dee8",
+    "stakeholder_id": "9fb87b56-883c-405b-8c43-176cb3d2610a",
+    "convertible_type": "NOTE",
+    "investment_amount": {
+      "amount": "100000",
+      "currency": "USD"
+    },
+    "conversion_triggers": [
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "nickname": "Mandatory Conversion on Qualified Financing",
+        "trigger_id": "d5725bbc-d248-4e41-9ec8-53fbc515790f",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "CONVERTIBLE_NOTE_CONVERSION",
+            "interest_rates": [
+              {
+                "rate": "0.00",
+                "accrual_start_date": "2022-10-31"
+              }
+            ],
+            "interest_payout": "DEFERRED",
+            "compounding_type": "SIMPLE",
+            "conversion_discount": "0.12",
+            "day_count_convention": "ACTUAL_365",
+            "interest_accrual_period": "ANNUAL",
+            "conversion_valuation_cap": {
+              "amount": "9000000",
+              "currency": "USD"
+            }
+          },
+          "converts_to_future_round": true,
+          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+        },
+        "trigger_condition": "Qualified Financing of at least $500,000",
+        "trigger_description": "The note shall convert upon the next qualified financing of at least $500,000"
+      },
+      {
+        "type": "ELECTIVE_AT_WILL",
+        "nickname": "Elective Conversion at Maturity",
+        "trigger_id": "d1f26a88-9778-4b5c-92e7-cca4ef067107",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "CONVERTIBLE_NOTE_CONVERSION",
+            "interest_rates": [
+              {
+                "rate": "0.00",
+                "accrual_start_date": "2022-10-31"
+              }
+            ],
+            "interest_payout": "DEFERRED",
+            "compounding_type": "SIMPLE",
+            "conversion_discount": "0.12",
+            "day_count_convention": "ACTUAL_365",
+            "interest_accrual_period": "ANNUAL",
+            "conversion_valuation_cap": {
+              "amount": "9000000",
+              "currency": "USD"
+            }
+          },
+          "converts_to_future_round": true,
+          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+        },
+        "trigger_description": "The note shall convert at the option of the holder on or after the maturity date"
+      },
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "nickname": "Conversion Upon Extraordinary Event",
+        "trigger_id": "2df2f3c0-ed0f-4041-880a-5858584e603a",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "CONVERTIBLE_NOTE_CONVERSION",
+            "interest_rates": [
+              {
+                "rate": "0.00",
+                "accrual_start_date": "2022-10-31"
+              }
+            ],
+            "interest_payout": "DEFERRED",
+            "compounding_type": "SIMPLE",
+            "conversion_discount": "0.12",
+            "day_count_convention": "ACTUAL_365",
+            "interest_accrual_period": "ANNUAL",
+            "conversion_valuation_cap": {
+              "amount": "9000000",
+              "currency": "USD"
+            }
+          },
+          "converts_to_future_round": true,
+          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+        },
+        "trigger_condition": "Extraordinary Event",
+        "trigger_description": "The note shall convert upon an extraordinary event such as a merger or acquisition"
+      }
+    ],
+    "security_law_exemptions": [
+      {
+        "description": "Regulation D, Rule 506(b)",
+        "jurisdiction": "US"
+      }
+    ]
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "002d6eb1cf1a06dd0dbab8754089eefd3fb812b124867576b326b2c9e91a11717cca11122010aa5a4d7db788fe60e3b8c4837de844fcce46ca50e3913f6a810658c6eae5d5",
+      "choice": "CreateConvertibleIssuance",
+      "choiceArgument": {
+        "issuance_data": {
+          "id": "e9b21cf2-e08a-4c5e-9f50-a2991b01ef7d",
+          "date": "2022-10-31T00:00:00.000Z",
+          "security_id": "24493bb9-d5fd-46e2-bba5-f3199562dee8",
+          "custom_id": "CN-15",
+          "stakeholder_id": "9fb87b56-883c-405b-8c43-176cb3d2610a",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": null,
+          "security_law_exemptions": [
+            {
+              "description": "Regulation D, Rule 506(b)",
+              "jurisdiction": "US"
+            }
+          ],
+          "investment_amount": {
+            "amount": "100000",
+            "currency": "USD"
+          },
+          "convertible_type": "OcfConvertibleNote",
+          "conversion_triggers": [
+            {
+              "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+              "trigger_id": "d5725bbc-d248-4e41-9ec8-53fbc515790f",
+              "nickname": "Mandatory Conversion on Qualified Financing",
+              "trigger_description": "The note shall convert upon the next qualified financing of at least $500,000",
+              "conversion_right": {
+                "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                "conversion_mechanism": {
+                  "tag": "OcfConvMechNote",
+                  "value": {
+                    "interest_rates": [
+                      {
+                        "rate": "0.00",
+                        "accrual_start_date": "2022-10-31T00:00:00.000Z",
+                        "accrual_end_date": null
+                      }
+                    ],
+                    "day_count_convention": "OcfDayCountActual365",
+                    "interest_payout": "OcfInterestPayoutDeferred",
+                    "interest_accrual_period": "OcfAccrualAnnual",
+                    "compounding_type": "OcfSimple",
+                    "conversion_discount": "0.12",
+                    "conversion_valuation_cap": {
+                      "amount": "9000000",
+                      "currency": "USD"
+                    },
+                    "capitalization_definition": null,
+                    "capitalization_definition_rules": null,
+                    "exit_multiple": null,
+                    "conversion_mfn": null
+                  }
+                },
+                "converts_to_future_round": true,
+                "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+              },
+              "trigger_date": null,
+              "trigger_condition": "Qualified Financing of at least $500,000"
+            },
+            {
+              "type_": "OcfTriggerTypeTypeElectiveAtWill",
+              "trigger_id": "d1f26a88-9778-4b5c-92e7-cca4ef067107",
+              "nickname": "Elective Conversion at Maturity",
+              "trigger_description": "The note shall convert at the option of the holder on or after the maturity date",
+              "conversion_right": {
+                "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                "conversion_mechanism": {
+                  "tag": "OcfConvMechNote",
+                  "value": {
+                    "interest_rates": [
+                      {
+                        "rate": "0.00",
+                        "accrual_start_date": "2022-10-31T00:00:00.000Z",
+                        "accrual_end_date": null
+                      }
+                    ],
+                    "day_count_convention": "OcfDayCountActual365",
+                    "interest_payout": "OcfInterestPayoutDeferred",
+                    "interest_accrual_period": "OcfAccrualAnnual",
+                    "compounding_type": "OcfSimple",
+                    "conversion_discount": "0.12",
+                    "conversion_valuation_cap": {
+                      "amount": "9000000",
+                      "currency": "USD"
+                    },
+                    "capitalization_definition": null,
+                    "capitalization_definition_rules": null,
+                    "exit_multiple": null,
+                    "conversion_mfn": null
+                  }
+                },
+                "converts_to_future_round": true,
+                "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+              },
+              "trigger_date": null,
+              "trigger_condition": null
+            },
+            {
+              "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+              "trigger_id": "2df2f3c0-ed0f-4041-880a-5858584e603a",
+              "nickname": "Conversion Upon Extraordinary Event",
+              "trigger_description": "The note shall convert upon an extraordinary event such as a merger or acquisition",
+              "conversion_right": {
+                "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                "conversion_mechanism": {
+                  "tag": "OcfConvMechNote",
+                  "value": {
+                    "interest_rates": [
+                      {
+                        "rate": "0.00",
+                        "accrual_start_date": "2022-10-31T00:00:00.000Z",
+                        "accrual_end_date": null
+                      }
+                    ],
+                    "day_count_convention": "OcfDayCountActual365",
+                    "interest_payout": "OcfInterestPayoutDeferred",
+                    "interest_accrual_period": "OcfAccrualAnnual",
+                    "compounding_type": "OcfSimple",
+                    "conversion_discount": "0.12",
+                    "conversion_valuation_cap": {
+                      "amount": "9000000",
+                      "currency": "USD"
+                    },
+                    "capitalization_definition": null,
+                    "capitalization_definition_rules": null,
+                    "exit_multiple": null,
+                    "conversion_mfn": null
+                  }
+                },
+                "converts_to_future_round": true,
+                "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+              },
+              "trigger_date": null,
+              "trigger_condition": "Extraordinary Event"
+            }
+          ],
+          "pro_rata": null,
+          "seniority": "1",
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "122058178d6251a113aecac3a4e2f3a4c0e2ba792b351d2b67d788f850374a44450a",
+        "commandId": "submit-and-wait-for-transaction-tree-1759546813696-si33b4",
+        "workflowId": "",
+        "effectiveAt": "2025-10-04T03:00:14.662649Z",
+        "offset": 841027,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 841027,
+                "nodeId": 0,
+                "contractId": "002d6eb1cf1a06dd0dbab8754089eefd3fb812b124867576b326b2c9e91a11717cca11122010aa5a4d7db788fe60e3b8c4837de844fcce46ca50e3913f6a810658c6eae5d5",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateConvertibleIssuance",
+                "choiceArgument": {
+                  "issuance_data": {
+                    "id": "e9b21cf2-e08a-4c5e-9f50-a2991b01ef7d",
+                    "convertible_type": "OcfConvertibleNote",
+                    "custom_id": "CN-15",
+                    "date": "2022-10-31T00:00:00Z",
+                    "investment_amount": {
+                      "amount": "100000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "24493bb9-d5fd-46e2-bba5-f3199562dee8",
+                    "seniority": "1",
+                    "stakeholder_id": "9fb87b56-883c-405b-8c43-176cb3d2610a",
+                    "comments": [],
+                    "conversion_triggers": [
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechNote",
+                            "value": {
+                              "compounding_type": "OcfSimple",
+                              "day_count_convention": "OcfDayCountActual365",
+                              "interest_accrual_period": "OcfAccrualAnnual",
+                              "interest_payout": "OcfInterestPayoutDeferred",
+                              "interest_rates": [
+                                {
+                                  "accrual_start_date": "2022-10-31T00:00:00Z",
+                                  "rate": "0.0000000000",
+                                  "accrual_end_date": null
+                                }
+                              ],
+                              "capitalization_definition": null,
+                              "capitalization_definition_rules": null,
+                              "conversion_discount": "0.1200000000",
+                              "conversion_mfn": null,
+                              "conversion_valuation_cap": {
+                                "amount": "9000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+                        },
+                        "trigger_id": "d5725bbc-d248-4e41-9ec8-53fbc515790f",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Mandatory Conversion on Qualified Financing",
+                        "trigger_condition": "Qualified Financing of at least $500,000",
+                        "trigger_date": null,
+                        "trigger_description": "The note shall convert upon the next qualified financing of at least $500,000"
+                      },
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechNote",
+                            "value": {
+                              "compounding_type": "OcfSimple",
+                              "day_count_convention": "OcfDayCountActual365",
+                              "interest_accrual_period": "OcfAccrualAnnual",
+                              "interest_payout": "OcfInterestPayoutDeferred",
+                              "interest_rates": [
+                                {
+                                  "accrual_start_date": "2022-10-31T00:00:00Z",
+                                  "rate": "0.0000000000",
+                                  "accrual_end_date": null
+                                }
+                              ],
+                              "capitalization_definition": null,
+                              "capitalization_definition_rules": null,
+                              "conversion_discount": "0.1200000000",
+                              "conversion_mfn": null,
+                              "conversion_valuation_cap": {
+                                "amount": "9000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+                        },
+                        "trigger_id": "d1f26a88-9778-4b5c-92e7-cca4ef067107",
+                        "type_": "OcfTriggerTypeTypeElectiveAtWill",
+                        "nickname": "Elective Conversion at Maturity",
+                        "trigger_condition": null,
+                        "trigger_date": null,
+                        "trigger_description": "The note shall convert at the option of the holder on or after the maturity date"
+                      },
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechNote",
+                            "value": {
+                              "compounding_type": "OcfSimple",
+                              "day_count_convention": "OcfDayCountActual365",
+                              "interest_accrual_period": "OcfAccrualAnnual",
+                              "interest_payout": "OcfInterestPayoutDeferred",
+                              "interest_rates": [
+                                {
+                                  "accrual_start_date": "2022-10-31T00:00:00Z",
+                                  "rate": "0.0000000000",
+                                  "accrual_end_date": null
+                                }
+                              ],
+                              "capitalization_definition": null,
+                              "capitalization_definition_rules": null,
+                              "conversion_discount": "0.1200000000",
+                              "conversion_mfn": null,
+                              "conversion_valuation_cap": {
+                                "amount": "9000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+                        },
+                        "trigger_id": "2df2f3c0-ed0f-4041-880a-5858584e603a",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Conversion Upon Extraordinary Event",
+                        "trigger_condition": "Extraordinary Event",
+                        "trigger_date": null,
+                        "trigger_description": "The note shall convert upon an extraordinary event such as a merger or acquisition"
+                      }
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Regulation D, Rule 506(b)",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "pro_rata": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "actingParties": [
+                  "1b2149::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "1b2149::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "0030251cc41b7d99fca7f2319753d3a8802a0341d65c71a784b98b0cdb7c42a6c1ca111220bee46ac54b08487b177853992b6c3757212b08eedddec7945541e7d5b0014272",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 841027,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "1b2149::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00b2800389e48fff7c97a131212817c563c392c031b626576ee00174a624bd4b69ca1112205d01e84a5fcf04c6702e354a556df2b12fa3b254c9c31f87a42bb5d79459ca7b"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 841027,
+                "nodeId": 2,
+                "contractId": "00b2800389e48fff7c97a131212817c563c392c031b626576ee00174a624bd4b69ca1112205d01e84a5fcf04c6702e354a556df2b12fa3b254c9c31f87a42bb5d79459ca7b",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "1b2149::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-04T03:00:14.662649Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 841027,
+                "nodeId": 3,
+                "contractId": "0030251cc41b7d99fca7f2319753d3a8802a0341d65c71a784b98b0cdb7c42a6c1ca111220bee46ac54b08487b177853992b6c3757212b08eedddec7945541e7d5b0014272",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.ConvertibleIssuance:ConvertibleIssuance",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "1b2149::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "issuance_data": {
+                    "id": "e9b21cf2-e08a-4c5e-9f50-a2991b01ef7d",
+                    "convertible_type": "OcfConvertibleNote",
+                    "custom_id": "CN-15",
+                    "date": "2022-10-31T00:00:00Z",
+                    "investment_amount": {
+                      "amount": "100000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "24493bb9-d5fd-46e2-bba5-f3199562dee8",
+                    "seniority": "1",
+                    "stakeholder_id": "9fb87b56-883c-405b-8c43-176cb3d2610a",
+                    "comments": [],
+                    "conversion_triggers": [
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechNote",
+                            "value": {
+                              "compounding_type": "OcfSimple",
+                              "day_count_convention": "OcfDayCountActual365",
+                              "interest_accrual_period": "OcfAccrualAnnual",
+                              "interest_payout": "OcfInterestPayoutDeferred",
+                              "interest_rates": [
+                                {
+                                  "accrual_start_date": "2022-10-31T00:00:00Z",
+                                  "rate": "0.0000000000",
+                                  "accrual_end_date": null
+                                }
+                              ],
+                              "capitalization_definition": null,
+                              "capitalization_definition_rules": null,
+                              "conversion_discount": "0.1200000000",
+                              "conversion_mfn": null,
+                              "conversion_valuation_cap": {
+                                "amount": "9000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+                        },
+                        "trigger_id": "d5725bbc-d248-4e41-9ec8-53fbc515790f",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Mandatory Conversion on Qualified Financing",
+                        "trigger_condition": "Qualified Financing of at least $500,000",
+                        "trigger_date": null,
+                        "trigger_description": "The note shall convert upon the next qualified financing of at least $500,000"
+                      },
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechNote",
+                            "value": {
+                              "compounding_type": "OcfSimple",
+                              "day_count_convention": "OcfDayCountActual365",
+                              "interest_accrual_period": "OcfAccrualAnnual",
+                              "interest_payout": "OcfInterestPayoutDeferred",
+                              "interest_rates": [
+                                {
+                                  "accrual_start_date": "2022-10-31T00:00:00Z",
+                                  "rate": "0.0000000000",
+                                  "accrual_end_date": null
+                                }
+                              ],
+                              "capitalization_definition": null,
+                              "capitalization_definition_rules": null,
+                              "conversion_discount": "0.1200000000",
+                              "conversion_mfn": null,
+                              "conversion_valuation_cap": {
+                                "amount": "9000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+                        },
+                        "trigger_id": "d1f26a88-9778-4b5c-92e7-cca4ef067107",
+                        "type_": "OcfTriggerTypeTypeElectiveAtWill",
+                        "nickname": "Elective Conversion at Maturity",
+                        "trigger_condition": null,
+                        "trigger_date": null,
+                        "trigger_description": "The note shall convert at the option of the holder on or after the maturity date"
+                      },
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechNote",
+                            "value": {
+                              "compounding_type": "OcfSimple",
+                              "day_count_convention": "OcfDayCountActual365",
+                              "interest_accrual_period": "OcfAccrualAnnual",
+                              "interest_payout": "OcfInterestPayoutDeferred",
+                              "interest_rates": [
+                                {
+                                  "accrual_start_date": "2022-10-31T00:00:00Z",
+                                  "rate": "0.0000000000",
+                                  "accrual_end_date": null
+                                }
+                              ],
+                              "capitalization_definition": null,
+                              "capitalization_definition_rules": null,
+                              "conversion_discount": "0.1200000000",
+                              "conversion_mfn": null,
+                              "conversion_valuation_cap": {
+                                "amount": "9000000.0000000000",
+                                "currency": "USD"
+                              },
+                              "exit_multiple": null
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+                        },
+                        "trigger_id": "2df2f3c0-ed0f-4041-880a-5858584e603a",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Conversion Upon Extraordinary Event",
+                        "trigger_condition": "Extraordinary Event",
+                        "trigger_date": null,
+                        "trigger_description": "The note shall convert upon an extraordinary event such as a merger or acquisition"
+                      }
+                    ],
+                    "security_law_exemptions": [
+                      {
+                        "description": "Regulation D, Rule 506(b)",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "pro_rata": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "1b2149::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "1b2149::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-04T03:00:14.662649Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-f90bd3f836016c52c5a60a1ee661b038-741fff3a18778f38-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-04T03:00:15.202054Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_CONVERTIBLE_ISSUANCE",
+    "id": "e9b21cf2-e08a-4c5e-9f50-a2991b01ef7d",
+    "date": "2022-10-31",
+    "security_id": "24493bb9-d5fd-46e2-bba5-f3199562dee8",
+    "custom_id": "CN-15",
+    "stakeholder_id": "9fb87b56-883c-405b-8c43-176cb3d2610a",
+    "investment_amount": {
+      "amount": "100000.0000000000",
+      "currency": "USD"
+    },
+    "convertible_type": "NOTE",
+    "conversion_triggers": [
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "trigger_id": "d5725bbc-d248-4e41-9ec8-53fbc515790f",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "CONVERTIBLE_NOTE_CONVERSION",
+            "interest_rates": [
+              {
+                "rate": "0.0000000000",
+                "accrual_start_date": "2022-10-31"
+              }
+            ],
+            "day_count_convention": "ACTUAL_365",
+            "interest_payout": "DEFERRED",
+            "interest_accrual_period": "ANNUAL",
+            "compounding_type": "SIMPLE",
+            "conversion_discount": "0.1200000000",
+            "conversion_valuation_cap": {
+              "amount": "9000000.0000000000",
+              "currency": "USD"
+            }
+          },
+          "converts_to_future_round": true,
+          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+        },
+        "nickname": "Mandatory Conversion on Qualified Financing",
+        "trigger_description": "The note shall convert upon the next qualified financing of at least $500,000",
+        "trigger_condition": "Qualified Financing of at least $500,000"
+      },
+      {
+        "type": "ELECTIVE_AT_WILL",
+        "trigger_id": "d1f26a88-9778-4b5c-92e7-cca4ef067107",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "CONVERTIBLE_NOTE_CONVERSION",
+            "interest_rates": [
+              {
+                "rate": "0.0000000000",
+                "accrual_start_date": "2022-10-31"
+              }
+            ],
+            "day_count_convention": "ACTUAL_365",
+            "interest_payout": "DEFERRED",
+            "interest_accrual_period": "ANNUAL",
+            "compounding_type": "SIMPLE",
+            "conversion_discount": "0.1200000000",
+            "conversion_valuation_cap": {
+              "amount": "9000000.0000000000",
+              "currency": "USD"
+            }
+          },
+          "converts_to_future_round": true,
+          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+        },
+        "nickname": "Elective Conversion at Maturity",
+        "trigger_description": "The note shall convert at the option of the holder on or after the maturity date"
+      },
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "trigger_id": "2df2f3c0-ed0f-4041-880a-5858584e603a",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "CONVERTIBLE_NOTE_CONVERSION",
+            "interest_rates": [
+              {
+                "rate": "0.0000000000",
+                "accrual_start_date": "2022-10-31"
+              }
+            ],
+            "day_count_convention": "ACTUAL_365",
+            "interest_payout": "DEFERRED",
+            "interest_accrual_period": "ANNUAL",
+            "compounding_type": "SIMPLE",
+            "conversion_discount": "0.1200000000",
+            "conversion_valuation_cap": {
+              "amount": "9000000.0000000000",
+              "currency": "USD"
+            }
+          },
+          "converts_to_future_round": true,
+          "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"
+        },
+        "nickname": "Conversion Upon Extraordinary Event",
+        "trigger_description": "The note shall convert upon an extraordinary event such as a merger or acquisition",
+        "trigger_condition": "Extraordinary Event"
+      }
+    ],
+    "seniority": 1,
+    "security_law_exemptions": [
+      {
+        "description": "Regulation D, Rule 506(b)",
+        "jurisdiction": "US"
+      }
+    ]
+  }
+}

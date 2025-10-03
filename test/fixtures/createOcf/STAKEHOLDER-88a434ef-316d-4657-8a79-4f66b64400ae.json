@@ -1,0 +1,371 @@
+{
+  "testContext": {
+    "issuerParty": "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00cdc28788c74192630baf2c3601b7bac56452b6eb054919063645ffe5e63ec959ca1112207da49ab22335b6ead9b69982a869498d51ce44ccc276530380b0ebffc83da7ac"
+  },
+  "db": {
+    "id": "88a434ef-316d-4657-8a79-4f66b64400ae",
+    "name": {
+      "last_name": "Momen",
+      "first_name": "Adam",
+      "legal_name": "Adam Momen"
+    },
+    "comments": [],
+    "addresses": [],
+    "object_type": "STAKEHOLDER",
+    "contact_info": {
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "adam@inc.com"
+        }
+      ]
+    },
+    "primary_contact": {
+      "name": {
+        "last_name": "Momen",
+        "first_name": "Adam",
+        "legal_name": "Adam Momen"
+      },
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "adam@inc.com"
+        }
+      ],
+      "phone_numbers": [
+        {
+          "phone_type": "MOBILE",
+          "phone_number": "+1 310 363 6000"
+        }
+      ]
+    },
+    "stakeholder_type": "INDIVIDUAL",
+    "current_relationship": "FOUNDER"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "00cdc28788c74192630baf2c3601b7bac56452b6eb054919063645ffe5e63ec959ca1112207da49ab22335b6ead9b69982a869498d51ce44ccc276530380b0ebffc83da7ac",
+      "choice": "CreateStakeholder",
+      "choiceArgument": {
+        "stakeholder_data": {
+          "id": "88a434ef-316d-4657-8a79-4f66b64400ae",
+          "name": {
+            "legal_name": "Adam Momen",
+            "first_name": "Adam",
+            "last_name": "Momen"
+          },
+          "stakeholder_type": "OcfStakeholderTypeIndividual",
+          "issuer_assigned_id": null,
+          "primary_contact": {
+            "name": {
+              "legal_name": "Adam Momen",
+              "first_name": "Adam",
+              "last_name": "Momen"
+            },
+            "phone_numbers": [
+              {
+                "phone_type": "OcfPhoneMobile",
+                "phone_number": "+1 310 363 6000"
+              }
+            ],
+            "emails": [
+              {
+                "email_type": "OcfEmailTypeBusiness",
+                "email_address": "adam@inc.com"
+              }
+            ]
+          },
+          "contact_info": {
+            "phone_numbers": [],
+            "emails": [
+              {
+                "email_type": "OcfEmailTypeBusiness",
+                "email_address": "adam@inc.com"
+              }
+            ]
+          },
+          "addresses": [],
+          "tax_ids": [],
+          "comments": [],
+          "current_relationships": [
+            "OcfRelFounder"
+          ]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220b132819d3087ef430b8fd25170b987412405ef6f9ccfeaff106c9f6460d2d020",
+        "commandId": "submit-and-wait-for-transaction-tree-1759533986497-nib0en",
+        "workflowId": "",
+        "effectiveAt": "2025-10-03T23:26:27.391643Z",
+        "offset": 835356,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 835356,
+                "nodeId": 0,
+                "contractId": "00cdc28788c74192630baf2c3601b7bac56452b6eb054919063645ffe5e63ec959ca1112207da49ab22335b6ead9b69982a869498d51ce44ccc276530380b0ebffc83da7ac",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateStakeholder",
+                "choiceArgument": {
+                  "stakeholder_data": {
+                    "id": "88a434ef-316d-4657-8a79-4f66b64400ae",
+                    "name": {
+                      "legal_name": "Adam Momen",
+                      "first_name": "Adam",
+                      "last_name": "Momen"
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeIndividual",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": [
+                      "OcfRelFounder"
+                    ],
+                    "tax_ids": [],
+                    "contact_info": {
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "adam@inc.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    },
+                    "current_status": null,
+                    "issuer_assigned_id": null,
+                    "primary_contact": {
+                      "name": {
+                        "legal_name": "Adam Momen",
+                        "first_name": "Adam",
+                        "last_name": "Momen"
+                      },
+                      "phone_numbers": [
+                        {
+                          "phone_number": "+1 310 363 6000",
+                          "phone_type": "OcfPhoneMobile"
+                        }
+                      ],
+                      "emails": [
+                        {
+                          "email_address": "adam@inc.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "actingParties": [
+                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "0065a7e936a8b32e6e75bb87c407002057294ee424728d4b20101833660fa16740ca1112206fbd38a79f8523712015fbf686d3fce3662baa5341c874d8ee9f6f7f325c2e3e",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 835356,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00b22256e95b141ebb19cb110291f401365ff22c53ff01742cba8cd8bdc6e30c4fca1112200981734abdb954265f0532b2f7871d49dfe399cc1db2abf3d8d96c9d5332ee3a"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 835356,
+                "nodeId": 2,
+                "contractId": "00b22256e95b141ebb19cb110291f401365ff22c53ff01742cba8cd8bdc6e30c4fca1112200981734abdb954265f0532b2f7871d49dfe399cc1db2abf3d8d96c9d5332ee3a",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-03T23:26:27.391643Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 835356,
+                "nodeId": 3,
+                "contractId": "0065a7e936a8b32e6e75bb87c407002057294ee424728d4b20101833660fa16740ca1112206fbd38a79f8523712015fbf686d3fce3662baa5341c874d8ee9f6f7f325c2e3e",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Stakeholder:Stakeholder",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "stakeholder_data": {
+                    "id": "88a434ef-316d-4657-8a79-4f66b64400ae",
+                    "name": {
+                      "legal_name": "Adam Momen",
+                      "first_name": "Adam",
+                      "last_name": "Momen"
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeIndividual",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": [
+                      "OcfRelFounder"
+                    ],
+                    "tax_ids": [],
+                    "contact_info": {
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "adam@inc.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    },
+                    "current_status": null,
+                    "issuer_assigned_id": null,
+                    "primary_contact": {
+                      "name": {
+                        "legal_name": "Adam Momen",
+                        "first_name": "Adam",
+                        "last_name": "Momen"
+                      },
+                      "phone_numbers": [
+                        {
+                          "phone_number": "+1 310 363 6000",
+                          "phone_type": "OcfPhoneMobile"
+                        }
+                      ],
+                      "emails": [
+                        {
+                          "email_address": "adam@inc.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-03T23:26:27.391643Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-a8359b4165ad5659a09965bf99fdf4bf-9fd0f91d361cd5ec-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-03T23:26:27.655016Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "STAKEHOLDER",
+    "id": "88a434ef-316d-4657-8a79-4f66b64400ae",
+    "name": {
+      "legal_name": "Adam Momen",
+      "first_name": "Adam",
+      "last_name": "Momen"
+    },
+    "stakeholder_type": "INDIVIDUAL",
+    "current_relationships": [
+      "FOUNDER"
+    ],
+    "primary_contact": {
+      "name": {
+        "legal_name": "Adam Momen",
+        "first_name": "Adam",
+        "last_name": "Momen"
+      },
+      "phone_numbers": [
+        {
+          "phone_type": "MOBILE",
+          "phone_number": "+1 310 363 6000"
+        }
+      ],
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "adam@inc.com"
+        }
+      ]
+    },
+    "contact_info": {
+      "phone_numbers": [],
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "adam@inc.com"
+        }
+      ]
+    },
+    "addresses": [],
+    "tax_ids": []
+  }
+}

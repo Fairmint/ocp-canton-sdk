@@ -1,0 +1,394 @@
+{
+  "testContext": {
+    "issuerParty": "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "0036c12c949035c93910e6a5cfd2472c26b41002708a9a3f3ba6ee19390a198f4cca111220b3c45a95fe979a430851b8b6e74acbb73c0747060674d8956ee4a8f5dba84b19"
+  },
+  "db": {
+    "id": "1d5b1aa2-2f4d-4022-83ec-c351e0d75189",
+    "date": "2023-07-31",
+    "comments": [],
+    "custom_id": "CN-1",
+    "seniority": 1,
+    "object_type": "TX_CONVERTIBLE_ISSUANCE",
+    "security_id": "94fcd90f-c300-4aba-babb-108fb78f5fa8",
+    "stakeholder_id": "8f97599b-96c2-4e24-8900-ae6c82c76865",
+    "convertible_type": "SAFE",
+    "investment_amount": {
+      "amount": "50000",
+      "currency": "USD"
+    },
+    "conversion_triggers": [
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "nickname": "Next Financing",
+        "trigger_id": "fff88f0a-39dd-4f0d-87b0-961ec38e3dd6",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION",
+            "converts_to_percent": "0.035",
+            "capitalization_definition": "Total shares outstanding including all options and warrants",
+            "capitalization_definition_rules": {
+              "include_new_money": true,
+              "include_this_security": true,
+              "include_outstanding_shares": true,
+              "include_outstanding_options": false,
+              "include_other_converting_securities": true,
+              "include_additional_option_pool_topup": false,
+              "include_outstanding_unissued_options": false,
+              "include_option_pool_topup_for_promised_options": false
+            }
+          },
+          "converts_to_future_round": true
+        },
+        "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)",
+        "trigger_description": "Conversion at Next Equity Financing"
+      }
+    ],
+    "security_law_exemptions": []
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "0036c12c949035c93910e6a5cfd2472c26b41002708a9a3f3ba6ee19390a198f4cca111220b3c45a95fe979a430851b8b6e74acbb73c0747060674d8956ee4a8f5dba84b19",
+      "choice": "CreateConvertibleIssuance",
+      "choiceArgument": {
+        "issuance_data": {
+          "id": "1d5b1aa2-2f4d-4022-83ec-c351e0d75189",
+          "date": "2023-07-31T00:00:00.000Z",
+          "security_id": "94fcd90f-c300-4aba-babb-108fb78f5fa8",
+          "custom_id": "CN-1",
+          "stakeholder_id": "8f97599b-96c2-4e24-8900-ae6c82c76865",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": null,
+          "security_law_exemptions": [],
+          "investment_amount": {
+            "amount": "50000",
+            "currency": "USD"
+          },
+          "convertible_type": "OcfConvertibleSafe",
+          "conversion_triggers": [
+            {
+              "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+              "trigger_id": "fff88f0a-39dd-4f0d-87b0-961ec38e3dd6",
+              "nickname": "Next Financing",
+              "trigger_description": "Conversion at Next Equity Financing",
+              "conversion_right": {
+                "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                "conversion_mechanism": {
+                  "tag": "OcfConvMechPercentCapitalization",
+                  "value": {
+                    "converts_to_percent": "0.035",
+                    "capitalization_definition": "Total shares outstanding including all options and warrants",
+                    "capitalization_definition_rules": {
+                      "include_outstanding_shares": true,
+                      "include_outstanding_options": false,
+                      "include_outstanding_unissued_options": false,
+                      "include_this_security": true,
+                      "include_other_converting_securities": true,
+                      "include_option_pool_topup_for_promised_options": false,
+                      "include_additional_option_pool_topup": false,
+                      "include_new_money": true
+                    }
+                  }
+                },
+                "converts_to_future_round": true,
+                "converts_to_stock_class_id": null
+              },
+              "trigger_date": null,
+              "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)"
+            }
+          ],
+          "pro_rata": null,
+          "seniority": "1",
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "12202e49ee10dd1f60c6be009f7d30f61c01f2c548da3332e4cea7c5641a3ac95ddb",
+        "commandId": "submit-and-wait-for-transaction-tree-1759533021047-4f6ocg",
+        "workflowId": "",
+        "effectiveAt": "2025-10-03T23:10:21.952510Z",
+        "offset": 834892,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 834892,
+                "nodeId": 0,
+                "contractId": "0036c12c949035c93910e6a5cfd2472c26b41002708a9a3f3ba6ee19390a198f4cca111220b3c45a95fe979a430851b8b6e74acbb73c0747060674d8956ee4a8f5dba84b19",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateConvertibleIssuance",
+                "choiceArgument": {
+                  "issuance_data": {
+                    "id": "1d5b1aa2-2f4d-4022-83ec-c351e0d75189",
+                    "convertible_type": "OcfConvertibleSafe",
+                    "custom_id": "CN-1",
+                    "date": "2023-07-31T00:00:00Z",
+                    "investment_amount": {
+                      "amount": "50000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "94fcd90f-c300-4aba-babb-108fb78f5fa8",
+                    "seniority": "1",
+                    "stakeholder_id": "8f97599b-96c2-4e24-8900-ae6c82c76865",
+                    "comments": [],
+                    "conversion_triggers": [
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechPercentCapitalization",
+                            "value": {
+                              "converts_to_percent": "0.0350000000",
+                              "capitalization_definition": "Total shares outstanding including all options and warrants",
+                              "capitalization_definition_rules": {
+                                "include_additional_option_pool_topup": false,
+                                "include_new_money": true,
+                                "include_option_pool_topup_for_promised_options": false,
+                                "include_other_converting_securities": true,
+                                "include_outstanding_options": false,
+                                "include_outstanding_shares": true,
+                                "include_outstanding_unissued_options": false,
+                                "include_this_security": true
+                              }
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": null
+                        },
+                        "trigger_id": "fff88f0a-39dd-4f0d-87b0-961ec38e3dd6",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Next Financing",
+                        "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)",
+                        "trigger_date": null,
+                        "trigger_description": "Conversion at Next Equity Financing"
+                      }
+                    ],
+                    "security_law_exemptions": [],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "pro_rata": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "actingParties": [
+                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00545fefc524e70fe95d7a42dd7a7e5ee877c4f9b1b954be38083cdf523c0f8c93ca1112200f304b5d56652a08b81dbf2cbc4e00ca802b8be8b0fa363c13e2ed8e28cebd89",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 834892,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00dda28de2e64d91f637a868028d15bd50ac973596305afb03007baba3f9733843ca111220ba9797c8beea56b80a6b5f4ca5ebdfa8681f5d3f2d92b55ba0133257fe4ac2ea"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 834892,
+                "nodeId": 2,
+                "contractId": "00dda28de2e64d91f637a868028d15bd50ac973596305afb03007baba3f9733843ca111220ba9797c8beea56b80a6b5f4ca5ebdfa8681f5d3f2d92b55ba0133257fe4ac2ea",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-03T23:10:21.952510Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 834892,
+                "nodeId": 3,
+                "contractId": "00545fefc524e70fe95d7a42dd7a7e5ee877c4f9b1b954be38083cdf523c0f8c93ca1112200f304b5d56652a08b81dbf2cbc4e00ca802b8be8b0fa363c13e2ed8e28cebd89",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.ConvertibleIssuance:ConvertibleIssuance",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "issuance_data": {
+                    "id": "1d5b1aa2-2f4d-4022-83ec-c351e0d75189",
+                    "convertible_type": "OcfConvertibleSafe",
+                    "custom_id": "CN-1",
+                    "date": "2023-07-31T00:00:00Z",
+                    "investment_amount": {
+                      "amount": "50000.0000000000",
+                      "currency": "USD"
+                    },
+                    "security_id": "94fcd90f-c300-4aba-babb-108fb78f5fa8",
+                    "seniority": "1",
+                    "stakeholder_id": "8f97599b-96c2-4e24-8900-ae6c82c76865",
+                    "comments": [],
+                    "conversion_triggers": [
+                      {
+                        "conversion_right": {
+                          "conversion_mechanism": {
+                            "tag": "OcfConvMechPercentCapitalization",
+                            "value": {
+                              "converts_to_percent": "0.0350000000",
+                              "capitalization_definition": "Total shares outstanding including all options and warrants",
+                              "capitalization_definition_rules": {
+                                "include_additional_option_pool_topup": false,
+                                "include_new_money": true,
+                                "include_option_pool_topup_for_promised_options": false,
+                                "include_other_converting_securities": true,
+                                "include_outstanding_options": false,
+                                "include_outstanding_shares": true,
+                                "include_outstanding_unissued_options": false,
+                                "include_this_security": true
+                              }
+                            }
+                          },
+                          "type_": "CONVERTIBLE_CONVERSION_RIGHT",
+                          "converts_to_future_round": true,
+                          "converts_to_stock_class_id": null
+                        },
+                        "trigger_id": "fff88f0a-39dd-4f0d-87b0-961ec38e3dd6",
+                        "type_": "OcfTriggerTypeTypeAutomaticOnCondition",
+                        "nickname": "Next Financing",
+                        "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)",
+                        "trigger_date": null,
+                        "trigger_description": "Conversion at Next Equity Financing"
+                      }
+                    ],
+                    "security_law_exemptions": [],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "pro_rata": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-03T23:10:21.952510Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-d78ba64e9d480cc287e5e9abaaecef58-d387d1443f466e09-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-03T23:10:21.927925Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_CONVERTIBLE_ISSUANCE",
+    "id": "1d5b1aa2-2f4d-4022-83ec-c351e0d75189",
+    "date": "2023-07-31",
+    "security_id": "94fcd90f-c300-4aba-babb-108fb78f5fa8",
+    "custom_id": "CN-1",
+    "stakeholder_id": "8f97599b-96c2-4e24-8900-ae6c82c76865",
+    "investment_amount": {
+      "amount": "50000.0000000000",
+      "currency": "USD"
+    },
+    "convertible_type": "SAFE",
+    "conversion_triggers": [
+      {
+        "type": "AUTOMATIC_ON_CONDITION",
+        "trigger_id": "fff88f0a-39dd-4f0d-87b0-961ec38e3dd6",
+        "conversion_right": {
+          "type": "CONVERTIBLE_CONVERSION_RIGHT",
+          "conversion_mechanism": {
+            "type": "FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION",
+            "converts_to_percent": "0.0350000000",
+            "capitalization_definition": "Total shares outstanding including all options and warrants",
+            "capitalization_definition_rules": {
+              "include_additional_option_pool_topup": false,
+              "include_new_money": true,
+              "include_option_pool_topup_for_promised_options": false,
+              "include_other_converting_securities": true,
+              "include_outstanding_options": false,
+              "include_outstanding_shares": true,
+              "include_outstanding_unissued_options": false,
+              "include_this_security": true
+            }
+          },
+          "converts_to_future_round": true
+        },
+        "nickname": "Next Financing",
+        "trigger_description": "Conversion at Next Equity Financing",
+        "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)"
+      }
+    ],
+    "seniority": 1,
+    "security_law_exemptions": []
+  }
+}

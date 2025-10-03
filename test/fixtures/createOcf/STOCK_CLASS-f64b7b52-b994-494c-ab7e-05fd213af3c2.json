@@ -1,0 +1,268 @@
+{
+  "testContext": {
+    "issuerParty": "550de2::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00fbb808f163e0e336511374c796fe3057d283cd3e51422b7020f288b228bacb00ca111220c30dc0f2fcf303358966fbb3699688fbd865ae39953c76d006325c38489af762"
+  },
+  "db": {
+    "id": "f64b7b52-b994-494c-ab7e-05fd213af3c2",
+    "name": "Class B Common",
+    "comments": [],
+    "par_value": {
+      "amount": "1.43",
+      "currency": "USD"
+    },
+    "seniority": "1",
+    "class_type": "COMMON",
+    "object_type": "STOCK_CLASS",
+    "price_per_share": {
+      "amount": "1.43",
+      "currency": "USD"
+    },
+    "votes_per_share": "1",
+    "conversion_rights": [],
+    "default_id_prefix": "CS-2",
+    "board_approval_date": "2022-08-31",
+    "initial_shares_authorized": "1000000",
+    "participation_cap_multiple": "1",
+    "liquidation_preference_multiple": "1"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "00fbb808f163e0e336511374c796fe3057d283cd3e51422b7020f288b228bacb00ca111220c30dc0f2fcf303358966fbb3699688fbd865ae39953c76d006325c38489af762",
+      "choice": "CreateStockClass",
+      "choiceArgument": {
+        "stock_class_data": {
+          "id": "f64b7b52-b994-494c-ab7e-05fd213af3c2",
+          "name": "Class B Common",
+          "class_type": "OcfStockClassTypeCommon",
+          "default_id_prefix": "CS-2",
+          "initial_shares_authorized": "1000000",
+          "votes_per_share": "1",
+          "seniority": "1",
+          "board_approval_date": "2022-08-31T00:00:00.000Z",
+          "stockholder_approval_date": null,
+          "par_value": {
+            "amount": "1.43",
+            "currency": "USD"
+          },
+          "price_per_share": {
+            "amount": "1.43",
+            "currency": "USD"
+          },
+          "conversion_rights": [],
+          "liquidation_preference_multiple": "1",
+          "participation_cap_multiple": "1",
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220611cb91cf5874ee5129affdbd74c0db20b88686dce8b95735e5a79a3f6494cd9",
+        "commandId": "submit-and-wait-for-transaction-tree-1759534703616-j9czob",
+        "workflowId": "",
+        "effectiveAt": "2025-10-03T23:38:24.310534Z",
+        "offset": 835689,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 835689,
+                "nodeId": 0,
+                "contractId": "00fbb808f163e0e336511374c796fe3057d283cd3e51422b7020f288b228bacb00ca111220c30dc0f2fcf303358966fbb3699688fbd865ae39953c76d006325c38489af762",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateStockClass",
+                "choiceArgument": {
+                  "stock_class_data": {
+                    "id": "f64b7b52-b994-494c-ab7e-05fd213af3c2",
+                    "class_type": "OcfStockClassTypeCommon",
+                    "default_id_prefix": "CS-2",
+                    "initial_shares_authorized": "1000000.0000000000",
+                    "name": "Class B Common",
+                    "seniority": "1.0000000000",
+                    "votes_per_share": "1.0000000000",
+                    "comments": [],
+                    "conversion_rights": [],
+                    "board_approval_date": "2022-08-31T00:00:00Z",
+                    "liquidation_preference_multiple": "1.0000000000",
+                    "par_value": {
+                      "amount": "1.4300000000",
+                      "currency": "USD"
+                    },
+                    "participation_cap_multiple": "1.0000000000",
+                    "price_per_share": {
+                      "amount": "1.4300000000",
+                      "currency": "USD"
+                    },
+                    "stockholder_approval_date": null
+                  }
+                },
+                "actingParties": [
+                  "550de2::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "550de2::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "00d5d62b9213089691f788980b6e3d8151f5058d5d2eac2f08031bc263b0b84feeca11122072d0799bf922ed360dc2d87bb30095bc8b4321b11656088b6d4ca419919ddba2",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 835689,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "550de2::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00e1c950b2fdd7ac4eb8ea84c57eb92ec0dabeabd2f3ae1219707a737bbdeff780ca111220816d15b21f7e4c3b7b1cbc3bebc752f5b59845ed35251e1bca8befb6566e2a84"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 835689,
+                "nodeId": 2,
+                "contractId": "00e1c950b2fdd7ac4eb8ea84c57eb92ec0dabeabd2f3ae1219707a737bbdeff780ca111220816d15b21f7e4c3b7b1cbc3bebc752f5b59845ed35251e1bca8befb6566e2a84",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "550de2::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-03T23:38:24.310534Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 835689,
+                "nodeId": 3,
+                "contractId": "00d5d62b9213089691f788980b6e3d8151f5058d5d2eac2f08031bc263b0b84feeca11122072d0799bf922ed360dc2d87bb30095bc8b4321b11656088b6d4ca419919ddba2",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.StockClass:StockClass",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "550de2::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "stock_class_data": {
+                    "id": "f64b7b52-b994-494c-ab7e-05fd213af3c2",
+                    "class_type": "OcfStockClassTypeCommon",
+                    "default_id_prefix": "CS-2",
+                    "initial_shares_authorized": "1000000.0000000000",
+                    "name": "Class B Common",
+                    "seniority": "1.0000000000",
+                    "votes_per_share": "1.0000000000",
+                    "comments": [],
+                    "conversion_rights": [],
+                    "board_approval_date": "2022-08-31T00:00:00Z",
+                    "liquidation_preference_multiple": "1.0000000000",
+                    "par_value": {
+                      "amount": "1.4300000000",
+                      "currency": "USD"
+                    },
+                    "participation_cap_multiple": "1.0000000000",
+                    "price_per_share": {
+                      "amount": "1.4300000000",
+                      "currency": "USD"
+                    },
+                    "stockholder_approval_date": null
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "550de2::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "550de2::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-03T23:38:24.310534Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-3fdaedb89c47214ce6e16925a51ec3a9-712515776d63604a-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-03T23:38:24.540714Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "STOCK_CLASS",
+    "id": "f64b7b52-b994-494c-ab7e-05fd213af3c2",
+    "name": "Class B Common",
+    "class_type": "COMMON",
+    "default_id_prefix": "CS-2",
+    "board_approval_date": "2022-08-31",
+    "comments": [],
+    "initial_shares_authorized": "1000000.0000000000",
+    "votes_per_share": "1.0000000000",
+    "seniority": "1.0000000000",
+    "par_value": {
+      "amount": "1.4300000000",
+      "currency": "USD"
+    },
+    "price_per_share": {
+      "amount": "1.4300000000",
+      "currency": "USD"
+    },
+    "liquidation_preference_multiple": "1.0000000000",
+    "participation_cap_multiple": "1.0000000000"
+  }
+}

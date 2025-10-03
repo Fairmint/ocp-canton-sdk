@@ -1,0 +1,506 @@
+{
+  "testContext": {
+    "issuerParty": "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "004e62fd1bf98aa6aae0243313c823080828a1dd2d60266f4046f90caae811cfe2ca11122050971831a81897d39bb529e5240b882eb022bb5547fd754718014599b838831e"
+  },
+  "db": {
+    "id": "ba60086d-da04-44b9-af3d-bbcba8211d0b",
+    "name": "Founders Vesting with 1-Year Cliff",
+    "comments": [],
+    "description": "1-year cliff with 4-year vesting. 25% vests after 1 year, and the remaining 75% vests monthly over the next 3 years.",
+    "object_type": "VESTING_TERMS",
+    "allocation_type": "CUMULATIVE_ROUNDING",
+    "vesting_conditions": [
+      {
+        "id": "vesting-start",
+        "trigger": {
+          "type": "VESTING_START_DATE"
+        },
+        "quantity": "0",
+        "next_condition_ids": [
+          "cliff"
+        ]
+      },
+      {
+        "id": "cliff",
+        "portion": {
+          "numerator": "12",
+          "remainder": false,
+          "denominator": "48"
+        },
+        "trigger": {
+          "type": "VESTING_SCHEDULE_RELATIVE",
+          "period": {
+            "type": "MONTHS",
+            "length": 12,
+            "occurrences": 1,
+            "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+          },
+          "relative_to_condition_id": "vesting-start"
+        },
+        "description": "25% payout at 1 year",
+        "next_condition_ids": [
+          "monthly-thereafter"
+        ]
+      },
+      {
+        "id": "monthly-thereafter",
+        "portion": {
+          "numerator": "1",
+          "remainder": false,
+          "denominator": "48"
+        },
+        "trigger": {
+          "type": "VESTING_SCHEDULE_RELATIVE",
+          "period": {
+            "type": "MONTHS",
+            "length": 1,
+            "occurrences": 36,
+            "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+          },
+          "relative_to_condition_id": "cliff"
+        },
+        "description": "1/48th payout each month thereafter",
+        "next_condition_ids": []
+      }
+    ]
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "004e62fd1bf98aa6aae0243313c823080828a1dd2d60266f4046f90caae811cfe2ca11122050971831a81897d39bb529e5240b882eb022bb5547fd754718014599b838831e",
+      "choice": "CreateVestingTerms",
+      "choiceArgument": {
+        "vesting_terms_data": {
+          "id": "ba60086d-da04-44b9-af3d-bbcba8211d0b",
+          "name": "Founders Vesting with 1-Year Cliff",
+          "description": "1-year cliff with 4-year vesting. 25% vests after 1 year, and the remaining 75% vests monthly over the next 3 years.",
+          "allocation_type": "OcfAllocationCumulativeRounding",
+          "comments": [],
+          "vesting_conditions": [
+            {
+              "id": "vesting-start",
+              "description": null,
+              "quantity": "0",
+              "next_condition_ids": [
+                "cliff"
+              ],
+              "portion": null,
+              "trigger": {
+                "tag": "OcfVestingStartTrigger",
+                "value": {}
+              }
+            },
+            {
+              "id": "cliff",
+              "description": "25% payout at 1 year",
+              "quantity": null,
+              "next_condition_ids": [
+                "monthly-thereafter"
+              ],
+              "portion": {
+                "numerator": "12",
+                "denominator": "48",
+                "remainder": false
+              },
+              "trigger": {
+                "tag": "OcfVestingScheduleRelativeTrigger",
+                "value": {
+                  "period": {
+                    "tag": "OcfVestingPeriodMonths",
+                    "value": {
+                      "length_": "12",
+                      "occurrences": "1",
+                      "day_of_month": "OcfVestingStartDayOrLast",
+                      "cliff_installment": null
+                    }
+                  },
+                  "relative_to_condition_id": "vesting-start"
+                }
+              }
+            },
+            {
+              "id": "monthly-thereafter",
+              "description": "1/48th payout each month thereafter",
+              "quantity": null,
+              "next_condition_ids": [],
+              "portion": {
+                "numerator": "1",
+                "denominator": "48",
+                "remainder": false
+              },
+              "trigger": {
+                "tag": "OcfVestingScheduleRelativeTrigger",
+                "value": {
+                  "period": {
+                    "tag": "OcfVestingPeriodMonths",
+                    "value": {
+                      "length_": "1",
+                      "occurrences": "36",
+                      "day_of_month": "OcfVestingStartDayOrLast",
+                      "cliff_installment": null
+                    }
+                  },
+                  "relative_to_condition_id": "cliff"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220d4e70b57e1b6d567acb755f7d6e47936bad33164a299790d432419e5dba51664",
+        "commandId": "submit-and-wait-for-transaction-tree-1759535544667-a44ss9",
+        "workflowId": "",
+        "effectiveAt": "2025-10-03T23:52:25.679180Z",
+        "offset": 836083,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 836083,
+                "nodeId": 0,
+                "contractId": "004e62fd1bf98aa6aae0243313c823080828a1dd2d60266f4046f90caae811cfe2ca11122050971831a81897d39bb529e5240b882eb022bb5547fd754718014599b838831e",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateVestingTerms",
+                "choiceArgument": {
+                  "vesting_terms_data": {
+                    "id": "ba60086d-da04-44b9-af3d-bbcba8211d0b",
+                    "allocation_type": "OcfAllocationCumulativeRounding",
+                    "description": "1-year cliff with 4-year vesting. 25% vests after 1 year, and the remaining 75% vests monthly over the next 3 years.",
+                    "name": "Founders Vesting with 1-Year Cliff",
+                    "comments": [],
+                    "vesting_conditions": [
+                      {
+                        "id": "vesting-start",
+                        "trigger": {
+                          "tag": "OcfVestingStartTrigger",
+                          "value": {}
+                        },
+                        "next_condition_ids": [
+                          "cliff"
+                        ],
+                        "description": null,
+                        "portion": null,
+                        "quantity": "0.0000000000"
+                      },
+                      {
+                        "id": "cliff",
+                        "trigger": {
+                          "tag": "OcfVestingScheduleRelativeTrigger",
+                          "value": {
+                            "period": {
+                              "tag": "OcfVestingPeriodMonths",
+                              "value": {
+                                "length_": "12",
+                                "occurrences": "1",
+                                "day_of_month": "OcfVestingStartDayOrLast",
+                                "cliff_installment": null
+                              }
+                            },
+                            "relative_to_condition_id": "vesting-start"
+                          }
+                        },
+                        "next_condition_ids": [
+                          "monthly-thereafter"
+                        ],
+                        "description": "25% payout at 1 year",
+                        "portion": {
+                          "numerator": "12.0000000000",
+                          "denominator": "48.0000000000",
+                          "remainder": false
+                        },
+                        "quantity": null
+                      },
+                      {
+                        "id": "monthly-thereafter",
+                        "trigger": {
+                          "tag": "OcfVestingScheduleRelativeTrigger",
+                          "value": {
+                            "period": {
+                              "tag": "OcfVestingPeriodMonths",
+                              "value": {
+                                "length_": "1",
+                                "occurrences": "36",
+                                "day_of_month": "OcfVestingStartDayOrLast",
+                                "cliff_installment": null
+                              }
+                            },
+                            "relative_to_condition_id": "cliff"
+                          }
+                        },
+                        "next_condition_ids": [],
+                        "description": "1/48th payout each month thereafter",
+                        "portion": {
+                          "numerator": "1.0000000000",
+                          "denominator": "48.0000000000",
+                          "remainder": false
+                        },
+                        "quantity": null
+                      }
+                    ]
+                  }
+                },
+                "actingParties": [
+                  "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "000831831a2f34c0dc15d8008452037b7ead5b8dbdc785e21300ad10fe0d49f7e3ca111220d3919e61b84737cc05edb2cfbadf62c5847dae9a905d64a67fcf28fc40ccdebf",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 836083,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": [
+                  "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00e85cd3a9305a3ad876a69ad12444820aa7324963f65f473a7bf69bcebf26ff75ca1112201c2623d7fd1df4de1e5b97e8d309db39a538a05687c73bd23bcf506d5876b782"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 836083,
+                "nodeId": 2,
+                "contractId": "00e85cd3a9305a3ad876a69ad12444820aa7324963f65f473a7bf69bcebf26ff75ca1112201c2623d7fd1df4de1e5b97e8d309db39a538a05687c73bd23bcf506d5876b782",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
+                ],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-03T23:52:25.679180Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 836083,
+                "nodeId": 3,
+                "contractId": "000831831a2f34c0dc15d8008452037b7ead5b8dbdc785e21300ad10fe0d49f7e3ca111220d3919e61b84737cc05edb2cfbadf62c5847dae9a905d64a67fcf28fc40ccdebf",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.VestingTerms:VestingTerms",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "vesting_terms_data": {
+                    "id": "ba60086d-da04-44b9-af3d-bbcba8211d0b",
+                    "allocation_type": "OcfAllocationCumulativeRounding",
+                    "description": "1-year cliff with 4-year vesting. 25% vests after 1 year, and the remaining 75% vests monthly over the next 3 years.",
+                    "name": "Founders Vesting with 1-Year Cliff",
+                    "comments": [],
+                    "vesting_conditions": [
+                      {
+                        "id": "vesting-start",
+                        "trigger": {
+                          "tag": "OcfVestingStartTrigger",
+                          "value": {}
+                        },
+                        "next_condition_ids": [
+                          "cliff"
+                        ],
+                        "description": null,
+                        "portion": null,
+                        "quantity": "0.0000000000"
+                      },
+                      {
+                        "id": "cliff",
+                        "trigger": {
+                          "tag": "OcfVestingScheduleRelativeTrigger",
+                          "value": {
+                            "period": {
+                              "tag": "OcfVestingPeriodMonths",
+                              "value": {
+                                "length_": "12",
+                                "occurrences": "1",
+                                "day_of_month": "OcfVestingStartDayOrLast",
+                                "cliff_installment": null
+                              }
+                            },
+                            "relative_to_condition_id": "vesting-start"
+                          }
+                        },
+                        "next_condition_ids": [
+                          "monthly-thereafter"
+                        ],
+                        "description": "25% payout at 1 year",
+                        "portion": {
+                          "numerator": "12.0000000000",
+                          "denominator": "48.0000000000",
+                          "remainder": false
+                        },
+                        "quantity": null
+                      },
+                      {
+                        "id": "monthly-thereafter",
+                        "trigger": {
+                          "tag": "OcfVestingScheduleRelativeTrigger",
+                          "value": {
+                            "period": {
+                              "tag": "OcfVestingPeriodMonths",
+                              "value": {
+                                "length_": "1",
+                                "occurrences": "36",
+                                "day_of_month": "OcfVestingStartDayOrLast",
+                                "cliff_installment": null
+                              }
+                            },
+                            "relative_to_condition_id": "cliff"
+                          }
+                        },
+                        "next_condition_ids": [],
+                        "description": "1/48th payout each month thereafter",
+                        "portion": {
+                          "numerator": "1.0000000000",
+                          "denominator": "48.0000000000",
+                          "remainder": false
+                        },
+                        "quantity": null
+                      }
+                    ]
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": [
+                  "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "signatories": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "f1f00d::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-03T23:52:25.679180Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-5c4352ffb8157d3115b2f8625da5de19-0ad68c9ec6e1cde3-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-03T23:52:25.829181Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "VESTING_TERMS",
+    "id": "ba60086d-da04-44b9-af3d-bbcba8211d0b",
+    "name": "Founders Vesting with 1-Year Cliff",
+    "description": "1-year cliff with 4-year vesting. 25% vests after 1 year, and the remaining 75% vests monthly over the next 3 years.",
+    "allocation_type": "CUMULATIVE_ROUNDING",
+    "vesting_conditions": [
+      {
+        "id": "vesting-start",
+        "quantity": "0.0000000000",
+        "trigger": {
+          "type": "VESTING_START_DATE"
+        },
+        "next_condition_ids": [
+          "cliff"
+        ]
+      },
+      {
+        "id": "cliff",
+        "description": "25% payout at 1 year",
+        "trigger": {
+          "type": "VESTING_SCHEDULE_RELATIVE",
+          "period": {
+            "type": "MONTHS",
+            "length": 12,
+            "occurrences": 1,
+            "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+          },
+          "relative_to_condition_id": "vesting-start"
+        },
+        "next_condition_ids": [
+          "monthly-thereafter"
+        ],
+        "portion": {
+          "numerator": "12.0000000000",
+          "denominator": "48.0000000000",
+          "remainder": false
+        }
+      },
+      {
+        "id": "monthly-thereafter",
+        "description": "1/48th payout each month thereafter",
+        "trigger": {
+          "type": "VESTING_SCHEDULE_RELATIVE",
+          "period": {
+            "type": "MONTHS",
+            "length": 1,
+            "occurrences": 36,
+            "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+          },
+          "relative_to_condition_id": "cliff"
+        },
+        "next_condition_ids": [],
+        "portion": {
+          "numerator": "1.0000000000",
+          "denominator": "48.0000000000",
+          "remainder": false
+        }
+      }
+    ],
+    "comments": []
+  }
+}
