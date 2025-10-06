@@ -9,6 +9,7 @@ import {
   dateStringToDAMLTime,
   monetaryToDaml,
   numberToString,
+  optionalString,
   safeString,
 } from '../../utils/typeConversions';
 
@@ -168,7 +169,7 @@ function mechanismInputToDamlEnum(
             exit_multiple: exitMultipleValue,
             conversion_mfn: (anyM.conversion_mfn as boolean | null) ?? null,
             conversion_timing: safeTiming(anyM.conversion_timing),
-            capitalization_definition: (anyM.capitalization_definition as string | undefined) ?? null,
+            capitalization_definition: optionalString(anyM.capitalization_definition as string | undefined),
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
           },
         } as Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism;
@@ -236,7 +237,7 @@ function mechanismInputToDamlEnum(
             conversion_valuation_cap: anyM.conversion_valuation_cap
               ? monetaryToDaml(anyM.conversion_valuation_cap as Monetary)
               : null,
-            capitalization_definition: (anyM.capitalization_definition as string | undefined) ?? null,
+            capitalization_definition: optionalString(anyM.capitalization_definition as string | undefined),
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
             exit_multiple: null,
             conversion_mfn: (anyM.conversion_mfn as boolean | null) ?? null,
@@ -252,7 +253,7 @@ function mechanismInputToDamlEnum(
           tag: 'OcfConvMechPercentCapitalization',
           value: {
             converts_to_percent: numberToString(anyM.converts_to_percent as string | number),
-            capitalization_definition: (anyM.capitalization_definition as string | undefined) ?? null,
+            capitalization_definition: optionalString(anyM.capitalization_definition as string | undefined),
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
           },
         } as Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism;
@@ -277,7 +278,7 @@ function mechanismInputToDamlEnum(
           value: {
             valuation_type: anyM.valuation_type as string,
             valuation_amount: anyM.valuation_amount ? monetaryToDaml(anyM.valuation_amount as Monetary) : null,
-            capitalization_definition: (anyM.capitalization_definition as string | undefined) ?? null,
+            capitalization_definition: optionalString(anyM.capitalization_definition as string | undefined),
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
           },
         } as Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism;
@@ -325,7 +326,7 @@ function buildConvertibleRight(input: ConversionTriggerInput | undefined) {
   const mechanism = mechanismInputToDamlEnum(details?.conversion_mechanism);
   const convertsToFutureRound =
     details && typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null;
-  const convertsToStockClassId = details?.converts_to_stock_class_id ?? null;
+  const convertsToStockClassId = optionalString(details?.converts_to_stock_class_id);
   return {
     type_: 'CONVERTIBLE_CONVERSION_RIGHT',
     conversion_mechanism: mechanism,
@@ -369,7 +370,7 @@ export function buildCreateConvertibleIssuanceCommand(
     stakeholder_id: d.stakeholder_id,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-    consideration_text: d.consideration_text ?? null,
+    consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions,
     investment_amount: monetaryToDaml(d.investment_amount),
     convertible_type: convertibleTypeToDaml(d.convertible_type),

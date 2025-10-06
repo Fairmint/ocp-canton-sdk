@@ -4,7 +4,7 @@ import type {
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts, EmailType, OcfIssuerData, PhoneType } from '../../types';
-import { addressToDaml, cleanComments, dateStringToDAMLTime } from '../../utils/typeConversions';
+import { addressToDaml, cleanComments, dateStringToDAMLTime, optionalString } from '../../utils/typeConversions';
 
 function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfEmailType {
   switch (emailType) {
@@ -60,10 +60,10 @@ function issuerDataToDaml(issuerData: OcfIssuerData): Fairmint.OpenCapTable.Issu
     id: issuerData.id,
     legal_name: issuerData.legal_name,
     country_of_formation: issuerData.country_of_formation,
-    dba: issuerData.dba ?? null,
+    dba: optionalString(issuerData.dba),
     formation_date: dateStringToDAMLTime(issuerData.formation_date),
-    country_subdivision_of_formation: issuerData.country_subdivision_of_formation ?? null,
-    country_subdivision_name_of_formation: issuerData.country_subdivision_name_of_formation ?? null,
+    country_subdivision_of_formation: optionalString(issuerData.country_subdivision_of_formation),
+    country_subdivision_name_of_formation: optionalString(issuerData.country_subdivision_name_of_formation),
     tax_ids: issuerData.tax_ids,
     email: issuerData.email ? emailToDaml(issuerData.email) : null,
     phone: issuerData.phone ? phoneToDaml(issuerData.phone) : null,

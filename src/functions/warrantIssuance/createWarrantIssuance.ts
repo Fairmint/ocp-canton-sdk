@@ -139,7 +139,7 @@ function warrantMechanismToDamlVariant(
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
           converts_to_percent: numberToString(m.converts_to_percent),
-          capitalization_definition: m.capitalization_definition ?? null,
+          capitalization_definition: optionalString(m.capitalization_definition),
           capitalization_definition_rules: (m.capitalization_definition_rules ??
             null) as Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules | null,
         },
@@ -157,7 +157,7 @@ function warrantMechanismToDamlVariant(
         value: {
           valuation_type: m.valuation_type,
           valuation_amount: m.valuation_amount ? monetaryToDaml(m.valuation_amount) : null,
-          capitalization_definition: m.capitalization_definition ?? null,
+          capitalization_definition: optionalString(m.capitalization_definition),
           capitalization_definition_rules: (m.capitalization_definition_rules ??
             null) as Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules | null,
         },
@@ -185,7 +185,7 @@ function buildWarrantRight(
   const mechanism = warrantMechanismToDamlVariant(details?.conversion_mechanism);
   const converts_to_future_round =
     details && typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null;
-  const converts_to_stock_class_id = details?.converts_to_stock_class_id ?? null;
+  const converts_to_stock_class_id = optionalString(details?.converts_to_stock_class_id);
   return {
     tag: 'OcfRightWarrant',
     value: {
@@ -268,7 +268,7 @@ export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceP
     purchase_price: monetaryToDaml(d.purchase_price),
     exercise_triggers: d.exercise_triggers.map((t, idx) => buildWarrantTrigger(t, idx, d.id)),
     warrant_expiration_date: d.warrant_expiration_date ? dateStringToDAMLTime(d.warrant_expiration_date) : null,
-    vesting_terms_id: d.vesting_terms_id ?? null,
+    vesting_terms_id: optionalString(d.vesting_terms_id),
     vestings: (d.vestings ?? []).map((v) => ({
       date: dateStringToDAMLTime(v.date),
       amount: numberToString(v.amount),

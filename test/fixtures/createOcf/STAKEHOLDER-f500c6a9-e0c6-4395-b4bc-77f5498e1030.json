@@ -1,0 +1,326 @@
+{
+  "testContext": {
+    "issuerParty": "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "0036c12c949035c93910e6a5cfd2472c26b41002708a9a3f3ba6ee19390a198f4cca111220b3c45a95fe979a430851b8b6e74acbb73c0747060674d8956ee4a8f5dba84b19"
+  },
+  "db": {
+    "id": "f500c6a9-e0c6-4395-b4bc-77f5498e1030",
+    "name": {
+      "last_name": "Mounier",
+      "first_name": "Guy",
+      "legal_name": "Guy Mounier"
+    },
+    "comments": [],
+    "addresses": [],
+    "object_type": "STAKEHOLDER",
+    "contact_info": {
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "guymounier@hotmail.com"
+        }
+      ]
+    },
+    "primary_contact": {
+      "name": {
+        "last_name": "Mounier",
+        "first_name": "Guy",
+        "legal_name": "Guy Mounier"
+      },
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "guymounier@hotmail.com"
+        }
+      ],
+      "phone_numbers": []
+    },
+    "stakeholder_type": "INDIVIDUAL",
+    "current_relationship": "BOARD_MEMBER"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "0036c12c949035c93910e6a5cfd2472c26b41002708a9a3f3ba6ee19390a198f4cca111220b3c45a95fe979a430851b8b6e74acbb73c0747060674d8956ee4a8f5dba84b19",
+      "choice": "CreateStakeholder",
+      "choiceArgument": {
+        "stakeholder_data": {
+          "id": "f500c6a9-e0c6-4395-b4bc-77f5498e1030",
+          "name": {
+            "legal_name": "Guy Mounier",
+            "first_name": "Guy",
+            "last_name": "Mounier"
+          },
+          "stakeholder_type": "OcfStakeholderTypeIndividual",
+          "issuer_assigned_id": null,
+          "primary_contact": {
+            "name": {
+              "legal_name": "Guy Mounier",
+              "first_name": "Guy",
+              "last_name": "Mounier"
+            },
+            "phone_numbers": [],
+            "emails": [
+              {
+                "email_type": "OcfEmailTypeBusiness",
+                "email_address": "guymounier@hotmail.com"
+              }
+            ]
+          },
+          "contact_info": {
+            "phone_numbers": [],
+            "emails": [
+              {
+                "email_type": "OcfEmailTypeBusiness",
+                "email_address": "guymounier@hotmail.com"
+              }
+            ]
+          },
+          "addresses": [],
+          "tax_ids": [],
+          "comments": [],
+          "current_relationships": ["OcfRelBoardMember"]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "12204320d5e46af60c7ce7458940eeca4a8eee62f1db1a371c5fff70505b91e05dba",
+        "commandId": "submit-and-wait-for-transaction-tree-1759533162449-81x8zg",
+        "workflowId": "",
+        "effectiveAt": "2025-10-03T23:12:43.611603Z",
+        "offset": 834966,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 834966,
+                "nodeId": 0,
+                "contractId": "0036c12c949035c93910e6a5cfd2472c26b41002708a9a3f3ba6ee19390a198f4cca111220b3c45a95fe979a430851b8b6e74acbb73c0747060674d8956ee4a8f5dba84b19",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateStakeholder",
+                "choiceArgument": {
+                  "stakeholder_data": {
+                    "id": "f500c6a9-e0c6-4395-b4bc-77f5498e1030",
+                    "name": {
+                      "legal_name": "Guy Mounier",
+                      "first_name": "Guy",
+                      "last_name": "Mounier"
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeIndividual",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": ["OcfRelBoardMember"],
+                    "tax_ids": [],
+                    "contact_info": {
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "guymounier@hotmail.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    },
+                    "current_status": null,
+                    "issuer_assigned_id": null,
+                    "primary_contact": {
+                      "name": {
+                        "legal_name": "Guy Mounier",
+                        "first_name": "Guy",
+                        "last_name": "Mounier"
+                      },
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "guymounier@hotmail.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "actingParties": ["c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "consuming": false,
+                "witnessParties": ["c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "007848bc56701aa7a41a05b1363a6baa8abb07705f582dedd9f73b74b990e6908bca1112204d2335ea92ad3eb272debd75e74cd66b4ccf5073f26654baa7a43a1ba61d694f",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 834966,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": ["c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "004215fe508d374df8f6e8f5b008a591663c41e25376761b78febc4330c617c8bbca1112204c4162b138a726d96aaaf694a8b3f4529e33bf7b1b97f59dfa321d3ccddee359"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 834966,
+                "nodeId": 2,
+                "contractId": "004215fe508d374df8f6e8f5b008a591663c41e25376761b78febc4330c617c8bbca1112204c4162b138a726d96aaaf694a8b3f4529e33bf7b1b97f59dfa321d3ccddee359",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": ["c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-03T23:12:43.611603Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 834966,
+                "nodeId": 3,
+                "contractId": "007848bc56701aa7a41a05b1363a6baa8abb07705f582dedd9f73b74b990e6908bca1112204d2335ea92ad3eb272debd75e74cd66b4ccf5073f26654baa7a43a1ba61d694f",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Stakeholder:Stakeholder",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "stakeholder_data": {
+                    "id": "f500c6a9-e0c6-4395-b4bc-77f5498e1030",
+                    "name": {
+                      "legal_name": "Guy Mounier",
+                      "first_name": "Guy",
+                      "last_name": "Mounier"
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeIndividual",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": ["OcfRelBoardMember"],
+                    "tax_ids": [],
+                    "contact_info": {
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "guymounier@hotmail.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    },
+                    "current_status": null,
+                    "issuer_assigned_id": null,
+                    "primary_contact": {
+                      "name": {
+                        "legal_name": "Guy Mounier",
+                        "first_name": "Guy",
+                        "last_name": "Mounier"
+                      },
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "guymounier@hotmail.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": ["c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-03T23:12:43.611603Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-4783736c34826d0fcae189643eb4ef85-bfea9405694bebad-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-03T23:12:43.960893Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "STAKEHOLDER",
+    "id": "f500c6a9-e0c6-4395-b4bc-77f5498e1030",
+    "name": {
+      "legal_name": "Guy Mounier",
+      "first_name": "Guy",
+      "last_name": "Mounier"
+    },
+    "stakeholder_type": "INDIVIDUAL",
+    "current_relationships": ["BOARD_MEMBER"],
+    "primary_contact": {
+      "name": {
+        "legal_name": "Guy Mounier",
+        "first_name": "Guy",
+        "last_name": "Mounier"
+      },
+      "phone_numbers": [],
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "guymounier@hotmail.com"
+        }
+      ]
+    },
+    "contact_info": {
+      "phone_numbers": [],
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "guymounier@hotmail.com"
+        }
+      ]
+    },
+    "addresses": [],
+    "tax_ids": []
+  }
+}

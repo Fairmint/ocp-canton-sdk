@@ -6,3 +6,4 @@ package-lock.json
 docs/
 .DS_Store
 coverage/
+.backup-*/

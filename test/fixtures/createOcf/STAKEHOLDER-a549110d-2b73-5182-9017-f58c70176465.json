@@ -4,26 +4,46 @@
     "issuerContractId": "005524872fa58de02d6fd5577103eec7005ed7d00c0d6cdda111879e2827d12b44ca1112207e28d53b21a2c9ad3d5449b9e27bc0dca92cf39fb31a1ee52004f6003c1d8c3e"
   },
   "db": {
-    "id": "b70a23d3-0d68-4381-a32b-791a00172d46",
-    "md5": "d7acc4c968bdff9bc9369b0c34703814",
-    "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e",
-    "comments": ["filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"],
-    "object_type": "DOCUMENT",
-    "related_objects": []
+    "id": "a549110d-2b73-5182-9017-f58c70176465",
+    "name": {
+      "last_name": "Delanoue",
+      "first_name": "Joris",
+      "legal_name": "Joris Delanoue"
+    },
+    "tax_ids": [],
+    "comments": [
+      "Identified as Board Member and COO from Initial Board Consent document.",
+      "Identified as Founder in Restricted Stock Purchase Agreement."
+    ],
+    "addresses": [],
+    "object_type": "STAKEHOLDER",
+    "stakeholder_type": "INDIVIDUAL",
+    "current_relationship": "FOUNDER"
   },
   "request": {
     "ExerciseCommand": {
       "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
       "contractId": "005524872fa58de02d6fd5577103eec7005ed7d00c0d6cdda111879e2827d12b44ca1112207e28d53b21a2c9ad3d5449b9e27bc0dca92cf39fb31a1ee52004f6003c1d8c3e",
-      "choice": "CreateDocument",
+      "choice": "CreateStakeholder",
       "choiceArgument": {
-        "document_data": {
-          "id": "b70a23d3-0d68-4381-a32b-791a00172d46",
-          "path": null,
-          "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e",
-          "md5": "d7acc4c968bdff9bc9369b0c34703814",
-          "related_objects": [],
-          "comments": ["filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"]
+        "stakeholder_data": {
+          "id": "a549110d-2b73-5182-9017-f58c70176465",
+          "name": {
+            "legal_name": "Joris Delanoue",
+            "first_name": "Joris",
+            "last_name": "Delanoue"
+          },
+          "stakeholder_type": "OcfStakeholderTypeIndividual",
+          "issuer_assigned_id": null,
+          "primary_contact": null,
+          "contact_info": null,
+          "addresses": [],
+          "tax_ids": [],
+          "comments": [
+            "Identified as Board Member and COO from Initial Board Consent document.",
+            "Identified as Founder in Restricted Stock Purchase Agreement."
+          ],
+          "current_relationships": ["OcfRelFounder"]
         }
       }
     }
@@ -31,38 +51,48 @@
   "response": {
     "transactionTree": {
       "transaction": {
-        "updateId": "1220d2c4dafe2dd6c9c1b3b226459fde569e8124743c785a78aa60fdf8784e0fbd5c",
-        "commandId": "submit-and-wait-for-transaction-tree-1759531258873-uohoea",
+        "updateId": "12207d8de675b442288beb213b93064755565eb1d94947a31d21128f072b2447f210",
+        "commandId": "submit-and-wait-for-transaction-tree-1759530738524-90flqu",
         "workflowId": "",
-        "effectiveAt": "2025-10-03T22:41:00.192039Z",
-        "offset": 834121,
+        "effectiveAt": "2025-10-03T22:32:20.379277Z",
+        "offset": 833978,
         "eventsById": {
           "0": {
             "ExercisedTreeEvent": {
               "value": {
-                "offset": 834121,
+                "offset": 833978,
                 "nodeId": 0,
                 "contractId": "005524872fa58de02d6fd5577103eec7005ed7d00c0d6cdda111879e2827d12b44ca1112207e28d53b21a2c9ad3d5449b9e27bc0dca92cf39fb31a1ee52004f6003c1d8c3e",
                 "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
                 "interfaceId": null,
-                "choice": "CreateDocument",
+                "choice": "CreateStakeholder",
                 "choiceArgument": {
-                  "document_data": {
-                    "id": "b70a23d3-0d68-4381-a32b-791a00172d46",
-                    "md5": "d7acc4c968bdff9bc9369b0c34703814",
+                  "stakeholder_data": {
+                    "id": "a549110d-2b73-5182-9017-f58c70176465",
+                    "name": {
+                      "legal_name": "Joris Delanoue",
+                      "first_name": "Joris",
+                      "last_name": "Delanoue"
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeIndividual",
+                    "addresses": [],
                     "comments": [
-                      "filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"
+                      "Identified as Board Member and COO from Initial Board Consent document.",
+                      "Identified as Founder in Restricted Stock Purchase Agreement."
                     ],
-                    "related_objects": [],
-                    "path": null,
-                    "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e"
+                    "current_relationships": ["OcfRelFounder"],
+                    "tax_ids": [],
+                    "contact_info": null,
+                    "current_status": null,
+                    "issuer_assigned_id": null,
+                    "primary_contact": null
                   }
                 },
                 "actingParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
                 "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
-                "exerciseResult": "009f244ce8b669e4a2363b159f1b98a344e59097e49f28b0949abb71575b4c1665ca1112201345b561ab86d4ca731c30ba6dbe340c1f47a4c12c55d40c269435c020d9a77c",
+                "exerciseResult": "009c776930da07fed5df4efaeab01ee27faeb4fcab4222f6fd2c036d4ad13ad5ceca11122014bd0190ba27579d0b1bf087f110716b29414a648f168ed7920b425319efb627",
                 "packageName": "OpenCapTable-v25",
                 "implementedInterfaces": []
               }
@@ -71,7 +101,7 @@
           "1": {
             "ExercisedTreeEvent": {
               "value": {
-                "offset": 834121,
+                "offset": 833978,
                 "nodeId": 1,
                 "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
                 "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
@@ -93,7 +123,7 @@
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
-                    "008f02b58cb3fdde6c81cbeda428d596e2e95d758d774927c552452059ba612849ca111220e1e5d55051c83a4fe89547a5bc0c65626c978d650872db910df4ef06e3a71743"
+                    "007b255145f170403adbfcf3c7f049e0f327c3eb77bd9fd376a41bb93278df685dca1112206dfef23480dc138c3f66cdc6b35660dd2c3ed2075122c63d0cbb8a08100ff6d0"
                   ]
                 },
                 "packageName": "splice-amulet",
@@ -104,9 +134,9 @@
           "2": {
             "CreatedTreeEvent": {
               "value": {
-                "offset": 834121,
+                "offset": 833978,
                 "nodeId": 2,
-                "contractId": "008f02b58cb3fdde6c81cbeda428d596e2e95d758d774927c552452059ba612849ca111220e1e5d55051c83a4fe89547a5bc0c65626c978d650872db910df4ef06e3a71743",
+                "contractId": "007b255145f170403adbfcf3c7f049e0f327c3eb77bd9fd376a41bb93278df685dca1112206dfef23480dc138c3f66cdc6b35660dd2c3ed2075122c63d0cbb8a08100ff6d0",
                 "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
                 "contractKey": null,
                 "createArgument": {
@@ -122,7 +152,7 @@
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
-                "createdAt": "2025-10-03T22:41:00.192039Z",
+                "createdAt": "2025-10-03T22:32:20.379277Z",
                 "packageName": "splice-amulet"
               }
             }
@@ -130,10 +160,10 @@
           "3": {
             "CreatedTreeEvent": {
               "value": {
-                "offset": 834121,
+                "offset": 833978,
                 "nodeId": 3,
-                "contractId": "009f244ce8b669e4a2363b159f1b98a344e59097e49f28b0949abb71575b4c1665ca1112201345b561ab86d4ca731c30ba6dbe340c1f47a4c12c55d40c269435c020d9a77c",
-                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Document:Document",
+                "contractId": "009c776930da07fed5df4efaeab01ee27faeb4fcab4222f6fd2c036d4ad13ad5ceca11122014bd0190ba27579d0b1bf087f110716b29414a648f168ed7920b425319efb627",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Stakeholder:Stakeholder",
                 "contractKey": null,
                 "createArgument": {
                   "context": {
@@ -141,15 +171,25 @@
                     "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                     "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
                   },
-                  "document_data": {
-                    "id": "b70a23d3-0d68-4381-a32b-791a00172d46",
-                    "md5": "d7acc4c968bdff9bc9369b0c34703814",
+                  "stakeholder_data": {
+                    "id": "a549110d-2b73-5182-9017-f58c70176465",
+                    "name": {
+                      "legal_name": "Joris Delanoue",
+                      "first_name": "Joris",
+                      "last_name": "Delanoue"
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeIndividual",
+                    "addresses": [],
                     "comments": [
-                      "filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"
+                      "Identified as Board Member and COO from Initial Board Consent document.",
+                      "Identified as Founder in Restricted Stock Purchase Agreement."
                     ],
-                    "related_objects": [],
-                    "path": null,
-                    "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e"
+                    "current_relationships": ["OcfRelFounder"],
+                    "tax_ids": [],
+                    "contact_info": null,
+                    "current_status": null,
+                    "issuer_assigned_id": null,
+                    "primary_contact": null
                   }
                 },
                 "createdEventBlob": "",
@@ -160,7 +200,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "observers": [],
-                "createdAt": "2025-10-03T22:41:00.192039Z",
+                "createdAt": "2025-10-03T22:32:20.379277Z",
                 "packageName": "OpenCapTable-v25"
               }
             }
@@ -168,19 +208,28 @@
         },
         "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
         "traceContext": {
-          "traceparent": "00-f5d7ab379b86290a65a580fdd48f8fd0-3aa9c07bfaa441c4-01",
+          "traceparent": "00-1e22f0a89e77c7704610b2511c56515c-f469f615943ba92b-01",
           "tracestate": null
         },
-        "recordTime": "2025-10-03T22:41:00.306911Z"
+        "recordTime": "2025-10-03T22:32:20.719091Z"
       }
     }
   },
   "onchain_ocf": {
-    "object_type": "DOCUMENT",
-    "id": "b70a23d3-0d68-4381-a32b-791a00172d46",
-    "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e",
-    "md5": "d7acc4c968bdff9bc9369b0c34703814",
-    "related_objects": [],
-    "comments": ["filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"]
+    "object_type": "STAKEHOLDER",
+    "id": "a549110d-2b73-5182-9017-f58c70176465",
+    "name": {
+      "legal_name": "Joris Delanoue",
+      "first_name": "Joris",
+      "last_name": "Delanoue"
+    },
+    "stakeholder_type": "INDIVIDUAL",
+    "current_relationships": ["FOUNDER"],
+    "addresses": [],
+    "tax_ids": [],
+    "comments": [
+      "Identified as Board Member and COO from Initial Board Consent document.",
+      "Identified as Founder in Restricted Stock Purchase Agreement."
+    ]
   }
 }

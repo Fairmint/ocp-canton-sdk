@@ -45,11 +45,11 @@ export function optionalNumberToString(value: number | string | null | undefined
 }
 
 /**
- * Convert an optional string to null if it's empty or undefined Used for DAML optional text fields where empty strings
- * should be null
+ * Convert an optional string to null if it's empty, null, or undefined Used for DAML optional text fields where empty
+ * strings should be null This is critical because Daml's validateOptionalText rejects empty strings
  */
-export function optionalString(value: string | undefined): string | null {
-  return value === '' || value === undefined ? null : value;
+export function optionalString(value: string | null | undefined): string | null {
+  return !value || value === '' ? null : value;
 }
 
 /**
@@ -121,11 +121,11 @@ function damlAddressTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfAddres
 export function addressToDaml(address: Address): Fairmint.OpenCapTable.Types.OcfAddress {
   return {
     address_type: addressTypeToDaml(address.address_type),
-    street_suite: address.street_suite ?? null,
-    city: address.city ?? null,
-    country_subdivision: address.country_subdivision ?? null,
+    street_suite: optionalString(address.street_suite),
+    city: optionalString(address.city),
+    country_subdivision: optionalString(address.country_subdivision),
     country: address.country,
-    postal_code: address.postal_code ?? null,
+    postal_code: optionalString(address.postal_code),
   };
 }
 

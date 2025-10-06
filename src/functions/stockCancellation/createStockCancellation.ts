@@ -4,7 +4,7 @@ import type {
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts, OcfStockCancellationTxData } from '../../types';
-import { cleanComments, dateStringToDAMLTime, numberToString } from '../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../utils/typeConversions';
 
 export interface CreateStockCancellationParams {
   issuerContractId: string;
@@ -25,7 +25,7 @@ export function buildCreateStockCancellationCommand(
       reason_text: d.reason_text,
       date: dateStringToDAMLTime(d.date),
       quantity: numberToString(d.quantity),
-      balance_security_id: d.balance_security_id ?? null,
+      balance_security_id: optionalString(d.balance_security_id),
       comments: cleanComments(d.comments),
     },
   };

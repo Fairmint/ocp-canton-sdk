@@ -1,0 +1,174 @@
+{
+  "testContext": {
+    "issuerParty": "992a1f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "004ad9ebd9b4f8644cf54d9652d510e1e5ce549312c996485b58212b75d98d0127ca111220fd7977679378aea3c414298bcef9e472d1941704c5d2545f92e3004104dc78e5"
+  },
+  "db": {
+    "id": "eff5af38-e14e-4f44-b61b-4c7796d3084d",
+    "name": "BYLAWS RESTRICTION LEGEND",
+    "text": "THE SHARES REPRESENTED BY THIS CERTIFICATE ARE SUBJECT TO RESTRICTIONS ON TRANSFER AS PROVIDED IN THE BYLAWS OF THE CORPORATION.",
+    "comments": [],
+    "object_type": "STOCK_LEGEND_TEMPLATE"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "004ad9ebd9b4f8644cf54d9652d510e1e5ce549312c996485b58212b75d98d0127ca111220fd7977679378aea3c414298bcef9e472d1941704c5d2545f92e3004104dc78e5",
+      "choice": "CreateStockLegendTemplate",
+      "choiceArgument": {
+        "template_data": {
+          "id": "eff5af38-e14e-4f44-b61b-4c7796d3084d",
+          "name": "BYLAWS RESTRICTION LEGEND",
+          "text": "THE SHARES REPRESENTED BY THIS CERTIFICATE ARE SUBJECT TO RESTRICTIONS ON TRANSFER AS PROVIDED IN THE BYLAWS OF THE CORPORATION.",
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220be0f5f59bd0cc1cba7a6a498a647fda1a5cdb8540b03451e1f9eb4a4894bf448",
+        "commandId": "submit-and-wait-for-transaction-tree-1759556642358-vc0wwr",
+        "workflowId": "",
+        "effectiveAt": "2025-10-04T05:44:03.657891Z",
+        "offset": 845444,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 845444,
+                "nodeId": 0,
+                "contractId": "004ad9ebd9b4f8644cf54d9652d510e1e5ce549312c996485b58212b75d98d0127ca111220fd7977679378aea3c414298bcef9e472d1941704c5d2545f92e3004104dc78e5",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateStockLegendTemplate",
+                "choiceArgument": {
+                  "template_data": {
+                    "id": "eff5af38-e14e-4f44-b61b-4c7796d3084d",
+                    "name": "BYLAWS RESTRICTION LEGEND",
+                    "text": "THE SHARES REPRESENTED BY THIS CERTIFICATE ARE SUBJECT TO RESTRICTIONS ON TRANSFER AS PROVIDED IN THE BYLAWS OF THE CORPORATION.",
+                    "comments": []
+                  }
+                },
+                "actingParties": ["992a1f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "consuming": false,
+                "witnessParties": ["992a1f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "007752d36a33535fce333f1f85e172d1003d3375dc26463d1876e8c6e29268a4ccca111220d411c0b489c7d1b17584eec868ac12701f0cccd877883a15c583731b8cb0d9ff",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 845444,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": ["992a1f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "009352f785df84e2df34d8bac6f7ed89c551f190725f63bb70cb2316add4ddf6a3ca11122041bcf3a4e76c874097bd8969927a1eceef45c17eb691068f5ec3b73fb0ff12ad"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 845444,
+                "nodeId": 2,
+                "contractId": "009352f785df84e2df34d8bac6f7ed89c551f190725f63bb70cb2316add4ddf6a3ca11122041bcf3a4e76c874097bd8969927a1eceef45c17eb691068f5ec3b73fb0ff12ad",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": ["992a1f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-04T05:44:03.657891Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 845444,
+                "nodeId": 3,
+                "contractId": "007752d36a33535fce333f1f85e172d1003d3375dc26463d1876e8c6e29268a4ccca111220d411c0b489c7d1b17584eec868ac12701f0cccd877883a15c583731b8cb0d9ff",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.StockLegendTemplate:StockLegendTemplate",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "992a1f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "template_data": {
+                    "id": "eff5af38-e14e-4f44-b61b-4c7796d3084d",
+                    "name": "BYLAWS RESTRICTION LEGEND",
+                    "text": "THE SHARES REPRESENTED BY THIS CERTIFICATE ARE SUBJECT TO RESTRICTIONS ON TRANSFER AS PROVIDED IN THE BYLAWS OF THE CORPORATION.",
+                    "comments": []
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": ["992a1f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": [
+                  "992a1f::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-04T05:44:03.657891Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-d2f5dbf04ebf621d17e61eccf14a0684-43bc9045eb351a9a-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-04T05:44:03.647593Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "STOCK_LEGEND_TEMPLATE",
+    "id": "eff5af38-e14e-4f44-b61b-4c7796d3084d",
+    "name": "BYLAWS RESTRICTION LEGEND",
+    "text": "THE SHARES REPRESENTED BY THIS CERTIFICATE ARE SUBJECT TO RESTRICTIONS ON TRANSFER AS PROVIDED IN THE BYLAWS OF THE CORPORATION.",
+    "comments": []
+  }
+}

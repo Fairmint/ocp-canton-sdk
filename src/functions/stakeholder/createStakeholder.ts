@@ -13,7 +13,7 @@ import type {
   PhoneType,
   StakeholderType,
 } from '../../types';
-import { addressToDaml, cleanComments } from '../../utils/typeConversions';
+import { addressToDaml, cleanComments, optionalString } from '../../utils/typeConversions';
 
 function stakeholderTypeToDaml(stakeholderType: StakeholderType): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderType {
   switch (stakeholderType) {
@@ -77,8 +77,8 @@ function phoneToDaml(phone: { phone_type: PhoneType; phone_number: string }): Fa
 function nameToDaml(n: Name): Fairmint.OpenCapTable.Stakeholder.OcfName {
   return {
     legal_name: n.legal_name,
-    first_name: n.first_name ?? null,
-    last_name: n.last_name ?? null,
+    first_name: optionalString(n.first_name),
+    last_name: optionalString(n.last_name),
   };
 }
 
@@ -132,7 +132,7 @@ function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.
     id: data.id,
     name: nameToDaml(data.name),
     stakeholder_type: stakeholderTypeToDaml(data.stakeholder_type),
-    issuer_assigned_id: data.issuer_assigned_id ?? null,
+    issuer_assigned_id: optionalString(data.issuer_assigned_id),
     primary_contact: data.primary_contact ? contactInfoToDaml(data.primary_contact) : null,
     contact_info: data.contact_info ? contactInfoWithoutNameToDaml(data.contact_info) : null,
     addresses: (data.addresses ?? []).map(addressToDaml),

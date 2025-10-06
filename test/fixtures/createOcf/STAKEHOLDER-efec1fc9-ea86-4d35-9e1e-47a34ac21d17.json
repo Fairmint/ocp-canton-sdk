@@ -1,0 +1,326 @@
+{
+  "testContext": {
+    "issuerParty": "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "003b3b17ee9e6a84871795a170799b3570e48abaef64c344b8bb2519d59e4c6080ca111220f6548a856d9fd2a7bd0fb22f148301115555dae03eac2c969998038db8668cee"
+  },
+  "db": {
+    "id": "efec1fc9-ea86-4d35-9e1e-47a34ac21d17",
+    "name": {
+      "last_name": "Douilhet",
+      "first_name": "Eric",
+      "legal_name": "Eric Douilhet"
+    },
+    "tax_ids": [],
+    "comments": [],
+    "addresses": [],
+    "object_type": "STAKEHOLDER",
+    "contact_info": {
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "ericdouilhet@outlook.com"
+        }
+      ]
+    },
+    "primary_contact": {
+      "name": {
+        "last_name": "Douilhet",
+        "first_name": "Eric",
+        "legal_name": "Eric Douilhet"
+      },
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "ericdouilhet@outlook.com"
+        }
+      ]
+    },
+    "stakeholder_type": "INDIVIDUAL",
+    "current_relationship": "OFFICER"
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "003b3b17ee9e6a84871795a170799b3570e48abaef64c344b8bb2519d59e4c6080ca111220f6548a856d9fd2a7bd0fb22f148301115555dae03eac2c969998038db8668cee",
+      "choice": "CreateStakeholder",
+      "choiceArgument": {
+        "stakeholder_data": {
+          "id": "efec1fc9-ea86-4d35-9e1e-47a34ac21d17",
+          "name": {
+            "legal_name": "Eric Douilhet",
+            "first_name": "Eric",
+            "last_name": "Douilhet"
+          },
+          "stakeholder_type": "OcfStakeholderTypeIndividual",
+          "issuer_assigned_id": null,
+          "primary_contact": {
+            "name": {
+              "legal_name": "Eric Douilhet",
+              "first_name": "Eric",
+              "last_name": "Douilhet"
+            },
+            "phone_numbers": [],
+            "emails": [
+              {
+                "email_type": "OcfEmailTypeBusiness",
+                "email_address": "ericdouilhet@outlook.com"
+              }
+            ]
+          },
+          "contact_info": {
+            "phone_numbers": [],
+            "emails": [
+              {
+                "email_type": "OcfEmailTypeBusiness",
+                "email_address": "ericdouilhet@outlook.com"
+              }
+            ]
+          },
+          "addresses": [],
+          "tax_ids": [],
+          "comments": [],
+          "current_relationships": ["OcfRelOfficer"]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220d93a2ae8c5b71902cb48c6ae5c3a243bf5e6d9c10719540eeea5f541ea0d8cf2",
+        "commandId": "submit-and-wait-for-transaction-tree-1759552010497-2y70bj",
+        "workflowId": "",
+        "effectiveAt": "2025-10-04T04:26:53.595404Z",
+        "offset": 843234,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 843234,
+                "nodeId": 0,
+                "contractId": "003b3b17ee9e6a84871795a170799b3570e48abaef64c344b8bb2519d59e4c6080ca111220f6548a856d9fd2a7bd0fb22f148301115555dae03eac2c969998038db8668cee",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateStakeholder",
+                "choiceArgument": {
+                  "stakeholder_data": {
+                    "id": "efec1fc9-ea86-4d35-9e1e-47a34ac21d17",
+                    "name": {
+                      "legal_name": "Eric Douilhet",
+                      "first_name": "Eric",
+                      "last_name": "Douilhet"
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeIndividual",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": ["OcfRelOfficer"],
+                    "tax_ids": [],
+                    "contact_info": {
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "ericdouilhet@outlook.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    },
+                    "current_status": null,
+                    "issuer_assigned_id": null,
+                    "primary_contact": {
+                      "name": {
+                        "legal_name": "Eric Douilhet",
+                        "first_name": "Eric",
+                        "last_name": "Douilhet"
+                      },
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "ericdouilhet@outlook.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "actingParties": ["07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "consuming": false,
+                "witnessParties": ["07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "009be2d4278ed72e9d9fe7558aefc6dfb629f777c8da315666e81d7b38129ea779ca1112205d46842ff858e4b0ed93c124d0dc2a47ed77491a0e3dab51057ec382cea1e7a3",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 843234,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": ["07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00d63abf1e39d42447259f8d581ebb3f6eccb2ce4ad8a6f047ffc27c34a50b40fdca111220e745a3fb615aab4a0428decb4e5b50ad1648328b1f2cb1c3a19c34693d9ddc45"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 843234,
+                "nodeId": 2,
+                "contractId": "00d63abf1e39d42447259f8d581ebb3f6eccb2ce4ad8a6f047ffc27c34a50b40fdca111220e745a3fb615aab4a0428decb4e5b50ad1648328b1f2cb1c3a19c34693d9ddc45",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": ["07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-04T04:26:53.595404Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 843234,
+                "nodeId": 3,
+                "contractId": "009be2d4278ed72e9d9fe7558aefc6dfb629f777c8da315666e81d7b38129ea779ca1112205d46842ff858e4b0ed93c124d0dc2a47ed77491a0e3dab51057ec382cea1e7a3",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Stakeholder:Stakeholder",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "stakeholder_data": {
+                    "id": "efec1fc9-ea86-4d35-9e1e-47a34ac21d17",
+                    "name": {
+                      "legal_name": "Eric Douilhet",
+                      "first_name": "Eric",
+                      "last_name": "Douilhet"
+                    },
+                    "stakeholder_type": "OcfStakeholderTypeIndividual",
+                    "addresses": [],
+                    "comments": [],
+                    "current_relationships": ["OcfRelOfficer"],
+                    "tax_ids": [],
+                    "contact_info": {
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "ericdouilhet@outlook.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    },
+                    "current_status": null,
+                    "issuer_assigned_id": null,
+                    "primary_contact": {
+                      "name": {
+                        "legal_name": "Eric Douilhet",
+                        "first_name": "Eric",
+                        "last_name": "Douilhet"
+                      },
+                      "phone_numbers": [],
+                      "emails": [
+                        {
+                          "email_address": "ericdouilhet@outlook.com",
+                          "email_type": "OcfEmailTypeBusiness"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": ["07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": [
+                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-04T04:26:53.595404Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-53c3467d21ee110afcf71eda96590917-4cd003b5c7cee831-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-04T04:26:53.618527Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "STAKEHOLDER",
+    "id": "efec1fc9-ea86-4d35-9e1e-47a34ac21d17",
+    "name": {
+      "legal_name": "Eric Douilhet",
+      "first_name": "Eric",
+      "last_name": "Douilhet"
+    },
+    "stakeholder_type": "INDIVIDUAL",
+    "current_relationships": ["OFFICER"],
+    "primary_contact": {
+      "name": {
+        "legal_name": "Eric Douilhet",
+        "first_name": "Eric",
+        "last_name": "Douilhet"
+      },
+      "phone_numbers": [],
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "ericdouilhet@outlook.com"
+        }
+      ]
+    },
+    "contact_info": {
+      "phone_numbers": [],
+      "emails": [
+        {
+          "email_type": "BUSINESS",
+          "email_address": "ericdouilhet@outlook.com"
+        }
+      ]
+    },
+    "addresses": [],
+    "tax_ids": []
+  }
+}

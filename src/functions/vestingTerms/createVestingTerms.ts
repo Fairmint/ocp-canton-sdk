@@ -10,7 +10,7 @@ import type {
   VestingCondition,
   VestingConditionPortion,
 } from '../../types';
-import { cleanComments, dateStringToDAMLTime } from '../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, optionalString } from '../../utils/typeConversions';
 
 function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.VestingTerms.OcfAllocationType {
   switch (t) {
@@ -209,7 +209,7 @@ function vestingConditionPortionToDaml(
 function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition {
   return {
     id: c.id,
-    description: c.description ?? null,
+    description: optionalString(c.description),
     portion: c.portion
       ? ({
           tag: 'Some',

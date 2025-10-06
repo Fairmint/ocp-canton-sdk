@@ -13,7 +13,12 @@ export interface OcfEquityCompensationIssuanceEvent {
   exercise_price?: { amount: string; currency: string };
   base_price?: { amount: string; currency: string };
   early_exercisable?: boolean;
-  expiration_date?: string;
+  expiration_date: string | null;
+  termination_exercise_windows: Array<{
+    reason: string;
+    period: number;
+    period_type: 'DAYS' | 'MONTHS';
+  }>;
   board_approval_date?: string;
   stockholder_approval_date?: string;
   consideration_text?: string;
@@ -21,11 +26,6 @@ export interface OcfEquityCompensationIssuanceEvent {
   stock_class_id?: string;
   stock_plan_id?: string;
   security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-  termination_exercise_windows?: Array<{
-    reason: string;
-    period: number;
-    period_type: 'DAYS' | 'MONTHS';
-  }>;
   comments?: string[];
   vestings?: Vesting[];
 }
@@ -111,12 +111,13 @@ export async function getEquityCompensationIssuanceEventAsOcf(
     stakeholder_id: String(d.stakeholder_id),
     compensation_type: compMap[(d.compensation_type as string) || 'OcfCompensationTypeOption'],
     quantity: typeof d.quantity === 'number' ? String(d.quantity) : String(d.quantity),
+    expiration_date: d.expiration_date ? (d.expiration_date as string).split('T')[0] : null,
+    termination_exercise_windows: termination_exercise_windows ?? [],
     ...(exercise_price ? { exercise_price } : {}),
     ...(base_price ? { base_price } : {}),
     ...(d.early_exercisable !== null && d.early_exercisable !== undefined
       ? { early_exercisable: Boolean(d.early_exercisable) }
       : {}),
-    ...(d.expiration_date ? { expiration_date: (d.expiration_date as string).split('T')[0] } : {}),
     ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
     ...(d.stockholder_approval_date
       ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }
@@ -134,7 +135,6 @@ export async function getEquityCompensationIssuanceEventAsOcf(
       })
     ),
     ...(vestings ? { vestings } : {}),
-    ...(termination_exercise_windows ? { termination_exercise_windows } : {}),
     ...(comments ? { comments } : {}),
   };
 

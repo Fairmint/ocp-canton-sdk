@@ -1,0 +1,279 @@
+{
+  "testContext": {
+    "issuerParty": "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "00cdc28788c74192630baf2c3601b7bac56452b6eb054919063645ffe5e63ec959ca1112207da49ab22335b6ead9b69982a869498d51ce44ccc276530380b0ebffc83da7ac"
+  },
+  "db": {
+    "id": "d70ffec6-2340-6845-2b02-11243510166f",
+    "date": "2024-09-04",
+    "comments": ["2dca951f-ff3f-404e-8773-983ee6edb07d"],
+    "quantity": "100000",
+    "custom_id": "CS-6",
+    "cost_basis": {
+      "amount": "0",
+      "currency": "USD"
+    },
+    "object_type": "TX_STOCK_ISSUANCE",
+    "security_id": "a2aa9c79-1df7-d733-f9ca-bee3c8cd8487",
+    "share_price": {
+      "amount": "1.96",
+      "currency": "USD"
+    },
+    "stock_plan_id": "00000000-0000-0000-0000-000000000000",
+    "stakeholder_id": "8af0d41e-913f-47d4-a33c-eefe0ee802df",
+    "stock_class_id": "d0903353-59fb-4339-bd63-8ffbc4500bf9",
+    "stock_legend_ids": [],
+    "vesting_terms_id": "00000000-0000-0000-0000-000000000000",
+    "consideration_text": "",
+    "share_numbers_issued": [
+      {
+        "ending_share_number": "0",
+        "starting_share_number": "0"
+      }
+    ],
+    "security_law_exemptions": []
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "00cdc28788c74192630baf2c3601b7bac56452b6eb054919063645ffe5e63ec959ca1112207da49ab22335b6ead9b69982a869498d51ce44ccc276530380b0ebffc83da7ac",
+      "choice": "CreateStockIssuance",
+      "choiceArgument": {
+        "issuance_data": {
+          "id": "d70ffec6-2340-6845-2b02-11243510166f",
+          "security_id": "a2aa9c79-1df7-d733-f9ca-bee3c8cd8487",
+          "custom_id": "CS-6",
+          "stakeholder_id": "8af0d41e-913f-47d4-a33c-eefe0ee802df",
+          "stock_class_id": "d0903353-59fb-4339-bd63-8ffbc4500bf9",
+          "date": "2024-09-04T00:00:00.000Z",
+          "board_approval_date": null,
+          "stockholder_approval_date": null,
+          "consideration_text": null,
+          "security_law_exemptions": [],
+          "stock_plan_id": "00000000-0000-0000-0000-000000000000",
+          "share_numbers_issued": [],
+          "share_price": {
+            "amount": "1.96",
+            "currency": "USD"
+          },
+          "quantity": "100000",
+          "vesting_terms_id": "00000000-0000-0000-0000-000000000000",
+          "vestings": [],
+          "cost_basis": {
+            "amount": "0",
+            "currency": "USD"
+          },
+          "stock_legend_ids": [],
+          "issuance_type": null,
+          "comments": ["2dca951f-ff3f-404e-8773-983ee6edb07d"]
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220a2fea245e2a52c87b5cfb60d568e708935490f3b1147535f4ac171838315896f",
+        "commandId": "submit-and-wait-for-transaction-tree-1759534040771-yb0z2t",
+        "workflowId": "",
+        "effectiveAt": "2025-10-03T23:27:21.963887Z",
+        "offset": 835380,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 835380,
+                "nodeId": 0,
+                "contractId": "00cdc28788c74192630baf2c3601b7bac56452b6eb054919063645ffe5e63ec959ca1112207da49ab22335b6ead9b69982a869498d51ce44ccc276530380b0ebffc83da7ac",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateStockIssuance",
+                "choiceArgument": {
+                  "issuance_data": {
+                    "id": "d70ffec6-2340-6845-2b02-11243510166f",
+                    "custom_id": "CS-6",
+                    "date": "2024-09-04T00:00:00Z",
+                    "quantity": "100000.0000000000",
+                    "security_id": "a2aa9c79-1df7-d733-f9ca-bee3c8cd8487",
+                    "share_price": {
+                      "amount": "1.9600000000",
+                      "currency": "USD"
+                    },
+                    "stakeholder_id": "8af0d41e-913f-47d4-a33c-eefe0ee802df",
+                    "stock_class_id": "d0903353-59fb-4339-bd63-8ffbc4500bf9",
+                    "comments": ["2dca951f-ff3f-404e-8773-983ee6edb07d"],
+                    "security_law_exemptions": [],
+                    "share_numbers_issued": [],
+                    "stock_legend_ids": [],
+                    "vestings": [],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "cost_basis": {
+                      "amount": "0.0000000000",
+                      "currency": "USD"
+                    },
+                    "issuance_type": null,
+                    "stock_plan_id": "00000000-0000-0000-0000-000000000000",
+                    "stockholder_approval_date": null,
+                    "vesting_terms_id": "00000000-0000-0000-0000-000000000000"
+                  }
+                },
+                "actingParties": ["725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "consuming": false,
+                "witnessParties": ["725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "007a2d4b6fff687a6149b929519e6726798234e79a543a7edb622372d41adc5576ca111220bc6e7ad7072c7cc85c4db0f4a82e6ce7eebd06252b3f18bf4eebed14b7ec8172",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 835380,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": ["725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "005f043bd4e6c886fa8ff426872059b4417b2dd3c09eb216e5a044ef68de7d68f5ca1112202757271011a3ac387b9708245782466dcbff3b6a50245d58c5643bb8a59089cb"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 835380,
+                "nodeId": 2,
+                "contractId": "005f043bd4e6c886fa8ff426872059b4417b2dd3c09eb216e5a044ef68de7d68f5ca1112202757271011a3ac387b9708245782466dcbff3b6a50245d58c5643bb8a59089cb",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": ["725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-03T23:27:21.963887Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 835380,
+                "nodeId": 3,
+                "contractId": "007a2d4b6fff687a6149b929519e6726798234e79a543a7edb622372d41adc5576ca111220bc6e7ad7072c7cc85c4db0f4a82e6ce7eebd06252b3f18bf4eebed14b7ec8172",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.StockIssuance:StockIssuance",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "issuance_data": {
+                    "id": "d70ffec6-2340-6845-2b02-11243510166f",
+                    "custom_id": "CS-6",
+                    "date": "2024-09-04T00:00:00Z",
+                    "quantity": "100000.0000000000",
+                    "security_id": "a2aa9c79-1df7-d733-f9ca-bee3c8cd8487",
+                    "share_price": {
+                      "amount": "1.9600000000",
+                      "currency": "USD"
+                    },
+                    "stakeholder_id": "8af0d41e-913f-47d4-a33c-eefe0ee802df",
+                    "stock_class_id": "d0903353-59fb-4339-bd63-8ffbc4500bf9",
+                    "comments": ["2dca951f-ff3f-404e-8773-983ee6edb07d"],
+                    "security_law_exemptions": [],
+                    "share_numbers_issued": [],
+                    "stock_legend_ids": [],
+                    "vestings": [],
+                    "board_approval_date": null,
+                    "consideration_text": null,
+                    "cost_basis": {
+                      "amount": "0.0000000000",
+                      "currency": "USD"
+                    },
+                    "issuance_type": null,
+                    "stock_plan_id": "00000000-0000-0000-0000-000000000000",
+                    "stockholder_approval_date": null,
+                    "vesting_terms_id": "00000000-0000-0000-0000-000000000000"
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": ["725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": [
+                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-03T23:27:21.963887Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-9e8d84a0445da6889065646d207b8718-821cae2ef5933321-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-03T23:27:22.285700Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_STOCK_ISSUANCE",
+    "id": "d70ffec6-2340-6845-2b02-11243510166f",
+    "date": "2024-09-04",
+    "security_id": "a2aa9c79-1df7-d733-f9ca-bee3c8cd8487",
+    "custom_id": "CS-6",
+    "stakeholder_id": "8af0d41e-913f-47d4-a33c-eefe0ee802df",
+    "security_law_exemptions": [],
+    "stock_class_id": "d0903353-59fb-4339-bd63-8ffbc4500bf9",
+    "stock_plan_id": "00000000-0000-0000-0000-000000000000",
+    "share_price": {
+      "amount": "1.9600000000",
+      "currency": "USD"
+    },
+    "quantity": "100000.0000000000",
+    "vesting_terms_id": "00000000-0000-0000-0000-000000000000",
+    "cost_basis": {
+      "amount": "0.0000000000",
+      "currency": "USD"
+    },
+    "stock_legend_ids": [],
+    "comments": ["2dca951f-ff3f-404e-8773-983ee6edb07d"]
+  }
+}

@@ -1,0 +1,444 @@
+{
+  "testContext": {
+    "issuerParty": "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+    "issuerContractId": "004d52da1a1a43a991d91eb6eefea2c6b9d0653537bcca0255ab5263c94fdb36ccca11122024b594fb76a2966a6c12e746133c30bbff4c5e012b9d217987da515a4e6d3503"
+  },
+  "db": {
+    "id": "e1ebca81-a6b1-4632-bb96-13fa8d3789e8",
+    "date": "2023-12-01",
+    "comments": [],
+    "quantity": "11",
+    "vestings": [
+      {
+        "date": "2024-07-30",
+        "amount": "1.83"
+      },
+      {
+        "date": "2024-08-30",
+        "amount": "1.83"
+      },
+      {
+        "date": "2024-09-30",
+        "amount": "1.83"
+      },
+      {
+        "date": "2024-10-30",
+        "amount": "1.83"
+      },
+      {
+        "date": "2024-11-30",
+        "amount": "1.83"
+      },
+      {
+        "date": "2024-12-30",
+        "amount": "1.83"
+      }
+    ],
+    "custom_id": "OPT-24",
+    "object_type": "TX_EQUITY_COMPENSATION_ISSUANCE",
+    "security_id": "6f8da2eb-8568-459e-be4f-9a2d97c6e25a",
+    "stock_plan_id": "9e28abec-0b34-4d42-a394-41b2ed2a6f37",
+    "exercise_price": {
+      "amount": "1.00",
+      "currency": "USD"
+    },
+    "stakeholder_id": "1e284839-acbf-4b92-adfc-0b6dcae4f090",
+    "expiration_date": "2026-12-31",
+    "compensation_type": "OPTION_ISO",
+    "option_grant_type": "ISO",
+    "consideration_text": "Option to purchase 11 shares of Common Stock at $1.00 per share",
+    "board_approval_date": "2022-06-30",
+    "security_law_exemptions": [
+      {
+        "description": "SEC Rule 701",
+        "jurisdiction": "US"
+      }
+    ],
+    "termination_exercise_windows": [
+      {
+        "period": 30,
+        "reason": "INVOLUNTARY_WITH_CAUSE",
+        "period_type": "DAYS"
+      }
+    ]
+  },
+  "request": {
+    "ExerciseCommand": {
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "contractId": "004d52da1a1a43a991d91eb6eefea2c6b9d0653537bcca0255ab5263c94fdb36ccca11122024b594fb76a2966a6c12e746133c30bbff4c5e012b9d217987da515a4e6d3503",
+      "choice": "CreateEquityCompensationIssuance",
+      "choiceArgument": {
+        "issuance_data": {
+          "id": "e1ebca81-a6b1-4632-bb96-13fa8d3789e8",
+          "security_id": "6f8da2eb-8568-459e-be4f-9a2d97c6e25a",
+          "custom_id": "OPT-24",
+          "stakeholder_id": "1e284839-acbf-4b92-adfc-0b6dcae4f090",
+          "date": "2023-12-01T00:00:00.000Z",
+          "board_approval_date": "2022-06-30T00:00:00.000Z",
+          "stockholder_approval_date": null,
+          "consideration_text": "Option to purchase 11 shares of Common Stock at $1.00 per share",
+          "security_law_exemptions": [
+            {
+              "description": "SEC Rule 701",
+              "jurisdiction": "US"
+            }
+          ],
+          "stock_plan_id": "9e28abec-0b34-4d42-a394-41b2ed2a6f37",
+          "stock_class_id": null,
+          "vesting_terms_id": null,
+          "compensation_type": "OcfCompensationTypeOptionISO",
+          "quantity": "11",
+          "exercise_price": {
+            "amount": "1.00",
+            "currency": "USD"
+          },
+          "base_price": null,
+          "early_exercisable": null,
+          "vestings": [
+            {
+              "date": "2024-07-30T00:00:00.000Z",
+              "amount": "1.83"
+            },
+            {
+              "date": "2024-08-30T00:00:00.000Z",
+              "amount": "1.83"
+            },
+            {
+              "date": "2024-09-30T00:00:00.000Z",
+              "amount": "1.83"
+            },
+            {
+              "date": "2024-10-30T00:00:00.000Z",
+              "amount": "1.83"
+            },
+            {
+              "date": "2024-11-30T00:00:00.000Z",
+              "amount": "1.83"
+            },
+            {
+              "date": "2024-12-30T00:00:00.000Z",
+              "amount": "1.83"
+            }
+          ],
+          "expiration_date": "2026-12-31T00:00:00.000Z",
+          "termination_exercise_windows": [
+            {
+              "reason": "OcfTermInvoluntaryWithCause",
+              "period": "30",
+              "period_type": "OcfPeriodDays"
+            }
+          ],
+          "comments": []
+        }
+      }
+    }
+  },
+  "response": {
+    "transactionTree": {
+      "transaction": {
+        "updateId": "1220e405d06b8e91ea63a83d8e80ffcc4ead2be30791031d2447353cb393a6fc5940",
+        "commandId": "submit-and-wait-for-transaction-tree-1759550257437-u5ozd9",
+        "workflowId": "",
+        "effectiveAt": "2025-10-04T03:57:38.600316Z",
+        "offset": 842388,
+        "eventsById": {
+          "0": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 842388,
+                "nodeId": 0,
+                "contractId": "004d52da1a1a43a991d91eb6eefea2c6b9d0653537bcca0255ab5263c94fdb36ccca11122024b594fb76a2966a6c12e746133c30bbff4c5e012b9d217987da515a4e6d3503",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "interfaceId": null,
+                "choice": "CreateEquityCompensationIssuance",
+                "choiceArgument": {
+                  "issuance_data": {
+                    "id": "e1ebca81-a6b1-4632-bb96-13fa8d3789e8",
+                    "custom_id": "OPT-24",
+                    "date": "2023-12-01T00:00:00Z",
+                    "compensation_type": "OcfCompensationTypeOptionISO",
+                    "quantity": "11.0000000000",
+                    "security_id": "6f8da2eb-8568-459e-be4f-9a2d97c6e25a",
+                    "stakeholder_id": "1e284839-acbf-4b92-adfc-0b6dcae4f090",
+                    "comments": [],
+                    "security_law_exemptions": [
+                      {
+                        "description": "SEC Rule 701",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "vestings": [
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-07-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-08-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-09-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-10-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-11-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-12-30T00:00:00Z"
+                      }
+                    ],
+                    "termination_exercise_windows": [
+                      {
+                        "period": "30",
+                        "period_type": "OcfPeriodDays",
+                        "reason": "OcfTermInvoluntaryWithCause"
+                      }
+                    ],
+                    "board_approval_date": "2022-06-30T00:00:00Z",
+                    "consideration_text": "Option to purchase 11 shares of Common Stock at $1.00 per share",
+                    "base_price": null,
+                    "exercise_price": {
+                      "amount": "1.0000000000",
+                      "currency": "USD"
+                    },
+                    "early_exercisable": null,
+                    "expiration_date": "2026-12-31T00:00:00Z",
+                    "stock_class_id": null,
+                    "stock_plan_id": "9e28abec-0b34-4d42-a394-41b2ed2a6f37",
+                    "vesting_terms_id": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "actingParties": ["9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "consuming": false,
+                "witnessParties": ["9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "lastDescendantNodeId": 3,
+                "exerciseResult": "007003673570aca9daaa4af0f6d4a703b8e65e271a31ed0dae4eaaee23e1625cbdca1112206bd236b107932acaadc94a7781dca9fe310037b2a2430983c93ab74cb18acb48",
+                "packageName": "OpenCapTable-v25",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "1": {
+            "ExercisedTreeEvent": {
+              "value": {
+                "offset": 842388,
+                "nodeId": 1,
+                "contractId": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppRight",
+                "interfaceId": "7804375fe5e4c6d5afe067bd314c42fe0b7d005a1300019c73154dd939da4dda:Splice.Api.FeaturedAppRightV1:FeaturedAppRight",
+                "choice": "FeaturedAppRight_CreateActivityMarker",
+                "choiceArgument": {
+                  "beneficiaries": [
+                    {
+                      "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                      "weight": "1.0000000000"
+                    }
+                  ]
+                },
+                "actingParties": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "consuming": false,
+                "witnessParties": ["9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "lastDescendantNodeId": 2,
+                "exerciseResult": {
+                  "activityMarkerCids": [
+                    "00b14d2fdc1ada9699a6db1d9d85b61df36eca46f9117da2470a825739f39d18d5ca111220e16540010b7becc25bcb40ebb8b4461d308976e28646e226be0ba198c1a7cf03"
+                  ]
+                },
+                "packageName": "splice-amulet",
+                "implementedInterfaces": []
+              }
+            }
+          },
+          "2": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 842388,
+                "nodeId": 2,
+                "contractId": "00b14d2fdc1ada9699a6db1d9d85b61df36eca46f9117da2470a825739f39d18d5ca111220e16540010b7becc25bcb40ebb8b4461d308976e28646e226be0ba198c1a7cf03",
+                "templateId": "3ca1343ab26b453d38c8adb70dca5f1ead8440c42b59b68f070786955cbf9ec1:Splice.Amulet:FeaturedAppActivityMarker",
+                "contractKey": null,
+                "createArgument": {
+                  "dso": "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+                  "provider": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "beneficiary": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                  "weight": "1.0000000000"
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": ["9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
+                "observers": [
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "createdAt": "2025-10-04T03:57:38.600316Z",
+                "packageName": "splice-amulet"
+              }
+            }
+          },
+          "3": {
+            "CreatedTreeEvent": {
+              "value": {
+                "offset": 842388,
+                "nodeId": 3,
+                "contractId": "007003673570aca9daaa4af0f6d4a703b8e65e271a31ed0dae4eaaee23e1625cbdca1112206bd236b107932acaadc94a7781dca9fe310037b2a2430983c93ab74cb18acb48",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.EquityCompensationIssuance:EquityCompensationIssuance",
+                "contractKey": null,
+                "createArgument": {
+                  "context": {
+                    "issuer": "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                    "system_operator": "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
+                    "featured_app_right": "003533ff9d4e6f03bef0eaba92e8821e9f9f185565c2cdb5977a2112bd194e9915ca111220c1653beb7399dc66686ddc720bdeba2418ab7de1f1bd7237c389e62ccd0c7c17"
+                  },
+                  "issuance_data": {
+                    "id": "e1ebca81-a6b1-4632-bb96-13fa8d3789e8",
+                    "custom_id": "OPT-24",
+                    "date": "2023-12-01T00:00:00Z",
+                    "compensation_type": "OcfCompensationTypeOptionISO",
+                    "quantity": "11.0000000000",
+                    "security_id": "6f8da2eb-8568-459e-be4f-9a2d97c6e25a",
+                    "stakeholder_id": "1e284839-acbf-4b92-adfc-0b6dcae4f090",
+                    "comments": [],
+                    "security_law_exemptions": [
+                      {
+                        "description": "SEC Rule 701",
+                        "jurisdiction": "US"
+                      }
+                    ],
+                    "vestings": [
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-07-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-08-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-09-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-10-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-11-30T00:00:00Z"
+                      },
+                      {
+                        "amount": "1.8300000000",
+                        "date": "2024-12-30T00:00:00Z"
+                      }
+                    ],
+                    "termination_exercise_windows": [
+                      {
+                        "period": "30",
+                        "period_type": "OcfPeriodDays",
+                        "reason": "OcfTermInvoluntaryWithCause"
+                      }
+                    ],
+                    "board_approval_date": "2022-06-30T00:00:00Z",
+                    "consideration_text": "Option to purchase 11 shares of Common Stock at $1.00 per share",
+                    "base_price": null,
+                    "exercise_price": {
+                      "amount": "1.0000000000",
+                      "currency": "USD"
+                    },
+                    "early_exercisable": null,
+                    "expiration_date": "2026-12-31T00:00:00Z",
+                    "stock_class_id": null,
+                    "stock_plan_id": "9e28abec-0b34-4d42-a394-41b2ed2a6f37",
+                    "vesting_terms_id": null,
+                    "stockholder_approval_date": null
+                  }
+                },
+                "createdEventBlob": "",
+                "interfaceViews": [],
+                "witnessParties": ["9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": [
+                  "9c85dd::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
+                  "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
+                ],
+                "observers": [],
+                "createdAt": "2025-10-04T03:57:38.600316Z",
+                "packageName": "OpenCapTable-v25"
+              }
+            }
+          }
+        },
+        "synchronizerId": "global-domain::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a",
+        "traceContext": {
+          "traceparent": "00-0563a155860f00b3b9d7df1f753fd16f-79935f97c9eaa4a9-01",
+          "tracestate": null
+        },
+        "recordTime": "2025-10-04T03:57:38.715294Z"
+      }
+    }
+  },
+  "onchain_ocf": {
+    "object_type": "TX_EQUITY_COMPENSATION_ISSUANCE",
+    "id": "e1ebca81-a6b1-4632-bb96-13fa8d3789e8",
+    "date": "2023-12-01",
+    "security_id": "6f8da2eb-8568-459e-be4f-9a2d97c6e25a",
+    "custom_id": "OPT-24",
+    "stakeholder_id": "1e284839-acbf-4b92-adfc-0b6dcae4f090",
+    "compensation_type": "OPTION_ISO",
+    "quantity": "11.0000000000",
+    "exercise_price": {
+      "amount": "1.0000000000",
+      "currency": "USD"
+    },
+    "expiration_date": "2026-12-31",
+    "board_approval_date": "2022-06-30",
+    "consideration_text": "Option to purchase 11 shares of Common Stock at $1.00 per share",
+    "stock_plan_id": "9e28abec-0b34-4d42-a394-41b2ed2a6f37",
+    "security_law_exemptions": [
+      {
+        "description": "SEC Rule 701",
+        "jurisdiction": "US"
+      }
+    ],
+    "vestings": [
+      {
+        "date": "2024-07-30",
+        "amount": "1.8300000000"
+      },
+      {
+        "date": "2024-08-30",
+        "amount": "1.8300000000"
+      },
+      {
+        "date": "2024-09-30",
+        "amount": "1.8300000000"
+      },
+      {
+        "date": "2024-10-30",
+        "amount": "1.8300000000"
+      },
+      {
+        "date": "2024-11-30",
+        "amount": "1.8300000000"
+      },
+      {
+        "date": "2024-12-30",
+        "amount": "1.8300000000"
+      }
+    ],
+    "termination_exercise_windows": [
+      {
+        "reason": "INVOLUNTARY_WITH_CAUSE",
+        "period": 30,
+        "period_type": "DAYS"
+      }
+    ]
+  }
+}
