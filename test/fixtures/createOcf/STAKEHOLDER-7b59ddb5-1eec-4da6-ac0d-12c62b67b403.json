@@ -21,9 +21,7 @@
     },
     "stakeholder_type": "INDIVIDUAL",
     "issuer_assigned_id": "df172cd6-d4a8-4ec8-a694-c01e8fe5e570",
-    "current_relationships": [
-      "EMPLOYEE"
-    ]
+    "current_relationships": ["EMPLOYEE"]
   },
   "request": {
     "ExerciseCommand": {
@@ -53,9 +51,7 @@
           "addresses": [],
           "tax_ids": [],
           "comments": [],
-          "current_relationships": [
-            "OcfRelEmployee"
-          ]
+          "current_relationships": ["OcfRelEmployee"]
         }
       }
     }
@@ -89,9 +85,7 @@
                     "stakeholder_type": "OcfStakeholderTypeIndividual",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelEmployee"
-                    ],
+                    "current_relationships": ["OcfRelEmployee"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [],
@@ -107,13 +101,9 @@
                     "primary_contact": null
                   }
                 },
-                "actingParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00c137004da68b511562e87fcf249ba315ffb7920d378baaac7adef3731a8d59d5ca1112206f40d899905a81d4bd6c8d8ff0def08782897c66eae0e4e2cf3cf15b3f7e6327",
                 "packageName": "OpenCapTable-v25",
@@ -142,9 +132,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -172,12 +160,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -210,9 +194,7 @@
                     "stakeholder_type": "OcfStakeholderTypeIndividual",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelEmployee"
-                    ],
+                    "current_relationships": ["OcfRelEmployee"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [],
@@ -230,9 +212,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -263,9 +243,7 @@
     },
     "stakeholder_type": "INDIVIDUAL",
     "issuer_assigned_id": "df172cd6-d4a8-4ec8-a694-c01e8fe5e570",
-    "current_relationships": [
-      "EMPLOYEE"
-    ],
+    "current_relationships": ["EMPLOYEE"],
     "contact_info": {
       "phone_numbers": [],
       "emails": [

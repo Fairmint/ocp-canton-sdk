@@ -43,9 +43,7 @@
             "Identified as Board Member and COO from Initial Board Consent document.",
             "Identified as Founder in Restricted Stock Purchase Agreement."
           ],
-          "current_relationships": [
-            "OcfRelFounder"
-          ]
+          "current_relationships": ["OcfRelFounder"]
         }
       }
     }
@@ -82,9 +80,7 @@
                       "Identified as Board Member and COO from Initial Board Consent document.",
                       "Identified as Founder in Restricted Stock Purchase Agreement."
                     ],
-                    "current_relationships": [
-                      "OcfRelFounder"
-                    ],
+                    "current_relationships": ["OcfRelFounder"],
                     "tax_ids": [],
                     "contact_info": null,
                     "current_status": null,
@@ -92,13 +88,9 @@
                     "primary_contact": null
                   }
                 },
-                "actingParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "009c776930da07fed5df4efaeab01ee27faeb4fcab4222f6fd2c036d4ad13ad5ceca11122014bd0190ba27579d0b1bf087f110716b29414a648f168ed7920b425319efb627",
                 "packageName": "OpenCapTable-v25",
@@ -127,9 +119,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -157,12 +147,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -198,9 +184,7 @@
                       "Identified as Board Member and COO from Initial Board Consent document.",
                       "Identified as Founder in Restricted Stock Purchase Agreement."
                     ],
-                    "current_relationships": [
-                      "OcfRelFounder"
-                    ],
+                    "current_relationships": ["OcfRelFounder"],
                     "tax_ids": [],
                     "contact_info": null,
                     "current_status": null,
@@ -210,9 +194,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -242,9 +224,7 @@
       "last_name": "Delanoue"
     },
     "stakeholder_type": "INDIVIDUAL",
-    "current_relationships": [
-      "FOUNDER"
-    ],
+    "current_relationships": ["FOUNDER"],
     "addresses": [],
     "tax_ids": [],
     "comments": [

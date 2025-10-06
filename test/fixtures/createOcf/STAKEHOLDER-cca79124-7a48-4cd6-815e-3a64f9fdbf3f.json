@@ -28,9 +28,7 @@
     },
     "stakeholder_type": "INDIVIDUAL",
     "issuer_assigned_id": "did:privy:clw7wimie08grvla357uw8nym",
-    "current_relationships": [
-      "INVESTOR"
-    ]
+    "current_relationships": ["INVESTOR"]
   },
   "request": {
     "ExerciseCommand": {
@@ -69,9 +67,7 @@
           ],
           "tax_ids": [],
           "comments": [],
-          "current_relationships": [
-            "OcfRelInvestor"
-          ]
+          "current_relationships": ["OcfRelInvestor"]
         }
       }
     }
@@ -114,9 +110,7 @@
                       }
                     ],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [],
@@ -132,13 +126,9 @@
                     "primary_contact": null
                   }
                 },
-                "actingParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "006a42d4d8712199ccda0d98be910de695256c69aa45b2e7469a7eeb4b2024c570ca111220dca22ed30d122d2da38f0f70108607f0cd42045359e2a21a92dcb1eec141712e",
                 "packageName": "OpenCapTable-v25",
@@ -167,9 +157,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -197,12 +185,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -244,9 +228,7 @@
                       }
                     ],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [],
@@ -264,9 +246,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -297,9 +277,7 @@
     },
     "stakeholder_type": "INDIVIDUAL",
     "issuer_assigned_id": "did:privy:clw7wimie08grvla357uw8nym",
-    "current_relationships": [
-      "INVESTOR"
-    ],
+    "current_relationships": ["INVESTOR"],
     "contact_info": {
       "phone_numbers": [],
       "emails": [

@@ -6,11 +6,7 @@
   "db": {
     "id": "ee680490-0a11-476a-bd39-b6bc28eb9fc8",
     "date": "1998-12-13",
-    "comments": [
-      "comment-one",
-      "comment-two",
-      "..."
-    ],
+    "comments": ["comment-one", "comment-two", "..."],
     "pro_rata": "2500",
     "custom_id": "A-7",
     "seniority": 1,
@@ -104,11 +100,7 @@
           ],
           "pro_rata": "2500",
           "seniority": "1",
-          "comments": [
-            "comment-one",
-            "comment-two",
-            "..."
-          ]
+          "comments": ["comment-one", "comment-two", "..."]
         }
       }
     }
@@ -144,11 +136,7 @@
                     "security_id": "53d0ee9e-c8e3-4e17-bcd1-d793a30bb781",
                     "seniority": "1",
                     "stakeholder_id": "ccbb5156-620a-4de5-a1b0-2d613548823f",
-                    "comments": [
-                      "comment-one",
-                      "comment-two",
-                      "..."
-                    ],
+                    "comments": ["comment-one", "comment-two", "..."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -188,13 +176,9 @@
                     "stockholder_approval_date": null
                   }
                 },
-                "actingParties": [
-                  "49a179::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["49a179::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "49a179::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["49a179::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "003a575a9bffeaf2c500db8d990d89ec3b90f428f8de65e09f880d6d85bfea7851ca11122082321e55eb82a7069d8cfdf85e0a52bc3bfd6b9abfc9f1cf89e33c197e72a581",
                 "packageName": "OpenCapTable-v25",
@@ -223,9 +207,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "49a179::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["49a179::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -253,12 +235,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "49a179::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["49a179::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -293,11 +271,7 @@
                     "security_id": "53d0ee9e-c8e3-4e17-bcd1-d793a30bb781",
                     "seniority": "1",
                     "stakeholder_id": "ccbb5156-620a-4de5-a1b0-2d613548823f",
-                    "comments": [
-                      "comment-one",
-                      "comment-two",
-                      "..."
-                    ],
+                    "comments": ["comment-one", "comment-two", "..."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -339,9 +313,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "49a179::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["49a179::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "49a179::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -402,10 +374,6 @@
         "jurisdiction": "US"
       }
     ],
-    "comments": [
-      "comment-one",
-      "comment-two",
-      "..."
-    ]
+    "comments": ["comment-one", "comment-two", "..."]
   }
 }

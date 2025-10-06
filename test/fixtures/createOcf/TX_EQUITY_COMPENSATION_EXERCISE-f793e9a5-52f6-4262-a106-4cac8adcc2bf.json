@@ -11,9 +11,7 @@
     "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
     "security_id": "8c839563-9cae-4c54-b6c1-47ec222194e1",
     "consideration_text": "8.00 USD",
-    "resulting_security_ids": [
-      "50b3a670-f6c4-e799-b77c-e7ab41cac57e"
-    ]
+    "resulting_security_ids": ["50b3a670-f6c4-e799-b77c-e7ab41cac57e"]
   },
   "request": {
     "ExerciseCommand": {
@@ -27,9 +25,7 @@
           "date": "2023-05-15T00:00:00.000Z",
           "quantity": "8",
           "consideration_text": "8.00 USD",
-          "resulting_security_ids": [
-            "50b3a670-f6c4-e799-b77c-e7ab41cac57e"
-          ],
+          "resulting_security_ids": ["50b3a670-f6c4-e799-b77c-e7ab41cac57e"],
           "comments": []
         }
       }
@@ -60,19 +56,13 @@
                     "quantity": "8.0000000000",
                     "security_id": "8c839563-9cae-4c54-b6c1-47ec222194e1",
                     "comments": [],
-                    "resulting_security_ids": [
-                      "50b3a670-f6c4-e799-b77c-e7ab41cac57e"
-                    ],
+                    "resulting_security_ids": ["50b3a670-f6c4-e799-b77c-e7ab41cac57e"],
                     "consideration_text": "8.00 USD"
                   }
                 },
-                "actingParties": [
-                  "82294e::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["82294e::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "82294e::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["82294e::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00f2e72aa5c84942256193ddc495ab1c2955104a8b1fcb38a6c9a5ced16c6fa14cca111220ea0046f93585146313da5e388dbd51843ec1f029de0a68a09efd94d2e003e93b",
                 "packageName": "OpenCapTable-v25",
@@ -101,9 +91,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "82294e::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["82294e::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -131,12 +119,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "82294e::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["82294e::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -165,17 +149,13 @@
                     "quantity": "8.0000000000",
                     "security_id": "8c839563-9cae-4c54-b6c1-47ec222194e1",
                     "comments": [],
-                    "resulting_security_ids": [
-                      "50b3a670-f6c4-e799-b77c-e7ab41cac57e"
-                    ],
+                    "resulting_security_ids": ["50b3a670-f6c4-e799-b77c-e7ab41cac57e"],
                     "consideration_text": "8.00 USD"
                   }
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "82294e::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["82294e::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "82294e::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -203,8 +183,6 @@
     "security_id": "8c839563-9cae-4c54-b6c1-47ec222194e1",
     "date": "2023-05-15",
     "consideration_text": "8.00 USD",
-    "resulting_security_ids": [
-      "50b3a670-f6c4-e799-b77c-e7ab41cac57e"
-    ]
+    "resulting_security_ids": ["50b3a670-f6c4-e799-b77c-e7ab41cac57e"]
   }
 }

@@ -66,9 +66,7 @@
           "addresses": [],
           "tax_ids": [],
           "comments": [],
-          "current_relationships": [
-            "OcfRelInvestor"
-          ]
+          "current_relationships": ["OcfRelInvestor"]
         }
       }
     }
@@ -102,9 +100,7 @@
                     "stakeholder_type": "OcfStakeholderTypeInstitution",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": null,
                     "current_status": null,
@@ -125,13 +121,9 @@
                     }
                   }
                 },
-                "actingParties": [
-                  "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00d9af0fabc075d3b9f14e1e941bf84de23f83f4dd23e6e939ca962c1bcee94cabca11122004f8b2e6faefb455179af77181565c05643bf0043529d9c851fa4f0b6abd4be6",
                 "packageName": "OpenCapTable-v25",
@@ -160,9 +152,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -190,12 +180,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -228,9 +214,7 @@
                     "stakeholder_type": "OcfStakeholderTypeInstitution",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": null,
                     "current_status": null,
@@ -253,9 +237,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "3bf3b4::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -283,9 +265,7 @@
       "legal_name": "Web3 Social Capital"
     },
     "stakeholder_type": "INSTITUTION",
-    "current_relationships": [
-      "INVESTOR"
-    ],
+    "current_relationships": ["INVESTOR"],
     "primary_contact": {
       "name": {
         "legal_name": "Wade Abel",

@@ -89,9 +89,7 @@
           "addresses": [],
           "tax_ids": [],
           "comments": [],
-          "current_relationships": [
-            "OcfRelInvestor"
-          ]
+          "current_relationships": ["OcfRelInvestor"]
         }
       }
     }
@@ -125,9 +123,7 @@
                     "stakeholder_type": "OcfStakeholderTypeInstitution",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [
@@ -161,13 +157,9 @@
                     }
                   }
                 },
-                "actingParties": [
-                  "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00d8e9af20d6de24c1ebf3ea844c7f2ab6027d002043f4a6f919370f664a977f70ca11122007da5496ecbb7a7e16c8e63ea2152d05c64a4ce064b1ecf7e8122b6558e5d18b",
                 "packageName": "OpenCapTable-v25",
@@ -196,9 +188,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -226,12 +216,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -264,9 +250,7 @@
                     "stakeholder_type": "OcfStakeholderTypeInstitution",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelInvestor"
-                    ],
+                    "current_relationships": ["OcfRelInvestor"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [
@@ -302,9 +286,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                   "e6c1ae::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
@@ -332,9 +314,7 @@
       "legal_name": "Draper Associates VII, L.P."
     },
     "stakeholder_type": "INSTITUTION",
-    "current_relationships": [
-      "INVESTOR"
-    ],
+    "current_relationships": ["INVESTOR"],
     "primary_contact": {
       "name": {
         "legal_name": "Timothy C. Draper",

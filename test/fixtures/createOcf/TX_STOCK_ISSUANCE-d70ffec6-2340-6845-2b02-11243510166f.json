@@ -6,9 +6,7 @@
   "db": {
     "id": "d70ffec6-2340-6845-2b02-11243510166f",
     "date": "2024-09-04",
-    "comments": [
-      "2dca951f-ff3f-404e-8773-983ee6edb07d"
-    ],
+    "comments": ["2dca951f-ff3f-404e-8773-983ee6edb07d"],
     "quantity": "100000",
     "custom_id": "CS-6",
     "cost_basis": {
@@ -67,9 +65,7 @@
           },
           "stock_legend_ids": [],
           "issuance_type": null,
-          "comments": [
-            "2dca951f-ff3f-404e-8773-983ee6edb07d"
-          ]
+          "comments": ["2dca951f-ff3f-404e-8773-983ee6edb07d"]
         }
       }
     }
@@ -105,9 +101,7 @@
                     },
                     "stakeholder_id": "8af0d41e-913f-47d4-a33c-eefe0ee802df",
                     "stock_class_id": "d0903353-59fb-4339-bd63-8ffbc4500bf9",
-                    "comments": [
-                      "2dca951f-ff3f-404e-8773-983ee6edb07d"
-                    ],
+                    "comments": ["2dca951f-ff3f-404e-8773-983ee6edb07d"],
                     "security_law_exemptions": [],
                     "share_numbers_issued": [],
                     "stock_legend_ids": [],
@@ -124,13 +118,9 @@
                     "vesting_terms_id": "00000000-0000-0000-0000-000000000000"
                   }
                 },
-                "actingParties": [
-                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "007a2d4b6fff687a6149b929519e6726798234e79a543a7edb622372d41adc5576ca111220bc6e7ad7072c7cc85c4db0f4a82e6ce7eebd06252b3f18bf4eebed14b7ec8172",
                 "packageName": "OpenCapTable-v25",
@@ -159,9 +149,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -189,12 +177,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -229,9 +213,7 @@
                     },
                     "stakeholder_id": "8af0d41e-913f-47d4-a33c-eefe0ee802df",
                     "stock_class_id": "d0903353-59fb-4339-bd63-8ffbc4500bf9",
-                    "comments": [
-                      "2dca951f-ff3f-404e-8773-983ee6edb07d"
-                    ],
+                    "comments": ["2dca951f-ff3f-404e-8773-983ee6edb07d"],
                     "security_law_exemptions": [],
                     "share_numbers_issued": [],
                     "stock_legend_ids": [],
@@ -250,9 +232,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "725505::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -294,8 +274,6 @@
       "currency": "USD"
     },
     "stock_legend_ids": [],
-    "comments": [
-      "2dca951f-ff3f-404e-8773-983ee6edb07d"
-    ]
+    "comments": ["2dca951f-ff3f-404e-8773-983ee6edb07d"]
   }
 }

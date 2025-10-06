@@ -6,16 +6,12 @@
   "db": {
     "id": "fa656e04-6384-4da7-bc7b-1b7874b1dc09",
     "date": "2023-08-31",
-    "comments": [
-      "Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."
-    ],
+    "comments": ["Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."],
     "quantity": "1",
     "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
     "security_id": "289c370c-f6bf-4b05-a7c8-0a52463f03a5",
     "consideration_text": "1.00 USD per share for 1 share of Common Stock",
-    "resulting_security_ids": [
-      "cd509e31-5b07-f5f9-a72c-2a6a462f06e8"
-    ]
+    "resulting_security_ids": ["cd509e31-5b07-f5f9-a72c-2a6a462f06e8"]
   },
   "request": {
     "ExerciseCommand": {
@@ -29,12 +25,8 @@
           "date": "2023-08-31T00:00:00.000Z",
           "quantity": "1",
           "consideration_text": "1.00 USD per share for 1 share of Common Stock",
-          "resulting_security_ids": [
-            "cd509e31-5b07-f5f9-a72c-2a6a462f06e8"
-          ],
-          "comments": [
-            "Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."
-          ]
+          "resulting_security_ids": ["cd509e31-5b07-f5f9-a72c-2a6a462f06e8"],
+          "comments": ["Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."]
         }
       }
     }
@@ -66,19 +58,13 @@
                     "comments": [
                       "Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."
                     ],
-                    "resulting_security_ids": [
-                      "cd509e31-5b07-f5f9-a72c-2a6a462f06e8"
-                    ],
+                    "resulting_security_ids": ["cd509e31-5b07-f5f9-a72c-2a6a462f06e8"],
                     "consideration_text": "1.00 USD per share for 1 share of Common Stock"
                   }
                 },
-                "actingParties": [
-                  "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00b96e2eef01fa9cfdcaab3ad43d1e8998957dcb201c6b5cb0473b4a0e7c44c6c1ca111220afcd31ee7d03349568fd81510b2713cd4c25ce59da6f9b31886e26e24fe54a25",
                 "packageName": "OpenCapTable-v25",
@@ -107,9 +93,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -137,12 +121,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -173,17 +153,13 @@
                     "comments": [
                       "Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."
                     ],
-                    "resulting_security_ids": [
-                      "cd509e31-5b07-f5f9-a72c-2a6a462f06e8"
-                    ],
+                    "resulting_security_ids": ["cd509e31-5b07-f5f9-a72c-2a6a462f06e8"],
                     "consideration_text": "1.00 USD per share for 1 share of Common Stock"
                   }
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "36a2d9::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -211,11 +187,7 @@
     "security_id": "289c370c-f6bf-4b05-a7c8-0a52463f03a5",
     "date": "2023-08-31",
     "consideration_text": "1.00 USD per share for 1 share of Common Stock",
-    "resulting_security_ids": [
-      "cd509e31-5b07-f5f9-a72c-2a6a462f06e8"
-    ],
-    "comments": [
-      "Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."
-    ]
+    "resulting_security_ids": ["cd509e31-5b07-f5f9-a72c-2a6a462f06e8"],
+    "comments": ["Exercised 1 share of Common Stock at $1.00 per share as per the Stock Purchase Agreement."]
   }
 }

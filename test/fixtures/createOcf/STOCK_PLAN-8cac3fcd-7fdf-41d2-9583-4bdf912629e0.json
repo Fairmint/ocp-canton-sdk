@@ -5,14 +5,10 @@
   },
   "db": {
     "id": "8cac3fcd-7fdf-41d2-9583-4bdf912629e0",
-    "comments": [
-      ""
-    ],
+    "comments": [""],
     "plan_name": "Employees & Advisors Stock Option Pool",
     "object_type": "STOCK_PLAN",
-    "stock_class_ids": [
-      "765ed7a9-f2b7-480e-bd53-a53664de3927"
-    ],
+    "stock_class_ids": ["765ed7a9-f2b7-480e-bd53-a53664de3927"],
     "board_approval_date": "2023-08-15",
     "initial_shares_reserved": "3000000",
     "stockholder_approval_date": "2023-08-20",
@@ -31,9 +27,7 @@
           "stockholder_approval_date": "2023-08-20T00:00:00.000Z",
           "initial_shares_reserved": "3000000",
           "default_cancellation_behavior": "OcfPlanCancelReturnToPool",
-          "stock_class_ids": [
-            "765ed7a9-f2b7-480e-bd53-a53664de3927"
-          ],
+          "stock_class_ids": ["765ed7a9-f2b7-480e-bd53-a53664de3927"],
           "comments": []
         }
       }
@@ -63,21 +57,15 @@
                     "initial_shares_reserved": "3000000.0000000000",
                     "plan_name": "Employees & Advisors Stock Option Pool",
                     "comments": [],
-                    "stock_class_ids": [
-                      "765ed7a9-f2b7-480e-bd53-a53664de3927"
-                    ],
+                    "stock_class_ids": ["765ed7a9-f2b7-480e-bd53-a53664de3927"],
                     "board_approval_date": "2023-08-15T00:00:00Z",
                     "default_cancellation_behavior": "OcfPlanCancelReturnToPool",
                     "stockholder_approval_date": "2023-08-20T00:00:00Z"
                   }
                 },
-                "actingParties": [
-                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00e86c4763c98e04a162a712f43521a31938c4cf0375ab1dfcb8b1ae8b720c5b18ca111220c530b01d1d287f5e596f53a773b4bf11256016c015600973692eba7650fccbc1",
                 "packageName": "OpenCapTable-v25",
@@ -106,9 +94,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -136,12 +122,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -169,9 +151,7 @@
                     "initial_shares_reserved": "3000000.0000000000",
                     "plan_name": "Employees & Advisors Stock Option Pool",
                     "comments": [],
-                    "stock_class_ids": [
-                      "765ed7a9-f2b7-480e-bd53-a53664de3927"
-                    ],
+                    "stock_class_ids": ["765ed7a9-f2b7-480e-bd53-a53664de3927"],
                     "board_approval_date": "2023-08-15T00:00:00Z",
                     "default_cancellation_behavior": "OcfPlanCancelReturnToPool",
                     "stockholder_approval_date": "2023-08-20T00:00:00Z"
@@ -179,9 +159,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63",
                   "c02fdc::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
@@ -210,9 +188,7 @@
     "stockholder_approval_date": "2023-08-20",
     "initial_shares_reserved": "3000000.0000000000",
     "default_cancellation_behavior": "RETURN_TO_POOL",
-    "stock_class_ids": [
-      "765ed7a9-f2b7-480e-bd53-a53664de3927"
-    ],
+    "stock_class_ids": ["765ed7a9-f2b7-480e-bd53-a53664de3927"],
     "comments": []
   }
 }

@@ -77,9 +77,7 @@
           "addresses": [],
           "tax_ids": [],
           "comments": [],
-          "current_relationships": [
-            "OcfRelOther"
-          ]
+          "current_relationships": ["OcfRelOther"]
         }
       }
     }
@@ -113,9 +111,7 @@
                     "stakeholder_type": "OcfStakeholderTypeInstitution",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelOther"
-                    ],
+                    "current_relationships": ["OcfRelOther"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [],
@@ -144,13 +140,9 @@
                     }
                   }
                 },
-                "actingParties": [
-                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "004a588e5d74e3e3008291fa9b6f17688ba1fa01c3083869ce3f08b7079707bbf5ca111220338d8bd62b9b2b848fa5d869878efaee098a24f31a8a88ad48050d556ab99a3a",
                 "packageName": "OpenCapTable-v25",
@@ -179,9 +171,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -209,12 +199,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -247,9 +233,7 @@
                     "stakeholder_type": "OcfStakeholderTypeInstitution",
                     "addresses": [],
                     "comments": [],
-                    "current_relationships": [
-                      "OcfRelOther"
-                    ],
+                    "current_relationships": ["OcfRelOther"],
                     "tax_ids": [],
                     "contact_info": {
                       "phone_numbers": [],
@@ -280,9 +264,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "07c5c0::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -310,9 +292,7 @@
       "legal_name": "Protelicious USA Corp"
     },
     "stakeholder_type": "INSTITUTION",
-    "current_relationships": [
-      "OTHER"
-    ],
+    "current_relationships": ["OTHER"],
     "primary_contact": {
       "name": {
         "legal_name": "Sheila Partrat",

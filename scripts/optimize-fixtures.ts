@@ -4,6 +4,7 @@
  * Script to optimize test fixtures by removing files that don't contribute to test coverage.
  *
  * This script:
+ *
  * 1. Runs test:coverage to get baseline coverage
  * 2. Iterates through fixture files from largest to smallest
  * 3. For each file: deletes it, runs coverage again, and compares results
@@ -31,9 +32,7 @@ interface FileInfo {
 const FIXTURES_DIR = path.join(process.cwd(), 'test/fixtures/createOcf');
 const BACKUP_DIR = path.join(process.cwd(), 'test/fixtures/.backup-createOcf');
 
-/**
- * Parse coverage summary from Jest output
- */
+/** Parse coverage summary from Jest output */
 function parseCoverage(coverageOutput: string): CoverageData {
   // Look for the coverage summary table in Jest output
   const lines = coverageOutput.split('\n');
@@ -69,9 +68,7 @@ function parseCoverage(coverageOutput: string): CoverageData {
   };
 }
 
-/**
- * Run test coverage and return coverage data
- */
+/** Run test coverage and return coverage data */
 function runCoverage(): CoverageData {
   console.log('  Running test:coverage...');
   try {
@@ -91,9 +88,7 @@ function runCoverage(): CoverageData {
   }
 }
 
-/**
- * Check if coverage has decreased
- */
+/** Check if coverage has decreased */
 function coverageDecreased(baseline: CoverageData, current: CoverageData): boolean {
   return (
     current.statements < baseline.statements ||
@@ -103,9 +98,7 @@ function coverageDecreased(baseline: CoverageData, current: CoverageData): boole
   );
 }
 
-/**
- * Get all fixture files sorted by size (largest first)
- */
+/** Get all fixture files sorted by size (largest first) */
 function getFixtureFilesSortedBySize(): FileInfo[] {
   const files = fs.readdirSync(FIXTURES_DIR).filter((f) => f.endsWith('.json'));
 
@@ -125,10 +118,8 @@ function getFixtureFilesSortedBySize(): FileInfo[] {
   return filesWithSize;
 }
 
-/**
- * Main function
- */
-async function main() {
+/** Main function */
+function main() {
   console.log('='.repeat(80));
   console.log('Test Fixture Optimization Script');
   console.log('='.repeat(80));
@@ -283,10 +274,7 @@ async function main() {
 
     // Save list of removed files
     const reportPath = path.join(process.cwd(), 'test/fixtures/removed-fixtures-report.txt');
-    fs.writeFileSync(
-      reportPath,
-      `Fixtures removed on ${new Date().toISOString()}\n\n` + removedFiles.join('\n') + '\n'
-    );
+    fs.writeFileSync(reportPath, `Fixtures removed on ${new Date().toISOString()}\n\n${removedFiles.join('\n')}\n`);
     console.log(`Report saved to: ${reportPath}`);
   }
 
@@ -296,8 +284,9 @@ async function main() {
 }
 
 // Run the script
-main().catch((error) => {
+try {
+  main();
+} catch (error) {
   console.error('Fatal error:', error);
   process.exit(1);
-});
-
+}

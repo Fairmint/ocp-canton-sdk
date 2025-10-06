@@ -64,9 +64,7 @@
                   "signatories": [
                     "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                   ],
-                  "observers": [
-                    "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                  ],
+                  "observers": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                   "createdAt": "2025-10-03T20:26:40.530592Z",
                   "packageName": "OpenCapTable-v25"
                 }
@@ -158,13 +156,9 @@
                   "phone": null
                 }
               },
-              "actingParties": [
-                "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-              ],
+              "actingParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
               "consuming": true,
-              "witnessParties": [
-                "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-              ],
+              "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
               "lastDescendantNodeId": 3,
               "exerciseResult": "005524872fa58de02d6fd5577103eec7005ed7d00c0d6cdda111879e2827d12b44ca1112207e28d53b21a2c9ad3d5449b9e27bc0dca92cf39fb31a1ee52004f6003c1d8c3e",
               "packageName": "OpenCapTable-v25",
@@ -193,9 +187,7 @@
                 "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
               ],
               "consuming": false,
-              "witnessParties": [
-                "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-              ],
+              "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
               "lastDescendantNodeId": 2,
               "exerciseResult": {
                 "activityMarkerCids": [
@@ -223,12 +215,8 @@
               },
               "createdEventBlob": "",
               "interfaceViews": [],
-              "witnessParties": [
-                "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-              ],
-              "signatories": [
-                "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-              ],
+              "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+              "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
               "observers": [
                 "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
               ],
@@ -272,9 +260,7 @@
               },
               "createdEventBlob": "",
               "interfaceViews": [],
-              "witnessParties": [
-                "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-              ],
+              "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
               "signatories": [
                 "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                 "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"

@@ -7,9 +7,7 @@
     "id": "b70a23d3-0d68-4381-a32b-791a00172d46",
     "md5": "d7acc4c968bdff9bc9369b0c34703814",
     "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e",
-    "comments": [
-      "filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"
-    ],
+    "comments": ["filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"],
     "object_type": "DOCUMENT",
     "related_objects": []
   },
@@ -25,9 +23,7 @@
           "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e",
           "md5": "d7acc4c968bdff9bc9369b0c34703814",
           "related_objects": [],
-          "comments": [
-            "filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"
-          ]
+          "comments": ["filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"]
         }
       }
     }
@@ -62,13 +58,9 @@
                     "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e"
                   }
                 },
-                "actingParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "009f244ce8b669e4a2363b159f1b98a344e59097e49f28b0949abb71575b4c1665ca1112201345b561ab86d4ca731c30ba6dbe340c1f47a4c12c55d40c269435c020d9a77c",
                 "packageName": "OpenCapTable-v25",
@@ -97,9 +89,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -127,12 +117,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -168,9 +154,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "66ff16::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -197,8 +181,6 @@
     "uri": "s3://series-private/s3_dev/portal/e91a552d-f807-4b9b-b72e-524dadc4ef59/27021a86424a19c90c6a6e353b340343a80d115e",
     "md5": "d7acc4c968bdff9bc9369b0c34703814",
     "related_objects": [],
-    "comments": [
-      "filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"
-    ]
+    "comments": ["filename: @Bravo_Inc_Sep_13_X_Mario_Doe_Purchase_Agreement_-_Signed_September_17_2024.pdf"]
   }
 }

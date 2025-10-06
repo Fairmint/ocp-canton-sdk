@@ -6,9 +6,7 @@
   "db": {
     "id": "ee9c885e-ae60-416f-884f-009328cc15b8",
     "date": "2024-04-08",
-    "comments": [
-      "This SAFE is intended to operate like standard non-participating Preferred Stock."
-    ],
+    "comments": ["This SAFE is intended to operate like standard non-participating Preferred Stock."],
     "custom_id": "CN-2",
     "seniority": 2,
     "object_type": "TX_CONVERTIBLE_ISSUANCE",
@@ -196,9 +194,7 @@
           ],
           "pro_rata": null,
           "seniority": "2",
-          "comments": [
-            "This SAFE is intended to operate like standard non-participating Preferred Stock."
-          ]
+          "comments": ["This SAFE is intended to operate like standard non-participating Preferred Stock."]
         }
       }
     }
@@ -234,9 +230,7 @@
                     "security_id": "d94410e8-8e6d-423f-a5f8-d6c7f0fbaf3d",
                     "seniority": "2",
                     "stakeholder_id": "a908512e-4fa0-47bf-ac58-b5103ae77cc7",
-                    "comments": [
-                      "This SAFE is intended to operate like standard non-participating Preferred Stock."
-                    ],
+                    "comments": ["This SAFE is intended to operate like standard non-participating Preferred Stock."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -325,13 +319,9 @@
                     "stockholder_approval_date": null
                   }
                 },
-                "actingParties": [
-                  "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "00f0987a686010645a290e0a441953a9a4be82849ab90ecce77ffb6323520399c2ca1112206d2dcd2b09c970523512551f828f3e049d10260693c933c615fec98d6ae4bc79",
                 "packageName": "OpenCapTable-v25",
@@ -360,9 +350,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -390,12 +378,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -430,9 +414,7 @@
                     "security_id": "d94410e8-8e6d-423f-a5f8-d6c7f0fbaf3d",
                     "seniority": "2",
                     "stakeholder_id": "a908512e-4fa0-47bf-ac58-b5103ae77cc7",
-                    "comments": [
-                      "This SAFE is intended to operate like standard non-participating Preferred Stock."
-                    ],
+                    "comments": ["This SAFE is intended to operate like standard non-participating Preferred Stock."],
                     "conversion_triggers": [
                       {
                         "conversion_right": {
@@ -523,9 +505,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "926233::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -631,8 +611,6 @@
         "jurisdiction": "US"
       }
     ],
-    "comments": [
-      "This SAFE is intended to operate like standard non-participating Preferred Stock."
-    ]
+    "comments": ["This SAFE is intended to operate like standard non-participating Preferred Stock."]
   }
 }

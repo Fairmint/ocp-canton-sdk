@@ -6,9 +6,7 @@
   "db": {
     "id": "be04fabb-9efc-47b2-af90-644676e1fce8",
     "date": "2019-12-12",
-    "comments": [
-      "use-case: Class B Non-Plan row"
-    ],
+    "comments": ["use-case: Class B Non-Plan row"],
     "quantity": "50000",
     "custom_id": "ee0ae63c-4767-40b4-b913-4b6b701ce020",
     "object_type": "TX_EQUITY_COMPENSATION_ISSUANCE",
@@ -80,9 +78,7 @@
               "period_type": "OcfPeriodDays"
             }
           ],
-          "comments": [
-            "use-case: Class B Non-Plan row"
-          ]
+          "comments": ["use-case: Class B Non-Plan row"]
         }
       }
     }
@@ -114,9 +110,7 @@
                     "quantity": "50000.0000000000",
                     "security_id": "f228d9d1-875c-4c34-8756-c900a751ee31",
                     "stakeholder_id": "460ad623-32fd-4c89-8ed2-93c11c4324dd",
-                    "comments": [
-                      "use-case: Class B Non-Plan row"
-                    ],
+                    "comments": ["use-case: Class B Non-Plan row"],
                     "security_law_exemptions": [
                       {
                         "description": "Exemption",
@@ -146,13 +140,9 @@
                     "stockholder_approval_date": null
                   }
                 },
-                "actingParties": [
-                  "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "actingParties": ["947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "consuming": false,
-                "witnessParties": [
-                  "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 3,
                 "exerciseResult": "0089ec79dfac8da5c14235eb74aaf5cd31b4dc2745cedffea62585c323e5ec2db1ca1112201252951f81fc326010cb7712d99ab458129cdec0d2a7683e700997b01d5284d4",
                 "packageName": "OpenCapTable-v25",
@@ -181,9 +171,7 @@
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
                 "consuming": false,
-                "witnessParties": [
-                  "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "lastDescendantNodeId": 2,
                 "exerciseResult": {
                   "activityMarkerCids": [
@@ -211,12 +199,8 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
-                "signatories": [
-                  "DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"
-                ],
+                "witnessParties": ["947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
+                "signatories": ["DSO::1220be58c29e65de40bf273be1dc2b266d43a9a002ea5b18955aeef7aac881bb471a"],
                 "observers": [
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
                 ],
@@ -247,9 +231,7 @@
                     "quantity": "50000.0000000000",
                     "security_id": "f228d9d1-875c-4c34-8756-c900a751ee31",
                     "stakeholder_id": "460ad623-32fd-4c89-8ed2-93c11c4324dd",
-                    "comments": [
-                      "use-case: Class B Non-Plan row"
-                    ],
+                    "comments": ["use-case: Class B Non-Plan row"],
                     "security_law_exemptions": [
                       {
                         "description": "Exemption",
@@ -281,9 +263,7 @@
                 },
                 "createdEventBlob": "",
                 "interfaceViews": [],
-                "witnessParties": [
-                  "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"
-                ],
+                "witnessParties": ["947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"],
                 "signatories": [
                   "947a53::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34",
                   "Fairmint-validator-1::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"
@@ -333,8 +313,6 @@
         "period_type": "DAYS"
       }
     ],
-    "comments": [
-      "use-case: Class B Non-Plan row"
-    ]
+    "comments": ["use-case: Class B Non-Plan row"]
   }
 }
