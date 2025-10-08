@@ -5,39 +5,106 @@
  * Example script demonstrating Subscriptions usage on devnet
  *
  * This script shows the complete subscription flow:
- * 1. Subscriber creates a subscription proposal via factory
- * 2. Processor approves the proposal
- * 3. Recipient accepts, activating the subscription
- * 4. Processor executes periodic payments
- * 5. Subscription can be cancelled by any party
+ * 1. Subscriber (5N) creates a subscription proposal via factory
+ * 2. Processor (Intellect) approves the proposal
+ * 3. Recipient (Intellect) accepts, activating the subscription
+ * 4. Processor (Intellect) executes periodic payments
+ * 5. Subscriber (5N) cancels the subscription
  *
  * Prerequisites:
  * - LEDGER_JSON_API environment variable set to devnet endpoint
  * - Valid factory contract ID
- * - Three parties: subscriber, recipient, and processor
+ * - Two parties with different roles:
+ *   - INTELLECT_PARTY: acts as both recipient and processor
+ *   - FN_PARTY: acts as subscriber
  */
 
+import { EnvLoader, FileLogger } from '@fairmint/canton-node-sdk';
 import { OcpClient } from '../src/OcpClient';
 import type { SubscriptionConfig, PaymentContext } from '../src/functions';
+import * as path from 'path';
+import * as fs from 'fs';
 
 // Configuration
-const FACTORY_CONTRACT_ID = process.env.SUBSCRIPTION_FACTORY_CONTRACT_ID || '';
-const SUBSCRIBER_PARTY = process.env.SUBSCRIBER_PARTY || 'subscriber::1220...';
-const RECIPIENT_PARTY = process.env.RECIPIENT_PARTY || 'recipient::1220...';
-const PROCESSOR_PARTY = process.env.PROCESSOR_PARTY || 'processor::1220...';
+const NETWORK = 'devnet';
+
+// Load subscription factory contract ID
+function loadSubscriptionFactoryContractId(network: string): string {
+  const factoryFilePath = path.resolve(
+    __dirname,
+    '../../open-captable-protocol-daml/generated/subscriptions-factory-contract-id.json'
+  );
+  
+  if (!fs.existsSync(factoryFilePath)) {
+    throw new Error(`Subscription factory contract ID file not found at ${factoryFilePath}`);
+  }
+  
+  const factoryData = JSON.parse(fs.readFileSync(factoryFilePath, 'utf-8'));
+  const contractId = factoryData[network];
+  
+  if (!contractId) {
+    throw new Error(`No subscription factory contract ID found for network: ${network}`);
+  }
+  
+  return contractId;
+}
 
 async function main() {
-  // Initialize OCP client
-  const ocpClient = new OcpClient();
+  const envLoader = EnvLoader.getInstance();
+  const FACTORY_CONTRACT_ID = loadSubscriptionFactoryContractId(NETWORK);
+
+  // Initialize two OCP client instances for different parties (intellect and 5n)
+  const intellectClient = new OcpClient({
+    network: NETWORK as any,
+    provider: 'intellect' as any,
+    authUrl: envLoader.getAuthUrl(NETWORK as any, 'intellect' as any),
+    apis: {
+      LEDGER_JSON_API: {
+        apiUrl: envLoader.getApiUri('LEDGER_JSON_API', NETWORK as any, 'intellect' as any) ?? '',
+        auth: {
+          clientId: envLoader.getApiClientId('LEDGER_JSON_API', NETWORK as any, 'intellect' as any) ?? '',
+          clientSecret: envLoader.getApiClientSecret('LEDGER_JSON_API', NETWORK as any, 'intellect' as any) ?? '',
+          grantType: 'client_credentials',
+        },
+        partyId: envLoader.getPartyId(NETWORK as any, 'intellect' as any),
+      },
+    },
+    logger: new FileLogger(),
+  });
+
+  const fnClient = new OcpClient({
+    network: NETWORK as any,
+    provider: '5n' as any,
+    authUrl: envLoader.getAuthUrl(NETWORK as any, '5n' as any),
+    apis: {
+      LEDGER_JSON_API: {
+        apiUrl: envLoader.getApiUri('LEDGER_JSON_API', NETWORK as any, '5n' as any) ?? '',
+        auth: {
+          clientId: envLoader.getApiClientId('LEDGER_JSON_API', NETWORK as any, '5n' as any) ?? '',
+          clientSecret: envLoader.getApiClientSecret('LEDGER_JSON_API', NETWORK as any, '5n' as any) ?? '',
+          grantType: 'client_credentials',
+        },
+        partyId: envLoader.getPartyId(NETWORK as any, '5n' as any),
+      },
+    },
+    logger: new FileLogger(),
+  });
+
+  const INTELLECT_PARTY = envLoader.getPartyId(NETWORK as any, 'intellect' as any);
+  const FN_PARTY = envLoader.getPartyId(NETWORK as any, '5n' as any);
 
   console.log('🚀 Subscription Example on Devnet\n');
+  console.log(`📋 Using parties:`);
+  console.log(`   Subscriber (5N): ${FN_PARTY}`);
+  console.log(`   Recipient (Intellect): ${INTELLECT_PARTY}`);
+  console.log(`   Processor (Intellect): ${INTELLECT_PARTY}\n`);
 
   // Step 1: Subscriber creates subscription proposal
   console.log('1️⃣  Creating subscription proposal...');
 
   const subscriptionConfig: SubscriptionConfig = {
-    subscriber: SUBSCRIBER_PARTY,
-    recipient: RECIPIENT_PARTY,
+    subscriber: FN_PARTY,
+    recipient: INTELLECT_PARTY,
       recipientPayment: {
         amountPerDay: {
           type: 'AMULET',
@@ -52,19 +119,19 @@ async function main() {
       },
       featuredAppRight: undefined,
     },
-    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
-    freeTrialEndsAt: new Date(Date.now() - 1000).toISOString(), // Free trial already ended (1 second ago)
+    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+    freeTrialEndsAt: new Date(Date.now() - 1000), // Free trial already ended (1 second ago)
     reason: 'Premium membership subscription - devnet test',
   };
 
   const { command: createProposalCommand } =
-    ocpClient.Subscriptions.subscriptionFactory.buildCreateSubscriptionProposalCommand({
+    fnClient.Subscriptions.subscriptionFactory.buildCreateSubscriptionProposalCommand({
       factoryContractId: FACTORY_CONTRACT_ID,
       config: subscriptionConfig,
     });
 
-  const proposalResponse = await ocpClient.client.submitAndWaitForTransactionTree({
-    actAs: [SUBSCRIBER_PARTY],
+  const proposalResponse = await fnClient.client.submitAndWaitForTransactionTree({
+    actAs: [FN_PARTY],
     commands: [createProposalCommand],
   });
 
@@ -72,8 +139,8 @@ async function main() {
   const proposalEvent = proposalResponse.transactionTree.eventsById
     ? Object.values(proposalResponse.transactionTree.eventsById).find((event) => {
         if ('CreatedTreeEvent' in event) {
-          const templateId = event.CreatedTreeEvent.value.templateId;
-          return typeof templateId === 'string' && templateId.includes('SubscriptionProposal');
+          const templateId = event.CreatedTreeEvent.value.templateId as any;
+          return templateId && typeof templateId === 'object' && 'entityName' in templateId && templateId.entityName === 'SubscriptionProposal';
         }
         return false;
       })
@@ -90,22 +157,22 @@ async function main() {
   console.log(`   ✅ Proposal created: ${proposalContractId}\n`);
 
   // Step 2: Processor approves the proposal
-  console.log('2️⃣  Processor approving proposal...');
+  console.log('2️⃣  Processor (Intellect) approving proposal...');
 
-  const approveCommand = ocpClient.Subscriptions.subscriptionProposal.buildProcessorApproveCommand({
+  const approveCommand = intellectClient.Subscriptions.subscriptionProposal.buildProcessorApproveCommand({
     proposalContractId,
   });
 
-  const approvedResponse = await ocpClient.client.submitAndWaitForTransactionTree({
-    actAs: [PROCESSOR_PARTY],
+  const approvedResponse = await intellectClient.client.submitAndWaitForTransactionTree({
+    actAs: [INTELLECT_PARTY],
     commands: [approveCommand],
   });
 
   const approvedEvent = approvedResponse.transactionTree.eventsById
     ? Object.values(approvedResponse.transactionTree.eventsById).find((event) => {
         if ('CreatedTreeEvent' in event) {
-          const templateId = event.CreatedTreeEvent.value.templateId;
-          return typeof templateId === 'string' && templateId.includes('ProcessorApprovedSubscriptionProposal');
+          const templateId = event.CreatedTreeEvent.value.templateId as any;
+          return templateId && typeof templateId === 'object' && 'entityName' in templateId && templateId.entityName === 'ProcessorApprovedSubscriptionProposal';
         }
         return false;
       })
@@ -120,27 +187,23 @@ async function main() {
   console.log(`   ✅ Proposal approved: ${approvedProposalContractId}\n`);
 
   // Step 3: Recipient accepts the proposal
-  console.log('3️⃣  Recipient accepting subscription...');
+  console.log('3️⃣  Recipient (Intellect) accepting subscription...');
 
   const acceptCommand =
-    ocpClient.Subscriptions.processorApprovedSubscriptionProposal.buildRecipientAcceptCommand({
+    intellectClient.Subscriptions.processorApprovedSubscriptionProposal.buildRecipientAcceptCommand({
       approvedProposalContractId,
     });
 
-  const subscriptionResponse = await ocpClient.client.submitAndWaitForTransactionTree({
-    actAs: [RECIPIENT_PARTY],
+  const subscriptionResponse = await intellectClient.client.submitAndWaitForTransactionTree({
+    actAs: [INTELLECT_PARTY],
     commands: [acceptCommand],
   });
 
   const subscriptionEvent = subscriptionResponse.transactionTree.eventsById
     ? Object.values(subscriptionResponse.transactionTree.eventsById).find((event) => {
         if ('CreatedTreeEvent' in event) {
-          const templateId = event.CreatedTreeEvent.value.templateId;
-          return (
-            typeof templateId === 'string' &&
-            templateId.includes(':Subscription') &&
-            !templateId.includes('Proposal')
-          );
+          const templateId = event.CreatedTreeEvent.value.templateId as any;
+          return templateId && typeof templateId === 'object' && 'entityName' in templateId && templateId.entityName === 'Subscription';
         }
         return false;
       })
@@ -177,16 +240,16 @@ async function main() {
 
   // Process 5 payments with 5-second intervals
   for (let i = 1; i <= 5; i++) {
-    console.log(`   💳 Processing payment ${i}/5...`);
+    console.log(`   💳 Processing payment ${i}/5 (as Intellect processor)...`);
 
-    const processPaymentCommand = ocpClient.Subscriptions.subscription.buildProcessPaymentCommand({
+    const processPaymentCommand = intellectClient.Subscriptions.subscription.buildProcessPaymentCommand({
       subscriptionContractId: currentSubscriptionContractId,
       processingPeriod: '5000000', // 5 seconds in microseconds
       paymentCtx: paymentContext,
     });
 
-    const paymentResponse = await ocpClient.client.submitAndWaitForTransactionTree({
-      actAs: [PROCESSOR_PARTY],
+    const paymentResponse = await intellectClient.client.submitAndWaitForTransactionTree({
+      actAs: [INTELLECT_PARTY],
       commands: [processPaymentCommand],
     });
 
@@ -225,14 +288,14 @@ async function main() {
   console.log(`\n   ✅ All 5 payments completed!\n`);
 
   // Step 5: Cancel subscription
-  console.log('5️⃣  Cancelling subscription...');
+  console.log('5️⃣  Cancelling subscription (as 5N subscriber)...');
 
-  const cancelCommand = ocpClient.Subscriptions.subscription.buildCancelBySubscriberCommand({
+  const cancelCommand = fnClient.Subscriptions.subscription.buildCancelBySubscriberCommand({
     subscriptionContractId: currentSubscriptionContractId,
   });
 
-  await ocpClient.client.submitAndWaitForTransactionTree({
-    actAs: [SUBSCRIBER_PARTY],
+  await fnClient.client.submitAndWaitForTransactionTree({
+    actAs: [FN_PARTY],
     commands: [cancelCommand],
   });
   
@@ -241,6 +304,7 @@ async function main() {
   console.log('✨ Subscription workflow complete!');
   console.log('\nKey takeaways:');
   console.log('- Subscriptions use a three-party model: subscriber, recipient, processor');
+  console.log('- One party can act as both recipient and processor (Intellect in this example)');
   console.log('- Per-day billing automatically pro-rates for any processing period');
   console.log('- Free trials supported via FeaturedAppRight rewards');
   console.log('- Pay-as-you-go model (no upfront collateral)');

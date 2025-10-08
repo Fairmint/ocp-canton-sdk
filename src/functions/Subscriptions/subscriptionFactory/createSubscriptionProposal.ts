@@ -20,8 +20,8 @@ export interface SubscriptionConfig {
   recipient: string;
   recipientPayment: PaymentConfig;
   processorPayment: PaymentConfig;
-  expiresAt: string; // ISO datetime
-  freeTrialEndsAt?: string; // ISO datetime
+  expiresAt: Date;
+  freeTrialEndsAt?: Date; 
   reason?: string;
 }
 
@@ -49,9 +49,7 @@ function subscriptionAmountToDaml(amount: SubscriptionAmount): Record<string, un
 function paymentConfigToDaml(config: PaymentConfig): Record<string, unknown> {
   return {
     amountPerDay: subscriptionAmountToDaml(config.amountPerDay),
-    featuredAppRight: config.featuredAppRight
-      ? { tag: 'Some', value: config.featuredAppRight }
-      : null,
+    featuredAppRight: config.featuredAppRight || null,
   };
 }
 
@@ -61,13 +59,9 @@ function subscriptionConfigToDaml(config: SubscriptionConfig): Record<string, un
     recipient: config.recipient,
     recipientPayment: paymentConfigToDaml(config.recipientPayment),
     processorPayment: paymentConfigToDaml(config.processorPayment),
-    expiresAt: config.expiresAt,
-    freeTrialEndsAt: config.freeTrialEndsAt
-      ? { tag: 'Some', value: config.freeTrialEndsAt }
-      : null,
-    reason: config.reason
-      ? { tag: 'Some', value: config.reason }
-      : null,
+    expiresAt: config.expiresAt.toISOString(),
+    freeTrialEndsAt: config.freeTrialEndsAt ? config.freeTrialEndsAt.toISOString() : null,
+    reason: config.reason || null,
   };
 }
 
