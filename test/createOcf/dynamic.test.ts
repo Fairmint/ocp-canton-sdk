@@ -127,7 +127,7 @@ describe('OCP Client - Dynamic Create Tests', () => {
         // Build the command based on object type
         const commandWithDisclosed =
           fixture.db.object_type === 'ISSUER'
-            ? client.issuer.buildCreateIssuerCommand({
+            ? client.OpenCapTable.issuer.buildCreateIssuerCommand({
                 featuredAppRightContractDetails: featuredAppRight,
                 issuerParty: fixture.testContext.issuerParty,
                 issuerData: fixture.db as unknown as OcfIssuerData,
@@ -285,80 +285,80 @@ describe('OCP Client - Dynamic Create Tests', () => {
 
           switch (fixture.db.object_type) {
             case 'ISSUER':
-              result = await client.issuer.getIssuerAsOcf({ contractId });
+              result = await client.OpenCapTable.issuer.getIssuerAsOcf({ contractId });
               expectedOcf = { issuer: fixture.onchain_ocf, contractId };
               break;
             case 'STOCK_CLASS':
-              result = await client.stockClass.getStockClassAsOcf({ contractId });
+              result = await client.OpenCapTable.stockClass.getStockClassAsOcf({ contractId });
               expectedOcf = { stockClass: fixture.onchain_ocf, contractId };
               break;
             case 'STAKEHOLDER':
-              result = await client.stakeholder.getStakeholderAsOcf({ contractId });
+              result = await client.OpenCapTable.stakeholder.getStakeholderAsOcf({ contractId });
               expectedOcf = { stakeholder: fixture.onchain_ocf, contractId };
               break;
             case 'STOCK_LEGEND_TEMPLATE':
-              result = await client.stockLegendTemplate.getStockLegendTemplateAsOcf({ contractId });
+              result = await client.OpenCapTable.stockLegendTemplate.getStockLegendTemplateAsOcf({ contractId });
               expectedOcf = { stockLegendTemplate: fixture.onchain_ocf, contractId };
               break;
             case 'VESTING_TERMS':
-              result = await client.vestingTerms.getVestingTermsAsOcf({ contractId });
+              result = await client.OpenCapTable.vestingTerms.getVestingTermsAsOcf({ contractId });
               expectedOcf = { vestingTerms: fixture.onchain_ocf, contractId };
               break;
             case 'STOCK_PLAN':
-              result = await client.stockPlan.getStockPlanAsOcf({ contractId });
+              result = await client.OpenCapTable.stockPlan.getStockPlanAsOcf({ contractId });
               expectedOcf = { stockPlan: fixture.onchain_ocf, contractId };
               break;
             case 'TX_STOCK_ISSUANCE':
-              result = await client.stockIssuance.getStockIssuanceAsOcf({ contractId });
+              result = await client.OpenCapTable.stockIssuance.getStockIssuanceAsOcf({ contractId });
               expectedOcf = { stockIssuance: fixture.onchain_ocf, contractId };
               break;
             case 'TX_STOCK_CANCELLATION':
-              result = await client.stockCancellation.getStockCancellationEventAsOcf({
+              result = await client.OpenCapTable.stockCancellation.getStockCancellationEventAsOcf({
                 contractId,
               });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
-              result = await client.issuerAuthorizedSharesAdjustment.getIssuerAuthorizedSharesAdjustmentEventAsOcf({
+              result = await client.OpenCapTable.issuerAuthorizedSharesAdjustment.getIssuerAuthorizedSharesAdjustmentEventAsOcf({
                 contractId,
               });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
               result =
-                await client.stockClassAuthorizedSharesAdjustment.getStockClassAuthorizedSharesAdjustmentEventAsOcf({
+                await client.OpenCapTable.stockClassAuthorizedSharesAdjustment.getStockClassAuthorizedSharesAdjustmentEventAsOcf({
                   contractId,
                 });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
-              result = await client.stockPlanPoolAdjustment.getStockPlanPoolAdjustmentEventAsOcf({
+              result = await client.OpenCapTable.stockPlanPoolAdjustment.getStockPlanPoolAdjustmentEventAsOcf({
                 contractId,
               });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_EQUITY_COMPENSATION_ISSUANCE':
-              result = await client.stockPlan.getEquityCompensationIssuanceEventAsOcf({
+              result = await client.OpenCapTable.equityCompensationIssuance.getEquityCompensationIssuanceEventAsOcf({
                 contractId,
               });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_EQUITY_COMPENSATION_EXERCISE':
-              result = await client.stockPlan.getEquityCompensationExerciseEventAsOcf({
+              result = await client.OpenCapTable.equityCompensationExercise.getEquityCompensationExerciseEventAsOcf({
                 contractId,
               });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'DOCUMENT':
-              result = await client.document.getDocumentAsOcf({ contractId });
+              result = await client.OpenCapTable.document.getDocumentAsOcf({ contractId });
               expectedOcf = { document: fixture.onchain_ocf, contractId };
               break;
             case 'TX_WARRANT_ISSUANCE':
-              result = await client.warrantIssuance.getWarrantIssuanceAsOcf({ contractId });
+              result = await client.OpenCapTable.warrantIssuance.getWarrantIssuanceAsOcf({ contractId });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_CONVERTIBLE_ISSUANCE':
-              result = await client.convertibleIssuance.getConvertibleIssuanceAsOcf({ contractId });
+              result = await client.OpenCapTable.convertibleIssuance.getConvertibleIssuanceAsOcf({ contractId });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             default:
