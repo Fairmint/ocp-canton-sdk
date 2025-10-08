@@ -1,5 +1,6 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { relTimeToDAML } from '../../../utils/typeConversions';
 
 export interface PaymentContext {
   amuletInputs: string[]; // ContractIds of Amulet.Amulet
@@ -16,7 +17,7 @@ export interface ProcessPaymentParams {
 
 export function buildProcessPaymentCommand(params: ProcessPaymentParams): Command {
   const choiceArguments: Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment = {
-    processingPeriod: params.processingPeriod,
+    processingPeriod: relTimeToDAML(params.processingPeriod) as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['processingPeriod'],
     paymentCtx: {
       amuletInputs: params.paymentCtx.amuletInputs as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['paymentCtx']['amuletInputs'],
       amuletRulesCid: params.paymentCtx.amuletRulesCid as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['paymentCtx']['amuletRulesCid'],

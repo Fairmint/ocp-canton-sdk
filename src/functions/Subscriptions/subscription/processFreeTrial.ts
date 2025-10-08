@@ -1,5 +1,6 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { relTimeToDAML } from '../../../utils/typeConversions';
 
 export interface ProcessFreeTrialParams {
   subscriptionContractId: string;
@@ -8,7 +9,7 @@ export interface ProcessFreeTrialParams {
 
 export function buildProcessFreeTrialCommand(params: ProcessFreeTrialParams): Command {
   const choiceArguments: Fairmint.Subscriptions.Subscription.Subscription_ProcessFreeTrial = {
-    processingPeriod: params.processingPeriod,
+    processingPeriod: relTimeToDAML(params.processingPeriod) as Fairmint.Subscriptions.Subscription.Subscription_ProcessFreeTrial['processingPeriod'],
   };
 
   return {

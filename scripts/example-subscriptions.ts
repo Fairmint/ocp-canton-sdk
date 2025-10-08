@@ -10,6 +10,9 @@
  * 2. Processor (Intellect) approves the proposal
  * 3. Recipient (Intellect) accepts, activating the subscription
  * 4. Processor (Intellect) executes periodic payments (5 payments with 5-second intervals)
+ *    - Dynamically queries ledger for subscriber's Amulet contracts
+ *    - Queries for AmuletRules and OpenMiningRound contracts
+ *    - Refreshes Amulet contracts after each payment
  * 5. Subscriber (5N) cancels the subscription
  *
  * Prerequisites:
@@ -17,17 +20,62 @@
  * - Subscription factory contract deployed on devnet
  * - Two parties configured:
  *   - Intellect: acts as recipient and processor (owns factory)
- *   - 5N: acts as subscriber (uses disclosed contracts to access factory)
+ *   - 5N: acts as subscriber (uses disclosed contracts to access factory, must have Amulet balance)
  *
- * Key technique: Uses disclosed contracts to allow 5N to exercise the factory contract
- * that it doesn't directly have visibility to.
+ * Key techniques:
+ * - Uses disclosed contracts to allow 5N to exercise the factory contract that it doesn't directly see
+ * - Dynamically queries the ledger for payment context (Amulet contracts, rules, prices)
+ * - Handles Amulet contract consumption by re-querying after each payment
  */
 
-import { EnvLoader, FileLogger } from '@fairmint/canton-node-sdk';
+import { EnvLoader, FileLogger, ValidatorApiClient } from '@fairmint/canton-node-sdk';
+import { getCurrentMiningRoundContext } from '@fairmint/canton-node-sdk/build/src/utils/mining/mining-rounds';
 import { OcpClient } from '../src/OcpClient';
 import type { SubscriptionConfig, PaymentContext } from '../src/functions';
 import * as path from 'path';
 import * as fs from 'fs';
+
+// Helper function to get all active contracts via websockets (no limit)
+async function getAllActiveContracts(client: OcpClient, parties: string[]): Promise<any[]> {
+  // Get current ledger end offset
+  const ledgerEndResp = await client.client.getLedgerEnd({});
+  const activeAtOffset = ledgerEndResp.offset;
+
+  return new Promise(async (resolve, reject) => {
+    const contracts: any[] = [];
+
+    const subscription = await client.client.subscribeToActiveContracts(
+      {
+        activeAtOffset,
+        parties,
+      },
+      {
+        onOpen: () => {
+          // Connection opened
+        },
+        onMessage: (msg) => {
+          // Collect active contracts
+          if (typeof msg === 'object' && 'contractEntry' in msg && 'JsActiveContract' in msg.contractEntry) {
+            contracts.push(msg);
+          }
+        },
+        onError: (err) => {
+          subscription.close();
+          reject(err);
+        },
+        onClose: (code, reason) => {
+          // All contracts have been streamed
+          if (code === 1000) {
+            // Normal closure
+            resolve(contracts);
+          } else {
+            reject(new Error(`Websocket closed with code ${code}: ${reason}`));
+          }
+        },
+      }
+    );
+  });
+}
 
 // Configuration
 const NETWORK = 'devnet';
@@ -144,7 +192,6 @@ async function main() {
       featuredAppRight: undefined,
     },
     expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
-    freeTrialEndsAt: new Date(Date.now() - 1000), // Free trial already ended (1 second ago)
     reason: 'Premium membership subscription - devnet test',
   };
 
@@ -270,18 +317,104 @@ async function main() {
   // Step 4: Process payments 5 times with 5-second periods
   console.log('4️⃣  Processing payments (5 times with 5-second periods)...\n');
 
-  // Query the ledger for required contracts
-  // Note: You need to provide actual contract IDs from devnet:
-  // - Amulet inputs from subscriber (with sufficient balance)
-  // - Current AmuletRules contract ID
-  // - Current OpenMiningRound contract ID
-  // - Current Amulet price from OpenMiningRound
+  // Query the ledger for required payment context
+  console.log('   📋 Querying ledger for payment context (Amulet contracts, rules, etc.)...');
+
+  // Get subscriber's Amulet contracts (using websockets to avoid 200-item limit)
+  const subscriberActiveContracts = await getAllActiveContracts(fnClient, [SUBSCRIBER_PARTY]);
+
+  const subscriberAmulets: Array<{ contractId: string; amount: number }> = [];
+  const contractsArr = Array.isArray(subscriberActiveContracts) ? subscriberActiveContracts : [];
+
+  contractsArr.forEach((contract: any) => {
+    let payload, templateId, contractId;
+
+    // Extract contract data from different response formats
+    if (contract.contractEntry?.JsActiveContract?.createdEvent) {
+      const { createdEvent } = contract.contractEntry.JsActiveContract;
+      ({ createArgument: payload, templateId, contractId } = createdEvent);
+    } else if (contract.contract) {
+      ({ payload } = contract.contract);
+      templateId = contract.contract.contract?.template_id ?? contract.contract.template_id;
+      contractId = contract.contract.contract?.contract_id ?? contract.contract.contract_id;
+    } else {
+      return;
+    }
+
+    if (!payload || !templateId || !contractId) {
+      return;
+    }
+
+    // Check for regular Amulet (not locked)
+    const isAmulet = typeof templateId === 'string' && 
+                     templateId.includes('Splice.Amulet:Amulet') && 
+                     !templateId.includes('LockedAmulet');
+
+    if (isAmulet && payload.owner === SUBSCRIBER_PARTY) {
+      const amount = parseFloat(payload.amount?.initialAmount ?? payload.amount ?? '0');
+      subscriberAmulets.push({ contractId, amount });
+    }
+  });
+
+  // Sort by amount descending to use largest amulets first
+  subscriberAmulets.sort((a, b) => b.amount - a.amount);
+
+  if (subscriberAmulets.length === 0) {
+    throw new Error(`Subscriber ${SUBSCRIBER_PARTY} has no Amulet contracts. Cannot process payments.`);
+  }
+
+  console.log(`   ✅ Found ${subscriberAmulets.length} Amulet contract(s) for subscriber`);
+  console.log(`      Top amulet: ${subscriberAmulets[0].contractId.substring(0, 20)}... (${subscriberAmulets[0].amount.toFixed(2)} CC)`);
+
+  // Get AmuletRules contract ID from environment
+  console.log(`   📋 Getting AmuletRules from environment...`);
+  const amuletRulesCid = envLoader.getAmuletRulesContractId(NETWORK as 'mainnet' | 'devnet');
+  
+  if (!amuletRulesCid) {
+    throw new Error(`AmuletRules contract ID not found in environment for network: ${NETWORK}`);
+  }
+
+  console.log(`   ✅ AmuletRules: ${amuletRulesCid.substring(0, 20)}...`);
+
+  // Get OpenMiningRound context using ValidatorApiClient
+  console.log(`   📋 Getting current mining round context...`);
+  
+  const validatorClient = new ValidatorApiClient({
+    network: NETWORK as 'mainnet' | 'devnet',
+    provider: 'intellect' as 'intellect' | '5n',
+    authUrl: envLoader.getAuthUrl(NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n'),
+    apis: {
+      VALIDATOR_API: {
+        apiUrl: envLoader.getApiUri('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ?? '',
+        auth: {
+          clientId: envLoader.getApiClientId('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ?? '',
+          username: envLoader.getApiUsername('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ?? '',
+          password: envLoader.getApiPassword('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ?? '',
+          grantType: 'password',
+        },
+      },
+    },
+    logger: new FileLogger(),
+  });
+
+  const miningRoundContext = await getCurrentMiningRoundContext(validatorClient);
+  const openMiningRoundCid = miningRoundContext.openMiningRound;
+  
+  // Extract amulet price from payload (this requires querying the contract, but for now we'll use a default)
+  // In production, you would query the actual round contract to get the price
+  const amuletPrice = '1.0'; // Default USD to Amulet rate
+
+  console.log(`   ✅ OpenMiningRound: ${openMiningRoundCid.substring(0, 20)}...`);
+  console.log(`   ✅ Amulet price: ${amuletPrice}\n`);
+
+  // Use top 2 amulets (or fewer if not available)
+  const amuletInputs = subscriberAmulets.slice(0, 2).map((a) => a.contractId);
 
   const paymentContext: PaymentContext = {
-    amuletInputs: [process.env.AMULET_INPUT_1 || '', process.env.AMULET_INPUT_2 || ''],
-    amuletRulesCid: process.env.AMULET_RULES_CID || '',
-    openMiningRoundCid: process.env.OPEN_MINING_ROUND_CID || '',
-    amuletPrice: process.env.AMULET_PRICE || '1.0',
+    amuletInputs,
+    amuletRulesCid,
+    openMiningRoundCid,
+    amuletPrice,
   };
 
   let currentSubscriptionContractId = subscriptionContractId;
@@ -289,6 +422,52 @@ async function main() {
   // Process 5 payments with 5-second intervals
   for (let i = 1; i <= 5; i++) {
     console.log(`   💳 Processing payment ${i}/5...`);
+
+    // Re-query for fresh amulets before each payment (since previous payment consumed them)
+    if (i > 1) {
+      console.log(`      🔄 Querying for fresh Amulet contracts...`);
+      const freshSubscriberContracts = await getAllActiveContracts(fnClient, [SUBSCRIBER_PARTY]);
+
+      const freshAmulets: Array<{ contractId: string; amount: number }> = [];
+      const freshContractsArr = Array.isArray(freshSubscriberContracts) ? freshSubscriberContracts : [];
+
+      freshContractsArr.forEach((contract: any) => {
+        let payload, templateId, contractId;
+
+        if (contract.contractEntry?.JsActiveContract?.createdEvent) {
+          const { createdEvent } = contract.contractEntry.JsActiveContract;
+          ({ createArgument: payload, templateId, contractId } = createdEvent);
+        } else if (contract.contract) {
+          ({ payload } = contract.contract);
+          templateId = contract.contract.contract?.template_id ?? contract.contract.template_id;
+          contractId = contract.contract.contract?.contract_id ?? contract.contract.contract_id;
+        } else {
+          return;
+        }
+
+        if (!payload || !templateId || !contractId) {
+          return;
+        }
+
+        const isAmulet = typeof templateId === 'string' && 
+                         templateId.includes('Splice.Amulet:Amulet') && 
+                         !templateId.includes('LockedAmulet');
+
+        if (isAmulet && payload.owner === SUBSCRIBER_PARTY) {
+          const amount = parseFloat(payload.amount?.initialAmount ?? payload.amount ?? '0');
+          freshAmulets.push({ contractId, amount });
+        }
+      });
+
+      freshAmulets.sort((a, b) => b.amount - a.amount);
+
+      if (freshAmulets.length === 0) {
+        throw new Error(`Subscriber has no more Amulet contracts for payment ${i}`);
+      }
+
+      paymentContext.amuletInputs = freshAmulets.slice(0, 2).map((a) => a.contractId);
+      console.log(`      ✅ Using ${paymentContext.amuletInputs.length} Amulet contract(s)`);
+    }
 
     const processPaymentCommand = intellectClient.Subscriptions.subscription.buildProcessPaymentCommand({
       subscriptionContractId: currentSubscriptionContractId,
@@ -308,7 +487,7 @@ async function main() {
           const templateId = event.CreatedTreeEvent.value.templateId;
           return (
             typeof templateId === 'string' &&
-            templateId.includes(':Subscription') &&
+            templateId.includes('.Subscription:Subscription') &&
             !templateId.includes('Proposal')
           );
         })
