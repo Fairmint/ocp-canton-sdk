@@ -4,19 +4,23 @@
 /**
  * Example script demonstrating Subscriptions usage on devnet
  *
- * This script shows the complete subscription flow:
- * 1. Subscriber (5N) creates a subscription proposal via factory
+ * This script shows the complete subscription flow with disclosed contracts:
+ * 0. Intellect reads factory contract creation event (for disclosure to 5N)
+ * 1. Subscriber (5N) creates a subscription proposal via factory using disclosed contracts
  * 2. Processor (Intellect) approves the proposal
  * 3. Recipient (Intellect) accepts, activating the subscription
- * 4. Processor (Intellect) executes periodic payments
+ * 4. Processor (Intellect) executes periodic payments (5 payments with 5-second intervals)
  * 5. Subscriber (5N) cancels the subscription
  *
  * Prerequisites:
- * - LEDGER_JSON_API environment variable set to devnet endpoint
- * - Valid factory contract ID
- * - Two parties with different roles:
- *   - INTELLECT_PARTY: acts as both recipient and processor
- *   - FN_PARTY: acts as subscriber
+ * - Environment variables configured via EnvLoader for devnet
+ * - Subscription factory contract deployed on devnet
+ * - Two parties configured:
+ *   - Intellect: acts as recipient and processor (owns factory)
+ *   - 5N: acts as subscriber (uses disclosed contracts to access factory)
+ *
+ * Key technique: Uses disclosed contracts to allow 5N to exercise the factory contract
+ * that it doesn't directly have visibility to.
  */
 
 import { EnvLoader, FileLogger } from '@fairmint/canton-node-sdk';
@@ -40,20 +44,20 @@ function loadSubscriptionFactoryContractId(network: string): string {
   }
   
   const factoryData = JSON.parse(fs.readFileSync(factoryFilePath, 'utf-8'));
-  const contractId = factoryData[network];
+  const networkData = factoryData[network];
   
-  if (!contractId) {
+  if (!networkData || !networkData.subscriptionsFactoryContractId) {
     throw new Error(`No subscription factory contract ID found for network: ${network}`);
   }
   
-  return contractId;
+  return networkData.subscriptionsFactoryContractId;
 }
 
 async function main() {
   const envLoader = EnvLoader.getInstance();
   const FACTORY_CONTRACT_ID = loadSubscriptionFactoryContractId(NETWORK);
 
-  // Initialize two OCP client instances for different parties (intellect and 5n)
+  // Initialize two OCP client instances for different parties
   const intellectClient = new OcpClient({
     network: NETWORK as any,
     provider: 'intellect' as any,
@@ -93,18 +97,38 @@ async function main() {
   const INTELLECT_PARTY = envLoader.getPartyId(NETWORK as any, 'intellect' as any);
   const FN_PARTY = envLoader.getPartyId(NETWORK as any, '5n' as any);
 
+  // Party roles
+  const SUBSCRIBER_PARTY = FN_PARTY;
+  const RECIPIENT_PARTY = INTELLECT_PARTY;
+  const PROCESSOR_PARTY = INTELLECT_PARTY;
+
   console.log('🚀 Subscription Example on Devnet\n');
   console.log(`📋 Using parties:`);
-  console.log(`   Subscriber (5N): ${FN_PARTY}`);
-  console.log(`   Recipient (Intellect): ${INTELLECT_PARTY}`);
-  console.log(`   Processor (Intellect): ${INTELLECT_PARTY}\n`);
+  console.log(`   Subscriber (5N): ${SUBSCRIBER_PARTY}`);
+  console.log(`   Recipient (Intellect): ${RECIPIENT_PARTY}`);
+  console.log(`   Processor (Intellect): ${PROCESSOR_PARTY}\n`);
 
-  // Step 1: Subscriber creates subscription proposal
-  console.log('1️⃣  Creating subscription proposal...');
+  // Step 0: Read factory contract creation event to disclose it to 5N
+  console.log('0️⃣  Reading factory contract creation event (for disclosure)...');
+  
+  const factoryEventsResponse = await intellectClient.client.getEventsByContractId({
+    contractId: FACTORY_CONTRACT_ID,
+  });
+
+  const createdEvent = factoryEventsResponse.created?.createdEvent;
+  
+  if (!createdEvent) {
+    throw new Error(`Factory contract creation event ${FACTORY_CONTRACT_ID} not found`);
+  }
+
+  console.log(`   ✅ Factory contract creation event retrieved\n`);
+
+  // Step 1: Subscriber (5N) creates subscription proposal with disclosed factory
+  console.log('1️⃣  Creating subscription proposal (as 5N subscriber)...');
 
   const subscriptionConfig: SubscriptionConfig = {
-    subscriber: FN_PARTY,
-    recipient: INTELLECT_PARTY,
+    subscriber: SUBSCRIBER_PARTY,
+    recipient: RECIPIENT_PARTY,
       recipientPayment: {
         amountPerDay: {
           type: 'AMULET',
@@ -124,23 +148,40 @@ async function main() {
     reason: 'Premium membership subscription - devnet test',
   };
 
-  const { command: createProposalCommand } =
+  // Build command with disclosed factory contract
+  const { command: createProposalCommand, disclosedContracts } =
     fnClient.Subscriptions.subscriptionFactory.buildCreateSubscriptionProposalCommand({
       factoryContractId: FACTORY_CONTRACT_ID,
       config: subscriptionConfig,
     });
 
+  // Add the factory contract to disclosed contracts
+  const disclosedFactoryContracts = [
+    ...disclosedContracts,
+    {
+      templateId: createdEvent.templateId,
+      contractId: createdEvent.contractId,
+      createdEventBlob: createdEvent.createdEventBlob,
+      synchronizerId: factoryEventsResponse.created!.synchronizerId,
+    },
+  ];
+
   const proposalResponse = await fnClient.client.submitAndWaitForTransactionTree({
-    actAs: [FN_PARTY],
+    actAs: [SUBSCRIBER_PARTY],
     commands: [createProposalCommand],
+    disclosedContracts: disclosedFactoryContracts,
   });
 
   // Extract the proposal contract ID from the response
   const proposalEvent = proposalResponse.transactionTree.eventsById
     ? Object.values(proposalResponse.transactionTree.eventsById).find((event) => {
         if ('CreatedTreeEvent' in event) {
-          const templateId = event.CreatedTreeEvent.value.templateId as any;
-          return templateId && typeof templateId === 'object' && 'entityName' in templateId && templateId.entityName === 'SubscriptionProposal';
+          const templateId = event.CreatedTreeEvent.value.templateId;
+          return (
+            typeof templateId === 'string' && 
+            templateId.includes('.SubscriptionProposal:SubscriptionProposal') &&
+            !templateId.includes('Approved')
+          );
         }
         return false;
       })
@@ -157,22 +198,25 @@ async function main() {
   console.log(`   ✅ Proposal created: ${proposalContractId}\n`);
 
   // Step 2: Processor approves the proposal
-  console.log('2️⃣  Processor (Intellect) approving proposal...');
+  console.log('2️⃣  Processor approving proposal...');
 
   const approveCommand = intellectClient.Subscriptions.subscriptionProposal.buildProcessorApproveCommand({
     proposalContractId,
   });
 
   const approvedResponse = await intellectClient.client.submitAndWaitForTransactionTree({
-    actAs: [INTELLECT_PARTY],
+    actAs: [PROCESSOR_PARTY],
     commands: [approveCommand],
   });
 
   const approvedEvent = approvedResponse.transactionTree.eventsById
     ? Object.values(approvedResponse.transactionTree.eventsById).find((event) => {
         if ('CreatedTreeEvent' in event) {
-          const templateId = event.CreatedTreeEvent.value.templateId as any;
-          return templateId && typeof templateId === 'object' && 'entityName' in templateId && templateId.entityName === 'ProcessorApprovedSubscriptionProposal';
+          const templateId = event.CreatedTreeEvent.value.templateId;
+          return (
+            typeof templateId === 'string' && 
+            templateId.includes('.ProcessorApprovedSubscriptionProposal:ProcessorApprovedSubscriptionProposal')
+          );
         }
         return false;
       })
@@ -187,7 +231,7 @@ async function main() {
   console.log(`   ✅ Proposal approved: ${approvedProposalContractId}\n`);
 
   // Step 3: Recipient accepts the proposal
-  console.log('3️⃣  Recipient (Intellect) accepting subscription...');
+  console.log('3️⃣  Recipient accepting subscription...');
 
   const acceptCommand =
     intellectClient.Subscriptions.processorApprovedSubscriptionProposal.buildRecipientAcceptCommand({
@@ -195,15 +239,19 @@ async function main() {
     });
 
   const subscriptionResponse = await intellectClient.client.submitAndWaitForTransactionTree({
-    actAs: [INTELLECT_PARTY],
+    actAs: [RECIPIENT_PARTY],
     commands: [acceptCommand],
   });
 
   const subscriptionEvent = subscriptionResponse.transactionTree.eventsById
     ? Object.values(subscriptionResponse.transactionTree.eventsById).find((event) => {
         if ('CreatedTreeEvent' in event) {
-          const templateId = event.CreatedTreeEvent.value.templateId as any;
-          return templateId && typeof templateId === 'object' && 'entityName' in templateId && templateId.entityName === 'Subscription';
+          const templateId = event.CreatedTreeEvent.value.templateId;
+          return (
+            typeof templateId === 'string' && 
+            templateId.includes('.Subscription:Subscription') &&
+            !templateId.includes('Proposal')
+          );
         }
         return false;
       })
@@ -240,7 +288,7 @@ async function main() {
 
   // Process 5 payments with 5-second intervals
   for (let i = 1; i <= 5; i++) {
-    console.log(`   💳 Processing payment ${i}/5 (as Intellect processor)...`);
+    console.log(`   💳 Processing payment ${i}/5...`);
 
     const processPaymentCommand = intellectClient.Subscriptions.subscription.buildProcessPaymentCommand({
       subscriptionContractId: currentSubscriptionContractId,
@@ -249,7 +297,7 @@ async function main() {
     });
 
     const paymentResponse = await intellectClient.client.submitAndWaitForTransactionTree({
-      actAs: [INTELLECT_PARTY],
+      actAs: [PROCESSOR_PARTY],
       commands: [processPaymentCommand],
     });
 
@@ -295,7 +343,7 @@ async function main() {
   });
 
   await fnClient.client.submitAndWaitForTransactionTree({
-    actAs: [FN_PARTY],
+    actAs: [SUBSCRIBER_PARTY],
     commands: [cancelCommand],
   });
   
@@ -304,6 +352,8 @@ async function main() {
   console.log('✨ Subscription workflow complete!');
   console.log('\nKey takeaways:');
   console.log('- Subscriptions use a three-party model: subscriber, recipient, processor');
+  console.log('- Disclosed contracts enable parties to exercise contracts they don\'t directly see');
+  console.log('- 5N (subscriber) uses disclosed contracts to access Intellect\'s factory');
   console.log('- One party can act as both recipient and processor (Intellect in this example)');
   console.log('- Per-day billing automatically pro-rates for any processing period');
   console.log('- Free trials supported via FeaturedAppRight rewards');
