@@ -9,7 +9,7 @@ import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { Address, AddressType, Monetary } from '../types/native';
 
-// ===== Date Conversion Helpers =====
+// ===== Date and Time Conversion Helpers =====
 
 /**
  * Convert a date string (YYYY-MM-DD) to DAML Time format (ISO string with 0 timestamp) DAML Time expects a string in
@@ -22,6 +22,14 @@ export function dateStringToDAMLTime(dateString: string): string {
     return dateString;
   }
   return `${dateString}T00:00:00.000Z`;
+}
+
+/**
+ * Convert a RelTime value (as microseconds string) to DAML RelTime format DAML RelTime is serialized as an object with
+ * a microseconds field
+ */
+export function relTimeToDAML(microseconds: string): { microseconds: string } {
+  return { microseconds };
 }
 
 /** Convert a DAML Time string back to a date string (YYYY-MM-DD) Extract only the date portion and return as string */

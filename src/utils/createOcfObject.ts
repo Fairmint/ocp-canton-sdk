@@ -113,7 +113,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           );
 
         case 'STOCK_CLASS':
-          return client.stockClass.buildCreateStockClassCommand({
+          return client.OpenCapTable.stockClass.buildCreateStockClassCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -121,7 +121,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'STAKEHOLDER':
-          return client.stakeholder.buildCreateStakeholderCommand({
+          return client.OpenCapTable.stakeholder.buildCreateStakeholderCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -129,7 +129,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'STOCK_LEGEND_TEMPLATE':
-          return client.stockLegendTemplate.buildCreateStockLegendTemplateCommand({
+          return client.OpenCapTable.stockLegendTemplate.buildCreateStockLegendTemplateCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -137,7 +137,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'VESTING_TERMS':
-          return client.vestingTerms.buildCreateVestingTermsCommand({
+          return client.OpenCapTable.vestingTerms.buildCreateVestingTermsCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -145,7 +145,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'STOCK_PLAN':
-          return client.stockPlan.buildCreateStockPlanCommand({
+          return client.OpenCapTable.stockPlan.buildCreateStockPlanCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -153,7 +153,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'TX_STOCK_ISSUANCE':
-          return client.stockIssuance.buildCreateStockIssuanceCommand({
+          return client.OpenCapTable.stockIssuance.buildCreateStockIssuanceCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -161,7 +161,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'TX_STOCK_CANCELLATION':
-          return client.stockCancellation.buildCreateStockCancellationCommand({
+          return client.OpenCapTable.stockCancellation.buildCreateStockCancellationCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -169,23 +169,27 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
-          return client.issuerAuthorizedSharesAdjustment.buildCreateIssuerAuthorizedSharesAdjustmentCommand({
-            issuerContractId,
-            featuredAppRightContractDetails,
-            issuerParty,
-            adjustmentData: ocfData as unknown as OcfIssuerAuthorizedSharesAdjustmentTxData,
-          });
+          return client.OpenCapTable.issuerAuthorizedSharesAdjustment.buildCreateIssuerAuthorizedSharesAdjustmentCommand(
+            {
+              issuerContractId,
+              featuredAppRightContractDetails,
+              issuerParty,
+              adjustmentData: ocfData as unknown as OcfIssuerAuthorizedSharesAdjustmentTxData,
+            }
+          );
 
         case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
-          return client.stockClassAuthorizedSharesAdjustment.buildCreateStockClassAuthorizedSharesAdjustmentCommand({
-            issuerContractId,
-            featuredAppRightContractDetails,
-            issuerParty,
-            adjustmentData: ocfData as unknown as OcfStockClassAuthorizedSharesAdjustmentTxData,
-          });
+          return client.OpenCapTable.stockClassAuthorizedSharesAdjustment.buildCreateStockClassAuthorizedSharesAdjustmentCommand(
+            {
+              issuerContractId,
+              featuredAppRightContractDetails,
+              issuerParty,
+              adjustmentData: ocfData as unknown as OcfStockClassAuthorizedSharesAdjustmentTxData,
+            }
+          );
 
         case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
-          return client.stockPlanPoolAdjustment.buildCreateStockPlanPoolAdjustmentCommand({
+          return client.OpenCapTable.stockPlanPoolAdjustment.buildCreateStockPlanPoolAdjustmentCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -193,7 +197,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'TX_EQUITY_COMPENSATION_ISSUANCE':
-          return client.stockPlan.buildCreateEquityCompensationIssuanceCommand({
+          return client.OpenCapTable.equityCompensationIssuance.buildCreateEquityCompensationIssuanceCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -201,7 +205,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'TX_EQUITY_COMPENSATION_EXERCISE':
-          return client.stockPlan.buildCreateEquityCompensationExerciseCommand({
+          return client.OpenCapTable.equityCompensationExercise.buildCreateEquityCompensationExerciseCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -209,7 +213,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'DOCUMENT':
-          return client.document.buildCreateDocumentCommand({
+          return client.OpenCapTable.document.buildCreateDocumentCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -217,7 +221,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'TX_WARRANT_ISSUANCE':
-          return client.warrantIssuance.buildCreateWarrantIssuanceCommand({
+          return client.OpenCapTable.warrantIssuance.buildCreateWarrantIssuanceCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -226,7 +230,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'TX_CONVERTIBLE_ISSUANCE':
-          return client.convertibleIssuance.buildCreateConvertibleIssuanceCommand({
+          return client.OpenCapTable.convertibleIssuance.buildCreateConvertibleIssuanceCommand({
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
@@ -264,78 +268,83 @@ function buildArchiveCommand(
   switch (objectType) {
     case 'STOCK_CLASS':
       return {
-        command: client.stockClass.buildArchiveStockClassByIssuerCommand({ contractId }),
+        command: client.OpenCapTable.stockClass.buildArchiveStockClassByIssuerCommand({ contractId }),
         disclosedContracts,
       };
     case 'STAKEHOLDER':
       return {
-        command: client.stakeholder.buildArchiveStakeholderByIssuerCommand({ contractId }),
+        command: client.OpenCapTable.stakeholder.buildArchiveStakeholderByIssuerCommand({ contractId }),
         disclosedContracts,
       };
     case 'STOCK_LEGEND_TEMPLATE':
       return {
-        command: client.stockLegendTemplate.buildArchiveStockLegendTemplateByIssuerCommand({
+        command: client.OpenCapTable.stockLegendTemplate.buildArchiveStockLegendTemplateByIssuerCommand({
           contractId,
         }),
         disclosedContracts,
       };
     case 'VESTING_TERMS':
       return {
-        command: client.vestingTerms.buildArchiveVestingTermsByIssuerCommand({ contractId }),
+        command: client.OpenCapTable.vestingTerms.buildArchiveVestingTermsByIssuerCommand({ contractId }),
         disclosedContracts,
       };
     case 'STOCK_PLAN':
       return {
-        command: client.stockPlan.buildArchiveStockPlanByIssuerCommand({ contractId }),
+        command: client.OpenCapTable.stockPlan.buildArchiveStockPlanByIssuerCommand({ contractId }),
         disclosedContracts,
       };
     case 'TX_STOCK_ISSUANCE':
       return {
-        command: client.stockIssuance.buildArchiveStockIssuanceByIssuerCommand({ contractId }),
+        command: client.OpenCapTable.stockIssuance.buildArchiveStockIssuanceByIssuerCommand({ contractId }),
         disclosedContracts,
       };
     case 'TX_STOCK_CANCELLATION':
       return {
-        command: client.stockCancellation.buildArchiveStockCancellationByIssuerCommand({
+        command: client.OpenCapTable.stockCancellation.buildArchiveStockCancellationByIssuerCommand({
           contractId,
         }),
         disclosedContracts,
       };
     case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
       return {
-        command: client.issuerAuthorizedSharesAdjustment.buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand({
-          contractId,
-        }),
+        command:
+          client.OpenCapTable.issuerAuthorizedSharesAdjustment.buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand(
+            {
+              contractId,
+            }
+          ),
         disclosedContracts,
       };
     case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
       return {
         command:
-          client.stockClassAuthorizedSharesAdjustment.buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand({
-            contractId,
-          }),
+          client.OpenCapTable.stockClassAuthorizedSharesAdjustment.buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand(
+            {
+              contractId,
+            }
+          ),
         disclosedContracts,
       };
     case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
       return {
-        command: client.stockPlanPoolAdjustment.buildArchiveStockPlanPoolAdjustmentByIssuerCommand({
+        command: client.OpenCapTable.stockPlanPoolAdjustment.buildArchiveStockPlanPoolAdjustmentByIssuerCommand({
           contractId,
         }),
         disclosedContracts,
       };
     case 'DOCUMENT':
       return {
-        command: client.document.buildArchiveDocumentByIssuerCommand({ contractId }),
+        command: client.OpenCapTable.document.buildArchiveDocumentByIssuerCommand({ contractId }),
         disclosedContracts,
       };
     case 'TX_WARRANT_ISSUANCE':
       return {
-        command: client.warrantIssuance.buildArchiveWarrantIssuanceByIssuerCommand({ contractId }),
+        command: client.OpenCapTable.warrantIssuance.buildArchiveWarrantIssuanceByIssuerCommand({ contractId }),
         disclosedContracts,
       };
     case 'TX_CONVERTIBLE_ISSUANCE':
       return {
-        command: client.convertibleIssuance.buildArchiveConvertibleIssuanceByIssuerCommand({
+        command: client.OpenCapTable.convertibleIssuance.buildArchiveConvertibleIssuanceByIssuerCommand({
           contractId,
         }),
         disclosedContracts,
