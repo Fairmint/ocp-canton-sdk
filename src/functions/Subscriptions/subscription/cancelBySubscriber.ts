@@ -15,4 +15,3 @@ export function buildCancelBySubscriberCommand(params: CancelBySubscriberParams)
     },
   };
 }
-

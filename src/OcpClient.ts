@@ -71,10 +71,10 @@ import {
   buildCreateVestingTermsCommand,
   buildCreateWarrantIssuanceCommand,
   buildProcessFreeTrialCommand,
+  buildProcessorApproveCommand,
   buildProcessorApprovedRecipientAcceptCommand,
   buildProcessorApprovedRecipientRejectCommand,
   buildProcessorApprovedSubscriberWithdrawCommand,
-  buildProcessorApproveCommand,
   buildProcessorRejectCommand,
   buildProcessPaymentCommand,
   buildRecipientRejectCommand,
@@ -233,9 +233,7 @@ export class OcpClient {
       ) => Promise<import('./functions').GetStockIssuanceAsOcfResult>;
     };
     document: {
-      buildCreateDocumentCommand: (
-        params: import('./functions').CreateDocumentParams
-      ) => CommandWithDisclosedContracts;
+      buildCreateDocumentCommand: (params: import('./functions').CreateDocumentParams) => CommandWithDisclosedContracts;
       buildArchiveDocumentByIssuerCommand: (params: { contractId: string }) => Command;
       getDocumentAsOcf: (params: GetDocumentAsOcfParams) => Promise<import('./functions').GetDocumentAsOcfResult>;
     };
@@ -277,12 +275,8 @@ export class OcpClient {
       buildRecipientRejectCommand: (params: import('./functions').RecipientRejectParams) => Command;
     };
     processorApprovedSubscriptionProposal: {
-      buildRecipientAcceptCommand: (
-        params: import('./functions').ProcessorApprovedRecipientAcceptParams
-      ) => Command;
-      buildRecipientRejectCommand: (
-        params: import('./functions').ProcessorApprovedRecipientRejectParams
-      ) => Command;
+      buildRecipientAcceptCommand: (params: import('./functions').ProcessorApprovedRecipientAcceptParams) => Command;
+      buildRecipientRejectCommand: (params: import('./functions').ProcessorApprovedRecipientRejectParams) => Command;
       buildSubscriberWithdrawCommand: (
         params: import('./functions').ProcessorApprovedSubscriberWithdrawParams
       ) => Command;
@@ -334,16 +328,14 @@ export class OcpClient {
         getStockPlanAsOcf: async (params) => getStockPlanAsOcf(this.client, params),
       },
       equityCompensationIssuance: {
-        buildCreateEquityCompensationIssuanceCommand: (params) =>
-          buildCreateEquityCompensationIssuanceCommand(params),
+        buildCreateEquityCompensationIssuanceCommand: (params) => buildCreateEquityCompensationIssuanceCommand(params),
         buildArchiveEquityCompensationIssuanceByIssuerCommand: (params) =>
           buildArchiveEquityCompensationIssuanceByIssuerCommand(params),
         getEquityCompensationIssuanceEventAsOcf: async (params) =>
           getEquityCompensationIssuanceEventAsOcf(this.client, params),
       },
       equityCompensationExercise: {
-        buildCreateEquityCompensationExerciseCommand: (params) =>
-          buildCreateEquityCompensationExerciseCommand(params),
+        buildCreateEquityCompensationExerciseCommand: (params) => buildCreateEquityCompensationExerciseCommand(params),
         buildArchiveEquityCompensationExerciseByIssuerCommand: (params) =>
           buildArchiveEquityCompensationExerciseByIssuerCommand(params),
         getEquityCompensationExerciseEventAsOcf: async (params) =>

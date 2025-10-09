@@ -15,4 +15,3 @@ export function buildSubscriberWithdrawCommand(params: SubscriberWithdrawParams)
     },
   };
 }
-

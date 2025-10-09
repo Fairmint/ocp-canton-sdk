@@ -16,4 +16,3 @@ export function buildProcessorApprovedRecipientAcceptCommand(params: ProcessorAp
     },
   };
 }
-

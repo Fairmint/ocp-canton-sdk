@@ -17,11 +17,16 @@ export interface ProcessPaymentParams {
 
 export function buildProcessPaymentCommand(params: ProcessPaymentParams): Command {
   const choiceArguments: Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment = {
-    processingPeriod: relTimeToDAML(params.processingPeriod) as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['processingPeriod'],
+    processingPeriod: relTimeToDAML(
+      params.processingPeriod
+    ) as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['processingPeriod'],
     paymentCtx: {
-      amuletInputs: params.paymentCtx.amuletInputs as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['paymentCtx']['amuletInputs'],
-      amuletRulesCid: params.paymentCtx.amuletRulesCid as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['paymentCtx']['amuletRulesCid'],
-      openMiningRoundCid: params.paymentCtx.openMiningRoundCid as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['paymentCtx']['openMiningRoundCid'],
+      amuletInputs: params.paymentCtx
+        .amuletInputs as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['paymentCtx']['amuletInputs'],
+      amuletRulesCid: params.paymentCtx
+        .amuletRulesCid as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['paymentCtx']['amuletRulesCid'],
+      openMiningRoundCid: params.paymentCtx
+        .openMiningRoundCid as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['paymentCtx']['openMiningRoundCid'],
       amuletPrice:
         typeof params.paymentCtx.amuletPrice === 'number'
           ? params.paymentCtx.amuletPrice.toString()
@@ -38,4 +43,3 @@ export function buildProcessPaymentCommand(params: ProcessPaymentParams): Comman
     },
   };
 }
-

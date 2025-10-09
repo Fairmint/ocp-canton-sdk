@@ -15,4 +15,3 @@ export function buildRecipientRejectCommand(params: RecipientRejectParams): Comm
     },
   };
 }
-

@@ -319,16 +319,21 @@ describe('OCP Client - Dynamic Create Tests', () => {
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
-              result = await client.OpenCapTable.issuerAuthorizedSharesAdjustment.getIssuerAuthorizedSharesAdjustmentEventAsOcf({
-                contractId,
-              });
+              result =
+                await client.OpenCapTable.issuerAuthorizedSharesAdjustment.getIssuerAuthorizedSharesAdjustmentEventAsOcf(
+                  {
+                    contractId,
+                  }
+                );
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
               result =
-                await client.OpenCapTable.stockClassAuthorizedSharesAdjustment.getStockClassAuthorizedSharesAdjustmentEventAsOcf({
-                  contractId,
-                });
+                await client.OpenCapTable.stockClassAuthorizedSharesAdjustment.getStockClassAuthorizedSharesAdjustmentEventAsOcf(
+                  {
+                    contractId,
+                  }
+                );
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
             case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':

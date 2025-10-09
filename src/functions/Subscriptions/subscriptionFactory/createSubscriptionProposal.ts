@@ -1,7 +1,4 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts } from '../../../types';
 
@@ -21,7 +18,7 @@ export interface SubscriptionConfig {
   recipientPayment: PaymentConfig;
   processorPayment: PaymentConfig;
   expiresAt: Date;
-  freeTrialEndsAt?: Date; 
+  freeTrialEndsAt?: Date;
   reason?: string;
 }
 
@@ -32,24 +29,23 @@ export interface CreateSubscriptionProposalParams {
 
 function subscriptionAmountToDaml(amount: SubscriptionAmount): Record<string, unknown> {
   const amountValue = typeof amount.amount === 'number' ? amount.amount.toString() : amount.amount;
-  
+
   if (amount.type === 'AMULET') {
     return {
       tag: 'AmuletAmount',
       value: amountValue,
     };
-  } else {
-    return {
-      tag: 'USDAmount',
-      value: amountValue,
-    };
   }
+  return {
+    tag: 'USDAmount',
+    value: amountValue,
+  };
 }
 
 function paymentConfigToDaml(config: PaymentConfig): Record<string, unknown> {
   return {
     amountPerDay: subscriptionAmountToDaml(config.amountPerDay),
-    featuredAppRight: config.featuredAppRight || null,
+    featuredAppRight: config.featuredAppRight ?? null,
   };
 }
 
@@ -61,7 +57,7 @@ function subscriptionConfigToDaml(config: SubscriptionConfig): Record<string, un
     processorPayment: paymentConfigToDaml(config.processorPayment),
     expiresAt: config.expiresAt.toISOString(),
     freeTrialEndsAt: config.freeTrialEndsAt ? config.freeTrialEndsAt.toISOString() : null,
-    reason: config.reason || null,
+    reason: config.reason ?? null,
   };
 }
 
@@ -83,4 +79,3 @@ export function buildCreateSubscriptionProposalCommand(
 
   return { command, disclosedContracts: [] };
 }
-

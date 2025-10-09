@@ -5,7 +5,9 @@ export interface ProcessorApprovedSubscriberWithdrawParams {
   approvedProposalContractId: string;
 }
 
-export function buildProcessorApprovedSubscriberWithdrawCommand(params: ProcessorApprovedSubscriberWithdrawParams): Command {
+export function buildProcessorApprovedSubscriberWithdrawCommand(
+  params: ProcessorApprovedSubscriberWithdrawParams
+): Command {
   return {
     ExerciseCommand: {
       templateId:
@@ -16,4 +18,3 @@ export function buildProcessorApprovedSubscriberWithdrawCommand(params: Processo
     },
   };
 }
-

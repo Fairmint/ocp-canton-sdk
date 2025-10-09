@@ -169,20 +169,24 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
           });
 
         case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
-          return client.OpenCapTable.issuerAuthorizedSharesAdjustment.buildCreateIssuerAuthorizedSharesAdjustmentCommand({
-            issuerContractId,
-            featuredAppRightContractDetails,
-            issuerParty,
-            adjustmentData: ocfData as unknown as OcfIssuerAuthorizedSharesAdjustmentTxData,
-          });
+          return client.OpenCapTable.issuerAuthorizedSharesAdjustment.buildCreateIssuerAuthorizedSharesAdjustmentCommand(
+            {
+              issuerContractId,
+              featuredAppRightContractDetails,
+              issuerParty,
+              adjustmentData: ocfData as unknown as OcfIssuerAuthorizedSharesAdjustmentTxData,
+            }
+          );
 
         case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
-          return client.OpenCapTable.stockClassAuthorizedSharesAdjustment.buildCreateStockClassAuthorizedSharesAdjustmentCommand({
-            issuerContractId,
-            featuredAppRightContractDetails,
-            issuerParty,
-            adjustmentData: ocfData as unknown as OcfStockClassAuthorizedSharesAdjustmentTxData,
-          });
+          return client.OpenCapTable.stockClassAuthorizedSharesAdjustment.buildCreateStockClassAuthorizedSharesAdjustmentCommand(
+            {
+              issuerContractId,
+              featuredAppRightContractDetails,
+              issuerParty,
+              adjustmentData: ocfData as unknown as OcfStockClassAuthorizedSharesAdjustmentTxData,
+            }
+          );
 
         case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
           return client.OpenCapTable.stockPlanPoolAdjustment.buildCreateStockPlanPoolAdjustmentCommand({
@@ -303,17 +307,22 @@ function buildArchiveCommand(
       };
     case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
       return {
-        command: client.OpenCapTable.issuerAuthorizedSharesAdjustment.buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand({
-          contractId,
-        }),
+        command:
+          client.OpenCapTable.issuerAuthorizedSharesAdjustment.buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand(
+            {
+              contractId,
+            }
+          ),
         disclosedContracts,
       };
     case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
       return {
         command:
-          client.OpenCapTable.stockClassAuthorizedSharesAdjustment.buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand({
-            contractId,
-          }),
+          client.OpenCapTable.stockClassAuthorizedSharesAdjustment.buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand(
+            {
+              contractId,
+            }
+          ),
         disclosedContracts,
       };
     case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':

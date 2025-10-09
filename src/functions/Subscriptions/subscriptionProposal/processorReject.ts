@@ -15,4 +15,3 @@ export function buildProcessorRejectCommand(params: ProcessorRejectParams): Comm
     },
   };
 }
-

@@ -15,4 +15,3 @@ export * from './stockPlan';
 export * from './stockPlanPoolAdjustment';
 export * from './vestingTerms';
 export * from './warrantIssuance';
-

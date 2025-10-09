@@ -9,7 +9,9 @@ export interface ProcessFreeTrialParams {
 
 export function buildProcessFreeTrialCommand(params: ProcessFreeTrialParams): Command {
   const choiceArguments: Fairmint.Subscriptions.Subscription.Subscription_ProcessFreeTrial = {
-    processingPeriod: relTimeToDAML(params.processingPeriod) as Fairmint.Subscriptions.Subscription.Subscription_ProcessFreeTrial['processingPeriod'],
+    processingPeriod: relTimeToDAML(
+      params.processingPeriod
+    ) as Fairmint.Subscriptions.Subscription.Subscription_ProcessFreeTrial['processingPeriod'],
   };
 
   return {
@@ -21,4 +23,3 @@ export function buildProcessFreeTrialCommand(params: ProcessFreeTrialParams): Co
     },
   };
 }
-

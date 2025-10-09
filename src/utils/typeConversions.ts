@@ -25,8 +25,8 @@ export function dateStringToDAMLTime(dateString: string): string {
 }
 
 /**
- * Convert a RelTime value (as microseconds string) to DAML RelTime format
- * DAML RelTime is serialized as an object with a microseconds field
+ * Convert a RelTime value (as microseconds string) to DAML RelTime format DAML RelTime is serialized as an object with
+ * a microseconds field
  */
 export function relTimeToDAML(microseconds: string): { microseconds: string } {
   return { microseconds };

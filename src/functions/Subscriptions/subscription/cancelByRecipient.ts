@@ -15,4 +15,3 @@ export function buildCancelByRecipientCommand(params: CancelByRecipientParams): 
     },
   };
 }
-

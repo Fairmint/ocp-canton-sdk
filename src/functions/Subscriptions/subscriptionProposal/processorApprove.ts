@@ -15,4 +15,3 @@ export function buildProcessorApproveCommand(params: ProcessorApproveParams): Co
     },
   };
 }
-
