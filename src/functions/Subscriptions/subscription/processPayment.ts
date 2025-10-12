@@ -6,7 +6,6 @@ export interface PaymentContext {
   amuletInputs: string[]; // ContractIds of Amulet.Amulet
   amuletRulesCid: string;
   openMiningRoundCid: string;
-  amuletPrice: string | number;
 }
 
 export interface ProcessPaymentParams {
@@ -27,10 +26,6 @@ export function buildProcessPaymentCommand(params: ProcessPaymentParams): Comman
         .amuletRulesCid as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['paymentCtx']['amuletRulesCid'],
       openMiningRoundCid: params.paymentCtx
         .openMiningRoundCid as Fairmint.Subscriptions.Subscription.Subscription_ProcessPayment['paymentCtx']['openMiningRoundCid'],
-      amuletPrice:
-        typeof params.paymentCtx.amuletPrice === 'number'
-          ? params.paymentCtx.amuletPrice.toString()
-          : params.paymentCtx.amuletPrice,
     },
   };
 

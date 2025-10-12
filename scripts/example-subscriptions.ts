@@ -455,12 +455,7 @@ async function main() {
   const openMiningRoundCid = miningRoundContext.openMiningRound;
   const { openMiningRoundContract } = miningRoundContext;
 
-  // Extract amulet price from payload (this requires querying the contract, but for now we'll use a default)
-  // In production, you would query the actual round contract to get the price
-  const amuletPrice = '1.0'; // Default USD to Amulet rate
-
   console.log(`   ✅ OpenMiningRound: ${openMiningRoundCid.substring(0, 20)}...`);
-  console.log(`   ✅ Amulet price: ${amuletPrice}\n`);
 
   // Use top 2 amulets (or fewer if not available)
   const amuletInputs = subscriberAmulets.slice(0, 2).map((a) => a.contractId);
@@ -469,7 +464,6 @@ async function main() {
     amuletInputs,
     amuletRulesCid,
     openMiningRoundCid,
-    amuletPrice,
   };
 
   let currentSubscriptionContractId = subscriptionContractId;
