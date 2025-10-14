@@ -1,0 +1,18 @@
+export * from './cancel';
+export * from './proposeChanges';
+export * from './archiveInactiveSubscription';
+
+// Re-export processFreeTrial and processPayment explicitly to avoid ProcessingContext/PaymentContext conflicts
+export { buildProcessFreeTrialCommand } from './processFreeTrial';
+export type { ProcessFreeTrialParams } from './processFreeTrial';
+
+export { buildProcessPaymentCommand } from './processPayment';
+export type { ProcessPaymentParams, PaymentContext, ProcessingContext } from './processPayment';
+
+// Re-export changeParty explicitly to avoid PartyRole conflict
+export { buildActiveSubscriptionChangePartyCommand } from './changeParty';
+export type { ActiveSubscriptionChangePartyParams, PartyRole as ActiveSubscriptionPartyRole } from './changeParty';
+
+// Re-export refund with explicit exports to avoid PaymentContext conflict
+export { buildRefundSubscriptionCommand } from './refund';
+export type { RefundSubscriptionParams } from './refund';

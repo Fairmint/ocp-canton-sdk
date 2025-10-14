@@ -2,435 +2,108 @@
 /// <reference types="node" />
 
 /**
- * Example script demonstrating Subscriptions usage on devnet
+ * Example script demonstrating Airdrop Subscriptions on devnet
  *
- * This script shows the complete subscription flow with disclosed contracts: 0. Intellect reads factory contract
- * creation event (for disclosure to 5N)
+ * This script shows the airdrop subscription flow:
+ * 
+ * 1. Subscriber (Intellect/Fairmint-validator-1) creates a subscription proposal via factory
+ * 2. Recipient (5N/TransferAgent-mainnet-1) approves the proposal to activate
+ * 3. Processor (5N/TransferAgent-mainnet-1) processes periodic payments (3 rounds)
+ * 4. Recipient cancels the subscription (to demonstrate subscription lifecycle completion)
  *
- * 1. Subscriber (5N) creates a subscription proposal via factory using disclosed contracts
- * 2. Processor (Intellect) approves the proposal
- * 3. Recipient (Intellect) accepts, activating the subscription
- * 4. Processor (Intellect) executes periodic payments (5 payments with 5-second intervals)
- *
- *    - Dynamically queries ledger for subscriber's Amulet contracts
- *    - Queries for AmuletRules and OpenMiningRound contracts
- *    - Refreshes Amulet contracts after each payment
- * 5. Subscriber (5N) cancels the subscription
+ * Airdrop Subscription Pattern:
+ * - Subscriber: Fairmint-validator-1 (pays for the airdrop)
+ * - Recipient: TransferAgent-mainnet-1 (receives $20/day)
+ * - Processor: TransferAgent-mainnet-1 (processes payments, no fee)
+ * - Recipient provider: Fairmint-validator-1 (for featured app rewards)
+ * - Beneficiaries: 85% Fairmint-validator-1, 15% airdrop-vault-1
+ * - Metadata: {"appUserIdHash": "hash(<app_user.id>)"}
  *
  * Prerequisites:
- *
  * - Environment variables configured via EnvLoader for devnet
  * - Subscription factory contract deployed on devnet
- * - Two parties configured:
- *
- *   - Intellect: acts as recipient and processor (owns factory)
- *   - 5N: acts as subscriber (uses disclosed contracts to access factory, must have Amulet balance)
- *
- * Key techniques:
- *
- * - Uses disclosed contracts to allow 5N to exercise the factory contract that it doesn't directly see
- * - Dynamically queries the ledger for payment context (Amulet contracts, rules, prices)
- * - Handles Amulet contract consumption by re-querying after each payment
+ * - Parties configured: Intellect (Fairmint-validator-1) and 5N (TransferAgent-mainnet-1)
  */
 
 import { EnvLoader, FileLogger, ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import { getCurrentMiningRoundContext } from '@fairmint/canton-node-sdk/build/src/utils/mining/mining-rounds';
-import * as fs from 'fs';
-import * as path from 'path';
 import { OcpClient } from '../src/OcpClient';
-import type { PaymentContext, SubscriptionConfig } from '../src/functions';
+import { getFactoryContractId } from '../src/functions/Subscriptions/utils';
 
-// Helper function to get all active contracts via websockets (no limit)
-async function getAllActiveContracts(client: OcpClient, parties: string[]): Promise<any[]> {
-  // Get current ledger end offset
-  const ledgerEndResp = await client.client.getLedgerEnd({});
-  const activeAtOffset = ledgerEndResp.offset;
+// Load environment configuration
+const envLoader = EnvLoader.getInstance();
 
-  return new Promise((resolve, reject) => {
-    const contracts: any[] = [];
-    let subscription: any;
-
-    client.client
-      .subscribeToActiveContracts(
-        {
-          activeAtOffset,
-          parties,
-        },
-        {
-          onOpen: () => {
-            // Connection opened
-          },
-          onMessage: (msg) => {
-            // Collect active contracts
-            if (typeof msg === 'object' && 'contractEntry' in msg && 'JsActiveContract' in msg.contractEntry) {
-              contracts.push(msg);
-            }
-          },
-          onError: (err) => {
-            if (subscription) {
-              subscription.close();
-            }
-            reject(err);
-          },
-          onClose: (code, reason) => {
-            // All contracts have been streamed
-            if (code === 1000) {
-              // Normal closure
-              resolve(contracts);
-            } else {
-              reject(new Error(`Websocket closed with code ${code}: ${reason}`));
-            }
-          },
-        }
-      )
-      .then((sub) => {
-        subscription = sub;
-      })
-      .catch(reject);
-  });
-}
-
-// Configuration
 const NETWORK = 'devnet';
+const FACTORY_CONTRACT_ID = getFactoryContractId(NETWORK).subscriptionsFactoryContractId;
 
-// Load subscription factory contract ID
-function loadSubscriptionFactoryContractId(network: string): string {
-  const factoryFilePath = path.resolve(
-    __dirname,
-    '../../open-captable-protocol-daml/generated/subscriptions-factory-contract-id.json'
-  );
+/**
+ * Helper to extract contract ID from transaction response
+ */
+function extractCreatedContractId(response: any, moduleName: string, entityName: string): string | null {
+  const event = Object.values(response.transactionTree.eventsById).find((event: any) => {
+    if (event && typeof event === 'object' && 'CreatedTreeEvent' in event) {
+      const createdEvent = (event as any).CreatedTreeEvent.value;
+      const { templateId } = createdEvent;
+      return templateId.moduleName === moduleName && templateId.entityName === entityName;
+    }
+    return false;
+  });
 
-  if (!fs.existsSync(factoryFilePath)) {
-    throw new Error(`Subscription factory contract ID file not found at ${factoryFilePath}`);
+  if (event && typeof event === 'object' && 'CreatedTreeEvent' in event) {
+    return (event as any).CreatedTreeEvent.value.contractId;
   }
-
-  const factoryData = JSON.parse(fs.readFileSync(factoryFilePath, 'utf-8'));
-  const networkData = factoryData[network];
-
-  if (!networkData?.subscriptionsFactoryContractId) {
-    throw new Error(`No subscription factory contract ID found for network: ${network}`);
-  }
-
-  return networkData.subscriptionsFactoryContractId;
+  
+  return null;
 }
 
 async function main() {
-  const envLoader = EnvLoader.getInstance();
-  const FACTORY_CONTRACT_ID = loadSubscriptionFactoryContractId(NETWORK);
-
-  // Initialize two OCP client instances for different parties
+  // Initialize OCP clients for both parties
   const intellectClient = new OcpClient({
-    network: NETWORK as any,
-    provider: 'intellect' as any,
-    authUrl: envLoader.getAuthUrl(NETWORK as any, 'intellect' as any),
+    network: NETWORK as 'mainnet' | 'devnet',
+    provider: 'intellect' as 'intellect' | '5n',
+    authUrl: envLoader.getAuthUrl(NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n'),
     apis: {
       LEDGER_JSON_API: {
-        apiUrl: envLoader.getApiUri('LEDGER_JSON_API', NETWORK as any, 'intellect' as any) ?? '',
+        apiUrl:
+          envLoader.getApiUri('LEDGER_JSON_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ??
+          '',
         auth: {
-          clientId: envLoader.getApiClientId('LEDGER_JSON_API', NETWORK as any, 'intellect' as any) ?? '',
-          clientSecret: envLoader.getApiClientSecret('LEDGER_JSON_API', NETWORK as any, 'intellect' as any) ?? '',
+          clientId:
+            envLoader.getApiClientId(
+              'LEDGER_JSON_API',
+              NETWORK as 'mainnet' | 'devnet',
+              'intellect' as 'intellect' | '5n'
+            ) ?? '',
+          clientSecret:
+            envLoader.getApiClientSecret(
+              'LEDGER_JSON_API',
+              NETWORK as 'mainnet' | 'devnet',
+              'intellect' as 'intellect' | '5n'
+            ) ?? '',
           grantType: 'client_credentials',
         },
-        partyId: envLoader.getPartyId(NETWORK as any, 'intellect' as any),
       },
     },
     logger: new FileLogger(),
   });
 
   const fnClient = new OcpClient({
-    network: NETWORK as any,
-    provider: '5n' as any,
-    authUrl: envLoader.getAuthUrl(NETWORK as any, '5n' as any),
+    network: NETWORK as 'mainnet' | 'devnet',
+    provider: '5n' as 'intellect' | '5n',
+    authUrl: envLoader.getAuthUrl(NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n'),
     apis: {
       LEDGER_JSON_API: {
-        apiUrl: envLoader.getApiUri('LEDGER_JSON_API', NETWORK as any, '5n' as any) ?? '',
-        auth: {
-          clientId: envLoader.getApiClientId('LEDGER_JSON_API', NETWORK as any, '5n' as any) ?? '',
-          clientSecret: envLoader.getApiClientSecret('LEDGER_JSON_API', NETWORK as any, '5n' as any) ?? '',
-          grantType: 'client_credentials',
-        },
-        partyId: envLoader.getPartyId(NETWORK as any, '5n' as any),
-      },
-    },
-    logger: new FileLogger(),
-  });
-
-  const INTELLECT_PARTY = envLoader.getPartyId(NETWORK as any, 'intellect' as any);
-  const FN_PARTY = envLoader.getPartyId(NETWORK as any, '5n' as any);
-
-  // Party roles
-  const SUBSCRIBER_PARTY = FN_PARTY;
-  const RECIPIENT_PARTY = INTELLECT_PARTY;
-  const PROCESSOR_PARTY = INTELLECT_PARTY;
-
-  console.log('🚀 Subscription Example on Devnet\n');
-  console.log(`📋 Using parties:`);
-  console.log(`   Subscriber (5N): ${SUBSCRIBER_PARTY}`);
-  console.log(`   Recipient (Intellect): ${RECIPIENT_PARTY}`);
-  console.log(`   Processor (Intellect): ${PROCESSOR_PARTY}\n`);
-
-  // Step 0: Read factory contract creation event to disclose it to 5N
-  console.log('0️⃣  Reading factory contract creation event (for disclosure)...');
-
-  const factoryEventsResponse = await intellectClient.client.getEventsByContractId({
-    contractId: FACTORY_CONTRACT_ID,
-  });
-
-  const createdEvent = factoryEventsResponse.created?.createdEvent;
-
-  if (!createdEvent) {
-    throw new Error(`Factory contract creation event ${FACTORY_CONTRACT_ID} not found`);
-  }
-
-  console.log(`   ✅ Factory contract creation event retrieved\n`);
-
-  // Step 1: Subscriber (5N) creates subscription proposal with disclosed factory
-  console.log('1️⃣  Creating subscription proposal (as 5N subscriber)...');
-
-  const subscriptionConfig: SubscriptionConfig = {
-    subscriber: SUBSCRIBER_PARTY,
-    recipient: RECIPIENT_PARTY,
-    recipientPayment: {
-      amountPerDay: {
-        type: 'AMULET',
-        amount: '1000000',
-      },
-      featuredAppRight: undefined, // Optional
-    },
-    processorPayment: {
-      amountPerDay: {
-        type: 'AMULET',
-        amount: '500000',
-      },
-      featuredAppRight: undefined,
-    },
-    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
-    reason: 'Premium membership subscription - devnet test',
-  };
-
-  // Build command with disclosed factory contract
-  const { command: createProposalCommand, disclosedContracts } =
-    fnClient.Subscriptions.subscriptionFactory.buildCreateSubscriptionProposalCommand({
-      factoryContractId: FACTORY_CONTRACT_ID,
-      config: subscriptionConfig,
-    });
-
-  // Add the factory contract to disclosed contracts
-  const disclosedFactoryContracts = [
-    ...disclosedContracts,
-    {
-      templateId: createdEvent.templateId,
-      contractId: createdEvent.contractId,
-      createdEventBlob: createdEvent.createdEventBlob,
-      synchronizerId: factoryEventsResponse.created!.synchronizerId,
-    },
-  ];
-
-  const proposalResponse = await fnClient.client.submitAndWaitForTransactionTree({
-    actAs: [SUBSCRIBER_PARTY],
-    commands: [createProposalCommand],
-    disclosedContracts: disclosedFactoryContracts,
-  });
-
-  // Extract the proposal contract ID from the response
-  const proposalEvent = Object.values(proposalResponse.transactionTree.eventsById).find((event) => {
-    if ('CreatedTreeEvent' in event) {
-      const { templateId } = event.CreatedTreeEvent.value;
-      return (
-        typeof templateId === 'string' &&
-        templateId.includes('.SubscriptionProposal:SubscriptionProposal') &&
-        !templateId.includes('Approved')
-      );
-    }
-    return false;
-  });
-  const proposalContractId =
-    proposalEvent && 'CreatedTreeEvent' in proposalEvent ? proposalEvent.CreatedTreeEvent.value.contractId : undefined;
-
-  if (!proposalContractId) {
-    throw new Error('Failed to create subscription proposal');
-  }
-
-  console.log(`   ✅ Proposal created: ${proposalContractId}\n`);
-
-  // Step 2: Processor approves the proposal
-  console.log('2️⃣  Processor approving proposal...');
-
-  const approveCommand = intellectClient.Subscriptions.subscriptionProposal.buildProcessorApproveCommand({
-    proposalContractId,
-  });
-
-  const approvedResponse = await intellectClient.client.submitAndWaitForTransactionTree({
-    actAs: [PROCESSOR_PARTY],
-    commands: [approveCommand],
-  });
-
-  const approvedEvent = Object.values(approvedResponse.transactionTree.eventsById).find((event) => {
-    if ('CreatedTreeEvent' in event) {
-      const { templateId } = event.CreatedTreeEvent.value;
-      return (
-        typeof templateId === 'string' &&
-        templateId.includes('.ProcessorApprovedSubscriptionProposal:ProcessorApprovedSubscriptionProposal')
-      );
-    }
-    return false;
-  });
-  const approvedProposalContractId =
-    approvedEvent && 'CreatedTreeEvent' in approvedEvent ? approvedEvent.CreatedTreeEvent.value.contractId : undefined;
-
-  if (!approvedProposalContractId) {
-    throw new Error('Failed to approve subscription proposal');
-  }
-
-  console.log(`   ✅ Proposal approved: ${approvedProposalContractId}\n`);
-
-  // Step 3: Recipient accepts the proposal
-  console.log('3️⃣  Recipient accepting subscription...');
-
-  const acceptCommand = intellectClient.Subscriptions.processorApprovedSubscriptionProposal.buildRecipientAcceptCommand(
-    {
-      approvedProposalContractId,
-    }
-  );
-
-  const subscriptionResponse = await intellectClient.client.submitAndWaitForTransactionTree({
-    actAs: [RECIPIENT_PARTY],
-    commands: [acceptCommand],
-  });
-
-  const subscriptionEvent = Object.values(subscriptionResponse.transactionTree.eventsById).find((event) => {
-    if ('CreatedTreeEvent' in event) {
-      const { templateId } = event.CreatedTreeEvent.value;
-      return (
-        typeof templateId === 'string' &&
-        templateId.includes('.Subscription:Subscription') &&
-        !templateId.includes('Proposal')
-      );
-    }
-    return false;
-  });
-  const subscriptionContractId =
-    subscriptionEvent && 'CreatedTreeEvent' in subscriptionEvent
-      ? subscriptionEvent.CreatedTreeEvent.value.contractId
-      : undefined;
-
-  if (!subscriptionContractId) {
-    throw new Error('Failed to create active subscription');
-  }
-
-  console.log(`   ✅ Subscription active: ${subscriptionContractId}\n`);
-
-  // Step 4: Process payments 5 times with 5-second periods
-  console.log('4️⃣  Processing payments (5 times with 5-second periods)...\n');
-
-  // Query the ledger for required payment context
-  console.log('   📋 Querying ledger for payment context (Amulet contracts, rules, etc.)...');
-
-  // Get subscriber's Amulet contracts (using websockets to avoid 200-item limit)
-  const subscriberActiveContracts = await getAllActiveContracts(fnClient, [SUBSCRIBER_PARTY]);
-
-  const subscriberAmulets: Array<{ contractId: string; amount: number }> = [];
-  const contractsArr = Array.isArray(subscriberActiveContracts) ? subscriberActiveContracts : [];
-
-  contractsArr.forEach((contract: any) => {
-    let payload, templateId, contractId;
-
-    // Extract contract data from different response formats
-    if (contract.contractEntry?.JsActiveContract?.createdEvent) {
-      const { createdEvent: eventData } = contract.contractEntry.JsActiveContract;
-      ({ createArgument: payload, templateId, contractId } = eventData);
-    } else if (contract.contract) {
-      ({ payload } = contract.contract);
-      templateId = contract.contract.contract?.template_id ?? contract.contract.template_id;
-      contractId = contract.contract.contract?.contract_id ?? contract.contract.contract_id;
-    } else {
-      return;
-    }
-
-    if (!payload || !templateId || !contractId) {
-      return;
-    }
-
-    // Check for regular Amulet (not locked)
-    const isAmulet =
-      typeof templateId === 'string' &&
-      templateId.includes('Splice.Amulet:Amulet') &&
-      !templateId.includes('LockedAmulet');
-
-    if (isAmulet && payload.owner === SUBSCRIBER_PARTY) {
-      const amount = parseFloat(payload.amount?.initialAmount ?? payload.amount ?? '0');
-      subscriberAmulets.push({ contractId, amount });
-    }
-  });
-
-  // Sort by amount descending to use largest amulets first
-  subscriberAmulets.sort((a, b) => b.amount - a.amount);
-
-  if (subscriberAmulets.length === 0) {
-    throw new Error(`Subscriber ${SUBSCRIBER_PARTY} has no Amulet contracts. Cannot process payments.`);
-  }
-
-  console.log(`   ✅ Found ${subscriberAmulets.length} Amulet contract(s) for subscriber`);
-  console.log(
-    `      Top amulet: ${subscriberAmulets[0].contractId.substring(0, 20)}... (${subscriberAmulets[0].amount.toFixed(2)} CC)`
-  );
-
-  // Get creation events for the Amulet contracts (needed for disclosure to processor)
-  console.log(`   📋 Fetching Amulet contract creation events...`);
-  const amuletContractsToDisclose = await Promise.all(
-    subscriberAmulets.slice(0, 2).map(async (amulet) => {
-      const eventsResponse = await fnClient.client.getEventsByContractId({
-        contractId: amulet.contractId,
-      });
-
-      const amuletCreatedEvent = eventsResponse.created?.createdEvent;
-
-      if (!amuletCreatedEvent) {
-        throw new Error(`Amulet contract creation event ${amulet.contractId} not found`);
-      }
-
-      return {
-        templateId: amuletCreatedEvent.templateId,
-        contractId: amuletCreatedEvent.contractId,
-        createdEventBlob: amuletCreatedEvent.createdEventBlob,
-        synchronizerId: eventsResponse.created!.synchronizerId,
-      };
-    })
-  );
-
-  console.log(`   ✅ Fetched ${amuletContractsToDisclose.length} Amulet creation event(s)`);
-
-  // Get AmuletRules and OpenMiningRound context using ValidatorApiClient
-  console.log(`   📋 Getting AmuletRules and mining round context from Validator API...`);
-
-  const validatorClient = new ValidatorApiClient({
-    network: NETWORK as 'mainnet' | 'devnet',
-    provider: 'intellect' as 'intellect' | '5n',
-    authUrl: envLoader.getAuthUrl(NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n'),
-    apis: {
-      VALIDATOR_API: {
         apiUrl:
-          envLoader.getApiUri('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ??
-          '',
+          envLoader.getApiUri('LEDGER_JSON_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ?? '',
         auth: {
           clientId:
-            envLoader.getApiClientId(
-              'VALIDATOR_API',
-              NETWORK as 'mainnet' | 'devnet',
-              'intellect' as 'intellect' | '5n'
-            ) ?? '',
+            envLoader.getApiClientId('LEDGER_JSON_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
+            '',
           username:
-            envLoader.getApiUsername(
-              'VALIDATOR_API',
-              NETWORK as 'mainnet' | 'devnet',
-              'intellect' as 'intellect' | '5n'
-            ) ?? '',
+            envLoader.getApiUsername('LEDGER_JSON_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
+            '',
           password:
-            envLoader.getApiPassword(
-              'VALIDATOR_API',
-              NETWORK as 'mainnet' | 'devnet',
-              'intellect' as 'intellect' | '5n'
-            ) ?? '',
+            envLoader.getApiPassword('LEDGER_JSON_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
+            '',
           grantType: 'password',
         },
       },
@@ -438,144 +111,178 @@ async function main() {
     logger: new FileLogger(),
   });
 
-  // Get AmuletRules contract info from Validator API
-  const amuletRulesResponse = await validatorClient.getAmuletRules();
-  const amuletRulesCid = amuletRulesResponse.amulet_rules.contract.contract_id;
-  const amuletRulesContract = {
-    templateId: amuletRulesResponse.amulet_rules.contract.template_id,
-    contractId: amuletRulesResponse.amulet_rules.contract.contract_id,
-    createdEventBlob: amuletRulesResponse.amulet_rules.contract.created_event_blob,
-    synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
-  };
+  // Initialize Validator API client for payment context (processor's view)
+  const validatorClient = new ValidatorApiClient({
+    network: NETWORK as 'mainnet' | 'devnet',
+    provider: '5n' as 'intellect' | '5n',
+    authUrl: envLoader.getAuthUrl(NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n'),
+    apis: {
+      VALIDATOR_API: {
+        apiUrl:
+          envLoader.getApiUri('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ?? '',
+        auth: {
+          clientId:
+            envLoader.getApiClientId('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
+            '',
+          username:
+            envLoader.getApiUsername('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
+            '',
+          password:
+            envLoader.getApiPassword('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
+            '',
+          grantType: 'password',
+        },
+      },
+    },
+    logger: new FileLogger(),
+  });
 
-  console.log(`   ✅ AmuletRules: ${amuletRulesCid.substring(0, 20)}...`);
+  // Define party roles for Airdrop Subscription
+  const INTELLECT_PARTY = envLoader.getPartyId(NETWORK as any, 'intellect' as any);
+  const FN_PARTY = envLoader.getPartyId(NETWORK as any, '5n' as any);
 
-  // Get current mining round context
-  const miningRoundContext = await getCurrentMiningRoundContext(validatorClient);
-  const openMiningRoundCid = miningRoundContext.openMiningRound;
-  const { openMiningRoundContract } = miningRoundContext;
+  const SUBSCRIBER_PARTY = INTELLECT_PARTY; // Fairmint-validator-1 pays for airdrop
+  const RECIPIENT_PARTY = FN_PARTY; // TransferAgent-mainnet-1 receives payment
+  const PROCESSOR_PARTY = FN_PARTY; // TransferAgent-mainnet-1 processes payments
+  const RECIPIENT_PROVIDER = INTELLECT_PARTY; // Fairmint-validator-1 (for featured rewards)
+  const AIRDROP_VAULT_PARTY = 'airdrop-vault-1'; // Note: This would need to be a real party ID
 
-  console.log(`   ✅ OpenMiningRound: ${openMiningRoundCid.substring(0, 20)}...`);
+  console.log('🚀 Airdrop Subscription Example on Devnet\n');
+  console.log(`📋 Using parties:`);
+  console.log(`   Subscriber (Fairmint-validator-1): ${SUBSCRIBER_PARTY}`);
+  console.log(`   Recipient (TransferAgent-mainnet-1): ${RECIPIENT_PARTY}`);
+  console.log(`   Processor (TransferAgent-mainnet-1): ${PROCESSOR_PARTY}`);
+  console.log(`   Recipient Provider (Fairmint-validator-1): ${RECIPIENT_PROVIDER}\n`);
 
-  // Use top 2 amulets (or fewer if not available)
-  const amuletInputs = subscriberAmulets.slice(0, 2).map((a) => a.contractId);
+  // ========================================
+  // Step 1: Create subscription proposal
+  // ========================================
+  console.log('1️⃣  Creating airdrop subscription proposal...');
 
-  const paymentContext: PaymentContext = {
-    amuletInputs,
-    amuletRulesCid,
-    openMiningRoundCid,
-  };
+  // Generate a sample app user ID hash for demonstration
+  const appUserId = '12345'; // In production, this would be the actual app_user.id
+  const appUserIdHash = `hash_${appUserId}`; // In production, use proper hashing
+
+  // Get disclosed contracts for the factory (allows subscriber to exercise it)
+  const factoryDisclosedContracts = await intellectClient.Subscriptions.utils.getFactoryDisclosedContracts(
+    FACTORY_CONTRACT_ID
+  );
+
+  const { command: createProposalCommand, disclosedContracts } =
+    intellectClient.Subscriptions.subscriptionFactory.buildCreateProposedSubscriptionCommand({
+      factoryContractId: FACTORY_CONTRACT_ID,
+      actor: SUBSCRIBER_PARTY,
+      subscriptionProposal: {
+        subscriber: SUBSCRIBER_PARTY,
+        recipient: RECIPIENT_PARTY,
+        recipientProvider: RECIPIENT_PROVIDER,
+        recipientBeneficiaries: [
+          { party: RECIPIENT_PROVIDER, weight: '0.85' }, // 85% to Fairmint-validator-1
+          { party: AIRDROP_VAULT_PARTY, weight: '0.15' }, // 15% to airdrop-vault-1
+        ],
+        recipientPaymentPerDay: {
+          type: 'USD',
+          amount: '20', // $20 per day
+        },
+        metadata: {
+          appUserIdHash,
+        },
+        description: `Airdrop subscription for app user ${appUserId}`,
+      },
+    });
+
+  const proposalResponse = await intellectClient.client.submitAndWaitForTransactionTree({
+    actAs: [SUBSCRIBER_PARTY],
+    commands: [createProposalCommand],
+    disclosedContracts: [...disclosedContracts, ...factoryDisclosedContracts],
+  });
+
+  const proposalContractId = extractCreatedContractId(
+    proposalResponse,
+    'Fairmint.Subscriptions',
+    'ProposedSubscription'
+  );
+
+  if (!proposalContractId) {
+    throw new Error('Failed to create subscription proposal');
+  }
+
+  console.log(`   ✅ Proposal created: ${proposalContractId}\n`);
+
+  // ========================================
+  // Step 2: Recipient approves to activate
+  // ========================================
+  console.log('2️⃣  Recipient approving proposal to activate...');
+
+  const approveCommand = fnClient.Subscriptions.proposedSubscription.buildApproveCommand({
+    proposedSubscriptionContractId: proposalContractId,
+    actor: RECIPIENT_PARTY,
+  });
+
+  const approvedResponse = await fnClient.client.submitAndWaitForTransactionTree({
+    actAs: [RECIPIENT_PARTY],
+    commands: [approveCommand],
+  });
+
+  const subscriptionContractId = extractCreatedContractId(
+    approvedResponse,
+    'Fairmint.Subscriptions',
+    'ActiveSubscription'
+  );
+
+  if (!subscriptionContractId) {
+    throw new Error('Failed to create active subscription');
+  }
+
+  console.log(`   ✅ Subscription active: ${subscriptionContractId}\n`);
+
+  // ========================================
+  // Step 3: Process payments (3 rounds)
+  // ========================================
+  console.log('3️⃣  Processing airdrop payments (3 rounds with 10-second periods)...\n');
+
+  const NUM_PAYMENTS = 3;
+  const PROCESSING_PERIOD_SECONDS = 10;
+  const PROCESSING_PERIOD_MICROSECONDS = String(PROCESSING_PERIOD_SECONDS * 1000000);
 
   let currentSubscriptionContractId = subscriptionContractId;
 
-  // Process 5 payments with 5-second intervals
-  for (let i = 1; i <= 5; i++) {
-    console.log(`   💳 Processing payment ${i}/5...`);
+  for (let i = 1; i <= NUM_PAYMENTS; i++) {
+    console.log(`   💳 Processing airdrop payment ${i}/${NUM_PAYMENTS}...`);
 
-    // Re-query for fresh amulets before each payment (since previous payment consumed them)
-    if (i > 1) {
-      console.log(`      🔄 Querying for fresh Amulet contracts...`);
-      const freshSubscriberContracts = await getAllActiveContracts(fnClient, [SUBSCRIBER_PARTY]);
-
-      const freshAmulets: Array<{ contractId: string; amount: number }> = [];
-      const freshContractsArr = Array.isArray(freshSubscriberContracts) ? freshSubscriberContracts : [];
-
-      freshContractsArr.forEach((contract: any) => {
-        let payload, templateId, contractId;
-
-        if (contract.contractEntry?.JsActiveContract?.createdEvent) {
-          const { createdEvent: eventData } = contract.contractEntry.JsActiveContract;
-          ({ createArgument: payload, templateId, contractId } = eventData);
-        } else if (contract.contract) {
-          ({ payload } = contract.contract);
-          templateId = contract.contract.contract?.template_id ?? contract.contract.template_id;
-          contractId = contract.contract.contract?.contract_id ?? contract.contract.contract_id;
-        } else {
-          return;
-        }
-
-        if (!payload || !templateId || !contractId) {
-          return;
-        }
-
-        const isAmulet =
-          typeof templateId === 'string' &&
-          templateId.includes('Splice.Amulet:Amulet') &&
-          !templateId.includes('LockedAmulet');
-
-        if (isAmulet && payload.owner === SUBSCRIBER_PARTY) {
-          const amount = parseFloat(payload.amount?.initialAmount ?? payload.amount ?? '0');
-          freshAmulets.push({ contractId, amount });
-        }
-      });
-
-      freshAmulets.sort((a, b) => b.amount - a.amount);
-
-      if (freshAmulets.length === 0) {
-        throw new Error(`Subscriber has no more Amulet contracts for payment ${i}`);
-      }
-
-      paymentContext.amuletInputs = freshAmulets.slice(0, 2).map((a) => a.contractId);
-      console.log(`      ✅ Using ${paymentContext.amuletInputs.length} Amulet contract(s)`);
-
-      // Fetch creation events for the fresh Amulets (for disclosure)
-      const freshAmuletDisclosures = await Promise.all(
-        freshAmulets.slice(0, 2).map(async (amulet) => {
-          const eventsResponse = await fnClient.client.getEventsByContractId({
-            contractId: amulet.contractId,
-          });
-
-          const freshCreatedEvent = eventsResponse.created?.createdEvent;
-
-          if (!freshCreatedEvent) {
-            throw new Error(`Amulet contract creation event ${amulet.contractId} not found`);
-          }
-
-          return {
-            templateId: freshCreatedEvent.templateId,
-            contractId: freshCreatedEvent.contractId,
-            createdEventBlob: freshCreatedEvent.createdEventBlob,
-            synchronizerId: eventsResponse.created!.synchronizerId,
-          };
-        })
+    // Build payment context (Amulets, rules, mining round) with disclosed contracts
+    const { paymentContext, disclosedContracts: paymentDisclosedContracts } =
+      await fnClient.Subscriptions.utils.buildPaymentContext(
+        validatorClient,
+        SUBSCRIBER_PARTY,
+        2 // Use top 2 Amulet contracts
       );
 
-      // Update the disclosed Amulet contracts
-      amuletContractsToDisclose.length = 0;
-      amuletContractsToDisclose.push(...freshAmuletDisclosures);
-    }
-
-    const processPaymentCommand = intellectClient.Subscriptions.subscription.buildProcessPaymentCommand({
+    const processPaymentCommand = fnClient.Subscriptions.activeSubscription.buildProcessPaymentCommand({
       subscriptionContractId: currentSubscriptionContractId,
-      processingPeriod: '5000000', // 5 seconds in microseconds
-      paymentCtx: paymentContext,
+      processingContext: {
+        processingPeriod: PROCESSING_PERIOD_MICROSECONDS,
+        processorProvider: PROCESSOR_PARTY,
+        recipientProvider: RECIPIENT_PROVIDER,
+        processorBeneficiaries: [
+          { party: RECIPIENT_PROVIDER, weight: '1' }, // Not used since skipProcessorPayment is true
+        ],
+      },
+      paymentContext,
+      skipProcessorPayment: true, // No processor fee for airdrop subscriptions
     });
 
-    // Disclose AmuletRules, OpenMiningRound, and subscriber's Amulet contracts
-    // (processor doesn't have direct visibility to any of these)
-    const disclosedContractsForPayment = [amuletRulesContract, openMiningRoundContract, ...amuletContractsToDisclose];
-
-    const paymentResponse = await intellectClient.client.submitAndWaitForTransactionTree({
+    const paymentResponse = await fnClient.client.submitAndWaitForTransactionTree({
       actAs: [PROCESSOR_PARTY],
       commands: [processPaymentCommand],
-      disclosedContracts: disclosedContractsForPayment,
+      disclosedContracts: paymentDisclosedContracts,
     });
 
-    // Extract the new subscription contract ID from the response
-    const paymentCreatedEvent = Object.values(paymentResponse.transactionTree.eventsById).find((event) => {
-      if (!('CreatedTreeEvent' in event)) return false;
-      const { templateId } = event.CreatedTreeEvent.value;
-      return (
-        typeof templateId === 'string' &&
-        templateId.includes('.Subscription:Subscription') &&
-        !templateId.includes('Proposal')
-      );
-    });
-
-    const newSubscriptionContractId =
-      paymentCreatedEvent && 'CreatedTreeEvent' in paymentCreatedEvent
-        ? paymentCreatedEvent.CreatedTreeEvent.value.contractId
-        : undefined;
+    const newSubscriptionContractId = extractCreatedContractId(
+      paymentResponse,
+      'Fairmint.Subscriptions',
+      'ActiveSubscription'
+    );
 
     if (!newSubscriptionContractId) {
       throw new Error(`Failed to process payment ${i}`);
@@ -584,39 +291,55 @@ async function main() {
     currentSubscriptionContractId = newSubscriptionContractId;
     console.log(`   ✅ Payment ${i} processed! New contract: ${currentSubscriptionContractId}`);
 
-    // Sleep for 5 seconds before next payment (except after the last one)
-    if (i < 5) {
-      console.log(`   ⏳ Waiting 5 seconds before next payment...\n`);
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+    // Wait before next payment (except after the last one)
+    if (i < NUM_PAYMENTS) {
+      console.log(`   ⏳ Waiting ${PROCESSING_PERIOD_SECONDS} seconds before next payment...\n`);
+      await new Promise((resolve) => setTimeout(resolve, PROCESSING_PERIOD_SECONDS * 1000));
     }
   }
 
-  console.log(`\n   ✅ All 5 payments completed!\n`);
+  console.log(`\n   ✅ All ${NUM_PAYMENTS} airdrop payments completed!\n`);
 
-  // Step 5: Cancel subscription
-  console.log('5️⃣  Cancelling subscription (as 5N subscriber)...');
+  // ========================================
+  // Step 4: Recipient cancels subscription
+  // ========================================
+  console.log('4️⃣  Recipient cancelling subscription...');
 
-  const cancelCommand = fnClient.Subscriptions.subscription.buildCancelBySubscriberCommand({
+  const cancelCommand = fnClient.Subscriptions.activeSubscription.buildCancelCommand({
     subscriptionContractId: currentSubscriptionContractId,
+    actor: RECIPIENT_PARTY,
+    disregardAvailablePaidPeriod: true,
+    description: 'Subscription ended by recipient',
   });
 
   await fnClient.client.submitAndWaitForTransactionTree({
-    actAs: [SUBSCRIBER_PARTY],
+    actAs: [RECIPIENT_PARTY],
     commands: [cancelCommand],
   });
 
-  console.log(`   ✅ Subscription cancelled!\n`);
+  console.log(`   ✅ Subscription cancelled by recipient!\n`);
 
-  console.log('✨ Subscription workflow complete!');
-  console.log('\nKey takeaways:');
-  console.log('- Subscriptions use a three-party model: subscriber, recipient, processor');
-  console.log("- Disclosed contracts enable parties to exercise contracts they don't directly see");
-  console.log("- 5N (subscriber) uses disclosed contracts to access Intellect's factory");
-  console.log('- One party can act as both recipient and processor (Intellect in this example)');
+  // ========================================
+  // Summary
+  // ========================================
+  console.log('✨ Airdrop subscription workflow complete!');
+  console.log('\nKey features of airdrop subscriptions:');
+  console.log('- Subscriber (Fairmint) pays for airdrops to recipients (TransferAgent)');
+  console.log('- $20/day payment priced in USD (converted to CC at processing time)');
+  console.log('- Recipient provider enables featured app rewards with custom beneficiaries');
+  console.log('- 85% rewards to Fairmint, 15% to airdrop vault');
+  console.log('- No processor fee (skipProcessorPayment: true)');
+  console.log('- Metadata tracks app user via hashed ID');
   console.log('- Per-day billing automatically pro-rates for any processing period');
-  console.log('- Free trials supported via FeaturedAppRight rewards');
-  console.log('- Pay-as-you-go model (no upfront collateral)');
-  console.log('- Any party can cancel unilaterally\n');
+  console.log('- Perpetual subscriptions (no expiration) with no prepaid window');
+  console.log('- Any party can cancel unilaterally (recipient in this example)');
+  console.log('- One subscription created per app user (scales to 14,676+ users)\n');
+
+  console.log('Next steps:');
+  console.log('- Scale to create one subscription per app_user');
+  console.log('- Implement automated processing scheduler');
+  console.log('- Monitor subscription stats and balance consumption');
+  console.log('- Handle edge cases (insufficient balance, expired subscriptions, etc.)\n');
 }
 
 // Run the example
@@ -631,5 +354,3 @@ if (require.main === module) {
       process.exit(1);
     });
 }
-
-export { main };
