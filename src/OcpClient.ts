@@ -258,13 +258,15 @@ export class OcpClient {
       ) => CommandWithDisclosedContracts;
     };
     proposedSubscription: {
-      buildApproveCommand: (params: import('./functions').ProposedSubscriptionApproveParams) => Command;
+      buildApproveCommand: (
+        params: import('./functions').ProposedSubscriptionApproveParams
+      ) => CommandWithDisclosedContracts;
       buildEditSubscriptionProposalCommand: (params: import('./functions').EditSubscriptionProposalParams) => Command;
       buildWithdrawCommand: (params: import('./functions').ProposedSubscriptionWithdrawParams) => Command;
       buildChangePartyCommand: (params: import('./functions').ProposedSubscriptionChangePartyParams) => Command;
     };
     activeSubscription: {
-      buildProcessPaymentCommand: (params: import('./functions').ProcessPaymentParams) => Command;
+      buildProcessPaymentCommand: (params: import('./functions').ProcessPaymentParams) => CommandWithDisclosedContracts;
       buildProcessFreeTrialCommand: (params: import('./functions').ProcessFreeTrialParams) => Command;
       buildCancelCommand: (params: import('./functions').CancelSubscriptionParams) => Command;
       buildProposeChangesCommand: (params: import('./functions').ProposeChangesParams) => Command;
@@ -298,11 +300,24 @@ export class OcpClient {
           synchronizerId: string;
         }>
       >;
+      getProposedSubscriptionDisclosedContracts: (
+        proposedSubscriptionContractId: string
+      ) => Promise<
+        Array<{
+          templateId: any;
+          contractId: string;
+          createdEventBlob: string;
+          synchronizerId: string;
+        }>
+      >;
       buildPaymentContext: (
+        validatorClient: import('@fairmint/canton-node-sdk').ValidatorApiClient
+      ) => Promise<import('./functions').PaymentContextWithDisclosedContracts>;
+      buildPaymentContextWithAmulets: (
         validatorClient: import('@fairmint/canton-node-sdk').ValidatorApiClient,
         subscriberParty: string,
         maxAmuletInputs?: number
-      ) => Promise<import('./functions').PaymentContextWithDisclosedContracts>;
+      ) => Promise<import('./functions').PaymentContextWithAmuletsAndDisclosed>;
     };
   };
 
@@ -522,9 +537,17 @@ export class OcpClient {
           const { getFactoryDisclosedContracts } = require('./functions/Subscriptions');
           return getFactoryDisclosedContracts(this, factoryContractId);
         },
-        buildPaymentContext: async (validatorClient, subscriberParty, maxAmuletInputs) => {
+        getProposedSubscriptionDisclosedContracts: async (proposedSubscriptionContractId: string) => {
+          const { getProposedSubscriptionDisclosedContracts } = require('./functions/Subscriptions');
+          return getProposedSubscriptionDisclosedContracts(this, proposedSubscriptionContractId);
+        },
+        buildPaymentContext: async (validatorClient) => {
           const { buildPaymentContext } = require('./functions/Subscriptions');
-          return buildPaymentContext(this, validatorClient, subscriberParty, maxAmuletInputs);
+          return buildPaymentContext(validatorClient);
+        },
+        buildPaymentContextWithAmulets: async (validatorClient, subscriberParty, maxAmuletInputs) => {
+          const { buildPaymentContextWithAmulets } = require('./functions/Subscriptions');
+          return buildPaymentContextWithAmulets(this, validatorClient, subscriberParty, maxAmuletInputs);
         },
       },
     };

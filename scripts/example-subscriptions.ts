@@ -7,22 +7,23 @@
  * This script shows the airdrop subscription flow:
  * 
  * 1. Subscriber (Intellect/Fairmint-validator-1) creates a subscription proposal via factory
- * 2. Recipient (5N/TransferAgent-mainnet-1) approves the proposal to activate
- * 3. Processor (5N/TransferAgent-mainnet-1) processes periodic payments (3 rounds)
+ * 2. Recipient (5N/TransferAgent-devnet-1) approves the proposal to activate
+ * 3. Processor (5N/TransferAgent-devnet-1) processes periodic payments (3 rounds)
  * 4. Recipient cancels the subscription (to demonstrate subscription lifecycle completion)
  *
  * Airdrop Subscription Pattern:
  * - Subscriber: Fairmint-validator-1 (pays for the airdrop)
- * - Recipient: TransferAgent-mainnet-1 (receives $20/day)
- * - Processor: TransferAgent-mainnet-1 (processes payments, no fee)
+ * - Recipient: TransferAgent-devnet-1 (receives $20/day)
+ * - Processor: TransferAgent-devnet-1 (processes payments, no fee)
  * - Recipient provider: Fairmint-validator-1 (for featured app rewards)
- * - Beneficiaries: 85% Fairmint-validator-1, 15% airdrop-vault-1
+ * - Beneficiaries: 85% Fairmint-validator-1, 15% Fairmint-validator-1 (demo uses same party)
  * - Metadata: {"appUserIdHash": "hash(<app_user.id>)"}
+ * - PrepayWindow: 0 microseconds (no prepayment, pay-as-you-go)
  *
  * Prerequisites:
  * - Environment variables configured via EnvLoader for devnet
  * - Subscription factory contract deployed on devnet
- * - Parties configured: Intellect (Fairmint-validator-1) and 5N (TransferAgent-mainnet-1)
+ * - Parties configured: Intellect (Fairmint-validator-1) and 5N (TransferAgent-devnet-1)
  */
 
 import { EnvLoader, FileLogger, ValidatorApiClient } from '@fairmint/canton-node-sdk';
@@ -161,17 +162,19 @@ async function main() {
   const FN_PARTY = envLoader.getPartyId(NETWORK as any, '5n' as any);
 
   const SUBSCRIBER_PARTY = INTELLECT_PARTY; // Fairmint-validator-1 pays for airdrop
-  const RECIPIENT_PARTY = FN_PARTY; // TransferAgent-mainnet-1 receives payment
-  const PROCESSOR_PARTY = FN_PARTY; // TransferAgent-mainnet-1 processes payments
+  const RECIPIENT_PARTY = FN_PARTY; // TransferAgent-devnet-1 receives payment
+  const PROCESSOR_PARTY = FN_PARTY; // TransferAgent-devnet-1 processes payments
   const RECIPIENT_PROVIDER = INTELLECT_PARTY; // Fairmint-validator-1 (for featured rewards)
-  const AIRDROP_VAULT_PARTY = 'airdrop-vault-1'; // Note: This would need to be a real party ID
+  // For demo purposes, use actual parties. In production, use a real airdrop vault party
+  const AIRDROP_VAULT_PARTY = INTELLECT_PARTY; // Using Fairmint-validator-1 as vault for demo
 
   console.log('🚀 Airdrop Subscription Example on Devnet\n');
   console.log(`📋 Using parties:`);
   console.log(`   Subscriber (Fairmint-validator-1): ${SUBSCRIBER_PARTY}`);
-  console.log(`   Recipient (TransferAgent-mainnet-1): ${RECIPIENT_PARTY}`);
-  console.log(`   Processor (TransferAgent-mainnet-1): ${PROCESSOR_PARTY}`);
-  console.log(`   Recipient Provider (Fairmint-validator-1): ${RECIPIENT_PROVIDER}\n`);
+  console.log(`   Recipient (TransferAgent-devnet-1): ${RECIPIENT_PARTY}`);
+  console.log(`   Processor (TransferAgent-devnet-1): ${PROCESSOR_PARTY}`);
+  console.log(`   Recipient Provider (Fairmint-validator-1): ${RECIPIENT_PROVIDER}`);
+  console.log(`   Airdrop Vault (Fairmint-validator-1): ${AIRDROP_VAULT_PARTY}\n`);
 
   // ========================================
   // Step 1: Create subscription proposal
@@ -194,8 +197,8 @@ async function main() {
       subscriptionProposal: {
         subscriber: SUBSCRIBER_PARTY,
         recipient: RECIPIENT_PARTY,
-        recipientProvider: RECIPIENT_PROVIDER,
-        recipientBeneficiaries: [
+        provider: SUBSCRIBER_PARTY, // Provider is typically the subscriber's validator
+        appRewardBeneficiaries: [
           { beneficiary: RECIPIENT_PROVIDER, weight: '0.85' }, // 85% to Fairmint-validator-1
           { beneficiary: AIRDROP_VAULT_PARTY, weight: '0.15' }, // 15% to airdrop-vault-1
         ],
@@ -203,6 +206,8 @@ async function main() {
           type: 'USD',
           amount: '20', // $20 per day
         },
+        processorPaymentPerDay: null, // No processor fee for airdrop subscriptions
+        prepayWindow: '0', // 0 microseconds = no prepay window (pay-as-you-go)
         metadata: {
           appUserIdHash,
         },
@@ -229,18 +234,41 @@ async function main() {
   console.log(`   ✅ Proposal created: ${proposalContractId}\n`);
 
   // ========================================
-  // Step 2: Recipient approves to activate
+  // Step 2: Recipient approves to activate (final approval with locked amulets)
   // ========================================
-  console.log('2️⃣  Recipient approving proposal to activate...');
+  console.log('2️⃣  Recipient approving proposal to activate with locked funds...');
 
-  const approveCommand = fnClient.Subscriptions.proposedSubscription.buildApproveCommand({
-    proposedSubscriptionContractId: proposalContractId,
-    actor: RECIPIENT_PARTY,
-  });
+  // Get subscriber's amulets and payment context for locking funds
+  const { paymentContext: subscriberPaymentContext, disclosedContracts: subscriberDisclosedContracts } =
+    await intellectClient.Subscriptions.utils.buildPaymentContextWithAmulets(
+      validatorClient,
+      SUBSCRIBER_PARTY,
+      2 // Use top 2 Amulet contracts
+    );
+
+  // Get disclosed contracts for the ProposedSubscription (required to exercise the choice)
+  const proposalDisclosedContracts = await fnClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(
+    proposalContractId
+  );
+
+  const amountToLock = '100.0'; // Lock 100 CC for subscription payments
+
+  const { command: approveCommand, disclosedContracts: approveDisclosedContracts } =
+    fnClient.Subscriptions.proposedSubscription.buildApproveCommand({
+      proposedSubscriptionContractId: proposalContractId,
+      actor: RECIPIENT_PARTY,
+      subscriberAmulets: subscriberPaymentContext.subscriberAmulets,
+      amountToLock,
+      paymentContext: {
+        amuletRulesCid: subscriberPaymentContext.amuletRulesCid,
+        openMiningRoundCid: subscriberPaymentContext.openMiningRoundCid,
+      },
+    });
 
   const approvedResponse = await fnClient.client.submitAndWaitForTransactionTree({
     actAs: [RECIPIENT_PARTY],
     commands: [approveCommand],
+    disclosedContracts: [...approveDisclosedContracts, ...proposalDisclosedContracts, ...subscriberDisclosedContracts],
   });
 
   const subscriptionContractId = extractCreatedContractId(
@@ -269,32 +297,25 @@ async function main() {
   for (let i = 1; i <= NUM_PAYMENTS; i++) {
     console.log(`   💳 Processing airdrop payment ${i}/${NUM_PAYMENTS}...`);
 
-    // Build payment context (Amulets, rules, mining round) with disclosed contracts
+    // Build payment context (rules, mining round) with disclosed contracts
     const { paymentContext, disclosedContracts: paymentDisclosedContracts } =
-      await intellectClient.Subscriptions.utils.buildPaymentContext(
-        validatorClient,
-        SUBSCRIBER_PARTY,
-        2 // Use top 2 Amulet contracts
-      );
+      await intellectClient.Subscriptions.utils.buildPaymentContext(validatorClient);
 
-    const processPaymentCommand = fnClient.Subscriptions.activeSubscription.buildProcessPaymentCommand({
-      subscriptionContractId: currentSubscriptionContractId,
-      processingContext: {
-        processingPeriod: PROCESSING_PERIOD_MICROSECONDS,
-        processorProvider: PROCESSOR_PARTY,
-        recipientProvider: RECIPIENT_PROVIDER,
-        processorBeneficiaries: [
-          { party: RECIPIENT_PROVIDER, weight: '1' }, // Not used since skipProcessorPayment is true
-        ],
-      },
-      paymentContext,
-      skipProcessorPayment: true, // No processor fee for airdrop subscriptions
-    });
+    const { command: processPaymentCommand, disclosedContracts: processDisclosedContracts } =
+      fnClient.Subscriptions.activeSubscription.buildProcessPaymentCommand({
+        subscriptionContractId: currentSubscriptionContractId,
+        processingContext: {
+          processingPeriod: PROCESSING_PERIOD_MICROSECONDS,
+          // No featuredAppRight needed for now
+        },
+        paymentContext,
+        skipProcessorPayment: true, // No processor fee for airdrop subscriptions
+      });
 
     const paymentResponse = await fnClient.client.submitAndWaitForTransactionTree({
       actAs: [PROCESSOR_PARTY],
       commands: [processPaymentCommand],
-      disclosedContracts: paymentDisclosedContracts,
+      disclosedContracts: [...processDisclosedContracts, ...paymentDisclosedContracts],
     });
 
     const newSubscriptionContractId = extractCreatedContractId(
@@ -324,16 +345,22 @@ async function main() {
   // ========================================
   console.log('4️⃣  Recipient cancelling subscription...');
 
+  // Get payment context for unlocking amulets
+  const { paymentContext: cancelPaymentContext, disclosedContracts: cancelDisclosedContracts } =
+    await fnClient.Subscriptions.utils.buildPaymentContext(validatorClient);
+
   const cancelCommand = fnClient.Subscriptions.activeSubscription.buildCancelCommand({
     subscriptionContractId: currentSubscriptionContractId,
     actor: RECIPIENT_PARTY,
     disregardAvailablePaidPeriod: true,
     description: 'Subscription ended by recipient',
+    paymentContext: cancelPaymentContext,
   });
 
   await fnClient.client.submitAndWaitForTransactionTree({
     actAs: [RECIPIENT_PARTY],
     commands: [cancelCommand],
+    disclosedContracts: cancelDisclosedContracts,
   });
 
   console.log(`   ✅ Subscription cancelled by recipient!\n`);
@@ -343,14 +370,14 @@ async function main() {
   // ========================================
   console.log('✨ Airdrop subscription workflow complete!');
   console.log('\nKey features of airdrop subscriptions:');
-  console.log('- Subscriber (Fairmint) pays for airdrops to recipients (TransferAgent)');
+  console.log('- Subscriber (Fairmint-validator-1) pays for airdrops to recipients (TransferAgent-devnet-1)');
   console.log('- $20/day payment priced in USD (converted to CC at processing time)');
   console.log('- Recipient provider enables featured app rewards with custom beneficiaries');
-  console.log('- 85% rewards to Fairmint, 15% to airdrop vault');
+  console.log('- 85% rewards to Fairmint-validator-1, 15% to airdrop vault (demo: both same party)');
   console.log('- No processor fee (skipProcessorPayment: true)');
   console.log('- Metadata tracks app user via hashed ID');
   console.log('- Per-day billing automatically pro-rates for any processing period');
-  console.log('- Perpetual subscriptions (no expiration) with no prepaid window');
+  console.log('- Perpetual subscriptions with no prepay window (prepayWindow: 0)');
   console.log('- Any party can cancel unilaterally (recipient in this example)');
   console.log('- One subscription created per app user (scales to 14,676+ users)\n');
 

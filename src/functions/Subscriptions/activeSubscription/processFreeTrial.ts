@@ -4,11 +4,7 @@ import { relTimeToDAML } from '../../../utils/typeConversions';
 
 export interface ProcessingContext {
   processingPeriod: string; // RelTime as string (microseconds)
-  processorProvider: string;
-  recipientProvider?: string;
-  recipientFeaturedAppRight?: string;
-  processorFeaturedAppRight?: string;
-  processorBeneficiaries: Array<{ party: string; weight: string }>;
+  featuredAppRight?: string; // Optional FeaturedAppRight contract ID
 }
 
 export interface ProcessFreeTrialParams {
@@ -19,18 +15,10 @@ export interface ProcessFreeTrialParams {
 export function buildProcessFreeTrialCommand(params: ProcessFreeTrialParams): Command {
   const processingContext: any = {
     processingPeriod: relTimeToDAML(params.processingContext.processingPeriod),
-    processorProvider: params.processingContext.processorProvider,
-    processorBeneficiaries: params.processingContext.processorBeneficiaries,
   };
 
-  if (params.processingContext.recipientProvider) {
-    processingContext.recipientProvider = params.processingContext.recipientProvider;
-  }
-  if (params.processingContext.recipientFeaturedAppRight) {
-    processingContext.recipientFeaturedAppRight = params.processingContext.recipientFeaturedAppRight;
-  }
-  if (params.processingContext.processorFeaturedAppRight) {
-    processingContext.processorFeaturedAppRight = params.processingContext.processorFeaturedAppRight;
+  if (params.processingContext.featuredAppRight) {
+    processingContext.featuredAppRight = params.processingContext.featuredAppRight;
   }
 
   const choiceArguments: any = {

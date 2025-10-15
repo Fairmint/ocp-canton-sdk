@@ -16,3 +16,13 @@ export type { ActiveSubscriptionChangePartyParams, PartyRole as ActiveSubscripti
 // Re-export refund with explicit exports to avoid PaymentContext conflict
 export { buildRefundSubscriptionCommand } from './refund';
 export type { RefundSubscriptionParams } from './refund';
+
+// Export fund management functions
+export { buildAddFundsCommand } from './addFunds';
+export type { AddFundsParams } from './addFunds';
+
+export { buildWithdrawFundsCommand } from './withdrawFunds';
+export type { WithdrawFundsParams } from './withdrawFunds';
+
+export { buildReplaceLockedAmuletCommand } from './replaceLockedAmulet';
+export type { ReplaceLockedAmuletParams } from './replaceLockedAmulet';

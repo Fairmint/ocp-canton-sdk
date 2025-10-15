@@ -8,7 +8,6 @@ import type { ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { OcpClient } from '../../../OcpClient';
 
 export interface PaymentContext {
-  amuletInputs: string[];
   amuletRulesCid: string;
   openMiningRoundCid: string;
 }
@@ -18,83 +17,39 @@ export interface PaymentContextWithDisclosedContracts {
   disclosedContracts: DisclosedContract[];
 }
 
+export interface PaymentContextWithAmulets {
+  subscriberAmulets: string[];
+  amuletRulesCid: string;
+  openMiningRoundCid: string;
+}
+
+export interface PaymentContextWithAmuletsAndDisclosed {
+  paymentContext: PaymentContextWithAmulets;
+  disclosedContracts: DisclosedContract[];
+}
+
 /**
- * Build payment context for a subscription payment
+ * Build payment context for processing subscription payments (no amulet inputs needed)
  * 
  * Queries the ledger for:
- * - Subscriber's Amulet contracts
  * - AmuletRules contract
  * - OpenMiningRound contract
  * 
  * Returns both the payment context and the disclosed contracts needed
  * 
- * @param ledgerClient - OCP client for querying contracts
  * @param validatorClient - Validator API client for getting rules/rounds
- * @param subscriberParty - Party ID of the subscriber (who owns the Amulets)
- * @param maxAmuletInputs - Maximum number of Amulet contracts to use (default: 2)
  */
 export async function buildPaymentContext(
-  ledgerClient: OcpClient,
-  validatorClient: ValidatorApiClient,
-  subscriberParty: string,
-  maxAmuletInputs: number = 2
+  validatorClient: ValidatorApiClient
 ): Promise<PaymentContextWithDisclosedContracts> {
-  // Get subscriber's Amulet contracts
-  const subscriberContracts = await getAllActiveContracts(ledgerClient, [subscriberParty]);
-
-  const subscriberAmulets = subscriberContracts
-    .filter((msg) => {
-      if (msg.contractEntry && msg.contractEntry.JsActiveContract) {
-        const { createdEvent } = msg.contractEntry.JsActiveContract;
-        const { templateId } = createdEvent;
-        return (
-          templateId.moduleName === 'Splice.Amulet' &&
-          templateId.entityName === 'Amulet' &&
-          createdEvent.createArgument &&
-          'amount' in createdEvent.createArgument
-        );
-      }
-      return false;
-    })
-    .map((msg) => ({
-      contractId: msg.contractEntry.JsActiveContract.createdEvent.contractId,
-      templateId: msg.contractEntry.JsActiveContract.createdEvent.templateId,
-      payload: msg.contractEntry.JsActiveContract.createdEvent.createArgument,
-      synchronizerId: msg.contractEntry.JsActiveContract.synchronizerId,
-    }));
-
-  if (subscriberAmulets.length === 0) {
-    throw new Error(`Subscriber ${subscriberParty} has no Amulet contracts`);
-  }
-
-  // Get disclosed contracts for each Amulet
-  const amuletDisclosedContracts = await Promise.all(
-    subscriberAmulets.slice(0, maxAmuletInputs).map(async (amulet) => {
-      const amuletEvents = await ledgerClient.client.getEventsByContractId({
-        contractId: amulet.contractId,
-      });
-
-      if (!amuletEvents.created?.createdEvent) {
-        throw new Error(`Amulet contract ${amulet.contractId} not found`);
-      }
-
-      return {
-        templateId: amuletEvents.created.createdEvent.templateId,
-        contractId: amuletEvents.created.createdEvent.contractId,
-        createdEventBlob: amuletEvents.created.createdEvent.createdEventBlob,
-        synchronizerId: amuletEvents.created.synchronizerId,
-      };
-    })
-  );
-
   // Get AmuletRules contract
   const amuletRulesResponse = await validatorClient.getAmuletRules();
   const amuletRulesCid = amuletRulesResponse.amulet_rules.contract.contract_id;
   const amuletRulesContract = {
     templateId: amuletRulesResponse.amulet_rules.contract.template_id,
     contractId: amuletRulesCid,
-    createdEventBlob: amuletRulesResponse.amulet_rules.created_event_blob,
-    synchronizerId: amuletRulesResponse.amulet_rules.synchronizer_id,
+    createdEventBlob: amuletRulesResponse.amulet_rules.contract.created_event_blob,
+    synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
   };
 
   // Get OpenMiningRound contract
@@ -102,69 +57,86 @@ export async function buildPaymentContext(
   const openMiningRoundCid = miningRoundContext.openMiningRound;
   const openMiningRoundContract = miningRoundContext.openMiningRoundContract;
 
-  // Build payment context
+  return {
+    paymentContext: {
+      amuletRulesCid,
+      openMiningRoundCid,
+    },
+    disclosedContracts: [amuletRulesContract, openMiningRoundContract],
+  };
+}
+
+/**
+ * Build payment context with subscriber's amulets for initial subscription approval
+ * 
+ * Queries the ledger for:
+ * - Subscriber's Amulet contracts (via Validator API)
+ * - AmuletRules contract
+ * - OpenMiningRound contract
+ * 
+ * Returns both the payment context and the disclosed contracts needed
+ * 
+ * NOTE: The validatorClient must be authenticated as the subscriberParty
+ * 
+ * @param ledgerClient - OCP client for querying contracts
+ * @param validatorClient - Validator API client authenticated as subscriber
+ * @param subscriberParty - Party ID of the subscriber (for validation only)
+ * @param maxAmuletInputs - Maximum number of Amulet contracts to use (default: 2)
+ */
+export async function buildPaymentContextWithAmulets(
+  ledgerClient: OcpClient,
+  validatorClient: ValidatorApiClient,
+  subscriberParty: string,
+  maxAmuletInputs: number = 2
+): Promise<PaymentContextWithAmuletsAndDisclosed> {
+  // Get subscriber's Amulet contracts via Validator API
+  // Note: validatorClient must be authenticated as subscriberParty
+  const amuletsResponse = await validatorClient.getAmulets();
+
+  const subscriberAmulets = amuletsResponse.amulets.map((amulet) => ({
+    contractId: amulet.contract.contract.contract_id,
+    templateId: amulet.contract.contract.template_id,
+    synchronizerId: amulet.contract.domain_id,
+  }));
+
+  if (subscriberAmulets.length === 0) {
+    throw new Error(`Subscriber ${subscriberParty} has no Amulet contracts`);
+  }
+
+  // Get disclosed contracts for each Amulet (getAmulets already includes created_event_blob)
+  const amuletsToDisclose = amuletsResponse.amulets.slice(0, maxAmuletInputs);
+  const amuletDisclosedContracts = amuletsToDisclose.map((amulet) => ({
+    templateId: amulet.contract.contract.template_id,
+    contractId: amulet.contract.contract.contract_id,
+    createdEventBlob: amulet.contract.contract.created_event_blob,
+    synchronizerId: amulet.contract.domain_id,
+  }));
+
+  // Get AmuletRules contract
+  const amuletRulesResponse = await validatorClient.getAmuletRules();
+  const amuletRulesCid = amuletRulesResponse.amulet_rules.contract.contract_id;
+  const amuletRulesContract = {
+    templateId: amuletRulesResponse.amulet_rules.contract.template_id,
+    contractId: amuletRulesCid,
+    createdEventBlob: amuletRulesResponse.amulet_rules.contract.created_event_blob,
+    synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
+  };
+
+  // Get OpenMiningRound contract
+  const miningRoundContext = await getCurrentMiningRoundContext(validatorClient);
+  const openMiningRoundCid = miningRoundContext.openMiningRound;
+  const openMiningRoundContract = miningRoundContext.openMiningRoundContract;
+
+  // Build payment context with amulets
   const amuletInputs = subscriberAmulets.slice(0, maxAmuletInputs).map((a) => a.contractId);
 
   return {
     paymentContext: {
-      amuletInputs,
+      subscriberAmulets: amuletInputs,
       amuletRulesCid,
       openMiningRoundCid,
     },
     disclosedContracts: [amuletRulesContract, openMiningRoundContract, ...amuletDisclosedContracts],
   };
-}
-
-/**
- * Helper to get all active contracts for a party using websocket streaming
- * (avoids the 200 item limit of the REST API)
- */
-async function getAllActiveContracts(client: OcpClient, parties: string[]): Promise<any[]> {
-  // Get current ledger end offset
-  const ledgerEndResp = await client.client.getLedgerEnd({});
-  const activeAtOffset = ledgerEndResp.offset;
-
-  return new Promise((resolve, reject) => {
-    const contracts: any[] = [];
-    let subscription: any;
-
-    client.client
-      .subscribeToActiveContracts(
-        {
-          activeAtOffset,
-          parties,
-        },
-        {
-          onOpen: () => {
-            // Connection opened
-          },
-          onMessage: (msg) => {
-            // Collect active contracts
-            if (typeof msg === 'object' && 'contractEntry' in msg && 'JsActiveContract' in msg.contractEntry) {
-              contracts.push(msg);
-            }
-          },
-          onError: (err) => {
-            if (subscription) {
-              subscription.close();
-            }
-            reject(err);
-          },
-          onClose: (code, reason) => {
-            // All contracts have been streamed
-            if (code === 1000) {
-              // Normal closure
-              resolve(contracts);
-            } else {
-              reject(new Error(`Websocket closed with code ${code}: ${reason}`));
-            }
-          },
-        }
-      )
-      .then((sub) => {
-        subscription = sub;
-      })
-      .catch(reject);
-  });
 }
 

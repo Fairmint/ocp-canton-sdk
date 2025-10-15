@@ -11,6 +11,9 @@ export {
   buildRefundSubscriptionCommand,
   buildArchiveInactiveSubscriptionCommand,
   buildActiveSubscriptionChangePartyCommand,
+  buildAddFundsCommand,
+  buildWithdrawFundsCommand,
+  buildReplaceLockedAmuletCommand,
 } from './activeSubscription';
 export type {
   ProcessPaymentParams,
@@ -23,11 +26,27 @@ export type {
   RefundSubscriptionParams,
   ArchiveInactiveSubscriptionParams,
   ActiveSubscriptionChangePartyParams,
+  AddFundsParams,
+  WithdrawFundsParams,
+  ReplaceLockedAmuletParams,
 } from './activeSubscription';
 
 // Export utils last with explicit types to avoid conflicts
-export { getFactoryDisclosedContracts, buildPaymentContext, getFactoryContractId } from './utils';
-export type { PaymentContext, PaymentContextWithDisclosedContracts, Network, FactoryContractInfo } from './utils';
+export {
+  getFactoryDisclosedContracts,
+  getProposedSubscriptionDisclosedContracts,
+  buildPaymentContext,
+  buildPaymentContextWithAmulets,
+  getFactoryContractId,
+} from './utils';
+export type {
+  PaymentContext,
+  PaymentContextWithDisclosedContracts,
+  PaymentContextWithAmulets,
+  PaymentContextWithAmuletsAndDisclosed,
+  Network,
+  FactoryContractInfo,
+} from './utils';
 
 // Re-export proposedSubscription with explicit exports to avoid PartyRole conflict
 export {

@@ -1,6 +1,7 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { SubscriptionAmount, SubscriptionTime } from '../subscriptionFactory/createSubscriptionProposal';
+import { relTimeToDAML } from '../../../utils/typeConversions';
 
 export interface SubscriptionProposalChanges {
   subscriber?: string;
@@ -67,7 +68,8 @@ function changesToDaml(changes: SubscriptionProposalChanges): Record<string, unk
       changes.processorPaymentPerDay === null ? null : subscriptionAmountToDaml(changes.processorPaymentPerDay);
   if (changes.paymentsEndAt !== undefined)
     result.paymentsEndAt = changes.paymentsEndAt === null ? null : subscriptionTimeToDaml(changes.paymentsEndAt);
-  if (changes.prepayWindow !== undefined) result.prepayWindow = changes.prepayWindow;
+  if (changes.prepayWindow !== undefined)
+    result.prepayWindow = changes.prepayWindow === null ? null : relTimeToDAML(changes.prepayWindow);
   if (changes.freeTrialExpiration !== undefined)
     result.freeTrialExpiration =
       changes.freeTrialExpiration === null ? null : subscriptionTimeToDaml(changes.freeTrialExpiration);

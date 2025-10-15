@@ -1,20 +1,16 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { relTimeToDAML } from '../../../utils/typeConversions';
+import type { CommandWithDisclosedContracts } from '../../../types';
 
 export interface PaymentContext {
-  amuletInputs: string[]; // ContractIds of Amulet.Amulet
   amuletRulesCid: string;
   openMiningRoundCid: string;
 }
 
 export interface ProcessingContext {
   processingPeriod: string; // RelTime as string (microseconds)
-  processorProvider: string;
-  recipientProvider?: string;
-  recipientFeaturedAppRight?: string;
-  processorFeaturedAppRight?: string;
-  processorBeneficiaries: Array<{ party: string; weight: string }>;
+  featuredAppRight?: string; // Optional FeaturedAppRight contract ID
 }
 
 export interface ProcessPaymentParams {
@@ -24,34 +20,25 @@ export interface ProcessPaymentParams {
   skipProcessorPayment?: boolean;
 }
 
-export function buildProcessPaymentCommand(params: ProcessPaymentParams): Command {
+export function buildProcessPaymentCommand(params: ProcessPaymentParams): CommandWithDisclosedContracts {
   const processingContext: any = {
     processingPeriod: relTimeToDAML(params.processingContext.processingPeriod),
-    processorProvider: params.processingContext.processorProvider,
-    processorBeneficiaries: params.processingContext.processorBeneficiaries,
   };
 
-  if (params.processingContext.recipientProvider) {
-    processingContext.recipientProvider = params.processingContext.recipientProvider;
-  }
-  if (params.processingContext.recipientFeaturedAppRight) {
-    processingContext.recipientFeaturedAppRight = params.processingContext.recipientFeaturedAppRight;
-  }
-  if (params.processingContext.processorFeaturedAppRight) {
-    processingContext.processorFeaturedAppRight = params.processingContext.processorFeaturedAppRight;
+  if (params.processingContext.featuredAppRight) {
+    processingContext.featuredAppRight = params.processingContext.featuredAppRight;
   }
 
   const choiceArguments: any = {
     processingContext,
     paymentContext: {
-      amuletInputs: params.paymentContext.amuletInputs,
       amuletRulesCid: params.paymentContext.amuletRulesCid,
       openMiningRoundCid: params.paymentContext.openMiningRoundCid,
     },
     skipProcessorPayment: params.skipProcessorPayment ?? false,
   };
 
-  return {
+  const command: Command = {
     ExerciseCommand: {
       templateId: Fairmint.Subscriptions.ActiveSubscription.ActiveSubscription.templateId,
       contractId: params.subscriptionContractId,
@@ -59,4 +46,6 @@ export function buildProcessPaymentCommand(params: ProcessPaymentParams): Comman
       choiceArgument: choiceArguments,
     },
   };
+
+  return { command, disclosedContracts: [] };
 }

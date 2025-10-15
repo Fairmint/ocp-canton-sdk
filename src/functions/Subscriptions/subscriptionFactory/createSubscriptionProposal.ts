@@ -1,6 +1,7 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts } from '../../../types';
+import { relTimeToDAML } from '../../../utils/typeConversions';
 
 export interface SubscriptionAmount {
   type: 'AMULET' | 'USD';
@@ -15,12 +16,12 @@ export interface SubscriptionTime {
 export interface SubscriptionProposal {
   subscriber: string;
   recipient: string;
-  recipientProvider?: string;
-  recipientBeneficiaries?: Array<{ beneficiary: string; weight: string }>;
+  provider: string;
+  appRewardBeneficiaries?: Array<{ beneficiary: string; weight: string }>;
   freeTrialExpiration?: SubscriptionTime;
   recipientPaymentPerDay: SubscriptionAmount;
-  processorPaymentPerDay?: SubscriptionAmount;
-  prepayWindow?: string; // RelTime as microseconds string
+  processorPaymentPerDay?: SubscriptionAmount | null;
+  prepayWindow: string; // RelTime as microseconds string, e.g. '0' for no prepay window, '604800000000' for 7 days
   paymentsEndAt?: SubscriptionTime;
   description?: string;
   metadata?: Record<string, string>;
@@ -65,21 +66,15 @@ function subscriptionProposalToDaml(proposal: SubscriptionProposal): Record<stri
   const result: Record<string, unknown> = {
     subscriber: proposal.subscriber,
     recipient: proposal.recipient,
+    provider: proposal.provider,
     recipientPaymentPerDay: subscriptionAmountToDaml(proposal.recipientPaymentPerDay),
+    prepayWindow: relTimeToDAML(proposal.prepayWindow), // Always required, convert to DAML format
+    appRewardBeneficiaries: proposal.appRewardBeneficiaries ?? [],
     observers: proposal.observers ?? [],
   };
 
-  if (proposal.recipientProvider) {
-    result.recipientProvider = proposal.recipientProvider;
-  }
-  if (proposal.recipientBeneficiaries) {
-    result.recipientBeneficiaries = proposal.recipientBeneficiaries;
-  }
   if (proposal.processorPaymentPerDay) {
     result.processorPaymentPerDay = subscriptionAmountToDaml(proposal.processorPaymentPerDay);
-  }
-  if (proposal.prepayWindow) {
-    result.prepayWindow = proposal.prepayWindow;
   }
   if (proposal.paymentsEndAt) {
     result.paymentsEndAt = subscriptionTimeToDaml(proposal.paymentsEndAt);

@@ -35,3 +35,33 @@ export async function getFactoryDisclosedContracts(
   ];
 }
 
+/**
+ * Get disclosed contracts for a ProposedSubscription contract
+ * This allows parties to exercise choices on the proposal when needed
+ */
+export async function getProposedSubscriptionDisclosedContracts(
+  client: OcpClient,
+  proposedSubscriptionContractId: string
+): Promise<DisclosedContract[]> {
+  console.log('Getting ProposedSubscription disclosed contracts for party:', client.client.getPartyId());
+  const proposalEventsResponse = await client.client.getEventsByContractId({
+    contractId: proposedSubscriptionContractId,
+    readAs: [client.client.getPartyId()],
+  });
+
+  const createdEvent = proposalEventsResponse.created?.createdEvent;
+
+  if (!createdEvent) {
+    throw new Error(`ProposedSubscription contract ${proposedSubscriptionContractId} not found`);
+  }
+
+  return [
+    {
+      templateId: createdEvent.templateId,
+      contractId: createdEvent.contractId,
+      createdEventBlob: createdEvent.createdEventBlob,
+      synchronizerId: proposalEventsResponse.created!.synchronizerId,
+    },
+  ];
+}
+
