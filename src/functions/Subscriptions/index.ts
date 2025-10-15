@@ -17,7 +17,6 @@ export {
 } from './activeSubscription';
 export type {
   ActiveSubscriptionChangePartyParams,
-  ProcessingContext as ActiveSubscriptionProcessingContext,
   AddFundsParams,
   ArchiveInactiveSubscriptionParams,
   CancelSubscriptionParams,
