@@ -164,7 +164,7 @@ async function main() {
   const SUBSCRIBER_PARTY = INTELLECT_PARTY; // Fairmint-validator-1 pays for airdrop
   const RECIPIENT_PARTY = FN_PARTY; // TransferAgent-devnet-1 receives payment
   const PROCESSOR_PARTY = "test-processor::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"; // An intellect account
-  const RECIPIENT_PROVIDER = INTELLECT_PARTY; // Fairmint-validator-1 (for featured rewards)
+  const PROVIDER = INTELLECT_PARTY; // Fairmint-validator-1 (for featured rewards)
   // For demo purposes, use actual parties. In production, use a real airdrop vault party
   const AIRDROP_VAULT_PARTY = "test-vault::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"; // A 5N account
 
@@ -173,7 +173,7 @@ async function main() {
   console.log(`   Subscriber (Fairmint-validator-1): ${SUBSCRIBER_PARTY}`);
   console.log(`   Recipient (TransferAgent-devnet-1): ${RECIPIENT_PARTY}`);
   console.log(`   Processor (TransferAgent-devnet-1): ${PROCESSOR_PARTY}`);
-  console.log(`   Recipient Provider (Fairmint-validator-1): ${RECIPIENT_PROVIDER}`);
+  console.log(`   Recipient Provider (Fairmint-validator-1): ${PROVIDER}`);
   console.log(`   Airdrop Vault (Fairmint-validator-1): ${AIRDROP_VAULT_PARTY}\n`);
 
   // ========================================
@@ -187,7 +187,8 @@ async function main() {
 
   // Get disclosed contracts for the factory (allows subscriber to exercise it)
   const factoryDisclosedContracts = await intellectClient.Subscriptions.utils.getFactoryDisclosedContracts(
-    FACTORY_CONTRACT_ID
+    FACTORY_CONTRACT_ID,
+    PROCESSOR_PARTY
   );
 
   const { command: createProposalCommand, disclosedContracts } =
@@ -197,14 +198,14 @@ async function main() {
       subscriptionProposal: {
         subscriber: SUBSCRIBER_PARTY,
         recipient: RECIPIENT_PARTY,
-        provider: SUBSCRIBER_PARTY, // Provider is typically the subscriber's validator
+        provider: PROVIDER, 
         appRewardBeneficiaries: [
-          { beneficiary: RECIPIENT_PROVIDER, weight: '0.85' }, // 85% to Fairmint-validator-1
+          { beneficiary: PROVIDER, weight: '0.85' }, // 85% to Fairmint-validator-1
           { beneficiary: AIRDROP_VAULT_PARTY, weight: '0.15' }, // 15% to airdrop-vault-1
         ],
         recipientPaymentPerDay: {
           type: 'AMULET',
-          amount: '864000000', // 100,000 CC every 10 seconds (extremely high to overcome devnet fee structure)
+          amount: '86400', // 10 CC every 10 seconds
         },
         processorPaymentPerDay: null, // No processor fee for airdrop subscriptions
         prepayWindow: '0', // 0 microseconds = no prepay window (pay-as-you-go)
@@ -234,9 +235,46 @@ async function main() {
   console.log(`   ✅ Proposal created: ${proposalContractId}\n`);
 
   // ========================================
-  // Step 2: Recipient approves to activate (final approval with locked amulets)
+  // Step 2: Processor approves
   // ========================================
-  console.log('2️⃣  Recipient approving proposal to activate with locked funds...');
+  console.log('2️⃣  Processor approving proposal...');
+
+  // Get disclosed contracts for the ProposedSubscription (required to exercise the choice)
+  let proposalDisclosedContracts = await intellectClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(
+    proposalContractId
+  );
+
+  const { command: processorApproveCommand, disclosedContracts: processorApproveDisclosedContracts } =
+    intellectClient.Subscriptions.proposedSubscription.buildApproveCommand({
+      proposedSubscriptionContractId: proposalContractId,
+      actor: PROCESSOR_PARTY,
+      subscriberAmulets: undefined, // No amulets needed for non-final approval
+      amountToLock: '0',
+      paymentContext: undefined,
+    });
+
+  const processorApprovedResponse = await intellectClient.client.submitAndWaitForTransactionTree({
+    actAs: [PROCESSOR_PARTY],
+    commands: [processorApproveCommand],
+    disclosedContracts: [...processorApproveDisclosedContracts, ...proposalDisclosedContracts],
+  });
+
+  const processorApprovedProposalId = extractCreatedContractId(
+    processorApprovedResponse,
+    'Fairmint.Subscriptions',
+    'ProposedSubscription'
+  );
+
+  if (!processorApprovedProposalId) {
+    throw new Error('Failed to get processor-approved proposal');
+  }
+
+  console.log(`   ✅ Processor approved: ${processorApprovedProposalId}\n`);
+
+  // ========================================
+  // Step 3: Recipient approves to activate (final approval with locked amulets)
+  // ========================================
+  console.log('3️⃣  Recipient approving proposal to activate with locked funds...');
 
   // Get subscriber's amulets and payment context for locking funds
   const { paymentContext: subscriberPaymentContext, disclosedContracts: subscriberDisclosedContracts } =
@@ -246,16 +284,16 @@ async function main() {
       2 // Use top 2 Amulet contracts
     );
 
-  // Get disclosed contracts for the ProposedSubscription (required to exercise the choice)
-  const proposalDisclosedContracts = await fnClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(
-    proposalContractId
+  // Get disclosed contracts for the processor-approved ProposedSubscription
+  proposalDisclosedContracts = await fnClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(
+    processorApprovedProposalId
   );
 
   const amountToLock = '500000.0'; // Lock 500,000 CC for subscription payments (needs to cover 3 payments + high fees)
 
   const { command: approveCommand, disclosedContracts: approveDisclosedContracts } =
     fnClient.Subscriptions.proposedSubscription.buildApproveCommand({
-      proposedSubscriptionContractId: proposalContractId,
+      proposedSubscriptionContractId: processorApprovedProposalId,
       actor: RECIPIENT_PARTY,
       subscriberAmulets: subscriberPaymentContext.subscriberAmulets,
       amountToLock,
@@ -284,9 +322,9 @@ async function main() {
   console.log(`   ✅ Subscription active: ${subscriptionContractId}\n`);
 
   // ========================================
-  // Step 3: Process payments (3 rounds)
+  // Step 4: Process payments (3 rounds)
   // ========================================
-  console.log('3️⃣  Processing airdrop payments (3 rounds with 10-second periods)...\n');
+  console.log('4️⃣  Processing airdrop payments (3 rounds with 10-second periods)...\n');
 
   const NUM_PAYMENTS = 3;
   const PROCESSING_PERIOD_SECONDS = 10; // Keep 10 seconds for fast testing

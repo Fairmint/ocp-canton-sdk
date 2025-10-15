@@ -11,12 +11,13 @@ import type { OcpClient } from '../../../OcpClient';
  */
 export async function getFactoryDisclosedContracts(
   client: OcpClient,
-  factoryContractId: string
+  factoryContractId: string,
+  readAs: string
 ): Promise<DisclosedContract[]> {
   console.log('Getting factory disclosed contracts for party:', client.client.getPartyId());
   const factoryEventsResponse = await client.client.getEventsByContractId({
     contractId: factoryContractId,
-    readAs: [client.client.getPartyId()],
+    readAs: [readAs],
   });
 
   const createdEvent = factoryEventsResponse.created?.createdEvent;

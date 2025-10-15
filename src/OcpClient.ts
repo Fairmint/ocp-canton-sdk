@@ -291,7 +291,8 @@ export class OcpClient {
     };
     utils: {
       getFactoryDisclosedContracts: (
-        factoryContractId: string
+        factoryContractId: string,
+        readAs: string
       ) => Promise<
         Array<{
           templateId: any;
@@ -533,9 +534,9 @@ export class OcpClient {
         },
       },
       utils: {
-        getFactoryDisclosedContracts: async (factoryContractId: string) => {
+        getFactoryDisclosedContracts: async (factoryContractId: string, readAs: string) => {
           const { getFactoryDisclosedContracts } = require('./functions/Subscriptions');
-          return getFactoryDisclosedContracts(this, factoryContractId);
+          return getFactoryDisclosedContracts(this, factoryContractId, readAs);
         },
         getProposedSubscriptionDisclosedContracts: async (proposedSubscriptionContractId: string) => {
           const { getProposedSubscriptionDisclosedContracts } = require('./functions/Subscriptions');
