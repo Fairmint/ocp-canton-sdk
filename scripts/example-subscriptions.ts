@@ -43,7 +43,23 @@ function extractCreatedContractId(response: any, moduleName: string, entityName:
     if (event && typeof event === 'object' && 'CreatedTreeEvent' in event) {
       const createdEvent = (event as any).CreatedTreeEvent.value;
       const { templateId } = createdEvent;
-      return templateId.moduleName === moduleName && templateId.entityName === entityName;
+      
+      // Handle both string format (packageId:fullModulePath.entityName:entityName) and object format
+      if (typeof templateId === 'string') {
+        const parts = templateId.split(':');
+        if (parts.length >= 3) {
+          // parts[1] is like "Fairmint.Subscriptions.ProposedSubscription"
+          // parts[2] is like "ProposedSubscription"
+          const fullPath = parts[1];
+          const templateEntity = parts[2];
+          
+          // Check if the full path matches moduleName.entityName
+          const expectedFullPath = `${moduleName}.${entityName}`;
+          return fullPath === expectedFullPath && templateEntity === entityName;
+        }
+      } else if (typeof templateId === 'object') {
+        return templateId.moduleName === moduleName && templateId.entityName === entityName;
+      }
     }
     return false;
   });
@@ -81,6 +97,7 @@ async function main() {
             ) ?? '',
           grantType: 'client_credentials',
         },
+        partyId: envLoader.getPartyId(NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n'),
       },
     },
     logger: new FileLogger(),
@@ -98,14 +115,15 @@ async function main() {
           clientId:
             envLoader.getApiClientId('LEDGER_JSON_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
             '',
-          username:
-            envLoader.getApiUsername('LEDGER_JSON_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
-            '',
-          password:
-            envLoader.getApiPassword('LEDGER_JSON_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
-            '',
-          grantType: 'password',
+          clientSecret:
+            envLoader.getApiClientSecret(
+              'LEDGER_JSON_API',
+              NETWORK as 'mainnet' | 'devnet',
+              '5n' as 'intellect' | '5n'
+            ) ?? '',
+          grantType: 'client_credentials',
         },
+        partyId: envLoader.getPartyId(NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n'),
       },
     },
     logger: new FileLogger(),
@@ -114,24 +132,25 @@ async function main() {
   // Initialize Validator API client for payment context (processor's view)
   const validatorClient = new ValidatorApiClient({
     network: NETWORK as 'mainnet' | 'devnet',
-    provider: '5n' as 'intellect' | '5n',
-    authUrl: envLoader.getAuthUrl(NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n'),
+    provider: 'intellect' as 'intellect' | '5n',
+    authUrl: envLoader.getAuthUrl(NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n'),
     apis: {
       VALIDATOR_API: {
         apiUrl:
-          envLoader.getApiUri('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ?? '',
+          envLoader.getApiUri('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ?? '',
         auth: {
           clientId:
-            envLoader.getApiClientId('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
+            envLoader.getApiClientId('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ??
             '',
           username:
-            envLoader.getApiUsername('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
+            envLoader.getApiUsername('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ??
             '',
           password:
-            envLoader.getApiPassword('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', '5n' as 'intellect' | '5n') ??
+            envLoader.getApiPassword('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ??
             '',
           grantType: 'password',
         },
+        partyId: envLoader.getPartyId(NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n'),
       },
     },
     logger: new FileLogger(),
@@ -177,8 +196,8 @@ async function main() {
         recipient: RECIPIENT_PARTY,
         recipientProvider: RECIPIENT_PROVIDER,
         recipientBeneficiaries: [
-          { party: RECIPIENT_PROVIDER, weight: '0.85' }, // 85% to Fairmint-validator-1
-          { party: AIRDROP_VAULT_PARTY, weight: '0.15' }, // 15% to airdrop-vault-1
+          { beneficiary: RECIPIENT_PROVIDER, weight: '0.85' }, // 85% to Fairmint-validator-1
+          { beneficiary: AIRDROP_VAULT_PARTY, weight: '0.15' }, // 15% to airdrop-vault-1
         ],
         recipientPaymentPerDay: {
           type: 'USD',
@@ -252,7 +271,7 @@ async function main() {
 
     // Build payment context (Amulets, rules, mining round) with disclosed contracts
     const { paymentContext, disclosedContracts: paymentDisclosedContracts } =
-      await fnClient.Subscriptions.utils.buildPaymentContext(
+      await intellectClient.Subscriptions.utils.buildPaymentContext(
         validatorClient,
         SUBSCRIBER_PARTY,
         2 // Use top 2 Amulet contracts

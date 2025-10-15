@@ -16,7 +16,7 @@ export interface SubscriptionProposal {
   subscriber: string;
   recipient: string;
   recipientProvider?: string;
-  recipientBeneficiaries?: Array<{ party: string; weight: string }>;
+  recipientBeneficiaries?: Array<{ beneficiary: string; weight: string }>;
   freeTrialExpiration?: SubscriptionTime;
   recipientPaymentPerDay: SubscriptionAmount;
   processorPaymentPerDay?: SubscriptionAmount;

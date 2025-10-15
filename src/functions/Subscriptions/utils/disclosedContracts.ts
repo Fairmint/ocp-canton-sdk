@@ -13,8 +13,10 @@ export async function getFactoryDisclosedContracts(
   client: OcpClient,
   factoryContractId: string
 ): Promise<DisclosedContract[]> {
+  console.log('Getting factory disclosed contracts for party:', client.client.getPartyId());
   const factoryEventsResponse = await client.client.getEventsByContractId({
     contractId: factoryContractId,
+    readAs: [client.client.getPartyId()],
   });
 
   const createdEvent = factoryEventsResponse.created?.createdEvent;
