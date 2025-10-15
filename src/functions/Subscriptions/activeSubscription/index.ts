@@ -7,7 +7,7 @@ export { buildProcessFreeTrialCommand } from './processFreeTrial';
 export type { ProcessFreeTrialParams } from './processFreeTrial';
 
 export { buildProcessPaymentCommand } from './processPayment';
-export type { ProcessPaymentParams, ProcessingContext } from './processPayment';
+export type { ProcessPaymentParams } from './processPayment';
 
 // Re-export changeParty explicitly to avoid PartyRole conflict
 export { buildActiveSubscriptionChangePartyCommand } from './changeParty';

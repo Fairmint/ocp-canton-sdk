@@ -4,26 +4,16 @@ import type { CommandWithDisclosedContracts } from '../../../types';
 import { relTimeToDAML } from '../../../utils/typeConversions';
 import type { PaymentContext } from '../utils/paymentContext';
 
-export interface ProcessingContext {
-  processingPeriod: string; // RelTime as string (microseconds)
-  featuredAppRight?: string; // Optional FeaturedAppRight contract ID
-}
-
 export interface ProcessPaymentParams {
   subscriptionContractId: string;
-  processingContext: ProcessingContext;
+  processingPeriod: string; // RelTime as string (microseconds)
   paymentContext: PaymentContext;
   skipProcessorPayment?: boolean;
 }
 
 export function buildProcessPaymentCommand(params: ProcessPaymentParams): CommandWithDisclosedContracts {
-  const processingContext = {
-    processingPeriod: relTimeToDAML(params.processingContext.processingPeriod),
-    featuredAppRight: params.processingContext.featuredAppRight ?? null,
-  };
-
   const choiceArguments = {
-    processingContext,
+    processingPeriod: relTimeToDAML(params.processingPeriod),
     paymentContext: {
       amuletRulesCid: params.paymentContext.amuletRulesCid,
       openMiningRoundCid: params.paymentContext.openMiningRoundCid,

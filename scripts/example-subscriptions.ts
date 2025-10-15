@@ -357,10 +357,7 @@ async function main() {
     const { command: processPaymentCommand, disclosedContracts: processDisclosedContracts } =
       fnClient.Subscriptions.activeSubscription.buildProcessPaymentCommand({
         subscriptionContractId: currentSubscriptionContractId,
-        processingContext: {
-          processingPeriod: PROCESSING_PERIOD_MICROSECONDS,
-          featuredAppRight: paymentContext.featuredAppRight ?? undefined,
-        },
+        processingPeriod: PROCESSING_PERIOD_MICROSECONDS,
         paymentContext,
         skipProcessorPayment: true, // No processor fee for airdrop subscriptions
       });
