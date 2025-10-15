@@ -1,30 +1,37 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts } from '../../../types';
+import { relTimeToDAML } from '../../../utils/typeConversions';
 
 export interface SubscriptionAmount {
   type: 'AMULET' | 'USD';
   amount: string | number;
 }
 
-export interface PaymentConfig {
-  amountPerDay: SubscriptionAmount;
-  featuredAppRight?: string;
+export interface SubscriptionTime {
+  type: 'PRECISE' | 'RELATIVE';
+  value: Date | string; // Date for precise, microseconds string for relative
 }
 
-export interface SubscriptionConfig {
+export interface SubscriptionProposal {
   subscriber: string;
   recipient: string;
-  recipientPayment: PaymentConfig;
-  processorPayment: PaymentConfig;
-  expiresAt: Date;
-  freeTrialEndsAt?: Date;
-  reason?: string;
+  provider: string;
+  appRewardBeneficiaries?: Array<{ beneficiary: string; weight: string }>;
+  freeTrialExpiration?: SubscriptionTime;
+  recipientPaymentPerDay: SubscriptionAmount;
+  processorPaymentPerDay?: SubscriptionAmount | null;
+  prepayWindow: string; // RelTime as microseconds string, e.g. '0' for no prepay window, '604800000000' for 7 days
+  paymentsEndAt?: SubscriptionTime;
+  description?: string;
+  metadata?: Record<string, string>;
+  observers?: string[];
 }
 
-export interface CreateSubscriptionProposalParams {
+export interface CreateProposedSubscriptionParams {
   factoryContractId: string;
-  config: SubscriptionConfig;
+  actor: string;
+  subscriptionProposal: SubscriptionProposal;
 }
 
 function subscriptionAmountToDaml(amount: SubscriptionAmount): Record<string, unknown> {
@@ -42,37 +49,62 @@ function subscriptionAmountToDaml(amount: SubscriptionAmount): Record<string, un
   };
 }
 
-function paymentConfigToDaml(config: PaymentConfig): Record<string, unknown> {
+function subscriptionTimeToDaml(time: SubscriptionTime): Record<string, unknown> {
+  if (time.type === 'PRECISE') {
+    return {
+      tag: 'PreciseTime',
+      value: (time.value as Date).toISOString(),
+    };
+  }
   return {
-    amountPerDay: subscriptionAmountToDaml(config.amountPerDay),
-    featuredAppRight: config.featuredAppRight ?? null,
+    tag: 'RelativeTime',
+    value: time.value as string,
   };
 }
 
-function subscriptionConfigToDaml(config: SubscriptionConfig): Record<string, unknown> {
-  return {
-    subscriber: config.subscriber,
-    recipient: config.recipient,
-    recipientPayment: paymentConfigToDaml(config.recipientPayment),
-    processorPayment: paymentConfigToDaml(config.processorPayment),
-    expiresAt: config.expiresAt.toISOString(),
-    freeTrialEndsAt: config.freeTrialEndsAt ? config.freeTrialEndsAt.toISOString() : null,
-    reason: config.reason ?? null,
+function subscriptionProposalToDaml(proposal: SubscriptionProposal): Record<string, unknown> {
+  const result: Record<string, unknown> = {
+    subscriber: proposal.subscriber,
+    recipient: proposal.recipient,
+    provider: proposal.provider,
+    recipientPaymentPerDay: subscriptionAmountToDaml(proposal.recipientPaymentPerDay),
+    prepayWindow: relTimeToDAML(proposal.prepayWindow), // Always required, convert to DAML format
+    appRewardBeneficiaries: proposal.appRewardBeneficiaries ?? [],
+    observers: proposal.observers ?? [],
   };
+
+  if (proposal.processorPaymentPerDay) {
+    result.processorPaymentPerDay = subscriptionAmountToDaml(proposal.processorPaymentPerDay);
+  }
+  if (proposal.paymentsEndAt) {
+    result.paymentsEndAt = subscriptionTimeToDaml(proposal.paymentsEndAt);
+  }
+  if (proposal.freeTrialExpiration) {
+    result.freeTrialExpiration = subscriptionTimeToDaml(proposal.freeTrialExpiration);
+  }
+  if (proposal.description) {
+    result.description = proposal.description;
+  }
+  if (proposal.metadata) {
+    result.metadata = proposal.metadata;
+  }
+
+  return result;
 }
 
-export function buildCreateSubscriptionProposalCommand(
-  params: CreateSubscriptionProposalParams
+export function buildCreateProposedSubscriptionCommand(
+  params: CreateProposedSubscriptionParams
 ): CommandWithDisclosedContracts {
-  const choiceArguments: Fairmint.Subscriptions.SubscriptionFactory.SubscriptionFactory_CreateProposal = {
-    config: subscriptionConfigToDaml(params.config) as Fairmint.Subscriptions.SubscriptionConfig.SubscriptionConfig,
+  const choiceArguments = {
+    actor: params.actor,
+    subscriptionProposal: subscriptionProposalToDaml(params.subscriptionProposal),
   };
 
   const command: Command = {
     ExerciseCommand: {
       templateId: Fairmint.Subscriptions.SubscriptionFactory.SubscriptionFactory.templateId,
       contractId: params.factoryContractId,
-      choice: 'SubscriptionFactory_CreateProposal',
+      choice: 'SubscriptionFactory_CreateProposedSubscription',
       choiceArgument: choiceArguments,
     },
   };

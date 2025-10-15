@@ -1,0 +1,22 @@
+import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+
+export interface SubscriptionChangeProposalApproveParams {
+  changeProposalContractId: string;
+  actor: string;
+}
+
+export function buildSubscriptionChangeProposalApproveCommand(
+  params: SubscriptionChangeProposalApproveParams
+): Command {
+  return {
+    ExerciseCommand: {
+      templateId: Fairmint.Subscriptions.ActiveSubscription.SubscriptionChangeProposal.templateId,
+      contractId: params.changeProposalContractId,
+      choice: 'SubscriptionChangeProposal_Approve',
+      choiceArgument: {
+        actor: params.actor,
+      },
+    },
+  };
+}

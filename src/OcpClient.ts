@@ -50,8 +50,6 @@ import {
   buildArchiveStockPlanPoolAdjustmentByIssuerCommand,
   buildArchiveVestingTermsByIssuerCommand,
   buildArchiveWarrantIssuanceByIssuerCommand,
-  buildCancelByRecipientCommand,
-  buildCancelBySubscriberCommand,
   buildCreateCompanyValuationReportCommand,
   buildCreateConvertibleIssuanceCommand,
   buildCreateDocumentCommand,
@@ -67,18 +65,8 @@ import {
   buildCreateStockLegendTemplateCommand,
   buildCreateStockPlanCommand,
   buildCreateStockPlanPoolAdjustmentCommand,
-  buildCreateSubscriptionProposalCommand,
   buildCreateVestingTermsCommand,
   buildCreateWarrantIssuanceCommand,
-  buildProcessFreeTrialCommand,
-  buildProcessorApproveCommand,
-  buildProcessorApprovedRecipientAcceptCommand,
-  buildProcessorApprovedRecipientRejectCommand,
-  buildProcessorApprovedSubscriberWithdrawCommand,
-  buildProcessorRejectCommand,
-  buildProcessPaymentCommand,
-  buildRecipientRejectCommand,
-  buildSubscriberWithdrawCommand,
   createCompanyValuationReport,
   getConvertibleIssuanceAsOcf,
   getDocumentAsOcf,
@@ -264,28 +252,70 @@ export class OcpClient {
 
   public Subscriptions: {
     subscriptionFactory: {
-      buildCreateSubscriptionProposalCommand: (
-        params: import('./functions').CreateSubscriptionProposalParams
+      buildCreateProposedSubscriptionCommand: (
+        params: import('./functions').CreateProposedSubscriptionParams
       ) => CommandWithDisclosedContracts;
     };
-    subscriptionProposal: {
-      buildProcessorApproveCommand: (params: import('./functions').ProcessorApproveParams) => Command;
-      buildProcessorRejectCommand: (params: import('./functions').ProcessorRejectParams) => Command;
-      buildSubscriberWithdrawCommand: (params: import('./functions').SubscriberWithdrawParams) => Command;
-      buildRecipientRejectCommand: (params: import('./functions').RecipientRejectParams) => Command;
+    proposedSubscription: {
+      buildApproveCommand: (
+        params: import('./functions').ProposedSubscriptionApproveParams
+      ) => CommandWithDisclosedContracts;
+      buildStartSubscriptionCommand: (
+        params: import('./functions').ProposedSubscriptionStartParams
+      ) => CommandWithDisclosedContracts;
+      buildEditSubscriptionProposalCommand: (params: import('./functions').EditSubscriptionProposalParams) => Command;
+      buildWithdrawCommand: (params: import('./functions').ProposedSubscriptionWithdrawParams) => Command;
+      buildChangePartyCommand: (params: import('./functions').ProposedSubscriptionChangePartyParams) => Command;
     };
-    processorApprovedSubscriptionProposal: {
-      buildRecipientAcceptCommand: (params: import('./functions').ProcessorApprovedRecipientAcceptParams) => Command;
-      buildRecipientRejectCommand: (params: import('./functions').ProcessorApprovedRecipientRejectParams) => Command;
-      buildSubscriberWithdrawCommand: (
-        params: import('./functions').ProcessorApprovedSubscriberWithdrawParams
-      ) => Command;
-    };
-    subscription: {
-      buildProcessPaymentCommand: (params: import('./functions').ProcessPaymentParams) => Command;
+    activeSubscription: {
+      buildProcessPaymentCommand: (params: import('./functions').ProcessPaymentParams) => CommandWithDisclosedContracts;
       buildProcessFreeTrialCommand: (params: import('./functions').ProcessFreeTrialParams) => Command;
-      buildCancelBySubscriberCommand: (params: import('./functions').CancelBySubscriberParams) => Command;
-      buildCancelByRecipientCommand: (params: import('./functions').CancelByRecipientParams) => Command;
+      buildCancelCommand: (params: import('./functions').CancelSubscriptionParams) => Command;
+      buildProposeChangesCommand: (params: import('./functions').ProposeChangesParams) => Command;
+      buildRefundCommand: (params: import('./functions').RefundSubscriptionParams) => Command;
+      buildArchiveInactiveSubscriptionCommand: (
+        params: import('./functions').ArchiveInactiveSubscriptionParams
+      ) => Command;
+      buildChangePartyCommand: (params: import('./functions').ActiveSubscriptionChangePartyParams) => Command;
+    };
+    subscriptionChangeProposal: {
+      buildApproveCommand: (params: import('./functions').SubscriptionChangeProposalApproveParams) => Command;
+      buildApplyCommand: (params: import('./functions').SubscriptionChangeProposalApplyParams) => Command;
+      buildRejectCommand: (params: import('./functions').SubscriptionChangeProposalRejectParams) => Command;
+    };
+    partyMigrationProposal: {
+      buildApproveCommand: (params: import('./functions').PartyMigrationProposalApproveParams) => Command;
+      buildMigrateActiveSubscriptionCommand: (params: import('./functions').MigrateActiveSubscriptionParams) => Command;
+      buildMigrateProposedSubscriptionCommand: (
+        params: import('./functions').MigrateProposedSubscriptionParams
+      ) => Command;
+      buildArchiveCommand: (params: import('./functions').PartyMigrationProposalArchiveParams) => Command;
+    };
+    utils: {
+      getFactoryDisclosedContracts: () => Array<{
+        templateId: string;
+        contractId: string;
+        createdEventBlob: string;
+        synchronizerId: string;
+      }>;
+      getProposedSubscriptionDisclosedContracts: (proposedSubscriptionContractId: string) => Promise<
+        Array<{
+          templateId: string;
+          contractId: string;
+          createdEventBlob: string;
+          synchronizerId: string;
+        }>
+      >;
+      buildPaymentContext: (
+        validatorClient: import('@fairmint/canton-node-sdk').ValidatorApiClient,
+        provider?: string
+      ) => Promise<import('./functions').PaymentContextWithDisclosedContracts>;
+      buildPaymentContextWithAmulets: (
+        validatorClient: import('@fairmint/canton-node-sdk').ValidatorApiClient,
+        subscriberParty: string,
+        maxAmuletInputs?: number,
+        provider?: string
+      ) => Promise<import('./functions').PaymentContextWithAmuletsAndDisclosed>;
     };
   };
 
@@ -412,29 +442,125 @@ export class OcpClient {
       },
     };
 
-    // Subscriptions namespace
+    // Subscriptions namespace - lazy import to avoid circular dependencies
+    /* eslint-disable @typescript-eslint/no-require-imports */
     this.Subscriptions = {
       subscriptionFactory: {
-        buildCreateSubscriptionProposalCommand: (params) => buildCreateSubscriptionProposalCommand(params),
+        buildCreateProposedSubscriptionCommand: (params) => {
+          const { buildCreateProposedSubscriptionCommand } = require('./functions/Subscriptions');
+          return buildCreateProposedSubscriptionCommand(params);
+        },
       },
-      subscriptionProposal: {
-        buildProcessorApproveCommand: (params) => buildProcessorApproveCommand(params),
-        buildProcessorRejectCommand: (params) => buildProcessorRejectCommand(params),
-        buildSubscriberWithdrawCommand: (params) => buildSubscriberWithdrawCommand(params),
-        buildRecipientRejectCommand: (params) => buildRecipientRejectCommand(params),
+      proposedSubscription: {
+        buildApproveCommand: (params) => {
+          const { buildProposedSubscriptionApproveCommand } = require('./functions/Subscriptions');
+          return buildProposedSubscriptionApproveCommand(params);
+        },
+        buildStartSubscriptionCommand: (params) => {
+          const { buildProposedSubscriptionStartCommand } = require('./functions/Subscriptions');
+          return buildProposedSubscriptionStartCommand(params);
+        },
+        buildEditSubscriptionProposalCommand: (params) => {
+          const { buildEditSubscriptionProposalCommand } = require('./functions/Subscriptions');
+          return buildEditSubscriptionProposalCommand(params);
+        },
+        buildWithdrawCommand: (params) => {
+          const { buildProposedSubscriptionWithdrawCommand } = require('./functions/Subscriptions');
+          return buildProposedSubscriptionWithdrawCommand(params);
+        },
+        buildChangePartyCommand: (params) => {
+          const { buildProposedSubscriptionChangePartyCommand } = require('./functions/Subscriptions');
+          return buildProposedSubscriptionChangePartyCommand(params);
+        },
       },
-      processorApprovedSubscriptionProposal: {
-        buildRecipientAcceptCommand: (params) => buildProcessorApprovedRecipientAcceptCommand(params),
-        buildRecipientRejectCommand: (params) => buildProcessorApprovedRecipientRejectCommand(params),
-        buildSubscriberWithdrawCommand: (params) => buildProcessorApprovedSubscriberWithdrawCommand(params),
+      activeSubscription: {
+        buildProcessPaymentCommand: (params) => {
+          const { buildProcessPaymentCommand } = require('./functions/Subscriptions');
+          return buildProcessPaymentCommand(params);
+        },
+        buildProcessFreeTrialCommand: (params) => {
+          const { buildProcessFreeTrialCommand } = require('./functions/Subscriptions');
+          return buildProcessFreeTrialCommand(params);
+        },
+        buildCancelCommand: (params) => {
+          const { buildCancelSubscriptionCommand } = require('./functions/Subscriptions');
+          return buildCancelSubscriptionCommand(params);
+        },
+        buildProposeChangesCommand: (params) => {
+          const { buildProposeChangesCommand } = require('./functions/Subscriptions');
+          return buildProposeChangesCommand(params);
+        },
+        buildRefundCommand: (params) => {
+          const { buildRefundSubscriptionCommand } = require('./functions/Subscriptions');
+          return buildRefundSubscriptionCommand(params);
+        },
+        buildArchiveInactiveSubscriptionCommand: (params) => {
+          const { buildArchiveInactiveSubscriptionCommand } = require('./functions/Subscriptions');
+          return buildArchiveInactiveSubscriptionCommand(params);
+        },
+        buildChangePartyCommand: (params) => {
+          const { buildActiveSubscriptionChangePartyCommand } = require('./functions/Subscriptions');
+          return buildActiveSubscriptionChangePartyCommand(params);
+        },
       },
-      subscription: {
-        buildProcessPaymentCommand: (params) => buildProcessPaymentCommand(params),
-        buildProcessFreeTrialCommand: (params) => buildProcessFreeTrialCommand(params),
-        buildCancelBySubscriberCommand: (params) => buildCancelBySubscriberCommand(params),
-        buildCancelByRecipientCommand: (params) => buildCancelByRecipientCommand(params),
+      subscriptionChangeProposal: {
+        buildApproveCommand: (params) => {
+          const { buildSubscriptionChangeProposalApproveCommand } = require('./functions/Subscriptions');
+          return buildSubscriptionChangeProposalApproveCommand(params);
+        },
+        buildApplyCommand: (params) => {
+          const { buildSubscriptionChangeProposalApplyCommand } = require('./functions/Subscriptions');
+          return buildSubscriptionChangeProposalApplyCommand(params);
+        },
+        buildRejectCommand: (params) => {
+          const { buildSubscriptionChangeProposalRejectCommand } = require('./functions/Subscriptions');
+          return buildSubscriptionChangeProposalRejectCommand(params);
+        },
+      },
+      partyMigrationProposal: {
+        buildApproveCommand: (params) => {
+          const { buildPartyMigrationProposalApproveCommand } = require('./functions/Subscriptions');
+          return buildPartyMigrationProposalApproveCommand(params);
+        },
+        buildMigrateActiveSubscriptionCommand: (params) => {
+          const { buildMigrateActiveSubscriptionCommand } = require('./functions/Subscriptions');
+          return buildMigrateActiveSubscriptionCommand(params);
+        },
+        buildMigrateProposedSubscriptionCommand: (params) => {
+          const { buildMigrateProposedSubscriptionCommand } = require('./functions/Subscriptions');
+          return buildMigrateProposedSubscriptionCommand(params);
+        },
+        buildArchiveCommand: (params) => {
+          const { buildPartyMigrationProposalArchiveCommand } = require('./functions/Subscriptions');
+          return buildPartyMigrationProposalArchiveCommand(params);
+        },
+      },
+      utils: {
+        getFactoryDisclosedContracts: () => {
+          const { getFactoryDisclosedContracts } = require('./functions/Subscriptions');
+          return getFactoryDisclosedContracts(this);
+        },
+        getProposedSubscriptionDisclosedContracts: async (proposedSubscriptionContractId: string) => {
+          const { getProposedSubscriptionDisclosedContracts } = require('./functions/Subscriptions');
+          return await getProposedSubscriptionDisclosedContracts(this, proposedSubscriptionContractId);
+        },
+        buildPaymentContext: async (validatorClient, provider) => {
+          const { buildPaymentContext } = require('./functions/Subscriptions');
+          return await buildPaymentContext(validatorClient, provider);
+        },
+        buildPaymentContextWithAmulets: async (validatorClient, subscriberParty, maxAmuletInputs, provider) => {
+          const { buildPaymentContextWithAmulets } = require('./functions/Subscriptions');
+          return await buildPaymentContextWithAmulets(
+            this,
+            validatorClient,
+            subscriberParty,
+            maxAmuletInputs,
+            provider
+          );
+        },
       },
     };
+    /* eslint-enable @typescript-eslint/no-require-imports */
 
     this.buildCreateOcfObjectCommand = buildCreateOcfObjectCommandFactory(this);
   }
