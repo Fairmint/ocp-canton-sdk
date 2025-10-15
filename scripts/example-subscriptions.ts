@@ -26,7 +26,7 @@
  * - Parties configured: Intellect (Fairmint-validator-1) and 5N (TransferAgent-devnet-1)
  */
 
-import { EnvLoader, FileLogger, ValidatorApiClient } from '@fairmint/canton-node-sdk';
+import { EnvLoader, FileLogger, ValidatorApiClient, getFeaturedAppRightContractDetails } from '@fairmint/canton-node-sdk';
 import { OcpClient } from '../src/OcpClient';
 import { getFactoryContractId } from '../src/functions/Subscriptions/utils';
 
@@ -163,10 +163,10 @@ async function main() {
 
   const SUBSCRIBER_PARTY = INTELLECT_PARTY; // Fairmint-validator-1 pays for airdrop
   const RECIPIENT_PARTY = FN_PARTY; // TransferAgent-devnet-1 receives payment
-  const PROCESSOR_PARTY = FN_PARTY; // TransferAgent-devnet-1 processes payments
+  const PROCESSOR_PARTY = "test-processor::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"; // An intellect account
   const RECIPIENT_PROVIDER = INTELLECT_PARTY; // Fairmint-validator-1 (for featured rewards)
   // For demo purposes, use actual parties. In production, use a real airdrop vault party
-  const AIRDROP_VAULT_PARTY = INTELLECT_PARTY; // Using Fairmint-validator-1 as vault for demo
+  const AIRDROP_VAULT_PARTY = "test-vault::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"; // A 5N account
 
   console.log('🚀 Airdrop Subscription Example on Devnet\n');
   console.log(`📋 Using parties:`);
@@ -203,8 +203,8 @@ async function main() {
           { beneficiary: AIRDROP_VAULT_PARTY, weight: '0.15' }, // 15% to airdrop-vault-1
         ],
         recipientPaymentPerDay: {
-          type: 'USD',
-          amount: '20', // $20 per day
+          type: 'AMULET',
+          amount: '864000000', // 100,000 CC every 10 seconds (extremely high to overcome devnet fee structure)
         },
         processorPaymentPerDay: null, // No processor fee for airdrop subscriptions
         prepayWindow: '0', // 0 microseconds = no prepay window (pay-as-you-go)
@@ -251,7 +251,7 @@ async function main() {
     proposalContractId
   );
 
-  const amountToLock = '100.0'; // Lock 100 CC for subscription payments
+  const amountToLock = '500000.0'; // Lock 500,000 CC for subscription payments (needs to cover 3 payments + high fees)
 
   const { command: approveCommand, disclosedContracts: approveDisclosedContracts } =
     fnClient.Subscriptions.proposedSubscription.buildApproveCommand({
@@ -289,8 +289,10 @@ async function main() {
   console.log('3️⃣  Processing airdrop payments (3 rounds with 10-second periods)...\n');
 
   const NUM_PAYMENTS = 3;
-  const PROCESSING_PERIOD_SECONDS = 10;
+  const PROCESSING_PERIOD_SECONDS = 10; // Keep 10 seconds for fast testing
   const PROCESSING_PERIOD_MICROSECONDS = String(PROCESSING_PERIOD_SECONDS * 1000000);
+  // Sleep for processing period before starting the payment loop
+  await new Promise((resolve) => setTimeout(resolve, PROCESSING_PERIOD_SECONDS * 1000));
 
   let currentSubscriptionContractId = subscriptionContractId;
 
@@ -301,21 +303,24 @@ async function main() {
     const { paymentContext, disclosedContracts: paymentDisclosedContracts } =
       await intellectClient.Subscriptions.utils.buildPaymentContext(validatorClient);
 
+    // Get featured app right for the provider to enable activity tracking
+    const featuredAppRightDetails = await getFeaturedAppRightContractDetails(validatorClient);
+
     const { command: processPaymentCommand, disclosedContracts: processDisclosedContracts } =
-      fnClient.Subscriptions.activeSubscription.buildProcessPaymentCommand({
+      intellectClient.Subscriptions.activeSubscription.buildProcessPaymentCommand({
         subscriptionContractId: currentSubscriptionContractId,
         processingContext: {
           processingPeriod: PROCESSING_PERIOD_MICROSECONDS,
-          // No featuredAppRight needed for now
+          featuredAppRight: featuredAppRightDetails.contractId,
         },
         paymentContext,
         skipProcessorPayment: true, // No processor fee for airdrop subscriptions
       });
 
-    const paymentResponse = await fnClient.client.submitAndWaitForTransactionTree({
+    const paymentResponse = await intellectClient.client.submitAndWaitForTransactionTree({
       actAs: [PROCESSOR_PARTY],
       commands: [processPaymentCommand],
-      disclosedContracts: [...processDisclosedContracts, ...paymentDisclosedContracts],
+      disclosedContracts: [...processDisclosedContracts, ...paymentDisclosedContracts, featuredAppRightDetails],
     });
 
     const newSubscriptionContractId = extractCreatedContractId(
