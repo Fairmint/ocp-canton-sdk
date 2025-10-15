@@ -1,6 +1,6 @@
+export * from './archiveInactiveSubscription';
 export * from './cancel';
 export * from './proposeChanges';
-export * from './archiveInactiveSubscription';
 
 // Re-export processFreeTrial and processPayment explicitly to avoid ProcessingContext/PaymentContext conflicts
 export { buildProcessFreeTrialCommand } from './processFreeTrial';

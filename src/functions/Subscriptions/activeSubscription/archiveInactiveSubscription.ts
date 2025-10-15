@@ -18,4 +18,3 @@ export function buildArchiveInactiveSubscriptionCommand(params: ArchiveInactiveS
     },
   };
 }
-

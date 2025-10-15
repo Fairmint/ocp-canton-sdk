@@ -10,18 +10,15 @@ export interface RefundSubscriptionParams {
 }
 
 export function buildRefundSubscriptionCommand(params: RefundSubscriptionParams): Command {
-  const choiceArgument: any = {
+  const choiceArgument = {
     paymentContext: {
       amuletRulesCid: params.paymentContext.amuletRulesCid,
       openMiningRoundCid: params.paymentContext.openMiningRoundCid,
       featuredAppRight: params.paymentContext.featuredAppRight,
     },
     recipientAmuletInputs: params.recipientAmuletInputs,
+    recipientFeaturedAppRight: params.recipientFeaturedAppRight ?? null,
   };
-
-  if (params.recipientFeaturedAppRight) {
-    choiceArgument.recipientFeaturedAppRight = params.recipientFeaturedAppRight;
-  }
 
   return {
     ExerciseCommand: {
@@ -32,4 +29,3 @@ export function buildRefundSubscriptionCommand(params: RefundSubscriptionParams)
     },
   };
 }
-

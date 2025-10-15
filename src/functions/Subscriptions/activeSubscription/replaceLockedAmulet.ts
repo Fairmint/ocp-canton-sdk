@@ -11,7 +11,7 @@ export interface ReplaceLockedAmuletParams {
 }
 
 export function buildReplaceLockedAmuletCommand(params: ReplaceLockedAmuletParams): CommandWithDisclosedContracts {
-  const choiceArguments: any = {
+  const choiceArguments = {
     newAmulets: params.newAmulets,
     amountToLock: params.amountToLock,
     paymentContext: {
@@ -32,4 +32,3 @@ export function buildReplaceLockedAmuletCommand(params: ReplaceLockedAmuletParam
 
   return { command, disclosedContracts: [] };
 }
-

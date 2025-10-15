@@ -11,7 +11,7 @@ export interface AddFundsParams {
 }
 
 export function buildAddFundsCommand(params: AddFundsParams): CommandWithDisclosedContracts {
-  const choiceArguments: any = {
+  const choiceArguments = {
     actor: params.actor,
     lockFundsInput: {
       amuletInputs: params.lockFundsInput.amuletInputs,
@@ -36,4 +36,3 @@ export function buildAddFundsCommand(params: AddFundsParams): CommandWithDisclos
 
   return { command, disclosedContracts: [] };
 }
-

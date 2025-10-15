@@ -24,4 +24,3 @@ export function buildProposedSubscriptionChangePartyCommand(params: ProposedSubs
     },
   };
 }
-

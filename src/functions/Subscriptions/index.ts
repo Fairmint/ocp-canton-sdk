@@ -1,50 +1,50 @@
+export * from './partyMigrationProposal';
 export * from './subscriptionChangeProposal';
 export * from './subscriptionFactory';
-export * from './partyMigrationProposal';
 
 // Export activeSubscription explicitly to avoid PaymentContext conflict with utils
 export {
-  buildProcessPaymentCommand,
-  buildProcessFreeTrialCommand,
-  buildCancelSubscriptionCommand,
-  buildProposeChangesCommand,
-  buildRefundSubscriptionCommand,
-  buildArchiveInactiveSubscriptionCommand,
   buildActiveSubscriptionChangePartyCommand,
   buildAddFundsCommand,
-  buildWithdrawFundsCommand,
+  buildArchiveInactiveSubscriptionCommand,
+  buildCancelSubscriptionCommand,
+  buildProcessFreeTrialCommand,
+  buildProcessPaymentCommand,
+  buildProposeChangesCommand,
+  buildRefundSubscriptionCommand,
   buildReplaceLockedAmuletCommand,
+  buildWithdrawFundsCommand,
 } from './activeSubscription';
 export type {
-  ProcessPaymentParams,
-  ProcessingContext as ActiveSubscriptionProcessingContext,
-  ProcessFreeTrialParams,
-  CancelSubscriptionParams,
-  ProposeChangesParams,
-  SubscriptionChanges,
-  RefundSubscriptionParams,
-  ArchiveInactiveSubscriptionParams,
   ActiveSubscriptionChangePartyParams,
+  ProcessingContext as ActiveSubscriptionProcessingContext,
   AddFundsParams,
-  WithdrawFundsParams,
+  ArchiveInactiveSubscriptionParams,
+  CancelSubscriptionParams,
+  ProcessFreeTrialParams,
+  ProcessPaymentParams,
+  ProposeChangesParams,
+  RefundSubscriptionParams,
   ReplaceLockedAmuletParams,
+  SubscriptionChanges,
+  WithdrawFundsParams,
 } from './activeSubscription';
 
 // Export utils last with explicit types to avoid conflicts
 export {
-  getFactoryDisclosedContracts,
-  getProposedSubscriptionDisclosedContracts,
   buildPaymentContext,
   buildPaymentContextWithAmulets,
   getFactoryContractId,
+  getFactoryDisclosedContracts,
+  getProposedSubscriptionDisclosedContracts,
 } from './utils';
 export type {
+  FactoryContractInfo,
+  Network,
   PaymentContext,
-  PaymentContextWithDisclosedContracts,
   PaymentContextWithAmulets,
   PaymentContextWithAmuletsAndDisclosed,
-  Network,
-  FactoryContractInfo,
+  PaymentContextWithDisclosedContracts,
 } from './utils';
 
 // Export types
@@ -52,18 +52,18 @@ export type { LockFundsInput } from './types/lockFundsInput';
 
 // Re-export proposedSubscription with explicit exports to avoid PartyRole conflict
 export {
-  buildProposedSubscriptionApproveCommand,
-  buildProposedSubscriptionStartCommand,
   buildEditSubscriptionProposalCommand,
-  buildProposedSubscriptionWithdrawCommand,
+  buildProposedSubscriptionApproveCommand,
   buildProposedSubscriptionChangePartyCommand,
+  buildProposedSubscriptionStartCommand,
+  buildProposedSubscriptionWithdrawCommand,
 } from './proposedSubscription';
 export type {
-  ProposedSubscriptionApproveParams,
-  ProposedSubscriptionStartParams,
   EditSubscriptionProposalParams,
-  SubscriptionProposalChanges,
-  ProposedSubscriptionWithdrawParams,
+  ProposedSubscriptionApproveParams,
   ProposedSubscriptionChangePartyParams,
   PartyRole as ProposedSubscriptionPartyRole,
+  ProposedSubscriptionStartParams,
+  ProposedSubscriptionWithdrawParams,
+  SubscriptionProposalChanges,
 } from './proposedSubscription';

@@ -65,7 +65,6 @@ import {
   buildCreateStockLegendTemplateCommand,
   buildCreateStockPlanCommand,
   buildCreateStockPlanPoolAdjustmentCommand,
-  buildCreateProposedSubscriptionCommand,
   buildCreateVestingTermsCommand,
   buildCreateWarrantIssuanceCommand,
   createCompanyValuationReport,
@@ -294,16 +293,14 @@ export class OcpClient {
     };
     utils: {
       getFactoryDisclosedContracts: () => Array<{
-        templateId: any;
+        templateId: string;
         contractId: string;
         createdEventBlob: string;
         synchronizerId: string;
       }>;
-      getProposedSubscriptionDisclosedContracts: (
-        proposedSubscriptionContractId: string
-      ) => Promise<
+      getProposedSubscriptionDisclosedContracts: (proposedSubscriptionContractId: string) => Promise<
         Array<{
-          templateId: any;
+          templateId: string;
           contractId: string;
           createdEventBlob: string;
           synchronizerId: string;
@@ -446,6 +443,7 @@ export class OcpClient {
     };
 
     // Subscriptions namespace - lazy import to avoid circular dependencies
+    /* eslint-disable @typescript-eslint/no-require-imports */
     this.Subscriptions = {
       subscriptionFactory: {
         buildCreateProposedSubscriptionCommand: (params) => {
@@ -544,18 +542,25 @@ export class OcpClient {
         },
         getProposedSubscriptionDisclosedContracts: async (proposedSubscriptionContractId: string) => {
           const { getProposedSubscriptionDisclosedContracts } = require('./functions/Subscriptions');
-          return getProposedSubscriptionDisclosedContracts(this, proposedSubscriptionContractId);
+          return await getProposedSubscriptionDisclosedContracts(this, proposedSubscriptionContractId);
         },
         buildPaymentContext: async (validatorClient, provider) => {
           const { buildPaymentContext } = require('./functions/Subscriptions');
-          return buildPaymentContext(validatorClient, provider);
+          return await buildPaymentContext(validatorClient, provider);
         },
         buildPaymentContextWithAmulets: async (validatorClient, subscriberParty, maxAmuletInputs, provider) => {
           const { buildPaymentContextWithAmulets } = require('./functions/Subscriptions');
-          return buildPaymentContextWithAmulets(this, validatorClient, subscriberParty, maxAmuletInputs, provider);
+          return await buildPaymentContextWithAmulets(
+            this,
+            validatorClient,
+            subscriberParty,
+            maxAmuletInputs,
+            provider
+          );
         },
       },
     };
+    /* eslint-enable @typescript-eslint/no-require-imports */
 
     this.buildCreateOcfObjectCommand = buildCreateOcfObjectCommandFactory(this);
   }

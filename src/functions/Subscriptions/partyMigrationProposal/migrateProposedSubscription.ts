@@ -20,4 +20,3 @@ export function buildMigrateProposedSubscriptionCommand(params: MigrateProposedS
     },
   };
 }
-

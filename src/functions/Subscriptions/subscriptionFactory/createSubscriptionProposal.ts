@@ -95,7 +95,7 @@ function subscriptionProposalToDaml(proposal: SubscriptionProposal): Record<stri
 export function buildCreateProposedSubscriptionCommand(
   params: CreateProposedSubscriptionParams
 ): CommandWithDisclosedContracts {
-  const choiceArguments: any = {
+  const choiceArguments = {
     actor: params.actor,
     subscriptionProposal: subscriptionProposalToDaml(params.subscriptionProposal),
   };

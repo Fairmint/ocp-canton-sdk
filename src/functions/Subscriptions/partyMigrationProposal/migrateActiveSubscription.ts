@@ -20,4 +20,3 @@ export function buildMigrateActiveSubscriptionCommand(params: MigrateActiveSubsc
     },
   };
 }
-

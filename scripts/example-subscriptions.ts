@@ -5,7 +5,7 @@
  * Example script demonstrating Airdrop Subscriptions on devnet
  *
  * This script shows the airdrop subscription flow:
- * 
+ *
  * 1. 🤖 Processor (new account hosted on Intellect) proposes terms
  * 2. 💻 Recipient approves proposal (Reward)
  * 3. 👤 Subscriber starts subscription and locks funds (TBD reward)
@@ -15,6 +15,7 @@
  * 7. 👤 Subscriber cancels (Reward)
  *
  * Airdrop Subscription Pattern:
+ *
  * - Subscriber: Fairmint-validator-1 (pays for the airdrop)
  * - Recipient: TransferAgent-devnet-1 (receives $20/day)
  * - Processor: test-processor account (processes payments, no fee)
@@ -24,6 +25,7 @@
  * - PrepayWindow: 0 microseconds (no prepayment, pay-as-you-go)
  *
  * Prerequisites:
+ *
  * - Environment variables configured via EnvLoader for devnet
  * - Subscription factory contract deployed on devnet
  * - Parties configured: Intellect (Fairmint-validator-1) and 5N (TransferAgent-devnet-1)
@@ -31,7 +33,7 @@
 
 import { EnvLoader, FileLogger, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { OcpClient } from '../src/OcpClient';
-import { getFactoryContractId, buildAddFundsCommand, buildWithdrawFundsCommand } from '../src/functions/Subscriptions';
+import { buildAddFundsCommand, buildWithdrawFundsCommand, getFactoryContractId } from '../src/functions/Subscriptions';
 
 // Load environment configuration
 const envLoader = EnvLoader.getInstance();
@@ -39,15 +41,13 @@ const envLoader = EnvLoader.getInstance();
 const NETWORK = 'devnet';
 const FACTORY_CONTRACT_ID = getFactoryContractId(NETWORK).subscriptionsFactoryContractId;
 
-/**
- * Helper to extract contract ID from transaction response
- */
+/** Helper to extract contract ID from transaction response */
 function extractCreatedContractId(response: any, moduleName: string, entityName: string): string | null {
-  const event = Object.values(response.transactionTree.eventsById).find((event: any) => {
-    if (event && typeof event === 'object' && 'CreatedTreeEvent' in event) {
-      const createdEvent = (event as any).CreatedTreeEvent.value;
+  const event = Object.values(response.transactionTree.eventsById).find((evt: any) => {
+    if (evt && typeof evt === 'object' && 'CreatedTreeEvent' in evt) {
+      const createdEvent = evt.CreatedTreeEvent.value;
       const { templateId } = createdEvent;
-      
+
       // Handle both string format (packageId:fullModulePath.entityName:entityName) and object format
       if (typeof templateId === 'string') {
         const parts = templateId.split(':');
@@ -56,7 +56,7 @@ function extractCreatedContractId(response: any, moduleName: string, entityName:
           // parts[2] is like "ProposedSubscription"
           const fullPath = parts[1];
           const templateEntity = parts[2];
-          
+
           // Check if the full path matches moduleName.entityName
           const expectedFullPath = `${moduleName}.${entityName}`;
           return fullPath === expectedFullPath && templateEntity === entityName;
@@ -71,7 +71,7 @@ function extractCreatedContractId(response: any, moduleName: string, entityName:
   if (event && typeof event === 'object' && 'CreatedTreeEvent' in event) {
     return (event as any).CreatedTreeEvent.value.contractId;
   }
-  
+
   return null;
 }
 
@@ -141,17 +141,27 @@ async function main() {
     apis: {
       VALIDATOR_API: {
         apiUrl:
-          envLoader.getApiUri('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ?? '',
+          envLoader.getApiUri('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ??
+          '',
         auth: {
           clientId:
-            envLoader.getApiClientId('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ??
-            '',
+            envLoader.getApiClientId(
+              'VALIDATOR_API',
+              NETWORK as 'mainnet' | 'devnet',
+              'intellect' as 'intellect' | '5n'
+            ) ?? '',
           username:
-            envLoader.getApiUsername('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ??
-            '',
+            envLoader.getApiUsername(
+              'VALIDATOR_API',
+              NETWORK as 'mainnet' | 'devnet',
+              'intellect' as 'intellect' | '5n'
+            ) ?? '',
           password:
-            envLoader.getApiPassword('VALIDATOR_API', NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n') ??
-            '',
+            envLoader.getApiPassword(
+              'VALIDATOR_API',
+              NETWORK as 'mainnet' | 'devnet',
+              'intellect' as 'intellect' | '5n'
+            ) ?? '',
           grantType: 'password',
         },
         partyId: envLoader.getPartyId(NETWORK as 'mainnet' | 'devnet', 'intellect' as 'intellect' | '5n'),
@@ -166,10 +176,11 @@ async function main() {
 
   const SUBSCRIBER_PARTY = INTELLECT_PARTY; // Fairmint-validator-1 pays for airdrop
   const RECIPIENT_PARTY = FN_PARTY; // TransferAgent-devnet-1 receives payment
-  const PROCESSOR_PARTY = "test-subscription-processor::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"; // An 5n account
+  const PROCESSOR_PARTY =
+    'test-subscription-processor::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34'; // An 5n account
   const PROVIDER = INTELLECT_PARTY; // Fairmint-validator-1 (for featured rewards)
   // For demo purposes, use actual parties. In production, use a real airdrop vault party
-  const AIRDROP_VAULT_PARTY = "test-vault::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"; // A 5N account
+  const AIRDROP_VAULT_PARTY = 'test-vault::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63'; // A 5N account
 
   console.log('🚀 Airdrop Subscription Example on Devnet\n');
   console.log(`📋 Using parties:`);
@@ -198,7 +209,7 @@ async function main() {
       subscriptionProposal: {
         subscriber: SUBSCRIBER_PARTY,
         recipient: RECIPIENT_PARTY,
-        provider: PROVIDER, 
+        provider: PROVIDER,
         appRewardBeneficiaries: [
           { beneficiary: PROVIDER, weight: '0.85' }, // 85% to Fairmint-validator-1
           { beneficiary: AIRDROP_VAULT_PARTY, weight: '0.15' }, // 15% to airdrop-vault-1
@@ -240,9 +251,8 @@ async function main() {
   console.log('2️⃣  Recipient approving proposal...');
 
   // Get disclosed contracts for the ProposedSubscription (required to exercise the choice)
-  let proposalDisclosedContracts = await fnClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(
-    proposalContractId
-  );
+  let proposalDisclosedContracts =
+    await fnClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(proposalContractId);
 
   const { command: recipientApproveCommand, disclosedContracts: recipientApproveDisclosedContracts } =
     fnClient.Subscriptions.proposedSubscription.buildApproveCommand({
@@ -283,9 +293,8 @@ async function main() {
     );
 
   // Get disclosed contracts for the recipient-approved ProposedSubscription
-  proposalDisclosedContracts = await intellectClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(
-    recipientApprovedProposalId
-  );
+  proposalDisclosedContracts =
+    await intellectClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(recipientApprovedProposalId);
 
   const amountToLock = '500000.0'; // Lock 500,000 CC for subscription payments (needs to cover 3 payments + high fees)
 
@@ -306,7 +315,11 @@ async function main() {
   const startSubscriptionResponse = await intellectClient.client.submitAndWaitForTransactionTree({
     actAs: [SUBSCRIBER_PARTY],
     commands: [startSubscriptionCommand],
-    disclosedContracts: [...startSubscriptionDisclosedContracts, ...proposalDisclosedContracts, ...subscriberAmuletDisclosedContracts],
+    disclosedContracts: [
+      ...startSubscriptionDisclosedContracts,
+      ...proposalDisclosedContracts,
+      ...subscriberAmuletDisclosedContracts,
+    ],
   });
 
   const subscriptionContractId = extractCreatedContractId(

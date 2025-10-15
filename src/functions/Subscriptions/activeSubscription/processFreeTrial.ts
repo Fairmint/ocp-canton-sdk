@@ -13,15 +13,12 @@ export interface ProcessFreeTrialParams {
 }
 
 export function buildProcessFreeTrialCommand(params: ProcessFreeTrialParams): Command {
-  const processingContext: any = {
+  const processingContext = {
     processingPeriod: relTimeToDAML(params.processingContext.processingPeriod),
+    featuredAppRight: params.processingContext.featuredAppRight ?? null,
   };
 
-  if (params.processingContext.featuredAppRight) {
-    processingContext.featuredAppRight = params.processingContext.featuredAppRight;
-  }
-
-  const choiceArguments: any = {
+  const choiceArguments = {
     processingContext,
   };
 

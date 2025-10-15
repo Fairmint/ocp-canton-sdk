@@ -1,7 +1,7 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { SubscriptionAmount, SubscriptionTime } from '../subscriptionFactory/createSubscriptionProposal';
 import { relTimeToDAML } from '../../../utils/typeConversions';
+import type { SubscriptionAmount, SubscriptionTime } from '../subscriptionFactory/createSubscriptionProposal';
 
 export interface SubscriptionProposalChanges {
   subscriber?: string;
@@ -59,8 +59,7 @@ function changesToDaml(changes: SubscriptionProposalChanges): Record<string, unk
   if (changes.subscriber !== undefined) result.subscriber = changes.subscriber;
   if (changes.recipient !== undefined) result.recipient = changes.recipient;
   if (changes.recipientProvider !== undefined) result.recipientProvider = changes.recipientProvider;
-  if (changes.recipientBeneficiaries !== undefined)
-    result.recipientBeneficiaries = changes.recipientBeneficiaries;
+  if (changes.recipientBeneficiaries !== undefined) result.recipientBeneficiaries = changes.recipientBeneficiaries;
   if (changes.recipientPaymentPerDay !== undefined)
     result.recipientPaymentPerDay = subscriptionAmountToDaml(changes.recipientPaymentPerDay);
   if (changes.processorPaymentPerDay !== undefined)
@@ -81,14 +80,11 @@ function changesToDaml(changes: SubscriptionProposalChanges): Record<string, unk
 }
 
 export function buildEditSubscriptionProposalCommand(params: EditSubscriptionProposalParams): Command {
-  const choiceArgument: any = {
+  const choiceArgument = {
     actor: params.actor,
     changes: changesToDaml(params.changes),
+    description: params.description ?? null,
   };
-
-  if (params.description) {
-    choiceArgument.description = params.description;
-  }
 
   return {
     ExerciseCommand: {
@@ -99,4 +95,3 @@ export function buildEditSubscriptionProposalCommand(params: EditSubscriptionPro
     },
   };
 }
-

@@ -20,4 +20,3 @@ export function buildSubscriptionChangeProposalApplyCommand(params: Subscription
     },
   };
 }
-

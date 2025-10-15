@@ -1,7 +1,7 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { relTimeToDAML } from '../../../utils/typeConversions';
 import type { CommandWithDisclosedContracts } from '../../../types';
+import { relTimeToDAML } from '../../../utils/typeConversions';
 import type { PaymentContext } from '../utils/paymentContext';
 
 export interface ProcessingContext {
@@ -17,15 +17,12 @@ export interface ProcessPaymentParams {
 }
 
 export function buildProcessPaymentCommand(params: ProcessPaymentParams): CommandWithDisclosedContracts {
-  const processingContext: any = {
+  const processingContext = {
     processingPeriod: relTimeToDAML(params.processingContext.processingPeriod),
+    featuredAppRight: params.processingContext.featuredAppRight ?? null,
   };
 
-  if (params.processingContext.featuredAppRight) {
-    processingContext.featuredAppRight = params.processingContext.featuredAppRight;
-  }
-
-  const choiceArguments: any = {
+  const choiceArguments = {
     processingContext,
     paymentContext: {
       amuletRulesCid: params.paymentContext.amuletRulesCid,

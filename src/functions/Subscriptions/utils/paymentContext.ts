@@ -1,10 +1,8 @@
-/**
- * Utilities for building payment context for subscription payments
- */
+/** Utilities for building payment context for subscription payments */
 
+import type { ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { getCurrentMiningRoundContext } from '@fairmint/canton-node-sdk/build/src/utils/mining/mining-rounds';
-import type { ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { OcpClient } from '../../../OcpClient';
 
 export interface PaymentContext {
@@ -32,14 +30,15 @@ export interface PaymentContextWithAmuletsAndDisclosed {
 
 /**
  * Build payment context for processing subscription payments (no amulet inputs needed)
- * 
+ *
  * Queries the ledger for:
+ *
  * - AmuletRules contract
  * - OpenMiningRound contract
  * - FeaturedAppRight contract (if provider specified)
- * 
+ *
  * Returns both the payment context and the disclosed contracts needed
- * 
+ *
  * @param validatorClient - Validator API client for getting rules/rounds
  * @param provider - Optional provider party ID to lookup featured app right
  */
@@ -60,7 +59,7 @@ export async function buildPaymentContext(
   // Get OpenMiningRound contract
   const miningRoundContext = await getCurrentMiningRoundContext(validatorClient);
   const openMiningRoundCid = miningRoundContext.openMiningRound;
-  const openMiningRoundContract = miningRoundContext.openMiningRoundContract;
+  const { openMiningRoundContract } = miningRoundContext;
 
   // Get FeaturedAppRight contract if provider specified
   let featuredAppRightCid: string | null = null;
@@ -79,9 +78,9 @@ export async function buildPaymentContext(
           synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
         });
       }
-    } catch (error) {
+    } catch {
       // If featured app right lookup fails, continue with null (optional)
-      console.warn(`Failed to lookup featured app right for provider ${provider}:`, error);
+      // This is expected when the provider doesn't have a featured app right
     }
   }
 
@@ -97,17 +96,18 @@ export async function buildPaymentContext(
 
 /**
  * Build payment context with subscriber's amulets for initial subscription approval
- * 
+ *
  * Queries the ledger for:
+ *
  * - Subscriber's Amulet contracts (via Validator API)
  * - AmuletRules contract
  * - OpenMiningRound contract
  * - FeaturedAppRight contract (if provider specified)
- * 
+ *
  * Returns both the payment context and the disclosed contracts needed
- * 
+ *
  * NOTE: The validatorClient must be authenticated as the subscriberParty
- * 
+ *
  * @param ledgerClient - OCP client for querying contracts
  * @param validatorClient - Validator API client authenticated as subscriber
  * @param subscriberParty - Party ID of the subscriber (for validation only)
@@ -118,7 +118,7 @@ export async function buildPaymentContextWithAmulets(
   ledgerClient: OcpClient,
   validatorClient: ValidatorApiClient,
   subscriberParty: string,
-  maxAmuletInputs: number = 2,
+  maxAmuletInputs = 2,
   provider?: string
 ): Promise<PaymentContextWithAmuletsAndDisclosed> {
   // Get subscriber's Amulet contracts via Validator API
@@ -157,7 +157,7 @@ export async function buildPaymentContextWithAmulets(
   // Get OpenMiningRound contract
   const miningRoundContext = await getCurrentMiningRoundContext(validatorClient);
   const openMiningRoundCid = miningRoundContext.openMiningRound;
-  const openMiningRoundContract = miningRoundContext.openMiningRoundContract;
+  const { openMiningRoundContract } = miningRoundContext;
 
   // Build payment context with amulets
   const amuletInputs = subscriberAmulets.slice(0, maxAmuletInputs).map((a) => a.contractId);
@@ -183,9 +183,9 @@ export async function buildPaymentContextWithAmulets(
           synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
         });
       }
-    } catch (error) {
+    } catch {
       // If featured app right lookup fails, continue with null (optional)
-      console.warn(`Failed to lookup featured app right for provider ${provider}:`, error);
+      // This is expected when the provider doesn't have a featured app right
     }
   }
 
@@ -199,4 +199,3 @@ export async function buildPaymentContextWithAmulets(
     disclosedContracts,
   };
 }
-

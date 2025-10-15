@@ -58,8 +58,7 @@ function changesToDaml(changes: SubscriptionChanges): Record<string, unknown> {
   if (changes.processedAndPaidUntilAdjustment !== undefined)
     result.processedAndPaidUntilAdjustment = relTimeToDAML(changes.processedAndPaidUntilAdjustment);
   if (changes.recipientProvider !== undefined) result.recipientProvider = changes.recipientProvider;
-  if (changes.recipientBeneficiaries !== undefined)
-    result.recipientBeneficiaries = changes.recipientBeneficiaries;
+  if (changes.recipientBeneficiaries !== undefined) result.recipientBeneficiaries = changes.recipientBeneficiaries;
   if (changes.recipientPaymentPerDay !== undefined)
     result.recipientPaymentPerDay = subscriptionAmountToDaml(changes.recipientPaymentPerDay);
   if (changes.processorPaymentPerDay !== undefined)
@@ -79,14 +78,11 @@ function changesToDaml(changes: SubscriptionChanges): Record<string, unknown> {
 }
 
 export function buildProposeChangesCommand(params: ProposeChangesParams): Command {
-  const choiceArgument: any = {
+  const choiceArgument = {
     actor: params.actor,
     subscriptionChanges: changesToDaml(params.subscriptionChanges),
+    description: params.description ?? null,
   };
-
-  if (params.description) {
-    choiceArgument.description = params.description;
-  }
 
   return {
     ExerciseCommand: {
@@ -97,4 +93,3 @@ export function buildProposeChangesCommand(params: ProposeChangesParams): Comman
     },
   };
 }
-

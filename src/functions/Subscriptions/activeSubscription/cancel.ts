@@ -11,7 +11,7 @@ export interface CancelSubscriptionParams {
 }
 
 export function buildCancelSubscriptionCommand(params: CancelSubscriptionParams): Command {
-  const choiceArgument: any = {
+  const choiceArgument = {
     actor: params.actor,
     disregardAvailablePaidPeriod: params.disregardAvailablePaidPeriod ?? false,
     description: params.description ?? null,
@@ -31,4 +31,3 @@ export function buildCancelSubscriptionCommand(params: CancelSubscriptionParams)
     },
   };
 }
-

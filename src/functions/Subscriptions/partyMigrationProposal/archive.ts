@@ -8,8 +8,9 @@ export interface PartyMigrationProposalArchiveParams {
 }
 
 export function buildPartyMigrationProposalArchiveCommand(params: PartyMigrationProposalArchiveParams): Command {
-  const choiceArgument: any = {
+  const choiceArgument = {
     actor: params.actor,
+    description: params.description ?? null,
   };
 
   if (params.description) {
@@ -25,4 +26,3 @@ export function buildPartyMigrationProposalArchiveCommand(params: PartyMigration
     },
   };
 }
-

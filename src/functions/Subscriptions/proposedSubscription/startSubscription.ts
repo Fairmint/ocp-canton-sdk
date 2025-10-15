@@ -34,4 +34,3 @@ export function buildProposedSubscriptionStartCommand(
 
   return { command, disclosedContracts: [] };
 }
-

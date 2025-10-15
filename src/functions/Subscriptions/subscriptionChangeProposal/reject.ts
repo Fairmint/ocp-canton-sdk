@@ -8,13 +8,10 @@ export interface SubscriptionChangeProposalRejectParams {
 }
 
 export function buildSubscriptionChangeProposalRejectCommand(params: SubscriptionChangeProposalRejectParams): Command {
-  const choiceArgument: any = {
+  const choiceArgument = {
     actor: params.actor,
+    description: params.description ?? null,
   };
-
-  if (params.description) {
-    choiceArgument.description = params.description;
-  }
 
   return {
     ExerciseCommand: {
@@ -25,4 +22,3 @@ export function buildSubscriptionChangeProposalRejectCommand(params: Subscriptio
     },
   };
 }
-

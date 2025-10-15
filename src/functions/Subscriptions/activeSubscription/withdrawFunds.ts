@@ -10,7 +10,7 @@ export interface WithdrawFundsParams {
 }
 
 export function buildWithdrawFundsCommand(params: WithdrawFundsParams): CommandWithDisclosedContracts {
-  const choiceArguments: any = {
+  const choiceArguments = {
     amountToKeepLocked: params.amountToKeepLocked,
     paymentContext: {
       amuletRulesCid: params.paymentContext.amuletRulesCid,
@@ -30,4 +30,3 @@ export function buildWithdrawFundsCommand(params: WithdrawFundsParams): CommandW
 
   return { command, disclosedContracts: [] };
 }
-
