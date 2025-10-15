@@ -2,6 +2,7 @@
  * Utilities for retrieving subscription factory contract IDs
  */
 
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import subscriptionsFactoryConfig from '@fairmint/open-captable-protocol-daml-js/subscriptions-factory-contract-id.json';
 
 export type Network = 'devnet' | 'mainnet';
@@ -9,6 +10,7 @@ export type Network = 'devnet' | 'mainnet';
 export interface FactoryContractInfo {
   subscriptionsFactoryContractId: string;
   templateId: string;
+  disclosedContract?: DisclosedContract;
 }
 
 /**

@@ -18,7 +18,6 @@ export {
 export type {
   ProcessPaymentParams,
   ProcessingContext as ActiveSubscriptionProcessingContext,
-  PaymentContext as ActiveSubscriptionPaymentContext,
   ProcessFreeTrialParams,
   CancelSubscriptionParams,
   ProposeChangesParams,
@@ -48,15 +47,20 @@ export type {
   FactoryContractInfo,
 } from './utils';
 
+// Export types
+export type { LockFundsInput } from './types/lockFundsInput';
+
 // Re-export proposedSubscription with explicit exports to avoid PartyRole conflict
 export {
   buildProposedSubscriptionApproveCommand,
+  buildProposedSubscriptionStartCommand,
   buildEditSubscriptionProposalCommand,
   buildProposedSubscriptionWithdrawCommand,
   buildProposedSubscriptionChangePartyCommand,
 } from './proposedSubscription';
 export type {
   ProposedSubscriptionApproveParams,
+  ProposedSubscriptionStartParams,
   EditSubscriptionProposalParams,
   SubscriptionProposalChanges,
   ProposedSubscriptionWithdrawParams,

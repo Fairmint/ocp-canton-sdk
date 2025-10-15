@@ -3,37 +3,40 @@
  */
 
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import subscriptionsFactoryConfig from '@fairmint/open-captable-protocol-daml-js/subscriptions-factory-contract-id.json';
 import type { OcpClient } from '../../../OcpClient';
+import type { FactoryContractInfo } from './factoryContractId';
 
 /**
- * Get disclosed contracts for a factory contract
+ * Get disclosed contracts for the factory contract
+ * Reads from the pre-generated factory contract data for the client's network
  * This allows parties that don't directly see the factory to exercise it
  */
-export async function getFactoryDisclosedContracts(
-  client: OcpClient,
-  factoryContractId: string,
-  readAs: string
-): Promise<DisclosedContract[]> {
+export function getFactoryDisclosedContracts(
+  client: OcpClient
+): DisclosedContract[] {
   console.log('Getting factory disclosed contracts for party:', client.client.getPartyId());
-  const factoryEventsResponse = await client.client.getEventsByContractId({
-    contractId: factoryContractId,
-    readAs: [readAs],
-  });
-
-  const createdEvent = factoryEventsResponse.created?.createdEvent;
-
-  if (!createdEvent) {
-    throw new Error(`Factory contract ${factoryContractId} not found`);
+  
+  const network = client.client.getNetwork();
+  console.log(`Network: ${network}`);
+  
+  const networkData = subscriptionsFactoryConfig[network as keyof typeof subscriptionsFactoryConfig] as FactoryContractInfo | undefined;
+  
+  if (!networkData) {
+    throw new Error(
+      `Factory contract data not found for network "${network}". ` +
+      'Please run the factory deployment script for this network first.'
+    );
   }
-
-  return [
-    {
-      templateId: createdEvent.templateId,
-      contractId: createdEvent.contractId,
-      createdEventBlob: createdEvent.createdEventBlob,
-      synchronizerId: factoryEventsResponse.created!.synchronizerId,
-    },
-  ];
+  
+  if (!networkData.disclosedContract) {
+    throw new Error(
+      `Disclosed contract data not found for network "${network}". ` +
+      'The factory contract data may be outdated. Please re-run the factory deployment script.'
+    );
+  }
+  
+  return [networkData.disclosedContract];
 }
 
 /**

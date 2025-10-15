@@ -6,17 +6,20 @@
  *
  * This script shows the airdrop subscription flow:
  * 
- * 1. Subscriber (Intellect/Fairmint-validator-1) creates a subscription proposal via factory
- * 2. Recipient (5N/TransferAgent-devnet-1) approves the proposal to activate
- * 3. Processor (5N/TransferAgent-devnet-1) processes periodic payments (3 rounds)
- * 4. Recipient cancels the subscription (to demonstrate subscription lifecycle completion)
+ * 1. 🤖 Processor (new account hosted on Intellect) proposes terms
+ * 2. 💻 Recipient approves proposal (Reward)
+ * 3. 👤 Subscriber starts subscription and locks funds (TBD reward)
+ * 4. 🔁 🤖 Processor transfers funds every x period (e.g. 10 minutes) (Reward)
+ * 5. 👤 Subscriber adds funds (Reward)
+ * 6. 👤 Subscriber withdraws funds (Reward)
+ * 7. 👤 Subscriber cancels (Reward)
  *
  * Airdrop Subscription Pattern:
  * - Subscriber: Fairmint-validator-1 (pays for the airdrop)
  * - Recipient: TransferAgent-devnet-1 (receives $20/day)
- * - Processor: TransferAgent-devnet-1 (processes payments, no fee)
+ * - Processor: test-processor account (processes payments, no fee)
  * - Recipient provider: Fairmint-validator-1 (for featured app rewards)
- * - Beneficiaries: 85% Fairmint-validator-1, 15% Fairmint-validator-1 (demo uses same party)
+ * - Beneficiaries: 85% Fairmint-validator-1, 15% test-vault account (demo)
  * - Metadata: {"appUserIdHash": "hash(<app_user.id>)"}
  * - PrepayWindow: 0 microseconds (no prepayment, pay-as-you-go)
  *
@@ -26,9 +29,9 @@
  * - Parties configured: Intellect (Fairmint-validator-1) and 5N (TransferAgent-devnet-1)
  */
 
-import { EnvLoader, FileLogger, ValidatorApiClient, getFeaturedAppRightContractDetails } from '@fairmint/canton-node-sdk';
+import { EnvLoader, FileLogger, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { OcpClient } from '../src/OcpClient';
-import { getFactoryContractId } from '../src/functions/Subscriptions/utils';
+import { getFactoryContractId, buildAddFundsCommand, buildWithdrawFundsCommand } from '../src/functions/Subscriptions';
 
 // Load environment configuration
 const envLoader = EnvLoader.getInstance();
@@ -163,7 +166,7 @@ async function main() {
 
   const SUBSCRIBER_PARTY = INTELLECT_PARTY; // Fairmint-validator-1 pays for airdrop
   const RECIPIENT_PARTY = FN_PARTY; // TransferAgent-devnet-1 receives payment
-  const PROCESSOR_PARTY = "test-processor::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"; // An intellect account
+  const PROCESSOR_PARTY = "test-subscription-processor::1220ea70ea2cbfe6be431f34c7323e249c624a02fb2209d2b73fabd7eea1fe84df34"; // An 5n account
   const PROVIDER = INTELLECT_PARTY; // Fairmint-validator-1 (for featured rewards)
   // For demo purposes, use actual parties. In production, use a real airdrop vault party
   const AIRDROP_VAULT_PARTY = "test-vault::1220cddaf354fb12d4cbdee3d314430aa6fd26d6060b9f35c34a022885e3c681ec63"; // A 5N account
@@ -177,24 +180,21 @@ async function main() {
   console.log(`   Airdrop Vault (Fairmint-validator-1): ${AIRDROP_VAULT_PARTY}\n`);
 
   // ========================================
-  // Step 1: Create subscription proposal
+  // Step 1: Processor creates subscription proposal
   // ========================================
-  console.log('1️⃣  Creating airdrop subscription proposal...');
+  console.log('1️⃣  Processor creating airdrop subscription proposal...');
 
   // Generate a sample app user ID hash for demonstration
   const appUserId = '12345'; // In production, this would be the actual app_user.id
   const appUserIdHash = `hash_${appUserId}`; // In production, use proper hashing
 
-  // Get disclosed contracts for the factory (allows subscriber to exercise it)
-  const factoryDisclosedContracts = await intellectClient.Subscriptions.utils.getFactoryDisclosedContracts(
-    FACTORY_CONTRACT_ID,
-    PROCESSOR_PARTY
-  );
+  // Get disclosed contracts for the factory (allows processor to exercise it)
+  const factoryDisclosedContracts = fnClient.Subscriptions.utils.getFactoryDisclosedContracts();
 
   const { command: createProposalCommand, disclosedContracts } =
-    intellectClient.Subscriptions.subscriptionFactory.buildCreateProposedSubscriptionCommand({
+    fnClient.Subscriptions.subscriptionFactory.buildCreateProposedSubscriptionCommand({
       factoryContractId: FACTORY_CONTRACT_ID,
-      actor: SUBSCRIBER_PARTY,
+      actor: PROCESSOR_PARTY,
       subscriptionProposal: {
         subscriber: SUBSCRIBER_PARTY,
         recipient: RECIPIENT_PARTY,
@@ -216,8 +216,8 @@ async function main() {
       },
     });
 
-  const proposalResponse = await intellectClient.client.submitAndWaitForTransactionTree({
-    actAs: [SUBSCRIBER_PARTY],
+  const proposalResponse = await fnClient.client.submitAndWaitForTransactionTree({
+    actAs: [PROCESSOR_PARTY],
     commands: [createProposalCommand],
     disclosedContracts: [...disclosedContracts, ...factoryDisclosedContracts],
   });
@@ -232,85 +232,85 @@ async function main() {
     throw new Error('Failed to create subscription proposal');
   }
 
-  console.log(`   ✅ Proposal created: ${proposalContractId}\n`);
+  console.log(`   ✅ Proposal created by processor: ${proposalContractId}\n`);
 
   // ========================================
-  // Step 2: Processor approves
+  // Step 2: Recipient approves proposal
   // ========================================
-  console.log('2️⃣  Processor approving proposal...');
+  console.log('2️⃣  Recipient approving proposal...');
 
   // Get disclosed contracts for the ProposedSubscription (required to exercise the choice)
-  let proposalDisclosedContracts = await intellectClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(
+  let proposalDisclosedContracts = await fnClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(
     proposalContractId
   );
 
-  const { command: processorApproveCommand, disclosedContracts: processorApproveDisclosedContracts } =
-    intellectClient.Subscriptions.proposedSubscription.buildApproveCommand({
+  const { command: recipientApproveCommand, disclosedContracts: recipientApproveDisclosedContracts } =
+    fnClient.Subscriptions.proposedSubscription.buildApproveCommand({
       proposedSubscriptionContractId: proposalContractId,
-      actor: PROCESSOR_PARTY,
-      subscriberAmulets: undefined, // No amulets needed for non-final approval
-      amountToLock: '0',
-      paymentContext: undefined,
+      actor: RECIPIENT_PARTY,
     });
 
-  const processorApprovedResponse = await intellectClient.client.submitAndWaitForTransactionTree({
-    actAs: [PROCESSOR_PARTY],
-    commands: [processorApproveCommand],
-    disclosedContracts: [...processorApproveDisclosedContracts, ...proposalDisclosedContracts],
+  const recipientApprovedResponse = await fnClient.client.submitAndWaitForTransactionTree({
+    actAs: [RECIPIENT_PARTY],
+    commands: [recipientApproveCommand],
+    disclosedContracts: [...recipientApproveDisclosedContracts, ...proposalDisclosedContracts],
   });
 
-  const processorApprovedProposalId = extractCreatedContractId(
-    processorApprovedResponse,
+  const recipientApprovedProposalId = extractCreatedContractId(
+    recipientApprovedResponse,
     'Fairmint.Subscriptions',
     'ProposedSubscription'
   );
 
-  if (!processorApprovedProposalId) {
-    throw new Error('Failed to get processor-approved proposal');
+  if (!recipientApprovedProposalId) {
+    throw new Error('Failed to get recipient-approved proposal');
   }
 
-  console.log(`   ✅ Processor approved: ${processorApprovedProposalId}\n`);
+  console.log(`   ✅ Recipient approved: ${recipientApprovedProposalId}`);
 
   // ========================================
-  // Step 3: Recipient approves to activate (final approval with locked amulets)
+  // Step 3: Subscriber starts subscription and locks funds
   // ========================================
-  console.log('3️⃣  Recipient approving proposal to activate with locked funds...');
+  console.log('3️⃣  Subscriber starting subscription and locking funds...');
 
   // Get subscriber's amulets and payment context for locking funds
-  const { paymentContext: subscriberPaymentContext, disclosedContracts: subscriberDisclosedContracts } =
+  const { paymentContext: subscriberPaymentContext, disclosedContracts: subscriberAmuletDisclosedContracts } =
     await intellectClient.Subscriptions.utils.buildPaymentContextWithAmulets(
       validatorClient,
       SUBSCRIBER_PARTY,
-      2 // Use top 2 Amulet contracts
+      2, // Use top 2 Amulet contracts
+      PROVIDER // Provider party for featured app right lookup
     );
 
-  // Get disclosed contracts for the processor-approved ProposedSubscription
-  proposalDisclosedContracts = await fnClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(
-    processorApprovedProposalId
+  // Get disclosed contracts for the recipient-approved ProposedSubscription
+  proposalDisclosedContracts = await intellectClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(
+    recipientApprovedProposalId
   );
 
   const amountToLock = '500000.0'; // Lock 500,000 CC for subscription payments (needs to cover 3 payments + high fees)
 
-  const { command: approveCommand, disclosedContracts: approveDisclosedContracts } =
-    fnClient.Subscriptions.proposedSubscription.buildApproveCommand({
-      proposedSubscriptionContractId: processorApprovedProposalId,
-      actor: RECIPIENT_PARTY,
-      subscriberAmulets: subscriberPaymentContext.subscriberAmulets,
-      amountToLock,
-      paymentContext: {
-        amuletRulesCid: subscriberPaymentContext.amuletRulesCid,
-        openMiningRoundCid: subscriberPaymentContext.openMiningRoundCid,
+  const { command: startSubscriptionCommand, disclosedContracts: startSubscriptionDisclosedContracts } =
+    intellectClient.Subscriptions.proposedSubscription.buildStartSubscriptionCommand({
+      proposedSubscriptionContractId: recipientApprovedProposalId,
+      lockFundsInput: {
+        amuletInputs: subscriberPaymentContext.subscriberAmulets,
+        amountToLock,
+        paymentContext: {
+          amuletRulesCid: subscriberPaymentContext.amuletRulesCid,
+          openMiningRoundCid: subscriberPaymentContext.openMiningRoundCid,
+          featuredAppRight: subscriberPaymentContext.featuredAppRight ?? null,
+        },
       },
     });
 
-  const approvedResponse = await fnClient.client.submitAndWaitForTransactionTree({
-    actAs: [RECIPIENT_PARTY],
-    commands: [approveCommand],
-    disclosedContracts: [...approveDisclosedContracts, ...proposalDisclosedContracts, ...subscriberDisclosedContracts],
+  const startSubscriptionResponse = await intellectClient.client.submitAndWaitForTransactionTree({
+    actAs: [SUBSCRIBER_PARTY],
+    commands: [startSubscriptionCommand],
+    disclosedContracts: [...startSubscriptionDisclosedContracts, ...proposalDisclosedContracts, ...subscriberAmuletDisclosedContracts],
   });
 
   const subscriptionContractId = extractCreatedContractId(
-    approvedResponse,
+    startSubscriptionResponse,
     'Fairmint.Subscriptions',
     'ActiveSubscription'
   );
@@ -319,12 +319,12 @@ async function main() {
     throw new Error('Failed to create active subscription');
   }
 
-  console.log(`   ✅ Subscription active: ${subscriptionContractId}\n`);
+  console.log(`   ✅ Subscription active: ${subscriptionContractId}`);
 
   // ========================================
   // Step 4: Process payments (3 rounds)
   // ========================================
-  console.log('4️⃣  Processing airdrop payments (3 rounds with 10-second periods)...\n');
+  console.log('4️⃣  🔁 Processing airdrop payments (3 rounds with 10-second periods)...\n');
 
   const NUM_PAYMENTS = 3;
   const PROCESSING_PERIOD_SECONDS = 10; // Keep 10 seconds for fast testing
@@ -337,28 +337,25 @@ async function main() {
   for (let i = 1; i <= NUM_PAYMENTS; i++) {
     console.log(`   💳 Processing airdrop payment ${i}/${NUM_PAYMENTS}...`);
 
-    // Build payment context (rules, mining round) with disclosed contracts
+    // Build payment context (rules, mining round, featured app right) with disclosed contracts
     const { paymentContext, disclosedContracts: paymentDisclosedContracts } =
-      await intellectClient.Subscriptions.utils.buildPaymentContext(validatorClient);
-
-    // Get featured app right for the provider to enable activity tracking
-    const featuredAppRightDetails = await getFeaturedAppRightContractDetails(validatorClient);
+      await fnClient.Subscriptions.utils.buildPaymentContext(validatorClient, PROVIDER);
 
     const { command: processPaymentCommand, disclosedContracts: processDisclosedContracts } =
-      intellectClient.Subscriptions.activeSubscription.buildProcessPaymentCommand({
+      fnClient.Subscriptions.activeSubscription.buildProcessPaymentCommand({
         subscriptionContractId: currentSubscriptionContractId,
         processingContext: {
           processingPeriod: PROCESSING_PERIOD_MICROSECONDS,
-          featuredAppRight: featuredAppRightDetails.contractId,
+          featuredAppRight: paymentContext.featuredAppRight ?? undefined,
         },
         paymentContext,
         skipProcessorPayment: true, // No processor fee for airdrop subscriptions
       });
 
-    const paymentResponse = await intellectClient.client.submitAndWaitForTransactionTree({
+    const paymentResponse = await fnClient.client.submitAndWaitForTransactionTree({
       actAs: [PROCESSOR_PARTY],
       commands: [processPaymentCommand],
-      disclosedContracts: [...processDisclosedContracts, ...paymentDisclosedContracts, featuredAppRightDetails],
+      disclosedContracts: [...processDisclosedContracts, ...paymentDisclosedContracts],
     });
 
     const newSubscriptionContractId = extractCreatedContractId(
@@ -384,51 +381,123 @@ async function main() {
   console.log(`\n   ✅ All ${NUM_PAYMENTS} airdrop payments completed!\n`);
 
   // ========================================
-  // Step 4: Recipient cancels subscription
+  // Step 5: Subscriber adds funds
   // ========================================
-  console.log('4️⃣  Recipient cancelling subscription...');
+  console.log('5️⃣  👤 Subscriber adding funds to subscription...');
+
+  // Get additional amulets for the subscriber to add more funds
+  const { paymentContext: addFundsPaymentContext, disclosedContracts: addFundsDisclosedContracts } =
+    await intellectClient.Subscriptions.utils.buildPaymentContextWithAmulets(
+      validatorClient,
+      SUBSCRIBER_PARTY,
+      2, // Use top 2 Amulet contracts
+      PROVIDER // Provider party for featured app right lookup
+    );
+
+  const addFundsAmount = '600000.0'; // Total desired lock amount: 600,000 CC
+
+  const { command: addFundsCommand, disclosedContracts: addFundsCommandDisclosed } = buildAddFundsCommand({
+    subscriptionContractId: currentSubscriptionContractId,
+    actor: SUBSCRIBER_PARTY,
+    lockFundsInput: {
+      amuletInputs: addFundsPaymentContext.subscriberAmulets,
+      amountToLock: addFundsAmount,
+      paymentContext: {
+        amuletRulesCid: addFundsPaymentContext.amuletRulesCid,
+        openMiningRoundCid: addFundsPaymentContext.openMiningRoundCid,
+        featuredAppRight: addFundsPaymentContext.featuredAppRight ?? null,
+      },
+    },
+    description: 'Adding funds to subscription',
+  });
+
+  const addFundsResponse = await intellectClient.client.submitAndWaitForTransactionTree({
+    actAs: [SUBSCRIBER_PARTY],
+    commands: [addFundsCommand],
+    disclosedContracts: [...addFundsCommandDisclosed, ...addFundsDisclosedContracts],
+  });
+
+  const addFundsSubscriptionId = extractCreatedContractId(
+    addFundsResponse,
+    'Fairmint.Subscriptions',
+    'ActiveSubscription'
+  );
+
+  if (!addFundsSubscriptionId) {
+    throw new Error('Failed to add funds to subscription');
+  }
+
+  currentSubscriptionContractId = addFundsSubscriptionId;
+  console.log(`   ✅ Funds added! New contract: ${currentSubscriptionContractId}`);
+
+  // ========================================
+  // Step 6: Subscriber withdraws funds
+  // ========================================
+  console.log('6️⃣  👤 Subscriber withdrawing funds from subscription...');
+
+  // Get payment context for unlocking amulets during withdrawal
+  const { paymentContext: withdrawPaymentContext, disclosedContracts: withdrawDisclosedContracts } =
+    await intellectClient.Subscriptions.utils.buildPaymentContext(validatorClient, PROVIDER);
+
+  // Note: WithdrawFunds uses amountToKeepLocked, not amountToWithdraw
+  // If subscription has 600,000 CC locked and we want to withdraw 50,000 CC,
+  // we need to keep 550,000 CC locked
+  const amountToKeepLocked = '550000.0'; // Keep 550,000 CC locked (withdrawing 50,000)
+
+  const { command: withdrawCommand, disclosedContracts: withdrawCommandDisclosed } = buildWithdrawFundsCommand({
+    subscriptionContractId: currentSubscriptionContractId,
+    amountToKeepLocked,
+    paymentContext: withdrawPaymentContext,
+  });
+
+  const withdrawResponse = await intellectClient.client.submitAndWaitForTransactionTree({
+    actAs: [SUBSCRIBER_PARTY],
+    commands: [withdrawCommand],
+    disclosedContracts: [...withdrawCommandDisclosed, ...withdrawDisclosedContracts],
+  });
+
+  const withdrawSubscriptionId = extractCreatedContractId(
+    withdrawResponse,
+    'Fairmint.Subscriptions',
+    'ActiveSubscription'
+  );
+
+  if (!withdrawSubscriptionId) {
+    throw new Error('Failed to withdraw funds from subscription');
+  }
+
+  currentSubscriptionContractId = withdrawSubscriptionId;
+  console.log(`   ✅ Funds withdrawn! New contract: ${currentSubscriptionContractId}`);
+
+  // ========================================
+  // Step 7: Subscriber cancels subscription
+  // ========================================
+  console.log('7️⃣  👤 Subscriber cancelling subscription...');
 
   // Get payment context for unlocking amulets
   const { paymentContext: cancelPaymentContext, disclosedContracts: cancelDisclosedContracts } =
-    await fnClient.Subscriptions.utils.buildPaymentContext(validatorClient);
+    await intellectClient.Subscriptions.utils.buildPaymentContext(validatorClient, PROVIDER);
 
-  const cancelCommand = fnClient.Subscriptions.activeSubscription.buildCancelCommand({
+  const cancelCommand = intellectClient.Subscriptions.activeSubscription.buildCancelCommand({
     subscriptionContractId: currentSubscriptionContractId,
-    actor: RECIPIENT_PARTY,
+    actor: SUBSCRIBER_PARTY,
     disregardAvailablePaidPeriod: true,
-    description: 'Subscription ended by recipient',
+    description: 'Subscription ended by subscriber',
     paymentContext: cancelPaymentContext,
   });
 
-  await fnClient.client.submitAndWaitForTransactionTree({
-    actAs: [RECIPIENT_PARTY],
+  await intellectClient.client.submitAndWaitForTransactionTree({
+    actAs: [SUBSCRIBER_PARTY],
     commands: [cancelCommand],
     disclosedContracts: cancelDisclosedContracts,
   });
 
-  console.log(`   ✅ Subscription cancelled by recipient!\n`);
+  console.log(`   ✅ Subscription cancelled by subscriber!`);
 
   // ========================================
   // Summary
   // ========================================
   console.log('✨ Airdrop subscription workflow complete!');
-  console.log('\nKey features of airdrop subscriptions:');
-  console.log('- Subscriber (Fairmint-validator-1) pays for airdrops to recipients (TransferAgent-devnet-1)');
-  console.log('- $20/day payment priced in USD (converted to CC at processing time)');
-  console.log('- Recipient provider enables featured app rewards with custom beneficiaries');
-  console.log('- 85% rewards to Fairmint-validator-1, 15% to airdrop vault (demo: both same party)');
-  console.log('- No processor fee (skipProcessorPayment: true)');
-  console.log('- Metadata tracks app user via hashed ID');
-  console.log('- Per-day billing automatically pro-rates for any processing period');
-  console.log('- Perpetual subscriptions with no prepay window (prepayWindow: 0)');
-  console.log('- Any party can cancel unilaterally (recipient in this example)');
-  console.log('- One subscription created per app user (scales to 14,676+ users)\n');
-
-  console.log('Next steps:');
-  console.log('- Scale to create one subscription per app_user');
-  console.log('- Implement automated processing scheduler');
-  console.log('- Monitor subscription stats and balance consumption');
-  console.log('- Handle edge cases (insufficient balance, expired subscriptions, etc.)\n');
 }
 
 // Run the example

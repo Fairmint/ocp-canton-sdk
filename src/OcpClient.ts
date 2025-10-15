@@ -261,6 +261,9 @@ export class OcpClient {
       buildApproveCommand: (
         params: import('./functions').ProposedSubscriptionApproveParams
       ) => CommandWithDisclosedContracts;
+      buildStartSubscriptionCommand: (
+        params: import('./functions').ProposedSubscriptionStartParams
+      ) => CommandWithDisclosedContracts;
       buildEditSubscriptionProposalCommand: (params: import('./functions').EditSubscriptionProposalParams) => Command;
       buildWithdrawCommand: (params: import('./functions').ProposedSubscriptionWithdrawParams) => Command;
       buildChangePartyCommand: (params: import('./functions').ProposedSubscriptionChangePartyParams) => Command;
@@ -290,17 +293,12 @@ export class OcpClient {
       buildArchiveCommand: (params: import('./functions').PartyMigrationProposalArchiveParams) => Command;
     };
     utils: {
-      getFactoryDisclosedContracts: (
-        factoryContractId: string,
-        readAs: string
-      ) => Promise<
-        Array<{
-          templateId: any;
-          contractId: string;
-          createdEventBlob: string;
-          synchronizerId: string;
-        }>
-      >;
+      getFactoryDisclosedContracts: () => Array<{
+        templateId: any;
+        contractId: string;
+        createdEventBlob: string;
+        synchronizerId: string;
+      }>;
       getProposedSubscriptionDisclosedContracts: (
         proposedSubscriptionContractId: string
       ) => Promise<
@@ -312,12 +310,14 @@ export class OcpClient {
         }>
       >;
       buildPaymentContext: (
-        validatorClient: import('@fairmint/canton-node-sdk').ValidatorApiClient
+        validatorClient: import('@fairmint/canton-node-sdk').ValidatorApiClient,
+        provider?: string
       ) => Promise<import('./functions').PaymentContextWithDisclosedContracts>;
       buildPaymentContextWithAmulets: (
         validatorClient: import('@fairmint/canton-node-sdk').ValidatorApiClient,
         subscriberParty: string,
-        maxAmuletInputs?: number
+        maxAmuletInputs?: number,
+        provider?: string
       ) => Promise<import('./functions').PaymentContextWithAmuletsAndDisclosed>;
     };
   };
@@ -458,6 +458,10 @@ export class OcpClient {
           const { buildProposedSubscriptionApproveCommand } = require('./functions/Subscriptions');
           return buildProposedSubscriptionApproveCommand(params);
         },
+        buildStartSubscriptionCommand: (params) => {
+          const { buildProposedSubscriptionStartCommand } = require('./functions/Subscriptions');
+          return buildProposedSubscriptionStartCommand(params);
+        },
         buildEditSubscriptionProposalCommand: (params) => {
           const { buildEditSubscriptionProposalCommand } = require('./functions/Subscriptions');
           return buildEditSubscriptionProposalCommand(params);
@@ -534,21 +538,21 @@ export class OcpClient {
         },
       },
       utils: {
-        getFactoryDisclosedContracts: async (factoryContractId: string, readAs: string) => {
+        getFactoryDisclosedContracts: () => {
           const { getFactoryDisclosedContracts } = require('./functions/Subscriptions');
-          return getFactoryDisclosedContracts(this, factoryContractId, readAs);
+          return getFactoryDisclosedContracts(this);
         },
         getProposedSubscriptionDisclosedContracts: async (proposedSubscriptionContractId: string) => {
           const { getProposedSubscriptionDisclosedContracts } = require('./functions/Subscriptions');
           return getProposedSubscriptionDisclosedContracts(this, proposedSubscriptionContractId);
         },
-        buildPaymentContext: async (validatorClient) => {
+        buildPaymentContext: async (validatorClient, provider) => {
           const { buildPaymentContext } = require('./functions/Subscriptions');
-          return buildPaymentContext(validatorClient);
+          return buildPaymentContext(validatorClient, provider);
         },
-        buildPaymentContextWithAmulets: async (validatorClient, subscriberParty, maxAmuletInputs) => {
+        buildPaymentContextWithAmulets: async (validatorClient, subscriberParty, maxAmuletInputs, provider) => {
           const { buildPaymentContextWithAmulets } = require('./functions/Subscriptions');
-          return buildPaymentContextWithAmulets(this, validatorClient, subscriberParty, maxAmuletInputs);
+          return buildPaymentContextWithAmulets(this, validatorClient, subscriberParty, maxAmuletInputs, provider);
         },
       },
     };

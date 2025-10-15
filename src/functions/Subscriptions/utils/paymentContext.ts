@@ -10,6 +10,7 @@ import type { OcpClient } from '../../../OcpClient';
 export interface PaymentContext {
   amuletRulesCid: string;
   openMiningRoundCid: string;
+  featuredAppRight: string | null;
 }
 
 export interface PaymentContextWithDisclosedContracts {
@@ -21,6 +22,7 @@ export interface PaymentContextWithAmulets {
   subscriberAmulets: string[];
   amuletRulesCid: string;
   openMiningRoundCid: string;
+  featuredAppRight?: string | null;
 }
 
 export interface PaymentContextWithAmuletsAndDisclosed {
@@ -34,13 +36,16 @@ export interface PaymentContextWithAmuletsAndDisclosed {
  * Queries the ledger for:
  * - AmuletRules contract
  * - OpenMiningRound contract
+ * - FeaturedAppRight contract (if provider specified)
  * 
  * Returns both the payment context and the disclosed contracts needed
  * 
  * @param validatorClient - Validator API client for getting rules/rounds
+ * @param provider - Optional provider party ID to lookup featured app right
  */
 export async function buildPaymentContext(
-  validatorClient: ValidatorApiClient
+  validatorClient: ValidatorApiClient,
+  provider?: string
 ): Promise<PaymentContextWithDisclosedContracts> {
   // Get AmuletRules contract
   const amuletRulesResponse = await validatorClient.getAmuletRules();
@@ -57,12 +62,36 @@ export async function buildPaymentContext(
   const openMiningRoundCid = miningRoundContext.openMiningRound;
   const openMiningRoundContract = miningRoundContext.openMiningRoundContract;
 
+  // Get FeaturedAppRight contract if provider specified
+  let featuredAppRightCid: string | null = null;
+  const disclosedContracts: DisclosedContract[] = [amuletRulesContract, openMiningRoundContract];
+
+  if (provider) {
+    try {
+      const featuredAppRight = await validatorClient.lookupFeaturedAppRight({ partyId: provider });
+      if (featuredAppRight.featured_app_right) {
+        featuredAppRightCid = featuredAppRight.featured_app_right.contract_id;
+        // Add disclosed contract with synchronizer from amulet rules
+        disclosedContracts.push({
+          templateId: featuredAppRight.featured_app_right.template_id,
+          contractId: featuredAppRight.featured_app_right.contract_id,
+          createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
+          synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
+        });
+      }
+    } catch (error) {
+      // If featured app right lookup fails, continue with null (optional)
+      console.warn(`Failed to lookup featured app right for provider ${provider}:`, error);
+    }
+  }
+
   return {
     paymentContext: {
       amuletRulesCid,
       openMiningRoundCid,
+      featuredAppRight: featuredAppRightCid,
     },
-    disclosedContracts: [amuletRulesContract, openMiningRoundContract],
+    disclosedContracts,
   };
 }
 
@@ -73,6 +102,7 @@ export async function buildPaymentContext(
  * - Subscriber's Amulet contracts (via Validator API)
  * - AmuletRules contract
  * - OpenMiningRound contract
+ * - FeaturedAppRight contract (if provider specified)
  * 
  * Returns both the payment context and the disclosed contracts needed
  * 
@@ -82,12 +112,14 @@ export async function buildPaymentContext(
  * @param validatorClient - Validator API client authenticated as subscriber
  * @param subscriberParty - Party ID of the subscriber (for validation only)
  * @param maxAmuletInputs - Maximum number of Amulet contracts to use (default: 2)
+ * @param provider - Optional provider party ID to lookup featured app right
  */
 export async function buildPaymentContextWithAmulets(
   ledgerClient: OcpClient,
   validatorClient: ValidatorApiClient,
   subscriberParty: string,
-  maxAmuletInputs: number = 2
+  maxAmuletInputs: number = 2,
+  provider?: string
 ): Promise<PaymentContextWithAmuletsAndDisclosed> {
   // Get subscriber's Amulet contracts via Validator API
   // Note: validatorClient must be authenticated as subscriberParty
@@ -130,13 +162,41 @@ export async function buildPaymentContextWithAmulets(
   // Build payment context with amulets
   const amuletInputs = subscriberAmulets.slice(0, maxAmuletInputs).map((a) => a.contractId);
 
+  // Get FeaturedAppRight contract if provider specified
+  let featuredAppRightCid: string | null = null;
+  const disclosedContracts: DisclosedContract[] = [
+    amuletRulesContract,
+    openMiningRoundContract,
+    ...amuletDisclosedContracts,
+  ];
+
+  if (provider) {
+    try {
+      const featuredAppRight = await validatorClient.lookupFeaturedAppRight({ partyId: provider });
+      if (featuredAppRight.featured_app_right) {
+        featuredAppRightCid = featuredAppRight.featured_app_right.contract_id;
+        // Add disclosed contract with synchronizer from amulet rules
+        disclosedContracts.push({
+          templateId: featuredAppRight.featured_app_right.template_id,
+          contractId: featuredAppRight.featured_app_right.contract_id,
+          createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
+          synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
+        });
+      }
+    } catch (error) {
+      // If featured app right lookup fails, continue with null (optional)
+      console.warn(`Failed to lookup featured app right for provider ${provider}:`, error);
+    }
+  }
+
   return {
     paymentContext: {
       subscriberAmulets: amuletInputs,
       amuletRulesCid,
       openMiningRoundCid,
+      featuredAppRight: featuredAppRightCid,
     },
-    disclosedContracts: [amuletRulesContract, openMiningRoundContract, ...amuletDisclosedContracts],
+    disclosedContracts,
   };
 }
 

@@ -1,10 +1,6 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-
-export interface PaymentContext {
-  amuletRulesCid: string;
-  openMiningRoundCid: string;
-}
+import type { PaymentContext } from '../utils/paymentContext';
 
 export interface CancelSubscriptionParams {
   subscriptionContractId: string;
@@ -22,6 +18,7 @@ export function buildCancelSubscriptionCommand(params: CancelSubscriptionParams)
     paymentContext: {
       amuletRulesCid: params.paymentContext.amuletRulesCid,
       openMiningRoundCid: params.paymentContext.openMiningRoundCid,
+      featuredAppRight: params.paymentContext.featuredAppRight,
     },
   };
 

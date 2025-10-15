@@ -3,16 +3,15 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts } from '../../../types';
 import type { LockFundsInput } from '../types/lockFundsInput';
 
-export interface AddFundsParams {
-  subscriptionContractId: string;
-  actor: string;
+export interface ProposedSubscriptionStartParams {
+  proposedSubscriptionContractId: string;
   lockFundsInput: LockFundsInput;
-  description?: string;
 }
 
-export function buildAddFundsCommand(params: AddFundsParams): CommandWithDisclosedContracts {
-  const choiceArguments: any = {
-    actor: params.actor,
+export function buildProposedSubscriptionStartCommand(
+  params: ProposedSubscriptionStartParams
+): CommandWithDisclosedContracts {
+  const choiceArgument = {
     lockFundsInput: {
       amuletInputs: params.lockFundsInput.amuletInputs,
       amountToLock: params.lockFundsInput.amountToLock,
@@ -22,15 +21,14 @@ export function buildAddFundsCommand(params: AddFundsParams): CommandWithDisclos
         featuredAppRight: params.lockFundsInput.paymentContext.featuredAppRight,
       },
     },
-    description: params.description ?? null,
   };
 
   const command: Command = {
     ExerciseCommand: {
-      templateId: Fairmint.Subscriptions.ActiveSubscription.ActiveSubscription.templateId,
-      contractId: params.subscriptionContractId,
-      choice: 'ActiveSubscription_AddFunds',
-      choiceArgument: choiceArguments,
+      templateId: Fairmint.Subscriptions.ProposedSubscription.ProposedSubscription.templateId,
+      contractId: params.proposedSubscriptionContractId,
+      choice: 'ProposedSubscription_StartSubscription',
+      choiceArgument,
     },
   };
 

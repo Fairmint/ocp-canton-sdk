@@ -1,25 +1,22 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-
-export interface PaymentContext {
-  amuletInputs: string[]; // ContractIds of Amulet.Amulet
-  amuletRulesCid: string;
-  openMiningRoundCid: string;
-}
+import type { PaymentContext } from '../utils/paymentContext';
 
 export interface RefundSubscriptionParams {
   subscriptionContractId: string;
   paymentContext: PaymentContext;
-  recipientFeaturedAppRight?: string;
+  recipientAmuletInputs: string[]; // ContractIds of Amulet.Amulet
+  recipientFeaturedAppRight?: string | null;
 }
 
 export function buildRefundSubscriptionCommand(params: RefundSubscriptionParams): Command {
   const choiceArgument: any = {
     paymentContext: {
-      amuletInputs: params.paymentContext.amuletInputs,
       amuletRulesCid: params.paymentContext.amuletRulesCid,
       openMiningRoundCid: params.paymentContext.openMiningRoundCid,
+      featuredAppRight: params.paymentContext.featuredAppRight,
     },
+    recipientAmuletInputs: params.recipientAmuletInputs,
   };
 
   if (params.recipientFeaturedAppRight) {

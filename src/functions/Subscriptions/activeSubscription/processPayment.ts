@@ -2,11 +2,7 @@ import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { relTimeToDAML } from '../../../utils/typeConversions';
 import type { CommandWithDisclosedContracts } from '../../../types';
-
-export interface PaymentContext {
-  amuletRulesCid: string;
-  openMiningRoundCid: string;
-}
+import type { PaymentContext } from '../utils/paymentContext';
 
 export interface ProcessingContext {
   processingPeriod: string; // RelTime as string (microseconds)
@@ -34,6 +30,7 @@ export function buildProcessPaymentCommand(params: ProcessPaymentParams): Comman
     paymentContext: {
       amuletRulesCid: params.paymentContext.amuletRulesCid,
       openMiningRoundCid: params.paymentContext.openMiningRoundCid,
+      featuredAppRight: params.paymentContext.featuredAppRight,
     },
     skipProcessorPayment: params.skipProcessorPayment ?? false,
   };
