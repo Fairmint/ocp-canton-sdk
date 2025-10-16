@@ -1,17 +1,17 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { relTimeToDAML } from '../../../utils/typeConversions';
-import type { SubscriptionAmount, SubscriptionTime } from '../subscriptionFactory/createSubscriptionProposal';
+import type { SubscriptionAmountInput, SubscriptionTimeInput } from '../subscriptionFactory/createSubscriptionProposal';
 
 export interface SubscriptionChanges {
   processedAndPaidUntilAdjustment?: string; // RelTime as microseconds string
   recipientProvider?: string;
   recipientBeneficiaries?: Array<{ party: string; weight: string }> | null;
-  recipientPaymentPerDay?: SubscriptionAmount;
-  processorPaymentPerDay?: SubscriptionAmount | null;
+  recipientPaymentPerDay?: SubscriptionAmountInput;
+  processorPaymentPerDay?: SubscriptionAmountInput | null;
   prepayWindow?: string | null; // RelTime as microseconds string
-  paymentsEndAt?: SubscriptionTime | null;
-  trialEndsAt?: SubscriptionTime | null;
+  paymentsEndAt?: SubscriptionTimeInput | null;
+  trialEndsAt?: SubscriptionTimeInput | null;
   description?: string | null;
   metadata?: Record<string, string> | null;
   observers?: string[];
@@ -24,7 +24,7 @@ export interface ProposeChangesParams {
   description?: string;
 }
 
-function subscriptionAmountToDaml(amount: SubscriptionAmount): Record<string, unknown> {
+function subscriptionAmountToDaml(amount: SubscriptionAmountInput): Record<string, unknown> {
   const amountValue = typeof amount.amount === 'number' ? amount.amount.toString() : amount.amount;
 
   if (amount.type === 'AMULET') {
@@ -39,7 +39,7 @@ function subscriptionAmountToDaml(amount: SubscriptionAmount): Record<string, un
   };
 }
 
-function subscriptionTimeToDaml(time: SubscriptionTime): Record<string, unknown> {
+function subscriptionTimeToDaml(time: SubscriptionTimeInput): Record<string, unknown> {
   if (time.type === 'PRECISE') {
     return {
       tag: 'PreciseTime',

@@ -3,26 +3,29 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts } from '../../../types';
 import { relTimeToDAML } from '../../../utils/typeConversions';
 
-export interface SubscriptionAmount {
+/** Input format for subscription amounts (before DAML conversion) */
+export interface SubscriptionAmountInput {
   type: 'AMULET' | 'USD';
   amount: string | number;
 }
 
-export interface SubscriptionTime {
+/** Input format for subscription time values (before DAML conversion) */
+export interface SubscriptionTimeInput {
   type: 'PRECISE' | 'RELATIVE';
   value: Date | string; // Date for precise, microseconds string for relative
 }
 
-export interface SubscriptionProposal {
+/** Input format for creating a subscription proposal */
+export interface SubscriptionProposalInput {
   subscriber: string;
   recipient: string;
   provider: string;
   appRewardBeneficiaries?: Array<{ beneficiary: string; weight: string }>;
-  freeTrialExpiration?: SubscriptionTime;
-  recipientPaymentPerDay: SubscriptionAmount;
-  processorPaymentPerDay?: SubscriptionAmount | null;
+  freeTrialExpiration?: SubscriptionTimeInput;
+  recipientPaymentPerDay: SubscriptionAmountInput;
+  processorPaymentPerDay?: SubscriptionAmountInput | null;
   prepayWindow: string; // RelTime as microseconds string, e.g. '0' for no prepay window, '604800000000' for 7 days
-  paymentsEndAt?: SubscriptionTime;
+  paymentsEndAt?: SubscriptionTimeInput;
   description?: string;
   metadata?: Record<string, string>;
   observers?: string[];
@@ -31,10 +34,10 @@ export interface SubscriptionProposal {
 export interface CreateProposedSubscriptionParams {
   factoryContractId: string;
   actor: string;
-  subscriptionProposal: SubscriptionProposal;
+  subscriptionProposal: SubscriptionProposalInput;
 }
 
-function subscriptionAmountToDaml(amount: SubscriptionAmount): Record<string, unknown> {
+function subscriptionAmountToDaml(amount: SubscriptionAmountInput): Record<string, unknown> {
   const amountValue = typeof amount.amount === 'number' ? amount.amount.toString() : amount.amount;
 
   if (amount.type === 'AMULET') {
@@ -49,7 +52,7 @@ function subscriptionAmountToDaml(amount: SubscriptionAmount): Record<string, un
   };
 }
 
-function subscriptionTimeToDaml(time: SubscriptionTime): Record<string, unknown> {
+function subscriptionTimeToDaml(time: SubscriptionTimeInput): Record<string, unknown> {
   if (time.type === 'PRECISE') {
     return {
       tag: 'PreciseTime',
@@ -62,7 +65,7 @@ function subscriptionTimeToDaml(time: SubscriptionTime): Record<string, unknown>
   };
 }
 
-function subscriptionProposalToDaml(proposal: SubscriptionProposal): Record<string, unknown> {
+function subscriptionProposalToDaml(proposal: SubscriptionProposalInput): Record<string, unknown> {
   const result: Record<string, unknown> = {
     subscriber: proposal.subscriber,
     recipient: proposal.recipient,

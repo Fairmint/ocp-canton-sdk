@@ -333,7 +333,6 @@ async function main() {
   }
 
   console.log(`   ✅ Subscription active: ${subscriptionContractId}`);
-
   // ========================================
   // Step 4: Process payments (3 rounds)
   // ========================================
