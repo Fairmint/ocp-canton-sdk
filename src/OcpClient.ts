@@ -298,7 +298,10 @@ export class OcpClient {
         createdEventBlob: string;
         synchronizerId: string;
       }>;
-      getProposedSubscriptionDisclosedContracts: (proposedSubscriptionContractId: string) => Promise<
+      getProposedSubscriptionDisclosedContracts: (
+        proposedSubscriptionContractId: string,
+        readAs?: string[]
+      ) => Promise<
         Array<{
           templateId: string;
           contractId: string;
@@ -540,9 +543,12 @@ export class OcpClient {
           const { getFactoryDisclosedContracts } = require('./functions/Subscriptions');
           return getFactoryDisclosedContracts(this);
         },
-        getProposedSubscriptionDisclosedContracts: async (proposedSubscriptionContractId: string) => {
+        getProposedSubscriptionDisclosedContracts: async (
+          proposedSubscriptionContractId: string,
+          readAs?: string[]
+        ) => {
           const { getProposedSubscriptionDisclosedContracts } = require('./functions/Subscriptions');
-          return await getProposedSubscriptionDisclosedContracts(this, proposedSubscriptionContractId);
+          return await getProposedSubscriptionDisclosedContracts(this, proposedSubscriptionContractId, readAs);
         },
         buildPaymentContext: async (validatorClient, provider) => {
           const { buildPaymentContext } = require('./functions/Subscriptions');
