@@ -38,11 +38,12 @@ export function getFactoryDisclosedContracts(client: OcpClient): DisclosedContra
  */
 export async function getProposedSubscriptionDisclosedContracts(
   client: OcpClient,
-  proposedSubscriptionContractId: string
+  proposedSubscriptionContractId: string,
+  readAs?: string[]
 ): Promise<DisclosedContract[]> {
   const proposalEventsResponse = await client.client.getEventsByContractId({
     contractId: proposedSubscriptionContractId,
-    readAs: [client.client.getPartyId()],
+    readAs: readAs ?? [client.client.getPartyId()],
   });
 
   const createdEvent = proposalEventsResponse.created?.createdEvent;
