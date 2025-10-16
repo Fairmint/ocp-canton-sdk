@@ -1,18 +1,18 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { relTimeToDAML } from '../../../utils/typeConversions';
-import type { SubscriptionAmount, SubscriptionTime } from '../subscriptionFactory/createSubscriptionProposal';
+import type { SubscriptionAmountInput, SubscriptionTimeInput } from '../subscriptionFactory/createSubscriptionProposal';
 
 export interface SubscriptionProposalChanges {
   subscriber?: string;
   recipient?: string;
   recipientProvider?: string;
   recipientBeneficiaries?: Array<{ party: string; weight: string }> | null;
-  recipientPaymentPerDay?: SubscriptionAmount;
-  processorPaymentPerDay?: SubscriptionAmount | null;
-  paymentsEndAt?: SubscriptionTime | null;
+  recipientPaymentPerDay?: SubscriptionAmountInput;
+  processorPaymentPerDay?: SubscriptionAmountInput | null;
+  paymentsEndAt?: SubscriptionTimeInput | null;
   prepayWindow?: string | null; // RelTime as microseconds string
-  freeTrialExpiration?: SubscriptionTime | null;
+  freeTrialExpiration?: SubscriptionTimeInput | null;
   description?: string | null;
   metadata?: Record<string, string> | null;
   observers?: string[];
@@ -25,7 +25,7 @@ export interface EditSubscriptionProposalParams {
   description?: string;
 }
 
-function subscriptionAmountToDaml(amount: SubscriptionAmount): Record<string, unknown> {
+function subscriptionAmountToDaml(amount: SubscriptionAmountInput): Record<string, unknown> {
   const amountValue = typeof amount.amount === 'number' ? amount.amount.toString() : amount.amount;
 
   if (amount.type === 'AMULET') {
@@ -40,7 +40,7 @@ function subscriptionAmountToDaml(amount: SubscriptionAmount): Record<string, un
   };
 }
 
-function subscriptionTimeToDaml(time: SubscriptionTime): Record<string, unknown> {
+function subscriptionTimeToDaml(time: SubscriptionTimeInput): Record<string, unknown> {
   if (time.type === 'PRECISE') {
     return {
       tag: 'PreciseTime',

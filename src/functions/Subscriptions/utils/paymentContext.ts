@@ -44,7 +44,7 @@ export interface PaymentContextWithAmuletsAndDisclosed {
  */
 export async function buildPaymentContext(
   validatorClient: ValidatorApiClient,
-  provider?: string
+  provider: string
 ): Promise<PaymentContextWithDisclosedContracts> {
   // Get AmuletRules contract
   const amuletRulesResponse = await validatorClient.getAmuletRules();
