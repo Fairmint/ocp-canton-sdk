@@ -4,19 +4,19 @@
 /**
  * Example script demonstrating Airdrop Subscriptions on devnet
  *
- * This script shows the airdrop subscription flow:
+ * This script shows the airdrop paymentStream flow:
  *
  * 1. 🤖 Processor (new account hosted on Intellect) proposes terms
  * 2. 💻 Recipient approves proposal (Reward)
- * 3. 👤 Subscriber starts subscription and locks funds (TBD reward)
+ * 3. 👤 Payer starts paymentStream and locks funds (TBD reward)
  * 4. 🔁 🤖 Processor transfers funds every x period (e.g. 10 minutes) (Reward)
- * 5. 👤 Subscriber adds funds (Reward)
- * 6. 👤 Subscriber withdraws funds (Reward)
- * 7. 👤 Subscriber cancels (Reward)
+ * 5. 👤 Payer adds funds (Reward)
+ * 6. 👤 Payer withdraws funds (Reward)
+ * 7. 👤 Payer cancels (Reward)
  *
  * Airdrop Subscription Pattern:
  *
- * - Subscriber: Fairmint-validator-1 (pays for the airdrop)
+ * - Payer: Fairmint-validator-1 (pays for the airdrop)
  * - Recipient: TransferAgent-devnet-1 (receives $20/day)
  * - Processor: test-processor account (processes payments, no fee)
  * - Recipient provider: Fairmint-validator-1 (for featured app rewards)
@@ -39,7 +39,7 @@ import { buildAddFundsCommand, buildWithdrawFundsCommand, getFactoryContractId }
 const envLoader = EnvLoader.getInstance();
 
 const NETWORK = 'devnet';
-const FACTORY_CONTRACT_ID = getFactoryContractId(NETWORK).subscriptionsFactoryContractId;
+const FACTORY_CONTRACT_ID = getFactoryContractId(NETWORK).paymentStreamsFactoryContractId;
 
 /** Helper to extract contract ID from transaction response */
 function extractCreatedContractId(response: any, moduleName: string, entityName: string): string | null {
@@ -52,8 +52,8 @@ function extractCreatedContractId(response: any, moduleName: string, entityName:
       if (typeof templateId === 'string') {
         const parts = templateId.split(':');
         if (parts.length >= 3) {
-          // parts[1] is like "Fairmint.Subscriptions.ProposedSubscription"
-          // parts[2] is like "ProposedSubscription"
+          // parts[1] is like "CantonPayments.PaymentStreams.ProposedPaymentStream"
+          // parts[2] is like "ProposedPaymentStream"
           const fullPath = parts[1];
           const templateEntity = parts[2];
 
@@ -184,16 +184,16 @@ async function main() {
 
   console.log('🚀 Airdrop Subscription Example on Devnet\n');
   console.log(`📋 Using parties:`);
-  console.log(`   Subscriber (Fairmint-validator-1): ${SUBSCRIBER_PARTY}`);
+  console.log(`   Payer (Fairmint-validator-1): ${SUBSCRIBER_PARTY}`);
   console.log(`   Recipient (TransferAgent-devnet-1): ${RECIPIENT_PARTY}`);
   console.log(`   Processor (TransferAgent-devnet-1): ${PROCESSOR_PARTY}`);
   console.log(`   Recipient Provider (Fairmint-validator-1): ${PROVIDER}`);
   console.log(`   Airdrop Vault (Fairmint-validator-1): ${AIRDROP_VAULT_PARTY}\n`);
 
   // ========================================
-  // Step 1: Processor creates subscription proposal
+  // Step 1: Processor creates paymentStream proposal
   // ========================================
-  console.log('1️⃣  Processor creating airdrop subscription proposal...');
+  console.log('1️⃣  Processor creating airdrop paymentStream proposal...');
 
   // Generate a sample app user ID hash for demonstration
   const appUserId = '12345'; // In production, this would be the actual app_user.id
@@ -203,11 +203,11 @@ async function main() {
   const factoryDisclosedContracts = fnClient.Subscriptions.utils.getFactoryDisclosedContracts();
 
   const { command: createProposalCommand, disclosedContracts } =
-    fnClient.Subscriptions.subscriptionFactory.buildCreateProposedSubscriptionCommand({
+    fnClient.Subscriptions.paymentStreamFactory.buildCreateProposedPaymentStreamCommand({
       factoryContractId: FACTORY_CONTRACT_ID,
       actor: PROCESSOR_PARTY,
-      subscriptionProposal: {
-        subscriber: SUBSCRIBER_PARTY,
+      paymentStreamProposal: {
+        payer: SUBSCRIBER_PARTY,
         recipient: RECIPIENT_PARTY,
         provider: PROVIDER,
         appRewardBeneficiaries: [
@@ -218,12 +218,12 @@ async function main() {
           type: 'AMULET',
           amount: '86400', // 10 CC every 10 seconds
         },
-        processorPaymentPerDay: null, // No processor fee for airdrop subscriptions
+        processorPaymentPerDay: null, // No processor fee for airdrop paymentStreams
         prepayWindow: '0', // 0 microseconds = no prepay window (pay-as-you-go)
         metadata: {
           appUserIdHash,
         },
-        description: `Airdrop subscription for app user ${appUserId}`,
+        description: `Airdrop paymentStream for app user ${appUserId}`,
       },
     });
 
@@ -235,12 +235,12 @@ async function main() {
 
   const proposalContractId = extractCreatedContractId(
     proposalResponse,
-    'Fairmint.Subscriptions',
-    'ProposedSubscription'
+    'CantonPayments.PaymentStreams',
+    'ProposedPaymentStream'
   );
 
   if (!proposalContractId) {
-    throw new Error('Failed to create subscription proposal');
+    throw new Error('Failed to create paymentStream proposal');
   }
 
   console.log(`   ✅ Proposal created by processor: ${proposalContractId}\n`);
@@ -250,9 +250,9 @@ async function main() {
   // ========================================
   console.log('2️⃣  Recipient approving proposal...');
 
-  // Get disclosed contracts for the ProposedSubscription (required to exercise the choice)
+  // Get disclosed contracts for the ProposedPaymentStream (required to exercise the choice)
   let proposalDisclosedContracts =
-    await fnClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(proposalContractId);
+    await fnClient.Subscriptions.utils.getProposedPaymentStreamDisclosedContracts(proposalContractId);
 
   const { command: recipientApproveCommand, disclosedContracts: recipientApproveDisclosedContracts } =
     fnClient.Subscriptions.proposedSubscription.buildApproveCommand({
@@ -268,8 +268,8 @@ async function main() {
 
   const recipientApprovedProposalId = extractCreatedContractId(
     recipientApprovedResponse,
-    'Fairmint.Subscriptions',
-    'ProposedSubscription'
+    'CantonPayments.PaymentStreams',
+    'ProposedPaymentStream'
   );
 
   if (!recipientApprovedProposalId) {
@@ -279,12 +279,12 @@ async function main() {
   console.log(`   ✅ Recipient approved: ${recipientApprovedProposalId}`);
 
   // ========================================
-  // Step 3: Subscriber starts subscription and locks funds
+  // Step 3: Payer starts paymentStream and locks funds
   // ========================================
-  console.log('3️⃣  Subscriber starting subscription and locking funds...');
+  console.log('3️⃣  Payer starting paymentStream and locking funds...');
 
-  // Get subscriber's amulets and payment context for locking funds
-  const { paymentContext: subscriberPaymentContext, disclosedContracts: subscriberAmuletDisclosedContracts } =
+  // Get payer's amulets and payment context for locking funds
+  const { paymentContext: payerPaymentContext, disclosedContracts: payerAmuletDisclosedContracts } =
     await intellectClient.Subscriptions.utils.buildPaymentContextWithAmulets(
       validatorClient,
       SUBSCRIBER_PARTY,
@@ -292,22 +292,22 @@ async function main() {
       PROVIDER // Provider party for featured app right lookup
     );
 
-  // Get disclosed contracts for the recipient-approved ProposedSubscription
+  // Get disclosed contracts for the recipient-approved ProposedPaymentStream
   proposalDisclosedContracts =
-    await intellectClient.Subscriptions.utils.getProposedSubscriptionDisclosedContracts(recipientApprovedProposalId);
+    await intellectClient.Subscriptions.utils.getProposedPaymentStreamDisclosedContracts(recipientApprovedProposalId);
 
-  const amountToLock = '500000.0'; // Lock 500,000 CC for subscription payments (needs to cover 3 payments + high fees)
+  const amountToLock = '500000.0'; // Lock 500,000 CC for paymentStream payments (needs to cover 3 payments + high fees)
 
   const { command: startSubscriptionCommand, disclosedContracts: startSubscriptionDisclosedContracts } =
     intellectClient.Subscriptions.proposedSubscription.buildStartSubscriptionCommand({
       proposedSubscriptionContractId: recipientApprovedProposalId,
       lockFundsInput: {
-        amuletInputs: subscriberPaymentContext.subscriberAmulets,
+        amuletInputs: payerPaymentContext.payerAmulets,
         amountToLock,
         paymentContext: {
-          amuletRulesCid: subscriberPaymentContext.amuletRulesCid,
-          openMiningRoundCid: subscriberPaymentContext.openMiningRoundCid,
-          featuredAppRight: subscriberPaymentContext.featuredAppRight ?? null,
+          amuletRulesCid: payerPaymentContext.amuletRulesCid,
+          openMiningRoundCid: payerPaymentContext.openMiningRoundCid,
+          featuredAppRight: payerPaymentContext.featuredAppRight ?? null,
         },
       },
     });
@@ -318,21 +318,21 @@ async function main() {
     disclosedContracts: [
       ...startSubscriptionDisclosedContracts,
       ...proposalDisclosedContracts,
-      ...subscriberAmuletDisclosedContracts,
+      ...payerAmuletDisclosedContracts,
     ],
   });
 
-  const subscriptionContractId = extractCreatedContractId(
+  const paymentStreamContractId = extractCreatedContractId(
     startSubscriptionResponse,
-    'Fairmint.Subscriptions',
-    'ActiveSubscription'
+    'CantonPayments.PaymentStreams',
+    'ActivePaymentStream'
   );
 
-  if (!subscriptionContractId) {
-    throw new Error('Failed to create active subscription');
+  if (!paymentStreamContractId) {
+    throw new Error('Failed to create active paymentStream');
   }
 
-  console.log(`   ✅ Subscription active: ${subscriptionContractId}`);
+  console.log(`   ✅ Subscription active: ${paymentStreamContractId}`);
   // ========================================
   // Step 4: Process payments (3 rounds)
   // ========================================
@@ -344,7 +344,7 @@ async function main() {
   // Sleep for processing period before starting the payment loop
   await new Promise((resolve) => setTimeout(resolve, PROCESSING_PERIOD_SECONDS * 1000));
 
-  let currentSubscriptionContractId = subscriptionContractId;
+  let currentSubscriptionContractId = paymentStreamContractId;
 
   for (let i = 1; i <= NUM_PAYMENTS; i++) {
     console.log(`   💳 Processing airdrop payment ${i}/${NUM_PAYMENTS}...`);
@@ -355,10 +355,10 @@ async function main() {
 
     const { command: processPaymentCommand, disclosedContracts: processDisclosedContracts } =
       fnClient.Subscriptions.activeSubscription.buildProcessPaymentCommand({
-        subscriptionContractId: currentSubscriptionContractId,
+        paymentStreamContractId: currentSubscriptionContractId,
         processingPeriod: PROCESSING_PERIOD_MICROSECONDS,
         paymentContext,
-        skipProcessorPayment: true, // No processor fee for airdrop subscriptions
+        skipProcessorPayment: true, // No processor fee for airdrop paymentStreams
       });
 
     const paymentResponse = await fnClient.client.submitAndWaitForTransactionTree({
@@ -369,8 +369,8 @@ async function main() {
 
     const newSubscriptionContractId = extractCreatedContractId(
       paymentResponse,
-      'Fairmint.Subscriptions',
-      'ActiveSubscription'
+      'CantonPayments.PaymentStreams',
+      'ActivePaymentStream'
     );
 
     if (!newSubscriptionContractId) {
@@ -390,11 +390,11 @@ async function main() {
   console.log(`\n   ✅ All ${NUM_PAYMENTS} airdrop payments completed!\n`);
 
   // ========================================
-  // Step 5: Subscriber adds funds
+  // Step 5: Payer adds funds
   // ========================================
-  console.log('5️⃣  👤 Subscriber adding funds to subscription...');
+  console.log('5️⃣  👤 Payer adding funds to paymentStream...');
 
-  // Get additional amulets for the subscriber to add more funds
+  // Get additional amulets for the payer to add more funds
   const { paymentContext: addFundsPaymentContext, disclosedContracts: addFundsDisclosedContracts } =
     await intellectClient.Subscriptions.utils.buildPaymentContextWithAmulets(
       validatorClient,
@@ -406,10 +406,10 @@ async function main() {
   const addFundsAmount = '600000.0'; // Total desired lock amount: 600,000 CC
 
   const { command: addFundsCommand, disclosedContracts: addFundsCommandDisclosed } = buildAddFundsCommand({
-    subscriptionContractId: currentSubscriptionContractId,
+    paymentStreamContractId: currentSubscriptionContractId,
     actor: SUBSCRIBER_PARTY,
     lockFundsInput: {
-      amuletInputs: addFundsPaymentContext.subscriberAmulets,
+      amuletInputs: addFundsPaymentContext.payerAmulets,
       amountToLock: addFundsAmount,
       paymentContext: {
         amuletRulesCid: addFundsPaymentContext.amuletRulesCid,
@@ -417,7 +417,7 @@ async function main() {
         featuredAppRight: addFundsPaymentContext.featuredAppRight ?? null,
       },
     },
-    description: 'Adding funds to subscription',
+    description: 'Adding funds to paymentStream',
   });
 
   const addFundsResponse = await intellectClient.client.submitAndWaitForTransactionTree({
@@ -428,33 +428,33 @@ async function main() {
 
   const addFundsSubscriptionId = extractCreatedContractId(
     addFundsResponse,
-    'Fairmint.Subscriptions',
-    'ActiveSubscription'
+    'CantonPayments.PaymentStreams',
+    'ActivePaymentStream'
   );
 
   if (!addFundsSubscriptionId) {
-    throw new Error('Failed to add funds to subscription');
+    throw new Error('Failed to add funds to paymentStream');
   }
 
   currentSubscriptionContractId = addFundsSubscriptionId;
   console.log(`   ✅ Funds added! New contract: ${currentSubscriptionContractId}`);
 
   // ========================================
-  // Step 6: Subscriber withdraws funds
+  // Step 6: Payer withdraws funds
   // ========================================
-  console.log('6️⃣  👤 Subscriber withdrawing funds from subscription...');
+  console.log('6️⃣  👤 Payer withdrawing funds from paymentStream...');
 
   // Get payment context for unlocking amulets during withdrawal
   const { paymentContext: withdrawPaymentContext, disclosedContracts: withdrawDisclosedContracts } =
     await intellectClient.Subscriptions.utils.buildPaymentContext(validatorClient, PROVIDER);
 
   // Note: WithdrawFunds uses amountToKeepLocked, not amountToWithdraw
-  // If subscription has 600,000 CC locked and we want to withdraw 50,000 CC,
+  // If paymentStream has 600,000 CC locked and we want to withdraw 50,000 CC,
   // we need to keep 550,000 CC locked
   const amountToKeepLocked = '550000.0'; // Keep 550,000 CC locked (withdrawing 50,000)
 
   const { command: withdrawCommand, disclosedContracts: withdrawCommandDisclosed } = buildWithdrawFundsCommand({
-    subscriptionContractId: currentSubscriptionContractId,
+    paymentStreamContractId: currentSubscriptionContractId,
     amountToKeepLocked,
     paymentContext: withdrawPaymentContext,
   });
@@ -467,31 +467,31 @@ async function main() {
 
   const withdrawSubscriptionId = extractCreatedContractId(
     withdrawResponse,
-    'Fairmint.Subscriptions',
-    'ActiveSubscription'
+    'CantonPayments.PaymentStreams',
+    'ActivePaymentStream'
   );
 
   if (!withdrawSubscriptionId) {
-    throw new Error('Failed to withdraw funds from subscription');
+    throw new Error('Failed to withdraw funds from paymentStream');
   }
 
   currentSubscriptionContractId = withdrawSubscriptionId;
   console.log(`   ✅ Funds withdrawn! New contract: ${currentSubscriptionContractId}`);
 
   // ========================================
-  // Step 7: Subscriber cancels subscription
+  // Step 7: Payer cancels paymentStream
   // ========================================
-  console.log('7️⃣  👤 Subscriber cancelling subscription...');
+  console.log('7️⃣  👤 Payer cancelling paymentStream...');
 
   // Get payment context for unlocking amulets
   const { paymentContext: cancelPaymentContext, disclosedContracts: cancelDisclosedContracts } =
     await intellectClient.Subscriptions.utils.buildPaymentContext(validatorClient, PROVIDER);
 
   const cancelCommand = intellectClient.Subscriptions.activeSubscription.buildCancelCommand({
-    subscriptionContractId: currentSubscriptionContractId,
+    paymentStreamContractId: currentSubscriptionContractId,
     actor: SUBSCRIBER_PARTY,
     disregardAvailablePaidPeriod: true,
-    description: 'Subscription ended by subscriber',
+    description: 'Subscription ended by payer',
     paymentContext: cancelPaymentContext,
   });
 
@@ -501,12 +501,12 @@ async function main() {
     disclosedContracts: cancelDisclosedContracts,
   });
 
-  console.log(`   ✅ Subscription cancelled by subscriber!`);
+  console.log(`   ✅ Subscription cancelled by payer!`);
 
   // ========================================
   // Summary
   // ========================================
-  console.log('✨ Airdrop subscription workflow complete!');
+  console.log('✨ Airdrop paymentStream workflow complete!');
 }
 
 // Run the example

@@ -1,12 +1,12 @@
-# ProposedSubscription Types
+# ProposedPaymentStream Types
 
-This document describes the new type definitions for `ProposedSubscription` contracts added to the
+This document describes the new type definitions for `ProposedPaymentStream` contracts added to the
 SDK.
 
 ## Overview
 
-The `ProposedSubscription` contract type definitions follow the same pattern as
-`ActiveSubscription`, providing strongly-typed interfaces for working with subscription proposals in
+The `ProposedPaymentStream` contract type definitions follow the same pattern as
+`ActivePaymentStream`, providing strongly-typed interfaces for working with paymentStream proposals in
 TypeScript.
 
 ## New Types
@@ -15,9 +15,9 @@ TypeScript.
 
 #### `SubscriptionProposal`
 
-The subscription proposal details:
+The paymentStream proposal details:
 
-- `subscriber: string` - The party subscribing
+- `payer: string` - The party paying
 - `recipient: string` - The party receiving payments
 - `provider: string` - The provider party
 - `recipientPaymentPerDay` - Amount to pay recipient per day
@@ -34,24 +34,24 @@ The subscription proposal details:
 
 The approval state for the proposal:
 
-- `subscriberApproved: boolean` - Has the subscriber approved?
+- `payerApproved: boolean` - Has the payer approved?
 - `recipientApproved: boolean` - Has the recipient approved?
 - `processorApproved: boolean` - Has the processor approved?
 
-#### `ProposedSubscriptionPayload`
+#### `ProposedPaymentStreamPayload`
 
 The complete contract payload:
 
-- `subscriptionProposal: SubscriptionProposal` - The proposal details
+- `paymentStreamProposal: SubscriptionProposal` - The proposal details
 - `processorContext: { processor: string; dso: string }` - Processor context
 - `approvals: Approvals` - The approval state
 
-#### `ProposedSubscriptionContract`
+#### `ProposedPaymentStreamContract`
 
 The full contract structure:
 
 - `contractId: string` - The contract ID
-- `payload: ProposedSubscriptionPayload` - The contract payload
+- `payload: ProposedPaymentStreamPayload` - The contract payload
 
 ## Helper Functions
 
@@ -63,7 +63,7 @@ Checks if a proposal is pending the recipient's approval.
 
 **Parameters:**
 
-- `proposal: ProposedSubscriptionContract` - The proposal to check
+- `proposal: ProposedPaymentStreamContract` - The proposal to check
 - `recipientPartyId: string` - The recipient party ID
 
 **Returns:** `boolean` - `true` if pending recipient approval
@@ -76,16 +76,16 @@ import { isProposalPendingRecipientApproval } from '@open-captable-protocol/cant
 const needsApproval = isProposalPendingRecipientApproval(proposal, 'recipient-party::123');
 ```
 
-### `isProposalPendingSubscriberApproval(proposal, subscriberPartyId)`
+### `isProposalPendingPayerApproval(proposal, payerPartyId)`
 
-Checks if a proposal is pending the subscriber's approval.
+Checks if a proposal is pending the payer's approval.
 
 **Parameters:**
 
-- `proposal: ProposedSubscriptionContract` - The proposal to check
-- `subscriberPartyId: string` - The subscriber party ID
+- `proposal: ProposedPaymentStreamContract` - The proposal to check
+- `payerPartyId: string` - The payer party ID
 
-**Returns:** `boolean` - `true` if pending subscriber approval
+**Returns:** `boolean` - `true` if pending payer approval
 
 ### `isProposalPendingProcessorApproval(proposal, processorPartyId)`
 
@@ -93,7 +93,7 @@ Checks if a proposal is pending the processor's approval.
 
 **Parameters:**
 
-- `proposal: ProposedSubscriptionContract` - The proposal to check
+- `proposal: ProposedPaymentStreamContract` - The proposal to check
 - `processorPartyId: string` - The processor party ID
 
 **Returns:** `boolean` - `true` if pending processor approval
@@ -104,7 +104,7 @@ Checks if all parties have approved the proposal.
 
 **Parameters:**
 
-- `proposal: ProposedSubscriptionContract` - The proposal to check
+- `proposal: ProposedPaymentStreamContract` - The proposal to check
 
 **Returns:** `boolean` - `true` if all parties have approved
 
@@ -114,12 +114,12 @@ Import the types and helpers from the SDK:
 
 ```typescript
 import {
-  ProposedSubscriptionContract,
-  ProposedSubscriptionPayload,
+  ProposedPaymentStreamContract,
+  ProposedPaymentStreamPayload,
   SubscriptionProposal,
   Approvals,
   isProposalPendingRecipientApproval,
-  isProposalPendingSubscriberApproval,
+  isProposalPendingPayerApproval,
   isProposalPendingProcessorApproval,
   areAllPartiesApproved,
 } from '@open-captable-protocol/canton';
@@ -130,12 +130,12 @@ import {
 ```typescript
 import {
   OcpClient,
-  type ProposedSubscriptionContract,
+  type ProposedPaymentStreamContract,
   isProposalPendingRecipientApproval,
 } from '@open-captable-protocol/canton';
 
 // Get all proposals
-const proposals: ProposedSubscriptionContract[] = /* ... */;
+const proposals: ProposedPaymentStreamContract[] = /* ... */;
 
 // Filter for proposals pending recipient approval
 const recipientPartyId = 'recipient-party::123';
@@ -150,27 +150,27 @@ console.log(`Found ${needingApproval.length} proposals pending recipient approva
 
 ```typescript
 import {
-  type ProposedSubscriptionContract,
+  type ProposedPaymentStreamContract,
   areAllPartiesApproved,
 } from '@open-captable-protocol/canton';
 
-const proposal: ProposedSubscriptionContract = /* ... */;
+const proposal: ProposedPaymentStreamContract = /* ... */;
 
 if (areAllPartiesApproved(proposal)) {
-  console.log('All parties have approved, ready to start subscription');
+  console.log('All parties have approved, ready to start paymentStream');
 } else {
   const { approvals } = proposal.payload;
   console.log('Waiting for approvals:', {
-    subscriber: approvals.subscriberApproved ? '✓' : '✗',
+    payer: approvals.payerApproved ? '✓' : '✗',
     recipient: approvals.recipientApproved ? '✓' : '✗',
     processor: approvals.processorApproved ? '✓' : '✗',
   });
 }
 ```
 
-## Consistency with ActiveSubscription
+## Consistency with ActivePaymentStream
 
-These types follow the same pattern as `ActiveSubscriptionContract`:
+These types follow the same pattern as `ActivePaymentStreamContract`:
 
 ```typescript
 // Both follow the same structure:
@@ -194,8 +194,8 @@ isProposalPendingRecipientApproval(proposal, recipientId);
 
 ## Related Types
 
-- `ActiveSubscriptionContract` - For active subscriptions
-- `SubscriptionChangeProposal` - For proposed changes to active subscriptions
+- `ActivePaymentStreamContract` - For active paymentStreams
+- `SubscriptionChangeProposal` - For proposed changes to active paymentStreams
 - `PartyMigrationProposal` - For migrating party identities
 
 ## Future Enhancements
