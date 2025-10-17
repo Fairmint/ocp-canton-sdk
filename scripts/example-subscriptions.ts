@@ -33,7 +33,7 @@
 
 import { EnvLoader, FileLogger, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { OcpClient } from '../src/OcpClient';
-import { buildAddFundsCommand, buildWithdrawFundsCommand, getFactoryContractId } from '../src/functions/Subscriptions';
+import { buildAddFundsCommand, buildWithdrawFundsCommand, getFactoryContractId } from '../src/functions/PaymentStreams';
 
 // Load environment configuration
 const envLoader = EnvLoader.getInstance();
@@ -256,7 +256,7 @@ async function main() {
 
   const { command: recipientApproveCommand, disclosedContracts: recipientApproveDisclosedContracts } =
     fnClient.Subscriptions.proposedSubscription.buildApproveCommand({
-      proposedSubscriptionContractId: proposalContractId,
+      proposedPaymentStreamContractId: proposalContractId,
       actor: RECIPIENT_PARTY,
     });
 
@@ -300,7 +300,7 @@ async function main() {
 
   const { command: startSubscriptionCommand, disclosedContracts: startSubscriptionDisclosedContracts } =
     intellectClient.Subscriptions.proposedSubscription.buildStartSubscriptionCommand({
-      proposedSubscriptionContractId: recipientApprovedProposalId,
+      proposedPaymentStreamContractId: recipientApprovedProposalId,
       lockFundsInput: {
         amuletInputs: payerPaymentContext.payerAmulets,
         amountToLock,
@@ -492,7 +492,7 @@ async function main() {
     actor: SUBSCRIBER_PARTY,
     disregardAvailablePaidPeriod: true,
     description: 'Subscription ended by payer',
-    paymentContext: cancelPaymentContext,
+    openMiningRoundCid: cancelPaymentContext.openMiningRoundCid,
   });
 
   await intellectClient.client.submitAndWaitForTransactionTree({
