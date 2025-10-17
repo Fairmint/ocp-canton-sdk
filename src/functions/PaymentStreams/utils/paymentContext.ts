@@ -3,7 +3,6 @@
 import type { ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { getCurrentMiningRoundContext } from '@fairmint/canton-node-sdk/build/src/utils/mining/mining-rounds';
-import type { OcpClient } from '../../../OcpClient';
 
 export interface PaymentContext {
   amuletRulesCid: string;
@@ -111,8 +110,8 @@ export async function buildPaymentContext(
  * - OpenMiningRound contract
  * - FeaturedAppRight contract
  *
- * Selects the minimum number of amulets needed to cover the requested amount,
- * choosing largest amulets first to minimize the number of inputs.
+ * Selects the minimum number of amulets needed to cover the requested amount, choosing largest amulets first to
+ * minimize the number of inputs.
  *
  * Returns both the payment context and the disclosed contracts needed
  *
