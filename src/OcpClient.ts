@@ -251,43 +251,45 @@ export class OcpClient {
   };
 
   public Subscriptions: {
-    subscriptionFactory: {
-      buildCreateProposedSubscriptionCommand: (
-        params: import('./functions').CreateProposedSubscriptionParams
+    paymentStreamFactory: {
+      buildCreateProposedPaymentStreamCommand: (
+        params: import('./functions').CreateProposedPaymentStreamParams
       ) => CommandWithDisclosedContracts;
     };
     proposedSubscription: {
       buildApproveCommand: (
-        params: import('./functions').ProposedSubscriptionApproveParams
+        params: import('./functions').ProposedPaymentStreamApproveParams
       ) => CommandWithDisclosedContracts;
       buildStartSubscriptionCommand: (
-        params: import('./functions').ProposedSubscriptionStartParams
+        params: import('./functions').ProposedPaymentStreamStartParams
       ) => CommandWithDisclosedContracts;
-      buildEditSubscriptionProposalCommand: (params: import('./functions').EditSubscriptionProposalParams) => Command;
-      buildWithdrawCommand: (params: import('./functions').ProposedSubscriptionWithdrawParams) => Command;
-      buildChangePartyCommand: (params: import('./functions').ProposedSubscriptionChangePartyParams) => Command;
+      buildEditPaymentStreamProposalCommand: (params: import('./functions').EditPaymentStreamProposalParams) => Command;
+      buildWithdrawCommand: (params: import('./functions').ProposedPaymentStreamWithdrawParams) => Command;
+      buildChangePartyCommand: (params: import('./functions').ProposedPaymentStreamChangePartyParams) => Command;
     };
     activeSubscription: {
       buildProcessPaymentCommand: (params: import('./functions').ProcessPaymentParams) => CommandWithDisclosedContracts;
       buildProcessFreeTrialCommand: (params: import('./functions').ProcessFreeTrialParams) => Command;
-      buildCancelCommand: (params: import('./functions').CancelSubscriptionParams) => Command;
+      buildCancelCommand: (params: import('./functions').CancelPaymentStreamParams) => Command;
       buildProposeChangesCommand: (params: import('./functions').ProposeChangesParams) => Command;
-      buildRefundCommand: (params: import('./functions').RefundSubscriptionParams) => Command;
-      buildArchiveInactiveSubscriptionCommand: (
-        params: import('./functions').ArchiveInactiveSubscriptionParams
+      buildRefundCommand: (params: import('./functions').RefundPaymentStreamParams) => Command;
+      buildArchiveInactivePaymentStreamCommand: (
+        params: import('./functions').ArchiveInactivePaymentStreamParams
       ) => Command;
-      buildChangePartyCommand: (params: import('./functions').ActiveSubscriptionChangePartyParams) => Command;
+      buildChangePartyCommand: (params: import('./functions').ActivePaymentStreamChangePartyParams) => Command;
     };
-    subscriptionChangeProposal: {
-      buildApproveCommand: (params: import('./functions').SubscriptionChangeProposalApproveParams) => Command;
-      buildApplyCommand: (params: import('./functions').SubscriptionChangeProposalApplyParams) => Command;
-      buildRejectCommand: (params: import('./functions').SubscriptionChangeProposalRejectParams) => Command;
+    paymentStreamChangeProposal: {
+      buildApproveCommand: (params: import('./functions').PaymentStreamChangeProposalApproveParams) => Command;
+      buildApplyCommand: (params: import('./functions').PaymentStreamChangeProposalApplyParams) => Command;
+      buildRejectCommand: (params: import('./functions').PaymentStreamChangeProposalRejectParams) => Command;
     };
     partyMigrationProposal: {
       buildApproveCommand: (params: import('./functions').PartyMigrationProposalApproveParams) => Command;
-      buildMigrateActiveSubscriptionCommand: (params: import('./functions').MigrateActiveSubscriptionParams) => Command;
-      buildMigrateProposedSubscriptionCommand: (
-        params: import('./functions').MigrateProposedSubscriptionParams
+      buildMigrateActivePaymentStreamCommand: (
+        params: import('./functions').MigrateActivePaymentStreamParams
+      ) => Command;
+      buildMigrateProposedPaymentStreamCommand: (
+        params: import('./functions').MigrateProposedPaymentStreamParams
       ) => Command;
       buildArchiveCommand: (params: import('./functions').PartyMigrationProposalArchiveParams) => Command;
     };
@@ -298,7 +300,7 @@ export class OcpClient {
         createdEventBlob: string;
         synchronizerId: string;
       }>;
-      getProposedSubscriptionDisclosedContracts: (
+      getProposedPaymentStreamDisclosedContracts: (
         proposedSubscriptionContractId: string,
         readAs?: string[]
       ) => Promise<
@@ -315,7 +317,7 @@ export class OcpClient {
       ) => Promise<import('./functions').PaymentContextWithDisclosedContracts>;
       buildPaymentContextWithAmulets: (
         validatorClient: import('@fairmint/canton-node-sdk').ValidatorApiClient,
-        subscriberParty: string,
+        payerParty: string,
         maxAmuletInputs?: number,
         provider?: string
       ) => Promise<import('./functions').PaymentContextWithAmuletsAndDisclosed>;
@@ -448,121 +450,115 @@ export class OcpClient {
     // Subscriptions namespace - lazy import to avoid circular dependencies
     /* eslint-disable @typescript-eslint/no-require-imports */
     this.Subscriptions = {
-      subscriptionFactory: {
-        buildCreateProposedSubscriptionCommand: (params) => {
-          const { buildCreateProposedSubscriptionCommand } = require('./functions/Subscriptions');
-          return buildCreateProposedSubscriptionCommand(params);
+      paymentStreamFactory: {
+        buildCreateProposedPaymentStreamCommand: (params) => {
+          const { buildCreateProposedPaymentStreamCommand } = require('./functions/PaymentStreams');
+          return buildCreateProposedPaymentStreamCommand(params);
         },
       },
       proposedSubscription: {
         buildApproveCommand: (params) => {
-          const { buildProposedSubscriptionApproveCommand } = require('./functions/Subscriptions');
-          return buildProposedSubscriptionApproveCommand(params);
+          const { buildProposedPaymentStreamApproveCommand } = require('./functions/PaymentStreams');
+          return buildProposedPaymentStreamApproveCommand(params);
         },
         buildStartSubscriptionCommand: (params) => {
-          const { buildProposedSubscriptionStartCommand } = require('./functions/Subscriptions');
-          return buildProposedSubscriptionStartCommand(params);
+          const { buildProposedPaymentStreamStartCommand } = require('./functions/PaymentStreams');
+          return buildProposedPaymentStreamStartCommand(params);
         },
-        buildEditSubscriptionProposalCommand: (params) => {
-          const { buildEditSubscriptionProposalCommand } = require('./functions/Subscriptions');
-          return buildEditSubscriptionProposalCommand(params);
+        buildEditPaymentStreamProposalCommand: (params) => {
+          const { buildEditPaymentStreamProposalCommand } = require('./functions/PaymentStreams');
+          return buildEditPaymentStreamProposalCommand(params);
         },
         buildWithdrawCommand: (params) => {
-          const { buildProposedSubscriptionWithdrawCommand } = require('./functions/Subscriptions');
-          return buildProposedSubscriptionWithdrawCommand(params);
+          const { buildProposedPaymentStreamWithdrawCommand } = require('./functions/PaymentStreams');
+          return buildProposedPaymentStreamWithdrawCommand(params);
         },
         buildChangePartyCommand: (params) => {
-          const { buildProposedSubscriptionChangePartyCommand } = require('./functions/Subscriptions');
-          return buildProposedSubscriptionChangePartyCommand(params);
+          const { buildProposedPaymentStreamChangePartyCommand } = require('./functions/PaymentStreams');
+          return buildProposedPaymentStreamChangePartyCommand(params);
         },
       },
       activeSubscription: {
         buildProcessPaymentCommand: (params) => {
-          const { buildProcessPaymentCommand } = require('./functions/Subscriptions');
+          const { buildProcessPaymentCommand } = require('./functions/PaymentStreams');
           return buildProcessPaymentCommand(params);
         },
         buildProcessFreeTrialCommand: (params) => {
-          const { buildProcessFreeTrialCommand } = require('./functions/Subscriptions');
+          const { buildProcessFreeTrialCommand } = require('./functions/PaymentStreams');
           return buildProcessFreeTrialCommand(params);
         },
         buildCancelCommand: (params) => {
-          const { buildCancelSubscriptionCommand } = require('./functions/Subscriptions');
-          return buildCancelSubscriptionCommand(params);
+          const { buildCancelPaymentStreamCommand } = require('./functions/PaymentStreams');
+          return buildCancelPaymentStreamCommand(params);
         },
         buildProposeChangesCommand: (params) => {
-          const { buildProposeChangesCommand } = require('./functions/Subscriptions');
+          const { buildProposeChangesCommand } = require('./functions/PaymentStreams');
           return buildProposeChangesCommand(params);
         },
         buildRefundCommand: (params) => {
-          const { buildRefundSubscriptionCommand } = require('./functions/Subscriptions');
-          return buildRefundSubscriptionCommand(params);
+          const { buildRefundPaymentStreamCommand } = require('./functions/PaymentStreams');
+          return buildRefundPaymentStreamCommand(params);
         },
-        buildArchiveInactiveSubscriptionCommand: (params) => {
-          const { buildArchiveInactiveSubscriptionCommand } = require('./functions/Subscriptions');
-          return buildArchiveInactiveSubscriptionCommand(params);
+        buildArchiveInactivePaymentStreamCommand: (params) => {
+          const { buildArchiveInactivePaymentStreamCommand } = require('./functions/PaymentStreams');
+          return buildArchiveInactivePaymentStreamCommand(params);
         },
         buildChangePartyCommand: (params) => {
-          const { buildActiveSubscriptionChangePartyCommand } = require('./functions/Subscriptions');
-          return buildActiveSubscriptionChangePartyCommand(params);
+          const { buildActivePaymentStreamChangePartyCommand } = require('./functions/PaymentStreams');
+          return buildActivePaymentStreamChangePartyCommand(params);
         },
       },
-      subscriptionChangeProposal: {
+      paymentStreamChangeProposal: {
         buildApproveCommand: (params) => {
-          const { buildSubscriptionChangeProposalApproveCommand } = require('./functions/Subscriptions');
-          return buildSubscriptionChangeProposalApproveCommand(params);
+          const { buildPaymentStreamChangeProposalApproveCommand } = require('./functions/PaymentStreams');
+          return buildPaymentStreamChangeProposalApproveCommand(params);
         },
         buildApplyCommand: (params) => {
-          const { buildSubscriptionChangeProposalApplyCommand } = require('./functions/Subscriptions');
-          return buildSubscriptionChangeProposalApplyCommand(params);
+          const { buildPaymentStreamChangeProposalApplyCommand } = require('./functions/PaymentStreams');
+          return buildPaymentStreamChangeProposalApplyCommand(params);
         },
         buildRejectCommand: (params) => {
-          const { buildSubscriptionChangeProposalRejectCommand } = require('./functions/Subscriptions');
-          return buildSubscriptionChangeProposalRejectCommand(params);
+          const { buildPaymentStreamChangeProposalRejectCommand } = require('./functions/PaymentStreams');
+          return buildPaymentStreamChangeProposalRejectCommand(params);
         },
       },
       partyMigrationProposal: {
         buildApproveCommand: (params) => {
-          const { buildPartyMigrationProposalApproveCommand } = require('./functions/Subscriptions');
+          const { buildPartyMigrationProposalApproveCommand } = require('./functions/PaymentStreams');
           return buildPartyMigrationProposalApproveCommand(params);
         },
-        buildMigrateActiveSubscriptionCommand: (params) => {
-          const { buildMigrateActiveSubscriptionCommand } = require('./functions/Subscriptions');
-          return buildMigrateActiveSubscriptionCommand(params);
+        buildMigrateActivePaymentStreamCommand: (params) => {
+          const { buildMigrateActivePaymentStreamCommand } = require('./functions/PaymentStreams');
+          return buildMigrateActivePaymentStreamCommand(params);
         },
-        buildMigrateProposedSubscriptionCommand: (params) => {
-          const { buildMigrateProposedSubscriptionCommand } = require('./functions/Subscriptions');
-          return buildMigrateProposedSubscriptionCommand(params);
+        buildMigrateProposedPaymentStreamCommand: (params) => {
+          const { buildMigrateProposedPaymentStreamCommand } = require('./functions/PaymentStreams');
+          return buildMigrateProposedPaymentStreamCommand(params);
         },
         buildArchiveCommand: (params) => {
-          const { buildPartyMigrationProposalArchiveCommand } = require('./functions/Subscriptions');
+          const { buildPartyMigrationProposalArchiveCommand } = require('./functions/PaymentStreams');
           return buildPartyMigrationProposalArchiveCommand(params);
         },
       },
       utils: {
         getFactoryDisclosedContracts: () => {
-          const { getFactoryDisclosedContracts } = require('./functions/Subscriptions');
+          const { getFactoryDisclosedContracts } = require('./functions/PaymentStreams');
           return getFactoryDisclosedContracts(this);
         },
-        getProposedSubscriptionDisclosedContracts: async (
+        getProposedPaymentStreamDisclosedContracts: async (
           proposedSubscriptionContractId: string,
           readAs?: string[]
         ) => {
-          const { getProposedSubscriptionDisclosedContracts } = require('./functions/Subscriptions');
-          return await getProposedSubscriptionDisclosedContracts(this, proposedSubscriptionContractId, readAs);
+          const { getProposedPaymentStreamDisclosedContracts } = require('./functions/PaymentStreams');
+          return await getProposedPaymentStreamDisclosedContracts(this, proposedSubscriptionContractId, readAs);
         },
         buildPaymentContext: async (validatorClient, provider) => {
-          const { buildPaymentContext } = require('./functions/Subscriptions');
+          const { buildPaymentContext } = require('./functions/PaymentStreams');
           return await buildPaymentContext(validatorClient, provider);
         },
-        buildPaymentContextWithAmulets: async (validatorClient, subscriberParty, maxAmuletInputs, provider) => {
-          const { buildPaymentContextWithAmulets } = require('./functions/Subscriptions');
-          return await buildPaymentContextWithAmulets(
-            this,
-            validatorClient,
-            subscriberParty,
-            maxAmuletInputs,
-            provider
-          );
+        buildPaymentContextWithAmulets: async (validatorClient, payerParty, maxAmuletInputs, provider) => {
+          const { buildPaymentContextWithAmulets } = require('./functions/PaymentStreams');
+          return await buildPaymentContextWithAmulets(this, validatorClient, payerParty, maxAmuletInputs, provider);
         },
       },
     };
