@@ -71,14 +71,8 @@ export function isProposalPendingRecipientApproval(
  * @param payerPartyId - The payer party ID to check
  * @returns True if the proposal is pending the payer's approval
  */
-export function isProposalPendingPayerApproval(
-  proposal: ProposedPaymentStreamContract,
-  payerPartyId: string
-): boolean {
-  return (
-    proposal.payload.paymentStreamProposal.payer === payerPartyId &&
-    !proposal.payload.approvals.payerApproved
-  );
+export function isProposalPendingPayerApproval(proposal: ProposedPaymentStreamContract, payerPartyId: string): boolean {
+  return proposal.payload.paymentStreamProposal.payer === payerPartyId && !proposal.payload.approvals.payerApproved;
 }
 
 /**

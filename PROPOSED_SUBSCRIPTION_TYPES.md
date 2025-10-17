@@ -6,8 +6,8 @@ SDK.
 ## Overview
 
 The `ProposedPaymentStream` contract type definitions follow the same pattern as
-`ActivePaymentStream`, providing strongly-typed interfaces for working with paymentStream proposals in
-TypeScript.
+`ActivePaymentStream`, providing strongly-typed interfaces for working with paymentStream proposals
+in TypeScript.
 
 ## New Types
 

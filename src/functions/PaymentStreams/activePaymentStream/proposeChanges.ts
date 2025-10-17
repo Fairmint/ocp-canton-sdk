@@ -1,7 +1,10 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { CantonPayments } from '@fairmint/open-captable-protocol-daml-js';
 import { relTimeToDAML } from '../../../utils/typeConversions';
-import type { PaymentStreamAmountInput, PaymentStreamTimeInput } from '../paymentStreamFactory/createPaymentStreamProposal';
+import type {
+  PaymentStreamAmountInput,
+  PaymentStreamTimeInput,
+} from '../paymentStreamFactory/createPaymentStreamProposal';
 
 export interface PaymentStreamChanges {
   processedAndPaidUntilAdjustment?: string; // RelTime as microseconds string

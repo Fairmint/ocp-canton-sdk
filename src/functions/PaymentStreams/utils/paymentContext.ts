@@ -70,10 +70,11 @@ export async function buildPaymentContext(
       const featuredAppRight = await validatorClient.lookupFeaturedAppRight({ partyId: provider });
       if (featuredAppRight.featured_app_right) {
         // Extract the contract ID - it might be nested in the response
-        featuredAppRightCid = typeof featuredAppRight.featured_app_right === 'string'
-          ? featuredAppRight.featured_app_right
-          : featuredAppRight.featured_app_right.contract_id || featuredAppRight.featured_app_right;
-        
+        featuredAppRightCid =
+          typeof featuredAppRight.featured_app_right === 'string'
+            ? featuredAppRight.featured_app_right
+            : (featuredAppRight.featured_app_right.contract_id ?? featuredAppRight.featured_app_right);
+
         // Add disclosed contract with synchronizer from amulet rules
         if (featuredAppRightCid) {
           disclosedContracts.push({
@@ -181,10 +182,11 @@ export async function buildPaymentContextWithAmulets(
       const featuredAppRight = await validatorClient.lookupFeaturedAppRight({ partyId: provider });
       if (featuredAppRight.featured_app_right) {
         // Extract the contract ID - it might be nested in the response
-        featuredAppRightCid = typeof featuredAppRight.featured_app_right === 'string'
-          ? featuredAppRight.featured_app_right
-          : featuredAppRight.featured_app_right.contract_id || featuredAppRight.featured_app_right;
-        
+        featuredAppRightCid =
+          typeof featuredAppRight.featured_app_right === 'string'
+            ? featuredAppRight.featured_app_right
+            : (featuredAppRight.featured_app_right.contract_id ?? featuredAppRight.featured_app_right);
+
         // Add disclosed contract with synchronizer from amulet rules
         if (featuredAppRightCid) {
           disclosedContracts.push({

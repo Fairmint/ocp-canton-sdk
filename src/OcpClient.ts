@@ -285,7 +285,9 @@ export class OcpClient {
     };
     partyMigrationProposal: {
       buildApproveCommand: (params: import('./functions').PartyMigrationProposalApproveParams) => Command;
-      buildMigrateActivePaymentStreamCommand: (params: import('./functions').MigrateActivePaymentStreamParams) => Command;
+      buildMigrateActivePaymentStreamCommand: (
+        params: import('./functions').MigrateActivePaymentStreamParams
+      ) => Command;
       buildMigrateProposedPaymentStreamCommand: (
         params: import('./functions').MigrateProposedPaymentStreamParams
       ) => Command;
@@ -556,13 +558,7 @@ export class OcpClient {
         },
         buildPaymentContextWithAmulets: async (validatorClient, payerParty, maxAmuletInputs, provider) => {
           const { buildPaymentContextWithAmulets } = require('./functions/PaymentStreams');
-          return await buildPaymentContextWithAmulets(
-            this,
-            validatorClient,
-            payerParty,
-            maxAmuletInputs,
-            provider
-          );
+          return await buildPaymentContextWithAmulets(this, validatorClient, payerParty, maxAmuletInputs, provider);
         },
       },
     };

@@ -27,12 +27,12 @@ export type {
   AddFundsParams,
   ArchiveInactivePaymentStreamParams,
   CancelPaymentStreamParams,
+  PaymentStreamChanges,
   ProcessFreeTrialParams,
   ProcessPaymentParams,
   ProposeChangesParams,
   RefundPaymentStreamParams,
   ReplaceLockedAmuletParams,
-  PaymentStreamChanges,
   WithdrawFundsParams,
 } from './activePaymentStream';
 
@@ -58,23 +58,23 @@ export { isPaymentStreamReadyForProcessing, secondsToMicroseconds } from './type
 export type {
   ActivePaymentStreamContract,
   ActivePaymentStreamPayload,
-  ProcessorContext,
   PaymentStreamAmount,
   PaymentStreamDetails,
   PaymentStreamStats,
+  ProcessorContext,
 } from './types/activePaymentStream';
 export type { LockFundsInput } from './types/lockFundsInput';
 export {
   areAllNonPayerPartiesApproved,
+  isProposalPendingPayerApproval,
   isProposalPendingProcessorApproval,
   isProposalPendingRecipientApproval,
-  isProposalPendingPayerApproval,
 } from './types/proposedPaymentStream';
 export type {
   Approvals,
+  PaymentStreamProposal,
   ProposedPaymentStreamContract,
   ProposedPaymentStreamPayload,
-  PaymentStreamProposal,
 } from './types/proposedPaymentStream';
 
 // Re-export proposedPaymentStream with explicit exports to avoid PartyRole conflict
@@ -87,10 +87,10 @@ export {
 } from './proposedPaymentStream';
 export type {
   EditPaymentStreamProposalParams,
+  PaymentStreamProposalChanges,
   ProposedPaymentStreamApproveParams,
   ProposedPaymentStreamChangePartyParams,
   PartyRole as ProposedPaymentStreamPartyRole,
   ProposedPaymentStreamStartParams,
   ProposedPaymentStreamWithdrawParams,
-  PaymentStreamProposalChanges,
 } from './proposedPaymentStream';

@@ -7,7 +7,9 @@ export interface PaymentStreamChangeProposalRejectParams {
   description?: string;
 }
 
-export function buildPaymentStreamChangeProposalRejectCommand(params: PaymentStreamChangeProposalRejectParams): Command {
+export function buildPaymentStreamChangeProposalRejectCommand(
+  params: PaymentStreamChangeProposalRejectParams
+): Command {
   const choiceArgument = {
     actor: params.actor,
     description: params.description ?? null,
