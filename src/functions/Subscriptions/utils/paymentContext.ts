@@ -69,14 +69,20 @@ export async function buildPaymentContext(
     try {
       const featuredAppRight = await validatorClient.lookupFeaturedAppRight({ partyId: provider });
       if (featuredAppRight.featured_app_right) {
-        featuredAppRightCid = featuredAppRight.featured_app_right.contract_id;
+        // Extract the contract ID - it might be nested in the response
+        featuredAppRightCid = typeof featuredAppRight.featured_app_right === 'string'
+          ? featuredAppRight.featured_app_right
+          : featuredAppRight.featured_app_right.contract_id || featuredAppRight.featured_app_right;
+        
         // Add disclosed contract with synchronizer from amulet rules
-        disclosedContracts.push({
-          templateId: featuredAppRight.featured_app_right.template_id,
-          contractId: featuredAppRight.featured_app_right.contract_id,
-          createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
-          synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
-        });
+        if (featuredAppRightCid) {
+          disclosedContracts.push({
+            templateId: featuredAppRight.featured_app_right.template_id,
+            contractId: featuredAppRightCid,
+            createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
+            synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
+          });
+        }
       }
     } catch {
       // If featured app right lookup fails, continue with null (optional)
@@ -174,14 +180,20 @@ export async function buildPaymentContextWithAmulets(
     try {
       const featuredAppRight = await validatorClient.lookupFeaturedAppRight({ partyId: provider });
       if (featuredAppRight.featured_app_right) {
-        featuredAppRightCid = featuredAppRight.featured_app_right.contract_id;
+        // Extract the contract ID - it might be nested in the response
+        featuredAppRightCid = typeof featuredAppRight.featured_app_right === 'string'
+          ? featuredAppRight.featured_app_right
+          : featuredAppRight.featured_app_right.contract_id || featuredAppRight.featured_app_right;
+        
         // Add disclosed contract with synchronizer from amulet rules
-        disclosedContracts.push({
-          templateId: featuredAppRight.featured_app_right.template_id,
-          contractId: featuredAppRight.featured_app_right.contract_id,
-          createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
-          synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
-        });
+        if (featuredAppRightCid) {
+          disclosedContracts.push({
+            templateId: featuredAppRight.featured_app_right.template_id,
+            contractId: featuredAppRightCid,
+            createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
+            synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
+          });
+        }
       }
     } catch {
       // If featured app right lookup fails, continue with null (optional)
