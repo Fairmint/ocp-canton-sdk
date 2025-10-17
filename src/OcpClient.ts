@@ -250,24 +250,24 @@ export class OcpClient {
     };
   };
 
-  public Subscriptions: {
+  public PaymentStreams: {
     paymentStreamFactory: {
       buildCreateProposedPaymentStreamCommand: (
         params: import('./functions').CreateProposedPaymentStreamParams
       ) => CommandWithDisclosedContracts;
     };
-    proposedSubscription: {
+    proposedPaymentStream: {
       buildApproveCommand: (
         params: import('./functions').ProposedPaymentStreamApproveParams
       ) => CommandWithDisclosedContracts;
-      buildStartSubscriptionCommand: (
+      buildStartPaymentStreamCommand: (
         params: import('./functions').ProposedPaymentStreamStartParams
       ) => CommandWithDisclosedContracts;
       buildEditPaymentStreamProposalCommand: (params: import('./functions').EditPaymentStreamProposalParams) => Command;
       buildWithdrawCommand: (params: import('./functions').ProposedPaymentStreamWithdrawParams) => Command;
       buildChangePartyCommand: (params: import('./functions').ProposedPaymentStreamChangePartyParams) => Command;
     };
-    activeSubscription: {
+    activePaymentStream: {
       buildProcessPaymentCommand: (params: import('./functions').ProcessPaymentParams) => CommandWithDisclosedContracts;
       buildProcessFreeTrialCommand: (params: import('./functions').ProcessFreeTrialParams) => Command;
       buildCancelCommand: (params: import('./functions').CancelPaymentStreamParams) => Command;
@@ -301,7 +301,7 @@ export class OcpClient {
         synchronizerId: string;
       }>;
       getProposedPaymentStreamDisclosedContracts: (
-        proposedSubscriptionContractId: string,
+        proposedPaymentStreamContractId: string,
         readAs?: string[]
       ) => Promise<
         Array<{
@@ -447,21 +447,21 @@ export class OcpClient {
       },
     };
 
-    // Subscriptions namespace - lazy import to avoid circular dependencies
+    // PaymentStreams namespace - lazy import to avoid circular dependencies
     /* eslint-disable @typescript-eslint/no-require-imports */
-    this.Subscriptions = {
+    this.PaymentStreams = {
       paymentStreamFactory: {
         buildCreateProposedPaymentStreamCommand: (params) => {
           const { buildCreateProposedPaymentStreamCommand } = require('./functions/PaymentStreams');
           return buildCreateProposedPaymentStreamCommand(params);
         },
       },
-      proposedSubscription: {
+      proposedPaymentStream: {
         buildApproveCommand: (params) => {
           const { buildProposedPaymentStreamApproveCommand } = require('./functions/PaymentStreams');
           return buildProposedPaymentStreamApproveCommand(params);
         },
-        buildStartSubscriptionCommand: (params) => {
+        buildStartPaymentStreamCommand: (params) => {
           const { buildProposedPaymentStreamStartCommand } = require('./functions/PaymentStreams');
           return buildProposedPaymentStreamStartCommand(params);
         },
@@ -478,7 +478,7 @@ export class OcpClient {
           return buildProposedPaymentStreamChangePartyCommand(params);
         },
       },
-      activeSubscription: {
+      activePaymentStream: {
         buildProcessPaymentCommand: (params) => {
           const { buildProcessPaymentCommand } = require('./functions/PaymentStreams');
           return buildProcessPaymentCommand(params);
@@ -546,11 +546,11 @@ export class OcpClient {
           return getFactoryDisclosedContracts(this);
         },
         getProposedPaymentStreamDisclosedContracts: async (
-          proposedSubscriptionContractId: string,
+          proposedPaymentStreamContractId: string,
           readAs?: string[]
         ) => {
           const { getProposedPaymentStreamDisclosedContracts } = require('./functions/PaymentStreams');
-          return await getProposedPaymentStreamDisclosedContracts(this, proposedSubscriptionContractId, readAs);
+          return await getProposedPaymentStreamDisclosedContracts(this, proposedPaymentStreamContractId, readAs);
         },
         buildPaymentContext: async (validatorClient, provider) => {
           const { buildPaymentContext } = require('./functions/PaymentStreams');
