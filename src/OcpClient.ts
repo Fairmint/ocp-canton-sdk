@@ -252,8 +252,8 @@ export class OcpClient {
 
   public PaymentStreams: {
     paymentStreamFactory: {
-      buildCreateProposedPaymentStreamCommand: (
-        params: import('./functions').CreateProposedPaymentStreamParams
+      buildCreatePaymentStreamProposalCommand: (
+        params: import('./functions').CreatePaymentStreamProposalParams
       ) => CommandWithDisclosedContracts;
     };
     proposedPaymentStream: {
@@ -451,9 +451,9 @@ export class OcpClient {
     /* eslint-disable @typescript-eslint/no-require-imports */
     this.PaymentStreams = {
       paymentStreamFactory: {
-        buildCreateProposedPaymentStreamCommand: (params) => {
-          const { buildCreateProposedPaymentStreamCommand } = require('./functions/PaymentStreams');
-          return buildCreateProposedPaymentStreamCommand(params);
+        buildCreatePaymentStreamProposalCommand: (params) => {
+          const { buildCreatePaymentStreamProposalCommand } = require('./functions/PaymentStreams');
+          return buildCreatePaymentStreamProposalCommand(params);
         },
       },
       proposedPaymentStream: {

@@ -31,7 +31,7 @@ export interface PaymentStreamProposalInput {
   observers?: string[];
 }
 
-export interface CreateProposedPaymentStreamParams {
+export interface CreatePaymentStreamProposalParams {
   factoryContractId: string;
   actor: string;
   paymentStreamProposal: PaymentStreamProposalInput;
@@ -95,8 +95,8 @@ function paymentStreamProposalToDaml(proposal: PaymentStreamProposalInput): Reco
   return result;
 }
 
-export function buildCreateProposedPaymentStreamCommand(
-  params: CreateProposedPaymentStreamParams
+export function buildCreatePaymentStreamProposalCommand(
+  params: CreatePaymentStreamProposalParams
 ): CommandWithDisclosedContracts {
   const choiceArguments = {
     actor: params.actor,
@@ -107,7 +107,7 @@ export function buildCreateProposedPaymentStreamCommand(
     ExerciseCommand: {
       templateId: CantonPayments.PaymentStream.PaymentStreamFactory.PaymentStreamFactory.templateId,
       contractId: params.factoryContractId,
-      choice: 'PaymentStreamFactory_CreateProposedPaymentStream',
+      choice: 'PaymentStreamFactory_CreatePaymentStreamProposal',
       choiceArgument: choiceArguments,
     },
   };

@@ -1,9 +1,9 @@
 export * from './partyMigrationProposal';
 export * from './paymentStreamChangeProposal';
 // Export paymentStream factory with explicit types to avoid naming conflicts
-export { buildCreateProposedPaymentStreamCommand } from './paymentStreamFactory';
+export { buildCreatePaymentStreamProposalCommand } from './paymentStreamFactory';
 export type {
-  CreateProposedPaymentStreamParams,
+  CreatePaymentStreamProposalParams,
   PaymentStreamAmountInput,
   PaymentStreamProposalInput,
   PaymentStreamTimeInput,
