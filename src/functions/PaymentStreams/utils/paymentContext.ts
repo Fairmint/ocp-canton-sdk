@@ -3,7 +3,6 @@
 import type { ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { getCurrentMiningRoundContext } from '@fairmint/canton-node-sdk/build/src/utils/mining/mining-rounds';
-import type { OcpClient } from '../../../OcpClient';
 
 export interface PaymentContext {
   amuletRulesCid: string;
@@ -109,46 +108,74 @@ export async function buildPaymentContext(
  * - Payer's Amulet contracts (via Validator API)
  * - AmuletRules contract
  * - OpenMiningRound contract
- * - FeaturedAppRight contract (if provider specified)
+ * - FeaturedAppRight contract
+ *
+ * Selects the minimum number of amulets needed to cover the requested amount, choosing largest amulets first to
+ * minimize the number of inputs.
  *
  * Returns both the payment context and the disclosed contracts needed
  *
  * NOTE: The validatorClient must be authenticated as the payerParty
  *
- * @param ledgerClient - OCP client for querying contracts
  * @param validatorClient - Validator API client authenticated as payer
  * @param payerParty - Party ID of the payer (for validation only)
- * @param maxAmuletInputs - Maximum number of Amulet contracts to use (default: 2)
- * @param provider - Optional provider party ID to lookup featured app right
+ * @param requestedAmount - Amount in CC needed for the payment
+ * @param provider - Provider party ID for featured app right lookup
  */
 export async function buildPaymentContextWithAmulets(
-  ledgerClient: OcpClient,
   validatorClient: ValidatorApiClient,
   payerParty: string,
-  maxAmuletInputs = 2,
-  provider?: string
+  requestedAmount: string,
+  provider: string
 ): Promise<PaymentContextWithAmuletsAndDisclosed> {
   // Get payer's Amulet contracts via Validator API
   // Note: validatorClient must be authenticated as payerParty
   const amuletsResponse = await validatorClient.getAmulets();
 
-  const payerAmulets = amuletsResponse.amulets.map((amulet) => ({
-    contractId: amulet.contract.contract.contract_id,
-    templateId: amulet.contract.contract.template_id,
-    synchronizerId: amulet.contract.domain_id,
-  }));
-
-  if (payerAmulets.length === 0) {
+  if (amuletsResponse.amulets.length === 0) {
     throw new Error(`Payer ${payerParty} has no Amulet contracts`);
   }
 
-  // Get disclosed contracts for each Amulet (getAmulets already includes created_event_blob)
-  const amuletsToDisclose = amuletsResponse.amulets.slice(0, maxAmuletInputs);
-  const amuletDisclosedContracts = amuletsToDisclose.map((amulet) => ({
-    templateId: amulet.contract.contract.template_id,
+  // Map amulets with their effective amounts
+  const amuletsWithAmounts = amuletsResponse.amulets.map((amulet) => ({
     contractId: amulet.contract.contract.contract_id,
-    createdEventBlob: amulet.contract.contract.created_event_blob,
+    templateId: amulet.contract.contract.template_id,
     synchronizerId: amulet.contract.domain_id,
+    effectiveAmount: parseFloat(amulet.effective_amount),
+    createdEventBlob: amulet.contract.contract.created_event_blob,
+  }));
+
+  // Sort by effective amount (largest first) to minimize number of inputs
+  amuletsWithAmounts.sort((a, b) => b.effectiveAmount - a.effectiveAmount);
+
+  // Select minimum amulets needed to cover requested amount
+  const requestedAmountNum = parseFloat(requestedAmount);
+  const selectedAmulets: typeof amuletsWithAmounts = [];
+  let accumulatedAmount = 0;
+
+  for (const amulet of amuletsWithAmounts) {
+    selectedAmulets.push(amulet);
+    accumulatedAmount += amulet.effectiveAmount;
+
+    // Stop once we have enough to cover the requested amount
+    if (accumulatedAmount >= requestedAmountNum) {
+      break;
+    }
+  }
+
+  // Check if we have sufficient funds
+  if (accumulatedAmount < requestedAmountNum) {
+    throw new Error(
+      `Insufficient funds: Payer ${payerParty} has ${accumulatedAmount.toFixed(2)} CC available but needs ${requestedAmountNum.toFixed(2)} CC (missing ${(requestedAmountNum - accumulatedAmount).toFixed(2)} CC)`
+    );
+  }
+
+  // Build disclosed contracts for selected amulets
+  const amuletDisclosedContracts = selectedAmulets.map((amulet) => ({
+    templateId: amulet.templateId,
+    contractId: amulet.contractId,
+    createdEventBlob: amulet.createdEventBlob,
+    synchronizerId: amulet.synchronizerId,
   }));
 
   // Get AmuletRules contract
@@ -166,10 +193,10 @@ export async function buildPaymentContextWithAmulets(
   const openMiningRoundCid = miningRoundContext.openMiningRound;
   const { openMiningRoundContract } = miningRoundContext;
 
-  // Build payment context with amulets
-  const amuletInputs = payerAmulets.slice(0, maxAmuletInputs).map((a) => a.contractId);
+  // Build payment context with selected amulets
+  const amuletInputs = selectedAmulets.map((a) => a.contractId);
 
-  // Get FeaturedAppRight contract if provider specified
+  // Get FeaturedAppRight contract for provider
   let featuredAppRightCid: string | null = null;
   const disclosedContracts: DisclosedContract[] = [
     amuletRulesContract,
@@ -177,30 +204,28 @@ export async function buildPaymentContextWithAmulets(
     ...amuletDisclosedContracts,
   ];
 
-  if (provider) {
-    try {
-      const featuredAppRight = await validatorClient.lookupFeaturedAppRight({ partyId: provider });
-      if (featuredAppRight.featured_app_right) {
-        // Extract the contract ID - it might be nested in the response
-        featuredAppRightCid =
-          typeof featuredAppRight.featured_app_right === 'string'
-            ? featuredAppRight.featured_app_right
-            : (featuredAppRight.featured_app_right.contract_id ?? featuredAppRight.featured_app_right);
+  try {
+    const featuredAppRight = await validatorClient.lookupFeaturedAppRight({ partyId: provider });
+    if (featuredAppRight.featured_app_right) {
+      // Extract the contract ID - it might be nested in the response
+      featuredAppRightCid =
+        typeof featuredAppRight.featured_app_right === 'string'
+          ? featuredAppRight.featured_app_right
+          : (featuredAppRight.featured_app_right.contract_id ?? featuredAppRight.featured_app_right);
 
-        // Add disclosed contract with synchronizer from amulet rules
-        if (featuredAppRightCid) {
-          disclosedContracts.push({
-            templateId: featuredAppRight.featured_app_right.template_id,
-            contractId: featuredAppRightCid,
-            createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
-            synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
-          });
-        }
+      // Add disclosed contract with synchronizer from amulet rules
+      if (featuredAppRightCid) {
+        disclosedContracts.push({
+          templateId: featuredAppRight.featured_app_right.template_id,
+          contractId: featuredAppRightCid,
+          createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
+          synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
+        });
       }
-    } catch {
-      // If featured app right lookup fails, continue with null (optional)
-      // This is expected when the provider doesn't have a featured app right
     }
+  } catch {
+    // If featured app right lookup fails, continue with null (optional)
+    // This is expected when the provider doesn't have a featured app right
   }
 
   return {
