@@ -318,8 +318,8 @@ export class OcpClient {
       buildPaymentContextWithAmulets: (
         validatorClient: import('@fairmint/canton-node-sdk').ValidatorApiClient,
         payerParty: string,
-        maxAmuletInputs?: number,
-        provider?: string
+        requestedAmount: string,
+        provider: string
       ) => Promise<import('./functions').PaymentContextWithAmuletsAndDisclosed>;
     };
   };
@@ -556,9 +556,9 @@ export class OcpClient {
           const { buildPaymentContext } = require('./functions/PaymentStreams');
           return await buildPaymentContext(validatorClient, provider);
         },
-        buildPaymentContextWithAmulets: async (validatorClient, payerParty, maxAmuletInputs, provider) => {
+        buildPaymentContextWithAmulets: async (validatorClient, payerParty, requestedAmount, provider) => {
           const { buildPaymentContextWithAmulets } = require('./functions/PaymentStreams');
-          return await buildPaymentContextWithAmulets(this, validatorClient, payerParty, maxAmuletInputs, provider);
+          return await buildPaymentContextWithAmulets(validatorClient, payerParty, requestedAmount, provider);
         },
       },
     };
