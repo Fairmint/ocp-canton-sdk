@@ -250,6 +250,16 @@ export class OcpClient {
     };
   };
 
+  public CantonPayments: {
+    airdrop: {
+      buildCreateAirdropCommand: (params: import('./functions').CreateAirdropParams) => Command;
+      buildUpdateAirdropConfigCommand: (params: import('./functions').UpdateAirdropConfigParams) => Command;
+      buildAddObserversToAirdropCommand: (params: import('./functions').AddObserversToAirdropParams) => Command;
+      buildJoinAirdropCommand: (params: import('./functions').JoinAirdropParams) => CommandWithDisclosedContracts;
+      buildExecuteAirdropCommand: (params: import('./functions').ExecuteAirdropParams) => Command;
+    };
+  };
+
   public PaymentStreams: {
     paymentStreamFactory: {
       buildCreatePaymentStreamProposalCommand: (
@@ -447,8 +457,34 @@ export class OcpClient {
       },
     };
 
-    // PaymentStreams namespace - lazy import to avoid circular dependencies
+    // CantonPayments namespace - lazy import to avoid circular dependencies
     /* eslint-disable @typescript-eslint/no-require-imports */
+    this.CantonPayments = {
+      airdrop: {
+        buildCreateAirdropCommand: (params) => {
+          const { buildCreateAirdropCommand } = require('./functions/CantonPayments/airdrop');
+          return buildCreateAirdropCommand(params);
+        },
+        buildUpdateAirdropConfigCommand: (params) => {
+          const { buildUpdateAirdropConfigCommand } = require('./functions/CantonPayments/airdrop');
+          return buildUpdateAirdropConfigCommand(params);
+        },
+        buildAddObserversToAirdropCommand: (params) => {
+          const { buildAddObserversToAirdropCommand } = require('./functions/CantonPayments/airdrop');
+          return buildAddObserversToAirdropCommand(params);
+        },
+        buildJoinAirdropCommand: (params) => {
+          const { buildJoinAirdropCommand } = require('./functions/CantonPayments/airdrop');
+          return buildJoinAirdropCommand(params);
+        },
+        buildExecuteAirdropCommand: (params) => {
+          const { buildExecuteAirdropCommand } = require('./functions/CantonPayments/airdrop');
+          return buildExecuteAirdropCommand(params);
+        },
+      },
+    };
+
+    // PaymentStreams namespace - lazy import to avoid circular dependencies
     this.PaymentStreams = {
       paymentStreamFactory: {
         buildCreatePaymentStreamProposalCommand: (params) => {
