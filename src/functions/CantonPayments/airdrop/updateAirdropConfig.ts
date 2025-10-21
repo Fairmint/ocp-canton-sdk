@@ -24,4 +24,3 @@ export function buildUpdateAirdropConfigCommand(params: UpdateAirdropConfigParam
     },
   };
 }
-

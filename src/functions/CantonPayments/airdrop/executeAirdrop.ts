@@ -45,4 +45,3 @@ export function buildExecuteAirdropCommand(params: ExecuteAirdropParams): Comman
     },
   };
 }
-

@@ -20,4 +20,3 @@ export function buildAddObserversToAirdropCommand(params: AddObserversToAirdropP
     },
   };
 }
-

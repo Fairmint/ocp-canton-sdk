@@ -32,4 +32,3 @@ export function buildCreateAirdropCommand(params: CreateAirdropParams): Command 
     },
   };
 }
-
