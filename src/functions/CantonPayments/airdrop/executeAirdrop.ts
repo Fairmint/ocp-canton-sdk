@@ -42,7 +42,7 @@ export function buildExecuteAirdropCommand(params: ExecuteAirdropParams): Comman
         openMiningRoundCid: params.openMiningRoundCid,
         amountPerTransfer:
           typeof params.amountPerTransfer === 'number' ? params.amountPerTransfer.toString() : params.amountPerTransfer,
-        amuletRules: ['Some', params.amuletRules],
+        amuletRules: params.amuletRules,
       },
     },
   };
