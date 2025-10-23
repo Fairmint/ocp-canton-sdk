@@ -18,6 +18,7 @@ export interface ExecuteAirdropParams {
   initialAmuletInputs: string[];
   openMiningRoundCid: string;
   amountPerTransfer: string | number;
+  amuletRules: string;
 }
 
 export function buildExecuteAirdropCommand(params: ExecuteAirdropParams): Command {
@@ -41,6 +42,7 @@ export function buildExecuteAirdropCommand(params: ExecuteAirdropParams): Comman
         openMiningRoundCid: params.openMiningRoundCid,
         amountPerTransfer:
           typeof params.amountPerTransfer === 'number' ? params.amountPerTransfer.toString() : params.amountPerTransfer,
+        amuletRules: ['Some', params.amuletRules],
       },
     },
   };
