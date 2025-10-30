@@ -24,4 +24,3 @@ export function buildUpdateSimpleAirdropConfigCommand(params: UpdateSimpleAirdro
     },
   };
 }
-
