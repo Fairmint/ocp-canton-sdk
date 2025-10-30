@@ -258,6 +258,12 @@ export class OcpClient {
       buildJoinAirdropCommand: (params: import('./functions').JoinAirdropParams) => CommandWithDisclosedContracts;
       buildExecuteAirdropCommand: (params: import('./functions').ExecuteAirdropParams) => Command;
     };
+    simpleAirdrop: {
+      buildCreateSimpleAirdropCommand: (params: import('./functions').CreateSimpleAirdropParams) => Command;
+      buildUpdateSimpleAirdropConfigCommand: (params: import('./functions').UpdateSimpleAirdropConfigParams) => Command;
+      buildArchiveSimpleAirdropCommand: (params: import('./functions').ArchiveSimpleAirdropParams) => Command;
+      buildExecuteSimpleAirdropCommand: (params: import('./functions').ExecuteSimpleAirdropParams) => Command;
+    };
   };
 
   public PaymentStreams: {
@@ -480,6 +486,24 @@ export class OcpClient {
         buildExecuteAirdropCommand: (params) => {
           const { buildExecuteAirdropCommand } = require('./functions/CantonPayments/airdrop');
           return buildExecuteAirdropCommand(params);
+        },
+      },
+      simpleAirdrop: {
+        buildCreateSimpleAirdropCommand: (params) => {
+          const { buildCreateSimpleAirdropCommand } = require('./functions/CantonPayments/simpleAirdrop');
+          return buildCreateSimpleAirdropCommand(params);
+        },
+        buildUpdateSimpleAirdropConfigCommand: (params) => {
+          const { buildUpdateSimpleAirdropConfigCommand } = require('./functions/CantonPayments/simpleAirdrop');
+          return buildUpdateSimpleAirdropConfigCommand(params);
+        },
+        buildArchiveSimpleAirdropCommand: (params) => {
+          const { buildArchiveSimpleAirdropCommand } = require('./functions/CantonPayments/simpleAirdrop');
+          return buildArchiveSimpleAirdropCommand(params);
+        },
+        buildExecuteSimpleAirdropCommand: (params) => {
+          const { buildExecuteSimpleAirdropCommand } = require('./functions/CantonPayments/simpleAirdrop');
+          return buildExecuteSimpleAirdropCommand(params);
         },
       },
     };
