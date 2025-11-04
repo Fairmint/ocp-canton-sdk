@@ -30,3 +30,6 @@ export function buildCreateSimpleAirdropCommand(params: CreateSimpleAirdropParam
   };
 }
 
+
+
+
