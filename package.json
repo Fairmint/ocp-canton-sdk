@@ -1,6 +1,6 @@
 {
   "name": "@open-captable-protocol/canton",
-  "version": "0.2.78",
+  "version": "0.2.104",
   "description": "A TypeScript SDK for interacting with the Open CapTable Protocol (OCP) Factory contract on Canton blockchain",
   "license": "MIT",
   "main": "dist/index.js",
@@ -32,7 +32,7 @@
   "dependencies": {
     "@daml/ledger": "2.10.2",
     "@daml/types": "2.10.2",
-    "@fairmint/canton-node-sdk": "0.0.122",
+    "@fairmint/canton-node-sdk": "0.0.127",
     "@fairmint/open-captable-protocol-daml-js": "0.2.47"
   },
   "devDependencies": {
