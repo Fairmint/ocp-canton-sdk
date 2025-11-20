@@ -98,6 +98,14 @@ Integration tests use a separate Jest configuration (`jest.integration.config.js
 - Uses real `@fairmint/canton-node-sdk` (not mocks)
 - Has longer test timeouts (30 seconds)
 
+**Note:** Integration tests require real network connectivity to LocalNet services. You may
+encounter timeouts or connection errors if:
+
+- LocalNet is not running
+- Network ports are blocked (check firewall settings)
+- Services are still starting up (wait for health checks to pass)
+- Network configuration is incorrect (verify .env.localnet)
+
 ## Differences from Unit Tests
 
 | Aspect      | Unit Tests           | Integration Tests            |

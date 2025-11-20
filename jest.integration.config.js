@@ -9,6 +9,6 @@ module.exports = {
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', { diagnostics: false }],
   },
-  // Integration tests use real canton-node-sdk, not mocks
+  // Integration tests use real Canton Node SDK, not mocks
   testTimeout: 30000, // 30 second timeout for integration tests
 };
