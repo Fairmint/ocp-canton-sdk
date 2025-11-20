@@ -5,6 +5,7 @@ module.exports = {
   roots: ['<rootDir>/src', '<rootDir>/test'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
   testMatch: ['**/test/**/*.test.ts'],
+  testPathIgnorePatterns: ['/node_modules/', '/test/integration/'],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   setupFilesAfterEnv: ['<rootDir>/test/setupTests.ts'],
   transform: {

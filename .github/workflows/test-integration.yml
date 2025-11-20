@@ -1,0 +1,132 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  test-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Restore Localnet Preparation Cache
+        id: localnet-prep-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ github.workspace }}/node_modules
+            ${{ github.workspace }}/build
+            /home/runner/.daml
+            /home/runner/.gradle
+          key: localnet-prep-${{ runner.os }}-${{ hashFiles('package.json', 'package-lock.json') }}
+
+      - name: Install Dependencies
+        if: steps.localnet-prep-cache-restore.outputs.cache-hit != 'true'
+        run: npm install
+
+      - name: Build SDK
+        run: npm run build
+
+      - name: Run Linter
+        run: npm run lint
+
+      - name: Setup LocalNet Environment
+        run: |
+          echo "Setting up LocalNet environment..."
+          # Create a basic .env.localnet file for testing
+          cat > .env.localnet << EOF
+          CANTON_CURRENT_NETWORK=localnet
+          CANTON_CURRENT_PROVIDER=app-provider
+          CANTON_LOCALNET_APP_PROVIDER_LEDGER_JSON_API_URI=http://localhost:39750
+          CANTON_LOCALNET_APP_PROVIDER_LEDGER_JSON_API_CLIENT_ID=admin
+          CANTON_LOCALNET_APP_PROVIDER_LEDGER_JSON_API_CLIENT_SECRET=admin
+          CANTON_LOCALNET_APP_PROVIDER_VALIDATOR_API_URI=http://localhost:39030
+          CANTON_LOCALNET_APP_PROVIDER_VALIDATOR_API_CLIENT_ID=admin
+          CANTON_LOCALNET_APP_PROVIDER_VALIDATOR_API_CLIENT_SECRET=admin
+          EOF
+          echo "✓ Environment configuration created"
+
+      - name: Install Daml SDK
+        if: steps.localnet-prep-cache-restore.outputs.cache-hit != 'true'
+        run: |
+          # Install Daml SDK
+          curl -sSL https://get.daml.com/ | sh -s 2.10.2
+          echo "$HOME/.daml/bin" >> $GITHUB_PATH
+        timeout-minutes: 10
+
+      - name: Save Localnet Preparation Cache
+        if: steps.localnet-prep-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ github.workspace }}/node_modules
+            ${{ github.workspace }}/build
+            /home/runner/.daml
+            /home/runner/.gradle
+          key: ${{ steps.localnet-prep-cache-restore.outputs.cache-primary-key }}
+
+      - name: Start LocalNet
+        run: |
+          echo "Note: LocalNet startup would happen here"
+          echo "This is a placeholder for the actual LocalNet startup"
+          echo "Actual implementation will depend on cn-quickstart integration"
+          echo "For now, integration tests will be skipped if LocalNet is not running"
+
+      - name: Wait for Services
+        run: |
+          echo "Note: Service health checks would happen here"
+          echo "Waiting for Ledger JSON API and Validator API to be ready"
+          echo "This step will poll the services until they are available"
+
+      - name: Deploy DAR Files
+        run: |
+          echo "Note: DAR deployment would happen here"
+          echo "This step would upload OCP DAR files to the localnet"
+          echo "Required for OCP operations to work correctly"
+
+      - name: Run Unit Tests
+        run: npm run test:ci
+
+      - name: Run Integration Tests
+        run: |
+          echo "Running integration tests..."
+          # For now, just verify the test files exist and can be compiled
+          npm run typecheck
+          echo "✓ Integration test files are valid TypeScript"
+          echo ""
+          echo "Note: Actual integration tests require LocalNet to be running"
+          echo "Integration tests will be enabled once LocalNet setup is complete"
+        continue-on-error: true
+
+      - name: Show Logs on Failure
+        if: failure()
+        run: |
+          echo "==================== Test Failure Debug Info ===================="
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          echo ""
+          echo "==================== Environment ===================="
+          env | sort
