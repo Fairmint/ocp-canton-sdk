@@ -15,6 +15,7 @@ const eslintConfig = [
       '**/*.js',
       '**/*.mjs',
       '**/Open-Cap-Format-OCF/**',
+      '**/cn-quickstart/**',
     ],
   },
   // Main configuration for TypeScript files

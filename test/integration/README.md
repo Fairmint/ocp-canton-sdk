@@ -18,24 +18,62 @@ test/integration/
 
 ### Prerequisites
 
-1. **LocalNet must be running** - The integration tests require a local Canton network
-2. **DAR files deployed** - OCP DAR files must be deployed to LocalNet
-3. **Environment configured** - See `.env.localnet` for required environment variables
+1. **CN-Quickstart LocalNet must be running** - The integration tests require a local Canton network
+2. **Canton Node SDK** - The SDK must be able to connect to LocalNet services
+
+### Setting Up LocalNet
+
+#### Using CN-Quickstart (Recommended)
+
+```bash
+# Initialize the cn-quickstart submodule
+git submodule update --init --recursive cn-quickstart
+
+# Navigate to cn-quickstart directory
+cd cn-quickstart/quickstart
+
+# Run setup (select option 2 for OAuth2 when prompted)
+make setup
+
+# Install Daml SDK
+make install-daml-sdk
+
+# Add Daml CLI to PATH
+export PATH="$HOME/.daml/bin:$PATH"
+
+# Start LocalNet
+make start
+
+# Wait for services to be ready (may take a few minutes)
+# You can check status at http://localhost:3903/api/validator/v0/wallet/user-status
+```
 
 ### Running Tests Locally
 
 ```bash
+# Ensure LocalNet is running (see above)
+
 # Install dependencies
 npm install
 
 # Build the SDK
 npm run build
 
-# Run integration tests (requires LocalNet to be running)
+# Run integration tests
 npm run test:integration
 
 # Run integration tests in CI mode (sequential execution)
 npm run test:integration:ci
+```
+
+### Stopping LocalNet
+
+```bash
+# Navigate to cn-quickstart directory
+cd cn-quickstart/quickstart
+
+# Stop all services
+make stop
 ```
 
 ### GitHub Actions
