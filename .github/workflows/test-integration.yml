@@ -1,0 +1,185 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  test-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Restore Localnet Preparation Cache
+        id: localnet-prep-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ github.workspace }}/node_modules
+            ${{ github.workspace }}/build
+            ${{ github.workspace }}/cn-quickstart/quickstart/.env.local
+            ${{ github.workspace }}/cn-quickstart/quickstart/.gradle
+            ${{ github.workspace }}/cn-quickstart/quickstart/.daml
+            ${{ github.workspace }}/cn-quickstart/quickstart/.config
+            ${{ github.workspace }}/cn-quickstart/quickstart/.cache
+            ${{ github.workspace }}/cn-quickstart/quickstart/frontend/node_modules
+            ${{ github.workspace }}/cn-quickstart/quickstart/frontend/dist
+            ${{ github.workspace }}/cn-quickstart/quickstart/backend/build
+            /home/runner/.daml
+            /home/runner/.gradle
+          key: localnet-prep-${{ runner.os }}-${{ hashFiles('package.json', 'package-lock.json', '.gitmodules') }}
+
+      - name: Install Dependencies
+        if: steps.localnet-prep-cache-restore.outputs.cache-hit != 'true'
+        run: npm install
+
+      - name: Build SDK
+        run: npm run build
+
+      - name: Run Linter
+        run: npm run lint
+
+      - name: Initialize CN-Quickstart Submodule
+        if: steps.localnet-prep-cache-restore.outputs.cache-hit != 'true'
+        run: |
+          git submodule update --init --recursive cn-quickstart
+          echo "✓ CN-Quickstart submodule initialized"
+
+      - name: Setup CN-Quickstart
+        if: steps.localnet-prep-cache-restore.outputs.cache-hit != 'true'
+        run: |
+          cd cn-quickstart/quickstart
+          echo "Running CN-Quickstart setup with OAuth2..."
+          # Setup with OAuth2 non-interactively
+          echo "2" | make setup || true  # Select option 2 (with OAuth2)
+          echo "✓ CN-Quickstart setup complete"
+        timeout-minutes: 15
+
+      - name: Install Daml SDK
+        if: steps.localnet-prep-cache-restore.outputs.cache-hit != 'true'
+        run: |
+          cd cn-quickstart/quickstart
+          make install-daml-sdk
+          echo "✓ Daml SDK installed"
+        timeout-minutes: 15
+
+      - name: Add Daml CLI to PATH
+        run: echo "$HOME/.daml/bin" >> $GITHUB_PATH
+
+      - name: Save Localnet Preparation Cache
+        if: steps.localnet-prep-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ github.workspace }}/node_modules
+            ${{ github.workspace }}/build
+            ${{ github.workspace }}/cn-quickstart/quickstart/.env.local
+            ${{ github.workspace }}/cn-quickstart/quickstart/.gradle
+            ${{ github.workspace }}/cn-quickstart/quickstart/.daml
+            ${{ github.workspace }}/cn-quickstart/quickstart/.config
+            ${{ github.workspace }}/cn-quickstart/quickstart/.cache
+            ${{ github.workspace }}/cn-quickstart/quickstart/frontend/node_modules
+            ${{ github.workspace }}/cn-quickstart/quickstart/frontend/dist
+            ${{ github.workspace }}/cn-quickstart/quickstart/backend/build
+            /home/runner/.daml
+            /home/runner/.gradle
+          key: ${{ steps.localnet-prep-cache-restore.outputs.cache-primary-key }}
+
+      - name: Start CN-Quickstart LocalNet
+        run: |
+          cd cn-quickstart/quickstart
+          make start
+          echo "✓ CN-Quickstart LocalNet started"
+        timeout-minutes: 15
+
+      - name: Wait for Services
+        run: |
+          echo "Waiting for Keycloak..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8082/realms/AppProvider 2>/dev/null; then
+              echo "✓ Keycloak is ready"
+              break
+            fi
+            echo "Waiting for Keycloak... ($i/30)"
+            sleep 10
+          done
+
+          echo "Waiting for Validator API..."
+          for i in {1..30}; do
+            if curl -f http://localhost:3903/api/validator/v0/wallet/user-status 2>/dev/null || [ $? -eq 22 ]; then
+              echo "✓ Validator API is responding"
+              break
+            fi
+            echo "Waiting for Validator API... ($i/30)"
+            sleep 10
+          done
+
+          echo "Waiting for Ledger JSON API..."
+          for i in {1..30}; do
+            if curl -f http://localhost:3975/v2/version 2>/dev/null; then
+              echo "✓ Ledger JSON API is ready"
+              break
+            fi
+            echo "Waiting for Ledger JSON API... ($i/30)"
+            sleep 10
+          done
+
+          echo "✓ All services are ready!"
+
+      - name: Run Unit Tests
+        run: npm run test:ci
+
+      - name: Run Integration Tests
+        run: npm run test:integration:ci
+        env:
+          # Configure SDK to connect to LocalNet
+          CANTON_CURRENT_NETWORK: devnet
+          CANTON_CURRENT_PROVIDER: app-provider
+
+      - name: Show Logs on Failure
+        if: failure()
+        run: |
+          echo "==================== Test Failure Debug Info ===================="
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          echo ""
+          echo "==================== Docker Containers ===================="
+          docker ps -a || true
+          echo ""
+          echo "==================== Docker Compose Logs ===================="
+          if [ -d "cn-quickstart/quickstart" ]; then
+            cd cn-quickstart/quickstart
+            docker compose logs --tail=100 || true
+          fi
+          echo ""
+          echo "==================== Canton Logs ===================="
+          if [ -f cn-quickstart/quickstart/logs/canton.log ]; then
+            tail -100 cn-quickstart/quickstart/logs/canton.log
+          fi
+          echo ""
+          echo "==================== Environment ===================="
+          env | sort

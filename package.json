@@ -26,6 +26,8 @@
     "test": "npm run -s typecheck && jest --passWithNoTests",
     "test:ci": "npm run -s typecheck && jest --runInBand",
     "test:coverage": "jest --coverage --passWithNoTests",
+    "test:integration": "npm run -s typecheck && jest --config jest.integration.config.js",
+    "test:integration:ci": "npm run -s typecheck && jest --config jest.integration.config.js --runInBand",
     "test:watch": "jest --watch",
     "typecheck": "tsc -p tsconfig.tests.json --noEmit"
   },
