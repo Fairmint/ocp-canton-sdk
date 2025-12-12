@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { extractUpdateId } from '../../../utils/typeConversions';
 

@@ -20,7 +20,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-          submodules: recursive
+          submodules: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -31,11 +31,17 @@ jobs:
       - name: Install dependencies
         run: npm i
 
+      - name: Initialize required submodules
+        run: git submodule update --init --recursive Open-Cap-Format-OCF
+
       - name: Build package
         run: npm run build
 
       - name: Run tests
         run: npm run test:ci
+
+      - name: Run integration smoke tests (Quickstart)
+        run: npm run test:integration:ci
 
       - name: Prepare release
         run: npm run prepare-release

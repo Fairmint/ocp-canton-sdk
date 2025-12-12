@@ -1,0 +1,109 @@
+name: Test OCP CN-Quickstart Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  test-ocp-quickstart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Initialize Submodules
+        run: |
+          git submodule update --init --depth 1 Open-Cap-Format-OCF
+          git submodule update --init --depth 1 libs/splice
+          git submodule update --init --recursive libs/cn-quickstart
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build package
+        run: npm run build
+
+      - name: Setup CN-Quickstart (OAuth2)
+        run: |
+          cd libs/cn-quickstart/quickstart
+          # Setup with OAuth2 non-interactively (select option 2)
+          echo "2" | make setup || true
+
+      - name: Install Daml SDK
+        run: |
+          cd libs/cn-quickstart/quickstart
+          make install-daml-sdk
+
+      - name: Add Daml CLI to PATH
+        run: echo "$HOME/.daml/bin" >> $GITHUB_PATH
+
+      - name: Start CN-Quickstart
+        run: |
+          cd libs/cn-quickstart/quickstart
+          make start
+
+      - name: Wait for Services
+        run: |
+          echo "Waiting for Keycloak..."
+          for i in {1..30}; do
+            if curl -f http://localhost:8082/realms/AppProvider 2>/dev/null; then
+              echo "✓ Keycloak is ready"
+              break
+            fi
+            echo "Waiting for Keycloak... ($i/30)"
+            sleep 10
+          done
+
+          echo "Waiting for Ledger JSON API..."
+          OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1 node_modules/.bin/ts-node scripts/quickstart/waitForReady.ts
+
+      - name: Deploy contracts (optional)
+        env:
+          OCP_TEST_USE_CN_QUICKSTART_DEFAULTS: '1'
+          # Set OCP_TEST_DAR_FILE_PATHS to a comma-separated list of DAR file paths to deploy.
+          # Example:
+          # OCP_TEST_DAR_FILE_PATHS: ./path/to/OpenCapTable-v25-0.0.1.dar
+          OCP_TEST_DAR_FILE_PATHS: ${{ vars.OCP_TEST_DAR_FILE_PATHS }}
+        run: node_modules/.bin/ts-node scripts/quickstart/deployContracts.ts
+
+      - name: Run integration smoke tests
+        env:
+          OCP_TEST_USE_CN_QUICKSTART_DEFAULTS: '1'
+        run: npm run test:integration:ci
+
+      - name: Show Logs on Failure
+        if: failure()
+        run: |
+          echo "==================== Docker Containers ===================="
+          docker ps -a || true
+
+          echo "==================== Docker Compose Logs ===================="
+          if [ -d "libs/cn-quickstart/quickstart" ]; then
+            cd libs/cn-quickstart/quickstart
+            docker compose logs --tail=200 || true
+          fi
+
+          echo "==================== Canton Logs ===================="
+          if [ -f libs/cn-quickstart/quickstart/logs/canton.log ]; then
+            tail -200 libs/cn-quickstart/quickstart/logs/canton.log
+          fi

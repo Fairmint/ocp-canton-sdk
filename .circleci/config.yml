@@ -9,8 +9,8 @@ jobs:
       - run:
           name: Initialize and update submodules
           command: |
-            git submodule init
-            git submodule update
+            # Only init the schema submodule needed for unit tests.
+            git submodule update --init --recursive Open-Cap-Format-OCF
       - restore_cache:
           keys:
             - npm-deps-{{ checksum "package.json" }}
@@ -88,6 +88,11 @@ jobs:
           name: Run Tests
           command: |
             npm run test:ci
+      - run:
+          name: Run Integration Smoke Tests (Quickstart)
+          command: |
+            # These tests are configured to run only when quickstart env vars are provided.
+            npm run test:integration:ci
       - run:
           name: Docs # Just verifies doc generation works, actual publishing happens in GitHub Actions
           command: |
