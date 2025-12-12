@@ -8,7 +8,6 @@
 - Contribution workflow + patterns: `CONTRIBUTING.md`
 - Lint/format: `LINTING.md`
 - API docs generation (TypeDoc): `README.docs.md`
-- Minimal docs policy: `MINIMAL_DOCUMENTATION_REQUIREMENTS.md`
 
 ## Key commands
 
