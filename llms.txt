@@ -1,0 +1,36 @@
+# Open Cap Table Protocol Canton SDK (`@open-captable-protocol/canton`)
+
+> TypeScript SDK for interacting with the Open Cap Table Protocol (OCP) contracts on Canton.
+
+## Read next
+
+- Project conventions / implementation guidance: `README.md`
+- Contribution workflow + patterns: `CONTRIBUTING.md`
+- Lint/format: `LINTING.md`
+- API docs generation (TypeDoc): `README.docs.md`
+- Minimal docs policy: `MINIMAL_DOCUMENTATION_REQUIREMENTS.md`
+
+## Key commands
+
+- Install deps: `npm i`
+- Typecheck (tests config): `npm run typecheck`
+- Typecheck (library build config): `npx tsc --noEmit`
+- Tests: `npm test`
+- Lint: `npm run lint` (fix: `npm run lint:fix`)
+- Format: `npm run format` (fix: `npm run format:fix`)
+- Build: `npm run build`
+- Generate docs: `npm run docs`
+
+## Repository structure (high level)
+
+- `src/functions/`: one operation per file; exports `Params`/`Result`
+- `src/OcpClient.ts`: facade wiring functions to the ledger client
+- `src/types/`: public types (see `src/types/README.md` for comment policy)
+- `src/utils/`: type conversions and transaction helpers
+- `test/`: fixtures + schema validation helpers
+
+## Non-negotiables
+
+- **Strict TypeScript**: do not introduce `any`/`unknown` or broad assertions.
+- **Fail fast**: validate required params; do not hide malformed data with fallback values.
+- **Avoid doc duplication**: update the source-of-truth doc and link to it elsewhere.

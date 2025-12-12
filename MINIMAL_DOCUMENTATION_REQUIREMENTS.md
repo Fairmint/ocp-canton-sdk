@@ -19,6 +19,14 @@ existing source of truth** over copying content.
   - Link to end-user/public docs
   - Pointers to the rest of the repo documentation (no duplication)
 
+- **`llms.txt`**
+  - Single source of truth for AI context (what it is, key commands, links to docs)
+
+- **Agent config files** (thin pointers to `llms.txt`)
+  - `CLAUDE.md`
+  - `AGENTS.md`
+  - `GEMINI.md`
+
 - **`CONTRIBUTING.md`**
   - Contribution workflow + coding conventions
 
@@ -30,12 +38,6 @@ existing source of truth** over copying content.
 
 - **`.circleci/README.md`** (if CircleCI is enabled)
   - Any CI behaviors that can surprise contributors (e.g. auto-fix commits)
-
-- **`LLMS.md`**
-  - AI assistant constraints + how to validate changes (keep it short)
-
-- **`CLAUDE.md`**
-  - A thin pointer to `LLMS.md` (avoid duplicating rules in multiple AI entrypoints)
 
 ## When to add documentation
 
