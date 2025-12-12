@@ -25,16 +25,16 @@
     "script:get-issuer-ocf": "ts-node scripts/getIssuerAsOcf.ts",
     "test": "npm run -s typecheck && jest --passWithNoTests",
     "test:ci": "npm run -s typecheck && jest --runInBand",
+    "test:coverage": "jest --coverage --passWithNoTests",
     "test:integration": "npm run -s typecheck && jest -c jest.integration.config.js --passWithNoTests",
     "test:integration:ci": "npm run -s typecheck && jest -c jest.integration.config.js --runInBand",
-    "test:coverage": "jest --coverage --passWithNoTests",
     "test:watch": "jest --watch",
     "typecheck": "tsc -p tsconfig.tests.json --noEmit"
   },
   "dependencies": {
     "@daml/ledger": "2.10.2",
     "@daml/types": "2.10.2",
-    "@fairmint/canton-node-sdk": "0.0.122",
+    "@fairmint/canton-node-sdk": "0.0.135",
     "@fairmint/open-captable-protocol-daml-js": "0.2.47"
   },
   "devDependencies": {

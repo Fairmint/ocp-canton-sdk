@@ -1,7 +1,7 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
-import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
 import type {
   AuthorizeIssuerParams,
   AuthorizeIssuerResult,

@@ -1,4 +1,4 @@
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 
 import { buildQuickstartClientConfig, waitForLedgerJsonApiReady } from './waitForReady';
 
@@ -17,7 +17,6 @@ function parseFilePaths(raw: string): string[] {
 async function main(): Promise<void> {
   const rawPaths = getEnv('OCP_TEST_DAR_FILE_PATHS');
   if (!rawPaths) {
-    // eslint-disable-next-line no-console
     console.log('OCP_TEST_DAR_FILE_PATHS not set; skipping contract deployment');
     return;
   }
@@ -30,7 +29,6 @@ async function main(): Promise<void> {
   const client = new LedgerJsonApiClient(buildQuickstartClientConfig());
 
   for (const filePath of filePaths) {
-    // eslint-disable-next-line no-console
     console.log(`Uploading DAR: ${filePath}`);
 
     await client.uploadDarFile({ filePath });
@@ -38,7 +36,6 @@ async function main(): Promise<void> {
 
   const { packageIds } = await client.listPackages();
 
-  // eslint-disable-next-line no-console
   console.log(`Packages on ledger: ${packageIds.length}`);
 }
 

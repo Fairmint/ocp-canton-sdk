@@ -2,6 +2,12 @@ import type { ClientConfig } from '@fairmint/canton-node-sdk';
 
 import { OcpClient } from '../../src/OcpClient';
 
+function isTruthyEnv(name: string): boolean {
+  const value = process.env[name];
+  if (!value) return false;
+  return value === '1' || value.toLowerCase() === 'true';
+}
+
 function getEnv(name: string): string | undefined {
   const value = process.env[name];
   return value && value.length > 0 ? value : undefined;
@@ -14,10 +20,15 @@ function getRequiredEnv(name: string): string {
 }
 
 function isQuickstartConfigured(): boolean {
+  if (isTruthyEnv('OCP_TEST_USE_CN_QUICKSTART_DEFAULTS')) return true;
   return Boolean(getEnv('OCP_TEST_LEDGER_JSON_API_URI') && getEnv('OCP_TEST_AUTH_URL') && getEnv('OCP_TEST_CLIENT_ID'));
 }
 
 function buildQuickstartClientConfig(): ClientConfig {
+  if (isTruthyEnv('OCP_TEST_USE_CN_QUICKSTART_DEFAULTS')) {
+    return { network: 'localnet' };
+  }
+
   const apiUrl = getRequiredEnv('OCP_TEST_LEDGER_JSON_API_URI');
   const authUrl = getRequiredEnv('OCP_TEST_AUTH_URL');
   const clientId = getRequiredEnv('OCP_TEST_CLIENT_ID');

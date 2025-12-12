@@ -1,5 +1,5 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 
 function getEnv(name: string): string | undefined {
   const value = process.env[name];
@@ -12,11 +12,16 @@ function getRequiredEnv(name: string): string {
   return value;
 }
 
-function sleep(ms: number): Promise<void> {
+async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function buildQuickstartClientConfig(): ClientConfig {
+  const defaultsFlag = process.env.OCP_TEST_USE_CN_QUICKSTART_DEFAULTS;
+  if (defaultsFlag === '1' || defaultsFlag?.toLowerCase() === 'true') {
+    return { network: 'localnet' };
+  }
+
   const apiUrl = getRequiredEnv('OCP_TEST_LEDGER_JSON_API_URI');
   const authUrl = getRequiredEnv('OCP_TEST_AUTH_URL');
   const clientId = getRequiredEnv('OCP_TEST_CLIENT_ID');
@@ -45,27 +50,27 @@ export async function waitForLedgerJsonApiReady(params?: {
   const timeoutMs = params?.timeoutMs ?? 120_000;
   const pollIntervalMs = params?.pollIntervalMs ?? 2_000;
 
-  const startedAt = Date.now();
+  const deadlineMs = Date.now() + timeoutMs;
   const client = new LedgerJsonApiClient(buildQuickstartClientConfig());
+  let lastErrorMessage: string | undefined;
 
   // Wait until /v2/version is reachable (and auth works).
-  while (true) {
+  while (Date.now() < deadlineMs) {
     try {
       await client.getVersion();
       return;
     } catch (err) {
-      if (Date.now() - startedAt > timeoutMs) {
-        const message = err instanceof Error ? err.message : String(err);
-        throw new Error(`Timed out waiting for Ledger JSON API readiness: ${message}`);
-      }
+      lastErrorMessage = err instanceof Error ? err.message : String(err);
       await sleep(pollIntervalMs);
     }
   }
+
+  throw new Error(`Timed out waiting for Ledger JSON API readiness${lastErrorMessage ? `: ${lastErrorMessage}` : ''}`);
 }
 
 async function main(): Promise<void> {
   await waitForLedgerJsonApiReady();
-  // eslint-disable-next-line no-console
+
   console.log('Ledger JSON API is ready');
 }
 
