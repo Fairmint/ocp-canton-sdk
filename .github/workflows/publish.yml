@@ -36,6 +36,9 @@ jobs:
 
       - name: Run tests
         run: npm run test:ci
+      
+      - name: Run integration smoke tests (Quickstart)
+        run: npm run test:integration:ci
 
       - name: Prepare release
         run: npm run prepare-release
