@@ -1,6 +1,7 @@
 # Minimal documentation requirements
 
-This repo intentionally keeps documentation **sparse** and **non-redundant**. Prefer **linking to an existing source of truth** over copying content.
+This repo intentionally keeps documentation **sparse** and **non-redundant**. Prefer **linking to an
+existing source of truth** over copying content.
 
 ## Principles
 
