@@ -32,7 +32,7 @@ jobs:
         run: npm i
 
       - name: Initialize required submodules
-        run: git submodule update --init --recursive Open-Cap-Format-OCF
+        run: git submodule update --init --recursive libs/Open-Cap-Format-OCF
 
       - name: Build package
         run: npm run build
