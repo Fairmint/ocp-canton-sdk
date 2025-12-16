@@ -14,7 +14,6 @@ const eslintConfig = [
       '**/docs/**',
       '**/*.js',
       '**/*.mjs',
-      '**/Open-Cap-Format-OCF/**',
       '**/libs/**',
     ],
   },

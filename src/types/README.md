@@ -6,7 +6,7 @@ mirrors the OCF JSON Schemas.
 
 Authoritative source of truth order:
 
-1. OCF JSON Schemas under `Open-Cap-Format-OCF/schema/` (canonical source)
+1. OCF JSON Schemas under `libs/Open-Cap-Format-OCF/schema/` (canonical source)
 2. DAML implementation under `open-captable-protocol-daml/OpenCapTable-v25/daml/` (copies schema
    comments verbatim and adds links)
 3. This `src/types` directory (must copy DAML comments verbatim)

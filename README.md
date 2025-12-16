@@ -78,7 +78,7 @@ This README is for SDK contributors and AI assistants. For end users/consumers, 
 - Prefer deterministic fixtures and golden samples for OCF objects
 - All OCF fixtures are validated against the official OCF JSON schemas (see
   `test/utils/ocfSchemaValidator.ts`)
-- The OCF schemas are maintained as a git submodule at `../Open-Cap-Format-OCF/`
+- The OCF schemas are maintained as a git submodule at `libs/Open-Cap-Format-OCF/`
 
 ### Documentation
 

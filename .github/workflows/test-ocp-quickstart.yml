@@ -33,7 +33,7 @@ jobs:
 
       - name: Initialize Submodules
         run: |
-          git submodule update --init --depth 1 Open-Cap-Format-OCF
+          git submodule update --init --depth 1 libs/Open-Cap-Format-OCF
           git submodule update --init --depth 1 libs/splice
           git submodule update --init --recursive libs/cn-quickstart
 

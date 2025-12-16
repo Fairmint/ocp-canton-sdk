@@ -10,7 +10,7 @@ jobs:
           name: Initialize and update submodules
           command: |
             # Only init the schema submodule needed for unit tests.
-            git submodule update --init --recursive Open-Cap-Format-OCF
+            git submodule update --init --recursive libs/Open-Cap-Format-OCF
       - restore_cache:
           keys:
             - npm-deps-{{ checksum "package.json" }}

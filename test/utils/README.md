@@ -54,14 +54,13 @@ The validator supports all OCF object types including:
 The OCF schemas are available as a git submodule at:
 
 ```
-/Users/nickcuso/Documents/code/Fairmint/workspace/Open-Cap-Format-OCF/schema/
+libs/Open-Cap-Format-OCF/schema/
 ```
 
 To update the schemas to the latest version:
 
 ```bash
-cd /Users/nickcuso/Documents/code/Fairmint/workspace
-git submodule update --remote Open-Cap-Format-OCF
+git submodule update --remote libs/Open-Cap-Format-OCF
 ```
 
 ### Testing
