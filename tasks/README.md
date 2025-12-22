@@ -2,18 +2,18 @@
 
 ## Active
 
-| Task | Status | Description |
-|------|--------|-------------|
+| Task                                                                                  | Status   | Description                                        |
+| ------------------------------------------------------------------------------------- | -------- | -------------------------------------------------- |
 | [2025.12.22-complete-ocf-sdk-support](2025/12/2025.12.22-complete-ocf-sdk-support.md) | Planning | Complete OCF SDK support + hybrid testing strategy |
 
 ## Testing Strategy Summary
 
 **Recommended: Hybrid Approach**
 
-| Test Type | Tool | Purpose |
-|-----------|------|---------|
-| Unit tests | Mocks + fixtures | Fast feedback, type conversions, command building |
-| Integration tests | LocalNet | Full round-trip, workflow testing, DAML validation |
+| Test Type         | Tool             | Purpose                                            |
+| ----------------- | ---------------- | -------------------------------------------------- |
+| Unit tests        | Mocks + fixtures | Fast feedback, type conversions, command building  |
+| Integration tests | LocalNet         | Full round-trip, workflow testing, DAML validation |
 
 See task file for detailed testing strategy.
 
