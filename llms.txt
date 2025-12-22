@@ -142,7 +142,7 @@ await validateOcfObject({ object_type: 'ISSUER', ... });
 
 ## Tasks
 
-See [tasks/README.md](tasks/README.md) for implementation work and testing strategy.
+All tasks tracked in [canton/tasks](https://github.com/fairmint/canton/tree/main/tasks).
 
 ## Docs
 
