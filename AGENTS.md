@@ -1,7 +1,5 @@
 # AGENTS.md
 
-This file provides guidance to OpenAI Codex (and similar agents) when working with this repository.
+**Read `llms.txt`** — it is the source of truth for this repository.
 
-## Context
-
-**Read `llms.txt` first** for project context, architecture, conventions, and commands.
+This file exists only for discoverability.
