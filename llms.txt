@@ -1,35 +1,162 @@
-# Open Cap Table Protocol Canton SDK (`@open-captable-protocol/canton`)
+# OCP Canton SDK (`@open-captable-protocol/canton`)
 
-> TypeScript SDK for interacting with the Open Cap Table Protocol (OCP) contracts on Canton.
+> High-level TypeScript SDK for Open Cap Table Protocol contracts on Canton.
 
-## Read next
+## Living Document
 
-- Project conventions / implementation guidance: `README.md`
-- Contribution workflow + patterns: `CONTRIBUTING.md`
-- Lint/format: `LINTING.md`
-- API docs generation (TypeDoc): `README.docs.md`
+**This file is a living document.** Update it automatically when:
+- A best practice or pattern is established during AI conversations
+- An important architectural or coding decision is made
+- The user communicates a preference that applies beyond the current task
 
-## Key commands
+Keep content concise but comprehensive. Avoid verbosity—capture the essence.
 
-- Install deps: `npm i`
-- Typecheck (tests config): `npm run typecheck`
-- Typecheck (library build config): `npx tsc --noEmit`
-- Tests: `npm test`
-- Lint: `npm run lint` (fix: `npm run lint:fix`)
-- Format: `npm run format` (fix: `npm run format:fix`)
-- Build: `npm run build`
-- Generate docs: `npm run docs`
+## Quick Commands
 
-## Repository structure (high level)
+```bash
+npm run lint && npx tsc --noEmit && npm test   # After any change
+npm run fix                                     # Auto-fix lint + format
+npm run docs                                    # Generate TypeDoc
+```
 
-- `src/functions/`: one operation per file; exports `Params`/`Result`
-- `src/OcpClient.ts`: facade wiring functions to the ledger client
-- `src/types/`: public types (see `src/types/README.md` for comment policy)
-- `src/utils/`: type conversions and transaction helpers
-- `test/`: fixtures + schema validation helpers
+## Architecture
 
-## Non-negotiables
+### Layer Stack
 
-- **Strict TypeScript**: do not introduce `any`/`unknown` or broad assertions.
-- **Fail fast**: validate required params; do not hide malformed data with fallback values.
-- **Avoid doc duplication**: update the source-of-truth doc and link to it elsewhere.
+```
+ocp-canton-sdk          # This SDK - OCP operations
+       │
+canton-node-sdk         # Low-level Canton client
+       │
+Canton Network          # DAML contracts
+```
+
+### File Structure
+
+```
+src/
+├── functions/              # One operation per file
+│   ├── OpenCapTable/       # OCF object operations
+│   │   ├── issuer/
+│   │   │   ├── createIssuer.ts
+│   │   │   ├── getIssuerAsOcf.ts
+│   │   │   └── archiveIssuerByIssuer.ts
+│   │   ├── stakeholder/
+│   │   ├── stockClass/
+│   │   └── ...
+│   ├── CantonPayments/     # Airdrop, payment streams
+│   └── OpenCapTableReports/
+├── types/
+│   ├── native.ts           # OCF-native input/output types
+│   └── contractDetails.ts  # Disclosed contract refs
+├── utils/
+│   ├── typeConversions.ts  # DAML ↔ OCF conversions
+│   └── TransactionBatch.ts # Multi-command helper
+└── OcpClient.ts            # Facade wiring to LedgerJsonApiClient
+```
+
+## Function Pattern
+
+Each operation exports: `Params`, `Result`, function, and optionally `buildXCommand`.
+
+```typescript
+// src/functions/OpenCapTable/stakeholder/createStakeholder.ts
+export interface CreateStakeholderParams {
+  issuerContractId: ContractId;
+  stakeholderData: OcfStakeholderData;
+  featuredAppRightContractDetails: ContractDetails;
+}
+
+export interface CreateStakeholderResult {
+  stakeholderContractId: ContractId;
+}
+
+export function buildCreateStakeholderCommand(
+  params: CreateStakeholderParams
+): CommandWithDisclosedContracts {
+  const { stakeholderData: d } = params;
+
+  // Validate (fail fast)
+  if (!d.id) throw new Error('stakeholder.id is required');
+
+  // Build command with explicit field mapping (NO spread)
+  const choiceArguments = {
+    stakeholder_data: {
+      id: d.id,
+      name: d.name,
+      stakeholder_type: d.stakeholder_type,
+      // ... all fields explicit
+    },
+  };
+
+  return { command, disclosedContracts };
+}
+```
+
+## Type Conversions
+
+Use utilities from `src/utils/typeConversions.ts`:
+
+```typescript
+import {
+  numberToString,        // number|string → string (for DAML numerics)
+  optionalString,        // empty/undefined → null
+  cleanComments,         // filter comments array
+  dateStringToDAMLTime,  // ISO date → DAML time
+  monetaryToDaml,        // monetary object → DAML format
+} from '../../utils/typeConversions';
+```
+
+## Non-Negotiables
+
+1. **Strict TypeScript** - No `any`/`unknown`, no broad assertions
+2. **Fail fast** - Validate early, throw with actionable messages
+3. **Explicit fields** - List all fields, never use spread (`...d`)
+4. **No defensive checks** - Trust DAML types, don't check `Array.isArray()`
+5. **Use `null`** for DAML optional fields (not `undefined`)
+6. **Use `??`** instead of `||` for nullish coalescing
+
+## OCF Schema Validation
+
+Tests validate against official OCF JSON schemas:
+
+```bash
+git submodule update --init --recursive  # Get schemas
+npm test                                  # Validates fixtures
+```
+
+```typescript
+import { validateOcfObject } from './test/utils/ocfSchemaValidator';
+await validateOcfObject({ object_type: 'ISSUER', ... });
+```
+
+## Adding a New OCF Operation
+
+1. Create file: `src/functions/OpenCapTable/{entity}/{operation}.ts`
+2. Define `Params`, `Result` interfaces
+3. Implement operation function
+4. Add `buildXCommand` for batch support
+5. Export from `src/functions/OpenCapTable/{entity}/index.ts`
+6. Add to `OcpClient.ts`
+7. Add test fixture in `test/fixtures/`
+
+## Related Repos
+
+| Repo | Purpose |
+|------|---------|
+| `canton-node-sdk` | Low-level Canton client |
+| `canton` | Trading infrastructure, ADRs |
+| `open-captable-protocol-daml` | DAML contracts (OCF implementation) |
+| `Open-Cap-Format-OCF` | OCF JSON schemas (submodule) |
+
+## Tasks
+
+All tasks tracked in [canton/tasks](https://github.com/fairmint/canton/tree/main/tasks).
+
+## Docs
+
+- End-user docs: [ocp.canton.fairmint.com](https://ocp.canton.fairmint.com/)
+- TypeDoc: `npm run docs` → `docs/`
+- Implementation guide: `README.md`
+- Code style: `CONTRIBUTING.md`
+- Lint config: `LINTING.md`
