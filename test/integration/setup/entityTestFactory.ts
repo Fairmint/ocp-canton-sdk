@@ -26,7 +26,7 @@
  *     },
  *     getIdFromResult: (result) => result.stockClassContractId,
  *   });
- *   ```;
+ *   ```
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
