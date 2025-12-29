@@ -15,21 +15,27 @@
  *
  * Prerequisites:
  *
- * - LocalNet (cn-quickstart) running
+ * - LocalNet (cn-quickstart) running with Validator API
  * - Contracts deployed
+ * - FeaturedAppRight contract available
+ *
+ * Note: Basic cn-quickstart LocalNet does NOT include the Validator API.
+ * These tests require a full Canton Network setup.
  */
 
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../src/OcpClient';
 import { validateOcfObject } from '../utils/ocfSchemaValidator';
 import { buildIntegrationTestClientConfig, isIntegrationTestConfigured } from '../utils/testConfig';
 import {
   createTestIssuerData,
   generateTestId,
-  getFeaturedAppRightDetails,
+  isValidatorApiAvailable,
   setupTestIssuer,
   setupTestStakeholder,
   setupTestStockClass,
 } from './utils';
+import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 
 // Skip all tests if integration environment is not configured
 const describeIntegration = isIntegrationTestConfigured() ? describe : describe.skip;
@@ -38,6 +44,8 @@ describeIntegration('OCF Operations Integration', () => {
   jest.setTimeout(180_000); // 3 minutes for integration tests
 
   let ocp: OcpClient;
+  let validatorApiAvailable = false;
+  let featuredAppRight: DisclosedContract | null = null;
 
   // Get a party to use as the issuer for tests
   // Can be overridden via OCP_TEST_ISSUER_PARTY environment variable
@@ -72,15 +80,54 @@ describeIntegration('OCF Operations Integration', () => {
     return partyDetails[0].party;
   };
 
-  beforeAll(() => {
+  // Helper to get FeaturedAppRight (cached)
+  const getFeaturedAppRightDetails = (): DisclosedContract => {
+    if (!featuredAppRight) {
+      throw new Error(
+        'FeaturedAppRight not available. These tests require a full Canton Network setup with Validator API.'
+      );
+    }
+    return featuredAppRight;
+  };
+
+  beforeAll(async () => {
     const config = buildIntegrationTestClientConfig();
     ocp = new OcpClient(config);
+
+    // Check if Validator API is available (for tests requiring FeaturedAppRight)
+    validatorApiAvailable = await isValidatorApiAvailable();
+    if (validatorApiAvailable) {
+      try {
+        const validatorClient = new ValidatorApiClient({ network: 'localnet' });
+        const details = await getFeaturedAppRightContractDetails(validatorClient);
+        featuredAppRight = {
+          templateId: details.templateId,
+          contractId: details.contractId,
+          createdEventBlob: details.createdEventBlob,
+          synchronizerId: details.synchronizerId,
+        };
+      } catch {
+        validatorApiAvailable = false;
+      }
+    }
+
+    if (!validatorApiAvailable) {
+      console.warn(
+        '\n⚠️  Validator API not available - skipping tests that require FeaturedAppRight.\n' +
+          '   These tests require a full Canton Network setup (not just cn-quickstart LocalNet).\n'
+      );
+    }
   });
 
   describe('Issuer operations', () => {
     test('creates issuer and reads it back as valid OCF', async () => {
+      if (!validatorApiAvailable) {
+        console.log('Skipping: Validator API not available');
+        return;
+      }
+
       const issuerParty = await getIssuerParty();
-      const featuredAppRightContractDetails = await getFeaturedAppRightDetails();
+      const featuredAppRightContractDetails = getFeaturedAppRightDetails();
 
       const testSetup = await setupTestIssuer(ocp, {
         issuerParty,
@@ -105,8 +152,13 @@ describeIntegration('OCF Operations Integration', () => {
     });
 
     test('issuer data round-trips correctly', async () => {
+      if (!validatorApiAvailable) {
+        console.log('Skipping: Validator API not available');
+        return;
+      }
+
       const issuerParty = await getIssuerParty();
-      const featuredAppRightContractDetails = await getFeaturedAppRightDetails();
+      const featuredAppRightContractDetails = getFeaturedAppRightDetails();
 
       const originalData = createTestIssuerData({
         id: generateTestId('issuer-roundtrip'),
@@ -141,8 +193,13 @@ describeIntegration('OCF Operations Integration', () => {
 
   describe('Stakeholder operations', () => {
     test('creates stakeholder and reads it back as valid OCF', async () => {
+      if (!validatorApiAvailable) {
+        console.log('Skipping: Validator API not available');
+        return;
+      }
+
       const issuerParty = await getIssuerParty();
-      const featuredAppRightContractDetails = await getFeaturedAppRightDetails();
+      const featuredAppRightContractDetails = getFeaturedAppRightDetails();
 
       // First create an issuer
       const issuerSetup = await setupTestIssuer(ocp, {
@@ -177,8 +234,13 @@ describeIntegration('OCF Operations Integration', () => {
     });
 
     test('creates institutional stakeholder', async () => {
+      if (!validatorApiAvailable) {
+        console.log('Skipping: Validator API not available');
+        return;
+      }
+
       const issuerParty = await getIssuerParty();
-      const featuredAppRightContractDetails = await getFeaturedAppRightDetails();
+      const featuredAppRightContractDetails = getFeaturedAppRightDetails();
 
       const issuerSetup = await setupTestIssuer(ocp, {
         issuerParty,
@@ -207,8 +269,13 @@ describeIntegration('OCF Operations Integration', () => {
 
   describe('StockClass operations', () => {
     test('creates stock class and reads it back as valid OCF', async () => {
+      if (!validatorApiAvailable) {
+        console.log('Skipping: Validator API not available');
+        return;
+      }
+
       const issuerParty = await getIssuerParty();
-      const featuredAppRightContractDetails = await getFeaturedAppRightDetails();
+      const featuredAppRightContractDetails = getFeaturedAppRightDetails();
 
       const issuerSetup = await setupTestIssuer(ocp, {
         issuerParty,
@@ -242,8 +309,13 @@ describeIntegration('OCF Operations Integration', () => {
     });
 
     test('creates preferred stock class', async () => {
+      if (!validatorApiAvailable) {
+        console.log('Skipping: Validator API not available');
+        return;
+      }
+
       const issuerParty = await getIssuerParty();
-      const featuredAppRightContractDetails = await getFeaturedAppRightDetails();
+      const featuredAppRightContractDetails = getFeaturedAppRightDetails();
 
       const issuerSetup = await setupTestIssuer(ocp, {
         issuerParty,
@@ -278,8 +350,13 @@ describeIntegration('OCF Operations Integration', () => {
 
   describe('Full cap table workflow', () => {
     test('creates complete cap table with issuer, stakeholders, stock class', async () => {
+      if (!validatorApiAvailable) {
+        console.log('Skipping: Validator API not available');
+        return;
+      }
+
       const issuerParty = await getIssuerParty();
-      const featuredAppRightContractDetails = await getFeaturedAppRightDetails();
+      const featuredAppRightContractDetails = getFeaturedAppRightDetails();
 
       // 1. Create issuer
       const issuerSetup = await setupTestIssuer(ocp, {

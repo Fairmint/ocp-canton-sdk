@@ -213,17 +213,45 @@ export function createTestStockTransferData(
 /**
  * Get the FeaturedAppRight contract details from the validator API.
  *
+ * Note: This requires a full Canton Network setup (not just basic LocalNet/cn-quickstart).
+ * The Validator API must be running and have the FeaturedAppRight contract deployed.
+ *
  * @returns The FeaturedAppRight disclosed contract
+ * @throws Error if the Validator API is not available or FeaturedAppRight is not deployed
  */
 export async function getFeaturedAppRightDetails(): Promise<DisclosedContract> {
   const validatorClient = new ValidatorApiClient({ network: 'localnet' });
-  const details = await getFeaturedAppRightContractDetails(validatorClient);
-  return {
-    templateId: details.templateId,
-    contractId: details.contractId,
-    createdEventBlob: details.createdEventBlob,
-    synchronizerId: details.synchronizerId,
-  };
+  try {
+    const details = await getFeaturedAppRightContractDetails(validatorClient);
+    return {
+      templateId: details.templateId,
+      contractId: details.contractId,
+      createdEventBlob: details.createdEventBlob,
+      synchronizerId: details.synchronizerId,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Failed to get FeaturedAppRight contract details: ${message}. ` +
+        'This requires a full Canton Network setup with Validator API running. ' +
+        'Basic LocalNet (cn-quickstart) does not include the Validator API.'
+    );
+  }
+}
+
+/**
+ * Check if the Validator API is available for full integration tests.
+ *
+ * @returns True if Validator API is reachable, false otherwise
+ */
+export async function isValidatorApiAvailable(): Promise<boolean> {
+  try {
+    const validatorClient = new ValidatorApiClient({ network: 'localnet' });
+    await getFeaturedAppRightContractDetails(validatorClient);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
