@@ -5,7 +5,20 @@
 
 version: 2
 updates:
-  - package-ecosystem: 'npm' # See documentation for possible values
-    directory: '/' # Location of package manifests
+  # Daily updates for critical internal packages
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+    allow:
+      - dependency-name: '@fairmint/canton-node-sdk'
+      - dependency-name: '@fairmint/open-captable-protocol-daml-js'
+
+  # Weekly updates for all other npm packages
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
       interval: 'weekly'
+    ignore:
+      - dependency-name: '@fairmint/canton-node-sdk'
+      - dependency-name: '@fairmint/open-captable-protocol-daml-js'
