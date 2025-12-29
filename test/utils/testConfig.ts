@@ -2,22 +2,25 @@
  * Shared test configuration utilities for integration tests.
  *
  * These utilities help configure the SDK client for both:
+ *
  * - LocalNet (cn-quickstart) environment - Set OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true
  * - Remote Canton environments - Set individual environment variables
  *
- * @example LocalNet usage
- * ```bash
- * OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
- * ```
+ * @example
+ *   LocalNet usage
+ *   ```bash
+ *   OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
+ *   ```
  *
- * @example Remote environment usage
- * ```bash
- * OCP_TEST_LEDGER_JSON_API_URI=https://... \
- * OCP_TEST_AUTH_URL=https://... \
- * OCP_TEST_CLIENT_ID=my-client \
- * OCP_TEST_CLIENT_SECRET=secret \
- * npm run test:integration
- * ```
+ * @example
+ *   Remote environment usage
+ *   ```bash
+ *   OCP_TEST_LEDGER_JSON_API_URI=https://... \
+ *   OCP_TEST_AUTH_URL=https://... \
+ *   OCP_TEST_CLIENT_ID=my-client \
+ *   OCP_TEST_CLIENT_SECRET=secret \
+ *   npm run test:integration
+ *   ```
  */
 
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
@@ -59,8 +62,8 @@ export function isTruthyEnv(name: string): boolean {
 }
 
 /**
- * Check if the integration test environment is configured.
- * Returns true if either LocalNet defaults are enabled or remote environment variables are set.
+ * Check if the integration test environment is configured. Returns true if either LocalNet defaults are enabled or
+ * remote environment variables are set.
  *
  * @returns True if integration tests can run
  */
@@ -72,8 +75,8 @@ export function isIntegrationTestConfigured(): boolean {
 /**
  * Build a ClientConfig for integration tests.
  *
- * If OCP_TEST_USE_CN_QUICKSTART_DEFAULTS is set, returns LocalNet config.
- * Otherwise, builds config from individual environment variables.
+ * If OCP_TEST_USE_CN_QUICKSTART_DEFAULTS is set, returns LocalNet config. Otherwise, builds config from individual
+ * environment variables.
  *
  * @returns ClientConfig for use with OcpClient
  * @throws Error if required environment variables are missing

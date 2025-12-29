@@ -4,17 +4,17 @@
  * This script is used by CI to ensure LocalNet is fully started before running tests.
  *
  * @example
- * ```bash
- * OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npx ts-node scripts/quickstart/waitForReady.ts
- * ```
+ *   ```bash
+ *   OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npx ts-node scripts/quickstart/waitForReady.ts
+ *   ```;
  */
 
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import { buildIntegrationTestClientConfig, retry } from '../../test/utils/testConfig';
 
 /**
- * Re-export buildIntegrationTestClientConfig as buildQuickstartClientConfig for backwards compatibility.
- * This is used by deployContracts.ts and other scripts.
+ * Re-export buildIntegrationTestClientConfig as buildQuickstartClientConfig for backwards compatibility. This is used
+ * by deployContracts.ts and other scripts.
  */
 export { buildIntegrationTestClientConfig as buildQuickstartClientConfig } from '../../test/utils/testConfig';
 

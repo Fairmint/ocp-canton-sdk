@@ -1,22 +1,23 @@
 /**
  * Test data setup utilities for integration tests.
  *
- * These utilities help create consistent test fixtures for testing SDK functions
- * against a running Canton LocalNet environment.
+ * These utilities help create consistent test fixtures for testing SDK functions against a running Canton LocalNet
+ * environment.
  *
- * @example Creating a test issuer
- * ```typescript
- * const ocp = new OcpClient({ network: 'localnet' });
- * const testIssuer = await setupTestIssuer(ocp, {
+ * @example
+ *   Creating a test issuer
+ *   ```typescript
+ *   const ocp = new OcpClient({ network: 'localnet' });
+ *   const testIssuer = await setupTestIssuer(ocp, {
  *   issuerParty: 'alice::...',
- * });
- * console.log('Created issuer:', testIssuer.contractId);
- * ```
+ *   });
+ *   console.log('Created issuer:', testIssuer.contractId);
+ *   ```
  */
 
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
+import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
 import type {
   OcfIssuerData,
@@ -26,9 +27,7 @@ import type {
   OcfStockTransferTxData,
 } from '../../../src/types/native';
 
-/**
- * Result from setting up a test issuer.
- */
+/** Result from setting up a test issuer. */
 export interface TestIssuerSetup {
   /** The contract ID of the created issuer */
   issuerContractId: string;
@@ -40,9 +39,7 @@ export interface TestIssuerSetup {
   featuredAppRightContractDetails: DisclosedContract;
 }
 
-/**
- * Result from setting up a test stakeholder.
- */
+/** Result from setting up a test stakeholder. */
 export interface TestStakeholderSetup {
   /** The contract ID of the created stakeholder */
   stakeholderContractId: string;
@@ -50,9 +47,7 @@ export interface TestStakeholderSetup {
   stakeholderData: OcfStakeholderData;
 }
 
-/**
- * Result from setting up a test stock class.
- */
+/** Result from setting up a test stock class. */
 export interface TestStockClassSetup {
   /** The contract ID of the created stock class */
   stockClassContractId: string;
@@ -60,9 +55,7 @@ export interface TestStockClassSetup {
   stockClassData: OcfStockClassData;
 }
 
-/**
- * Result from setting up a test stock issuance.
- */
+/** Result from setting up a test stock issuance. */
 export interface TestStockIssuanceSetup {
   /** The contract ID of the created stock issuance */
   stockIssuanceContractId: string;
@@ -70,9 +63,7 @@ export interface TestStockIssuanceSetup {
   stockIssuanceData: OcfStockIssuanceData;
 }
 
-/**
- * Result from setting up a complete cap table for testing.
- */
+/** Result from setting up a complete cap table for testing. */
 export interface TestCapTableSetup {
   issuer: TestIssuerSetup;
   stakeholders: TestStakeholderSetup[];
@@ -81,8 +72,7 @@ export interface TestCapTableSetup {
 }
 
 /**
- * Generate a unique test ID with timestamp.
- * Useful for creating unique IDs across test runs.
+ * Generate a unique test ID with timestamp. Useful for creating unique IDs across test runs.
  *
  * @param prefix - Prefix for the ID (e.g., 'issuer', 'stakeholder')
  * @returns A unique ID string
@@ -274,6 +264,7 @@ function extractContractIdFromResponse(
  * Setup a test issuer with all required dependencies.
  *
  * This function:
+ *
  * 1. Gets the FeaturedAppRight contract from the validator
  * 2. Authorizes the issuer using the OCP Factory
  * 3. Creates the issuer

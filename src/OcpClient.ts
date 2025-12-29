@@ -106,66 +106,69 @@ import { buildCreateOcfObjectCommandFactory } from './utils/createOcfObject';
  * - **CantonPayments**: Payment and airdrop operations
  * - **PaymentStreams**: Recurring payment stream management
  *
- * @example Basic usage - Creating an issuer
- * ```typescript
- * import { OcpClient } from '@open-captable-protocol/canton';
+ * @example
+ *   Basic usage - Creating an issuer
+ *   ```typescript
+ *   import { OcpClient } from '@open-captable-protocol/canton';
  *
- * // Create client (uses default LocalNet config)
- * const ocp = new OcpClient({ network: 'localnet' });
+ *   // Create client (uses default LocalNet config)
+ *   const ocp = new OcpClient({ network: 'localnet' });
  *
- * // Build a command (for use with batching)
- * const cmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({
+ *   // Build a command (for use with batching)
+ *   const cmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({
  *   issuerAuthorizationContractDetails: authDetails,
  *   featuredAppRightContractDetails: featuredDetails,
  *   issuerParty: 'alice::...',
  *   issuerData: {
- *     id: 'issuer-1',
- *     legal_name: 'Acme Corp',
- *     formation_date: '2024-01-01',
- *     country_of_formation: 'US',
- *     tax_ids: [],
+ *   id: 'issuer-1',
+ *   legal_name: 'Acme Corp',
+ *   formation_date: '2024-01-01',
+ *   country_of_formation: 'US',
+ *   tax_ids: [],
  *   },
- * });
+ *   });
  *
- * // Submit with a batch
- * const batch = ocp.createBatch({ actAs: ['alice::...'] });
- * batch.addCommand(cmd.command, cmd.disclosedContracts);
- * const result = await batch.submitAndWait();
- * ```
+ *   // Submit with a batch
+ *   const batch = ocp.createBatch({ actAs: ['alice::...'] });
+ *   batch.addCommand(cmd.command, cmd.disclosedContracts);
+ *   const result = await batch.submitAndWait();
+ *   ```
  *
- * @example Reading data as OCF
- * ```typescript
- * // Read an issuer contract and get OCF-formatted data
- * const { issuer } = await ocp.OpenCapTable.issuer.getIssuerAsOcf({
+ * @example
+ *   Reading data as OCF
+ *   ```typescript
+ *   // Read an issuer contract and get OCF-formatted data
+ *   const { issuer } = await ocp.OpenCapTable.issuer.getIssuerAsOcf({
  *   contractId: 'issuer-contract-id',
- * });
+ *   });
  *
- * console.log(issuer.object_type); // 'ISSUER'
- * console.log(issuer.legal_name);  // 'Acme Corp'
- * ```
+ *   console.log(issuer.object_type); // 'ISSUER'
+ *   console.log(issuer.legal_name);  // 'Acme Corp'
+ *   ```
  *
- * @example Batch operations
- * ```typescript
- * const batch = ocp.createBatch({ actAs: [issuerParty] });
+ * @example
+ *   Batch operations
+ *   ```typescript
+ *   const batch = ocp.createBatch({ actAs: [issuerParty] });
  *
- * // Add multiple commands to a single transaction
- * const issuerCmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({...});
- * const stockClassCmd = ocp.OpenCapTable.stockClass.buildCreateStockClassCommand({...});
+ *   // Add multiple commands to a single transaction
+ *   const issuerCmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({...});
+ *   const stockClassCmd = ocp.OpenCapTable.stockClass.buildCreateStockClassCommand({...});
  *
- * batch.addCommand(issuerCmd.command, issuerCmd.disclosedContracts);
- * batch.addCommand(stockClassCmd.command, stockClassCmd.disclosedContracts);
+ *   batch.addCommand(issuerCmd.command, issuerCmd.disclosedContracts);
+ *   batch.addCommand(stockClassCmd.command, stockClassCmd.disclosedContracts);
  *
- * // Submit all commands atomically
- * const result = await batch.submitAndWait();
- * ```
+ *   // Submit all commands atomically
+ *   const result = await batch.submitAndWait();
+ *   ```
  *
  * @see https://ocp.canton.fairmint.com/ - Full SDK documentation
  * @see https://schema.opencaptablecoalition.com/ - OCF schema documentation
  */
 export class OcpClient {
   /**
-   * The underlying LedgerJsonApiClient for direct ledger access.
-   * Use this for low-level operations not covered by the high-level API.
+   * The underlying LedgerJsonApiClient for direct ledger access. Use this for low-level operations not covered by the
+   * high-level API.
    */
   public readonly client: LedgerJsonApiClient;
 
@@ -173,6 +176,7 @@ export class OcpClient {
    * Core cap table operations.
    *
    * Provides operations for managing:
+   *
    * - **issuer**: Company/issuer records
    * - **stakeholder**: Shareholders, employees, investors
    * - **stockClass**: Common/preferred stock classes
@@ -190,18 +194,18 @@ export class OcpClient {
    * - And more...
    *
    * @example
-   * ```typescript
-   * // Create a stakeholder
-   * const cmd = ocp.OpenCapTable.stakeholder.buildCreateStakeholderCommand({
-   *   issuerContractId: 'issuer-cid',
-   *   featuredAppRightContractDetails: featured,
-   *   stakeholderData: {
-   *     id: 'sh-1',
-   *     name: { legal_name: 'John Doe' },
-   *     stakeholder_type: 'INDIVIDUAL',
-   *   },
-   * });
-   * ```
+   *   ```typescript
+   *   // Create a stakeholder
+   *   const cmd = ocp.OpenCapTable.stakeholder.buildCreateStakeholderCommand({
+   *     issuerContractId: 'issuer-cid',
+   *     featuredAppRightContractDetails: featured,
+   *     stakeholderData: {
+   *       id: 'sh-1',
+   *       name: { legal_name: 'John Doe' },
+   *       stakeholder_type: 'INDIVIDUAL',
+   *     },
+   *   });
+   *   ```;
    */
   public OpenCapTable: {
     issuer: {
@@ -353,15 +357,16 @@ export class OcpClient {
    * Reporting operations for cap table analytics.
    *
    * Currently supports:
+   *
    * - **companyValuationReport**: Company valuation tracking and reporting
    *
    * @example
-   * ```typescript
-   * const result = await ocp.OpenCapTableReports.companyValuationReport.createCompanyValuationReport({
-   *   issuerContractId: 'issuer-cid',
-   *   // ... valuation data
-   * });
-   * ```
+   *   ```typescript
+   *   const result = await ocp.OpenCapTableReports.companyValuationReport.createCompanyValuationReport({
+   *     issuerContractId: 'issuer-cid',
+   *     // ... valuation data
+   *   });
+   *   ```;
    */
   public OpenCapTableReports: {
     companyValuationReport: {
@@ -386,17 +391,18 @@ export class OcpClient {
    * Payment and airdrop operations using Canton's native token (Amulet/CC).
    *
    * Provides:
+   *
    * - **airdrop**: Multi-recipient token airdrops with join mechanism
    * - **simpleAirdrop**: Direct token distribution to recipients
    *
    * @example
-   * ```typescript
-   * const cmd = ocp.CantonPayments.simpleAirdrop.buildCreateSimpleAirdropCommand({
-   *   sender: senderParty,
-   *   recipients: [{ party: recipient1, amount: '100' }],
-   *   // ...
-   * });
-   * ```
+   *   ```typescript
+   *   const cmd = ocp.CantonPayments.simpleAirdrop.buildCreateSimpleAirdropCommand({
+   *     sender: senderParty,
+   *     recipients: [{ party: recipient1, amount: '100' }],
+   *     // ...
+   *   });
+   *   ```;
    */
   public CantonPayments: {
     airdrop: {
@@ -417,6 +423,7 @@ export class OcpClient {
    * Recurring payment stream management.
    *
    * Enables subscription-style payments with:
+   *
    * - **paymentStreamFactory**: Create new payment stream proposals
    * - **proposedPaymentStream**: Approve/reject/start proposed streams
    * - **activePaymentStream**: Process payments, cancel, modify active streams
@@ -425,14 +432,14 @@ export class OcpClient {
    * - **utils**: Helper functions for building payment contexts
    *
    * @example
-   * ```typescript
-   * // Create a payment stream proposal
-   * const cmd = ocp.PaymentStreams.paymentStreamFactory.buildCreatePaymentStreamProposalCommand({
-   *   payer: payerParty,
-   *   payee: payeeParty,
-   *   // ... stream configuration
-   * });
-   * ```
+   *   ```typescript
+   *   // Create a payment stream proposal
+   *   const cmd = ocp.PaymentStreams.paymentStreamFactory.buildCreatePaymentStreamProposalCommand({
+   *     payer: payerParty,
+   *     payee: payeeParty,
+   *     // ... stream configuration
+   *   });
+   *   ```;
    */
   public PaymentStreams: {
     paymentStreamFactory: {
@@ -511,8 +518,8 @@ export class OcpClient {
   /**
    * Build commands for creating any OCF object type.
    *
-   * This is a generic factory method that routes to the appropriate
-   * buildCreate*Command based on the object_type in the data.
+   * This is a generic factory method that routes to the appropriate buildCreate*Command based on the object_type in the
+   * data.
    *
    * @param params - Creation parameters including object type and data
    * @returns Array of commands with disclosed contracts
@@ -522,30 +529,31 @@ export class OcpClient {
   /**
    * Create a new OcpClient instance.
    *
-   * @param config - Optional client configuration. If not provided, uses environment defaults.
+   * @example
+   *   LocalNet(cn - quickstart)```typescript
+   *   const ocp = new OcpClient({ network: 'localnet' });
+   *   ```;
    *
-   * @example LocalNet (cn-quickstart)
-   * ```typescript
-   * const ocp = new OcpClient({ network: 'localnet' });
-   * ```
-   *
-   * @example DevNet with auth
-   * ```typescript
-   * const ocp = new OcpClient({
+   * @example
+   *   DevNet with auth
+   *   ```typescript
+   *   const ocp = new OcpClient({
    *   network: 'devnet',
    *   authUrl: 'https://auth.example.com',
    *   apis: {
-   *     LEDGER_JSON_API: {
-   *       apiUrl: 'https://ledger.example.com',
-   *       auth: {
-   *         grantType: 'client_credentials',
-   *         clientId: 'my-client',
-   *         clientSecret: 'secret',
-   *       },
-   *     },
+   *   LEDGER_JSON_API: {
+   *   apiUrl: 'https://ledger.example.com',
+   *   auth: {
+   *   grantType: 'client_credentials',
+   *   clientId: 'my-client',
+   *   clientSecret: 'secret',
    *   },
-   * });
-   * ```
+   *   },
+   *   },
+   *   });
+   *   ```
+   *
+   * @param config - Optional client configuration. If not provided, uses environment defaults.
    */
   constructor(config?: ClientConfig) {
     this.client = new LedgerJsonApiClient(config);
@@ -836,28 +844,28 @@ export class OcpClient {
   /**
    * Create a new transaction batch for submitting multiple commands atomically.
    *
-   * Use batches when you need to execute multiple operations in a single transaction,
-   * ensuring all-or-nothing semantics.
+   * Use batches when you need to execute multiple operations in a single transaction, ensuring all-or-nothing
+   * semantics.
+   *
+   * @example
+   *   ```typescript
+   *   const batch = ocp.createBatch({ actAs: [issuerParty] });
+   *
+   *   // Add commands
+   *   const cmd1 = ocp.OpenCapTable.stakeholder.buildCreateStakeholderCommand({...});
+   *   const cmd2 = ocp.OpenCapTable.stockClass.buildCreateStockClassCommand({...});
+   *
+   *   batch.addCommand(cmd1.command, cmd1.disclosedContracts);
+   *   batch.addCommand(cmd2.command, cmd2.disclosedContracts);
+   *
+   *   // Submit atomically
+   *   const result = await batch.submitAndWait();
+   *   ```;
    *
    * @param params - Batch parameters
    * @param params.actAs - Party IDs to act as (signatories)
    * @param params.readAs - Optional additional party IDs for read access
    * @returns A TransactionBatch instance for adding commands
-   *
-   * @example
-   * ```typescript
-   * const batch = ocp.createBatch({ actAs: [issuerParty] });
-   *
-   * // Add commands
-   * const cmd1 = ocp.OpenCapTable.stakeholder.buildCreateStakeholderCommand({...});
-   * const cmd2 = ocp.OpenCapTable.stockClass.buildCreateStockClassCommand({...});
-   *
-   * batch.addCommand(cmd1.command, cmd1.disclosedContracts);
-   * batch.addCommand(cmd2.command, cmd2.disclosedContracts);
-   *
-   * // Submit atomically
-   * const result = await batch.submitAndWait();
-   * ```
    */
   public createBatch(params: { actAs: string[]; readAs?: string[] }): TransactionBatch {
     return new TransactionBatch(this.client, params.actAs, params.readAs);
