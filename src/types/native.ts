@@ -830,9 +830,8 @@ export interface OcfEquityCompensationExerciseTxData {
 }
 
 /**
- * Object - Stock Transfer Transaction
- * Object describing a transfer or secondary sale of a stock security
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/StockTransfer.schema.json
+ * Object - Stock Transfer Transaction Object describing a transfer or secondary sale of a stock security OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/StockTransfer.schema.json
  */
 export interface OcfStockTransferTxData {
   /** Identifier for the object */
