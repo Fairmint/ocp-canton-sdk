@@ -62,6 +62,9 @@ export async function getStockTransferAsOcf(
   if (!data.id) throw new Error('Missing required field: id');
   if (!data.date) throw new Error('Missing required field: date');
   if (!data.security_id) throw new Error('Missing required field: security_id');
+  if (data.quantity === undefined) {
+    throw new Error('Missing required field: quantity');
+  }
   if (!data.resulting_security_ids || data.resulting_security_ids.length === 0) {
     throw new Error('Missing required field: resulting_security_ids');
   }
