@@ -21,7 +21,7 @@
  *       // ...
  *     });
  *   });
- *   ```;
+ *   ```
  */
 
 import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
@@ -205,7 +205,7 @@ export function skipIfValidatorUnavailable(): boolean {
  *       // ... test implementation
  *     });
  *   });
- *   ```;
+ *   ```
  *
  * @param name - The name of the test suite
  * @param testFn - A function that defines the tests, receives the test context

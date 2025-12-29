@@ -9,6 +9,12 @@
         "printWidth": 100,
         "proseWrap": "always"
       }
+    },
+    {
+      "files": "test/integration/**/*.ts",
+      "options": {
+        "plugins": ["prettier-plugin-organize-imports", "prettier-plugin-packagejson"]
+      }
     }
   ],
   "plugins": ["prettier-plugin-organize-imports", "prettier-plugin-packagejson", "prettier-plugin-jsdoc"],
@@ -17,6 +23,5 @@
   "singleQuote": true,
   "tabWidth": 2,
   "trailingComma": "es5",
-  "useTabs": false,
-  "jsdocKeepUnParseAbleExampleIndent": true
+  "useTabs": false
 }
