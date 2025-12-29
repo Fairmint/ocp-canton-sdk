@@ -21,7 +21,7 @@
  *       // ...
  *     });
  *   });
- *   ```;
+ *   ```
  */
 
 import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
