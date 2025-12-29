@@ -213,8 +213,8 @@ export function createTestStockTransferData(
 /**
  * Get the FeaturedAppRight contract details from the validator API.
  *
- * Note: This requires a full Canton Network setup (not just basic LocalNet/cn-quickstart).
- * The Validator API must be running and have the FeaturedAppRight contract deployed.
+ * Note: This requires a full Canton Network setup (not just basic LocalNet/cn-quickstart). The Validator API must be
+ * running and have the FeaturedAppRight contract deployed.
  *
  * @returns The FeaturedAppRight disclosed contract
  * @throws Error if the Validator API is not available or FeaturedAppRight is not deployed

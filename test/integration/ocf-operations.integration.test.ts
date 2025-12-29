@@ -19,10 +19,11 @@
  * - Contracts deployed
  * - FeaturedAppRight contract available
  *
- * Note: Basic cn-quickstart LocalNet does NOT include the Validator API.
- * These tests require a full Canton Network setup.
+ * Note: Basic cn-quickstart LocalNet does NOT include the Validator API. These tests require a full Canton Network
+ * setup.
  */
 
+import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../src/OcpClient';
 import { validateOcfObject } from '../utils/ocfSchemaValidator';
@@ -35,7 +36,6 @@ import {
   setupTestStakeholder,
   setupTestStockClass,
 } from './utils';
-import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 
 // Skip all tests if integration environment is not configured
 const describeIntegration = isIntegrationTestConfigured() ? describe : describe.skip;
