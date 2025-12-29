@@ -37,18 +37,37 @@ describeIntegration('OCF Operations Integration', () => {
 
   let ocp: OcpClient;
 
-  // Get the default issuer party from LocalNet
-  // In cn-quickstart, alice is typically the first party
+  // Get a party to use as the issuer for tests
+  // Can be overridden via OCP_TEST_ISSUER_PARTY environment variable
   const getIssuerParty = async (): Promise<string> => {
-    // For LocalNet, we need to get the party from the environment or use a default
-    // The party format in LocalNet is typically like: alice::1220...
+    // Allow override via environment variable
+    const envParty = process.env.OCP_TEST_ISSUER_PARTY;
+    if (envParty) {
+      return envParty;
+    }
+
+    // Try to find a party from LocalNet
     const response = await ocp.client.listParties({});
     const partyDetails = response.partyDetails ?? [];
-    const aliceParty = partyDetails.find((p) => p.party.includes('alice'));
-    if (!aliceParty) {
-      throw new Error('Could not find alice party in LocalNet. Make sure cn-quickstart is running.');
+
+    if (partyDetails.length === 0) {
+      throw new Error(
+        'No parties found in LocalNet. Make sure cn-quickstart is running and parties are allocated. ' +
+          'Alternatively, set OCP_TEST_ISSUER_PARTY environment variable.'
+      );
     }
-    return aliceParty.party;
+
+    // Try to find a party with common names (alice, issuer, etc.)
+    const preferredNames = ['alice', 'issuer', 'admin', 'participant'];
+    for (const name of preferredNames) {
+      const party = partyDetails.find((p) => p.party.toLowerCase().includes(name));
+      if (party) {
+        return party.party;
+      }
+    }
+
+    // Fall back to the first available party
+    return partyDetails[0].party;
   };
 
   beforeAll(() => {

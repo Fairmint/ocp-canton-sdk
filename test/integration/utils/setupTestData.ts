@@ -94,15 +94,19 @@ export function generateTestId(prefix: string): string {
 }
 
 /**
- * Generate a date string in YYYY-MM-DD format.
+ * Generate a date string in YYYY-MM-DD format using UTC to ensure consistency across timezones.
  *
  * @param daysFromNow - Number of days from today (negative for past, positive for future)
  * @returns Date string in YYYY-MM-DD format
  */
 export function generateDateString(daysFromNow = 0): string {
   const date = new Date();
-  date.setDate(date.getDate() + daysFromNow);
-  return date.toISOString().split('T')[0];
+  // Use UTC to ensure consistent results across different timezones (CI, local dev, etc.)
+  date.setUTCDate(date.getUTCDate() + daysFromNow);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -235,6 +239,10 @@ export async function getFeaturedAppRightDetails(): Promise<DisclosedContract> {
 /**
  * Extract a contract ID from a transaction tree response.
  *
+ * Handles both response structures:
+ * - response.transactionTree.eventsById (direct)
+ * - response.transactionTree.transaction.eventsById (nested)
+ *
  * @param response - The transaction tree response
  * @param templateIdContains - Substring to match in the template ID
  * @returns The contract ID, or empty string if not found
@@ -243,7 +251,12 @@ function extractContractIdFromResponse(
   response: SubmitAndWaitForTransactionTreeResponse,
   templateIdContains: string
 ): string {
-  const { eventsById } = response.transactionTree;
+  // Handle both response structures (eventsById directly or under transaction)
+  // The response structure varies between Canton versions
+  const tree = response.transactionTree;
+  const treeAny = tree as any;
+  const eventsById: Record<string, unknown> = treeAny.eventsById ?? treeAny.transaction?.eventsById ?? {};
+
   for (const event of Object.values(eventsById)) {
     const eventData = event as Record<string, unknown>;
     if (eventData.CreatedTreeEvent) {
