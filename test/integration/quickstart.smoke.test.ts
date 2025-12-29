@@ -1,64 +1,26 @@
-import type { ClientConfig } from '@fairmint/canton-node-sdk';
+/**
+ * Smoke tests for LocalNet/quickstart integration.
+ *
+ * These tests verify basic connectivity and SDK functionality against a running Canton LocalNet (cn-quickstart)
+ * environment.
+ *
+ * @example
+ *   Running with LocalNet defaults
+ *   ```bash
+ *   OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
+ *   ```
+ */
 
 import { OcpClient } from '../../src/OcpClient';
-
-function isTruthyEnv(name: string): boolean {
-  const value = process.env[name];
-  if (!value) return false;
-  return value === '1' || value.toLowerCase() === 'true';
-}
-
-function getEnv(name: string): string | undefined {
-  const value = process.env[name];
-  return value && value.length > 0 ? value : undefined;
-}
-
-function getRequiredEnv(name: string): string {
-  const value = getEnv(name);
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
-function isQuickstartConfigured(): boolean {
-  if (isTruthyEnv('OCP_TEST_USE_CN_QUICKSTART_DEFAULTS')) return true;
-  return Boolean(getEnv('OCP_TEST_LEDGER_JSON_API_URI') && getEnv('OCP_TEST_AUTH_URL') && getEnv('OCP_TEST_CLIENT_ID'));
-}
-
-function buildQuickstartClientConfig(): ClientConfig {
-  if (isTruthyEnv('OCP_TEST_USE_CN_QUICKSTART_DEFAULTS')) {
-    return { network: 'localnet' };
-  }
-
-  const apiUrl = getRequiredEnv('OCP_TEST_LEDGER_JSON_API_URI');
-  const authUrl = getRequiredEnv('OCP_TEST_AUTH_URL');
-  const clientId = getRequiredEnv('OCP_TEST_CLIENT_ID');
-  const clientSecret = getEnv('OCP_TEST_CLIENT_SECRET');
-
-  return {
-    // The SDK requires one of the known network names.
-    // For quickstart/local testing, we keep this as a stable placeholder.
-    network: 'devnet',
-    authUrl,
-    apis: {
-      LEDGER_JSON_API: {
-        apiUrl,
-        auth: {
-          grantType: 'client_credentials',
-          clientId,
-          clientSecret,
-        },
-      },
-    },
-  };
-}
+import { buildIntegrationTestClientConfig, isIntegrationTestConfigured } from '../utils/testConfig';
 
 describe('quickstart smoke', () => {
   jest.setTimeout(120_000);
 
-  const configured = isQuickstartConfigured();
+  const configured = isIntegrationTestConfigured();
 
   (configured ? test : test.skip)('connects and returns /v2/version', async () => {
-    const config = buildQuickstartClientConfig();
+    const config = buildIntegrationTestClientConfig();
     const ocp = new OcpClient(config);
 
     const version = await ocp.client.getVersion();

@@ -14,12 +14,26 @@ Keep content concise but comprehensive. Avoid verbosity—capture the essence.
 ## Quick Commands
 
 ```bash
-npm run fix                                     # ALWAYS run before creating PRs
+npm run fix                                     # ESLint + Prettier auto-fix (REQUIRED before push)
 npm run lint && npx tsc --noEmit && npm test   # Full validation
+npm run test:integration                        # LocalNet integration tests
 npm run docs                                    # Generate TypeDoc
 ```
 
-**Before creating PRs:** Always run `npm run fix` to auto-fix lint and formatting issues. CI enforces zero warnings.
+## Pre-Push Requirements
+
+**ALWAYS run before pushing ANY changes:**
+
+```bash
+npm run fix    # Auto-fixes ESLint and Prettier issues
+```
+
+This command:
+- Runs ESLint with `--fix` to auto-correct code issues
+- Runs Prettier to format all files consistently
+- CI enforces zero warnings—PRs will fail if you skip this step
+
+If `npm run fix` can't auto-fix everything, manually resolve remaining issues before pushing.
 
 **Git workflow:** Avoid force pushing (`git push --force`). If you need to update a PR branch:
 1. Merge from main: `git fetch origin main && git merge origin/main`
@@ -62,6 +76,20 @@ src/
 │   ├── typeConversions.ts  # DAML ↔ OCF conversions
 │   └── TransactionBatch.ts # Multi-command helper
 └── OcpClient.ts            # Facade wiring to LedgerJsonApiClient
+
+test/
+├── createOcf/              # Unit tests (mock-based)
+├── fixtures/               # Test data fixtures
+├── integration/            # LocalNet integration tests
+│   ├── utils/              # Test setup utilities
+│   │   └── setupTestData.ts
+│   ├── quickstart.smoke.test.ts
+│   └── ocf-operations.integration.test.ts
+├── mocks/                  # Mock implementations
+└── utils/                  # Shared test utilities
+    ├── testConfig.ts       # Environment config
+    ├── fixtureHelpers.ts   # Fixture management
+    └── ocfSchemaValidator.ts
 ```
 
 ## Function Pattern
@@ -146,7 +174,94 @@ When you discover areas for improvement that are **unrelated to the current task
 
 This ensures improvements aren't lost while keeping PRs focused and reviewable.
 
-## OCF Schema Validation
+## Testing Strategy
+
+### Test Types
+
+| Test Type | Command | Purpose |
+|-----------|---------|---------|
+| Unit tests | `npm test` | Mock-based tests for conversions, validation |
+| Integration tests | `npm run test:integration` | LocalNet tests validating DAML contracts |
+| Type checking | `npm run typecheck` | TypeScript compilation checks |
+
+### Unit Tests (Mock-based)
+
+Unit tests use mocked Canton responses for fast, deterministic testing:
+
+```typescript
+// test/createOcf/dynamic.test.ts
+import { setTransactionTreeFixtureData } from '../utils/fixtureHelpers';
+import { validateOcfObject } from '../utils/ocfSchemaValidator';
+
+test('creates issuer with valid OCF output', async () => {
+  setTransactionTreeFixtureData(fixture);
+  const result = await createIssuer(client, params);
+  await validateOcfObject(result.issuer);
+});
+```
+
+### Integration Tests (LocalNet)
+
+Integration tests run against a real Canton LocalNet environment. They catch issues that mocks miss:
+- Invalid DAML command structure
+- Type conversion errors that only surface at runtime
+- Incorrect template IDs or choice names
+- Contract workflow validation
+
+**Running integration tests:**
+
+```bash
+# Start LocalNet (cn-quickstart) first
+OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
+```
+
+**Test utilities:**
+
+```typescript
+// test/utils/testConfig.ts - Shared configuration
+import { isIntegrationTestConfigured, buildIntegrationTestClientConfig } from '../utils/testConfig';
+
+// test/integration/utils/setupTestData.ts - Test data factories
+import {
+  setupTestIssuer,
+  setupTestStakeholder,
+  setupTestStockClass,
+  createTestIssuerData,
+  generateTestId,
+} from './utils';
+```
+
+**Integration test pattern:**
+
+```typescript
+// test/integration/ocf-operations.integration.test.ts
+const describeIntegration = isIntegrationTestConfigured() ? describe : describe.skip;
+
+describeIntegration('Issuer operations', () => {
+  test('creates issuer and reads it back as valid OCF', async () => {
+    const issuerSetup = await setupTestIssuer(ocp, {
+      issuerParty,
+      featuredAppRightContractDetails,
+      issuerData: { id: generateTestId('issuer'), legal_name: 'Test Corp' },
+    });
+
+    const ocfResult = await ocp.OpenCapTable.issuer.getIssuerAsOcf({
+      contractId: issuerSetup.issuerContractId,
+    });
+
+    expect(ocfResult.issuer.object_type).toBe('ISSUER');
+    await validateOcfObject(ocfResult.issuer);
+  });
+});
+```
+
+**Benefits of integration tests:**
+- Validates end-to-end OCF compliance
+- Tests actual DAML contract behavior
+- Catches runtime issues before merge
+- Builds confidence in contract implementations
+
+### OCF Schema Validation
 
 Tests validate against official OCF JSON schemas:
 
@@ -182,6 +297,8 @@ await validateOcfObject({ object_type: 'ISSUER', ... });
 ## Tasks
 
 All tasks tracked in [canton/tasks](https://github.com/fairmint/canton/tree/main/tasks).
+
+**Changelog Requirement:** When creating PRs for this repo, update the parent task's changelog in `canton/tasks`. Every PR must be logged with date, description, and PR links. See `canton/llms.txt` for the full changelog format.
 
 ## Docs
 

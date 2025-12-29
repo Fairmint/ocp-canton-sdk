@@ -7,7 +7,17 @@ import unusedImportsPlugin from 'eslint-plugin-unused-imports';
 const eslintConfig = [
   // Global ignores (replaces .eslintignore)
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/coverage/**', '**/docs/**', '**/*.js', '**/*.mjs', '**/libs/**'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/coverage/**',
+      '**/docs/**',
+      '**/*.js',
+      '**/*.mjs',
+      '**/libs/**',
+      // OCF schema submodule - contains TypeScript files not part of our codebase
+      '**/Open-Cap-Format-OCF/**',
+    ],
   },
   // Main configuration for TypeScript files
   {
