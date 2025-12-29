@@ -1,18 +1,20 @@
 /**
  * Integration tests for core OCF operations.
  *
- * These tests exercise the full SDK flow against a running Canton LocalNet,
- * validating that:
+ * These tests exercise the full SDK flow against a running Canton LocalNet, validating that:
+ *
  * 1. Commands are properly constructed and accepted by DAML contracts
  * 2. Data round-trips correctly (create -> read -> validate)
  * 3. OCF output conforms to official schemas
  *
  * Run these tests with:
+ *
  * ```bash
  * OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
  * ```
  *
  * Prerequisites:
+ *
  * - LocalNet (cn-quickstart) running
  * - Contracts deployed
  */

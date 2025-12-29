@@ -1,13 +1,14 @@
 /**
  * Smoke tests for LocalNet/quickstart integration.
  *
- * These tests verify basic connectivity and SDK functionality against a running
- * Canton LocalNet (cn-quickstart) environment.
+ * These tests verify basic connectivity and SDK functionality against a running Canton LocalNet (cn-quickstart)
+ * environment.
  *
- * @example Running with LocalNet defaults
- * ```bash
- * OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
- * ```
+ * @example
+ *   Running with LocalNet defaults
+ *   ```bash
+ *   OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
+ *   ```
  */
 
 import { OcpClient } from '../../src/OcpClient';
