@@ -230,8 +230,9 @@ export async function getFeaturedAppRightDetails(): Promise<DisclosedContract> {
  * Extract a contract ID from a transaction tree response.
  *
  * Handles both response structures:
- * - response.transactionTree.eventsById (direct)
- * - response.transactionTree.transaction.eventsById (nested)
+ *
+ * - Response.transactionTree.eventsById (direct)
+ * - Response.transactionTree.transaction.eventsById (nested)
  *
  * @param response - The transaction tree response
  * @param templateIdContains - Substring to match in the template ID
