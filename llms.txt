@@ -21,6 +21,13 @@ npm run docs                                    # Generate TypeDoc
 
 **Before creating PRs:** Always run `npm run fix` to auto-fix lint and formatting issues. CI enforces zero warnings.
 
+**Git workflow:** Avoid force pushing (`git push --force`). If you need to update a PR branch:
+1. Merge from main: `git fetch origin main && git merge origin/main`
+2. Resolve conflicts if any
+3. Push normally: `git push`
+
+This preserves commit history and makes PR review easier.
+
 ## Architecture
 
 ### Layer Stack
