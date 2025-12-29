@@ -14,13 +14,26 @@ Keep content concise but comprehensive. Avoid verbosity—capture the essence.
 ## Quick Commands
 
 ```bash
-npm run fix                                     # ALWAYS run before creating PRs
+npm run fix                                     # ESLint + Prettier auto-fix (REQUIRED before push)
 npm run lint && npx tsc --noEmit && npm test   # Full validation
 npm run test:integration                        # LocalNet integration tests
 npm run docs                                    # Generate TypeDoc
 ```
 
-**Before creating PRs:** Always run `npm run fix` to auto-fix lint and formatting issues. CI enforces zero warnings.
+## Pre-Push Requirements
+
+**ALWAYS run before pushing ANY changes:**
+
+```bash
+npm run fix    # Auto-fixes ESLint and Prettier issues
+```
+
+This command:
+- Runs ESLint with `--fix` to auto-correct code issues
+- Runs Prettier to format all files consistently
+- CI enforces zero warnings—PRs will fail if you skip this step
+
+If `npm run fix` can't auto-fix everything, manually resolve remaining issues before pushing.
 
 **Git workflow:** Avoid force pushing (`git push --force`). If you need to update a PR branch:
 1. Merge from main: `git fetch origin main && git merge origin/main`
