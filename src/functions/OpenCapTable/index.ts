@@ -13,5 +13,6 @@ export * from './stockIssuance';
 export * from './stockLegendTemplate';
 export * from './stockPlan';
 export * from './stockPlanPoolAdjustment';
+export * from './stockTransfer';
 export * from './vestingTerms';
 export * from './warrantIssuance';

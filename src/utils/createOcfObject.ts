@@ -15,6 +15,7 @@ import type {
   OcfStockLegendTemplateData,
   OcfStockPlanData,
   OcfStockPlanPoolAdjustmentTxData,
+  OcfStockTransferTxData,
   OcfVestingTermsData,
   OcfWarrantIssuanceDataNative,
 } from '../types';
@@ -168,6 +169,14 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
             cancellationData: ocfData as unknown as OcfStockCancellationTxData,
           });
 
+        case 'TX_STOCK_TRANSFER':
+          return client.OpenCapTable.stockTransfer.buildCreateStockTransferCommand({
+            issuerContractId,
+            featuredAppRightContractDetails,
+            issuerParty,
+            transferData: ocfData as unknown as OcfStockTransferTxData,
+          });
+
         case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
           return client.OpenCapTable.issuerAuthorizedSharesAdjustment.buildCreateIssuerAuthorizedSharesAdjustmentCommand(
             {
@@ -301,6 +310,13 @@ function buildArchiveCommand(
     case 'TX_STOCK_CANCELLATION':
       return {
         command: client.OpenCapTable.stockCancellation.buildArchiveStockCancellationByIssuerCommand({
+          contractId,
+        }),
+        disclosedContracts,
+      };
+    case 'TX_STOCK_TRANSFER':
+      return {
+        command: client.OpenCapTable.stockTransfer.buildArchiveStockTransferByIssuerCommand({
           contractId,
         }),
         disclosedContracts,

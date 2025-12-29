@@ -828,3 +828,26 @@ export interface OcfEquityCompensationExerciseTxData {
   resulting_security_ids: string[];
   comments?: string[];
 }
+
+/**
+ * Object - Stock Transfer Transaction Object describing a transfer or secondary sale of a stock security OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/StockTransfer.schema.json
+ */
+export interface OcfStockTransferTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being transferred */
+  security_id: string;
+  /** Quantity of non-monetary security units transferred */
+  quantity: string | number;
+  /** Array of identifiers for new securities created as a result of the transfer (min 1 item) */
+  resulting_security_ids: string[];
+  /** Identifier for the security that holds the remainder balance (for partial transfers) */
+  balance_security_id?: string;
+  /** Unstructured text description of consideration provided in exchange for security transfer */
+  consideration_text?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}

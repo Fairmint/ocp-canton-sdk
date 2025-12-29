@@ -25,6 +25,7 @@ import type {
   GetStockLegendTemplateAsOcfParams,
   GetStockPlanAsOcfParams,
   GetStockPlanPoolAdjustmentEventAsOcfParams,
+  GetStockTransferAsOcfParams,
   GetVestingTermsAsOcfParams,
   GetWarrantIssuanceAsOcfParams,
   UpdateCompanyValuationParams,
@@ -49,6 +50,7 @@ import {
   buildArchiveStockLegendTemplateByIssuerCommand,
   buildArchiveStockPlanByIssuerCommand,
   buildArchiveStockPlanPoolAdjustmentByIssuerCommand,
+  buildArchiveStockTransferByIssuerCommand,
   buildArchiveVestingTermsByIssuerCommand,
   buildArchiveWarrantIssuanceByIssuerCommand,
   buildCreateCompanyValuationReportCommand,
@@ -66,6 +68,7 @@ import {
   buildCreateStockLegendTemplateCommand,
   buildCreateStockPlanCommand,
   buildCreateStockPlanPoolAdjustmentCommand,
+  buildCreateStockTransferCommand,
   buildCreateVestingTermsCommand,
   buildCreateWarrantIssuanceCommand,
   createCompanyValuationReport,
@@ -83,6 +86,7 @@ import {
   getStockLegendTemplateAsOcf,
   getStockPlanAsOcf,
   getStockPlanPoolAdjustmentEventAsOcf,
+  getStockTransferAsOcf,
   getVestingTermsAsOcf,
   getWarrantIssuanceAsOcf,
   updateCompanyValuationReport,
@@ -184,6 +188,15 @@ export class OcpClient {
       getStockCancellationEventAsOcf: (
         params: GetStockCancellationEventAsOcfParams
       ) => Promise<import('./functions').GetStockCancellationEventAsOcfResult>;
+    };
+    stockTransfer: {
+      buildCreateStockTransferCommand: (
+        params: import('./functions').CreateStockTransferParams
+      ) => CommandWithDisclosedContracts;
+      buildArchiveStockTransferByIssuerCommand: (params: { contractId: string }) => Command;
+      getStockTransferAsOcf: (
+        params: GetStockTransferAsOcfParams
+      ) => Promise<import('./functions').GetStockTransferAsOcfResult>;
     };
     issuerAuthorizedSharesAdjustment: {
       buildCreateIssuerAuthorizedSharesAdjustmentCommand: (
@@ -408,6 +421,11 @@ export class OcpClient {
         buildCreateStockCancellationCommand: (params) => buildCreateStockCancellationCommand(params),
         buildArchiveStockCancellationByIssuerCommand: (params) => buildArchiveStockCancellationByIssuerCommand(params),
         getStockCancellationEventAsOcf: async (params) => getStockCancellationEventAsOcf(this.client, params),
+      },
+      stockTransfer: {
+        buildCreateStockTransferCommand: (params) => buildCreateStockTransferCommand(params),
+        buildArchiveStockTransferByIssuerCommand: (params) => buildArchiveStockTransferByIssuerCommand(params),
+        getStockTransferAsOcf: async (params) => getStockTransferAsOcf(this.client, params),
       },
       issuerAuthorizedSharesAdjustment: {
         buildCreateIssuerAuthorizedSharesAdjustmentCommand: (params) =>
