@@ -14,6 +14,7 @@ const SCHEMA_MAP: Record<string, string> = {
   STOCK_PLAN: 'objects/StockPlan.schema.json',
   TX_STOCK_ISSUANCE: 'objects/transactions/issuance/StockIssuance.schema.json',
   TX_STOCK_CANCELLATION: 'objects/transactions/cancellation/StockCancellation.schema.json',
+  TX_STOCK_TRANSFER: 'objects/transactions/transfer/StockTransfer.schema.json',
   TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT:
     'objects/transactions/adjustment/IssuerAuthorizedSharesAdjustment.schema.json',
   TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT:

@@ -318,6 +318,12 @@ describe('OCP Client - Dynamic Create Tests', () => {
               });
               expectedOcf = { event: fixture.onchain_ocf, contractId };
               break;
+            case 'TX_STOCK_TRANSFER':
+              result = await client.OpenCapTable.stockTransfer.getStockTransferAsOcf({
+                contractId,
+              });
+              expectedOcf = { event: fixture.onchain_ocf, contractId };
+              break;
             case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
               result =
                 await client.OpenCapTable.issuerAuthorizedSharesAdjustment.getIssuerAuthorizedSharesAdjustmentEventAsOcf(

@@ -10,7 +10,7 @@ export function buildArchiveSimpleAirdropCommand(params: ArchiveSimpleAirdropPar
     ExerciseCommand: {
       templateId: CantonPayments.Airdrop.SimpleAirdrop.SimpleAirdrop.templateId,
       contractId: params.airdropContractId,
-      choice: 'SimpleAirdrop_Archive',
+      choice: 'Archive',
       choiceArgument: {},
     },
   };

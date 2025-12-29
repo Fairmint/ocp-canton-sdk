@@ -14,10 +14,12 @@ Keep content concise but comprehensive. Avoid verbosity—capture the essence.
 ## Quick Commands
 
 ```bash
-npm run lint && npx tsc --noEmit && npm test   # After any change
-npm run fix                                     # Auto-fix lint + format
+npm run fix                                     # ALWAYS run before creating PRs
+npm run lint && npx tsc --noEmit && npm test   # Full validation
 npm run docs                                    # Generate TypeDoc
 ```
+
+**Before creating PRs:** Always run `npm run fix` to auto-fix lint and formatting issues. CI enforces zero warnings.
 
 ## Architecture
 
@@ -115,6 +117,27 @@ import {
 4. **No defensive checks** - Trust DAML types, don't check `Array.isArray()`
 5. **Use `null`** for DAML optional fields (not `undefined`)
 6. **Use `??`** instead of `||` for nullish coalescing
+7. **Pinned dependencies** - Use exact versions without `^` or `~` (e.g., `"1.2.3"` not `"^1.2.3"`)
+
+## Improvement Backlog Pattern
+
+When you discover areas for improvement that are **unrelated to the current task**:
+
+1. **Don't fix inline** - Keep PRs focused on the task at hand
+2. **Document as backlog** - Create or update an improvement ideas file in the task directory
+3. **Reference from main task** - Ensure the parent task links to improvement subtasks
+4. **Address before marking complete** - Main tasks should not be closed until improvement items are resolved
+
+**Location:** `canton/tasks/YYYY/MM/{task-name}/sdk-improvement-ideas.md`
+
+**Example items:**
+- Dead code (functions referencing non-existent DAML choices)
+- Type inconsistencies across similar functions
+- Missing test coverage
+- Configuration issues (ESLint, tsconfig)
+- Duplicated utility functions
+
+This ensures improvements aren't lost while keeping PRs focused and reviewable.
 
 ## OCF Schema Validation
 
