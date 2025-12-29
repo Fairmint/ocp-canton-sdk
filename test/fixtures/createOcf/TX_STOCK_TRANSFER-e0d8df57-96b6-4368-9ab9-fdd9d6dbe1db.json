@@ -10,10 +10,7 @@
     "object_type": "TX_STOCK_TRANSFER",
     "security_id": "48008fd2-3ed1-4ea0-908e-46cd10296978",
     "balance_security_id": "27bd3c80-5247-439c-b1b9-8ec40356772e",
-    "resulting_security_ids": [
-      "8430f0da-7e34-4bf2-b29f-e1d09c4a7d9f",
-      "074eee4a-98c1-425d-89f0-46eb3e0e6990"
-    ],
+    "resulting_security_ids": ["8430f0da-7e34-4bf2-b29f-e1d09c4a7d9f", "074eee4a-98c1-425d-89f0-46eb3e0e6990"],
     "comments": []
   },
   "request": {
@@ -27,10 +24,7 @@
           "security_id": "48008fd2-3ed1-4ea0-908e-46cd10296978",
           "date": "2025-08-05T00:00:00.000Z",
           "quantity": "400000.00",
-          "resulting_security_ids": [
-            "8430f0da-7e34-4bf2-b29f-e1d09c4a7d9f",
-            "074eee4a-98c1-425d-89f0-46eb3e0e6990"
-          ],
+          "resulting_security_ids": ["8430f0da-7e34-4bf2-b29f-e1d09c4a7d9f", "074eee4a-98c1-425d-89f0-46eb3e0e6990"],
           "balance_security_id": "27bd3c80-5247-439c-b1b9-8ec40356772e",
           "consideration_text": null,
           "comments": []
@@ -138,10 +132,7 @@
     "date": "2025-08-05",
     "security_id": "48008fd2-3ed1-4ea0-908e-46cd10296978",
     "quantity": "400000.0000000000",
-    "resulting_security_ids": [
-      "8430f0da-7e34-4bf2-b29f-e1d09c4a7d9f",
-      "074eee4a-98c1-425d-89f0-46eb3e0e6990"
-    ],
+    "resulting_security_ids": ["8430f0da-7e34-4bf2-b29f-e1d09c4a7d9f", "074eee4a-98c1-425d-89f0-46eb3e0e6990"],
     "balance_security_id": "27bd3c80-5247-439c-b1b9-8ec40356772e"
   }
 }

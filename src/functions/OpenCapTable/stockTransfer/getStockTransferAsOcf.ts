@@ -2,8 +2,8 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { OcfStockTransferTxData } from '../../../types/native';
 
 /**
- * OCF Stock Transfer Event with object_type discriminator
- * OCF: https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/StockTransfer.schema.json
+ * OCF Stock Transfer Event with object_type discriminator OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/StockTransfer.schema.json
  */
 export interface OcfStockTransferEvent extends Omit<OcfStockTransferTxData, 'quantity'> {
   object_type: 'TX_STOCK_TRANSFER';
