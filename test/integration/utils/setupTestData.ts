@@ -22,6 +22,7 @@ import type { OcpClient } from '../../../src/OcpClient';
 import type {
   OcfIssuerData,
   OcfStakeholderData,
+  OcfStockClassAuthorizedSharesAdjustmentTxData,
   OcfStockClassData,
   OcfStockIssuanceData,
   OcfStockTransferTxData,
@@ -61,6 +62,14 @@ export interface TestStockIssuanceSetup {
   stockIssuanceContractId: string;
   /** The stock issuance data used to create it */
   stockIssuanceData: OcfStockIssuanceData;
+}
+
+/** Result from setting up a test stock class authorized shares adjustment. */
+export interface TestStockClassAuthorizedSharesAdjustmentSetup {
+  /** The contract ID of the created adjustment */
+  adjustmentContractId: string;
+  /** The adjustment data used to create it */
+  adjustmentData: OcfStockClassAuthorizedSharesAdjustmentTxData;
 }
 
 /** Result from setting up a complete cap table for testing. */
@@ -206,6 +215,28 @@ export function createTestStockTransferData(
     quantity,
     resulting_security_ids: [generateTestId('security')],
     comments: ['Integration test stock transfer'],
+    ...overrides,
+  };
+}
+
+/**
+ * Create default stock class authorized shares adjustment data for testing.
+ *
+ * @param stockClassId - The stock class being adjusted
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfStockClassAuthorizedSharesAdjustmentTxData for testing
+ */
+export function createTestStockClassAuthorizedSharesAdjustmentData(
+  stockClassId: string,
+  overrides: Partial<OcfStockClassAuthorizedSharesAdjustmentTxData> = {}
+): OcfStockClassAuthorizedSharesAdjustmentTxData {
+  return {
+    id: generateTestId('adjustment'),
+    date: generateDateString(),
+    stock_class_id: stockClassId,
+    new_shares_authorized: '20000000',
+    board_approval_date: generateDateString(-7), // 7 days ago
+    comments: ['Integration test authorized shares adjustment'],
     ...overrides,
   };
 }
@@ -454,5 +485,58 @@ export async function setupTestStockClass(
   return {
     stockClassContractId,
     stockClassData,
+  };
+}
+
+/**
+ * Setup a test stock class authorized shares adjustment.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockClassAuthorizedSharesAdjustmentSetup with the created adjustment
+ */
+export async function setupTestStockClassAuthorizedSharesAdjustment(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** The stock class ID to adjust */
+    stockClassId: string;
+    /** Optional adjustment data overrides */
+    adjustmentData?: Partial<OcfStockClassAuthorizedSharesAdjustmentTxData>;
+  }
+): Promise<TestStockClassAuthorizedSharesAdjustmentSetup> {
+  const adjustmentData = createTestStockClassAuthorizedSharesAdjustmentData(
+    options.stockClassId,
+    options.adjustmentData
+  );
+
+  const cmd =
+    ocp.OpenCapTable.stockClassAuthorizedSharesAdjustment.buildCreateStockClassAuthorizedSharesAdjustmentCommand({
+      issuerContractId: options.issuerContractId,
+      issuerParty: options.issuerParty,
+      adjustmentData,
+      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  // Extract adjustment contract ID
+  const adjustmentContractId = extractContractIdFromResponse(result, 'StockClassAuthorizedSharesAdjustment');
+  if (!adjustmentContractId) {
+    throw new Error('Failed to extract stock class authorized shares adjustment contract ID from transaction result');
+  }
+
+  return {
+    adjustmentContractId,
+    adjustmentData,
   };
 }
