@@ -88,8 +88,12 @@ async function initializeHarness(): Promise<void> {
 
       // Discover issuer party
       state.issuerParty = await discoverIssuerParty(state.ocp);
-    } catch {
+    } catch (error) {
       state.validatorApiAvailable = false;
+      console.error(
+        'Validator API initialization failed in integration test harness; treating Validator API as unavailable.',
+        error
+      );
     }
   }
 
