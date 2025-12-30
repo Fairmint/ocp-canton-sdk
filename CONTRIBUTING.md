@@ -221,6 +221,44 @@ import type {
 - Include context in error messages: `Unknown stock issuance type: ${t}`
 - Fail fast - validate at the start of functions
 
+### Error Handling Philosophy
+
+**Prefer failing over silently ignoring problems.**
+
+```typescript
+// ❌ Bad - silently swallows errors, hides real problems
+try {
+  await riskyOperation();
+} catch {
+  // assume it's fine
+}
+
+// ❌ Bad - makes test "pass" when it didn't actually run
+test('does something', async () => {
+  if (!isInfrastructureAvailable()) return;  // silent skip = misleading pass
+  // ...actual test
+});
+
+// ✅ Good - fails visibly with context
+try {
+  await riskyOperation();
+} catch (error) {
+  throw new Error(`Failed to do X because: ${error.message}`);
+}
+
+// ✅ Good - test fails clearly if infrastructure is missing
+test('does something', async () => {
+  const ctx = getContext();  // throws if not available
+  // ...actual test
+});
+```
+
+**Rules:**
+- No empty catch blocks
+- No early returns that make tests appear to pass
+- If something can fail, it should fail visibly
+- Include actionable context in error messages
+
 ### Comments
 
 - Avoid obvious comments - code should be self-documenting

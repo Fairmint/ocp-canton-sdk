@@ -81,25 +81,21 @@ async function deployContracts(client: LedgerJsonApiClient): Promise<string[]> {
 async function findExistingFactory(client: LedgerJsonApiClient, systemOperatorParty: string): Promise<string | null> {
   const { templateId } = Fairmint.OpenCapTable.OcpFactory.OcpFactory;
 
-  try {
-    // Get active contracts - response is an array of items with contractEntry
-    const response = await client.getActiveContracts({
-      templateIds: [templateId],
-    });
+  // Get active contracts - response is an array of items with contractEntry
+  const response = await client.getActiveContracts({
+    templateIds: [templateId],
+  });
 
-    // Look for a contract owned by the system operator
-    for (const item of response) {
-      const entry = item.contractEntry;
-      if (!('JsActiveContract' in entry)) continue;
+  // Look for a contract owned by the system operator
+  for (const item of response) {
+    const entry = item.contractEntry;
+    if (!('JsActiveContract' in entry)) continue;
 
-      const contract = entry.JsActiveContract;
-      const payload = contract.createdEvent.createArgument as Record<string, unknown>;
-      if (payload.system_operator === systemOperatorParty) {
-        return contract.createdEvent.contractId;
-      }
+    const contract = entry.JsActiveContract;
+    const payload = contract.createdEvent.createArgument as Record<string, unknown>;
+    if (payload.system_operator === systemOperatorParty) {
+      return contract.createdEvent.contractId;
     }
-  } catch {
-    // Contract query failed, assume no existing factory
   }
 
   return null;
