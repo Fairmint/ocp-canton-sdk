@@ -7,10 +7,9 @@
  * - Withdraw authorization
  * - Re-authorize after withdrawal
  *
- * Note: These tests use authorizeIssuerWithFactory from the test harness
- * rather than the SDK's authorizeIssuer, because the SDK's version reads
- * factory contract IDs from a JSON file that only has devnet/mainnet entries.
- * LocalNet requires the dynamically deployed factory from the test harness.
+ * Note: These tests use authorizeIssuerWithFactory from the test harness rather than the SDK's authorizeIssuer, because
+ * the SDK's version reads factory contract IDs from a JSON file that only has devnet/mainnet entries. LocalNet requires
+ * the dynamically deployed factory from the test harness.
  *
  * Run with:
  *
