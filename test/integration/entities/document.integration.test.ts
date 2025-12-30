@@ -20,7 +20,6 @@ import { createTestDocumentData, generateTestId, setupTestDocument, setupTestIss
 
 createIntegrationTestSuite('Document operations', (getContext) => {
   test('creates document and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -52,7 +51,6 @@ createIntegrationTestSuite('Document operations', (getContext) => {
   });
 
   test('document data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -86,7 +84,6 @@ createIntegrationTestSuite('Document operations', (getContext) => {
   });
 
   test('creates document with URI instead of path', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -118,7 +115,6 @@ createIntegrationTestSuite('Document operations', (getContext) => {
   });
 
   test('archives document', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

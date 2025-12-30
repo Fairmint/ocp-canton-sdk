@@ -31,7 +31,6 @@ import {
 
 createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (getContext) => {
   test('creates adjustment and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     // Setup: Create issuer and stock class first
@@ -87,7 +86,6 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('adjustment data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     // Setup
@@ -136,7 +134,6 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('adjustment references correct stock class', async () => {
-
     const ctx = getContext();
 
     // Setup with specific stock class ID
@@ -187,7 +184,6 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('archives adjustment', async () => {
-
     const ctx = getContext();
 
     // Setup
@@ -233,7 +229,6 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('creates adjustment with all optional fields', async () => {
-
     const ctx = getContext();
 
     // Setup

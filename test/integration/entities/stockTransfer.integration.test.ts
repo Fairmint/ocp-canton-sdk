@@ -28,7 +28,6 @@ import {
 
 createIntegrationTestSuite('StockTransfer operations', (getContext) => {
   test('creates stock transfer and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -101,7 +100,6 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
   });
 
   test('stock transfer data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -175,7 +173,6 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
   });
 
   test('archives stock transfer', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

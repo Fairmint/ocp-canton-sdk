@@ -28,7 +28,6 @@ import {
 
 createIntegrationTestSuite('StockCancellation operations', (getContext) => {
   test('creates stock cancellation and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -102,7 +101,6 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
   });
 
   test('stock cancellation data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -177,7 +175,6 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
   });
 
   test('archives stock cancellation', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

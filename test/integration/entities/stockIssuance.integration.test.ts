@@ -27,7 +27,6 @@ import {
 
 createIntegrationTestSuite('StockIssuance operations', (getContext) => {
   test('creates stock issuance and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -87,7 +86,6 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
   });
 
   test('stock issuance data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -154,7 +152,6 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
   });
 
   test('creates founders stock issuance', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -213,7 +210,6 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
   });
 
   test('archives stock issuance', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

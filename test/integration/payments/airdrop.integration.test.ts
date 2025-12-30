@@ -30,7 +30,6 @@ createIntegrationTestSuite('Airdrop operations', (getContext) => {
    */
 
   test('SDK exports airdrop functions', () => {
-
     const ctx = getContext();
 
     // Verify SDK exports airdrop functions

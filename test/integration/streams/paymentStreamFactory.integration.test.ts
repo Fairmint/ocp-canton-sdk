@@ -30,7 +30,6 @@ createIntegrationTestSuite('PaymentStreamFactory operations', (getContext) => {
    */
 
   test('SDK exports payment stream factory functions', () => {
-
     const ctx = getContext();
 
     // Verify SDK exports payment stream factory functions

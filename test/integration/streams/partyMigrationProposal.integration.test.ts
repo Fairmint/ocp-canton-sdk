@@ -30,7 +30,6 @@ createIntegrationTestSuite('PartyMigrationProposal operations', (getContext) => 
    */
 
   test('SDK exports party migration proposal functions', () => {
-
     const ctx = getContext();
 
     // Verify SDK exports party migration proposal functions

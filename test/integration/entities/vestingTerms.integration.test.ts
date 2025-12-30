@@ -20,7 +20,6 @@ import { createTestVestingTermsData, generateTestId, setupTestIssuer, setupTestV
 
 createIntegrationTestSuite('VestingTerms operations', (getContext) => {
   test('creates vesting terms and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -51,7 +50,6 @@ createIntegrationTestSuite('VestingTerms operations', (getContext) => {
   });
 
   test('vesting terms data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -85,7 +83,6 @@ createIntegrationTestSuite('VestingTerms operations', (getContext) => {
   });
 
   test('archives vesting terms', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

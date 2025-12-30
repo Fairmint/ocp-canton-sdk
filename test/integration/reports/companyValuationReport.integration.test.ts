@@ -19,7 +19,6 @@ createIntegrationTestSuite('CompanyValuationReport operations', (getContext) => 
    */
 
   test('SDK exports company valuation report functions', () => {
-
     const ctx = getContext();
 
     // Verify SDK exports company valuation report functions

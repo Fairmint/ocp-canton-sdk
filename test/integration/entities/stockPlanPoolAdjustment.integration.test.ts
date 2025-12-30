@@ -27,7 +27,6 @@ import {
 
 createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) => {
   test('creates stock plan pool adjustment and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -86,7 +85,6 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
   });
 
   test('stock plan pool adjustment data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -147,7 +145,6 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
   });
 
   test('archives stock plan pool adjustment', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
