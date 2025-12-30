@@ -13,16 +13,29 @@ consistency and maintainability.
 - Always specify explicit types for function parameters and return values
 - Prefer type inference for local variables where the type is obvious
 - Use proper DAML-generated types from `@fairmint/open-captable-protocol-daml-js`
+- **Use type guards** instead of `as any` casts when dealing with external data
+- **Extract minimal types** from external libraries when full types are too complex
 
 ```typescript
-// ❌ Bad
+// ❌ Bad - using 'any' to bypass type checking
 function process(data: any): any {
   return data;
 }
 
-// ✅ Good
+const event = response.event as any;  // ❌ Bad
+
+// ✅ Good - proper types
 function process(data: OcfStockCancellationTxData): ProcessedData {
   return { ...data, processed: true };
+}
+
+// ✅ Good - type guard for external data
+function isCreatedEvent(event: unknown): event is CreatedEventData {
+  return typeof event === 'object' && event !== null && 'CreatedTreeEvent' in event;
+}
+
+if (isCreatedEvent(event)) {
+  const contractId = event.CreatedTreeEvent.value.contractId;  // Type-safe!
 }
 ```
 
@@ -234,6 +247,25 @@ const date = dateStringToDAMLTime(d.date);
 - Follow Arrange-Act-Assert pattern
 - Mock external dependencies
 - Avoid testing implementation details
+- **Extract repeated logic into utilities** in `test/integration/utils/`
+- **Use type-safe helpers** like `extractContractIdOrThrow()` instead of inline `as any` casts
+
+```typescript
+// ❌ Bad - duplicated, type-unsafe
+const tree = result.transactionTree as any;
+const eventsById = tree.eventsById ?? {};
+let contractId = '';
+for (const event of Object.values(eventsById)) {
+  const eventData = event as any;
+  if (eventData.CreatedTreeEvent?.value?.templateId?.includes('MyTemplate')) {
+    contractId = eventData.CreatedTreeEvent.value.contractId;
+  }
+}
+
+// ✅ Good - reusable, type-safe
+import { extractContractIdOrThrow } from '../utils';
+const contractId = extractContractIdOrThrow(result, 'MyTemplate');
+```
 
 ### Pre-PR Checklist
 

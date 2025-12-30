@@ -160,12 +160,16 @@ import {
 ## Non-Negotiables
 
 1. **Strict TypeScript** - No `any`/`unknown`, no broad assertions
+   - Use type guards instead of `as any` casts
+   - Prefer `unknown` + type narrowing over `any` when type is truly unknown
+   - Extract proper types from external libraries when possible
 2. **Fail fast** - Validate early, throw with actionable messages
 3. **Explicit fields** - List all fields, never use spread (`...d`)
 4. **No defensive checks** - Trust DAML types, don't check `Array.isArray()`
 5. **Use `null`** for DAML optional fields (not `undefined`)
 6. **Use `??`** instead of `||` for nullish coalescing
 7. **Pinned dependencies** - Use exact versions without `^` or `~` (e.g., `"1.2.3"` not `"^1.2.3"`)
+8. **DRY code** - Extract duplicated logic into reusable helpers (especially in tests)
 
 ## Improvement Backlog Pattern
 
@@ -234,7 +238,9 @@ Tests are organized by entity type with shared infrastructure:
 - `setup/` - Harness for client init, party discovery, validator API detection
 - `entities/` - One test file per OCF entity type
 - `workflows/` - Multi-entity workflow tests
-- `utils/` - Data factories (`setupTestIssuer`, `createTestStockClassData`, etc.)
+- `utils/` - Data factories and helpers:
+  - `setupTestData.ts` - Entity setup functions (`setupTestIssuer`, `createTestStockClassData`)
+  - `transactionHelpers.ts` - Type-safe transaction tree utilities (`extractContractIdOrThrow`)
 
 **Integration test pattern (using harness):**
 

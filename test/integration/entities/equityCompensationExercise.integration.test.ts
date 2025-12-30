@@ -17,6 +17,7 @@
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
 import {
+  extractContractIdOrThrow,
   generateTestId,
   setupTestEquityCompensationIssuance,
   setupTestIssuer,
@@ -100,24 +101,8 @@ createIntegrationTestSuite('EquityCompensationExercise operations', (getContext)
       disclosedContracts: exerciseCmd.disclosedContracts,
     });
 
-    // Extract exercise contract ID from result
-
-    const tree = exerciseResult.transactionTree as any;
-    const eventsById = tree.eventsById ?? tree.transaction?.eventsById ?? {};
-
-    let exerciseContractId = '';
-    for (const event of Object.values(eventsById)) {
-      const eventData = event as any;
-      if (eventData.CreatedTreeEvent) {
-        const templateId = eventData.CreatedTreeEvent.value.templateId as string;
-        if (templateId.includes('EquityCompensationExercise')) {
-          exerciseContractId = eventData.CreatedTreeEvent.value.contractId as string;
-          break;
-        }
-      }
-    }
-
-    expect(exerciseContractId).toBeTruthy();
+    // Extract exercise contract ID using helper (throws if not found)
+    const exerciseContractId = extractContractIdOrThrow(exerciseResult, 'EquityCompensationExercise');
 
     const ocfResult = await ctx.ocp.OpenCapTable.equityCompensationExercise.getEquityCompensationExerciseEventAsOcf({
       contractId: exerciseContractId,
@@ -202,22 +187,8 @@ createIntegrationTestSuite('EquityCompensationExercise operations', (getContext)
       disclosedContracts: exerciseCmd.disclosedContracts,
     });
 
-    // Extract exercise contract ID
-
-    const tree2 = exerciseResult.transactionTree as any;
-    const eventsById2 = tree2.eventsById ?? tree2.transaction?.eventsById ?? {};
-
-    let exerciseContractId = '';
-    for (const event of Object.values(eventsById2)) {
-      const eventData = event as any;
-      if (eventData.CreatedTreeEvent) {
-        const templateId = eventData.CreatedTreeEvent.value.templateId as string;
-        if (templateId.includes('EquityCompensationExercise')) {
-          exerciseContractId = eventData.CreatedTreeEvent.value.contractId as string;
-          break;
-        }
-      }
-    }
+    // Extract exercise contract ID using helper (throws if not found)
+    const exerciseContractId = extractContractIdOrThrow(exerciseResult, 'EquityCompensationExercise');
 
     const archiveCmd =
       ctx.ocp.OpenCapTable.equityCompensationExercise.buildArchiveEquityCompensationExerciseByIssuerCommand({
