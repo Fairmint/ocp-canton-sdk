@@ -105,14 +105,11 @@ async function initializeHarness(): Promise<void> {
     // The splice setup takes time to create the FeaturedAppRight contract.
     console.log('📋 Fetching FeaturedAppRight contract details (with retry)...');
     const validatorClient = new ValidatorApiClient({ network: 'localnet' });
-    const details = await retry(
-      async () => getFeaturedAppRightContractDetails(validatorClient),
-      {
-        timeoutMs: 120_000, // 2 minutes total
-        pollIntervalMs: 5_000, // Check every 5 seconds
-        description: 'FeaturedAppRight contract availability',
-      }
-    );
+    const details = await retry(async () => getFeaturedAppRightContractDetails(validatorClient), {
+      timeoutMs: 120_000, // 2 minutes total
+      pollIntervalMs: 5_000, // Check every 5 seconds
+      description: 'FeaturedAppRight contract availability',
+    });
     state.featuredAppRight = {
       templateId: details.templateId,
       contractId: details.contractId,
