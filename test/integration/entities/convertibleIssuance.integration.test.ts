@@ -16,7 +16,7 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import {
   createTestConvertibleIssuanceData,
   generateTestId,
@@ -27,7 +27,6 @@ import {
 
 createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
   test('creates SAFE convertible issuance and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -74,7 +73,6 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
   });
 
   test('creates NOTE convertible issuance and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -121,7 +119,6 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
   });
 
   test('convertible issuance data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -171,7 +168,6 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
   });
 
   test('archives convertible issuance', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

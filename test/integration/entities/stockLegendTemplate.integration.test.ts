@@ -15,7 +15,7 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import {
   createTestStockLegendTemplateData,
   generateTestId,
@@ -25,7 +25,6 @@ import {
 
 createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
   test('creates stock legend template and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -58,7 +57,6 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
   });
 
   test('stock legend template data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -93,7 +91,6 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
   });
 
   test('archives stock legend template', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

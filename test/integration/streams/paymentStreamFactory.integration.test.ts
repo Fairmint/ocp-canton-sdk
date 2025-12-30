@@ -16,7 +16,7 @@
  * ```
  */
 
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 
 createIntegrationTestSuite('PaymentStreamFactory operations', (getContext) => {
   /**
@@ -30,7 +30,6 @@ createIntegrationTestSuite('PaymentStreamFactory operations', (getContext) => {
    */
 
   test('SDK exports payment stream factory functions', () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

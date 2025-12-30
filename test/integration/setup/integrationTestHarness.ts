@@ -48,8 +48,6 @@ export interface IntegrationTestContext {
   featuredAppRight: DisclosedContract;
   /** The OcpFactory contract ID. */
   ocpFactoryContractId: string;
-  /** Whether the Validator API is available (determines if tests can run). */
-  validatorApiAvailable: boolean;
   /** Deployment result with package IDs and factory info. */
   deployment: DeploymentResult;
 }
@@ -103,18 +101,16 @@ async function initializeHarness(): Promise<void> {
     const config = buildIntegrationTestClientConfig();
     state.ocp = new OcpClient(config);
 
-    // Check if Validator API is available
-    state.validatorApiAvailable = await isValidatorApiAvailable();
-
-    if (!state.validatorApiAvailable) {
-      console.warn(
-        '\n⚠️  Validator API not available - cannot run integration tests.\n' +
-          '   These tests require cn-quickstart LocalNet to be running.\n' +
-          '   Start it with: cd libs/cn-quickstart/quickstart && make start\n'
+    // Check if Validator API is available - fail fast if not
+    const validatorAvailable = await isValidatorApiAvailable();
+    if (!validatorAvailable) {
+      throw new Error(
+        'Validator API not available - cannot run integration tests.\n' +
+          'These tests require cn-quickstart LocalNet to be running.\n' +
+          'Start it with: cd libs/cn-quickstart/quickstart && make start'
       );
-      state.initialized = true;
-      return;
     }
+    state.validatorApiAvailable = true;
 
     // Get FeaturedAppRight contract details from Validator API
     console.log('📋 Fetching FeaturedAppRight contract details...');
@@ -220,12 +216,6 @@ export function getTestContext(): IntegrationTestContext {
     throw state.initError;
   }
 
-  if (!state.validatorApiAvailable) {
-    throw new Error(
-      'Validator API not available. Cannot run integration tests. ' + 'Make sure cn-quickstart LocalNet is running.'
-    );
-  }
-
   if (!state.ocp || !state.issuerParty || !state.systemOperatorParty || !state.featuredAppRight || !state.deployment) {
     throw new Error('Test harness not fully initialized. Check initialization logs for errors.');
   }
@@ -236,47 +226,27 @@ export function getTestContext(): IntegrationTestContext {
     systemOperatorParty: state.systemOperatorParty,
     featuredAppRight: state.featuredAppRight,
     ocpFactoryContractId: state.deployment.ocpFactoryContractId,
-    validatorApiAvailable: state.validatorApiAvailable,
     deployment: state.deployment,
   };
 }
 
-/**
- * Check if tests should be skipped due to missing Validator API.
- *
- * Use this in tests that require FeaturedAppRight to gracefully skip.
- */
-export function shouldSkipTest(): boolean {
-  return !state.validatorApiAvailable;
-}
-
-/**
- * Skip a test with a warning message if Validator API is unavailable.
- *
- * @returns True if the test should be skipped (caller should return early)
- */
-export function skipIfValidatorUnavailable(): boolean {
-  if (!state.validatorApiAvailable) {
-    console.log('Skipping: Validator API not available (cn-quickstart not running)');
-    return true;
-  }
-  return false;
-}
 
 /**
  * Create an integration test suite with shared setup.
  *
  * This is the main entry point for creating integration tests. It handles:
  *
- * - Skipping the entire suite if integration is not configured
+ * - Skipping the entire suite if integration is not configured (env vars not set)
  * - Initializing the test harness before all tests (includes contract deployment)
  * - Setting a longer timeout for integration tests
+ *
+ * Note: If LocalNet is not running, tests will fail (not skip). This is intentional -
+ * integration tests should fail clearly when infrastructure is unavailable.
  *
  * @example
  *   ```typescript
  *   createIntegrationTestSuite('Issuer operations', (getContext) => {
  *     test('creates issuer', async () => {
- *       if (skipIfValidatorUnavailable()) return;
  *       const ctx = getContext();
  *       // ... test implementation
  *     });

@@ -16,7 +16,7 @@
  * ```
  */
 
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 
 createIntegrationTestSuite('PartyMigrationProposal operations', (getContext) => {
   /**
@@ -30,7 +30,6 @@ createIntegrationTestSuite('PartyMigrationProposal operations', (getContext) => 
    */
 
   test('SDK exports party migration proposal functions', () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

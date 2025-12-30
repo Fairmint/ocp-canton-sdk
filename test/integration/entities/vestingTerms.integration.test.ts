@@ -15,12 +15,11 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import { createTestVestingTermsData, generateTestId, setupTestIssuer, setupTestVestingTerms } from '../utils';
 
 createIntegrationTestSuite('VestingTerms operations', (getContext) => {
   test('creates vesting terms and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -52,7 +51,6 @@ createIntegrationTestSuite('VestingTerms operations', (getContext) => {
   });
 
   test('vesting terms data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -87,7 +85,6 @@ createIntegrationTestSuite('VestingTerms operations', (getContext) => {
   });
 
   test('archives vesting terms', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

@@ -14,12 +14,11 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import { createTestIssuerData, generateTestId, setupTestIssuer } from '../utils';
 
 createIntegrationTestSuite('Issuer operations', (getContext) => {
   test('creates issuer and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -48,7 +47,6 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
   });
 
   test('issuer data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

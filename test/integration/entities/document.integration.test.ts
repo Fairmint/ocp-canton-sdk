@@ -15,12 +15,11 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import { createTestDocumentData, generateTestId, setupTestDocument, setupTestIssuer } from '../utils';
 
 createIntegrationTestSuite('Document operations', (getContext) => {
   test('creates document and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -53,7 +52,6 @@ createIntegrationTestSuite('Document operations', (getContext) => {
   });
 
   test('document data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -88,7 +86,6 @@ createIntegrationTestSuite('Document operations', (getContext) => {
   });
 
   test('creates document with URI instead of path', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -121,7 +118,6 @@ createIntegrationTestSuite('Document operations', (getContext) => {
   });
 
   test('archives document', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

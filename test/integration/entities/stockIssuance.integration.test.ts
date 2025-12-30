@@ -15,7 +15,7 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import {
   createTestStockIssuanceData,
   generateTestId,
@@ -27,7 +27,6 @@ import {
 
 createIntegrationTestSuite('StockIssuance operations', (getContext) => {
   test('creates stock issuance and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -88,7 +87,6 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
   });
 
   test('stock issuance data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -156,7 +154,6 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
   });
 
   test('creates founders stock issuance', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -216,7 +213,6 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
   });
 
   test('archives stock issuance', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

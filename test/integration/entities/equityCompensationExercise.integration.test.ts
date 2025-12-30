@@ -15,7 +15,7 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import {
   extractContractIdOrThrow,
   generateTestId,
@@ -27,7 +27,6 @@ import {
 
 createIntegrationTestSuite('EquityCompensationExercise operations', (getContext) => {
   test('creates equity compensation exercise and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -115,7 +114,6 @@ createIntegrationTestSuite('EquityCompensationExercise operations', (getContext)
   });
 
   test('archives equity compensation exercise', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

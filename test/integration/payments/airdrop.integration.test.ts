@@ -16,7 +16,7 @@
  * ```
  */
 
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 
 createIntegrationTestSuite('Airdrop operations', (getContext) => {
   /**
@@ -30,7 +30,6 @@ createIntegrationTestSuite('Airdrop operations', (getContext) => {
    */
 
   test('SDK exports airdrop functions', () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

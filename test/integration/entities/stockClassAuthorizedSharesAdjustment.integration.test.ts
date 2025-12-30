@@ -19,7 +19,7 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import {
   createTestStockClassAuthorizedSharesAdjustmentData,
   generateDateString,
@@ -31,7 +31,6 @@ import {
 
 createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (getContext) => {
   test('creates adjustment and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -88,7 +87,6 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('adjustment data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -138,7 +136,6 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('adjustment references correct stock class', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -190,7 +187,6 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('archives adjustment', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -237,7 +233,6 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('creates adjustment with all optional fields', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

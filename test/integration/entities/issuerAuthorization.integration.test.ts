@@ -19,12 +19,11 @@
  * ```
  */
 
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
 createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
   test('authorizes an issuer using the harness factory', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -44,7 +43,6 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
   });
 
   test('withdraws authorization', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -66,7 +64,6 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
   });
 
   test('can re-authorize after withdrawal', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

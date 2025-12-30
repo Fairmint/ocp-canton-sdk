@@ -19,12 +19,11 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import { createTestStockClassData, generateTestId, setupTestIssuer, setupTestStockClass } from '../utils';
 
 createIntegrationTestSuite('StockClass operations', (getContext) => {
   test('creates stock class and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -62,7 +61,6 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
   });
 
   test('stock class data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -106,7 +104,6 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
   });
 
   test('creates COMMON stock class', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -142,7 +139,6 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
   });
 
   test('creates PREFERRED stock class with liquidation preferences', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -181,7 +177,6 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
   });
 
   test('archives stock class', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

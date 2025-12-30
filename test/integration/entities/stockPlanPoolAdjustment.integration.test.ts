@@ -15,7 +15,7 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import {
   createTestStockPlanPoolAdjustmentData,
   generateTestId,
@@ -27,7 +27,6 @@ import {
 
 createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) => {
   test('creates stock plan pool adjustment and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -87,7 +86,6 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
   });
 
   test('stock plan pool adjustment data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -149,7 +147,6 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
   });
 
   test('archives stock plan pool adjustment', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

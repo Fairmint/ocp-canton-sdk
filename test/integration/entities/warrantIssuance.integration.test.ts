@@ -15,7 +15,7 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import {
   createTestWarrantIssuanceData,
   generateTestId,
@@ -26,7 +26,6 @@ import {
 
 createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
   test('creates warrant issuance and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -72,7 +71,6 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
   });
 
   test('warrant issuance data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
@@ -120,7 +118,6 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
   });
 
   test('archives warrant issuance', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

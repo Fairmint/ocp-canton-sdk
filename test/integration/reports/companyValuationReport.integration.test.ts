@@ -10,7 +10,7 @@
  * ```
  */
 
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 
 createIntegrationTestSuite('CompanyValuationReport operations', (getContext) => {
   /**
@@ -19,7 +19,6 @@ createIntegrationTestSuite('CompanyValuationReport operations', (getContext) => 
    */
 
   test('SDK exports company valuation report functions', () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 

@@ -12,12 +12,11 @@
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import { generateTestId, setupTestIssuer, setupTestStakeholder, setupTestStockClass } from '../utils';
 
 createIntegrationTestSuite('Full cap table workflow', (getContext) => {
   test('creates complete cap table with issuer, stakeholders, stock class', async () => {
-    if (skipIfValidatorUnavailable()) return;
 
     const ctx = getContext();
 
