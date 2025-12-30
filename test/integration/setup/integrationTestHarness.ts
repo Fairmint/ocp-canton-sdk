@@ -100,27 +100,32 @@ async function initializeHarness(): Promise<void> {
     const config = buildIntegrationTestClientConfig();
     state.ocp = new OcpClient(config);
 
-    // Discover parties first (needed for FeaturedAppRight creation)
-    console.log('👥 Discovering parties...');
-    const { issuerParty, systemOperatorParty } = await discoverParties(state.ocp);
-    state.issuerParty = issuerParty;
-    state.systemOperatorParty = systemOperatorParty;
-    console.log(`   Issuer party: ${issuerParty}`);
-    console.log(`   System operator: ${systemOperatorParty}`);
+    // Get the party we're authenticated as from the Validator API
+    // In cn-quickstart LocalNet with OAuth2, we're authenticated as the app_provider party
+    console.log('👥 Discovering authenticated party...');
+    const validatorClient = new ValidatorApiClient({ network: 'localnet' });
+    const authenticatedPartyId = validatorClient.getPartyId();
+    console.log(`   Authenticated party: ${authenticatedPartyId}`);
+
+    // In LocalNet, we use the same party for both issuer and system operator
+    // because we can only act as the party we're authenticated as
+    state.issuerParty = authenticatedPartyId;
+    state.systemOperatorParty = authenticatedPartyId;
+    console.log(`   Issuer party: ${state.issuerParty}`);
+    console.log(`   System operator: ${state.systemOperatorParty}`);
 
     // Get DSO party ID from Validator API (needed for FeaturedAppRight creation)
     console.log('🔍 Getting DSO party ID...');
-    const validatorClient = new ValidatorApiClient({ network: 'localnet' });
     const dsoResponse = await validatorClient.getDsoPartyId();
     const dsoPartyId = dsoResponse.dso_party_id;
     console.log(`   DSO party: ${dsoPartyId}`);
 
-    // Create FeaturedAppRight for the system operator party
+    // Create FeaturedAppRight for the authenticated party
     // On DevNet/LocalNet, we can self-grant via AmuletRules_DevNet_FeatureApp
-    console.log('📋 Creating FeaturedAppRight for system operator...');
+    console.log('📋 Creating FeaturedAppRight...');
     const featuredAppRightResult = await createFeaturedAppRight(
       state.ocp.client,
-      state.systemOperatorParty,
+      state.issuerParty,
       dsoPartyId
     );
     state.featuredAppRight = {
@@ -136,7 +141,7 @@ async function initializeHarness(): Promise<void> {
     console.log('📦 Deploying contracts and creating OcpFactory...');
     state.deployment = await deployAndCreateFactory(
       state.ocp.client,
-      state.systemOperatorParty,
+      state.issuerParty,
       state.featuredAppRight.contractId
     );
     state.ocpFactoryContractId = state.deployment.ocpFactoryContractId;
