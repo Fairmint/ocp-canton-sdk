@@ -235,7 +235,7 @@ try {
 
 // ❌ Bad - makes test "pass" when it didn't actually run
 test('does something', async () => {
-  if (!isInfrastructureAvailable()) return;  // silent skip = misleading pass
+  if (!isInfrastructureAvailable()) return; // silent skip = misleading pass
   // ...actual test
 });
 
@@ -248,12 +248,13 @@ try {
 
 // ✅ Good - test fails clearly if infrastructure is missing
 test('does something', async () => {
-  const ctx = getContext();  // throws if not available
+  const ctx = getContext(); // throws if not available
   // ...actual test
 });
 ```
 
 **Rules:**
+
 - No empty catch blocks
 - No early returns that make tests appear to pass
 - If something can fail, it should fail visibly
