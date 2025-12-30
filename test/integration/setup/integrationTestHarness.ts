@@ -33,7 +33,13 @@ import { ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../../src/OcpClient';
 import { buildIntegrationTestClientConfig, isIntegrationTestConfigured } from '../../utils/testConfig';
-import { createFeaturedAppRight, deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
+import {
+  createFeaturedAppRight,
+  deployAndCreateFactory,
+  lookupFeaturedAppRightViaScanApi,
+  type DeploymentResult,
+  type FeaturedAppRightResult,
+} from './contractDeployment';
 
 /** Shared context available to all integration tests. */
 export interface IntegrationTestContext {
@@ -100,34 +106,81 @@ async function initializeHarness(): Promise<void> {
     const config = buildIntegrationTestClientConfig();
     state.ocp = new OcpClient(config);
 
-    // Get the party we're authenticated as from the Validator API
+    // Discover the party we're authenticated as from the ledger
     // In cn-quickstart LocalNet with OAuth2, we're authenticated as the app_provider party
     console.log('👥 Discovering authenticated party...');
-    const validatorClient = new ValidatorApiClient({ network: 'localnet' });
-    const authenticatedPartyId = validatorClient.getPartyId();
-    console.log(`   Authenticated party: ${authenticatedPartyId}`);
+    
+    // Use listParties to find which parties we have access to
+    // The first party returned should be the one we're authenticated as
+    const partiesResponse = await state.ocp.client.listParties({});
+    const partyDetails = partiesResponse.partyDetails ?? [];
+    
+    if (partyDetails.length === 0) {
+      throw new Error(
+        'No parties found. Make sure cn-quickstart is running and parties are allocated.'
+      );
+    }
+    
+    // Find the app_provider party (what we're authenticated as in cn-quickstart)
+    const appProviderParty = partyDetails.find((p) => 
+      p.party.toLowerCase().includes('app_provider') || p.party.toLowerCase().includes('provider')
+    );
+    const authenticatedParty = appProviderParty?.party ?? partyDetails[0].party;
+    
+    console.log(`   Available parties: ${partyDetails.map(p => p.party.split('::')[0]).join(', ')}`);
+    console.log(`   Using party: ${authenticatedParty}`);
 
     // In LocalNet, we use the same party for both issuer and system operator
     // because we can only act as the party we're authenticated as
-    state.issuerParty = authenticatedPartyId;
-    state.systemOperatorParty = authenticatedPartyId;
-    console.log(`   Issuer party: ${state.issuerParty}`);
-    console.log(`   System operator: ${state.systemOperatorParty}`);
+    state.issuerParty = authenticatedParty;
+    state.systemOperatorParty = authenticatedParty;
 
-    // Get DSO party ID from Validator API (needed for FeaturedAppRight creation)
-    console.log('🔍 Getting DSO party ID...');
+    // Get DSO party ID and synchronizer ID from Validator API
+    console.log('🔍 Getting DSO party ID and synchronizer ID...');
+    const validatorClient = new ValidatorApiClient({ network: 'localnet' });
     const dsoResponse = await validatorClient.getDsoPartyId();
     const dsoPartyId = dsoResponse.dso_party_id;
+    const amuletRules = await validatorClient.getAmuletRules();
+    const synchronizerId = amuletRules.amulet_rules.domain_id;
     console.log(`   DSO party: ${dsoPartyId}`);
+    console.log(`   Synchronizer: ${synchronizerId}`);
 
-    // Create FeaturedAppRight for the authenticated party
-    // On DevNet/LocalNet, we can self-grant via AmuletRules_DevNet_FeatureApp
-    console.log('📋 Creating FeaturedAppRight...');
-    const featuredAppRightResult = await createFeaturedAppRight(
-      state.ocp.client,
+    // Try to look up existing FeaturedAppRight via the scan API
+    console.log(`📋 Looking up FeaturedAppRight for ${state.issuerParty}...`);
+    let featuredAppRightResult = await lookupFeaturedAppRightViaScanApi(
       state.issuerParty,
-      dsoPartyId
+      synchronizerId
     );
+    if (featuredAppRightResult) {
+      console.log(`   Found existing FeaturedAppRight: ${featuredAppRightResult.contractId}`);
+    }
+
+    // If no existing FeaturedAppRight, try to create one
+    if (!featuredAppRightResult) {
+      console.log('   Attempting to create FeaturedAppRight via AmuletRules_DevNet_FeatureApp...');
+      try {
+        featuredAppRightResult = await createFeaturedAppRight(
+          state.ocp.client,
+          state.issuerParty,
+          dsoPartyId
+        );
+        console.log(`   Created FeaturedAppRight: ${featuredAppRightResult.contractId}`);
+      } catch (createErr) {
+        // FeaturedAppRight creation failed - this is common in LocalNet OAuth2 setup
+        // where the app_provider doesn't have permission to exercise AmuletRules choices
+        throw new Error(
+          `FeaturedAppRight not available and creation failed.\n\n` +
+            `Details: ${createErr instanceof Error ? createErr.message : createErr}\n\n` +
+            `The cn-quickstart LocalNet OAuth2 setup may not grant sufficient permissions ` +
+            `to create FeaturedAppRight contracts via AmuletRules_DevNet_FeatureApp.\n\n` +
+            `Possible solutions:\n` +
+            `1. Use shared-secret auth mode instead of OAuth2 in cn-quickstart\n` +
+            `2. Manually create a FeaturedAppRight for the app_provider party\n` +
+            `3. Run tests against DevNet where FeaturedAppRight is pre-configured`
+        );
+      }
+    }
+
     state.featuredAppRight = {
       templateId: featuredAppRightResult.templateId,
       contractId: featuredAppRightResult.contractId,

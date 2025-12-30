@@ -187,6 +187,52 @@ export interface FeaturedAppRightResult {
 }
 
 /**
+ * Lookup an existing FeaturedAppRight via the Scan API.
+ *
+ * @param providerPartyId - The party ID to look up
+ * @param synchronizerId - The synchronizer ID (domain ID)
+ * @returns The FeaturedAppRight result if found, null otherwise
+ */
+export async function lookupFeaturedAppRightViaScanApi(
+  providerPartyId: string,
+  synchronizerId: string
+): Promise<FeaturedAppRightResult | null> {
+  // LocalNet scan API URL
+  const scanApiUrl = 'http://scan.localhost:4000/api/scan';
+  const encodedPartyId = encodeURIComponent(providerPartyId);
+
+  try {
+    const response = await fetch(`${scanApiUrl}/v0/featured-apps/${encodedPartyId}`);
+    if (!response.ok) {
+      console.log(`   Scan API returned ${response.status} for FeaturedAppRight lookup`);
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      featured_app_right: {
+        contract_id: string;
+        template_id: string;
+        created_event_blob: string;
+      } | null;
+    };
+
+    if (!data.featured_app_right) {
+      return null;
+    }
+
+    return {
+      contractId: data.featured_app_right.contract_id,
+      templateId: data.featured_app_right.template_id,
+      createdEventBlob: data.featured_app_right.created_event_blob,
+      synchronizerId,
+    };
+  } catch (err) {
+    console.log(`   FeaturedAppRight lookup failed: ${err instanceof Error ? err.message : err}`);
+    return null;
+  }
+}
+
+/**
  * Create a FeaturedAppRight for a party by exercising AmuletRules_DevNet_FeatureApp.
  *
  * This is only available on DevNet (like LocalNet). It allows self-granting a FeaturedAppRight without DSO approval.
@@ -204,16 +250,15 @@ export async function createFeaturedAppRight(
   const validatorClient = new ValidatorApiClient({ network: 'localnet' });
   const amuletRulesResponse = await validatorClient.getAmuletRules();
   const amuletRulesContractId = amuletRulesResponse.amulet_rules.contract.contract_id;
+  const amuletRulesTemplateId = amuletRulesResponse.amulet_rules.contract.template_id;
+  const amuletRulesCreatedEventBlob = amuletRulesResponse.amulet_rules.contract.created_event_blob;
   const synchronizerId = amuletRulesResponse.amulet_rules.domain_id;
 
   console.log(`Creating FeaturedAppRight for party: ${providerParty}`);
   console.log(`  AmuletRules contract: ${amuletRulesContractId}`);
 
-  // The template ID for AmuletRules - this is a splice contract
-  // We need to use the template ID format that matches the ledger
-  const amuletRulesTemplateId = amuletRulesResponse.amulet_rules.contract.template_id;
-
   // Exercise AmuletRules_DevNet_FeatureApp choice
+  // We need to include the AmuletRules contract as a disclosed contract since it's owned by DSO
   const response = (await client.submitAndWaitForTransactionTree({
     commands: [
       {
@@ -229,6 +274,14 @@ export async function createFeaturedAppRight(
     ],
     actAs: [providerParty],
     readAs: [dsoParty],
+    disclosedContracts: [
+      {
+        templateId: amuletRulesTemplateId,
+        contractId: amuletRulesContractId,
+        createdEventBlob: amuletRulesCreatedEventBlob,
+        synchronizerId,
+      },
+    ],
   })) as SubmitAndWaitForTransactionTreeResponse;
 
   // Find the created FeaturedAppRight contract
