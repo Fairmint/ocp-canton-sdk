@@ -22,7 +22,7 @@ function process(data: any): any {
   return data;
 }
 
-const event = response.event as any;  // ❌ Bad
+const event = response.event as any; // ❌ Bad
 
 // ✅ Good - proper types
 function process(data: OcfStockCancellationTxData): ProcessedData {
@@ -35,7 +35,7 @@ function isCreatedEvent(event: unknown): event is CreatedEventData {
 }
 
 if (isCreatedEvent(event)) {
-  const contractId = event.CreatedTreeEvent.value.contractId;  // Type-safe!
+  const contractId = event.CreatedTreeEvent.value.contractId; // Type-safe!
 }
 ```
 
