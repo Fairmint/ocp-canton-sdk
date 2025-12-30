@@ -81,10 +81,21 @@ test/
 ├── createOcf/              # Unit tests (mock-based)
 ├── fixtures/               # Test data fixtures
 ├── integration/            # LocalNet integration tests
-│   ├── utils/              # Test setup utilities
+│   ├── setup/              # Test harness and factories
+│   │   ├── integrationTestHarness.ts  # Shared context, client init
+│   │   ├── entityTestFactory.ts       # Generic test patterns
+│   │   └── index.ts
+│   ├── entities/           # Per-entity test files
+│   │   ├── issuer.integration.test.ts
+│   │   ├── stakeholder.integration.test.ts
+│   │   ├── stockClass.integration.test.ts        # Complete example
+│   │   ├── stockClassAuthorizedSharesAdjustment.integration.test.ts
+│   │   └── ...
+│   ├── workflows/          # Multi-entity workflow tests
+│   │   └── capTableWorkflow.integration.test.ts
+│   ├── utils/              # Test data factories
 │   │   └── setupTestData.ts
-│   ├── quickstart.smoke.test.ts
-│   └── ocf-operations.integration.test.ts
+│   └── quickstart.smoke.test.ts
 ├── mocks/                  # Mock implementations
 └── utils/                  # Shared test utilities
     ├── testConfig.ts       # Environment config
@@ -215,37 +226,34 @@ Integration tests run against a real Canton LocalNet environment. They catch iss
 OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
 ```
 
-**Test utilities:**
+**Integration test structure:**
+
+Tests are organized by entity type with shared infrastructure:
+- `setup/` - Harness for client init, party discovery, validator API detection
+- `entities/` - One test file per OCF entity type
+- `workflows/` - Multi-entity workflow tests
+- `utils/` - Data factories (`setupTestIssuer`, `createTestStockClassData`, etc.)
+
+**Integration test pattern (using harness):**
 
 ```typescript
-// test/utils/testConfig.ts - Shared configuration
-import { isIntegrationTestConfigured, buildIntegrationTestClientConfig } from '../utils/testConfig';
+// test/integration/entities/issuer.integration.test.ts
+import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { generateTestId, setupTestIssuer } from '../utils';
 
-// test/integration/utils/setupTestData.ts - Test data factories
-import {
-  setupTestIssuer,
-  setupTestStakeholder,
-  setupTestStockClass,
-  createTestIssuerData,
-  generateTestId,
-} from './utils';
-```
-
-**Integration test pattern:**
-
-```typescript
-// test/integration/ocf-operations.integration.test.ts
-const describeIntegration = isIntegrationTestConfigured() ? describe : describe.skip;
-
-describeIntegration('Issuer operations', () => {
+createIntegrationTestSuite('Issuer operations', (getContext) => {
   test('creates issuer and reads it back as valid OCF', async () => {
-    const issuerSetup = await setupTestIssuer(ocp, {
-      issuerParty,
-      featuredAppRightContractDetails,
+    if (skipIfValidatorUnavailable()) return;
+
+    const ctx = getContext();  // Get shared context (ocp, issuerParty, featuredAppRight)
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: { id: generateTestId('issuer'), legal_name: 'Test Corp' },
     });
 
-    const ocfResult = await ocp.OpenCapTable.issuer.getIssuerAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.issuer.getIssuerAsOcf({
       contractId: issuerSetup.issuerContractId,
     });
 
@@ -254,6 +262,13 @@ describeIntegration('Issuer operations', () => {
   });
 });
 ```
+
+**Adding tests for a new entity type:**
+
+1. Create `test/integration/entities/{entity}.integration.test.ts`
+2. Use `createIntegrationTestSuite()` for automatic harness setup
+3. Add data factory in `test/integration/utils/setupTestData.ts` if needed
+4. Reference `stockClass.integration.test.ts` as the complete example
 
 **Benefits of integration tests:**
 - Validates end-to-end OCF compliance
