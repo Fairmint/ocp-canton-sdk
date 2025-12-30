@@ -25,6 +25,8 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
 
     // First create an issuer
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -61,6 +63,8 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });

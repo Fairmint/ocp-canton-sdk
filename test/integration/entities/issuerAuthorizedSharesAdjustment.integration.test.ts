@@ -30,6 +30,8 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -62,6 +64,8 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -96,6 +100,8 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });

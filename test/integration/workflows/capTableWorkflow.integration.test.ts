@@ -23,6 +23,8 @@ createIntegrationTestSuite('Full cap table workflow', (getContext) => {
 
     // 1. Create issuer
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: {

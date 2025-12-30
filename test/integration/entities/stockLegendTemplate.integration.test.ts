@@ -30,6 +30,8 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -61,6 +63,8 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -94,6 +98,8 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });

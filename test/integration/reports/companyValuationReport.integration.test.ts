@@ -14,8 +14,8 @@ import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup
 
 createIntegrationTestSuite('CompanyValuationReport operations', (getContext) => {
   /**
-   * NOTE: CompanyValuationReport requires the OCP Factory contract.
-   * These tests verify the SDK exports the expected functions.
+   * NOTE: CompanyValuationReport requires the OCP Factory contract. These tests verify the SDK exports the expected
+   * functions.
    */
 
   test('SDK exports company valuation report functions', () => {

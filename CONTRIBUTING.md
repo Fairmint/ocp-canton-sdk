@@ -249,7 +249,8 @@ npm run fix         # Fix both linting and formatting
 npm test           # Run all tests
 ```
 
-⚠️ **Important:** Always run `npm run typecheck` before opening a PR. This catches type errors that the IDE may not show and ensures compatibility with all TypeScript configurations.
+⚠️ **Important:** Always run `npm run typecheck` before opening a PR. This catches type errors that
+the IDE may not show and ensures compatibility with all TypeScript configurations.
 
 The CI pipeline will fail if any of these checks do not pass.
 

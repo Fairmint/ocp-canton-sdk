@@ -14,3 +14,10 @@ export {
 } from './integrationTestHarness';
 
 export { defineEntityTests, testEntityVariant, type EntityTestConfig } from './entityTestFactory';
+
+export {
+  authorizeIssuerWithFactory,
+  deployAndCreateFactory,
+  type AuthorizeIssuerResult,
+  type DeploymentResult,
+} from './contractDeployment';

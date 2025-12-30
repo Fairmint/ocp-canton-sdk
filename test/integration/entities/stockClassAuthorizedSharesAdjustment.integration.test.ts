@@ -37,6 +37,8 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
 
     // Setup: Create issuer and stock class first
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -92,6 +94,8 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
 
     // Setup
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -140,6 +144,8 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
 
     // Setup with specific stock class ID
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -190,6 +196,8 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
 
     // Setup
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -235,6 +243,8 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
 
     // Setup
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });

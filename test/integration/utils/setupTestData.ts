@@ -19,8 +19,8 @@ import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmin
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
-import type { CreateWarrantIssuanceParams } from '../../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import type { CreateConvertibleIssuanceParams } from '../../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
+import type { CreateWarrantIssuanceParams } from '../../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import type {
   OcfConvertibleIssuanceDataNative,
   OcfDocumentData,
@@ -39,6 +39,7 @@ import type {
   OcfVestingTermsData,
   OcfWarrantIssuanceDataNative,
 } from '../../../src/types/native';
+import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
 /** Result from setting up a test issuer. */
 export interface TestIssuerSetup {
@@ -694,37 +695,63 @@ export async function setupTestIssuer(
   options: {
     /** The issuer party ID (usually alice's party in LocalNet) */
     issuerParty: string;
+    /** Pre-fetched featured app right (for reuse across tests) */
+    featuredAppRightContractDetails: DisclosedContract;
     /** Optional issuer data overrides */
     issuerData?: Partial<OcfIssuerData>;
-    /** Pre-fetched featured app right (for reuse across tests) */
-    featuredAppRightContractDetails?: DisclosedContract;
     /** Pre-existing issuer authorization (if already authorized) */
     issuerAuthorizationContractDetails?: DisclosedContract;
+    /** The system operator party (owner of the OcpFactory). Required for LocalNet when ocpFactoryContractId is provided. */
+    systemOperatorParty?: string;
+    /**
+     * The OcpFactory contract ID. When provided (for LocalNet), uses authorizeIssuerWithFactory. When not provided (for
+     * devnet/mainnet), uses SDK's built-in authorizeIssuer.
+     */
+    ocpFactoryContractId?: string;
   }
 ): Promise<TestIssuerSetup> {
-  const featuredAppRightContractDetails =
-    options.featuredAppRightContractDetails ?? (await getFeaturedAppRightDetails());
+  const { featuredAppRightContractDetails } = options;
 
   // Get or create issuer authorization
   let { issuerAuthorizationContractDetails } = options;
   if (!issuerAuthorizationContractDetails) {
-    // Authorize the issuer using the OCP Factory
-    const authResult = await ocp.OpenCapTable.issuerAuthorization.authorizeIssuer({
-      issuer: options.issuerParty,
-    });
-    issuerAuthorizationContractDetails = {
-      templateId: authResult.templateId,
-      contractId: authResult.contractId,
-      createdEventBlob: authResult.createdEventBlob,
-      synchronizerId: authResult.synchronizerId,
-    };
+    // For LocalNet with factory, use the factory directly
+    if (options.ocpFactoryContractId && options.systemOperatorParty) {
+      const authResult = await authorizeIssuerWithFactory(
+        ocp.client,
+        options.ocpFactoryContractId,
+        options.systemOperatorParty,
+        options.issuerParty
+      );
+      issuerAuthorizationContractDetails = {
+        templateId: authResult.templateId,
+        contractId: authResult.contractId,
+        createdEventBlob: authResult.createdEventBlob,
+        synchronizerId: authResult.synchronizerId,
+      };
+    } else {
+      // For devnet/mainnet, use the SDK's built-in authorizeIssuer
+      // which reads from the pre-generated factory contract ID JSON
+      const authResult = await ocp.OpenCapTable.issuerAuthorization.authorizeIssuer({
+        issuer: options.issuerParty,
+      });
+      issuerAuthorizationContractDetails = {
+        templateId: authResult.templateId,
+        contractId: authResult.contractId,
+        createdEventBlob: authResult.createdEventBlob,
+        synchronizerId: authResult.synchronizerId,
+      };
+    }
   }
+
+  // At this point issuerAuthorizationContractDetails is guaranteed to be defined
+  const authDetails = issuerAuthorizationContractDetails;
 
   const issuerData = createTestIssuerData(options.issuerData);
 
   // Create the issuer using the underlying client for full response
   const createIssuerCmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({
-    issuerAuthorizationContractDetails,
+    issuerAuthorizationContractDetails: authDetails,
     featuredAppRightContractDetails,
     issuerParty: options.issuerParty,
     issuerData,
@@ -745,7 +772,7 @@ export async function setupTestIssuer(
   return {
     issuerContractId,
     issuerData,
-    issuerAuthorizationContractDetails,
+    issuerAuthorizationContractDetails: authDetails,
     featuredAppRightContractDetails,
   };
 }

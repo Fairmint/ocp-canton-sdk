@@ -25,6 +25,8 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
 
     const testSetup = await setupTestIssuer(ctx.ocp, {
       issuerParty: ctx.issuerParty,
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: {
         id: generateTestId('issuer-ocf-test'),
@@ -63,6 +65,8 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
 
     const testSetup = await setupTestIssuer(ctx.ocp, {
       issuerParty: ctx.issuerParty,
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: originalData,
     });
