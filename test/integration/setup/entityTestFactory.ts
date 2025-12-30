@@ -130,7 +130,6 @@ export function defineEntityTests<TData extends object, TSetupResult, TOcfResult
 ): void {
   createIntegrationTestSuite(`${config.entityName} operations`, (getContext) => {
     test(`creates ${config.entityName} and reads it back as valid OCF`, async () => {
-
       const ctx = getContext();
       const testData = config.createTestData();
 
@@ -156,7 +155,6 @@ export function defineEntityTests<TData extends object, TSetupResult, TOcfResult
       const { fieldMappings } = config;
 
       test(`${config.entityName} data round-trips correctly`, async () => {
-
         const ctx = getContext();
         const testData = config.createTestData();
 
@@ -182,7 +180,6 @@ export function defineEntityTests<TData extends object, TSetupResult, TOcfResult
     // Archive test (if archive function provided)
     if (config.archiveEntity) {
       test(`archives ${config.entityName}`, async () => {
-
         const ctx = getContext();
         const testData = config.createTestData();
 
@@ -220,7 +217,6 @@ export function testEntityVariant<T>(
   validationFn: (result: T) => void | Promise<void>
 ): void {
   test(`creates ${variantName}`, async () => {
-
     const ctx = getContext();
     const result = await setupFn(ctx);
     await validationFn(result);

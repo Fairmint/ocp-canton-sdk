@@ -230,7 +230,6 @@ export function getTestContext(): IntegrationTestContext {
   };
 }
 
-
 /**
  * Create an integration test suite with shared setup.
  *
@@ -240,8 +239,8 @@ export function getTestContext(): IntegrationTestContext {
  * - Initializing the test harness before all tests (includes contract deployment)
  * - Setting a longer timeout for integration tests
  *
- * Note: If LocalNet is not running, tests will fail (not skip). This is intentional -
- * integration tests should fail clearly when infrastructure is unavailable.
+ * Note: If LocalNet is not running, tests will fail (not skip). This is intentional - integration tests should fail
+ * clearly when infrastructure is unavailable.
  *
  * @example
  *   ```typescript

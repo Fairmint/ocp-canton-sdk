@@ -30,7 +30,6 @@ createIntegrationTestSuite('ProposedPaymentStream operations', (getContext) => {
    */
 
   test('SDK exports proposed payment stream functions', () => {
-
     const ctx = getContext();
 
     // Verify SDK exports proposed payment stream functions

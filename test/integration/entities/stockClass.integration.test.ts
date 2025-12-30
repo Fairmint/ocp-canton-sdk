@@ -24,7 +24,6 @@ import { createTestStockClassData, generateTestId, setupTestIssuer, setupTestSto
 
 createIntegrationTestSuite('StockClass operations', (getContext) => {
   test('creates stock class and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -61,7 +60,6 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
   });
 
   test('stock class data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -104,7 +102,6 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
   });
 
   test('creates COMMON stock class', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -139,7 +136,6 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
   });
 
   test('creates PREFERRED stock class with liquidation preferences', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -177,7 +173,6 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
   });
 
   test('archives stock class', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

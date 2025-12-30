@@ -19,7 +19,6 @@ import { createTestIssuerData, generateTestId, setupTestIssuer } from '../utils'
 
 createIntegrationTestSuite('Issuer operations', (getContext) => {
   test('creates issuer and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const testSetup = await setupTestIssuer(ctx.ocp, {
@@ -47,7 +46,6 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
   });
 
   test('issuer data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const originalData = createTestIssuerData({

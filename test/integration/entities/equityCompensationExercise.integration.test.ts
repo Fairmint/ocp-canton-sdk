@@ -27,7 +27,6 @@ import {
 
 createIntegrationTestSuite('EquityCompensationExercise operations', (getContext) => {
   test('creates equity compensation exercise and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     // Setup: issuer, stakeholder, stock class, and equity compensation issuance
@@ -114,7 +113,6 @@ createIntegrationTestSuite('EquityCompensationExercise operations', (getContext)
   });
 
   test('archives equity compensation exercise', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

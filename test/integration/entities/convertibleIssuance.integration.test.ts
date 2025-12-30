@@ -27,7 +27,6 @@ import {
 
 createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
   test('creates SAFE convertible issuance and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -73,7 +72,6 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
   });
 
   test('creates NOTE convertible issuance and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -119,7 +117,6 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
   });
 
   test('convertible issuance data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -168,7 +165,6 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
   });
 
   test('archives convertible issuance', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

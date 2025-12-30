@@ -17,7 +17,6 @@ import { generateTestId, setupTestIssuer, setupTestStakeholder, setupTestStockCl
 
 createIntegrationTestSuite('Full cap table workflow', (getContext) => {
   test('creates complete cap table with issuer, stakeholders, stock class', async () => {
-
     const ctx = getContext();
 
     // 1. Create issuer

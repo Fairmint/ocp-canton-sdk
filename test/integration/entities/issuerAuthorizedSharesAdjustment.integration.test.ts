@@ -25,7 +25,6 @@ import {
 
 createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getContext) => {
   test('creates issuer authorized shares adjustment and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -58,7 +57,6 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
   });
 
   test('issuer authorized shares adjustment data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -93,7 +91,6 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
   });
 
   test('archives issuer authorized shares adjustment', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

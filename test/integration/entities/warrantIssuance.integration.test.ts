@@ -26,7 +26,6 @@ import {
 
 createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
   test('creates warrant issuance and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -71,7 +70,6 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
   });
 
   test('warrant issuance data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -118,7 +116,6 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
   });
 
   test('archives warrant issuance', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

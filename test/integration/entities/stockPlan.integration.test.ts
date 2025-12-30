@@ -26,7 +26,6 @@ import {
 
 createIntegrationTestSuite('StockPlan operations', (getContext) => {
   test('creates stock plan and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -74,7 +73,6 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
   });
 
   test('stock plan data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -125,7 +123,6 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
   });
 
   test('archives stock plan', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

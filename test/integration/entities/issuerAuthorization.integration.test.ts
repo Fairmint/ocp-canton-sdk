@@ -23,7 +23,6 @@ import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
 createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
   test('authorizes an issuer using the harness factory', async () => {
-
     const ctx = getContext();
 
     // Use authorizeIssuerWithFactory which uses the dynamically deployed factory
@@ -42,7 +41,6 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
   });
 
   test('withdraws authorization', async () => {
-
     const ctx = getContext();
 
     // First authorize using the harness factory
@@ -63,7 +61,6 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
   });
 
   test('can re-authorize after withdrawal', async () => {
-
     const ctx = getContext();
 
     // Authorize using the harness factory

@@ -29,7 +29,6 @@ import {
 
 createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext) => {
   test('creates equity compensation issuance and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -104,7 +103,6 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
   });
 
   test('equity compensation issuance data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -152,7 +150,6 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
   });
 
   test('creates RSU compensation', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -195,7 +192,6 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
   });
 
   test('archives equity compensation issuance', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

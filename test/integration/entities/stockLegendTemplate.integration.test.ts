@@ -25,7 +25,6 @@ import {
 
 createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
   test('creates stock legend template and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -57,7 +56,6 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
   });
 
   test('stock legend template data round-trips correctly', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -91,7 +89,6 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
   });
 
   test('archives stock legend template', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {

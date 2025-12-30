@@ -19,7 +19,6 @@ import { generateTestId, setupTestIssuer, setupTestStakeholder } from '../utils'
 
 createIntegrationTestSuite('Stakeholder operations', (getContext) => {
   test('creates stakeholder and reads it back as valid OCF', async () => {
-
     const ctx = getContext();
 
     // First create an issuer
@@ -57,7 +56,6 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
   });
 
   test('creates institutional stakeholder', async () => {
-
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
