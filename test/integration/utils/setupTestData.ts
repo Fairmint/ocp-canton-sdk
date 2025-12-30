@@ -678,6 +678,57 @@ function extractContractIdFromResponse(
 }
 
 /**
+ * Get or create issuer authorization.
+ *
+ * If issuerAuthorizationContractDetails is provided in options, returns it directly.
+ * Otherwise, creates a new authorization using either:
+ * - authorizeIssuerWithFactory (for LocalNet with factory)
+ * - SDK's authorizeIssuer (for devnet/mainnet)
+ */
+async function getOrCreateIssuerAuthorization(
+  ocp: OcpClient,
+  options: {
+    issuerParty: string;
+    issuerAuthorizationContractDetails?: DisclosedContract;
+    systemOperatorParty?: string;
+    ocpFactoryContractId?: string;
+  }
+): Promise<DisclosedContract> {
+  // If already provided, use it
+  if (options.issuerAuthorizationContractDetails) {
+    return options.issuerAuthorizationContractDetails;
+  }
+
+  // For LocalNet with factory, use the factory directly
+  if (options.ocpFactoryContractId && options.systemOperatorParty) {
+    const authResult = await authorizeIssuerWithFactory(
+      ocp.client,
+      options.ocpFactoryContractId,
+      options.systemOperatorParty,
+      options.issuerParty
+    );
+    return {
+      templateId: authResult.templateId,
+      contractId: authResult.contractId,
+      createdEventBlob: authResult.createdEventBlob,
+      synchronizerId: authResult.synchronizerId,
+    };
+  }
+
+  // For devnet/mainnet, use the SDK's built-in authorizeIssuer
+  // which reads from the pre-generated factory contract ID JSON
+  const authResult = await ocp.OpenCapTable.issuerAuthorization.authorizeIssuer({
+    issuer: options.issuerParty,
+  });
+  return {
+    templateId: authResult.templateId,
+    contractId: authResult.contractId,
+    createdEventBlob: authResult.createdEventBlob,
+    synchronizerId: authResult.synchronizerId,
+  };
+}
+
+/**
  * Setup a test issuer with all required dependencies.
  *
  * This function:
@@ -713,45 +764,13 @@ export async function setupTestIssuer(
   const { featuredAppRightContractDetails } = options;
 
   // Get or create issuer authorization
-  let { issuerAuthorizationContractDetails } = options;
-  if (!issuerAuthorizationContractDetails) {
-    // For LocalNet with factory, use the factory directly
-    if (options.ocpFactoryContractId && options.systemOperatorParty) {
-      const authResult = await authorizeIssuerWithFactory(
-        ocp.client,
-        options.ocpFactoryContractId,
-        options.systemOperatorParty,
-        options.issuerParty
-      );
-      issuerAuthorizationContractDetails = {
-        templateId: authResult.templateId,
-        contractId: authResult.contractId,
-        createdEventBlob: authResult.createdEventBlob,
-        synchronizerId: authResult.synchronizerId,
-      };
-    } else {
-      // For devnet/mainnet, use the SDK's built-in authorizeIssuer
-      // which reads from the pre-generated factory contract ID JSON
-      const authResult = await ocp.OpenCapTable.issuerAuthorization.authorizeIssuer({
-        issuer: options.issuerParty,
-      });
-      issuerAuthorizationContractDetails = {
-        templateId: authResult.templateId,
-        contractId: authResult.contractId,
-        createdEventBlob: authResult.createdEventBlob,
-        synchronizerId: authResult.synchronizerId,
-      };
-    }
-  }
-
-  // At this point issuerAuthorizationContractDetails is guaranteed to be defined
-  const authDetails = issuerAuthorizationContractDetails;
+  const issuerAuthorizationContractDetails = await getOrCreateIssuerAuthorization(ocp, options);
 
   const issuerData = createTestIssuerData(options.issuerData);
 
   // Create the issuer using the underlying client for full response
   const createIssuerCmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({
-    issuerAuthorizationContractDetails: authDetails,
+    issuerAuthorizationContractDetails,
     featuredAppRightContractDetails,
     issuerParty: options.issuerParty,
     issuerData,
@@ -772,7 +791,7 @@ export async function setupTestIssuer(
   return {
     issuerContractId,
     issuerData,
-    issuerAuthorizationContractDetails: authDetails,
+    issuerAuthorizationContractDetails,
     featuredAppRightContractDetails,
   };
 }
