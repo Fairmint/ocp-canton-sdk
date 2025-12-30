@@ -82,7 +82,9 @@ async function findExistingFactory(client: LedgerJsonApiClient, systemOperatorPa
   const { templateId } = Fairmint.OpenCapTable.OcpFactory.OcpFactory;
 
   // Get active contracts - response is an array of items with contractEntry
+  // We need to filter by parties to satisfy the Canton API requirements
   const response = await client.getActiveContracts({
+    parties: [systemOperatorParty],
     templateIds: [templateId],
   });
 
@@ -197,40 +199,71 @@ export async function lookupFeaturedAppRightViaScanApi(
   providerPartyId: string,
   synchronizerId: string
 ): Promise<FeaturedAppRightResult | null> {
-  // LocalNet scan API URL
-  const scanApiUrl = 'http://scan.localhost:4000/api/scan';
   const encodedPartyId = encodeURIComponent(providerPartyId);
 
-  try {
-    const response = await fetch(`${scanApiUrl}/v0/featured-apps/${encodedPartyId}`);
-    if (!response.ok) {
-      console.log(`   Scan API returned ${response.status} for FeaturedAppRight lookup`);
-      return null;
-    }
+  // Use a promise wrapper around http.request because:
+  // - Node.js fetch() doesn't properly support overriding the Host header
+  // - We need to use 127.0.0.1 with Host: scan.localhost for nginx routing
+  // - Node.js doesn't resolve *.localhost subdomains like the browser does
+  return new Promise((resolve) => {
+    const http = require('http') as typeof import('http');
 
-    const data = (await response.json()) as {
-      featured_app_right: {
-        contract_id: string;
-        template_id: string;
-        created_event_blob: string;
-      } | null;
+    const options = {
+      hostname: '127.0.0.1',
+      port: 4000,
+      path: `/api/scan/v0/featured-apps/${encodedPartyId}`,
+      method: 'GET',
+      headers: {
+        Host: 'scan.localhost',
+      },
     };
 
-    if (!data.featured_app_right) {
-      return null;
-    }
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk: Buffer) => {
+        data += chunk.toString();
+      });
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          console.log(`   Scan API returned ${res.statusCode} for FeaturedAppRight lookup`);
+          resolve(null);
+          return;
+        }
 
-    return {
-      contractId: data.featured_app_right.contract_id,
-      templateId: data.featured_app_right.template_id,
-      createdEventBlob: data.featured_app_right.created_event_blob,
-      synchronizerId,
-    };
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    console.log(`   FeaturedAppRight lookup failed: ${errorMessage}`);
-    return null;
-  }
+        try {
+          const parsed = JSON.parse(data) as {
+            featured_app_right: {
+              contract_id: string;
+              template_id: string;
+              created_event_blob: string;
+            } | null;
+          };
+
+          if (!parsed.featured_app_right) {
+            resolve(null);
+            return;
+          }
+
+          resolve({
+            contractId: parsed.featured_app_right.contract_id,
+            templateId: parsed.featured_app_right.template_id,
+            createdEventBlob: parsed.featured_app_right.created_event_blob,
+            synchronizerId,
+          });
+        } catch {
+          console.log('   Failed to parse Scan API response');
+          resolve(null);
+        }
+      });
+    });
+
+    req.on('error', (err: Error) => {
+      console.log(`   FeaturedAppRight lookup failed: ${err.message}`);
+      resolve(null);
+    });
+
+    req.end();
+  });
 }
 
 /**
@@ -240,12 +273,10 @@ export async function lookupFeaturedAppRightViaScanApi(
  *
  * @param client - The ledger client
  * @param providerParty - The party to grant the FeaturedAppRight to
- * @param dsoParty - The DSO party (required for the AmuletRules lookup)
  */
 export async function createFeaturedAppRight(
   client: LedgerJsonApiClient,
-  providerParty: string,
-  dsoParty: string
+  providerParty: string
 ): Promise<FeaturedAppRightResult> {
   // Get AmuletRules contract via Validator API
   const validatorClient = new ValidatorApiClient({ network: 'localnet' });
@@ -259,7 +290,9 @@ export async function createFeaturedAppRight(
   console.log(`  AmuletRules contract: ${amuletRulesContractId}`);
 
   // Exercise AmuletRules_DevNet_FeatureApp choice
-  // We need to include the AmuletRules contract as a disclosed contract since it's owned by DSO
+  // We use disclosed contracts to provide visibility into the AmuletRules contract.
+  // NOTE: Do NOT include DSO in readAs - the OAuth2 client doesn't have CanReadAs rights for DSO.
+  // The disclosed contracts mechanism provides the necessary visibility.
   const response = (await client.submitAndWaitForTransactionTree({
     commands: [
       {
@@ -274,7 +307,7 @@ export async function createFeaturedAppRight(
       },
     ],
     actAs: [providerParty],
-    readAs: [dsoParty],
+    // Don't include readAs: [dsoParty] - OAuth2 client doesn't have CanReadAs for DSO
     disclosedContracts: [
       {
         templateId: amuletRulesTemplateId,
@@ -352,7 +385,6 @@ export async function authorizeIssuerWithFactory(
   issuerParty: string
 ): Promise<AuthorizeIssuerResult> {
   const factoryTemplateId = Fairmint.OpenCapTable.OcpFactory.OcpFactory.templateId;
-  const authTemplateId = Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId;
 
   const choiceArguments: Fairmint.OpenCapTable.OcpFactory.AuthorizeIssuer = {
     issuer: issuerParty,
@@ -376,30 +408,53 @@ export async function authorizeIssuerWithFactory(
   const { eventsById } = response.transactionTree;
 
   let authContractId: string | null = null;
+  let foundTemplateId: string | null = null;
+  let createdEventBlob: string | null = null;
+
   for (const event of Object.values(eventsById)) {
     if ('CreatedTreeEvent' in event) {
       const created = event.CreatedTreeEvent.value;
-      if (created.templateId === authTemplateId) {
+      // Match by template name since the full template ID includes package hash
+      if (created.templateId.includes('IssuerAuthorization')) {
         authContractId = created.contractId;
+        foundTemplateId = created.templateId;
+        // Get createdEventBlob directly from the transaction event (may be empty string)
+        createdEventBlob = created.createdEventBlob || null;
         break;
       }
     }
   }
 
-  if (!authContractId) {
-    throw new Error('IssuerAuthorization contract not found in AuthorizeIssuer response');
+  if (!authContractId || !foundTemplateId) {
+    // Log available events for debugging
+    const eventTypes = Object.values(eventsById).map((e) => {
+      if ('CreatedTreeEvent' in e) return `Created: ${e.CreatedTreeEvent.value.templateId}`;
+      if ('ExercisedTreeEvent' in e) return `Exercised: ${e.ExercisedTreeEvent.value.choice}`;
+      return 'Unknown';
+    });
+    throw new Error(
+      `IssuerAuthorization contract not found in AuthorizeIssuer response. ` + `Events: ${eventTypes.join(', ')}`
+    );
   }
 
-  // Get the createdEventBlob for disclosed contracts
-  const contractEvents = await client.getEventsByContractId({ contractId: authContractId });
-  if (!contractEvents.created?.createdEvent.createdEventBlob) {
-    throw new Error('Missing createdEventBlob for IssuerAuthorization contract');
+  // If createdEventBlob wasn't in the transaction, try to fetch it
+  // Note: In LocalNet with OAuth2, getEventsByContractId may fail with 403
+  // In that case, we use an empty string - this works when the party is a signatory
+  if (!createdEventBlob) {
+    try {
+      const contractEvents = await client.getEventsByContractId({ contractId: authContractId });
+      createdEventBlob = contractEvents.created?.createdEvent.createdEventBlob ?? null;
+    } catch {
+      // If we can't fetch it, use empty string - works for signatories
+      console.log('   Note: Could not fetch createdEventBlob, using empty string (works for signatories)');
+      createdEventBlob = '';
+    }
   }
 
   return {
     contractId: authContractId,
-    templateId: authTemplateId,
-    createdEventBlob: contractEvents.created.createdEvent.createdEventBlob,
+    templateId: foundTemplateId,
+    createdEventBlob: createdEventBlob ?? '',
     synchronizerId: response.transactionTree.synchronizerId,
   };
 }

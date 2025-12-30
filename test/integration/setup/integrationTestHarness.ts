@@ -153,21 +153,15 @@ async function initializeHarness(): Promise<void> {
     if (!featuredAppRightResult) {
       console.log('   Attempting to create FeaturedAppRight via AmuletRules_DevNet_FeatureApp...');
       try {
-        featuredAppRightResult = await createFeaturedAppRight(state.ocp.client, state.issuerParty, dsoPartyId);
+        featuredAppRightResult = await createFeaturedAppRight(state.ocp.client, state.issuerParty);
         console.log(`   Created FeaturedAppRight: ${featuredAppRightResult.contractId}`);
       } catch (createErr) {
-        // FeaturedAppRight creation failed - this is common in LocalNet OAuth2 setup
-        // where the app_provider doesn't have permission to exercise AmuletRules choices
+        // FeaturedAppRight creation failed
         const errorMessage = createErr instanceof Error ? createErr.message : String(createErr);
         throw new Error(
-          `FeaturedAppRight not available and creation failed.\n\n` +
+          `FeaturedAppRight creation failed.\n\n` +
             `Details: ${errorMessage}\n\n` +
-            `The cn-quickstart LocalNet OAuth2 setup may not grant sufficient permissions ` +
-            `to create FeaturedAppRight contracts via AmuletRules_DevNet_FeatureApp.\n\n` +
-            `Possible solutions:\n` +
-            `1. Use shared-secret auth mode instead of OAuth2 in cn-quickstart\n` +
-            `2. Manually create a FeaturedAppRight for the app_provider party\n` +
-            `3. Run tests against DevNet where FeaturedAppRight is pre-configured`
+            `Make sure cn-quickstart LocalNet is running and healthy.`
         );
       }
     }

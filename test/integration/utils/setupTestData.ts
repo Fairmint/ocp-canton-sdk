@@ -762,10 +762,16 @@ export async function setupTestIssuer(
     issuerData,
   });
 
+  // Filter out disclosed contracts with empty createdEventBlob
+  // (empty blobs cause MISSING_FIELD errors, but signatories don't need disclosed contracts)
+  const validDisclosedContracts = createIssuerCmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
   const result = await ocp.client.submitAndWaitForTransactionTree({
     commands: [createIssuerCmd.command],
     actAs: [options.issuerParty],
-    disclosedContracts: createIssuerCmd.disclosedContracts,
+    disclosedContracts: validDisclosedContracts,
   });
 
   // Extract the issuer contract ID from the result
