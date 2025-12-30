@@ -680,9 +680,10 @@ function extractContractIdFromResponse(
 /**
  * Get or create issuer authorization.
  *
- * If issuerAuthorizationContractDetails is provided in options, returns it directly.
- * Otherwise, creates a new authorization using either:
- * - authorizeIssuerWithFactory (for LocalNet with factory)
+ * If issuerAuthorizationContractDetails is provided in options, returns it directly. Otherwise, creates a new
+ * authorization using either:
+ *
+ * - AuthorizeIssuerWithFactory (for LocalNet with factory)
  * - SDK's authorizeIssuer (for devnet/mainnet)
  */
 async function getOrCreateIssuerAuthorization(
