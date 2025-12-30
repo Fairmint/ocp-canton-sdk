@@ -235,11 +235,12 @@ const date = dateStringToDAMLTime(d.date);
 - Mock external dependencies
 - Avoid testing implementation details
 
-### Linting and Formatting
+### Pre-PR Checklist
 
-Before committing:
+**All of the following checks must pass before opening a PR:**
 
 ```bash
+npm run typecheck   # TypeScript type checking (REQUIRED)
 npm run lint        # Check for linting errors
 npm run lint:fix    # Auto-fix linting errors
 npm run format      # Check formatting
@@ -247,6 +248,10 @@ npm run format:fix  # Auto-format code
 npm run fix         # Fix both linting and formatting
 npm test           # Run all tests
 ```
+
+⚠️ **Important:** Always run `npm run typecheck` before opening a PR. This catches type errors that the IDE may not show and ensures compatibility with all TypeScript configurations.
+
+The CI pipeline will fail if any of these checks do not pass.
 
 ### Git Commit Messages
 

@@ -93,10 +93,10 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       contractId: transferSetup.stockTransferContractId,
     });
 
-    expect(ocfResult.stockTransfer.object_type).toBe('TX_STOCK_TRANSFER');
-    expect(ocfResult.stockTransfer.quantity).toBe('25000');
+    expect(ocfResult.event.object_type).toBe('TX_STOCK_TRANSFER');
+    expect(ocfResult.event.quantity).toBe('25000');
 
-    await validateOcfObject(ocfResult.stockTransfer as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
   test('stock transfer data round-trips correctly', async () => {
@@ -167,9 +167,9 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       contractId: transferSetup.stockTransferContractId,
     });
 
-    expect(ocfResult.stockTransfer.id).toBe(originalData.id);
-    expect(ocfResult.stockTransfer.security_id).toBe(originalData.security_id);
-    expect(ocfResult.stockTransfer.quantity).toBe(originalData.quantity);
+    expect(ocfResult.event.id).toBe(originalData.id);
+    expect(ocfResult.event.security_id).toBe(originalData.security_id);
+    expect(ocfResult.event.quantity).toBe(originalData.quantity);
   });
 
   test('archives stock transfer', async () => {

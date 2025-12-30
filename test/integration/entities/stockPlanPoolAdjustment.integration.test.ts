@@ -78,10 +78,10 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       contractId: adjustmentSetup.adjustmentContractId,
     });
 
-    expect(ocfResult.stockPlanPoolAdjustment.object_type).toBe('TX_STOCK_PLAN_POOL_ADJUSTMENT');
-    expect(ocfResult.stockPlanPoolAdjustment.shares_reserved).toBe('750000');
+    expect(ocfResult.event.object_type).toBe('TX_STOCK_PLAN_POOL_ADJUSTMENT');
+    expect(ocfResult.event.shares_reserved).toBe('750000');
 
-    await validateOcfObject(ocfResult.stockPlanPoolAdjustment as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
   test('stock plan pool adjustment data round-trips correctly', async () => {
@@ -139,9 +139,9 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       contractId: adjustmentSetup.adjustmentContractId,
     });
 
-    expect(ocfResult.stockPlanPoolAdjustment.id).toBe(originalData.id);
-    expect(ocfResult.stockPlanPoolAdjustment.stock_plan_id).toBe(originalData.stock_plan_id);
-    expect(ocfResult.stockPlanPoolAdjustment.shares_reserved).toBe(originalData.shares_reserved);
+    expect(ocfResult.event.id).toBe(originalData.id);
+    expect(ocfResult.event.stock_plan_id).toBe(originalData.stock_plan_id);
+    expect(ocfResult.event.shares_reserved).toBe(originalData.shares_reserved);
   });
 
   test('archives stock plan pool adjustment', async () => {

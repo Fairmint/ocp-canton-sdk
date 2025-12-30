@@ -19,6 +19,8 @@ import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmin
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
+import type { CreateWarrantIssuanceParams } from '../../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
+import type { CreateConvertibleIssuanceParams } from '../../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import type {
   OcfConvertibleIssuanceDataNative,
   OcfDocumentData,
@@ -1419,10 +1421,13 @@ export async function setupTestWarrantIssuance(
 ): Promise<TestWarrantIssuanceSetup> {
   const warrantIssuanceData = createTestWarrantIssuanceData(options.stakeholderId, options.warrantIssuanceData);
 
+  // Cast to SDK's expected type - the trigger arrays are empty so this is safe
+  const issuanceData = warrantIssuanceData as CreateWarrantIssuanceParams['issuanceData'];
+
   const cmd = ocp.OpenCapTable.warrantIssuance.buildCreateWarrantIssuanceCommand({
     issuerContractId: options.issuerContractId,
     issuerParty: options.issuerParty,
-    issuanceData: warrantIssuanceData,
+    issuanceData,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
   });
 
@@ -1470,10 +1475,13 @@ export async function setupTestConvertibleIssuance(
     options.convertibleIssuanceData
   );
 
+  // Cast to SDK's expected type - the trigger arrays are empty so this is safe
+  const issuanceData = convertibleIssuanceData as CreateConvertibleIssuanceParams['issuanceData'];
+
   const cmd = ocp.OpenCapTable.convertibleIssuance.buildCreateConvertibleIssuanceCommand({
     issuerContractId: options.issuerContractId,
     issuerParty: options.issuerParty,
-    issuanceData: convertibleIssuanceData,
+    issuanceData,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
   });
 

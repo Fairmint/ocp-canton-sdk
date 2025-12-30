@@ -64,11 +64,11 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       contractId: convertibleSetup.convertibleIssuanceContractId,
     });
 
-    expect(ocfResult.convertibleIssuance.object_type).toBe('TX_CONVERTIBLE_ISSUANCE');
-    expect(ocfResult.convertibleIssuance.convertible_type).toBe('SAFE');
-    expect(ocfResult.convertibleIssuance.investment_amount.amount).toBe('250000');
+    expect(ocfResult.event.object_type).toBe('TX_CONVERTIBLE_ISSUANCE');
+    expect(ocfResult.event.convertible_type).toBe('SAFE');
+    expect(ocfResult.event.investment_amount.amount).toBe('250000');
 
-    await validateOcfObject(ocfResult.convertibleIssuance as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
   test('creates NOTE convertible issuance and reads it back as valid OCF', async () => {
@@ -109,11 +109,11 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       contractId: convertibleSetup.convertibleIssuanceContractId,
     });
 
-    expect(ocfResult.convertibleIssuance.object_type).toBe('TX_CONVERTIBLE_ISSUANCE');
-    expect(ocfResult.convertibleIssuance.convertible_type).toBe('NOTE');
-    expect(ocfResult.convertibleIssuance.investment_amount.amount).toBe('500000');
+    expect(ocfResult.event.object_type).toBe('TX_CONVERTIBLE_ISSUANCE');
+    expect(ocfResult.event.convertible_type).toBe('NOTE');
+    expect(ocfResult.event.investment_amount.amount).toBe('500000');
 
-    await validateOcfObject(ocfResult.convertibleIssuance as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
   test('convertible issuance data round-trips correctly', async () => {
@@ -157,11 +157,11 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       contractId: convertibleSetup.convertibleIssuanceContractId,
     });
 
-    expect(ocfResult.convertibleIssuance.id).toBe(originalData.id);
-    expect(ocfResult.convertibleIssuance.stakeholder_id).toBe(originalData.stakeholder_id);
-    expect(ocfResult.convertibleIssuance.convertible_type).toBe(originalData.convertible_type);
-    expect(ocfResult.convertibleIssuance.investment_amount.amount).toBe(originalData.investment_amount.amount);
-    expect(ocfResult.convertibleIssuance.seniority).toBe(String(originalData.seniority));
+    expect(ocfResult.event.id).toBe(originalData.id);
+    expect(ocfResult.event.stakeholder_id).toBe(originalData.stakeholder_id);
+    expect(ocfResult.event.convertible_type).toBe(originalData.convertible_type);
+    expect(ocfResult.event.investment_amount.amount).toBe(originalData.investment_amount.amount);
+    expect(ocfResult.event.seniority).toBe(String(originalData.seniority));
   });
 
   test('archives convertible issuance', async () => {

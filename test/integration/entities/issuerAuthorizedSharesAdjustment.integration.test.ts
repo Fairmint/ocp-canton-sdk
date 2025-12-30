@@ -50,10 +50,10 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
         contractId: adjustmentSetup.adjustmentContractId,
       });
 
-    expect(ocfResult.issuerAuthorizedSharesAdjustment.object_type).toBe('TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT');
-    expect(ocfResult.issuerAuthorizedSharesAdjustment.new_shares_authorized).toBe('100000000');
+    expect(ocfResult.event.object_type).toBe('TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT');
+    expect(ocfResult.event.new_shares_authorized).toBe('100000000');
 
-    await validateOcfObject(ocfResult.issuerAuthorizedSharesAdjustment as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
   test('issuer authorized shares adjustment data round-trips correctly', async () => {
@@ -85,9 +85,9 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
         contractId: adjustmentSetup.adjustmentContractId,
       });
 
-    expect(ocfResult.issuerAuthorizedSharesAdjustment.id).toBe(originalData.id);
-    expect(ocfResult.issuerAuthorizedSharesAdjustment.issuer_id).toBe(originalData.issuer_id);
-    expect(ocfResult.issuerAuthorizedSharesAdjustment.new_shares_authorized).toBe(originalData.new_shares_authorized);
+    expect(ocfResult.event.id).toBe(originalData.id);
+    expect(ocfResult.event.issuer_id).toBe(originalData.issuer_id);
+    expect(ocfResult.event.new_shares_authorized).toBe(originalData.new_shares_authorized);
   });
 
   test('archives issuer authorized shares adjustment', async () => {

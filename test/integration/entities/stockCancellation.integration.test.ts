@@ -94,10 +94,10 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       contractId: cancellationSetup.stockCancellationContractId,
     });
 
-    expect(ocfResult.stockCancellation.object_type).toBe('TX_STOCK_CANCELLATION');
-    expect(ocfResult.stockCancellation.quantity).toBe('25000');
+    expect(ocfResult.event.object_type).toBe('TX_STOCK_CANCELLATION');
+    expect(ocfResult.event.quantity).toBe('25000');
 
-    await validateOcfObject(ocfResult.stockCancellation as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
   test('stock cancellation data round-trips correctly', async () => {
@@ -168,10 +168,10 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       contractId: cancellationSetup.stockCancellationContractId,
     });
 
-    expect(ocfResult.stockCancellation.id).toBe(originalData.id);
-    expect(ocfResult.stockCancellation.security_id).toBe(originalData.security_id);
-    expect(ocfResult.stockCancellation.quantity).toBe(originalData.quantity);
-    expect(ocfResult.stockCancellation.reason_text).toBe(originalData.reason_text);
+    expect(ocfResult.event.id).toBe(originalData.id);
+    expect(ocfResult.event.security_id).toBe(originalData.security_id);
+    expect(ocfResult.event.quantity).toBe(originalData.quantity);
+    expect(ocfResult.event.reason_text).toBe(originalData.reason_text);
   });
 
   test('archives stock cancellation', async () => {

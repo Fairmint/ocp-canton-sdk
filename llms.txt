@@ -22,16 +22,18 @@ npm run docs                                    # Generate TypeDoc
 
 ## Pre-Push Requirements
 
-**ALWAYS run before pushing ANY changes:**
+**ALWAYS run before pushing ANY changes or opening PRs:**
 
 ```bash
-npm run fix    # Auto-fixes ESLint and Prettier issues
+npm run fix        # Auto-fixes ESLint and Prettier issues
+npm run typecheck  # TypeScript type checking (REQUIRED)
 ```
 
-This command:
-- Runs ESLint with `--fix` to auto-correct code issues
-- Runs Prettier to format all files consistently
-- CI enforces zero warnings—PRs will fail if you skip this step
+**Both commands must pass before opening a PR.**
+
+- `npm run fix` runs ESLint with `--fix` and Prettier to auto-format code
+- `npm run typecheck` runs `tsc` to catch type errors that IDE may miss
+- CI enforces both—PRs will fail if either command fails
 
 If `npm run fix` can't auto-fix everything, manually resolve remaining issues before pushing.
 

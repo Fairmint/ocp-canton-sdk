@@ -63,10 +63,10 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
       contractId: warrantSetup.warrantIssuanceContractId,
     });
 
-    expect(ocfResult.warrantIssuance.object_type).toBe('TX_WARRANT_ISSUANCE');
-    expect(ocfResult.warrantIssuance.quantity).toBe('10000');
+    expect(ocfResult.event.object_type).toBe('TX_WARRANT_ISSUANCE');
+    expect(ocfResult.event.quantity).toBe('10000');
 
-    await validateOcfObject(ocfResult.warrantIssuance as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
   test('warrant issuance data round-trips correctly', async () => {
@@ -110,9 +110,9 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
       contractId: warrantSetup.warrantIssuanceContractId,
     });
 
-    expect(ocfResult.warrantIssuance.id).toBe(originalData.id);
-    expect(ocfResult.warrantIssuance.stakeholder_id).toBe(originalData.stakeholder_id);
-    expect(ocfResult.warrantIssuance.quantity).toBe(originalData.quantity);
+    expect(ocfResult.event.id).toBe(originalData.id);
+    expect(ocfResult.event.stakeholder_id).toBe(originalData.stakeholder_id);
+    expect(ocfResult.event.quantity).toBe(originalData.quantity);
   });
 
   test('archives warrant issuance', async () => {

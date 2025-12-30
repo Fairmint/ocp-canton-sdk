@@ -46,7 +46,7 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
     // Then withdraw
     const withdrawResult = await ctx.ocp.OpenCapTable.issuerAuthorization.withdrawAuthorization({
       issuerAuthorizationContractId: authResult.contractId,
-      issuer: ctx.issuerParty,
+      systemOperatorParty: ctx.issuerParty,
     });
 
     expect(withdrawResult.updateId).toBeDefined();
@@ -65,7 +65,7 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
     // Withdraw
     await ctx.ocp.OpenCapTable.issuerAuthorization.withdrawAuthorization({
       issuerAuthorizationContractId: authResult1.contractId,
-      issuer: ctx.issuerParty,
+      systemOperatorParty: ctx.issuerParty,
     });
 
     // Re-authorize

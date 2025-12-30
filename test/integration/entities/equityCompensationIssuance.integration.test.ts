@@ -95,11 +95,11 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       contractId: ecSetup.equityCompensationIssuanceContractId,
     });
 
-    expect(ocfResult.equityCompensationIssuance.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
-    expect(ocfResult.equityCompensationIssuance.compensation_type).toBe('OPTION_ISO');
-    expect(ocfResult.equityCompensationIssuance.quantity).toBe('5000');
+    expect(ocfResult.event.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
+    expect(ocfResult.event.compensation_type).toBe('OPTION_ISO');
+    expect(ocfResult.event.quantity).toBe('5000');
 
-    await validateOcfObject(ocfResult.equityCompensationIssuance as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
   test('equity compensation issuance data round-trips correctly', async () => {
@@ -143,10 +143,10 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       contractId: ecSetup.equityCompensationIssuanceContractId,
     });
 
-    expect(ocfResult.equityCompensationIssuance.id).toBe(originalData.id);
-    expect(ocfResult.equityCompensationIssuance.stakeholder_id).toBe(originalData.stakeholder_id);
-    expect(ocfResult.equityCompensationIssuance.compensation_type).toBe(originalData.compensation_type);
-    expect(ocfResult.equityCompensationIssuance.quantity).toBe(originalData.quantity);
+    expect(ocfResult.event.id).toBe(originalData.id);
+    expect(ocfResult.event.stakeholder_id).toBe(originalData.stakeholder_id);
+    expect(ocfResult.event.compensation_type).toBe(originalData.compensation_type);
+    expect(ocfResult.event.quantity).toBe(originalData.quantity);
   });
 
   test('creates RSU compensation', async () => {
@@ -187,8 +187,8 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       contractId: ecSetup.equityCompensationIssuanceContractId,
     });
 
-    expect(ocfResult.equityCompensationIssuance.compensation_type).toBe('RSU');
-    await validateOcfObject(ocfResult.equityCompensationIssuance as unknown as Record<string, unknown>);
+    expect(ocfResult.event.compensation_type).toBe('RSU');
+    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
   test('archives equity compensation issuance', async () => {

@@ -121,10 +121,10 @@ createIntegrationTestSuite('EquityCompensationExercise operations', (getContext)
       contractId: exerciseContractId,
     });
 
-    expect(ocfResult.equityCompensationExercise.object_type).toBe('TX_EQUITY_COMPENSATION_EXERCISE');
-    expect(ocfResult.equityCompensationExercise.quantity).toBe('2500');
+    expect(ocfResult.event.object_type).toBe('TX_EQUITY_COMPENSATION_EXERCISE');
+    expect(ocfResult.event.quantity).toBe('2500');
 
-    await validateOcfObject(ocfResult.equityCompensationExercise as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
   test('archives equity compensation exercise', async () => {
