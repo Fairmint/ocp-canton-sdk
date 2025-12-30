@@ -2,13 +2,14 @@
  * Deploy DAML contracts to LocalNet.
  *
  * This script auto-discovers DAR files from standard locations:
+ *
  * 1. @fairmint/open-captable-protocol-daml-js npm package
  * 2. Sibling open-captable-protocol-daml directory (monorepo)
  * 3. OCP_TEST_DAR_FILE_PATH environment variable (single file)
  * 4. OCP_TEST_DAR_FILE_PATHS environment variable (comma-separated list)
  *
- * Note: The integration test harness handles contract deployment automatically.
- * This script is provided for manual deployment or debugging purposes.
+ * Note: The integration test harness handles contract deployment automatically. This script is provided for manual
+ * deployment or debugging purposes.
  */
 
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
@@ -33,6 +34,7 @@ function parseFilePaths(raw: string): string[] {
  * Find DAR files to deploy.
  *
  * Priority:
+ *
  * 1. OCP_TEST_DAR_FILE_PATHS env var (comma-separated list)
  * 2. OCP_TEST_DAR_FILE_PATH env var (single file)
  * 3. @fairmint/open-captable-protocol-daml-js npm package
@@ -78,10 +80,9 @@ function findDarFiles(): string[] {
   }
 
   throw new Error(
-    'Could not find OCP DAML DAR file.\n' +
-      'Ensure @fairmint/open-captable-protocol-daml-js is installed, or set OCP_TEST_DAR_FILE_PATH.\n' +
-      'Searched locations:\n' +
-      possiblePaths.map((p) => `  - ${p}`).join('\n')
+    `Could not find OCP DAML DAR file.\n` +
+      `Ensure @fairmint/open-captable-protocol-daml-js is installed, or set OCP_TEST_DAR_FILE_PATH.\n` +
+      `Searched locations:\n${possiblePaths.map((p) => `  - ${p}`).join('\n')}`
   );
 }
 

@@ -627,7 +627,6 @@ export async function getFeaturedAppRightDetails(): Promise<DisclosedContract> {
   }
 }
 
-
 /**
  * Extract a contract ID from a transaction tree response.
  *
