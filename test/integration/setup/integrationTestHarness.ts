@@ -32,7 +32,7 @@
 import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../../src/OcpClient';
-import { buildIntegrationTestClientConfig, isIntegrationTestConfigured } from '../../utils/testConfig';
+import { buildIntegrationTestClientConfig, isIntegrationTestConfigured, retry } from '../../utils/testConfig';
 import { deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
 
 /** Shared context available to all integration tests. */
@@ -101,11 +101,18 @@ async function initializeHarness(): Promise<void> {
     state.ocp = new OcpClient(config);
 
     // Get FeaturedAppRight contract details from Validator API
-    // Note: If LocalNet isn't running, this will fail with a clear connection error.
-    // No explicit availability check needed - let it fail naturally.
-    console.log('📋 Fetching FeaturedAppRight contract details...');
+    // Uses retry logic because the contract may not be available immediately after LocalNet starts.
+    // The splice setup takes time to create the FeaturedAppRight contract.
+    console.log('📋 Fetching FeaturedAppRight contract details (with retry)...');
     const validatorClient = new ValidatorApiClient({ network: 'localnet' });
-    const details = await getFeaturedAppRightContractDetails(validatorClient);
+    const details = await retry(
+      async () => getFeaturedAppRightContractDetails(validatorClient),
+      {
+        timeoutMs: 120_000, // 2 minutes total
+        pollIntervalMs: 5_000, // Check every 5 seconds
+        description: 'FeaturedAppRight contract availability',
+      }
+    );
     state.featuredAppRight = {
       templateId: details.templateId,
       contractId: details.contractId,
