@@ -410,11 +410,13 @@ Client Secret: AL8648b9SfdTFImq7FV56Vd0KHifHBuC
 
 ### Known Limitations
 
-1. **FeaturedAppRight Creation**: The OAuth2 app_provider client may not have sufficient permissions to create FeaturedAppRight contracts via `AmuletRules_DevNet_FeatureApp`. Tests will fail with a clear error message explaining this limitation and possible solutions.
+1. **OAuth2 Disclosed Contracts**: In OAuth2 mode, the app_provider can't fetch `createdEventBlob` for contracts it doesn't own (returns 403). This breaks the disclosed contracts mechanism needed for cross-party visibility. **Solution:** Use shared-secret auth mode for full integration test coverage (`make setup` and select shared-secret).
 
 2. **First-time startup**: The first `make start` takes longer as it builds images and compiles DAML code.
 
 3. **Resource usage**: LocalNet runs ~20+ containers and requires significant RAM (recommend 8GB+ available for Docker).
+
+4. **State persistence**: Canton restarts (via Docker or health checks) clear all ledger state including deployed DARs, created factories, and contracts. Tests must handle re-deployment.
 
 ### Useful Make Targets
 
