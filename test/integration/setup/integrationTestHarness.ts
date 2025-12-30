@@ -33,7 +33,6 @@ import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmin
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../../src/OcpClient';
 import { buildIntegrationTestClientConfig, isIntegrationTestConfigured } from '../../utils/testConfig';
-import { isValidatorApiAvailable } from '../utils';
 import { deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
 
 /** Shared context available to all integration tests. */
@@ -101,18 +100,9 @@ async function initializeHarness(): Promise<void> {
     const config = buildIntegrationTestClientConfig();
     state.ocp = new OcpClient(config);
 
-    // Check if Validator API is available - fail fast if not
-    const validatorAvailable = await isValidatorApiAvailable();
-    if (!validatorAvailable) {
-      throw new Error(
-        'Validator API not available - cannot run integration tests.\n' +
-          'These tests require cn-quickstart LocalNet to be running.\n' +
-          'Start it with: cd libs/cn-quickstart/quickstart && make start'
-      );
-    }
-    state.validatorApiAvailable = true;
-
     // Get FeaturedAppRight contract details from Validator API
+    // Note: If LocalNet isn't running, this will fail with a clear connection error.
+    // No explicit availability check needed - let it fail naturally.
     console.log('📋 Fetching FeaturedAppRight contract details...');
     const validatorClient = new ValidatorApiClient({ network: 'localnet' });
     const details = await getFeaturedAppRightContractDetails(validatorClient);
@@ -122,6 +112,7 @@ async function initializeHarness(): Promise<void> {
       createdEventBlob: details.createdEventBlob,
       synchronizerId: details.synchronizerId,
     };
+    state.validatorApiAvailable = true;
     console.log(`   FeaturedAppRight contract: ${details.contractId}`);
 
     // Discover parties

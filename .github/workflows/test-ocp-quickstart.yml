@@ -77,14 +77,8 @@ jobs:
           echo "Waiting for Ledger JSON API..."
           OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1 node_modules/.bin/ts-node scripts/quickstart/waitForReady.ts
 
-      - name: Deploy contracts (optional)
-        env:
-          OCP_TEST_USE_CN_QUICKSTART_DEFAULTS: '1'
-          # Set OCP_TEST_DAR_FILE_PATHS to a comma-separated list of DAR file paths to deploy.
-          # Example:
-          # OCP_TEST_DAR_FILE_PATHS: ./path/to/OpenCapTable-v25-0.0.1.dar
-          OCP_TEST_DAR_FILE_PATHS: ${{ vars.OCP_TEST_DAR_FILE_PATHS }}
-        run: node_modules/.bin/ts-node scripts/quickstart/deployContracts.ts
+      # Note: Contract deployment is handled automatically by the integration test harness.
+      # It discovers DAR files from @fairmint/open-captable-protocol-daml-js npm package.
 
       - name: Run integration smoke tests
         env:

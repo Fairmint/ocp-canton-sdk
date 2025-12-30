@@ -627,20 +627,6 @@ export async function getFeaturedAppRightDetails(): Promise<DisclosedContract> {
   }
 }
 
-/**
- * Check if the Validator API is available for full integration tests.
- *
- * @returns True if Validator API is reachable, false otherwise
- */
-export async function isValidatorApiAvailable(): Promise<boolean> {
-  try {
-    const validatorClient = new ValidatorApiClient({ network: 'localnet' });
-    await getFeaturedAppRightContractDetails(validatorClient);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Extract a contract ID from a transaction tree response.
