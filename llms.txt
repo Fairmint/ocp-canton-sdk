@@ -251,14 +251,12 @@ Tests are organized by entity type with shared infrastructure:
 
 ```typescript
 // test/integration/entities/issuer.integration.test.ts
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import { generateTestId, setupTestIssuer } from '../utils';
 
 createIntegrationTestSuite('Issuer operations', (getContext) => {
   test('creates issuer and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
-
-    const ctx = getContext();  // Get shared context (ocp, issuerParty, featuredAppRight)
+    const ctx = getContext();  // Throws if LocalNet not available
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
       issuerParty: ctx.issuerParty,
@@ -275,6 +273,8 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
   });
 });
 ```
+
+**Note:** Tests fail fast if LocalNet is not running. There is no silent skipping - if infrastructure is missing, tests fail with a clear error message. This ensures CI catches missing infrastructure rather than falsely reporting success.
 
 **Adding tests for a new entity type:**
 
