@@ -20,22 +20,40 @@ npm run test:integration                        # LocalNet integration tests
 npm run docs                                    # Generate TypeDoc
 ```
 
-## Pre-Push Requirements
+## Pre-Push Requirements (CRITICAL)
 
-**ALWAYS run before pushing ANY changes or opening PRs:**
+**⚠️ ALWAYS run before pushing ANY changes or opening PRs:**
 
 ```bash
 npm run fix        # Auto-fixes ESLint and Prettier issues
-npm run typecheck  # TypeScript type checking (REQUIRED)
+npm run typecheck  # TypeScript type checking
 ```
 
-**Both commands must pass before opening a PR.**
+**Both commands MUST pass with zero errors and zero warnings before pushing.**
 
-- `npm run fix` runs ESLint with `--fix` and Prettier to auto-format code
-- `npm run typecheck` runs `tsc` to catch type errors that IDE may miss
-- CI enforces both—PRs will fail if either command fails
+### What These Commands Do
 
-If `npm run fix` can't auto-fix everything, manually resolve remaining issues before pushing.
+- `npm run fix` runs:
+  - ESLint with `--fix` (auto-fixes code style issues)
+  - Prettier (auto-formats code)
+  - **Fails if any warnings remain** (max-warnings=0)
+
+- `npm run typecheck` runs:
+  - TypeScript compiler in check mode
+  - Catches type errors the IDE may miss
+
+### If `npm run fix` Reports Warnings
+
+Some issues can't be auto-fixed. Common manual fixes:
+- **Unused imports/variables**: Remove them or prefix with `_` if intentionally unused
+- **Template literal type issues**: Use `String(value)` instead of direct interpolation of `unknown` types
+- **Any/unknown types**: Add proper type annotations or type guards
+
+### CI Enforcement
+
+- CI runs both checks on every PR
+- PRs with lint errors, warnings, or type errors **will fail**
+- Always verify locally before pushing to avoid CI failures
 
 **Git workflow:** Avoid force pushing (`git push --force`). If you need to update a PR branch:
 1. Merge from main: `git fetch origin main && git merge origin/main`

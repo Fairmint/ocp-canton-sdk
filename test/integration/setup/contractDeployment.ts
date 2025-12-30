@@ -227,7 +227,8 @@ export async function lookupFeaturedAppRightViaScanApi(
       synchronizerId,
     };
   } catch (err) {
-    console.log(`   FeaturedAppRight lookup failed: ${err instanceof Error ? err.message : err}`);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.log(`   FeaturedAppRight lookup failed: ${errorMessage}`);
     return null;
   }
 }

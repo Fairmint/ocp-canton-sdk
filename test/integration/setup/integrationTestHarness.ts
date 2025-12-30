@@ -38,7 +38,6 @@ import {
   deployAndCreateFactory,
   lookupFeaturedAppRightViaScanApi,
   type DeploymentResult,
-  type FeaturedAppRightResult,
 } from './contractDeployment';
 
 /** Shared context available to all integration tests. */
@@ -116,18 +115,16 @@ async function initializeHarness(): Promise<void> {
     const partyDetails = partiesResponse.partyDetails ?? [];
 
     if (partyDetails.length === 0) {
-      throw new Error(
-        'No parties found. Make sure cn-quickstart is running and parties are allocated.'
-      );
+      throw new Error('No parties found. Make sure cn-quickstart is running and parties are allocated.');
     }
 
     // Find the app_provider party (what we're authenticated as in cn-quickstart)
-    const appProviderParty = partyDetails.find((p) =>
-      p.party.toLowerCase().includes('app_provider') || p.party.toLowerCase().includes('provider')
+    const appProviderParty = partyDetails.find(
+      (p) => p.party.toLowerCase().includes('app_provider') || p.party.toLowerCase().includes('provider')
     );
     const authenticatedParty = appProviderParty?.party ?? partyDetails[0].party;
 
-    console.log(`   Available parties: ${partyDetails.map(p => p.party.split('::')[0]).join(', ')}`);
+    console.log(`   Available parties: ${partyDetails.map((p) => p.party.split('::')[0]).join(', ')}`);
     console.log(`   Using party: ${authenticatedParty}`);
 
     // In LocalNet, we use the same party for both issuer and system operator
@@ -147,10 +144,7 @@ async function initializeHarness(): Promise<void> {
 
     // Try to look up existing FeaturedAppRight via the scan API
     console.log(`📋 Looking up FeaturedAppRight for ${state.issuerParty}...`);
-    let featuredAppRightResult = await lookupFeaturedAppRightViaScanApi(
-      state.issuerParty,
-      synchronizerId
-    );
+    let featuredAppRightResult = await lookupFeaturedAppRightViaScanApi(state.issuerParty, synchronizerId);
     if (featuredAppRightResult) {
       console.log(`   Found existing FeaturedAppRight: ${featuredAppRightResult.contractId}`);
     }
@@ -159,18 +153,15 @@ async function initializeHarness(): Promise<void> {
     if (!featuredAppRightResult) {
       console.log('   Attempting to create FeaturedAppRight via AmuletRules_DevNet_FeatureApp...');
       try {
-        featuredAppRightResult = await createFeaturedAppRight(
-          state.ocp.client,
-          state.issuerParty,
-          dsoPartyId
-        );
+        featuredAppRightResult = await createFeaturedAppRight(state.ocp.client, state.issuerParty, dsoPartyId);
         console.log(`   Created FeaturedAppRight: ${featuredAppRightResult.contractId}`);
       } catch (createErr) {
         // FeaturedAppRight creation failed - this is common in LocalNet OAuth2 setup
         // where the app_provider doesn't have permission to exercise AmuletRules choices
+        const errorMessage = createErr instanceof Error ? createErr.message : String(createErr);
         throw new Error(
           `FeaturedAppRight not available and creation failed.\n\n` +
-            `Details: ${createErr instanceof Error ? createErr.message : createErr}\n\n` +
+            `Details: ${errorMessage}\n\n` +
             `The cn-quickstart LocalNet OAuth2 setup may not grant sufficient permissions ` +
             `to create FeaturedAppRight contracts via AmuletRules_DevNet_FeatureApp.\n\n` +
             `Possible solutions:\n` +
@@ -218,8 +209,11 @@ async function initializeHarness(): Promise<void> {
  *
  * - OCP_TEST_ISSUER_PARTY
  * - OCP_TEST_SYSTEM_OPERATOR_PARTY
+ *
+ * @deprecated Currently unused - party discovery is done inline in initializeHarness. Kept for potential future use
+ *   with multi-party test scenarios.
  */
-async function discoverParties(ocp: OcpClient): Promise<{ issuerParty: string; systemOperatorParty: string }> {
+async function _discoverParties(ocp: OcpClient): Promise<{ issuerParty: string; systemOperatorParty: string }> {
   // Allow override via environment variables
   const envIssuerParty = process.env.OCP_TEST_ISSUER_PARTY;
   const envSystemOperatorParty = process.env.OCP_TEST_SYSTEM_OPERATOR_PARTY;
