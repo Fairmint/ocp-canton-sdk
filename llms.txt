@@ -313,6 +313,101 @@ await validateOcfObject({ object_type: 'ISSUER', ... });
 6. Add to `OcpClient.ts`
 7. Add test fixture in `test/fixtures/`
 
+## LocalNet (cn-quickstart)
+
+The SDK includes cn-quickstart as a git submodule for local development and testing.
+
+### Location
+
+```
+libs/cn-quickstart/quickstart/   # cn-quickstart directory
+```
+
+### First-Time Setup
+
+```bash
+# Navigate to cn-quickstart
+cd libs/cn-quickstart/quickstart
+
+# Run interactive setup (creates .env.local)
+make setup
+# Choose: OAuth2 mode, set party hint (e.g., "quickstart-dev-1")
+
+# Install DAML SDK (if not already installed)
+make install-daml-sdk
+```
+
+### Starting LocalNet
+
+```bash
+cd libs/cn-quickstart/quickstart
+make start   # Builds and starts all containers
+```
+
+Wait ~4-5 minutes for all services to become healthy. Check status:
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}"
+```
+
+All services should show "healthy" before running tests.
+
+### Stopping LocalNet
+
+```bash
+cd libs/cn-quickstart/quickstart
+make stop              # Stop all containers
+make clean-all-docker  # Stop and remove all containers/volumes (full reset)
+```
+
+### Running Integration Tests Against LocalNet
+
+```bash
+# From ocp-canton-sdk root
+OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1 npm run test:integration
+```
+
+### LocalNet Services and Ports
+
+| Service | Port | Description |
+|---------|------|-------------|
+| App-Provider JSON API | 3975 | Ledger API for app_provider participant |
+| App-Provider Validator | 3903 | Validator API for app_provider |
+| App-User JSON API | 2975 | Ledger API for app_user participant |
+| SV JSON API | 4975 | Ledger API for super validator |
+| Keycloak | 8082 | OAuth2 authentication |
+| Scan API | scan.localhost:4000 | Network-wide contract queries |
+| Swagger UI | 9090 | API documentation |
+| Grafana | 3030 | Observability dashboard |
+
+### OAuth2 Credentials (app-provider)
+
+Used by SDK when `OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1`:
+
+```
+Auth URL: http://localhost:8082/realms/AppProvider/protocol/openid-connect/token
+Client ID: app-provider-validator
+Client Secret: AL8648b9SfdTFImq7FV56Vd0KHifHBuC
+```
+
+### Known Limitations
+
+1. **FeaturedAppRight Creation**: The OAuth2 app_provider client may not have sufficient permissions to create FeaturedAppRight contracts via `AmuletRules_DevNet_FeatureApp`. Tests will fail with a clear error message explaining this limitation and possible solutions.
+
+2. **First-time startup**: The first `make start` takes longer as it builds images and compiles DAML code.
+
+3. **Resource usage**: LocalNet runs ~20+ containers and requires significant RAM (recommend 8GB+ available for Docker).
+
+### Useful Make Targets
+
+```bash
+make status            # Show container status
+make logs              # View all logs
+make tail              # Tail logs in real-time
+make restart           # Stop and start
+make canton-console    # Interactive Canton console
+```
+
 ## Related Repos
 
 | Repo | Purpose |

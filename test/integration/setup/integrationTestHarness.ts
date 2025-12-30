@@ -109,24 +109,24 @@ async function initializeHarness(): Promise<void> {
     // Discover the party we're authenticated as from the ledger
     // In cn-quickstart LocalNet with OAuth2, we're authenticated as the app_provider party
     console.log('👥 Discovering authenticated party...');
-    
+
     // Use listParties to find which parties we have access to
     // The first party returned should be the one we're authenticated as
     const partiesResponse = await state.ocp.client.listParties({});
     const partyDetails = partiesResponse.partyDetails ?? [];
-    
+
     if (partyDetails.length === 0) {
       throw new Error(
         'No parties found. Make sure cn-quickstart is running and parties are allocated.'
       );
     }
-    
+
     // Find the app_provider party (what we're authenticated as in cn-quickstart)
-    const appProviderParty = partyDetails.find((p) => 
+    const appProviderParty = partyDetails.find((p) =>
       p.party.toLowerCase().includes('app_provider') || p.party.toLowerCase().includes('provider')
     );
     const authenticatedParty = appProviderParty?.party ?? partyDetails[0].party;
-    
+
     console.log(`   Available parties: ${partyDetails.map(p => p.party.split('::')[0]).join(', ')}`);
     console.log(`   Using party: ${authenticatedParty}`);
 
