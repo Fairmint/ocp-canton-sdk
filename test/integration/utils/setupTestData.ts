@@ -19,8 +19,8 @@ import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmin
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
-import type { CreateWarrantIssuanceParams } from '../../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import type { CreateConvertibleIssuanceParams } from '../../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
+import type { CreateWarrantIssuanceParams } from '../../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import type {
   OcfConvertibleIssuanceDataNative,
   OcfDocumentData,
