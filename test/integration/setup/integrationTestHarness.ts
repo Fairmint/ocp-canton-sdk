@@ -29,11 +29,11 @@
  *   ```;
  */
 
-import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
+import { ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../../src/OcpClient';
-import { buildIntegrationTestClientConfig, isIntegrationTestConfigured, retry } from '../../utils/testConfig';
-import { deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
+import { buildIntegrationTestClientConfig, isIntegrationTestConfigured } from '../../utils/testConfig';
+import { createFeaturedAppRight, deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
 
 /** Shared context available to all integration tests. */
 export interface IntegrationTestContext {
@@ -82,9 +82,9 @@ const state: HarnessState = {
  * This performs the full setup:
  *
  * 1. Creates OCP client
- * 2. Checks for Validator API availability
- * 3. Gets FeaturedAppRight contract details
- * 4. Discovers parties
+ * 2. Discovers parties
+ * 3. Gets DSO party ID from Validator API
+ * 4. Creates FeaturedAppRight for the system operator (self-grant on DevNet)
  * 5. Deploys DAML contracts (if needed)
  * 6. Creates OcpFactory contract (if needed)
  */
@@ -100,35 +100,37 @@ async function initializeHarness(): Promise<void> {
     const config = buildIntegrationTestClientConfig();
     state.ocp = new OcpClient(config);
 
-    // Get FeaturedAppRight contract details from Validator API
-    // Uses retry logic because the contract may not be available immediately after LocalNet starts.
-    // The splice setup takes time to create the FeaturedAppRight contract.
-    console.log('📋 Fetching FeaturedAppRight contract details (with retry)...');
-    const validatorClient = new ValidatorApiClient({ network: 'localnet' });
-    const details = await retry(
-      async () => getFeaturedAppRightContractDetails(validatorClient),
-      {
-        timeoutMs: 120_000, // 2 minutes total
-        pollIntervalMs: 5_000, // Check every 5 seconds
-        description: 'FeaturedAppRight contract availability',
-      }
-    );
-    state.featuredAppRight = {
-      templateId: details.templateId,
-      contractId: details.contractId,
-      createdEventBlob: details.createdEventBlob,
-      synchronizerId: details.synchronizerId,
-    };
-    state.validatorApiAvailable = true;
-    console.log(`   FeaturedAppRight contract: ${details.contractId}`);
-
-    // Discover parties
+    // Discover parties first (needed for FeaturedAppRight creation)
     console.log('👥 Discovering parties...');
     const { issuerParty, systemOperatorParty } = await discoverParties(state.ocp);
     state.issuerParty = issuerParty;
     state.systemOperatorParty = systemOperatorParty;
     console.log(`   Issuer party: ${issuerParty}`);
     console.log(`   System operator: ${systemOperatorParty}`);
+
+    // Get DSO party ID from Validator API (needed for FeaturedAppRight creation)
+    console.log('🔍 Getting DSO party ID...');
+    const validatorClient = new ValidatorApiClient({ network: 'localnet' });
+    const dsoResponse = await validatorClient.getDsoPartyId();
+    const dsoPartyId = dsoResponse.dso_party_id;
+    console.log(`   DSO party: ${dsoPartyId}`);
+
+    // Create FeaturedAppRight for the system operator party
+    // On DevNet/LocalNet, we can self-grant via AmuletRules_DevNet_FeatureApp
+    console.log('📋 Creating FeaturedAppRight for system operator...');
+    const featuredAppRightResult = await createFeaturedAppRight(
+      state.ocp.client,
+      state.systemOperatorParty,
+      dsoPartyId
+    );
+    state.featuredAppRight = {
+      templateId: featuredAppRightResult.templateId,
+      contractId: featuredAppRightResult.contractId,
+      createdEventBlob: featuredAppRightResult.createdEventBlob,
+      synchronizerId: featuredAppRightResult.synchronizerId,
+    };
+    state.validatorApiAvailable = true;
+    console.log(`   FeaturedAppRight contract: ${featuredAppRightResult.contractId}`);
 
     // Deploy contracts and create factory
     console.log('📦 Deploying contracts and creating OcpFactory...');

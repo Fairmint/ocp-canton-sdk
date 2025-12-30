@@ -4,7 +4,7 @@
  * This module handles deploying DAML contracts and creating the OcpFactory for LocalNet integration tests.
  */
 
-import { type LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { type LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
@@ -171,6 +171,101 @@ export async function getOcpFactoryDisclosedContract(
     createdEventBlob: events.created.createdEvent.createdEventBlob,
     // Use empty string as default - will be overridden when used in actual transactions
     synchronizerId: '',
+  };
+}
+
+/** Result of creating a FeaturedAppRight. */
+export interface FeaturedAppRightResult {
+  /** The FeaturedAppRight contract ID */
+  contractId: string;
+  /** The FeaturedAppRight template ID */
+  templateId: string;
+  /** The createdEventBlob for disclosed contracts */
+  createdEventBlob: string;
+  /** The synchronizer ID */
+  synchronizerId: string;
+}
+
+/**
+ * Create a FeaturedAppRight for a party by exercising AmuletRules_DevNet_FeatureApp.
+ *
+ * This is only available on DevNet (like LocalNet). It allows self-granting a FeaturedAppRight without DSO approval.
+ *
+ * @param client - The ledger client
+ * @param providerParty - The party to grant the FeaturedAppRight to
+ * @param dsoParty - The DSO party (required for the AmuletRules lookup)
+ */
+export async function createFeaturedAppRight(
+  client: LedgerJsonApiClient,
+  providerParty: string,
+  dsoParty: string
+): Promise<FeaturedAppRightResult> {
+  // Get AmuletRules contract via Validator API
+  const validatorClient = new ValidatorApiClient({ network: 'localnet' });
+  const amuletRulesResponse = await validatorClient.getAmuletRules();
+  const amuletRulesContractId = amuletRulesResponse.amulet_rules.contract.contract_id;
+  const synchronizerId = amuletRulesResponse.amulet_rules.domain_id;
+
+  console.log(`Creating FeaturedAppRight for party: ${providerParty}`);
+  console.log(`  AmuletRules contract: ${amuletRulesContractId}`);
+
+  // The template ID for AmuletRules - this is a splice contract
+  // We need to use the template ID format that matches the ledger
+  const amuletRulesTemplateId = amuletRulesResponse.amulet_rules.contract.template_id;
+
+  // Exercise AmuletRules_DevNet_FeatureApp choice
+  const response = (await client.submitAndWaitForTransactionTree({
+    commands: [
+      {
+        ExerciseCommand: {
+          templateId: amuletRulesTemplateId,
+          contractId: amuletRulesContractId,
+          choice: 'AmuletRules_DevNet_FeatureApp',
+          choiceArgument: {
+            provider: providerParty,
+          },
+        },
+      },
+    ],
+    actAs: [providerParty],
+    readAs: [dsoParty],
+  })) as SubmitAndWaitForTransactionTreeResponse;
+
+  // Find the created FeaturedAppRight contract
+  const { eventsById } = response.transactionTree;
+
+  let featuredAppRightContractId: string | null = null;
+  let featuredAppRightTemplateId: string | null = null;
+
+  for (const event of Object.values(eventsById)) {
+    if ('CreatedTreeEvent' in event) {
+      const created = event.CreatedTreeEvent.value;
+      // FeaturedAppRight template ID contains "FeaturedAppRight"
+      if (created.templateId.includes('FeaturedAppRight')) {
+        featuredAppRightContractId = created.contractId;
+        featuredAppRightTemplateId = created.templateId;
+        break;
+      }
+    }
+  }
+
+  if (!featuredAppRightContractId || !featuredAppRightTemplateId) {
+    throw new Error('FeaturedAppRight contract not found in AmuletRules_DevNet_FeatureApp response');
+  }
+
+  // Get the createdEventBlob for disclosed contracts
+  const contractEvents = await client.getEventsByContractId({ contractId: featuredAppRightContractId });
+  if (!contractEvents.created?.createdEvent.createdEventBlob) {
+    throw new Error('Missing createdEventBlob for FeaturedAppRight contract');
+  }
+
+  console.log(`FeaturedAppRight created: ${featuredAppRightContractId}`);
+
+  return {
+    contractId: featuredAppRightContractId,
+    templateId: featuredAppRightTemplateId,
+    createdEventBlob: contractEvents.created.createdEvent.createdEventBlob,
+    synchronizerId,
   };
 }
 
