@@ -1,0 +1,163 @@
+/**
+ * Integration tests for WarrantIssuance operations.
+ *
+ * Tests the full lifecycle of WarrantIssuance entities:
+ *
+ * - Create warrant issuance and read back as valid OCF
+ * - Data round-trip verification
+ * - Archive operation
+ *
+ * Run with:
+ *
+ * ```bash
+ * OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
+ * ```
+ */
+
+import { validateOcfObject } from '../../utils/ocfSchemaValidator';
+import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import {
+  createTestWarrantIssuanceData,
+  generateTestId,
+  setupTestIssuer,
+  setupTestStakeholder,
+  setupTestWarrantIssuance,
+} from '../utils';
+
+createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
+  test('creates warrant issuance and reads it back as valid OCF', async () => {
+    if (skipIfValidatorUnavailable()) return;
+
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+    });
+
+    const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stakeholderData: {
+        id: generateTestId('stakeholder-for-warrant'),
+        name: { legal_name: 'Warrant Holder' },
+        stakeholder_type: 'INDIVIDUAL',
+      },
+    });
+
+    const warrantSetup = await setupTestWarrantIssuance(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stakeholderId: stakeholderSetup.stakeholderData.id,
+      warrantIssuanceData: {
+        id: generateTestId('warrant-ocf-test'),
+        quantity: '10000',
+        exercise_price: { amount: '5.00', currency: 'USD' },
+        purchase_price: { amount: '0.01', currency: 'USD' },
+      },
+    });
+
+    const ocfResult = await ctx.ocp.OpenCapTable.warrantIssuance.getWarrantIssuanceAsOcf({
+      contractId: warrantSetup.warrantIssuanceContractId,
+    });
+
+    expect(ocfResult.warrantIssuance.object_type).toBe('TX_WARRANT_ISSUANCE');
+    expect(ocfResult.warrantIssuance.quantity).toBe('10000');
+
+    await validateOcfObject(ocfResult.warrantIssuance as unknown as Record<string, unknown>);
+  });
+
+  test('warrant issuance data round-trips correctly', async () => {
+    if (skipIfValidatorUnavailable()) return;
+
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+    });
+
+    const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stakeholderData: {
+        id: generateTestId('stakeholder-for-warrant-rt'),
+        name: { legal_name: 'Roundtrip Warrant Holder' },
+        stakeholder_type: 'INDIVIDUAL',
+      },
+    });
+
+    const originalData = createTestWarrantIssuanceData(stakeholderSetup.stakeholderData.id, {
+      id: generateTestId('warrant-roundtrip'),
+      quantity: '15000',
+      exercise_price: { amount: '3.50', currency: 'USD' },
+      purchase_price: { amount: '0.05', currency: 'USD' },
+      comments: ['Roundtrip test warrant'],
+    });
+
+    const warrantSetup = await setupTestWarrantIssuance(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stakeholderId: stakeholderSetup.stakeholderData.id,
+      warrantIssuanceData: originalData,
+    });
+
+    const ocfResult = await ctx.ocp.OpenCapTable.warrantIssuance.getWarrantIssuanceAsOcf({
+      contractId: warrantSetup.warrantIssuanceContractId,
+    });
+
+    expect(ocfResult.warrantIssuance.id).toBe(originalData.id);
+    expect(ocfResult.warrantIssuance.stakeholder_id).toBe(originalData.stakeholder_id);
+    expect(ocfResult.warrantIssuance.quantity).toBe(originalData.quantity);
+  });
+
+  test('archives warrant issuance', async () => {
+    if (skipIfValidatorUnavailable()) return;
+
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+    });
+
+    const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stakeholderData: {
+        id: generateTestId('stakeholder-for-warrant-archive'),
+        name: { legal_name: 'Archive Warrant Holder' },
+        stakeholder_type: 'INDIVIDUAL',
+      },
+    });
+
+    const warrantSetup = await setupTestWarrantIssuance(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stakeholderId: stakeholderSetup.stakeholderData.id,
+      warrantIssuanceData: {
+        id: generateTestId('warrant-archive-test'),
+        quantity: '5000',
+        exercise_price: { amount: '4.00', currency: 'USD' },
+        purchase_price: { amount: '0.01', currency: 'USD' },
+      },
+    });
+
+    const archiveCmd = ctx.ocp.OpenCapTable.warrantIssuance.buildArchiveWarrantIssuanceByIssuerCommand({
+      contractId: warrantSetup.warrantIssuanceContractId,
+    });
+
+    await ctx.ocp.client.submitAndWaitForTransactionTree({
+      commands: [archiveCmd],
+      actAs: [ctx.issuerParty],
+    });
+
+    // Archive operation succeeded if no error thrown
+  });
+});

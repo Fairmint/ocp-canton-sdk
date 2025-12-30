@@ -20,12 +20,22 @@ import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
 import type {
+  OcfConvertibleIssuanceDataNative,
+  OcfDocumentData,
+  OcfEquityCompensationIssuanceData,
+  OcfIssuerAuthorizedSharesAdjustmentTxData,
   OcfIssuerData,
   OcfStakeholderData,
+  OcfStockCancellationTxData,
   OcfStockClassAuthorizedSharesAdjustmentTxData,
   OcfStockClassData,
   OcfStockIssuanceData,
+  OcfStockLegendTemplateData,
+  OcfStockPlanData,
+  OcfStockPlanPoolAdjustmentTxData,
   OcfStockTransferTxData,
+  OcfVestingTermsData,
+  OcfWarrantIssuanceDataNative,
 } from '../../../src/types/native';
 
 /** Result from setting up a test issuer. */
@@ -70,6 +80,94 @@ export interface TestStockClassAuthorizedSharesAdjustmentSetup {
   adjustmentContractId: string;
   /** The adjustment data used to create it */
   adjustmentData: OcfStockClassAuthorizedSharesAdjustmentTxData;
+}
+
+/** Result from setting up a test stock legend template. */
+export interface TestStockLegendTemplateSetup {
+  /** The contract ID of the created stock legend template */
+  stockLegendTemplateContractId: string;
+  /** The stock legend template data used to create it */
+  stockLegendTemplateData: OcfStockLegendTemplateData;
+}
+
+/** Result from setting up a test vesting terms. */
+export interface TestVestingTermsSetup {
+  /** The contract ID of the created vesting terms */
+  vestingTermsContractId: string;
+  /** The vesting terms data used to create it */
+  vestingTermsData: OcfVestingTermsData;
+}
+
+/** Result from setting up a test stock plan. */
+export interface TestStockPlanSetup {
+  /** The contract ID of the created stock plan */
+  stockPlanContractId: string;
+  /** The stock plan data used to create it */
+  stockPlanData: OcfStockPlanData;
+}
+
+/** Result from setting up a test document. */
+export interface TestDocumentSetup {
+  /** The contract ID of the created document */
+  documentContractId: string;
+  /** The document data used to create it */
+  documentData: OcfDocumentData;
+}
+
+/** Result from setting up a test issuer authorized shares adjustment. */
+export interface TestIssuerAuthorizedSharesAdjustmentSetup {
+  /** The contract ID of the created adjustment */
+  adjustmentContractId: string;
+  /** The adjustment data used to create it */
+  adjustmentData: OcfIssuerAuthorizedSharesAdjustmentTxData;
+}
+
+/** Result from setting up a test stock plan pool adjustment. */
+export interface TestStockPlanPoolAdjustmentSetup {
+  /** The contract ID of the created adjustment */
+  adjustmentContractId: string;
+  /** The adjustment data used to create it */
+  adjustmentData: OcfStockPlanPoolAdjustmentTxData;
+}
+
+/** Result from setting up a test stock cancellation. */
+export interface TestStockCancellationSetup {
+  /** The contract ID of the created stock cancellation */
+  stockCancellationContractId: string;
+  /** The stock cancellation data used to create it */
+  stockCancellationData: OcfStockCancellationTxData;
+}
+
+/** Result from setting up a test equity compensation issuance. */
+export interface TestEquityCompensationIssuanceSetup {
+  /** The contract ID of the created equity compensation issuance */
+  equityCompensationIssuanceContractId: string;
+  /** The equity compensation issuance data used to create it */
+  equityCompensationIssuanceData: OcfEquityCompensationIssuanceData;
+}
+
+/** Result from setting up a test warrant issuance. */
+export interface TestWarrantIssuanceSetup {
+  /** The contract ID of the created warrant issuance */
+  warrantIssuanceContractId: string;
+  /** The warrant issuance data used to create it */
+  warrantIssuanceData: OcfWarrantIssuanceDataNative;
+}
+
+/** Result from setting up a test convertible issuance. */
+export interface TestConvertibleIssuanceSetup {
+  /** The contract ID of the created convertible issuance */
+  convertibleIssuanceContractId: string;
+  /** The convertible issuance data used to create it */
+  convertibleIssuanceData: OcfConvertibleIssuanceDataNative;
+}
+
+/** Result from setting up a test stock transfer. */
+export interface TestStockTransferSetup {
+  /** The contract ID of the created stock transfer */
+  stockTransferContractId: string;
+  /** The stock transfer data used to create it */
+  stockTransferData: OcfStockTransferTxData;
 }
 
 /** Result from setting up a complete cap table for testing. */
@@ -237,6 +335,262 @@ export function createTestStockClassAuthorizedSharesAdjustmentData(
     new_shares_authorized: '20000000',
     board_approval_date: generateDateString(-7), // 7 days ago
     comments: ['Integration test authorized shares adjustment'],
+    ...overrides,
+  };
+}
+
+/**
+ * Create default stock legend template data for testing.
+ *
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfStockLegendTemplateData for testing
+ */
+export function createTestStockLegendTemplateData(
+  overrides: Partial<OcfStockLegendTemplateData> = {}
+): OcfStockLegendTemplateData {
+  return {
+    id: generateTestId('legend'),
+    name: 'Standard Stock Legend',
+    text: 'THE SECURITIES REPRESENTED BY THIS CERTIFICATE HAVE NOT BEEN REGISTERED UNDER THE SECURITIES ACT OF 1933.',
+    comments: ['Integration test stock legend template'],
+    ...overrides,
+  };
+}
+
+/**
+ * Create default vesting terms data for testing.
+ *
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfVestingTermsData for testing
+ */
+export function createTestVestingTermsData(overrides: Partial<OcfVestingTermsData> = {}): OcfVestingTermsData {
+  return {
+    id: generateTestId('vesting'),
+    name: '4 Year Standard Vesting',
+    description: 'Standard 4 year vesting with 1 year cliff',
+    allocation_type: 'CUMULATIVE_ROUNDING',
+    vesting_conditions: [
+      {
+        id: 'start',
+        description: 'Vesting start trigger',
+        trigger: { type: 'VESTING_START_DATE' } as unknown as OcfVestingTermsData['vesting_conditions'][0]['trigger'],
+        next_condition_ids: ['cliff'],
+      },
+      {
+        id: 'cliff',
+        description: '1 year cliff',
+        portion: { numerator: '25', denominator: '100', remainder: false },
+        trigger: {
+          type: 'VESTING_SCHEDULE_RELATIVE',
+          period: { type: 'MONTHS', length: 12, occurrences: 1, day_of_month: '01' },
+          relative_to_condition_id: 'start',
+        } as unknown as OcfVestingTermsData['vesting_conditions'][0]['trigger'],
+        next_condition_ids: ['monthly'],
+      },
+      {
+        id: 'monthly',
+        description: 'Monthly vesting over 36 months',
+        portion: { numerator: '75', denominator: '100', remainder: true },
+        trigger: {
+          type: 'VESTING_SCHEDULE_RELATIVE',
+          period: { type: 'MONTHS', length: 1, occurrences: 36, day_of_month: '01' },
+          relative_to_condition_id: 'cliff',
+        } as unknown as OcfVestingTermsData['vesting_conditions'][0]['trigger'],
+        next_condition_ids: [],
+      },
+    ],
+    comments: ['Integration test vesting terms'],
+    ...overrides,
+  };
+}
+
+/**
+ * Create default stock plan data for testing.
+ *
+ * @param stockClassIds - The stock class IDs associated with this plan
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfStockPlanData for testing
+ */
+export function createTestStockPlanData(
+  stockClassIds: string[],
+  overrides: Partial<OcfStockPlanData> = {}
+): OcfStockPlanData {
+  return {
+    id: generateTestId('plan'),
+    plan_name: '2024 Equity Incentive Plan',
+    board_approval_date: generateDateString(-30),
+    stockholder_approval_date: generateDateString(-14),
+    initial_shares_reserved: '1000000',
+    default_cancellation_behavior: 'RETURN_TO_POOL',
+    stock_class_ids: stockClassIds,
+    comments: ['Integration test stock plan'],
+    ...overrides,
+  };
+}
+
+/**
+ * Create default document data for testing.
+ *
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfDocumentData for testing
+ */
+export function createTestDocumentData(overrides: Partial<OcfDocumentData> = {}): OcfDocumentData {
+  return {
+    id: generateTestId('doc'),
+    path: 'documents/test-document.pdf',
+    md5: 'd41d8cd98f00b204e9800998ecf8427e', // MD5 of empty string
+    comments: ['Integration test document'],
+    ...overrides,
+  };
+}
+
+/**
+ * Create default issuer authorized shares adjustment data for testing.
+ *
+ * @param issuerId - The issuer ID being adjusted
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfIssuerAuthorizedSharesAdjustmentTxData for testing
+ */
+export function createTestIssuerAuthorizedSharesAdjustmentData(
+  issuerId: string,
+  overrides: Partial<OcfIssuerAuthorizedSharesAdjustmentTxData> = {}
+): OcfIssuerAuthorizedSharesAdjustmentTxData {
+  return {
+    id: generateTestId('issuer-adj'),
+    date: generateDateString(),
+    issuer_id: issuerId,
+    new_shares_authorized: '50000000',
+    board_approval_date: generateDateString(-7),
+    comments: ['Integration test issuer authorized shares adjustment'],
+    ...overrides,
+  };
+}
+
+/**
+ * Create default stock plan pool adjustment data for testing.
+ *
+ * @param stockPlanId - The stock plan being adjusted
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfStockPlanPoolAdjustmentTxData for testing
+ */
+export function createTestStockPlanPoolAdjustmentData(
+  stockPlanId: string,
+  overrides: Partial<OcfStockPlanPoolAdjustmentTxData> = {}
+): OcfStockPlanPoolAdjustmentTxData {
+  return {
+    id: generateTestId('pool-adj'),
+    date: generateDateString(),
+    stock_plan_id: stockPlanId,
+    board_approval_date: generateDateString(-7),
+    shares_reserved: '2000000',
+    comments: ['Integration test stock plan pool adjustment'],
+    ...overrides,
+  };
+}
+
+/**
+ * Create default stock cancellation data for testing.
+ *
+ * @param securityId - The security being cancelled
+ * @param quantity - Amount to cancel
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfStockCancellationTxData for testing
+ */
+export function createTestStockCancellationData(
+  securityId: string,
+  quantity: string | number,
+  overrides: Partial<OcfStockCancellationTxData> = {}
+): OcfStockCancellationTxData {
+  return {
+    id: generateTestId('cancellation'),
+    date: generateDateString(),
+    security_id: securityId,
+    quantity,
+    reason_text: 'Integration test cancellation',
+    comments: ['Integration test stock cancellation'],
+    ...overrides,
+  };
+}
+
+/**
+ * Create default equity compensation issuance data for testing.
+ *
+ * @param stakeholderId - The stakeholder receiving the equity compensation
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfEquityCompensationIssuanceData for testing
+ */
+export function createTestEquityCompensationIssuanceData(
+  stakeholderId: string,
+  overrides: Partial<OcfEquityCompensationIssuanceData> = {}
+): OcfEquityCompensationIssuanceData {
+  const securityId = generateTestId('ec-security');
+  return {
+    id: generateTestId('ec-issuance'),
+    date: generateDateString(),
+    security_id: securityId,
+    custom_id: `EC-${Date.now()}`,
+    stakeholder_id: stakeholderId,
+    compensation_type: 'OPTION_ISO',
+    quantity: '10000',
+    exercise_price: { amount: '1.00', currency: 'USD' },
+    expiration_date: generateDateString(365 * 10), // 10 years from now
+    comments: ['Integration test equity compensation issuance'],
+    ...overrides,
+  };
+}
+
+/**
+ * Create default warrant issuance data for testing.
+ *
+ * @param stakeholderId - The stakeholder receiving the warrant
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfWarrantIssuanceDataNative for testing
+ */
+export function createTestWarrantIssuanceData(
+  stakeholderId: string,
+  overrides: Partial<OcfWarrantIssuanceDataNative> = {}
+): OcfWarrantIssuanceDataNative {
+  const securityId = generateTestId('warrant-security');
+  return {
+    id: generateTestId('warrant'),
+    date: generateDateString(),
+    security_id: securityId,
+    custom_id: `WR-${Date.now()}`,
+    stakeholder_id: stakeholderId,
+    quantity: '5000',
+    exercise_price: { amount: '2.00', currency: 'USD' },
+    purchase_price: { amount: '0.01', currency: 'USD' },
+    exercise_triggers: [],
+    security_law_exemptions: [{ description: 'Rule 506(b)', jurisdiction: 'US' }],
+    comments: ['Integration test warrant issuance'],
+    ...overrides,
+  };
+}
+
+/**
+ * Create default convertible issuance data for testing.
+ *
+ * @param stakeholderId - The stakeholder receiving the convertible
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfConvertibleIssuanceDataNative for testing
+ */
+export function createTestConvertibleIssuanceData(
+  stakeholderId: string,
+  overrides: Partial<OcfConvertibleIssuanceDataNative> = {}
+): OcfConvertibleIssuanceDataNative {
+  const securityId = generateTestId('convertible-security');
+  return {
+    id: generateTestId('convertible'),
+    date: generateDateString(),
+    security_id: securityId,
+    custom_id: `CV-${Date.now()}`,
+    stakeholder_id: stakeholderId,
+    investment_amount: { amount: '100000', currency: 'USD' },
+    convertible_type: 'SAFE',
+    conversion_triggers: [],
+    seniority: 1,
+    security_law_exemptions: [{ description: 'Rule 506(b)', jurisdiction: 'US' }],
+    comments: ['Integration test convertible issuance'],
     ...overrides,
   };
 }
@@ -538,5 +892,604 @@ export async function setupTestStockClassAuthorizedSharesAdjustment(
   return {
     adjustmentContractId,
     adjustmentData,
+  };
+}
+
+/**
+ * Setup a test stock legend template under an existing issuer.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockLegendTemplateSetup with the created stock legend template
+ */
+export async function setupTestStockLegendTemplate(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** Optional stock legend template data overrides */
+    stockLegendTemplateData?: Partial<OcfStockLegendTemplateData>;
+  }
+): Promise<TestStockLegendTemplateSetup> {
+  const stockLegendTemplateData = createTestStockLegendTemplateData(options.stockLegendTemplateData);
+
+  const cmd = ocp.OpenCapTable.stockLegendTemplate.buildCreateStockLegendTemplateCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    templateData: stockLegendTemplateData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const stockLegendTemplateContractId = extractContractIdFromResponse(result, 'StockLegendTemplate');
+  if (!stockLegendTemplateContractId) {
+    throw new Error('Failed to extract stock legend template contract ID from transaction result');
+  }
+
+  return {
+    stockLegendTemplateContractId,
+    stockLegendTemplateData,
+  };
+}
+
+/**
+ * Setup a test vesting terms under an existing issuer.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestVestingTermsSetup with the created vesting terms
+ */
+export async function setupTestVestingTerms(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** Optional vesting terms data overrides */
+    vestingTermsData?: Partial<OcfVestingTermsData>;
+  }
+): Promise<TestVestingTermsSetup> {
+  const vestingTermsData = createTestVestingTermsData(options.vestingTermsData);
+
+  const cmd = ocp.OpenCapTable.vestingTerms.buildCreateVestingTermsCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    vestingTermsData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const vestingTermsContractId = extractContractIdFromResponse(result, 'VestingTerms');
+  if (!vestingTermsContractId) {
+    throw new Error('Failed to extract vesting terms contract ID from transaction result');
+  }
+
+  return {
+    vestingTermsContractId,
+    vestingTermsData,
+  };
+}
+
+/**
+ * Setup a test stock plan under an existing issuer.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockPlanSetup with the created stock plan
+ */
+export async function setupTestStockPlan(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** Stock class IDs for this plan */
+    stockClassIds: string[];
+    /** Optional stock plan data overrides */
+    stockPlanData?: Partial<OcfStockPlanData>;
+  }
+): Promise<TestStockPlanSetup> {
+  const stockPlanData = createTestStockPlanData(options.stockClassIds, options.stockPlanData);
+
+  const cmd = ocp.OpenCapTable.stockPlan.buildCreateStockPlanCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    planData: stockPlanData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const stockPlanContractId = extractContractIdFromResponse(result, 'StockPlan');
+  if (!stockPlanContractId) {
+    throw new Error('Failed to extract stock plan contract ID from transaction result');
+  }
+
+  return {
+    stockPlanContractId,
+    stockPlanData,
+  };
+}
+
+/**
+ * Setup a test document under an existing issuer.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestDocumentSetup with the created document
+ */
+export async function setupTestDocument(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** Optional document data overrides */
+    documentData?: Partial<OcfDocumentData>;
+  }
+): Promise<TestDocumentSetup> {
+  const documentData = createTestDocumentData(options.documentData);
+
+  const cmd = ocp.OpenCapTable.document.buildCreateDocumentCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    documentData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const documentContractId = extractContractIdFromResponse(result, 'Document');
+  if (!documentContractId) {
+    throw new Error('Failed to extract document contract ID from transaction result');
+  }
+
+  return {
+    documentContractId,
+    documentData,
+  };
+}
+
+/**
+ * Setup a test issuer authorized shares adjustment.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestIssuerAuthorizedSharesAdjustmentSetup with the created adjustment
+ */
+export async function setupTestIssuerAuthorizedSharesAdjustment(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** The issuer ID for the adjustment data */
+    issuerId: string;
+    /** Optional adjustment data overrides */
+    adjustmentData?: Partial<OcfIssuerAuthorizedSharesAdjustmentTxData>;
+  }
+): Promise<TestIssuerAuthorizedSharesAdjustmentSetup> {
+  const adjustmentData = createTestIssuerAuthorizedSharesAdjustmentData(options.issuerId, options.adjustmentData);
+
+  const cmd = ocp.OpenCapTable.issuerAuthorizedSharesAdjustment.buildCreateIssuerAuthorizedSharesAdjustmentCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    adjustmentData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const adjustmentContractId = extractContractIdFromResponse(result, 'IssuerAuthorizedSharesAdjustment');
+  if (!adjustmentContractId) {
+    throw new Error('Failed to extract issuer authorized shares adjustment contract ID from transaction result');
+  }
+
+  return {
+    adjustmentContractId,
+    adjustmentData,
+  };
+}
+
+/**
+ * Setup a test stock plan pool adjustment.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockPlanPoolAdjustmentSetup with the created adjustment
+ */
+export async function setupTestStockPlanPoolAdjustment(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** The stock plan ID being adjusted */
+    stockPlanId: string;
+    /** Optional adjustment data overrides */
+    adjustmentData?: Partial<OcfStockPlanPoolAdjustmentTxData>;
+  }
+): Promise<TestStockPlanPoolAdjustmentSetup> {
+  const adjustmentData = createTestStockPlanPoolAdjustmentData(options.stockPlanId, options.adjustmentData);
+
+  const cmd = ocp.OpenCapTable.stockPlanPoolAdjustment.buildCreateStockPlanPoolAdjustmentCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    adjustmentData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const adjustmentContractId = extractContractIdFromResponse(result, 'StockPlanPoolAdjustment');
+  if (!adjustmentContractId) {
+    throw new Error('Failed to extract stock plan pool adjustment contract ID from transaction result');
+  }
+
+  return {
+    adjustmentContractId,
+    adjustmentData,
+  };
+}
+
+/**
+ * Setup a test stock issuance.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockIssuanceSetup with the created stock issuance
+ */
+export async function setupTestStockIssuance(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** The stakeholder ID receiving the issuance */
+    stakeholderId: string;
+    /** The stock class ID for the issuance */
+    stockClassId: string;
+    /** Optional stock issuance data overrides */
+    stockIssuanceData?: Partial<OcfStockIssuanceData>;
+  }
+): Promise<TestStockIssuanceSetup> {
+  const stockIssuanceData = createTestStockIssuanceData(
+    options.stakeholderId,
+    options.stockClassId,
+    options.stockIssuanceData
+  );
+
+  const cmd = ocp.OpenCapTable.stockIssuance.buildCreateStockIssuanceCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    issuanceData: stockIssuanceData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const stockIssuanceContractId = extractContractIdFromResponse(result, 'StockIssuance');
+  if (!stockIssuanceContractId) {
+    throw new Error('Failed to extract stock issuance contract ID from transaction result');
+  }
+
+  return {
+    stockIssuanceContractId,
+    stockIssuanceData,
+  };
+}
+
+/**
+ * Setup a test stock transfer.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockTransferSetup with the created stock transfer
+ */
+export async function setupTestStockTransfer(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** The security ID being transferred */
+    securityId: string;
+    /** The quantity being transferred */
+    quantity: string | number;
+    /** Optional stock transfer data overrides */
+    stockTransferData?: Partial<OcfStockTransferTxData>;
+  }
+): Promise<TestStockTransferSetup> {
+  const stockTransferData = createTestStockTransferData(
+    options.securityId,
+    options.quantity,
+    options.stockTransferData
+  );
+
+  const cmd = ocp.OpenCapTable.stockTransfer.buildCreateStockTransferCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    transferData: stockTransferData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const stockTransferContractId = extractContractIdFromResponse(result, 'StockTransfer');
+  if (!stockTransferContractId) {
+    throw new Error('Failed to extract stock transfer contract ID from transaction result');
+  }
+
+  return {
+    stockTransferContractId,
+    stockTransferData,
+  };
+}
+
+/**
+ * Setup a test stock cancellation.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockCancellationSetup with the created stock cancellation
+ */
+export async function setupTestStockCancellation(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** The security ID being cancelled */
+    securityId: string;
+    /** The quantity being cancelled */
+    quantity: string | number;
+    /** Optional stock cancellation data overrides */
+    stockCancellationData?: Partial<OcfStockCancellationTxData>;
+  }
+): Promise<TestStockCancellationSetup> {
+  const stockCancellationData = createTestStockCancellationData(
+    options.securityId,
+    options.quantity,
+    options.stockCancellationData
+  );
+
+  const cmd = ocp.OpenCapTable.stockCancellation.buildCreateStockCancellationCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    cancellationData: stockCancellationData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const stockCancellationContractId = extractContractIdFromResponse(result, 'StockCancellation');
+  if (!stockCancellationContractId) {
+    throw new Error('Failed to extract stock cancellation contract ID from transaction result');
+  }
+
+  return {
+    stockCancellationContractId,
+    stockCancellationData,
+  };
+}
+
+/**
+ * Setup a test equity compensation issuance.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestEquityCompensationIssuanceSetup with the created equity compensation issuance
+ */
+export async function setupTestEquityCompensationIssuance(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** The stakeholder ID receiving the equity compensation */
+    stakeholderId: string;
+    /** Optional stock plan ID */
+    stockPlanId?: string;
+    /** Optional stock class ID */
+    stockClassId?: string;
+    /** Optional equity compensation issuance data overrides */
+    equityCompensationIssuanceData?: Partial<OcfEquityCompensationIssuanceData>;
+  }
+): Promise<TestEquityCompensationIssuanceSetup> {
+  const equityCompensationIssuanceData = createTestEquityCompensationIssuanceData(options.stakeholderId, {
+    stock_plan_id: options.stockPlanId,
+    stock_class_id: options.stockClassId,
+    ...options.equityCompensationIssuanceData,
+  });
+
+  const cmd = ocp.OpenCapTable.equityCompensationIssuance.buildCreateEquityCompensationIssuanceCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    issuanceData: equityCompensationIssuanceData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const equityCompensationIssuanceContractId = extractContractIdFromResponse(result, 'EquityCompensationIssuance');
+  if (!equityCompensationIssuanceContractId) {
+    throw new Error('Failed to extract equity compensation issuance contract ID from transaction result');
+  }
+
+  return {
+    equityCompensationIssuanceContractId,
+    equityCompensationIssuanceData,
+  };
+}
+
+/**
+ * Setup a test warrant issuance.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestWarrantIssuanceSetup with the created warrant issuance
+ */
+export async function setupTestWarrantIssuance(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** The stakeholder ID receiving the warrant */
+    stakeholderId: string;
+    /** Optional warrant issuance data overrides */
+    warrantIssuanceData?: Partial<OcfWarrantIssuanceDataNative>;
+  }
+): Promise<TestWarrantIssuanceSetup> {
+  const warrantIssuanceData = createTestWarrantIssuanceData(options.stakeholderId, options.warrantIssuanceData);
+
+  const cmd = ocp.OpenCapTable.warrantIssuance.buildCreateWarrantIssuanceCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    issuanceData: warrantIssuanceData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const warrantIssuanceContractId = extractContractIdFromResponse(result, 'WarrantIssuance');
+  if (!warrantIssuanceContractId) {
+    throw new Error('Failed to extract warrant issuance contract ID from transaction result');
+  }
+
+  return {
+    warrantIssuanceContractId,
+    warrantIssuanceData,
+  };
+}
+
+/**
+ * Setup a test convertible issuance.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestConvertibleIssuanceSetup with the created convertible issuance
+ */
+export async function setupTestConvertibleIssuance(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** The stakeholder ID receiving the convertible */
+    stakeholderId: string;
+    /** Optional convertible issuance data overrides */
+    convertibleIssuanceData?: Partial<OcfConvertibleIssuanceDataNative>;
+  }
+): Promise<TestConvertibleIssuanceSetup> {
+  const convertibleIssuanceData = createTestConvertibleIssuanceData(
+    options.stakeholderId,
+    options.convertibleIssuanceData
+  );
+
+  const cmd = ocp.OpenCapTable.convertibleIssuance.buildCreateConvertibleIssuanceCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    issuanceData: convertibleIssuanceData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const convertibleIssuanceContractId = extractContractIdFromResponse(result, 'ConvertibleIssuance');
+  if (!convertibleIssuanceContractId) {
+    throw new Error('Failed to extract convertible issuance contract ID from transaction result');
+  }
+
+  return {
+    convertibleIssuanceContractId,
+    convertibleIssuanceData,
   };
 }
