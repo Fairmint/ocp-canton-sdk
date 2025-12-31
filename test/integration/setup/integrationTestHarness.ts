@@ -132,9 +132,14 @@ async function initializeHarness(): Promise<void> {
     state.issuerParty = authenticatedParty;
     state.systemOperatorParty = authenticatedParty;
 
+    // Set the party ID on the client for operations that need it
+    // (e.g., getEventsByContractId uses partyId for visibility filtering)
+    state.ocp.client.setPartyId(authenticatedParty);
+
     // Get DSO party ID and synchronizer ID from Validator API
+    // Pass the same config to ensure auth mode consistency
     console.log('🔍 Getting DSO party ID and synchronizer ID...');
-    const validatorClient = new ValidatorApiClient({ network: 'localnet' });
+    const validatorClient = new ValidatorApiClient(config);
     const dsoResponse = await validatorClient.getDsoPartyId();
     const dsoPartyId = dsoResponse.dso_party_id;
     const amuletRules = await validatorClient.getAmuletRules();
@@ -153,7 +158,7 @@ async function initializeHarness(): Promise<void> {
     if (!featuredAppRightResult) {
       console.log('   Attempting to create FeaturedAppRight via AmuletRules_DevNet_FeatureApp...');
       try {
-        featuredAppRightResult = await createFeaturedAppRight(state.ocp.client, state.issuerParty);
+        featuredAppRightResult = await createFeaturedAppRight(state.ocp.client, state.issuerParty, validatorClient);
         console.log(`   Created FeaturedAppRight: ${featuredAppRightResult.contractId}`);
       } catch (createErr) {
         // FeaturedAppRight creation failed

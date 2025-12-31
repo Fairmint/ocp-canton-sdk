@@ -273,13 +273,14 @@ export async function lookupFeaturedAppRightViaScanApi(
  *
  * @param client - The ledger client
  * @param providerParty - The party to grant the FeaturedAppRight to
+ * @param validatorClient - The validator API client (pre-configured with correct auth)
  */
 export async function createFeaturedAppRight(
   client: LedgerJsonApiClient,
-  providerParty: string
+  providerParty: string,
+  validatorClient: ValidatorApiClient
 ): Promise<FeaturedAppRightResult> {
   // Get AmuletRules contract via Validator API
-  const validatorClient = new ValidatorApiClient({ network: 'localnet' });
   const amuletRulesResponse = await validatorClient.getAmuletRules();
   const amuletRulesContractId = amuletRulesResponse.amulet_rules.contract.contract_id;
   const amuletRulesTemplateId = amuletRulesResponse.amulet_rules.contract.template_id;
