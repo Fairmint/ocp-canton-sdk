@@ -64,6 +64,23 @@ This preserves commit history and makes PR review easier.
 
 **After creating a PR**, open it in the browser for review: `open <PR_URL>`
 
+**Monitoring PR CI Status (Required):**
+
+Always check CI status after creating a PR using the GitHub CLI:
+
+```bash
+gh pr checks <PR_NUMBER>              # Check all CI checks
+gh run view <RUN_ID> --log-failed     # View failed job logs
+gh run view --job=<JOB_ID>            # View specific job details
+```
+
+**Workflow:**
+1. Create PR and push
+2. Wait ~30 seconds for CI to start
+3. Run `gh pr checks <PR_NUMBER>` to monitor
+4. If CI fails, view logs and fix issues
+5. Push fixes and re-check until CI passes
+
 ## Architecture
 
 ### Layer Stack
