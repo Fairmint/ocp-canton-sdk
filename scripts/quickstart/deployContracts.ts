@@ -73,10 +73,7 @@ function findDarFiles(): string[] {
       '../../node_modules/@fairmint/open-captable-protocol-daml-js/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
     ),
     // From sibling directory (local development in monorepo)
-    path.resolve(
-      __dirname,
-      '../../open-captable-protocol-daml/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
-    ),
+    path.resolve(__dirname, '../../open-captable-protocol-daml/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'),
   ];
 
   for (const darPath of possiblePaths) {
