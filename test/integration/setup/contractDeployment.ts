@@ -28,25 +28,16 @@ export interface DeploymentResult {
  */
 function findDarFilePath(): string | null {
   const possiblePaths = [
-    // From libs/ submodule (CI uses this)
-    path.resolve(
-      __dirname,
-      '../../../../libs/open-captable-protocol-daml/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
-    ),
-    // From npm package (new path)
+    // From npm package - DAR file included in package
     path.resolve(
       __dirname,
       '../../../../node_modules/@fairmint/open-captable-protocol-daml-js/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
     ),
-    // From npm package (legacy path for backwards compatibility)
-    path.resolve(__dirname, '../../../../node_modules/@fairmint/open-captable-protocol-daml-js/OpenCapTable.dar'),
-    // From sibling directory (monorepo) - new path
+    // From sibling directory (local development in monorepo)
     path.resolve(
       __dirname,
       '../../../../open-captable-protocol-daml/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
     ),
-    // From sibling directory (monorepo) - legacy path
-    path.resolve(__dirname, '../../../../open-captable-protocol-daml/OpenCapTable.dar'),
     // Environment variable override
     process.env.OCP_TEST_DAR_FILE_PATH,
   ].filter(Boolean) as string[];

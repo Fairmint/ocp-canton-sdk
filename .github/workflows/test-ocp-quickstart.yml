@@ -37,13 +37,6 @@ jobs:
           git submodule update --init --depth 1 libs/splice
           git submodule update --init --recursive libs/cn-quickstart
 
-      - name: Clone open-captable-protocol-daml
-        uses: actions/checkout@v4
-        with:
-          repository: Fairmint/open-captable-protocol-daml
-          path: libs/open-captable-protocol-daml
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install dependencies
         run: npm install
 
@@ -67,12 +60,6 @@ jobs:
 
       - name: Add Daml CLI to PATH
         run: echo "$HOME/.daml/bin" >> $GITHUB_PATH
-
-      - name: Build OCP DAR file
-        run: |
-          cd libs/open-captable-protocol-daml
-          daml build --project-root OpenCapTable-v25
-          ls -la OpenCapTable-v25/.daml/dist/
 
       - name: Start CN-Quickstart
         run: |
