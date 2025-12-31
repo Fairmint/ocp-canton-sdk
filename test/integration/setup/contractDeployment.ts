@@ -28,6 +28,11 @@ export interface DeploymentResult {
  */
 function findDarFilePath(): string | null {
   const possiblePaths = [
+    // From libs/ submodule (CI uses this)
+    path.resolve(
+      __dirname,
+      '../../../../libs/open-captable-protocol-daml/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
+    ),
     // From npm package (new path)
     path.resolve(
       __dirname,
