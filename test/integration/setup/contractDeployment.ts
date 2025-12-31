@@ -38,9 +38,7 @@ function findDarFilePath(): string | null {
       __dirname,
       '../../../../open-captable-protocol-daml/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
     ),
-    // Environment variable override
-    process.env.OCP_TEST_DAR_FILE_PATH,
-  ].filter(Boolean) as string[];
+  ];
 
   for (const darPath of possiblePaths) {
     if (fs.existsSync(darPath)) {
@@ -69,7 +67,7 @@ async function deployContracts(client: LedgerJsonApiClient): Promise<string[]> {
   if (!darPath) {
     throw new Error(
       'Could not find OCP DAML DAR file. ' +
-        'Ensure @fairmint/open-captable-protocol-daml-js is installed or set OCP_TEST_DAR_FILE_PATH.'
+        'Ensure @fairmint/open-captable-protocol-daml-js is installed or run `daml build` in open-captable-protocol-daml.'
     );
   }
 
