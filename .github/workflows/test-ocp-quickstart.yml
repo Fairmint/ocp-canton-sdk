@@ -46,9 +46,12 @@ jobs:
       - name: Setup CN-Quickstart (shared-secret)
         run: |
           cd libs/cn-quickstart/quickstart
-          # Setup with shared-secret mode - export AUTH_MODE and select option 1
-          export AUTH_MODE=shared-secret
-          echo "1" | make setup || true
+          # Setup with shared-secret mode
+          # The setup wizard asks:
+          #   1. "Enable Observability? (Y/n):" - answer Y (default)
+          #   2. "Enable OAUTH2? (Y/n):" - answer n for shared-secret mode
+          #   3. "Specify a party hint..." - accept default (empty)
+          printf "Y\nn\n\n" | make setup || true
 
       - name: Install Daml SDK
         run: |
@@ -61,7 +64,6 @@ jobs:
       - name: Start CN-Quickstart
         run: |
           cd libs/cn-quickstart/quickstart
-          export AUTH_MODE=shared-secret
           make start
 
       - name: Wait for Services
