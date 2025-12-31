@@ -9,4 +9,6 @@ module.exports = {
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', { diagnostics: false }],
   },
+  // Transform jose ESM module to CommonJS for Jest compatibility
+  transformIgnorePatterns: ['/node_modules/(?!(jose)/)'],
 };

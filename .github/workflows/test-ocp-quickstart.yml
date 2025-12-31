@@ -46,7 +46,8 @@ jobs:
       - name: Setup CN-Quickstart (shared-secret)
         run: |
           cd libs/cn-quickstart/quickstart
-          # Setup with shared-secret mode (select option 1 for shared-secret)
+          # Setup with shared-secret mode - export AUTH_MODE and select option 1
+          export AUTH_MODE=shared-secret
           echo "1" | make setup || true
 
       - name: Install Daml SDK
@@ -60,6 +61,7 @@ jobs:
       - name: Start CN-Quickstart
         run: |
           cd libs/cn-quickstart/quickstart
+          export AUTH_MODE=shared-secret
           make start
 
       - name: Wait for Services
