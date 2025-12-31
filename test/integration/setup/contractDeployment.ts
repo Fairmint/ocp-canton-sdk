@@ -36,7 +36,10 @@ function findDarFilePath(): string | null {
     // From npm package (legacy path for backwards compatibility)
     path.resolve(__dirname, '../../../../node_modules/@fairmint/open-captable-protocol-daml-js/OpenCapTable.dar'),
     // From sibling directory (monorepo) - new path
-    path.resolve(__dirname, '../../../../open-captable-protocol-daml/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'),
+    path.resolve(
+      __dirname,
+      '../../../../open-captable-protocol-daml/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
+    ),
     // From sibling directory (monorepo) - legacy path
     path.resolve(__dirname, '../../../../open-captable-protocol-daml/OpenCapTable.dar'),
     // Environment variable override
