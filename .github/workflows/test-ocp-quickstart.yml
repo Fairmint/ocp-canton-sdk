@@ -32,15 +32,17 @@ jobs:
           java-version: '21'
 
       - name: Initialize Submodules
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Configure git to use GITHUB_TOKEN for private repos
-          git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
           git submodule update --init --depth 1 libs/Open-Cap-Format-OCF
           git submodule update --init --depth 1 libs/splice
           git submodule update --init --recursive libs/cn-quickstart
-          git submodule update --init --depth 1 libs/open-captable-protocol-daml
+
+      - name: Clone open-captable-protocol-daml
+        uses: actions/checkout@v4
+        with:
+          repository: Fairmint/open-captable-protocol-daml
+          path: libs/open-captable-protocol-daml
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: npm install

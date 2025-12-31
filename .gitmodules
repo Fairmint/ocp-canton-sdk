@@ -7,6 +7,3 @@
 [submodule "libs/splice"]
 	path = libs/splice
 	url = https://github.com/hyperledger-labs/splice
-[submodule "libs/open-captable-protocol-daml"]
-	path = libs/open-captable-protocol-daml
-	url = https://github.com/Fairmint/open-captable-protocol-daml.git
