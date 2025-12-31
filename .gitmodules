@@ -9,4 +9,4 @@
 	url = https://github.com/hyperledger-labs/splice
 [submodule "libs/open-captable-protocol-daml"]
 	path = libs/open-captable-protocol-daml
-	url = git@github.com:Fairmint/open-captable-protocol-daml.git
+	url = https://github.com/Fairmint/open-captable-protocol-daml.git
