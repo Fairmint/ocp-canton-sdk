@@ -67,11 +67,12 @@ export async function buildPaymentContext(
   if (provider) {
     try {
       const featuredAppRight = await validatorClient.lookupFeaturedAppRight({ partyId: provider });
-      if (featuredAppRight.featured_app_right) {
-        featuredAppRightCid = featuredAppRight.featured_app_right.contract_id;
+      const contractId = featuredAppRight.featured_app_right?.contract_id;
+      if (contractId) {
+        featuredAppRightCid = contractId;
         disclosedContracts.push({
           templateId: featuredAppRight.featured_app_right.template_id,
-          contractId: featuredAppRightCid,
+          contractId,
           createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
           synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
         });
@@ -198,11 +199,12 @@ export async function buildPaymentContextWithAmulets(
 
   try {
     const featuredAppRight = await validatorClient.lookupFeaturedAppRight({ partyId: provider });
-    if (featuredAppRight.featured_app_right) {
-      featuredAppRightCid = featuredAppRight.featured_app_right.contract_id;
+    const contractId = featuredAppRight.featured_app_right?.contract_id;
+    if (contractId) {
+      featuredAppRightCid = contractId;
       disclosedContracts.push({
         templateId: featuredAppRight.featured_app_right.template_id,
-        contractId: featuredAppRightCid,
+        contractId,
         createdEventBlob: featuredAppRight.featured_app_right.created_event_blob,
         synchronizerId: amuletRulesResponse.amulet_rules.domain_id,
       });
