@@ -75,9 +75,8 @@ export function isIntegrationTestConfigured(): boolean {
 /**
  * Build a ClientConfig for integration tests.
  *
- * If OCP_TEST_USE_CN_QUICKSTART_DEFAULTS is set, returns LocalNet config.
- * If OCP_TEST_AUTH_MODE=shared-secret, uses JWT-based auth.
- * Otherwise, builds config from individual environment variables.
+ * If OCP_TEST_USE_CN_QUICKSTART_DEFAULTS is set, returns LocalNet config. If OCP_TEST_AUTH_MODE=shared-secret, uses
+ * JWT-based auth. Otherwise, builds config from individual environment variables.
  *
  * @returns ClientConfig for use with OcpClient
  * @throws Error if required environment variables are missing
@@ -141,8 +140,7 @@ export function buildIntegrationTestClientConfig(): ClientConfig {
 /**
  * Generate a JWT for shared-secret authentication in LocalNet.
  *
- * This creates a JWT signed with the 'unsafe' secret, which is the default
- * for cn-quickstart shared-secret mode.
+ * This creates a JWT signed with the 'unsafe' secret, which is the default for cn-quickstart shared-secret mode.
  */
 async function generateSharedSecretJwt(): Promise<string> {
   const { SignJWT } = await import('jose');

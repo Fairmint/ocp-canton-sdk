@@ -136,6 +136,33 @@ async function initializeHarness(): Promise<void> {
     // (e.g., getEventsByContractId uses partyId for visibility filtering)
     state.ocp.client.setPartyId(authenticatedParty);
 
+    // In shared-secret mode, we need to ensure the ledger-api-user has CanActAs rights
+    // for the app_provider party. This is done automatically in OAuth2 mode but not
+    // in shared-secret mode where we use ParticipantAdmin privileges.
+    const authMode = process.env.OCP_TEST_AUTH_MODE;
+    if (authMode === 'shared-secret') {
+      console.log('🔑 Ensuring user rights for shared-secret mode...');
+      const userId = 'ledger-api-user';
+
+      // Check current rights
+      const rightsResponse = await state.ocp.client.listUserRights({ userId });
+      const currentRights = rightsResponse.rights ?? [];
+      const hasActAs = currentRights.some(
+        (r) => 'CanActAs' in r.kind && r.kind.CanActAs.value.party === authenticatedParty
+      );
+
+      if (!hasActAs) {
+        console.log(`   Granting CanActAs for ${authenticatedParty.split('::')[0]}...`);
+        await state.ocp.client.grantUserRights({
+          userId,
+          rights: [{ kind: { CanActAs: { value: { party: authenticatedParty } } } }],
+        });
+        console.log('   Rights granted successfully');
+      } else {
+        console.log('   User already has CanActAs rights');
+      }
+    }
+
     // Get DSO party ID and synchronizer ID from Validator API
     // Pass the same config to ensure auth mode consistency
     console.log('🔍 Getting DSO party ID and synchronizer ID...');

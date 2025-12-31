@@ -43,11 +43,11 @@ jobs:
       - name: Build package
         run: npm run build
 
-      - name: Setup CN-Quickstart (OAuth2)
+      - name: Setup CN-Quickstart (shared-secret)
         run: |
           cd libs/cn-quickstart/quickstart
-          # Setup with OAuth2 non-interactively (select option 2)
-          echo "2" | make setup || true
+          # Setup with shared-secret mode (select option 1 for shared-secret)
+          echo "1" | make setup || true
 
       - name: Install Daml SDK
         run: |
@@ -64,18 +64,22 @@ jobs:
 
       - name: Wait for Services
         run: |
-          echo "Waiting for Keycloak..."
-          for i in {1..30}; do
-            if curl -f http://localhost:8082/realms/AppProvider 2>/dev/null; then
-              echo "✓ Keycloak is ready"
+          echo "Waiting for services to be healthy..."
+          for i in {1..40}; do
+            SPLICE_HEALTHY=$(docker ps --filter "name=^splice$" --format "{{.Status}}" | grep -c "healthy" || true)
+            ONBOARDING_HEALTHY=$(docker ps --filter "name=splice-onboarding" --format "{{.Status}}" | grep -c "healthy" || true)
+            
+            if [ "$SPLICE_HEALTHY" -gt 0 ] && [ "$ONBOARDING_HEALTHY" -gt 0 ]; then
+              echo "✓ Core services are healthy"
+              docker ps --format "table {{.Names}}\t{{.Status}}" | head -10
               break
             fi
-            echo "Waiting for Keycloak... ($i/30)"
-            sleep 10
+            echo "Waiting for services... ($i/40)"
+            sleep 15
           done
 
           echo "Waiting for Ledger JSON API..."
-          OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1 node_modules/.bin/ts-node scripts/quickstart/waitForReady.ts
+          OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1 OCP_TEST_AUTH_MODE=shared-secret node_modules/.bin/ts-node scripts/quickstart/waitForReady.ts
 
       # Note: Contract deployment is handled automatically by the integration test harness.
       # It discovers DAR files from @fairmint/open-captable-protocol-daml-js npm package.
@@ -83,6 +87,7 @@ jobs:
       - name: Run integration smoke tests
         env:
           OCP_TEST_USE_CN_QUICKSTART_DEFAULTS: '1'
+          OCP_TEST_AUTH_MODE: 'shared-secret'
         run: npm run test:integration:ci
 
       - name: Show Logs on Failure
