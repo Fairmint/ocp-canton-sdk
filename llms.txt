@@ -62,6 +62,8 @@ Some issues can't be auto-fixed. Common manual fixes:
 
 This preserves commit history and makes PR review easier.
 
+**After creating a PR**, open it in the browser for review: `open <PR_URL>`
+
 ## Architecture
 
 ### Layer Stack
