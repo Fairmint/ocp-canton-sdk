@@ -143,14 +143,17 @@ export function buildIntegrationTestClientConfig(): ClientConfig {
  * This creates a JWT signed with the 'unsafe' secret, which is the default for cn-quickstart shared-secret mode.
  */
 async function generateSharedSecretJwt(): Promise<string> {
-  const { SignJWT } = await import('jose');
-  const secret = new TextEncoder().encode('unsafe');
-  return new SignJWT({
-    sub: 'ledger-api-user',
-    aud: 'https://canton.network.global',
-  })
-    .setProtectedHeader({ alg: 'HS256' })
-    .sign(secret);
+  // Use jsonwebtoken (CommonJS) instead of jose (ESM) for Jest compatibility
+  const jwt = await import('jsonwebtoken');
+  const secret = 'unsafe';
+  return jwt.default.sign(
+    {
+      sub: 'ledger-api-user',
+      aud: 'https://canton.network.global',
+    },
+    secret,
+    { algorithm: 'HS256', expiresIn: '2h' }
+  );
 }
 
 /**
