@@ -47,8 +47,20 @@ export function numberToString(value: number | string): string {
  * Normalize a numeric string by removing trailing zeros after the decimal point. DAML returns numbers like
  * "5000000.0000000000" but OCF expects "5000000". Also handles removing the decimal point if all fractional digits are
  * zeros.
+ *
+ * @throws Error if the string contains scientific notation (e.g., "1.5e10") or is not a valid numeric string
  */
 export function normalizeNumericString(value: string): string {
+  // Validate: reject scientific notation
+  if (value.toLowerCase().includes('e')) {
+    throw new Error(`Invalid numeric string: scientific notation is not supported (got "${value}")`);
+  }
+
+  // Validate: must be a valid numeric string (optional minus, digits, optional decimal and more digits)
+  if (!/^-?\d+(\.\d+)?$/.test(value)) {
+    throw new Error(`Invalid numeric string format (got "${value}")`);
+  }
+
   // If no decimal point, return as-is
   if (!value.includes('.')) {
     return value;
