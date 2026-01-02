@@ -37,13 +37,19 @@ function tagExists(tag: string): boolean {
   }
 }
 
-/** Check if a version exists on NPM registry */
-function versionExistsOnNpm(packageName: string, version: string): boolean {
+/** Get all published versions from NPM registry */
+function getAllNpmVersions(packageName: string): Set<string> {
   try {
-    execSync(`npm view "${packageName}@${version}" version`, { stdio: 'ignore' });
-    return true;
+    const result = execSync(`npm view "${packageName}" versions --json`, { encoding: 'utf8' }).trim();
+    const versions = JSON.parse(result) as string | string[];
+    // npm returns a string for single version, array for multiple
+    if (Array.isArray(versions)) {
+      return new Set(versions);
+    }
+    return new Set([versions]);
   } catch {
-    return false;
+    // Package may not exist on NPM yet
+    return new Set();
   }
 }
 
@@ -64,18 +70,22 @@ function parseVersion(version: string): { major: number; minor: number; patch: n
   if (parts.length !== 3 || parts.some(isNaN)) {
     return null;
   }
+  // Ensure all version components are non-negative integers
+  if (!parts.every((part) => Number.isInteger(part) && part >= 0)) {
+    return null;
+  }
   return { major: parts[0], minor: parts[1], patch: parts[2] };
 }
 
 /** Find the next available version by incrementing patch until we find one that doesn't exist on git tags OR NPM */
-function findNextAvailableVersion(packageName: string, major: number, minor: number, startPatch: number): string {
+function findNextAvailableVersion(npmVersions: Set<string>, major: number, minor: number, startPatch: number): string {
   let patch = startPatch;
   let version: string;
 
   do {
     patch++;
     version = `${major}.${minor}.${patch}`;
-  } while (tagExists(`v${version}`) || versionExistsOnNpm(packageName, version));
+  } while (tagExists(`v${version}`) || npmVersions.has(version));
 
   return version;
 }
@@ -95,10 +105,14 @@ function prepareRelease(): void {
     console.log(`Package: ${packageName}`);
     console.log(`Current version in package.json: ${currentVersion}`);
 
-    // Check latest version on NPM
+    // Fetch all NPM versions upfront (single API call)
+    console.log('Fetching published versions from NPM...');
+    const npmVersions = getAllNpmVersions(packageName);
     const latestNpmVersion = getLatestNpmVersion(packageName);
+
     if (latestNpmVersion) {
       console.log(`Latest version on NPM: ${latestNpmVersion}`);
+      console.log(`Total published versions: ${npmVersions.size}`);
     } else {
       console.log('No version found on NPM (new package or registry unavailable)');
     }
@@ -117,11 +131,13 @@ function prepareRelease(): void {
     if (latestNpmVersion) {
       const npmParsed = parseVersion(latestNpmVersion);
       if (npmParsed) {
-        // Use the higher version as baseline
-        const currentNum = major * 1000000 + minor * 1000 + patch;
-        const npmNum = npmParsed.major * 1000000 + npmParsed.minor * 1000 + npmParsed.patch;
+        // Use the higher version as baseline using semantic versioning rules
+        const isNpmHigher =
+          npmParsed.major > major ||
+          (npmParsed.major === major && npmParsed.minor > minor) ||
+          (npmParsed.major === major && npmParsed.minor === minor && npmParsed.patch > patch);
 
-        if (npmNum > currentNum) {
+        if (isNpmHigher) {
           console.log(`Using NPM version as baseline (higher than package.json)`);
           ({ major, minor, patch } = npmParsed);
         }
@@ -129,7 +145,7 @@ function prepareRelease(): void {
     }
 
     // Find next available version (increment patch until we find one that doesn't exist)
-    const newVersion: string = findNextAvailableVersion(packageName, major, minor, patch);
+    const newVersion: string = findNextAvailableVersion(npmVersions, major, minor, patch);
 
     console.log(`New version: ${newVersion}`);
 
