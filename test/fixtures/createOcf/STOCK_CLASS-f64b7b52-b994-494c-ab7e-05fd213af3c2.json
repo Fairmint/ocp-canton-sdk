@@ -239,18 +239,18 @@
     "default_id_prefix": "CS-2",
     "board_approval_date": "2022-08-31",
     "comments": [],
-    "initial_shares_authorized": "1000000.0000000000",
-    "votes_per_share": "1.0000000000",
-    "seniority": "1.0000000000",
+    "initial_shares_authorized": "1000000",
+    "votes_per_share": "1",
+    "seniority": "1",
     "par_value": {
-      "amount": "1.4300000000",
+      "amount": "1.43",
       "currency": "USD"
     },
     "price_per_share": {
-      "amount": "1.4300000000",
+      "amount": "1.43",
       "currency": "USD"
     },
-    "liquidation_preference_multiple": "1.0000000000",
-    "participation_cap_multiple": "1.0000000000"
+    "liquidation_preference_multiple": "1",
+    "participation_cap_multiple": "1"
   }
 }

@@ -112,7 +112,7 @@ export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.
 
 export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.OcfMonetary): Monetary {
   return {
-    amount: damlMonetary.amount,
+    amount: normalizeNumericString(damlMonetary.amount),
     currency: damlMonetary.currency,
   };
 }

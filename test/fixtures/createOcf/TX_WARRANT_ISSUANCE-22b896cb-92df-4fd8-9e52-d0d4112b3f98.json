@@ -338,9 +338,9 @@
     "security_id": "44718ad3-084a-42ec-acd6-7e364d85fb30",
     "custom_id": "W-1",
     "stakeholder_id": "ad9087c4-c52c-48d2-aaf9-d9bba07ce8f8",
-    "quantity": "0.0000000000",
+    "quantity": "0",
     "purchase_price": {
-      "amount": "35000.0000000000",
+      "amount": "35000",
       "currency": "USD"
     },
     "exercise_triggers": [
@@ -351,7 +351,7 @@
           "type": "WARRANT_CONVERSION_RIGHT",
           "conversion_mechanism": {
             "type": "FIXED_AMOUNT_CONVERSION",
-            "converts_to_quantity": "35000.0000000000"
+            "converts_to_quantity": "35000"
           },
           "converts_to_stock_class_id": "bde3fe34-b2ef-4bc0-9cdb-09bf179fb440"
         },

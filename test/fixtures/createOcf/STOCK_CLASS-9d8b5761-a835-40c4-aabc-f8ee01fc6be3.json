@@ -221,11 +221,11 @@
     "class_type": "PREFERRED",
     "default_id_prefix": "FP",
     "comments": [],
-    "initial_shares_authorized": "1000000.0000000000",
-    "votes_per_share": "1.0000000000",
-    "seniority": "2.0000000000",
+    "initial_shares_authorized": "1000000",
+    "votes_per_share": "1",
+    "seniority": "2",
     "price_per_share": {
-      "amount": "0.0000200000",
+      "amount": "0.00002",
       "currency": "USD"
     }
   }

@@ -483,9 +483,9 @@
     "custom_id": "1701671e-9c9d-4346-a591-24b746d84b9b",
     "stakeholder_id": "bda952bd-e0c7-4846-9018-687e1e7c24c2",
     "compensation_type": "OPTION",
-    "quantity": "4.0000000000",
+    "quantity": "4",
     "exercise_price": {
-      "amount": "50.0000000000",
+      "amount": "50",
       "currency": "USD"
     },
     "expiration_date": "2031-06-07",
@@ -505,11 +505,11 @@
     "vestings": [
       {
         "date": "2026-10-01",
-        "amount": "1.0000000000"
+        "amount": "1"
       },
       {
         "date": "2029-10-01",
-        "amount": "3.0000000000"
+        "amount": "3"
       }
     ],
     "termination_exercise_windows": [

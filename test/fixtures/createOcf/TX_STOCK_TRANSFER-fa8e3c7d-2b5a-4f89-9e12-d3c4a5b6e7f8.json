@@ -134,7 +134,7 @@
     "id": "fa8e3c7d-2b5a-4f89-9e12-d3c4a5b6e7f8",
     "date": "2016-04-18",
     "security_id": "98f60ae9-1176-4d82-8564-c48db146a02c",
-    "quantity": "75.0000000000",
+    "quantity": "75",
     "resulting_security_ids": ["e4f5a6b7-8c9d-0e1f-2a3b-4c5d6e7f8a9b"],
     "balance_security_id": "b2c3d4e5-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
     "consideration_text": "Transfer of 75 shares from Founder A to Employee B at $0.0001 per share for aggregate consideration of $0.01.",

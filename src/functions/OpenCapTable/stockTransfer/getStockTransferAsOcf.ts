@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { OcfStockTransferTxData } from '../../../types/native';
+import { normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * OCF Stock Transfer Event with object_type discriminator OCF:
@@ -74,7 +75,7 @@ export async function getStockTransferAsOcf(
     id: data.id,
     date: data.date.split('T')[0],
     security_id: data.security_id,
-    quantity: String(data.quantity),
+    quantity: normalizeNumericString(String(data.quantity)),
     resulting_security_ids: data.resulting_security_ids,
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
     ...(data.consideration_text ? { consideration_text: data.consideration_text } : {}),

@@ -379,7 +379,7 @@
     "custom_id": "CN-21",
     "stakeholder_id": "37ef7881-9154-4cc6-989e-2b0a665faafd",
     "investment_amount": {
-      "amount": "25000.0000000000",
+      "amount": "25000",
       "currency": "USD"
     },
     "convertible_type": "NOTE",
@@ -393,7 +393,7 @@
             "type": "CONVERTIBLE_NOTE_CONVERSION",
             "interest_rates": [
               {
-                "rate": "0.0800000000",
+                "rate": "0.08",
                 "accrual_start_date": "2024-03-03"
               }
             ],
@@ -401,7 +401,7 @@
             "interest_payout": "DEFERRED",
             "interest_accrual_period": "MONTHLY",
             "compounding_type": "COMPOUNDING",
-            "conversion_discount": "0.5000000000"
+            "conversion_discount": "0.5"
           },
           "converts_to_future_round": true,
           "converts_to_stock_class_id": "26421c9e-91a8-410b-8906-76ea6f38e150"

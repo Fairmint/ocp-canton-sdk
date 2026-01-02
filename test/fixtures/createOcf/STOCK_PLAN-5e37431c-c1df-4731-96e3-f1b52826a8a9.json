@@ -182,7 +182,7 @@
     "object_type": "STOCK_PLAN",
     "id": "5e37431c-c1df-4731-96e3-f1b52826a8a9",
     "plan_name": "Options Pool",
-    "initial_shares_reserved": "1000000.0000000000",
+    "initial_shares_reserved": "1000000",
     "default_cancellation_behavior": "RETURN_TO_POOL",
     "stock_class_ids": ["4556bf32-cc86-4517-9ed0-f62a10a83132"],
     "comments": []

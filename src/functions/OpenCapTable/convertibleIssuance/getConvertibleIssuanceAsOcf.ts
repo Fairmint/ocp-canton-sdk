@@ -205,12 +205,9 @@ export async function getConvertibleIssuanceAsOcf(
             const mech: SafeConversionMechanism = {
               type: 'SAFE_CONVERSION',
               conversion_mfn: Boolean(value.conversion_mfn),
-              ...(value.conversion_discount !== undefined && value.conversion_discount !== null
+              ...(typeof value.conversion_discount === 'number' || typeof value.conversion_discount === 'string'
                 ? {
-                    conversion_discount:
-                      typeof value.conversion_discount === 'number'
-                        ? String(value.conversion_discount)
-                        : value.conversion_discount,
+                    conversion_discount: normalizeNumericString(String(value.conversion_discount)),
                   }
                 : {}),
               ...(value.conversion_valuation_cap
@@ -231,8 +228,12 @@ export async function getConvertibleIssuanceAsOcf(
               ...(value.exit_multiple
                 ? {
                     exit_multiple: {
-                      numerator: String((value.exit_multiple as Record<string, unknown>).numerator),
-                      denominator: String((value.exit_multiple as Record<string, unknown>).denominator),
+                      numerator: normalizeNumericString(
+                        String((value.exit_multiple as Record<string, unknown>).numerator)
+                      ),
+                      denominator: normalizeNumericString(
+                        String((value.exit_multiple as Record<string, unknown>).denominator)
+                      ),
                     },
                   }
                 : {}),
@@ -242,10 +243,11 @@ export async function getConvertibleIssuanceAsOcf(
           case 'OcfConvMechPercentCapitalization': {
             const mech: PercentCapitalizationMechanism = {
               type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-              converts_to_percent:
+              converts_to_percent: normalizeNumericString(
                 typeof value.converts_to_percent === 'number'
                   ? String(value.converts_to_percent)
-                  : value.converts_to_percent,
+                  : String(value.converts_to_percent)
+              ),
               ...(value.capitalization_definition
                 ? { capitalization_definition: value.capitalization_definition }
                 : {}),
@@ -258,10 +260,11 @@ export async function getConvertibleIssuanceAsOcf(
           case 'OcfConvMechFixedAmount': {
             const mech: FixedAmountMechanism = {
               type: 'FIXED_AMOUNT_CONVERSION',
-              converts_to_quantity:
+              converts_to_quantity: normalizeNumericString(
                 typeof value.converts_to_quantity === 'number'
                   ? String(value.converts_to_quantity)
-                  : value.converts_to_quantity,
+                  : String(value.converts_to_quantity)
+              ),
             } as FixedAmountMechanism;
             return mech;
           }
@@ -315,7 +318,9 @@ export async function getConvertibleIssuanceAsOcf(
               ? value.interest_rates.map((ir: unknown) => {
                   const irObj = ir as Record<string, unknown>;
                   return {
-                    rate: typeof irObj.rate === 'number' ? String(irObj.rate) : (irObj.rate as string),
+                    rate: normalizeNumericString(
+                      typeof irObj.rate === 'number' ? String(irObj.rate) : String(irObj.rate)
+                    ),
                     accrual_start_date: (irObj.accrual_start_date as string).split('T')[0],
                     ...(irObj.accrual_end_date
                       ? { accrual_end_date: (irObj.accrual_end_date as string).split('T')[0] }
@@ -360,12 +365,9 @@ export async function getConvertibleIssuanceAsOcf(
                 ? { interest_accrual_period: accrualFromDaml(value.interest_accrual_period) }
                 : {}),
               ...(value.compounding_type ? { compounding_type: compoundingFromDaml(value.compounding_type) } : {}),
-              ...(value.conversion_discount !== undefined && value.conversion_discount !== null
+              ...(typeof value.conversion_discount === 'number' || typeof value.conversion_discount === 'string'
                 ? {
-                    conversion_discount:
-                      typeof value.conversion_discount === 'number'
-                        ? String(value.conversion_discount)
-                        : value.conversion_discount,
+                    conversion_discount: normalizeNumericString(String(value.conversion_discount)),
                   }
                 : {}),
               ...(value.conversion_valuation_cap
@@ -385,8 +387,12 @@ export async function getConvertibleIssuanceAsOcf(
               ...(value.exit_multiple
                 ? {
                     exit_multiple: {
-                      numerator: String((value.exit_multiple as Record<string, unknown>).numerator),
-                      denominator: String((value.exit_multiple as Record<string, unknown>).denominator),
+                      numerator: normalizeNumericString(
+                        String((value.exit_multiple as Record<string, unknown>).numerator)
+                      ),
+                      denominator: normalizeNumericString(
+                        String((value.exit_multiple as Record<string, unknown>).denominator)
+                      ),
                     },
                   }
                 : {}),
@@ -497,7 +503,9 @@ export async function getConvertibleIssuanceAsOcf(
       ? { stockholder_approval_date: d.stockholder_approval_date.split('T')[0] }
       : {}),
     investment_amount: {
-      amount: typeof investmentAmount.amount === 'number' ? String(investmentAmount.amount) : investmentAmount.amount,
+      amount: normalizeNumericString(
+        typeof investmentAmount.amount === 'number' ? String(investmentAmount.amount) : String(investmentAmount.amount)
+      ),
       currency: investmentAmount.currency,
     },
     ...(typeof d.consideration_text === 'string' && d.consideration_text.length
@@ -509,8 +517,10 @@ export async function getConvertibleIssuanceAsOcf(
       typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
       d.id as string
     ),
-    ...(d.pro_rata !== null && d.pro_rata !== undefined
-      ? { pro_rata: typeof d.pro_rata === 'number' ? String(d.pro_rata) : (d.pro_rata as string) }
+    ...(typeof d.pro_rata === 'number' || typeof d.pro_rata === 'string'
+      ? {
+          pro_rata: normalizeNumericString(String(d.pro_rata)),
+        }
       : {}),
     seniority: typeof d.seniority === 'number' ? d.seniority : Number(d.seniority),
     security_law_exemptions: d.security_law_exemptions as Array<{

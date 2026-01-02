@@ -186,7 +186,7 @@
     "plan_name": "Employees & Advisors Stock Option Pool",
     "board_approval_date": "2023-08-15",
     "stockholder_approval_date": "2023-08-20",
-    "initial_shares_reserved": "3000000.0000000000",
+    "initial_shares_reserved": "3000000",
     "default_cancellation_behavior": "RETURN_TO_POOL",
     "stock_class_ids": ["765ed7a9-f2b7-480e-bd53-a53664de3927"],
     "comments": []

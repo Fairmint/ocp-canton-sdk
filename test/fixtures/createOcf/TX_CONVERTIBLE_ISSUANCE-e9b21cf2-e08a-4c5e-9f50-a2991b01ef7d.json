@@ -679,7 +679,7 @@
     "custom_id": "CN-15",
     "stakeholder_id": "9fb87b56-883c-405b-8c43-176cb3d2610a",
     "investment_amount": {
-      "amount": "100000.0000000000",
+      "amount": "100000",
       "currency": "USD"
     },
     "convertible_type": "NOTE",
@@ -693,7 +693,7 @@
             "type": "CONVERTIBLE_NOTE_CONVERSION",
             "interest_rates": [
               {
-                "rate": "0.0000000000",
+                "rate": "0",
                 "accrual_start_date": "2022-10-31"
               }
             ],
@@ -701,9 +701,9 @@
             "interest_payout": "DEFERRED",
             "interest_accrual_period": "ANNUAL",
             "compounding_type": "SIMPLE",
-            "conversion_discount": "0.1200000000",
+            "conversion_discount": "0.12",
             "conversion_valuation_cap": {
-              "amount": "9000000.0000000000",
+              "amount": "9000000",
               "currency": "USD"
             }
           },
@@ -723,7 +723,7 @@
             "type": "CONVERTIBLE_NOTE_CONVERSION",
             "interest_rates": [
               {
-                "rate": "0.0000000000",
+                "rate": "0",
                 "accrual_start_date": "2022-10-31"
               }
             ],
@@ -731,9 +731,9 @@
             "interest_payout": "DEFERRED",
             "interest_accrual_period": "ANNUAL",
             "compounding_type": "SIMPLE",
-            "conversion_discount": "0.1200000000",
+            "conversion_discount": "0.12",
             "conversion_valuation_cap": {
-              "amount": "9000000.0000000000",
+              "amount": "9000000",
               "currency": "USD"
             }
           },
@@ -752,7 +752,7 @@
             "type": "CONVERTIBLE_NOTE_CONVERSION",
             "interest_rates": [
               {
-                "rate": "0.0000000000",
+                "rate": "0",
                 "accrual_start_date": "2022-10-31"
               }
             ],
@@ -760,9 +760,9 @@
             "interest_payout": "DEFERRED",
             "interest_accrual_period": "ANNUAL",
             "compounding_type": "SIMPLE",
-            "conversion_discount": "0.1200000000",
+            "conversion_discount": "0.12",
             "conversion_valuation_cap": {
-              "amount": "9000000.0000000000",
+              "amount": "9000000",
               "currency": "USD"
             }
           },

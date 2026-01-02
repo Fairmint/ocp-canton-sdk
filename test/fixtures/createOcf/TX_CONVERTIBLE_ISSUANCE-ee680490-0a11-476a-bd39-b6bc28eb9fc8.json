@@ -343,7 +343,7 @@
     "stakeholder_id": "ccbb5156-620a-4de5-a1b0-2d613548823f",
     "board_approval_date": "2022-01-01",
     "investment_amount": {
-      "amount": "1234.0000000000",
+      "amount": "1234",
       "currency": "USD"
     },
     "consideration_text": "1000.0 USD",
@@ -366,7 +366,7 @@
         "trigger_condition": "SAFE shall convert upon completion of next equity financing (as defined in the instrument)"
       }
     ],
-    "pro_rata": "2500.0000000000",
+    "pro_rata": "2500",
     "seniority": 1,
     "security_law_exemptions": [
       {

@@ -316,7 +316,7 @@
     "custom_id": "RSU-01",
     "stakeholder_id": "e93c1477-8edb-475e-9bad-55dc30ba6c87",
     "compensation_type": "RSU",
-    "quantity": "8.0000000000",
+    "quantity": "8",
     "expiration_date": null,
     "stock_plan_id": "189bb584-ed75-4338-8e1f-14e81fd3c1b0",
     "security_law_exemptions": [
@@ -328,7 +328,7 @@
     "vestings": [
       {
         "date": "2021-08-02",
-        "amount": "8.0000000000"
+        "amount": "8"
       }
     ],
     "termination_exercise_windows": [

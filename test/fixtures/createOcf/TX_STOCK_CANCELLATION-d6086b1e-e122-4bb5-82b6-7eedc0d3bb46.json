@@ -181,7 +181,7 @@
     "id": "d6086b1e-e122-4bb5-82b6-7eedc0d3bb46",
     "date": "2025-04-04",
     "security_id": "0d03b4ca-4598-4803-9b5b-bf9e7fe65495",
-    "quantity": "1411765.0000000000",
+    "quantity": "1411765",
     "balance_security_id": "00000000-0000-0000-0000-000000000000",
     "reason_text": "Left company"
   }

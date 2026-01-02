@@ -183,7 +183,7 @@
   "onchain_ocf": {
     "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
     "id": "fa656e04-6384-4da7-bc7b-1b7874b1dc09",
-    "quantity": "1.0000000000",
+    "quantity": "1",
     "security_id": "289c370c-f6bf-4b05-a7c8-0a52463f03a5",
     "date": "2023-08-31",
     "consideration_text": "1.00 USD per share for 1 share of Common Stock",

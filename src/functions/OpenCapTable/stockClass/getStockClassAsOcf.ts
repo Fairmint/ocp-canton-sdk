@@ -218,10 +218,10 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.O
       }),
     }),
     ...(damlData.liquidation_preference_multiple && {
-      liquidation_preference_multiple: damlData.liquidation_preference_multiple,
+      liquidation_preference_multiple: normalizeNumericString(damlData.liquidation_preference_multiple),
     }),
     ...(damlData.participation_cap_multiple && {
-      participation_cap_multiple: damlData.participation_cap_multiple,
+      participation_cap_multiple: normalizeNumericString(damlData.participation_cap_multiple),
     }),
     ...(Array.isArray((dAny as { comments?: unknown }).comments)
       ? { comments: (dAny as { comments: string[] }).comments }

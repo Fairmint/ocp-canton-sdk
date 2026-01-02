@@ -292,9 +292,9 @@
     "custom_id": "ee0ae63c-4767-40b4-b913-4b6b701ce020",
     "stakeholder_id": "460ad623-32fd-4c89-8ed2-93c11c4324dd",
     "compensation_type": "OPTION",
-    "quantity": "50000.0000000000",
+    "quantity": "50000",
     "exercise_price": {
-      "amount": "5.0000000000",
+      "amount": "5",
       "currency": "USD"
     },
     "expiration_date": "2031-01-20",

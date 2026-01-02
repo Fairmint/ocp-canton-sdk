@@ -264,13 +264,13 @@
     "stock_class_id": "d0903353-59fb-4339-bd63-8ffbc4500bf9",
     "stock_plan_id": "00000000-0000-0000-0000-000000000000",
     "share_price": {
-      "amount": "1.9600000000",
+      "amount": "1.96",
       "currency": "USD"
     },
-    "quantity": "100000.0000000000",
+    "quantity": "100000",
     "vesting_terms_id": "00000000-0000-0000-0000-000000000000",
     "cost_basis": {
-      "amount": "0.0000000000",
+      "amount": "0",
       "currency": "USD"
     },
     "stock_legend_ids": [],
