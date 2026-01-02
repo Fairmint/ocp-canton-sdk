@@ -74,8 +74,7 @@ jobs:
       - name: Run Tests
         run: npm run test:ci
 
-      - name: Run Integration Smoke Tests (Quickstart)
-        run: npm run test:integration:ci
+      # Integration tests with QuickStart are run by test-ocp-quickstart.yml workflow
 
       - name: Generate Docs
         run: npm run docs
