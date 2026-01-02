@@ -546,6 +546,10 @@ export async function getConvertibleIssuanceAsOcf(
     throw new Error('investment_amount.currency is required and must be a non-empty string');
   }
 
+  // Convert to string after validation
+  const investmentAmountStr =
+    typeof investmentAmount.amount === 'number' ? investmentAmount.amount.toString() : investmentAmount.amount;
+
   const event: OcfConvertibleIssuanceEvent = {
     object_type: 'TX_CONVERTIBLE_ISSUANCE',
     id: d.id as string,
@@ -560,9 +564,7 @@ export async function getConvertibleIssuanceAsOcf(
       ? { stockholder_approval_date: d.stockholder_approval_date.split('T')[0] }
       : {}),
     investment_amount: {
-      amount: normalizeNumericString(
-        typeof investmentAmount.amount === 'number' ? investmentAmount.amount.toString() : investmentAmount.amount
-      ),
+      amount: normalizeNumericString(investmentAmountStr),
       currency: investmentAmount.currency,
     },
     ...(typeof d.consideration_text === 'string' && d.consideration_text.length

@@ -70,12 +70,15 @@ export async function getStockTransferAsOcf(
     throw new Error('Missing required field: resulting_security_ids');
   }
 
+  // Convert quantity to string for normalization
+  const quantityStr = typeof data.quantity === 'number' ? data.quantity.toString() : data.quantity;
+
   const event: OcfStockTransferEvent = {
     object_type: 'TX_STOCK_TRANSFER',
     id: data.id,
     date: data.date.split('T')[0],
     security_id: data.security_id,
-    quantity: normalizeNumericString(typeof data.quantity === 'number' ? data.quantity.toString() : data.quantity),
+    quantity: normalizeNumericString(quantityStr),
     resulting_security_ids: data.resulting_security_ids,
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
     ...(data.consideration_text ? { consideration_text: data.consideration_text } : {}),

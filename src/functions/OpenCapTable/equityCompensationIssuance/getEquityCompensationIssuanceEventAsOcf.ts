@@ -102,9 +102,11 @@ export async function getEquityCompensationIssuanceEventAsOcf(
           if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
             throw new Error(`Vesting amount must be string or number, got ${typeof v.amount}`);
           }
+          // Convert to string after validation
+          const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
           return {
             date: v.date.split('T')[0],
-            amount: normalizeNumericString(typeof v.amount === 'number' ? v.amount.toString() : v.amount),
+            amount: normalizeNumericString(amountStr),
           };
         }) as Vesting[])
       : undefined;
