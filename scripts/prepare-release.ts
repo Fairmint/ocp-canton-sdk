@@ -14,6 +14,7 @@
  * - Links commits to GitHub PRs
  * - Safe for local testing (no git operations)
  * - Saves changelog to CHANGELOG.md
+ * - Checks both git tags AND NPM registry to avoid version conflicts
  */
 
 import { execSync } from 'child_process';
@@ -21,6 +22,7 @@ import fs from 'fs';
 import path from 'path';
 
 interface PackageJson {
+  name: string;
   version: string;
   [key: string]: unknown;
 }
@@ -35,15 +37,55 @@ function tagExists(tag: string): boolean {
   }
 }
 
-/** Find the next available version by incrementing patch until we find one that doesn't exist */
-function findNextAvailableVersion(major: number, minor: number, startPatch: number): string {
+/** Get all published versions from NPM registry */
+function getAllNpmVersions(packageName: string): Set<string> {
+  try {
+    const result = execSync(`npm view "${packageName}" versions --json`, { encoding: 'utf8' }).trim();
+    const versions = JSON.parse(result) as string | string[];
+    // npm returns a string for single version, array for multiple
+    if (Array.isArray(versions)) {
+      return new Set(versions);
+    }
+    return new Set([versions]);
+  } catch {
+    // Package may not exist on NPM yet
+    return new Set();
+  }
+}
+
+/** Get the latest version from NPM registry */
+function getLatestNpmVersion(packageName: string): string | null {
+  try {
+    const result = execSync(`npm view "${packageName}" version`, { encoding: 'utf8' }).trim();
+    return result || null;
+  } catch {
+    // Package may not exist on NPM yet
+    return null;
+  }
+}
+
+/** Parse version string into components */
+function parseVersion(version: string): { major: number; minor: number; patch: number } | null {
+  const parts = version.split('.').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) {
+    return null;
+  }
+  // Ensure all version components are non-negative integers
+  if (!parts.every((part) => Number.isInteger(part) && part >= 0)) {
+    return null;
+  }
+  return { major: parts[0], minor: parts[1], patch: parts[2] };
+}
+
+/** Find the next available version by incrementing patch until we find one that doesn't exist on git tags OR NPM */
+function findNextAvailableVersion(npmVersions: Set<string>, major: number, minor: number, startPatch: number): string {
   let patch = startPatch;
   let version: string;
 
   do {
     patch++;
     version = `${major}.${minor}.${patch}`;
-  } while (tagExists(`v${version}`));
+  } while (tagExists(`v${version}`) || npmVersions.has(version));
 
   return version;
 }
@@ -58,22 +100,52 @@ function prepareRelease(): void {
     const packageJsonPath: string = path.join(process.cwd(), 'package.json');
     const packageJson: PackageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
+    const packageName: string = packageJson.name;
     const currentVersion: string = packageJson.version;
-    console.log(`Current version: ${currentVersion}`);
+    console.log(`Package: ${packageName}`);
+    console.log(`Current version in package.json: ${currentVersion}`);
 
-    // Extract major, minor, patch
-    const versionParts: number[] = currentVersion.split('.').map(Number);
+    // Fetch all NPM versions upfront (single API call)
+    console.log('Fetching published versions from NPM...');
+    const npmVersions = getAllNpmVersions(packageName);
+    const latestNpmVersion = getLatestNpmVersion(packageName);
 
-    if (versionParts.length !== 3) {
-      throw new Error('Invalid version format. Expected format: x.y.z');
+    if (latestNpmVersion) {
+      console.log(`Latest version on NPM: ${latestNpmVersion}`);
+      console.log(`Total published versions: ${npmVersions.size}`);
+    } else {
+      console.log('No version found on NPM (new package or registry unavailable)');
     }
 
-    const major: number = versionParts[0];
-    const minor: number = versionParts[1];
-    const patch: number = versionParts[2];
+    // Extract major, minor, patch from current version
+    const currentParsed = parseVersion(currentVersion);
+    if (!currentParsed) {
+      throw new Error('Invalid version format in package.json. Expected format: x.y.z');
+    }
+
+    // Determine the baseline version (maximum of package.json and NPM)
+    let { major } = currentParsed;
+    let { minor } = currentParsed;
+    let { patch } = currentParsed;
+
+    if (latestNpmVersion) {
+      const npmParsed = parseVersion(latestNpmVersion);
+      if (npmParsed) {
+        // Use the higher version as baseline using semantic versioning rules
+        const isNpmHigher =
+          npmParsed.major > major ||
+          (npmParsed.major === major && npmParsed.minor > minor) ||
+          (npmParsed.major === major && npmParsed.minor === minor && npmParsed.patch > patch);
+
+        if (isNpmHigher) {
+          console.log(`Using NPM version as baseline (higher than package.json)`);
+          ({ major, minor, patch } = npmParsed);
+        }
+      }
+    }
 
     // Find next available version (increment patch until we find one that doesn't exist)
-    const newVersion: string = findNextAvailableVersion(major, minor, patch);
+    const newVersion: string = findNextAvailableVersion(npmVersions, major, minor, patch);
 
     console.log(`New version: ${newVersion}`);
 
