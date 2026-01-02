@@ -1,8 +1,7 @@
 # Comprehensive SDK Integration Tests
 
-**Date:** 2025-12-30
-**Status:** In Progress
-**Parent Task:** [2025.12.17-milestone-2-ocp-sdk-implementation.md](../2025.12.17-milestone-2-ocp-sdk-implementation.md)
+**Date:** 2025-12-30 **Status:** In Progress **Parent Task:**
+[2025.12.17-milestone-2-ocp-sdk-implementation.md](../2025.12.17-milestone-2-ocp-sdk-implementation.md)
 
 ---
 
@@ -25,7 +24,8 @@ The integration test framework was established with 4 entity types as examples:
 - `stockClass`
 - `stockClassAuthorizedSharesAdjustment`
 
-However, the SDK exposes **17 OpenCapTable entity types** plus **3 additional domains** (Reports, Payments, Streams). Without comprehensive integration tests, we cannot verify:
+However, the SDK exposes **17 OpenCapTable entity types** plus **3 additional domains** (Reports,
+Payments, Streams). Without comprehensive integration tests, we cannot verify:
 
 - DAML command structures are correct
 - Type conversions work at runtime
@@ -168,7 +168,8 @@ test/integration/
 
 ### 🔄 Phase 2: Reports, Payments, Streams (Simplified)
 
-Due to complex Canton Network requirements (Amulet, Wallet, Payment infrastructure), these tests are simplified to verify SDK function existence:
+Due to complex Canton Network requirements (Amulet, Wallet, Payment infrastructure), these tests are
+simplified to verify SDK function existence:
 
 - **Reports**: Basic structure verified, full tests need Validator setup
 - **Payments**: Require Canton Coin/Amulet infrastructure
