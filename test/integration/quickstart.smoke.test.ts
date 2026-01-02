@@ -12,14 +12,12 @@
  */
 
 import { OcpClient } from '../../src/OcpClient';
-import { buildIntegrationTestClientConfig, isIntegrationTestConfigured } from '../utils/testConfig';
+import { buildIntegrationTestClientConfig } from '../utils/testConfig';
 
 describe('quickstart smoke', () => {
   jest.setTimeout(120_000);
 
-  const configured = isIntegrationTestConfigured();
-
-  (configured ? test : test.skip)('connects and returns /v2/version', async () => {
+  test('connects and returns /v2/version', async () => {
     const config = buildIntegrationTestClientConfig();
     const ocp = new OcpClient(config);
 

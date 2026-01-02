@@ -1,28 +1,11 @@
 /**
  * Shared test configuration utilities for integration tests.
  *
- * By default, tests are configured for LocalNet (cn-quickstart). To test against a remote environment, set the
- * following environment variables:
+ * Tests are configured for LocalNet (cn-quickstart) with shared-secret authentication by default.
  *
  * @example
- *   LocalNet usage (default - no env vars needed)
+ *   LocalNet usage (default)
  *   ```bash
- *   npm run test:integration
- *   ```
- *
- * @example
- *   LocalNet with shared-secret auth (default is OAuth2)
- *   ```bash
- *   OCP_TEST_AUTH_MODE=shared-secret npm run test:integration
- *   ```
- *
- * @example
- *   Remote environment usage
- *   ```bash
- *   OCP_TEST_LEDGER_JSON_API_URI=https://... \
- *   OCP_TEST_AUTH_URL=https://... \
- *   OCP_TEST_CLIENT_ID=my-client \
- *   OCP_TEST_CLIENT_SECRET=secret \
  *   npm run test:integration
  *   ```
  */
@@ -35,112 +18,44 @@ import type { ClientConfig } from '@fairmint/canton-node-sdk';
  * @param name - Environment variable name
  * @returns The value or undefined if not set/empty
  */
-export function getEnv(name: string): string | undefined {
+function getEnv(name: string): string | undefined {
   const value = process.env[name];
   return value && value.length > 0 ? value : undefined;
 }
 
 /**
- * Get a required environment variable, throwing if not set.
- *
- * @param name - Environment variable name
- * @returns The value
- * @throws Error if the variable is not set or empty
- */
-export function getRequiredEnv(name: string): string {
-  const value = getEnv(name);
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
-/**
- * Check if the integration test environment is configured. Returns true if remote environment variables are set, or
- * defaults to true (LocalNet is always available).
- *
- * @returns True if integration tests can run
- */
-export function isIntegrationTestConfigured(): boolean {
-  // Check if remote environment is configured
-  const hasRemoteConfig = Boolean(
-    getEnv('OCP_TEST_LEDGER_JSON_API_URI') && getEnv('OCP_TEST_AUTH_URL') && getEnv('OCP_TEST_CLIENT_ID')
-  );
-  // Check if LocalNet defaults are explicitly enabled
-  const localNetEnv = getEnv('OCP_TEST_USE_CN_QUICKSTART_DEFAULTS');
-  const hasLocalNetConfig = localNetEnv === '1' || localNetEnv === 'true';
-  return hasRemoteConfig || hasLocalNetConfig;
-}
-
-/**
  * Build a ClientConfig for integration tests.
  *
- * Defaults to LocalNet configuration. If remote environment variables are set, uses those instead. Set
- * OCP_TEST_AUTH_MODE=shared-secret to use JWT-based auth instead of OAuth2 for LocalNet.
+ * Returns LocalNet configuration with shared-secret authentication.
  *
  * @returns ClientConfig for use with OcpClient
- * @throws Error if remote environment is partially configured (missing required variables)
  */
 export function buildIntegrationTestClientConfig(): ClientConfig {
-  // Check if remote environment is configured
-  const apiUrl = getEnv('OCP_TEST_LEDGER_JSON_API_URI');
-  const authUrl = getEnv('OCP_TEST_AUTH_URL');
-  const clientId = getEnv('OCP_TEST_CLIENT_ID');
-
-  // If any remote config is set, require all of them
-  if (apiUrl || authUrl || clientId) {
-    if (!apiUrl || !authUrl || !clientId) {
-      throw new Error(
-        'Incomplete remote environment configuration. ' +
-          'Set OCP_TEST_LEDGER_JSON_API_URI, OCP_TEST_AUTH_URL, and OCP_TEST_CLIENT_ID'
-      );
-    }
-    const clientSecret = getEnv('OCP_TEST_CLIENT_SECRET');
-    return {
-      network: 'devnet',
-      authUrl,
-      apis: {
-        LEDGER_JSON_API: {
-          apiUrl,
-          auth: {
-            grantType: 'client_credentials',
-            clientId,
-            clientSecret,
-          },
+  return {
+    network: 'localnet',
+    apis: {
+      LEDGER_JSON_API: {
+        apiUrl: 'http://localhost:3975',
+        auth: {
+          grantType: 'none',
+          tokenGenerator: generateSharedSecretJwt,
         },
       },
-    };
-  }
-
-  // Default: LocalNet configuration
-  const authMode = getEnv('OCP_TEST_AUTH_MODE');
-  if (authMode === 'shared-secret') {
-    return {
-      network: 'localnet',
-      apis: {
-        LEDGER_JSON_API: {
-          apiUrl: 'http://localhost:3975',
-          auth: {
-            grantType: 'none',
-            tokenGenerator: generateSharedSecretJwt,
-          },
-        },
-        VALIDATOR_API: {
-          apiUrl: 'http://localhost:3903',
-          auth: {
-            grantType: 'none',
-            tokenGenerator: generateSharedSecretJwt,
-          },
-        },
-        SCAN_API: {
-          apiUrl: 'http://localhost:4000',
-          auth: {
-            grantType: 'none',
-          },
+      VALIDATOR_API: {
+        apiUrl: 'http://localhost:3903',
+        auth: {
+          grantType: 'none',
+          tokenGenerator: generateSharedSecretJwt,
         },
       },
-    };
-  }
-  // Default: OAuth2 mode for LocalNet
-  return { network: 'localnet' };
+      SCAN_API: {
+        apiUrl: 'http://localhost:4000',
+        auth: {
+          grantType: 'none',
+        },
+      },
+    },
+  };
 }
 
 /**
@@ -151,7 +66,7 @@ export function buildIntegrationTestClientConfig(): ClientConfig {
 async function generateSharedSecretJwt(): Promise<string> {
   // Use jsonwebtoken (CommonJS) instead of jose (ESM) for Jest compatibility
   const jwt = await import('jsonwebtoken');
-  const secret = 'unsafe';
+  const secret = getEnv('OCP_TEST_SHARED_SECRET') ?? 'unsafe';
   return jwt.default.sign(
     {
       sub: 'ledger-api-user',

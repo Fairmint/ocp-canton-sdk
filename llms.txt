@@ -399,8 +399,6 @@ make clean-all-docker  # Stop and remove all containers/volumes (full reset)
 
 ### Running Integration Tests Against LocalNet
 
-**Shared-Secret Mode (Recommended for Local Development):**
-
 ```bash
 # Configure LocalNet for shared-secret mode
 cd libs/cn-quickstart/quickstart
@@ -408,25 +406,11 @@ echo 'AUTH_MODE=shared-secret' >> .env.local
 make clean-all-docker  # Reset to apply new config
 make start
 
-# Run integration tests with shared-secret auth
-OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1 \
-OCP_TEST_AUTH_MODE=shared-secret \
+# Run integration tests
 npm run test:integration
 ```
 
-**OAuth2 Mode:**
-
-```bash
-# Configure LocalNet for OAuth2 (default)
-cd libs/cn-quickstart/quickstart
-echo 'AUTH_MODE=oauth2' >> .env.local
-make start
-
-# Run integration tests with OAuth2 auth
-OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1 npm run test:integration
-```
-
-Note: DAR files are auto-discovered from the `@fairmint/open-captable-protocol-daml-js` npm package.
+Note: Integration tests use shared-secret authentication by default. DAR files are auto-discovered from the `@fairmint/open-captable-protocol-daml-js` npm package.
 
 ### LocalNet Services and Ports
 

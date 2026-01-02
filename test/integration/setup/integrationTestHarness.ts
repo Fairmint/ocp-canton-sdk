@@ -32,7 +32,7 @@
 import { ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../../src/OcpClient';
-import { buildIntegrationTestClientConfig, isIntegrationTestConfigured } from '../../utils/testConfig';
+import { buildIntegrationTestClientConfig } from '../../utils/testConfig';
 import {
   createFeaturedAppRight,
   deployAndCreateFactory,
@@ -324,10 +324,7 @@ export function createIntegrationTestSuite(
   name: string,
   testFn: (getContext: () => IntegrationTestContext) => void
 ): void {
-  // Skip the entire suite if integration is not configured
-  const describeImpl = isIntegrationTestConfigured() ? describe : describe.skip;
-
-  describeImpl(name, () => {
+  describe(name, () => {
     // Set longer timeout for integration tests (5 minutes for deployment)
     jest.setTimeout(300_000);
 
