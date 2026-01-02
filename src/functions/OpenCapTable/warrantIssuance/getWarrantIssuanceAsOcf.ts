@@ -122,9 +122,22 @@ export async function getWarrantIssuanceAsOcf(
     m: Record<string, unknown> | null | undefined
   ): { amount: string; currency: string } | undefined => {
     if (!m) return undefined;
-    const amount = normalizeNumericString(typeof m.amount === 'number' ? String(m.amount) : String(m.amount));
-    const currency = String(m.currency);
-    return { amount, currency };
+    
+    // Validate amount exists and is string or number
+    if (m.amount === undefined || m.amount === null) {
+      throw new Error('Monetary amount is required but was undefined or null');
+    }
+    if (typeof m.amount !== 'string' && typeof m.amount !== 'number') {
+      throw new Error(`Monetary amount must be string or number, got ${typeof m.amount}`);
+    }
+    
+    // Validate currency exists and is string
+    if (typeof m.currency !== 'string' || !m.currency) {
+      throw new Error('Monetary currency is required and must be a non-empty string');
+    }
+    
+    const amount = normalizeNumericString(typeof m.amount === 'number' ? m.amount.toString() : m.amount);
+    return { amount, currency: m.currency };
   };
 
   const mapWarrantMechanism = (m: unknown): WarrantConversionMechanism => {

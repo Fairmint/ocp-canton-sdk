@@ -74,9 +74,22 @@ export async function getEquityCompensationIssuanceEventAsOcf(
   const mapMonetary = (price: unknown): { amount: string; currency: string } | undefined => {
     if (!price || typeof price !== 'object') return undefined;
     const p = price as Record<string, unknown>;
-    const amount = normalizeNumericString(typeof p.amount === 'number' ? String(p.amount) : String(p.amount));
-    const currency = String(p.currency);
-    return { amount, currency };
+    
+    // Validate amount exists and is string or number
+    if (p.amount === undefined || p.amount === null) {
+      throw new Error('Monetary amount is required but was undefined or null');
+    }
+    if (typeof p.amount !== 'string' && typeof p.amount !== 'number') {
+      throw new Error(`Monetary amount must be string or number, got ${typeof p.amount}`);
+    }
+    
+    // Validate currency exists and is string
+    if (typeof p.currency !== 'string' || !p.currency) {
+      throw new Error('Monetary currency is required and must be a non-empty string');
+    }
+    
+    const amount = normalizeNumericString(typeof p.amount === 'number' ? p.amount.toString() : p.amount);
+    return { amount, currency: p.currency };
   };
 
   const exercise_price = d.exercise_price ? mapMonetary(d.exercise_price) : undefined;
@@ -84,10 +97,19 @@ export async function getEquityCompensationIssuanceEventAsOcf(
 
   const vestings =
     Array.isArray(d.vestings) && d.vestings.length > 0
-      ? ((d.vestings as Array<{ date: string; amount: string | number }>).map((v) => ({
-          date: v.date.split('T')[0],
-          amount: normalizeNumericString(typeof v.amount === 'number' ? String(v.amount) : String(v.amount)),
-        })) as Vesting[])
+      ? ((d.vestings as Array<{ date: string; amount: string | number }>).map((v) => {
+          // Validate vesting amount
+          if (v.amount === undefined || v.amount === null) {
+            throw new Error('Vesting amount is required but was undefined or null');
+          }
+          if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
+            throw new Error(`Vesting amount must be string or number, got ${typeof v.amount}`);
+          }
+          return {
+            date: v.date.split('T')[0],
+            amount: normalizeNumericString(typeof v.amount === 'number' ? v.amount.toString() : v.amount),
+          };
+        }) as Vesting[])
       : undefined;
 
   const termination_exercise_windows =

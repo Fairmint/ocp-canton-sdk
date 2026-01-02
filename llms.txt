@@ -206,12 +206,22 @@ import {
    - No early returns that make tests "pass" when they didn't run
    - If something fails, it should fail visibly with a clear error message
    - Tests must actually test - if infrastructure is missing, tests should fail, not skip
-4. **Explicit fields** - List all fields, never use spread (`...d`)
-5. **No defensive checks** - Trust DAML types, don't check `Array.isArray()`
-6. **Use `null`** for DAML optional fields (not `undefined`)
-7. **Use `??`** instead of `||` for nullish coalescing
-8. **Pinned dependencies** - Use exact versions without `^` or `~` (e.g., `"1.2.3"` not `"^1.2.3"`)
-9. **DRY code** - Extract duplicated logic into reusable helpers (especially in tests)
+4. **No unsafe type coercion** - ALWAYS validate before converting types
+   - **NEVER** use `String(value)` on potentially undefined/null values (creates `"undefined"` or `"null"` strings)
+   - **NEVER** use `Number(value)` on potentially invalid strings (creates `NaN`)
+   - **ALWAYS** validate the type first, then convert with explicit error handling
+   - Example: ❌ `String(amount)` → ✅ `if (!amount) throw new Error('...'); amount.toString()`
+   - Use `.toString()` instead of `String()` when you've validated the value is not null/undefined
+5. **Explicit fields** - List all fields, never use spread (`...d`)
+6. **No defensive checks** - Trust DAML types, don't check `Array.isArray()`
+7. **Use `null`** for DAML optional fields (not `undefined`)
+8. **Use `??`** instead of `||` for nullish coalescing
+9. **Pinned dependencies** - ALWAYS use exact versions without `^` or `~`
+   - ✅ Correct: `"jsonwebtoken": "9.0.3"`
+   - ❌ Wrong: `"jsonwebtoken": "^9.0.3"` or `"~9.0.3"`
+   - This applies to ALL dependencies (dependencies, devDependencies, peerDependencies)
+   - When adding packages: `npm install --save-exact <package>` or manually remove `^`/`~` after install
+10. **DRY code** - Extract duplicated logic into reusable helpers (especially in tests)
 
 ## Improvement Backlog Pattern
 
