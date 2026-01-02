@@ -563,6 +563,7 @@ export function createTestWarrantIssuanceData(
     quantity: '5000',
     exercise_price: { amount: '2.00', currency: 'USD' },
     purchase_price: { amount: '0.01', currency: 'USD' },
+    // OCF schema allows empty exercise_triggers (no minItems: 1) - unlike convertible_triggers
     exercise_triggers: [],
     security_law_exemptions: [{ description: 'Rule 506(b)', jurisdiction: 'US' }],
     comments: ['Integration test warrant issuance'],
