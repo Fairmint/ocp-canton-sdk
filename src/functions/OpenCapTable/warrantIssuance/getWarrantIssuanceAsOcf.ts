@@ -122,7 +122,7 @@ export async function getWarrantIssuanceAsOcf(
     m: Record<string, unknown> | null | undefined
   ): { amount: string; currency: string } | undefined => {
     if (!m) return undefined;
-    
+
     // Validate amount exists and is string or number
     if (m.amount === undefined || m.amount === null) {
       throw new Error('Monetary amount is required but was undefined or null');
@@ -130,12 +130,12 @@ export async function getWarrantIssuanceAsOcf(
     if (typeof m.amount !== 'string' && typeof m.amount !== 'number') {
       throw new Error(`Monetary amount must be string or number, got ${typeof m.amount}`);
     }
-    
+
     // Validate currency exists and is string
     if (typeof m.currency !== 'string' || !m.currency) {
       throw new Error('Monetary currency is required and must be a non-empty string');
     }
-    
+
     const amount = normalizeNumericString(typeof m.amount === 'number' ? m.amount.toString() : m.amount);
     return { amount, currency: m.currency };
   };
@@ -158,7 +158,9 @@ export async function getWarrantIssuanceAsOcf(
               ? value.converts_to_percent.toString()
               : (() => {
                   if (typeof value.converts_to_percent !== 'string') {
-                    throw new Error(`converts_to_percent must be string or number, got ${typeof value.converts_to_percent}`);
+                    throw new Error(
+                      `converts_to_percent must be string or number, got ${typeof value.converts_to_percent}`
+                    );
                   }
                   return value.converts_to_percent;
                 })()
@@ -178,7 +180,9 @@ export async function getWarrantIssuanceAsOcf(
               ? value.converts_to_quantity.toString()
               : (() => {
                   if (typeof value.converts_to_quantity !== 'string') {
-                    throw new Error(`converts_to_quantity must be string or number, got ${typeof value.converts_to_quantity}`);
+                    throw new Error(
+                      `converts_to_quantity must be string or number, got ${typeof value.converts_to_quantity}`
+                    );
                   }
                   return value.converts_to_quantity;
                 })()

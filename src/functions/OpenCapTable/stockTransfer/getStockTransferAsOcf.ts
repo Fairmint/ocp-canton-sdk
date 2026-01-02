@@ -70,14 +70,6 @@ export async function getStockTransferAsOcf(
     throw new Error('Missing required field: resulting_security_ids');
   }
 
-  // Validate required quantity field
-  if (data.quantity === undefined || data.quantity === null) {
-    throw new Error('Stock transfer quantity is required');
-  }
-  if (typeof data.quantity !== 'string' && typeof data.quantity !== 'number') {
-    throw new Error(`Stock transfer quantity must be string or number, got ${typeof data.quantity}`);
-  }
-
   const event: OcfStockTransferEvent = {
     object_type: 'TX_STOCK_TRANSFER',
     id: data.id,

@@ -221,8 +221,8 @@ export async function getConvertibleIssuanceAsOcf(
               ...(typeof value.conversion_discount === 'number' || typeof value.conversion_discount === 'string'
                 ? {
                     conversion_discount: normalizeNumericString(
-                      typeof value.conversion_discount === 'number' 
-                        ? value.conversion_discount.toString() 
+                      typeof value.conversion_discount === 'number'
+                        ? value.conversion_discount.toString()
                         : value.conversion_discount
                     ),
                   }
@@ -265,7 +265,9 @@ export async function getConvertibleIssuanceAsOcf(
                   ? value.converts_to_percent.toString()
                   : (() => {
                       if (typeof value.converts_to_percent !== 'string') {
-                        throw new Error(`converts_to_percent must be string or number, got ${typeof value.converts_to_percent}`);
+                        throw new Error(
+                          `converts_to_percent must be string or number, got ${typeof value.converts_to_percent}`
+                        );
                       }
                       return value.converts_to_percent;
                     })()
@@ -287,7 +289,9 @@ export async function getConvertibleIssuanceAsOcf(
                   ? value.converts_to_quantity.toString()
                   : (() => {
                       if (typeof value.converts_to_quantity !== 'string') {
-                        throw new Error(`converts_to_quantity must be string or number, got ${typeof value.converts_to_quantity}`);
+                        throw new Error(
+                          `converts_to_quantity must be string or number, got ${typeof value.converts_to_quantity}`
+                        );
                       }
                       return value.converts_to_quantity;
                     })()
@@ -327,8 +331,12 @@ export async function getConvertibleIssuanceAsOcf(
                       typeof value.discount_percentage === 'number'
                         ? value.discount_percentage.toString()
                         : typeof value.discount_percentage === 'string'
-                        ? value.discount_percentage
-                        : (() => { throw new Error(`discount_percentage must be string or number, got ${typeof value.discount_percentage}`); })(),
+                          ? value.discount_percentage
+                          : (() => {
+                              throw new Error(
+                                `discount_percentage must be string or number, got ${typeof value.discount_percentage}`
+                              );
+                            })(),
                   }
                 : {}),
               ...(value.discount_amount
@@ -402,8 +410,8 @@ export async function getConvertibleIssuanceAsOcf(
               ...(typeof value.conversion_discount === 'number' || typeof value.conversion_discount === 'string'
                 ? {
                     conversion_discount: normalizeNumericString(
-                      typeof value.conversion_discount === 'number' 
-                        ? value.conversion_discount.toString() 
+                      typeof value.conversion_discount === 'number'
+                        ? value.conversion_discount.toString()
                         : value.conversion_discount
                     ),
                   }
@@ -524,15 +532,15 @@ export async function getConvertibleIssuanceAsOcf(
     });
   };
 
-  const investmentAmount = d.investment_amount as { amount: number | string; currency: string };
+  const investmentAmount = d.investment_amount as { amount?: unknown; currency?: unknown } | undefined;
   const comments = d.comments as string[];
 
   // Validate investment amount
-  if (investmentAmount.amount === undefined || investmentAmount.amount === null) {
-    throw new Error('investment_amount.amount is required but was undefined or null');
-  }
-  if (typeof investmentAmount.amount !== 'string' && typeof investmentAmount.amount !== 'number') {
-    throw new Error(`investment_amount.amount must be string or number, got ${typeof investmentAmount.amount}`);
+  if (
+    !investmentAmount ||
+    (typeof investmentAmount.amount !== 'string' && typeof investmentAmount.amount !== 'number')
+  ) {
+    throw new Error('investment_amount.amount is required and must be string or number');
   }
   if (typeof investmentAmount.currency !== 'string' || !investmentAmount.currency) {
     throw new Error('investment_amount.currency is required and must be a non-empty string');
@@ -568,9 +576,7 @@ export async function getConvertibleIssuanceAsOcf(
     ),
     ...(typeof d.pro_rata === 'number' || typeof d.pro_rata === 'string'
       ? {
-          pro_rata: normalizeNumericString(
-            typeof d.pro_rata === 'number' ? d.pro_rata.toString() : d.pro_rata
-          ),
+          pro_rata: normalizeNumericString(typeof d.pro_rata === 'number' ? d.pro_rata.toString() : d.pro_rata),
         }
       : {}),
     seniority: typeof d.seniority === 'number' ? d.seniority : Number(d.seniority),

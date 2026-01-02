@@ -66,9 +66,12 @@ export async function getStockCancellationEventAsOcf(
     date: data.date.split('T')[0],
     security_id: data.security_id,
     quantity: normalizeNumericString(
-      typeof data.quantity === 'number' 
-        ? data.quantity.toString() 
-        : data.quantity ?? (() => { throw new Error('Stock cancellation quantity is required'); })()
+      typeof data.quantity === 'number'
+        ? data.quantity.toString()
+        : (data.quantity ??
+            (() => {
+              throw new Error('Stock cancellation quantity is required');
+            })())
     ),
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
     reason_text: data.reason_text,

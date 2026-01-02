@@ -74,7 +74,7 @@ export async function getEquityCompensationIssuanceEventAsOcf(
   const mapMonetary = (price: unknown): { amount: string; currency: string } | undefined => {
     if (!price || typeof price !== 'object') return undefined;
     const p = price as Record<string, unknown>;
-    
+
     // Validate amount exists and is string or number
     if (p.amount === undefined || p.amount === null) {
       throw new Error('Monetary amount is required but was undefined or null');
@@ -82,12 +82,12 @@ export async function getEquityCompensationIssuanceEventAsOcf(
     if (typeof p.amount !== 'string' && typeof p.amount !== 'number') {
       throw new Error(`Monetary amount must be string or number, got ${typeof p.amount}`);
     }
-    
+
     // Validate currency exists and is string
     if (typeof p.currency !== 'string' || !p.currency) {
       throw new Error('Monetary currency is required and must be a non-empty string');
     }
-    
+
     const amount = normalizeNumericString(typeof p.amount === 'number' ? p.amount.toString() : p.amount);
     return { amount, currency: p.currency };
   };
@@ -97,11 +97,8 @@ export async function getEquityCompensationIssuanceEventAsOcf(
 
   const vestings =
     Array.isArray(d.vestings) && d.vestings.length > 0
-      ? ((d.vestings as Array<{ date: string; amount: string | number }>).map((v) => {
+      ? ((d.vestings as Array<{ date: string; amount?: unknown }>).map((v) => {
           // Validate vesting amount
-          if (v.amount === undefined || v.amount === null) {
-            throw new Error('Vesting amount is required but was undefined or null');
-          }
           if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
             throw new Error(`Vesting amount must be string or number, got ${typeof v.amount}`);
           }
