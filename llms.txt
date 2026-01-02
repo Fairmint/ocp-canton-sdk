@@ -430,16 +430,33 @@ make clean-all-docker  # Stop and remove all containers/volumes (full reset)
 
 ### Running Integration Tests Against LocalNet
 
+**IMPORTANT: Always run integration tests locally before pushing to verify DAML contract compatibility.**
+
+Unit tests (`npm run test:ci`) only verify TypeScript logic with mocked clients. Integration tests (`npm run test:integration`) verify actual DAML contract interactions and can fail due to:
+- Invalid data that DAML contracts reject (e.g., empty required arrays)
+- Type mismatches between SDK and DAML schemas
+- Missing required fields that TypeScript doesn't enforce
+
 ```bash
-# Configure LocalNet for shared-secret mode
+# 1. Start LocalNet with shared-secret mode
 cd libs/cn-quickstart/quickstart
 echo 'AUTH_MODE=shared-secret' >> .env.local
 make clean-all-docker  # Reset to apply new config
 make start
 
-# Run integration tests
+# 2. Wait for services (check all show "healthy")
+docker ps --format "table {{.Names}}\t{{.Status}}"
+
+# 3. Run integration tests
 npm run test:integration
+
+# 4. Fix any failures before pushing
 ```
+
+**Pre-push checklist:**
+1. `npm run fix` - Format and lint
+2. `npm run test:ci` - Unit tests  
+3. `npm run test:integration` - Integration tests (requires LocalNet)
 
 Note: Integration tests use shared-secret authentication by default. DAR files are auto-discovered from the `@fairmint/open-captable-protocol-daml-js` npm package.
 

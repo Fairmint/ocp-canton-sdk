@@ -582,6 +582,7 @@ export function createTestConvertibleIssuanceData(
   overrides: Partial<OcfConvertibleIssuanceDataNative> = {}
 ): OcfConvertibleIssuanceDataNative {
   const securityId = generateTestId('convertible-security');
+  const triggerId = generateTestId('trigger');
   return {
     id: generateTestId('convertible'),
     date: generateDateString(),
@@ -590,7 +591,22 @@ export function createTestConvertibleIssuanceData(
     stakeholder_id: stakeholderId,
     investment_amount: { amount: '100000', currency: 'USD' },
     convertible_type: 'SAFE',
-    conversion_triggers: [],
+    // DAML requires at least one conversion trigger (not null d.conversion_triggers)
+    conversion_triggers: [
+      {
+        type: 'ELECTIVE_AT_WILL',
+        trigger_id: triggerId,
+        nickname: 'Standard Conversion',
+        trigger_description: 'Convert at holder election',
+        conversion_right: {
+          conversion_mechanism: {
+            type: 'SAFE_CONVERSION',
+            conversion_mfn: false,
+          },
+          converts_to_future_round: true,
+        },
+      },
+    ],
     seniority: 1,
     security_law_exemptions: [{ description: 'Rule 506(b)', jurisdiction: 'US' }],
     comments: ['Integration test convertible issuance'],
