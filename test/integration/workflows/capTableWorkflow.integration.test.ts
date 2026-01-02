@@ -99,4 +99,3 @@ createIntegrationTestSuite('Full cap table workflow', (getContext) => {
     await validateOcfObject(investorOcf.stakeholder as unknown as Record<string, unknown>);
   });
 });
-

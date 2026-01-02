@@ -121,4 +121,3 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
     // Archive operation succeeded if no error thrown
   });
 });
-

@@ -84,4 +84,3 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
     await validateOcfObject(ocfResult.stakeholder as unknown as Record<string, unknown>);
   });
 });
-

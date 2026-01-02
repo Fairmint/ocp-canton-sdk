@@ -212,4 +212,3 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
     // This test validates that the archive operation succeeds without error
   });
 });
-
