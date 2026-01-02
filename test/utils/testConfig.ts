@@ -1,8 +1,8 @@
 /**
  * Shared test configuration utilities for integration tests.
  *
- * By default, tests are configured for LocalNet (cn-quickstart).
- * To test against a remote environment, set the following environment variables:
+ * By default, tests are configured for LocalNet (cn-quickstart). To test against a remote environment, set the
+ * following environment variables:
  *
  * @example
  *   LocalNet usage (default - no env vars needed)
@@ -54,8 +54,8 @@ export function getRequiredEnv(name: string): string {
 }
 
 /**
- * Check if the integration test environment is configured.
- * Returns true if remote environment variables are set, or defaults to true (LocalNet is always available).
+ * Check if the integration test environment is configured. Returns true if remote environment variables are set, or
+ * defaults to true (LocalNet is always available).
  *
  * @returns True if integration tests can run
  */
@@ -71,8 +71,8 @@ export function isIntegrationTestConfigured(): boolean {
 /**
  * Build a ClientConfig for integration tests.
  *
- * Defaults to LocalNet configuration. If remote environment variables are set, uses those instead.
- * Set OCP_TEST_AUTH_MODE=shared-secret to use JWT-based auth instead of OAuth2 for LocalNet.
+ * Defaults to LocalNet configuration. If remote environment variables are set, uses those instead. Set
+ * OCP_TEST_AUTH_MODE=shared-secret to use JWT-based auth instead of OAuth2 for LocalNet.
  *
  * @returns ClientConfig for use with OcpClient
  * @throws Error if remote environment is partially configured (missing required variables)
