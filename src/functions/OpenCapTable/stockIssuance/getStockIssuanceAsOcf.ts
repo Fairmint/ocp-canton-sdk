@@ -7,7 +7,7 @@ import type {
   ShareNumberRange,
   StockIssuanceType,
 } from '../../../types/native';
-import { damlMonetaryToNative, damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.OcfSecurityExemption): SecurityExemption {
   return { description: e.description, jurisdiction: e.jurisdiction };
@@ -62,12 +62,12 @@ function damlStockIssuanceDataToNative(
         )
       : [],
     share_price: damlMonetaryToNative(d.share_price),
-    quantity: d.quantity,
+    quantity: normalizeNumericString(d.quantity),
     ...(d.vesting_terms_id && { vesting_terms_id: d.vesting_terms_id }),
     vestings: Array.isArray((anyD as { vestings?: unknown }).vestings)
       ? (anyD as { vestings: Array<{ date: string; amount: string }> }).vestings.map((v) => ({
           date: damlTimeToDateString(v.date),
-          amount: v.amount,
+          amount: normalizeNumericString(v.amount),
         }))
       : [],
     ...(d.cost_basis && { cost_basis: damlMonetaryToNative(d.cost_basis) }),

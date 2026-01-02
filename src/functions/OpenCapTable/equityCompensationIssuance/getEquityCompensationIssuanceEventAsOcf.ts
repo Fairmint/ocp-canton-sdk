@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Vesting } from '../../../types/native';
+import { normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface OcfEquityCompensationIssuanceEvent {
   object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE';
@@ -73,7 +74,7 @@ export async function getEquityCompensationIssuanceEventAsOcf(
   const mapMonetary = (price: unknown): { amount: string; currency: string } | undefined => {
     if (!price || typeof price !== 'object') return undefined;
     const p = price as Record<string, unknown>;
-    const amount = typeof p.amount === 'number' ? String(p.amount) : String(p.amount);
+    const amount = normalizeNumericString(typeof p.amount === 'number' ? String(p.amount) : String(p.amount));
     const currency = String(p.currency);
     return { amount, currency };
   };
@@ -85,7 +86,7 @@ export async function getEquityCompensationIssuanceEventAsOcf(
     Array.isArray(d.vestings) && d.vestings.length > 0
       ? ((d.vestings as Array<{ date: string; amount: string | number }>).map((v) => ({
           date: v.date.split('T')[0],
-          amount: typeof v.amount === 'number' ? String(v.amount) : String(v.amount),
+          amount: normalizeNumericString(typeof v.amount === 'number' ? String(v.amount) : String(v.amount)),
         })) as Vesting[])
       : undefined;
 
@@ -110,7 +111,7 @@ export async function getEquityCompensationIssuanceEventAsOcf(
     custom_id: String(d.custom_id),
     stakeholder_id: String(d.stakeholder_id),
     compensation_type: compMap[(d.compensation_type as string) || 'OcfCompensationTypeOption'],
-    quantity: typeof d.quantity === 'number' ? String(d.quantity) : String(d.quantity),
+    quantity: normalizeNumericString(typeof d.quantity === 'number' ? String(d.quantity) : String(d.quantity)),
     expiration_date: d.expiration_date ? (d.expiration_date as string).split('T')[0] : null,
     termination_exercise_windows: termination_exercise_windows ?? [],
     ...(exercise_price ? { exercise_price } : {}),

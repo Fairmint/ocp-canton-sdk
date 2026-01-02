@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfStockPlanData, StockPlanCancellationBehavior } from '../../../types/native';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehavior | undefined {
   switch (b) {
@@ -29,7 +29,7 @@ function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.StockPlan.OcfStockPl
     ...(d.stockholder_approval_date && {
       stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
     }),
-    initial_shares_reserved: d.initial_shares_reserved || '0',
+    initial_shares_reserved: normalizeNumericString(d.initial_shares_reserved || '0'),
     ...(d.default_cancellation_behavior && {
       default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior),
     }),

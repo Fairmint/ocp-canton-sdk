@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface OcfStockCancellationEvent {
   object_type: 'TX_STOCK_CANCELLATION';
@@ -64,7 +65,9 @@ export async function getStockCancellationEventAsOcf(
     id: data.id,
     date: data.date.split('T')[0],
     security_id: data.security_id,
-    quantity: typeof data.quantity === 'number' ? String(data.quantity) : String(data.quantity ?? '0'),
+    quantity: normalizeNumericString(
+      typeof data.quantity === 'number' ? String(data.quantity) : String(data.quantity ?? '0')
+    ),
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
     reason_text: data.reason_text,
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),

@@ -44,6 +44,29 @@ export function numberToString(value: number | string): string {
 }
 
 /**
+ * Normalize a numeric string by removing trailing zeros after the decimal point. DAML returns numbers like
+ * "5000000.0000000000" but OCF expects "5000000". Also handles removing the decimal point if all fractional digits are
+ * zeros.
+ */
+export function normalizeNumericString(value: string): string {
+  // If no decimal point, return as-is
+  if (!value.includes('.')) {
+    return value;
+  }
+
+  // Remove trailing zeros after decimal point
+  const result = value.replace(/\.?0+$/, '');
+
+  // If we ended up with just an empty string after the decimal, it means there was nothing before it
+  // This shouldn't happen with valid numeric strings, but just in case:
+  if (result === '') {
+    return '0';
+  }
+
+  return result;
+}
+
+/**
  * Convert a number, string, null or undefined to a string or undefined Used for optional DAML numeric fields that
  * require string values
  */

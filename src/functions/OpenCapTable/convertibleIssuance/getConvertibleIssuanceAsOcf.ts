@@ -1,5 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { safeString } from '../../../utils/typeConversions';
+import { normalizeNumericString, safeString } from '../../../utils/typeConversions';
 
 interface CapitalizationDefinitionRules {
   exclude_external_entities?: boolean;
@@ -173,12 +173,13 @@ export async function getConvertibleIssuanceAsOcf(
       // Handle both string enum and DAML variant { tag, value }
       const mapMonetary = (mon: unknown): { amount: string; currency: string } | undefined => {
         if (!mon || typeof mon !== 'object') return undefined;
-        const amount =
+        const amount = normalizeNumericString(
           typeof (mon as Record<string, unknown>).amount === 'number'
             ? String((mon as Record<string, unknown>).amount)
-            : (mon as Record<string, unknown>).amount;
+            : String((mon as Record<string, unknown>).amount)
+        );
         return {
-          amount: amount as string,
+          amount,
           currency: (mon as Record<string, unknown>).currency as string,
         };
       };

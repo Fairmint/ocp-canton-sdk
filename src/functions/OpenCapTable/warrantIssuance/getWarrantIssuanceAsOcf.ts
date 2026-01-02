@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { normalizeNumericString } from '../../../utils/typeConversions';
 
 type ConversionTriggerType =
   | 'AUTOMATIC_ON_CONDITION'
@@ -121,7 +122,7 @@ export async function getWarrantIssuanceAsOcf(
     m: Record<string, unknown> | null | undefined
   ): { amount: string; currency: string } | undefined => {
     if (!m) return undefined;
-    const amount = typeof m.amount === 'number' ? String(m.amount) : String(m.amount);
+    const amount = normalizeNumericString(typeof m.amount === 'number' ? String(m.amount) : String(m.amount));
     const currency = String(m.currency);
     return { amount, currency };
   };
@@ -139,10 +140,11 @@ export async function getWarrantIssuanceAsOcf(
       case 'OcfWarrantMechanismPercentCapitalization':
         return {
           type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-          converts_to_percent:
+          converts_to_percent: normalizeNumericString(
             typeof value.converts_to_percent === 'number'
               ? String(value.converts_to_percent)
-              : String(value.converts_to_percent),
+              : String(value.converts_to_percent)
+          ),
           ...(value.capitalization_definition && typeof value.capitalization_definition === 'string'
             ? { capitalization_definition: value.capitalization_definition }
             : {}),
@@ -153,10 +155,11 @@ export async function getWarrantIssuanceAsOcf(
       case 'OcfWarrantMechanismFixedAmount':
         return {
           type: 'FIXED_AMOUNT_CONVERSION',
-          converts_to_quantity:
+          converts_to_quantity: normalizeNumericString(
             typeof value.converts_to_quantity === 'number'
               ? String(value.converts_to_quantity)
-              : String(value.converts_to_quantity),
+              : String(value.converts_to_quantity)
+          ),
         } as WarrantFixedAmountMechanism;
       case 'OcfWarrantMechanismValuationBased': {
         const valuationAmount = mapMonetary(value.valuation_amount as Record<string, unknown>);
@@ -182,10 +185,11 @@ export async function getWarrantIssuanceAsOcf(
           value.discount_percentage !== null &&
           (typeof value.discount_percentage === 'number' || typeof value.discount_percentage === 'string')
             ? {
-                discount_percentage:
+                discount_percentage: normalizeNumericString(
                   typeof value.discount_percentage === 'number'
                     ? String(value.discount_percentage)
-                    : value.discount_percentage,
+                    : value.discount_percentage
+                ),
               }
             : {}),
           ...(discountAmount ? { discount_amount: discountAmount } : {}),
@@ -297,7 +301,7 @@ export async function getWarrantIssuanceAsOcf(
     ...(d.quantity !== null &&
     d.quantity !== undefined &&
     (typeof d.quantity === 'number' || typeof d.quantity === 'string')
-      ? { quantity: typeof d.quantity === 'number' ? String(d.quantity) : d.quantity }
+      ? { quantity: normalizeNumericString(typeof d.quantity === 'number' ? String(d.quantity) : d.quantity) }
       : {}),
     ...(exercise_price ? { exercise_price } : {}),
     purchase_price,

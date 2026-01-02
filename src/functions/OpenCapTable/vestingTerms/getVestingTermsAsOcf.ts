@@ -6,7 +6,7 @@ import type {
   VestingCondition,
   VestingConditionPortion,
 } from '../../../types/native';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.VestingTerms.OcfAllocationType): AllocationType {
   switch (t) {
@@ -181,8 +181,8 @@ function damlVestingConditionPortionToNative(
   p: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion
 ): VestingConditionPortion {
   return {
-    numerator: p.numerator,
-    denominator: p.denominator,
+    numerator: normalizeNumericString(p.numerator),
+    denominator: normalizeNumericString(p.denominator),
     remainder: p.remainder,
   };
 }
@@ -192,7 +192,7 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfV
   const native: VestingCondition = {
     id: conditionWithId.id ?? '',
     ...(c.description && { description: c.description }),
-    ...(c.quantity && { quantity: c.quantity }),
+    ...(c.quantity && { quantity: normalizeNumericString(c.quantity) }),
     trigger: damlVestingTriggerToNative(c.trigger) as VestingCondition['trigger'],
     next_condition_ids: c.next_condition_ids,
   };
