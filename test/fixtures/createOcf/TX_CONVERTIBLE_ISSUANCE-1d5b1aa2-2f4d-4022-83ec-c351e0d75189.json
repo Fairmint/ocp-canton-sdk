@@ -344,7 +344,7 @@
     "custom_id": "CN-1",
     "stakeholder_id": "8f97599b-96c2-4e24-8900-ae6c82c76865",
     "investment_amount": {
-      "amount": "50000.0000000000",
+      "amount": "50000",
       "currency": "USD"
     },
     "convertible_type": "SAFE",
@@ -356,7 +356,7 @@
           "type": "CONVERTIBLE_CONVERSION_RIGHT",
           "conversion_mechanism": {
             "type": "FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION",
-            "converts_to_percent": "0.0350000000",
+            "converts_to_percent": "0.035",
             "capitalization_definition": "Total shares outstanding including all options and warrants",
             "capitalization_definition_rules": {
               "include_additional_option_pool_topup": false,

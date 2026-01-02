@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { OcfStockTransferTxData } from '../../../types/native';
+import { normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * OCF Stock Transfer Event with object_type discriminator OCF:
@@ -62,19 +63,22 @@ export async function getStockTransferAsOcf(
   if (!data.id) throw new Error('Missing required field: id');
   if (!data.date) throw new Error('Missing required field: date');
   if (!data.security_id) throw new Error('Missing required field: security_id');
-  if (data.quantity === undefined) {
+  if (data.quantity == null) {
     throw new Error('Missing required field: quantity');
   }
   if (!data.resulting_security_ids || data.resulting_security_ids.length === 0) {
     throw new Error('Missing required field: resulting_security_ids');
   }
 
+  // Convert quantity to string for normalization
+  const quantityStr = typeof data.quantity === 'number' ? data.quantity.toString() : data.quantity;
+
   const event: OcfStockTransferEvent = {
     object_type: 'TX_STOCK_TRANSFER',
     id: data.id,
     date: data.date.split('T')[0],
     security_id: data.security_id,
-    quantity: String(data.quantity),
+    quantity: normalizeNumericString(quantityStr),
     resulting_security_ids: data.resulting_security_ids,
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
     ...(data.consideration_text ? { consideration_text: data.consideration_text } : {}),

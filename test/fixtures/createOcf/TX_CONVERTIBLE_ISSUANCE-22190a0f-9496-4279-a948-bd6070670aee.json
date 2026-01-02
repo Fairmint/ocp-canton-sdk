@@ -369,7 +369,7 @@
     "custom_id": "CN-X",
     "stakeholder_id": "2925220d-cb90-46c5-987f-55d0a691d994",
     "investment_amount": {
-      "amount": "5000.0000000000",
+      "amount": "5000",
       "currency": "USD"
     },
     "convertible_type": "SAFE",
@@ -382,11 +382,11 @@
           "conversion_mechanism": {
             "type": "SAFE_CONVERSION",
             "conversion_mfn": false,
-            "conversion_discount": "0.0500000000",
+            "conversion_discount": "0.05",
             "conversion_timing": "POST_MONEY",
             "exit_multiple": {
-              "numerator": "1.0000000000",
-              "denominator": "1.0000000000"
+              "numerator": "1",
+              "denominator": "1"
             }
           },
           "converts_to_future_round": true

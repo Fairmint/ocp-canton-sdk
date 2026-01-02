@@ -44,6 +44,41 @@ export function numberToString(value: number | string): string {
 }
 
 /**
+ * Normalize a numeric string by removing trailing zeros after the decimal point. DAML returns numbers like
+ * "5000000.0000000000" but OCF expects "5000000". Also handles removing the decimal point if all fractional digits are
+ * zeros.
+ *
+ * @throws Error if the string contains scientific notation (e.g., "1.5e10") or is not a valid numeric string
+ */
+export function normalizeNumericString(value: string): string {
+  // Validate: reject scientific notation
+  if (value.toLowerCase().includes('e')) {
+    throw new Error(`Invalid numeric string: scientific notation is not supported (got "${value}")`);
+  }
+
+  // Validate: must be a valid numeric string (optional minus, digits, optional decimal and more digits)
+  if (!/^-?\d+(\.\d+)?$/.test(value)) {
+    throw new Error(`Invalid numeric string format (got "${value}")`);
+  }
+
+  // If no decimal point, return as-is
+  if (!value.includes('.')) {
+    return value;
+  }
+
+  // Remove trailing zeros after decimal point
+  const result = value.replace(/\.?0+$/, '');
+
+  // If we ended up with just an empty string after the decimal, it means there was nothing before it
+  // This shouldn't happen with valid numeric strings, but just in case:
+  if (result === '') {
+    return '0';
+  }
+
+  return result;
+}
+
+/**
  * Convert a number, string, null or undefined to a string or undefined Used for optional DAML numeric fields that
  * require string values
  */
@@ -89,7 +124,7 @@ export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.
 
 export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.OcfMonetary): Monetary {
   return {
-    amount: damlMonetary.amount,
+    amount: normalizeNumericString(damlMonetary.amount),
     currency: damlMonetary.currency,
   };
 }

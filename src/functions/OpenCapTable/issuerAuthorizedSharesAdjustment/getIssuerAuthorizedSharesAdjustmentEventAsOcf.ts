@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface OcfIssuerAuthorizedSharesAdjustmentEvent {
   object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT';
@@ -38,10 +39,11 @@ export async function getIssuerAuthorizedSharesAdjustmentEventAsOcf(
     id: d.id,
     date: d.date.split('T')[0],
     issuer_id: d.issuer_id,
-    new_shares_authorized:
+    new_shares_authorized: normalizeNumericString(
       typeof d.new_shares_authorized === 'number'
         ? String(d.new_shares_authorized)
-        : (d.new_shares_authorized as string),
+        : (d.new_shares_authorized as string)
+    ),
     ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
     ...(d.stockholder_approval_date
       ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }

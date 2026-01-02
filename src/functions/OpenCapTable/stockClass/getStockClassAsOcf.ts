@@ -7,7 +7,7 @@ import type {
   StockClassConversionRight,
   StockClassType,
 } from '../../../types/native';
-import { damlMonetaryToNative, damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 function damlStockClassTypeToNative(damlType: string): StockClassType {
   switch (damlType) {
@@ -25,11 +25,11 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.O
   let initialShares = '0';
   const isa = dAny.initial_shares_authorized;
   if (typeof isa === 'string' || typeof isa === 'number') {
-    initialShares = String(isa);
+    initialShares = normalizeNumericString(String(isa));
   } else if (isa && typeof isa === 'object' && 'tag' in isa) {
     const tagged = isa as { tag: string; value?: unknown };
     if (tagged.tag === 'OcfInitialSharesNumeric' && typeof tagged.value === 'string') {
-      initialShares = tagged.value;
+      initialShares = normalizeNumericString(tagged.value);
     } else if (tagged.tag === 'OcfInitialSharesEnum' && typeof tagged.value === 'string') {
       initialShares = tagged.value === 'OcfAuthorizedSharesUnlimited' ? 'Unlimited' : 'N/A';
     }
@@ -42,8 +42,8 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.O
     class_type: damlStockClassTypeToNative(damlData.class_type),
     default_id_prefix: damlData.default_id_prefix || '',
     initial_shares_authorized: initialShares,
-    votes_per_share: damlData.votes_per_share || '0',
-    seniority: damlData.seniority || '0',
+    votes_per_share: normalizeNumericString(damlData.votes_per_share || '0'),
+    seniority: normalizeNumericString(damlData.seniority || '0'),
     conversion_rights: [],
     comments: [],
     ...(damlData.board_approval_date && {
@@ -218,10 +218,10 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.O
       }),
     }),
     ...(damlData.liquidation_preference_multiple && {
-      liquidation_preference_multiple: damlData.liquidation_preference_multiple,
+      liquidation_preference_multiple: normalizeNumericString(damlData.liquidation_preference_multiple),
     }),
     ...(damlData.participation_cap_multiple && {
-      participation_cap_multiple: damlData.participation_cap_multiple,
+      participation_cap_multiple: normalizeNumericString(damlData.participation_cap_multiple),
     }),
     ...(Array.isArray((dAny as { comments?: unknown }).comments)
       ? { comments: (dAny as { comments: string[] }).comments }

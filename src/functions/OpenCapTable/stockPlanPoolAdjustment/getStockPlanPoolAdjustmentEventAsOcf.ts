@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface OcfStockPlanPoolAdjustmentEvent {
   object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT';
@@ -59,7 +60,9 @@ export async function getStockPlanPoolAdjustmentEventAsOcf(
     id: d.id,
     date: d.date.split('T')[0],
     stock_plan_id: d.stock_plan_id,
-    shares_reserved: typeof d.shares_reserved === 'number' ? String(d.shares_reserved) : d.shares_reserved,
+    shares_reserved: normalizeNumericString(
+      typeof d.shares_reserved === 'number' ? String(d.shares_reserved) : d.shares_reserved
+    ),
     ...(d.board_approval_date ? { board_approval_date: d.board_approval_date.split('T')[0] } : {}),
     ...(d.stockholder_approval_date ? { stockholder_approval_date: d.stockholder_approval_date.split('T')[0] } : {}),
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),

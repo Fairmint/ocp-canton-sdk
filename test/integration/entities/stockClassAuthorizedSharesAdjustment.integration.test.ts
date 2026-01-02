@@ -14,12 +14,12 @@
  * Run with:
  *
  * ```bash
- * OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
+ * npm run test:integration
  * ```
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import {
   createTestStockClassAuthorizedSharesAdjustmentData,
   generateDateString,
@@ -31,12 +31,12 @@ import {
 
 createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (getContext) => {
   test('creates adjustment and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
-
     const ctx = getContext();
 
     // Setup: Create issuer and stock class first
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -86,12 +86,12 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('adjustment data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
-
     const ctx = getContext();
 
     // Setup
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -134,12 +134,12 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('adjustment references correct stock class', async () => {
-    if (skipIfValidatorUnavailable()) return;
-
     const ctx = getContext();
 
     // Setup with specific stock class ID
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -184,12 +184,12 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('archives adjustment', async () => {
-    if (skipIfValidatorUnavailable()) return;
-
     const ctx = getContext();
 
     // Setup
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
@@ -229,12 +229,12 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
   });
 
   test('creates adjustment with all optional fields', async () => {
-    if (skipIfValidatorUnavailable()) return;
-
     const ctx = getContext();
 
     // Setup
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });

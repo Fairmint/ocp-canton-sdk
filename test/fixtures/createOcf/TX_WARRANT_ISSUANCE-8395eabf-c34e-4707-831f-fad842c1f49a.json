@@ -342,7 +342,7 @@
     "custom_id": "W-1",
     "stakeholder_id": "154ea2f1-9a28-44ab-9550-469bd8389b73",
     "purchase_price": {
-      "amount": "1000000.0000000000",
+      "amount": "1000000",
       "currency": "USD"
     },
     "exercise_triggers": [
@@ -353,7 +353,7 @@
           "type": "WARRANT_CONVERSION_RIGHT",
           "conversion_mechanism": {
             "type": "FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION",
-            "converts_to_percent": "0.1000000000"
+            "converts_to_percent": "0.1"
           }
         },
         "nickname": "3 years anniversary from the Issue Date",

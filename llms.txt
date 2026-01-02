@@ -20,20 +20,40 @@ npm run test:integration                        # LocalNet integration tests
 npm run docs                                    # Generate TypeDoc
 ```
 
-## Pre-Push Requirements
+## Pre-Push Requirements (CRITICAL)
 
-**ALWAYS run before pushing ANY changes:**
+**⚠️ ALWAYS run before pushing ANY changes or opening PRs:**
 
 ```bash
-npm run fix    # Auto-fixes ESLint and Prettier issues
+npm run fix        # Auto-fixes ESLint and Prettier issues
+npm run typecheck  # TypeScript type checking
 ```
 
-This command:
-- Runs ESLint with `--fix` to auto-correct code issues
-- Runs Prettier to format all files consistently
-- CI enforces zero warnings—PRs will fail if you skip this step
+**Both commands MUST pass with zero errors and zero warnings before pushing.**
 
-If `npm run fix` can't auto-fix everything, manually resolve remaining issues before pushing.
+### What These Commands Do
+
+- `npm run fix` runs:
+  - ESLint with `--fix` (auto-fixes code style issues)
+  - Prettier (auto-formats code)
+  - **Fails if any warnings remain** (max-warnings=0)
+
+- `npm run typecheck` runs:
+  - TypeScript compiler in check mode
+  - Catches type errors the IDE may miss
+
+### If `npm run fix` Reports Warnings
+
+Some issues can't be auto-fixed. Common manual fixes:
+- **Unused imports/variables**: Remove them or prefix with `_` if intentionally unused
+- **Template literal type issues**: Use `String(value)` instead of direct interpolation of `unknown` types
+- **Any/unknown types**: Add proper type annotations or type guards
+
+### CI Enforcement
+
+- CI runs both checks on every PR
+- PRs with lint errors, warnings, or type errors **will fail**
+- Always verify locally before pushing to avoid CI failures
 
 **Git workflow:** Avoid force pushing (`git push --force`). If you need to update a PR branch:
 1. Merge from main: `git fetch origin main && git merge origin/main`
@@ -41,6 +61,8 @@ If `npm run fix` can't auto-fix everything, manually resolve remaining issues be
 3. Push normally: `git push`
 
 This preserves commit history and makes PR review easier.
+
+**After creating a PR**, open it in the browser for review: `open <PR_URL>`
 
 **Monitoring PR CI Status (Required):**
 
@@ -164,23 +186,63 @@ Use utilities from `src/utils/typeConversions.ts`:
 
 ```typescript
 import {
-  numberToString,        // number|string → string (for DAML numerics)
-  optionalString,        // empty/undefined → null
-  cleanComments,         // filter comments array
-  dateStringToDAMLTime,  // ISO date → DAML time
-  monetaryToDaml,        // monetary object → DAML format
+  numberToString,         // number|string → string (for DAML numerics)
+  normalizeNumericString, // Normalize and validate numeric strings (throws on invalid input)
+  optionalString,         // empty/undefined → null
+  cleanComments,          // filter comments array
+  dateStringToDAMLTime,   // ISO date → DAML time
+  monetaryToDaml,         // monetary object → DAML format
+  damlMonetaryToNative,   // DAML monetary → native (with validation)
 } from '../../utils/typeConversions';
 ```
+
+**Type conversion best practices:**
+
+1. **Validate before converting** - Check for null/undefined before calling conversion functions
+2. **Use `.toString()` not `String()`** - When you've validated a value is not null/undefined, use `.toString()`
+3. **Let validation functions throw** - Functions like `normalizeNumericString()` throw on invalid input
+4. **Example pattern:**
+   ```typescript
+   // ❌ Bad - creates "undefined" if amount is undefined
+   const amount = String(data.amount);
+   
+   // ✅ Good - validates then converts
+   if (data.amount === undefined || data.amount === null) {
+     throw new Error('amount is required');
+   }
+   const amount = typeof data.amount === 'number' 
+     ? data.amount.toString() 
+     : data.amount;
+   ```
 
 ## Non-Negotiables
 
 1. **Strict TypeScript** - No `any`/`unknown`, no broad assertions
+   - Use type guards instead of `as any` casts
+   - Prefer `unknown` + type narrowing over `any` when type is truly unknown
+   - Extract proper types from external libraries when possible
 2. **Fail fast** - Validate early, throw with actionable messages
-3. **Explicit fields** - List all fields, never use spread (`...d`)
-4. **No defensive checks** - Trust DAML types, don't check `Array.isArray()`
-5. **Use `null`** for DAML optional fields (not `undefined`)
-6. **Use `??`** instead of `||` for nullish coalescing
-7. **Pinned dependencies** - Use exact versions without `^` or `~` (e.g., `"1.2.3"` not `"^1.2.3"`)
+3. **Never silently ignore errors** - Prefer failing over hiding problems
+   - No empty catch blocks that swallow errors
+   - No early returns that make tests "pass" when they didn't run
+   - If something fails, it should fail visibly with a clear error message
+   - Tests must actually test - if infrastructure is missing, tests should fail, not skip
+4. **No unsafe type coercion** - ALWAYS validate before converting types
+   - **NEVER** use `String(value)` on potentially undefined/null values (creates `"undefined"` or `"null"` strings)
+   - **NEVER** use `Number(value)` on potentially invalid strings (creates `NaN`)
+   - **ALWAYS** validate the type first, then convert with explicit error handling
+   - Example: ❌ `String(amount)` → ✅ `if (!amount) throw new Error('...'); amount.toString()`
+   - Use `.toString()` instead of `String()` when you've validated the value is not null/undefined
+5. **Explicit fields** - List all fields, never use spread (`...d`)
+6. **No defensive checks** - Trust DAML types, don't check `Array.isArray()`
+7. **Use `null`** for DAML optional fields (not `undefined`)
+8. **Use `??`** instead of `||` for nullish coalescing
+9. **Pinned dependencies** - ALWAYS use exact versions without `^` or `~`
+   - ✅ Correct: `"jsonwebtoken": "9.0.3"`
+   - ❌ Wrong: `"jsonwebtoken": "^9.0.3"` or `"~9.0.3"`
+   - This applies to ALL dependencies (dependencies, devDependencies, peerDependencies)
+   - When adding packages: `npm install --save-exact <package>` or manually remove `^`/`~` after install
+10. **DRY code** - Extract duplicated logic into reusable helpers (especially in tests)
 
 ## Improvement Backlog Pattern
 
@@ -240,7 +302,7 @@ Integration tests run against a real Canton LocalNet environment. They catch iss
 
 ```bash
 # Start LocalNet (cn-quickstart) first
-OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
+npm run test:integration
 ```
 
 **Integration test structure:**
@@ -249,20 +311,20 @@ Tests are organized by entity type with shared infrastructure:
 - `setup/` - Harness for client init, party discovery, validator API detection
 - `entities/` - One test file per OCF entity type
 - `workflows/` - Multi-entity workflow tests
-- `utils/` - Data factories (`setupTestIssuer`, `createTestStockClassData`, etc.)
+- `utils/` - Data factories and helpers:
+  - `setupTestData.ts` - Entity setup functions (`setupTestIssuer`, `createTestStockClassData`)
+  - `transactionHelpers.ts` - Type-safe transaction tree utilities (`extractContractIdOrThrow`)
 
 **Integration test pattern (using harness):**
 
 ```typescript
 // test/integration/entities/issuer.integration.test.ts
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import { generateTestId, setupTestIssuer } from '../utils';
 
 createIntegrationTestSuite('Issuer operations', (getContext) => {
   test('creates issuer and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
-
-    const ctx = getContext();  // Get shared context (ocp, issuerParty, featuredAppRight)
+    const ctx = getContext();  // Throws if LocalNet not available
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
       issuerParty: ctx.issuerParty,
@@ -279,6 +341,8 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
   });
 });
 ```
+
+**Note:** Tests fail fast if LocalNet is not running. There is no silent skipping - if infrastructure is missing, tests fail with a clear error message. This ensures CI catches missing infrastructure rather than falsely reporting success.
 
 **Adding tests for a new entity type:**
 
@@ -316,6 +380,162 @@ await validateOcfObject({ object_type: 'ISSUER', ... });
 5. Export from `src/functions/OpenCapTable/{entity}/index.ts`
 6. Add to `OcpClient.ts`
 7. Add test fixture in `test/fixtures/`
+
+## LocalNet (cn-quickstart)
+
+The SDK includes cn-quickstart as a git submodule for local development and testing.
+
+### Location
+
+```
+libs/cn-quickstart/quickstart/   # cn-quickstart directory
+```
+
+### First-Time Setup
+
+```bash
+# Navigate to cn-quickstart
+cd libs/cn-quickstart/quickstart
+
+# Run interactive setup (creates .env.local)
+make setup
+# Choose: OAuth2 mode, set party hint (e.g., "quickstart-dev-1")
+
+# Install DAML SDK (if not already installed)
+make install-daml-sdk
+```
+
+### Starting LocalNet
+
+```bash
+cd libs/cn-quickstart/quickstart
+make start   # Builds and starts all containers
+```
+
+Wait ~4-5 minutes for all services to become healthy. Check status:
+
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}"
+```
+
+All services should show "healthy" before running tests.
+
+### Stopping LocalNet
+
+```bash
+cd libs/cn-quickstart/quickstart
+make stop              # Stop all containers
+make clean-all-docker  # Stop and remove all containers/volumes (full reset)
+```
+
+### Running Integration Tests Against LocalNet
+
+**IMPORTANT: Always run integration tests locally before pushing to verify DAML contract compatibility.**
+
+Unit tests (`npm run test:ci`) only verify TypeScript logic with mocked clients. Integration tests (`npm run test:integration`) verify actual DAML contract interactions and can fail due to:
+- Invalid data that DAML contracts reject (e.g., empty required arrays)
+- Type mismatches between SDK and DAML schemas
+- Missing required fields that TypeScript doesn't enforce
+
+```bash
+# 1. Start LocalNet with shared-secret mode
+cd libs/cn-quickstart/quickstart
+echo 'AUTH_MODE=shared-secret' >> .env.local
+make clean-all-docker  # Reset to apply new config
+make start
+
+# 2. Wait for services (check all show "healthy")
+docker ps --format "table {{.Names}}\t{{.Status}}"
+
+# 3. Run integration tests
+npm run test:integration
+
+# 4. Fix any failures before pushing
+```
+
+**Pre-push checklist:**
+1. `npm run fix` - Format and lint
+2. `npm run test:ci` - Unit tests  
+3. `npm run test:integration` - Integration tests (requires LocalNet)
+
+Note: Integration tests use shared-secret authentication by default. DAR files are auto-discovered from the `@fairmint/open-captable-protocol-daml-js` npm package.
+
+### LocalNet Services and Ports
+
+| Service | Port | Description |
+|---------|------|-------------|
+| App-Provider JSON API | 3975 | Ledger API for app_provider participant |
+| App-Provider Validator | 3903 | Validator API for app_provider |
+| App-User JSON API | 2975 | Ledger API for app_user participant |
+| SV JSON API | 4975 | Ledger API for super validator |
+| Keycloak | 8082 | OAuth2 authentication |
+| Scan API | scan.localhost:4000 | Network-wide contract queries |
+| Swagger UI | 9090 | API documentation |
+| Grafana | 3030 | Observability dashboard |
+
+### OAuth2 Credentials (app-provider)
+
+Default LocalNet OAuth2 credentials (used when OAuth2 mode is configured):
+
+```
+Auth URL: http://localhost:8082/realms/AppProvider/protocol/openid-connect/token
+Client ID: app-provider-validator
+Client Secret: AL8648b9SfdTFImq7FV56Vd0KHifHBuC
+```
+
+### Known Limitations
+
+1. **OAuth2 Disclosed Contracts**: In OAuth2 mode, the app_provider can't fetch `createdEventBlob` for contracts it doesn't own (returns 403). This breaks the disclosed contracts mechanism needed for cross-party visibility. **Solution:** Use shared-secret auth mode for full integration test coverage (`make setup` and select shared-secret).
+
+2. **First-time startup**: The first `make start` takes longer as it builds images and compiles DAML code.
+
+3. **Resource usage**: LocalNet runs ~20+ containers and requires significant RAM (recommend 8GB+ available for Docker).
+
+4. **State persistence**: Canton restarts (via Docker or health checks) clear all ledger state including deployed DARs, created factories, and contracts. Tests must handle re-deployment.
+
+### Useful Make Targets
+
+```bash
+make status            # Show container status
+make logs              # View all logs
+make tail              # Tail logs in real-time
+make restart           # Stop and start
+make canton-console    # Interactive Canton console
+```
+
+## NPM Publishing
+
+The package `@open-captable-protocol/canton` is automatically published to NPM when changes are merged to `main`.
+
+### How It Works
+
+1. **Create a PR** with your changes
+2. **Get it reviewed** and approved
+3. **Merge to main** - CI automatically:
+   - Builds the package and runs tests
+   - Runs integration smoke tests
+   - Increments the patch version in `package.json`
+   - Generates a changelog from commits since last release
+   - Publishes to NPM
+   - Creates and pushes a git tag (e.g., `v0.2.79`)
+   - Deploys documentation to GitHub Pages
+
+### Version Bumping
+
+- **Patch bumps** (0.2.78 → 0.2.79): Automatic on every merge to main
+- **Minor/Major bumps**: Manually update `package.json` version before merging
+
+### Manual Release (Local)
+
+```bash
+npm run prepare-release   # Bumps version, generates changelog
+npm publish               # Publishes to NPM (requires NPM_TOKEN)
+```
+
+### CI Requirements
+
+The publish workflow requires:
+- `NPM_TOKEN` secret configured in GitHub repository settings
 
 ## Related Repos
 

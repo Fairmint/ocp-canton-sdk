@@ -9,22 +9,22 @@
  * Run with:
  *
  * ```bash
- * OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
+ * npm run test:integration
  * ```
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import { createTestIssuerData, generateTestId, setupTestIssuer } from '../utils';
 
 createIntegrationTestSuite('Issuer operations', (getContext) => {
   test('creates issuer and reads it back as valid OCF', async () => {
-    if (skipIfValidatorUnavailable()) return;
-
     const ctx = getContext();
 
     const testSetup = await setupTestIssuer(ctx.ocp, {
       issuerParty: ctx.issuerParty,
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: {
         id: generateTestId('issuer-ocf-test'),
@@ -46,8 +46,6 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
   });
 
   test('issuer data round-trips correctly', async () => {
-    if (skipIfValidatorUnavailable()) return;
-
     const ctx = getContext();
 
     const originalData = createTestIssuerData({
@@ -63,6 +61,8 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
 
     const testSetup = await setupTestIssuer(ctx.ocp, {
       issuerParty: ctx.issuerParty,
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: originalData,
     });

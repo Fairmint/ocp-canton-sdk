@@ -534,7 +534,7 @@
     "custom_id": "CN-2",
     "stakeholder_id": "a908512e-4fa0-47bf-ac58-b5103ae77cc7",
     "investment_amount": {
-      "amount": "10000.0000000000",
+      "amount": "10000",
       "currency": "USD"
     },
     "consideration_text": "Payment of $10,000.00",
@@ -548,9 +548,9 @@
           "conversion_mechanism": {
             "type": "SAFE_CONVERSION",
             "conversion_mfn": false,
-            "conversion_discount": "0.1500000000",
+            "conversion_discount": "0.15",
             "conversion_valuation_cap": {
-              "amount": "40000000.0000000000",
+              "amount": "40000000",
               "currency": "USD"
             },
             "conversion_timing": "POST_MONEY",
@@ -581,7 +581,7 @@
             "type": "SAFE_CONVERSION",
             "conversion_mfn": false,
             "conversion_valuation_cap": {
-              "amount": "40000000.0000000000",
+              "amount": "40000000",
               "currency": "USD"
             },
             "conversion_timing": "POST_MONEY",

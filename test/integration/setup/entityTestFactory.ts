@@ -31,7 +31,7 @@
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import type { IntegrationTestContext } from './integrationTestHarness';
-import { createIntegrationTestSuite, skipIfValidatorUnavailable } from './integrationTestHarness';
+import { createIntegrationTestSuite } from './integrationTestHarness';
 
 /**
  * Configuration for an entity's integration tests.
@@ -130,8 +130,6 @@ export function defineEntityTests<TData extends object, TSetupResult, TOcfResult
 ): void {
   createIntegrationTestSuite(`${config.entityName} operations`, (getContext) => {
     test(`creates ${config.entityName} and reads it back as valid OCF`, async () => {
-      if (skipIfValidatorUnavailable()) return;
-
       const ctx = getContext();
       const testData = config.createTestData();
 
@@ -157,8 +155,6 @@ export function defineEntityTests<TData extends object, TSetupResult, TOcfResult
       const { fieldMappings } = config;
 
       test(`${config.entityName} data round-trips correctly`, async () => {
-        if (skipIfValidatorUnavailable()) return;
-
         const ctx = getContext();
         const testData = config.createTestData();
 
@@ -184,8 +180,6 @@ export function defineEntityTests<TData extends object, TSetupResult, TOcfResult
     // Archive test (if archive function provided)
     if (config.archiveEntity) {
       test(`archives ${config.entityName}`, async () => {
-        if (skipIfValidatorUnavailable()) return;
-
         const ctx = getContext();
         const testData = config.createTestData();
 
@@ -223,8 +217,6 @@ export function testEntityVariant<T>(
   validationFn: (result: T) => void | Promise<void>
 ): void {
   test(`creates ${variantName}`, async () => {
-    if (skipIfValidatorUnavailable()) return;
-
     const ctx = getContext();
     const result = await setupFn(ctx);
     await validationFn(result);

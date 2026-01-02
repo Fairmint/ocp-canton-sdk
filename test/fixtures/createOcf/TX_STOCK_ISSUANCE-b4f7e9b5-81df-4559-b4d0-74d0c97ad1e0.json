@@ -274,10 +274,10 @@
     ],
     "stock_class_id": "957e15e3-dfa5-4138-8523-ebd145e6c40e",
     "share_price": {
-      "amount": "0.0000000100",
+      "amount": "0.00000001",
       "currency": "USD"
     },
-    "quantity": "90000000.0000000000",
+    "quantity": "90000000",
     "stock_legend_ids": [],
     "issuance_type": "FOUNDERS_STOCK"
   }

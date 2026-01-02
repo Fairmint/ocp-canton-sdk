@@ -422,7 +422,7 @@
     "vesting_conditions": [
       {
         "id": "vesting-start",
-        "quantity": "0.0000000000",
+        "quantity": "0",
         "trigger": {
           "type": "VESTING_START_DATE"
         },
@@ -443,8 +443,8 @@
         },
         "next_condition_ids": ["monthly-thereafter"],
         "portion": {
-          "numerator": "12.0000000000",
-          "denominator": "48.0000000000",
+          "numerator": "12",
+          "denominator": "48",
           "remainder": false
         }
       },
@@ -463,8 +463,8 @@
         },
         "next_condition_ids": [],
         "portion": {
-          "numerator": "1.0000000000",
-          "denominator": "48.0000000000",
+          "numerator": "1",
+          "denominator": "48",
           "remainder": false
         }
       }

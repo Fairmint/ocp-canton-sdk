@@ -331,13 +331,13 @@
     "security_id": "test-warrant-id-2",
     "custom_id": "W-1",
     "stakeholder_id": "aa4412e8-df7e-4c30-a107-2a5a1cdc315b",
-    "quantity": "100000.0000000000",
+    "quantity": "100000",
     "exercise_price": {
-      "amount": "1.0000000000",
+      "amount": "1",
       "currency": "USD"
     },
     "purchase_price": {
-      "amount": "1.0000000000",
+      "amount": "1",
       "currency": "USD"
     },
     "exercise_triggers": [
@@ -348,7 +348,7 @@
           "type": "WARRANT_CONVERSION_RIGHT",
           "conversion_mechanism": {
             "type": "FIXED_AMOUNT_CONVERSION",
-            "converts_to_quantity": "1000000.0000000000"
+            "converts_to_quantity": "1000000"
           },
           "converts_to_stock_class_id": "99b46a20-cc0c-48ea-b971-8195c2770d63"
         },

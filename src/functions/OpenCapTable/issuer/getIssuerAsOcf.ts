@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { EmailType, OcfIssuerData, PhoneType } from '../../../types/native';
-import { damlAddressToNative, damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlAddressToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailType): EmailType {
   switch (damlType) {
@@ -50,11 +50,11 @@ function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): OcfIssu
 }
 
 function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.OcfIssuerData): OcfIssuerData {
-  const normalizeInitialShares = (v: unknown): OcfIssuerData['initial_shares_authorized'] | undefined => {
-    if (typeof v === 'string' || typeof v === 'number') return String(v);
+  const normalizeInitialSharesValue = (v: unknown): OcfIssuerData['initial_shares_authorized'] | undefined => {
+    if (typeof v === 'string' || typeof v === 'number') return normalizeNumericString(String(v));
     if (v && typeof v === 'object' && 'tag' in (v as { tag: string })) {
       const i = v as { tag: 'OcfInitialSharesNumeric' | 'OcfInitialSharesEnum'; value?: unknown };
-      if (i.tag === 'OcfInitialSharesNumeric' && typeof i.value === 'string') return i.value;
+      if (i.tag === 'OcfInitialSharesNumeric' && typeof i.value === 'string') return normalizeNumericString(i.value);
       if (i.tag === 'OcfInitialSharesEnum' && typeof i.value === 'string') {
         return i.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT_APPLICABLE';
       }
@@ -88,7 +88,7 @@ function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.Issuer.OcfIssuer
   }
 
   const isa = (damlData as unknown as { initial_shares_authorized?: unknown }).initial_shares_authorized;
-  const normalizedIsa = normalizeInitialShares(isa);
+  const normalizedIsa = normalizeInitialSharesValue(isa);
   if (normalizedIsa !== undefined) out.initial_shares_authorized = normalizedIsa;
 
   return out;

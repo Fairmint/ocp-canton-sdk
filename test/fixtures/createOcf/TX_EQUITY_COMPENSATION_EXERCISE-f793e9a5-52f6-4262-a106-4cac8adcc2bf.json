@@ -179,7 +179,7 @@
   "onchain_ocf": {
     "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
     "id": "f793e9a5-52f6-4262-a106-4cac8adcc2bf",
-    "quantity": "8.0000000000",
+    "quantity": "8",
     "security_id": "8c839563-9cae-4c54-b6c1-47ec222194e1",
     "date": "2023-05-15",
     "consideration_text": "8.00 USD",

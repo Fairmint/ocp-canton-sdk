@@ -392,9 +392,9 @@
     "custom_id": "OPT-24",
     "stakeholder_id": "1e284839-acbf-4b92-adfc-0b6dcae4f090",
     "compensation_type": "OPTION_ISO",
-    "quantity": "11.0000000000",
+    "quantity": "11",
     "exercise_price": {
-      "amount": "1.0000000000",
+      "amount": "1",
       "currency": "USD"
     },
     "expiration_date": "2026-12-31",
@@ -410,27 +410,27 @@
     "vestings": [
       {
         "date": "2024-07-30",
-        "amount": "1.8300000000"
+        "amount": "1.83"
       },
       {
         "date": "2024-08-30",
-        "amount": "1.8300000000"
+        "amount": "1.83"
       },
       {
         "date": "2024-09-30",
-        "amount": "1.8300000000"
+        "amount": "1.83"
       },
       {
         "date": "2024-10-30",
-        "amount": "1.8300000000"
+        "amount": "1.83"
       },
       {
         "date": "2024-11-30",
-        "amount": "1.8300000000"
+        "amount": "1.83"
       },
       {
         "date": "2024-12-30",
-        "amount": "1.8300000000"
+        "amount": "1.83"
       }
     ],
     "termination_exercise_windows": [

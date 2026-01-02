@@ -13,16 +13,29 @@ consistency and maintainability.
 - Always specify explicit types for function parameters and return values
 - Prefer type inference for local variables where the type is obvious
 - Use proper DAML-generated types from `@fairmint/open-captable-protocol-daml-js`
+- **Use type guards** instead of `as any` casts when dealing with external data
+- **Extract minimal types** from external libraries when full types are too complex
 
 ```typescript
-// ❌ Bad
+// ❌ Bad - using 'any' to bypass type checking
 function process(data: any): any {
   return data;
 }
 
-// ✅ Good
+const event = response.event as any; // ❌ Bad
+
+// ✅ Good - proper types
 function process(data: OcfStockCancellationTxData): ProcessedData {
   return { ...data, processed: true };
+}
+
+// ✅ Good - type guard for external data
+function isCreatedEvent(event: unknown): event is CreatedEventData {
+  return typeof event === 'object' && event !== null && 'CreatedTreeEvent' in event;
+}
+
+if (isCreatedEvent(event)) {
+  const contractId = event.CreatedTreeEvent.value.contractId; // Type-safe!
 }
 ```
 
@@ -208,6 +221,45 @@ import type {
 - Include context in error messages: `Unknown stock issuance type: ${t}`
 - Fail fast - validate at the start of functions
 
+### Error Handling Philosophy
+
+**Prefer failing over silently ignoring problems.**
+
+```typescript
+// ❌ Bad - silently swallows errors, hides real problems
+try {
+  await riskyOperation();
+} catch {
+  // assume it's fine
+}
+
+// ❌ Bad - makes test "pass" when it didn't actually run
+test('does something', async () => {
+  if (!isInfrastructureAvailable()) return; // silent skip = misleading pass
+  // ...actual test
+});
+
+// ✅ Good - fails visibly with context
+try {
+  await riskyOperation();
+} catch (error) {
+  throw new Error(`Failed to do X because: ${error.message}`);
+}
+
+// ✅ Good - test fails clearly if infrastructure is missing
+test('does something', async () => {
+  const ctx = getContext(); // throws if not available
+  // ...actual test
+});
+```
+
+**Rules:**
+
+- No empty catch blocks
+- No early returns that make tests appear to pass
+- If something can fail, it should fail visibly
+- Include actionable context in error messages
+
 ### Comments
 
 - Avoid obvious comments - code should be self-documenting
@@ -234,12 +286,32 @@ const date = dateStringToDAMLTime(d.date);
 - Follow Arrange-Act-Assert pattern
 - Mock external dependencies
 - Avoid testing implementation details
+- **Extract repeated logic into utilities** in `test/integration/utils/`
+- **Use type-safe helpers** like `extractContractIdOrThrow()` instead of inline `as any` casts
 
-### Linting and Formatting
+```typescript
+// ❌ Bad - duplicated, type-unsafe
+const tree = result.transactionTree as any;
+const eventsById = tree.eventsById ?? {};
+let contractId = '';
+for (const event of Object.values(eventsById)) {
+  const eventData = event as any;
+  if (eventData.CreatedTreeEvent?.value?.templateId?.includes('MyTemplate')) {
+    contractId = eventData.CreatedTreeEvent.value.contractId;
+  }
+}
 
-Before committing:
+// ✅ Good - reusable, type-safe
+import { extractContractIdOrThrow } from '../utils';
+const contractId = extractContractIdOrThrow(result, 'MyTemplate');
+```
+
+### Pre-PR Checklist
+
+**All of the following checks must pass before opening a PR:**
 
 ```bash
+npm run typecheck   # TypeScript type checking (REQUIRED)
 npm run lint        # Check for linting errors
 npm run lint:fix    # Auto-fix linting errors
 npm run format      # Check formatting
@@ -247,6 +319,11 @@ npm run format:fix  # Auto-format code
 npm run fix         # Fix both linting and formatting
 npm test           # Run all tests
 ```
+
+⚠️ **Important:** Always run `npm run typecheck` before opening a PR. This catches type errors that
+the IDE may not show and ensures compatibility with all TypeScript configurations.
+
+The CI pipeline will fail if any of these checks do not pass.
 
 ### Git Commit Messages
 
