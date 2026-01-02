@@ -591,7 +591,8 @@ export function createTestConvertibleIssuanceData(
     stakeholder_id: stakeholderId,
     investment_amount: { amount: '100000', currency: 'USD' },
     convertible_type: 'SAFE',
-    // DAML requires at least one conversion trigger (not null d.conversion_triggers)
+    // OCF schema requires minItems: 1 for conversion_triggers (ConvertibleIssuance.schema.json)
+    // A convertible must define how/when it converts - empty triggers would be invalid
     conversion_triggers: [
       {
         type: 'ELECTIVE_AT_WILL',
