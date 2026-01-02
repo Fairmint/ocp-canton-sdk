@@ -231,28 +231,16 @@ async function initializeHarness(): Promise<void> {
 /**
  * Discover parties to use for tests.
  *
- * Can be overridden via environment variables:
- *
- * - OCP_TEST_ISSUER_PARTY
- * - OCP_TEST_SYSTEM_OPERATOR_PARTY
- *
  * @deprecated Currently unused - party discovery is done inline in initializeHarness. Kept for potential future use
  *   with multi-party test scenarios.
  */
 async function _discoverParties(ocp: OcpClient): Promise<{ issuerParty: string; systemOperatorParty: string }> {
-  // Allow override via environment variables
-  const envIssuerParty = process.env.OCP_TEST_ISSUER_PARTY;
-  const envSystemOperatorParty = process.env.OCP_TEST_SYSTEM_OPERATOR_PARTY;
-
   // Try to find parties from LocalNet
   const response = await ocp.client.listParties({});
   const partyDetails = response.partyDetails ?? [];
 
   if (partyDetails.length === 0) {
-    throw new Error(
-      'No parties found in LocalNet. Make sure cn-quickstart is running and parties are allocated. ' +
-        'Alternatively, set OCP_TEST_ISSUER_PARTY and OCP_TEST_SYSTEM_OPERATOR_PARTY environment variables.'
-    );
+    throw new Error('No parties found in LocalNet. Make sure cn-quickstart is running and parties are allocated.');
   }
 
   // Helper to find a party by name hints
@@ -265,11 +253,10 @@ async function _discoverParties(ocp: OcpClient): Promise<{ issuerParty: string; 
   };
 
   // System operator (usually "intellect" or "admin" or first party)
-  const systemOperatorParty =
-    envSystemOperatorParty ?? findParty(['intellect', 'admin', 'operator', 'sv']) ?? partyDetails[0].party;
+  const systemOperatorParty = findParty(['intellect', 'admin', 'operator', 'sv']) ?? partyDetails[0].party;
 
   // Issuer party (usually "alice" or different from system operator)
-  let issuerParty = envIssuerParty ?? findParty(['alice', 'issuer', 'company', 'provider']);
+  let issuerParty = findParty(['alice', 'issuer', 'company', 'provider']);
 
   // If no specific issuer found, use first party that's not the system operator
   if (!issuerParty) {

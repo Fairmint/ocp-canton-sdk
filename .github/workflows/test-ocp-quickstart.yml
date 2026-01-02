@@ -80,14 +80,13 @@ jobs:
           done
 
           echo "Waiting for Ledger JSON API..."
-          OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1 OCP_TEST_AUTH_MODE=shared-secret node_modules/.bin/ts-node scripts/quickstart/waitForReady.ts
+          OCP_TEST_AUTH_MODE=shared-secret node_modules/.bin/ts-node scripts/quickstart/waitForReady.ts
 
       # Note: Contract deployment is handled automatically by the integration test harness.
       # It discovers DAR files from @fairmint/open-captable-protocol-daml-js npm package.
 
       - name: Run integration smoke tests
         env:
-          OCP_TEST_USE_CN_QUICKSTART_DEFAULTS: '1'
           OCP_TEST_AUTH_MODE: 'shared-secret'
         run: npm run test:integration:ci
 

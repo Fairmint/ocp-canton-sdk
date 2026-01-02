@@ -11,7 +11,7 @@
  * Run with:
  *
  * ```bash
- * OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
+ * npm run test:integration
  * ```
  */
 

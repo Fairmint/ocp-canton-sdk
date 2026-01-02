@@ -19,7 +19,7 @@ import { buildQuickstartClientConfig, waitForLedgerJsonApiReady } from './waitFo
 /**
  * Find DAR files to deploy by auto-discovering from standard locations.
  *
- * Checked locations:
+ * Searched locations:
  *
  * 1. @fairmint/open-captable-protocol-daml-js npm package
  * 2. Sibling open-captable-protocol-daml directory (monorepo)

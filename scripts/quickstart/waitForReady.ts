@@ -1,11 +1,12 @@
 /**
  * Utility script to wait for the Ledger JSON API to be ready.
  *
- * This script is used by CI to ensure LocalNet is fully started before running tests.
+ * This script is used by CI to ensure LocalNet is fully started before running tests. Defaults to LocalNet
+ * configuration. Use OCP_TEST_AUTH_MODE=shared-secret for shared-secret mode.
  *
  * @example
  *   ```bash
- *   OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npx ts-node scripts/quickstart/waitForReady.ts
+ *   npx ts-node scripts/quickstart/waitForReady.ts
  *   ```;
  */
 
