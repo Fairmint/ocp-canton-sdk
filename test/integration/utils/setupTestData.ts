@@ -372,31 +372,43 @@ export function createTestVestingTermsData(overrides: Partial<OcfVestingTermsDat
     name: '4 Year Standard Vesting',
     description: 'Standard 4 year vesting with 1 year cliff',
     allocation_type: 'CUMULATIVE_ROUNDING',
+    // OCF schema requires exactly one of portion or quantity for each vesting condition
+    // Even start triggers need quantity: "0" per OCF samples
     vesting_conditions: [
       {
-        id: 'start',
-        description: 'Vesting start trigger',
+        id: 'vesting-start',
+        quantity: '0', // Required even for start trigger per OCF schema oneOf
         trigger: { type: 'VESTING_START_DATE' } as unknown as OcfVestingTermsData['vesting_conditions'][0]['trigger'],
         next_condition_ids: ['cliff'],
       },
       {
         id: 'cliff',
-        description: '1 year cliff',
-        portion: { numerator: '25', denominator: '100', remainder: false },
+        description: '25% payout at 1 year',
+        portion: { numerator: '12', denominator: '48', remainder: false },
         trigger: {
           type: 'VESTING_SCHEDULE_RELATIVE',
-          period: { type: 'MONTHS', length: 12, occurrences: 1, day_of_month: '01' },
-          relative_to_condition_id: 'start',
+          period: {
+            type: 'MONTHS',
+            length: 12,
+            occurrences: 1,
+            day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
+          },
+          relative_to_condition_id: 'vesting-start',
         } as unknown as OcfVestingTermsData['vesting_conditions'][0]['trigger'],
-        next_condition_ids: ['monthly'],
+        next_condition_ids: ['monthly-thereafter'],
       },
       {
-        id: 'monthly',
-        description: 'Monthly vesting over 36 months',
-        portion: { numerator: '75', denominator: '100', remainder: true },
+        id: 'monthly-thereafter',
+        description: '1/48th payout each month thereafter',
+        portion: { numerator: '1', denominator: '48', remainder: true },
         trigger: {
           type: 'VESTING_SCHEDULE_RELATIVE',
-          period: { type: 'MONTHS', length: 1, occurrences: 36, day_of_month: '01' },
+          period: {
+            type: 'MONTHS',
+            length: 1,
+            occurrences: 36,
+            day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
+          },
           relative_to_condition_id: 'cliff',
         } as unknown as OcfVestingTermsData['vesting_conditions'][0]['trigger'],
         next_condition_ids: [],
@@ -438,9 +450,12 @@ export function createTestStockPlanData(
  * @returns Complete OcfDocumentData for testing
  */
 export function createTestDocumentData(overrides: Partial<OcfDocumentData> = {}): OcfDocumentData {
+  // OCF schema requires exactly one of path or uri (oneOf)
+  // If uri is provided in overrides, don't include default path
+  const hasUri = 'uri' in overrides && overrides.uri;
   return {
     id: generateTestId('doc'),
-    path: 'documents/test-document.pdf',
+    ...(hasUri ? {} : { path: 'documents/test-document.pdf' }),
     md5: 'd41d8cd98f00b204e9800998ecf8427e', // MD5 of empty string
     comments: ['Integration test document'],
     ...overrides,
