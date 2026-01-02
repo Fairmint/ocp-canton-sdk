@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '21'
+
+      - name: Initialize required submodules
+        run: git submodule update --init --recursive libs/Open-Cap-Format-OCF
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint and format
+        run: npm run fix
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if git diff --exit-code --quiet && git diff --cached --exit-code --quiet; then
+            echo "No changes detected from build"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected from build"
+            echo "=== DIFF OF CHANGES ==="
+            git diff
+            echo "=== END DIFF ==="
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+
+            # Check if the last commit was an auto-fix commit to prevent infinite loops
+            LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+            if [[ "$LAST_COMMIT_MSG" == "Auto-fix: build changes" ]]; then
+              echo "Last commit was an auto-fix commit and there are still changes. Halting build to prevent infinite loop."
+              exit 1
+            fi
+          fi
+
+      - name: Commit and push auto-fixes
+        if: steps.check-changes.outputs.has_changes == 'true' && github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Auto-fix: build changes"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail if changes were needed
+        if: steps.check-changes.outputs.has_changes == 'true'
+        run: |
+          echo "Auto-fix changes have been committed. Please pull the latest changes."
+          exit 1
+
+      - name: Build
+        run: npm run build
+
+      - name: Type Check
+        run: npm run typecheck
+
+      - name: Run Tests
+        run: npm run test:ci
+
+      - name: Run Integration Smoke Tests (Quickstart)
+        run: npm run test:integration:ci
+
+      - name: Generate Docs
+        run: npm run docs
