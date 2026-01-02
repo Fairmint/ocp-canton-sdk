@@ -161,7 +161,7 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
     expect(ocfResult.event.stakeholder_id).toBe(originalData.stakeholder_id);
     expect(ocfResult.event.convertible_type).toBe(originalData.convertible_type);
     expect(ocfResult.event.investment_amount.amount).toBe(originalData.investment_amount.amount);
-    expect(ocfResult.event.seniority).toBe(String(originalData.seniority));
+    expect(ocfResult.event.seniority).toBe(originalData.seniority);
   });
 
   test('archives convertible issuance', async () => {
