@@ -173,14 +173,27 @@ export async function getConvertibleIssuanceAsOcf(
       // Handle both string enum and DAML variant { tag, value }
       const mapMonetary = (mon: unknown): { amount: string; currency: string } | undefined => {
         if (!mon || typeof mon !== 'object') return undefined;
+        const monObj = mon as Record<string, unknown>;
+        
+        // Validate amount exists and is string or number
+        if (monObj.amount === undefined || monObj.amount === null) {
+          throw new Error('Monetary amount is required but was undefined or null');
+        }
+        if (typeof monObj.amount !== 'string' && typeof monObj.amount !== 'number') {
+          throw new Error(`Monetary amount must be string or number, got ${typeof monObj.amount}`);
+        }
+        
+        // Validate currency exists and is string
+        if (typeof monObj.currency !== 'string' || !monObj.currency) {
+          throw new Error('Monetary currency is required and must be a non-empty string');
+        }
+        
         const amount = normalizeNumericString(
-          typeof (mon as Record<string, unknown>).amount === 'number'
-            ? String((mon as Record<string, unknown>).amount)
-            : String((mon as Record<string, unknown>).amount)
+          typeof monObj.amount === 'number' ? monObj.amount.toString() : monObj.amount
         );
         return {
           amount,
-          currency: (mon as Record<string, unknown>).currency as string,
+          currency: monObj.currency,
         };
       };
       const mapTiming = (t: unknown): 'PRE_MONEY' | 'POST_MONEY' | undefined => {
