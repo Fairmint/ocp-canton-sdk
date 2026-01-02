@@ -1,6 +1,4 @@
-/**
- * Unit tests for typeConversions utility functions.
- */
+/** Unit tests for typeConversions utility functions. */
 
 import { normalizeNumericString } from '../../src/utils/typeConversions';
 
