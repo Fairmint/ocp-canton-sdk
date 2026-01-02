@@ -155,8 +155,13 @@ export async function getWarrantIssuanceAsOcf(
           type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
           converts_to_percent: normalizeNumericString(
             typeof value.converts_to_percent === 'number'
-              ? String(value.converts_to_percent)
-              : String(value.converts_to_percent)
+              ? value.converts_to_percent.toString()
+              : (() => {
+                  if (typeof value.converts_to_percent !== 'string') {
+                    throw new Error(`converts_to_percent must be string or number, got ${typeof value.converts_to_percent}`);
+                  }
+                  return value.converts_to_percent;
+                })()
           ),
           ...(value.capitalization_definition && typeof value.capitalization_definition === 'string'
             ? { capitalization_definition: value.capitalization_definition }
@@ -170,15 +175,23 @@ export async function getWarrantIssuanceAsOcf(
           type: 'FIXED_AMOUNT_CONVERSION',
           converts_to_quantity: normalizeNumericString(
             typeof value.converts_to_quantity === 'number'
-              ? String(value.converts_to_quantity)
-              : String(value.converts_to_quantity)
+              ? value.converts_to_quantity.toString()
+              : (() => {
+                  if (typeof value.converts_to_quantity !== 'string') {
+                    throw new Error(`converts_to_quantity must be string or number, got ${typeof value.converts_to_quantity}`);
+                  }
+                  return value.converts_to_quantity;
+                })()
           ),
         } as WarrantFixedAmountMechanism;
       case 'OcfWarrantMechanismValuationBased': {
         const valuationAmount = mapMonetary(value.valuation_amount as Record<string, unknown>);
+        if (typeof value.valuation_type !== 'string' || !value.valuation_type) {
+          throw new Error('Warrant valuation_type is required and must be a non-empty string');
+        }
         return {
           type: 'VALUATION_BASED_CONVERSION',
-          valuation_type: String(value.valuation_type),
+          valuation_type: value.valuation_type,
           ...(valuationAmount ? { valuation_amount: valuationAmount } : {}),
           ...(value.capitalization_definition && typeof value.capitalization_definition === 'string'
             ? { capitalization_definition: value.capitalization_definition }
@@ -190,9 +203,12 @@ export async function getWarrantIssuanceAsOcf(
       }
       case 'OcfWarrantMechanismSharePriceBased': {
         const discountAmount = mapMonetary(value.discount_amount as Record<string, unknown>);
+        if (typeof value.description !== 'string' || !value.description) {
+          throw new Error('Warrant share price mechanism description is required and must be a non-empty string');
+        }
         return {
           type: 'SHARE_PRICE_BASED_CONVERSION',
-          description: String(value.description),
+          description: value.description,
           discount: Boolean(value.discount),
           ...(value.discount_percentage !== undefined &&
           value.discount_percentage !== null &&
@@ -200,7 +216,7 @@ export async function getWarrantIssuanceAsOcf(
             ? {
                 discount_percentage: normalizeNumericString(
                   typeof value.discount_percentage === 'number'
-                    ? String(value.discount_percentage)
+                    ? value.discount_percentage.toString()
                     : value.discount_percentage
                 ),
               }
@@ -209,9 +225,12 @@ export async function getWarrantIssuanceAsOcf(
         } as WarrantSharePriceBasedMechanism;
       }
       case 'OcfWarrantMechanismCustom':
+        if (typeof value.custom_conversion_description !== 'string' || !value.custom_conversion_description) {
+          throw new Error('Warrant custom conversion description is required and must be a non-empty string');
+        }
         return {
           type: 'CUSTOM_CONVERSION',
-          custom_conversion_description: String(value.custom_conversion_description),
+          custom_conversion_description: value.custom_conversion_description,
         } as WarrantCustomMechanism;
       default:
         throw new Error(`Unknown warrant mechanism: ${tag}`);
@@ -314,7 +333,7 @@ export async function getWarrantIssuanceAsOcf(
     ...(d.quantity !== null &&
     d.quantity !== undefined &&
     (typeof d.quantity === 'number' || typeof d.quantity === 'string')
-      ? { quantity: normalizeNumericString(typeof d.quantity === 'number' ? String(d.quantity) : d.quantity) }
+      ? { quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity) }
       : {}),
     ...(exercise_price ? { exercise_price } : {}),
     purchase_price,

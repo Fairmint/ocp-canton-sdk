@@ -70,12 +70,20 @@ export async function getStockTransferAsOcf(
     throw new Error('Missing required field: resulting_security_ids');
   }
 
+  // Validate required quantity field
+  if (data.quantity === undefined || data.quantity === null) {
+    throw new Error('Stock transfer quantity is required');
+  }
+  if (typeof data.quantity !== 'string' && typeof data.quantity !== 'number') {
+    throw new Error(`Stock transfer quantity must be string or number, got ${typeof data.quantity}`);
+  }
+
   const event: OcfStockTransferEvent = {
     object_type: 'TX_STOCK_TRANSFER',
     id: data.id,
     date: data.date.split('T')[0],
     security_id: data.security_id,
-    quantity: normalizeNumericString(String(data.quantity)),
+    quantity: normalizeNumericString(typeof data.quantity === 'number' ? data.quantity.toString() : data.quantity),
     resulting_security_ids: data.resulting_security_ids,
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
     ...(data.consideration_text ? { consideration_text: data.consideration_text } : {}),

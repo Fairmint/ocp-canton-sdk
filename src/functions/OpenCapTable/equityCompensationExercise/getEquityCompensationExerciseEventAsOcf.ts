@@ -40,10 +40,18 @@ export async function getEquityCompensationExerciseEventAsOcf(
   const d: Record<string, unknown> =
     (createArgument.exercise_data as Record<string, unknown> | undefined) ?? createArgument;
 
+  // Validate quantity
+  if (d.quantity === undefined || d.quantity === null) {
+    throw new Error('Equity compensation exercise quantity is required');
+  }
+  if (typeof d.quantity !== 'string' && typeof d.quantity !== 'number') {
+    throw new Error(`Exercise quantity must be string or number, got ${typeof d.quantity}`);
+  }
+
   const ocf: OcfEquityCompensationExercise = {
     object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
     id: d.id as string,
-    quantity: normalizeNumericString(typeof d.quantity === 'number' ? String(d.quantity) : (d.quantity as string)),
+    quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
     security_id: d.security_id as string,
     date: (d.date as string).split('T')[0],
     ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),

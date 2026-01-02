@@ -125,6 +125,14 @@ export async function getEquityCompensationIssuanceEventAsOcf(
 
   const comments = Array.isArray(d.comments) && d.comments.length > 0 ? (d.comments as string[]) : undefined;
 
+  // Validate required quantity field
+  if (d.quantity === undefined || d.quantity === null) {
+    throw new Error('Equity compensation issuance quantity is required');
+  }
+  if (typeof d.quantity !== 'string' && typeof d.quantity !== 'number') {
+    throw new Error(`Equity compensation quantity must be string or number, got ${typeof d.quantity}`);
+  }
+
   const event: OcfEquityCompensationIssuanceEvent = {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     id: String(d.id),
@@ -133,7 +141,7 @@ export async function getEquityCompensationIssuanceEventAsOcf(
     custom_id: String(d.custom_id),
     stakeholder_id: String(d.stakeholder_id),
     compensation_type: compMap[(d.compensation_type as string) || 'OcfCompensationTypeOption'],
-    quantity: normalizeNumericString(typeof d.quantity === 'number' ? String(d.quantity) : String(d.quantity)),
+    quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
     expiration_date: d.expiration_date ? (d.expiration_date as string).split('T')[0] : null,
     termination_exercise_windows: termination_exercise_windows ?? [],
     ...(exercise_price ? { exercise_price } : {}),

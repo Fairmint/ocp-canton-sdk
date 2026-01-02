@@ -186,13 +186,34 @@ Use utilities from `src/utils/typeConversions.ts`:
 
 ```typescript
 import {
-  numberToString,        // number|string → string (for DAML numerics)
-  optionalString,        // empty/undefined → null
-  cleanComments,         // filter comments array
-  dateStringToDAMLTime,  // ISO date → DAML time
-  monetaryToDaml,        // monetary object → DAML format
+  numberToString,         // number|string → string (for DAML numerics)
+  normalizeNumericString, // Normalize and validate numeric strings (throws on invalid input)
+  optionalString,         // empty/undefined → null
+  cleanComments,          // filter comments array
+  dateStringToDAMLTime,   // ISO date → DAML time
+  monetaryToDaml,         // monetary object → DAML format
+  damlMonetaryToNative,   // DAML monetary → native (with validation)
 } from '../../utils/typeConversions';
 ```
+
+**Type conversion best practices:**
+
+1. **Validate before converting** - Check for null/undefined before calling conversion functions
+2. **Use `.toString()` not `String()`** - When you've validated a value is not null/undefined, use `.toString()`
+3. **Let validation functions throw** - Functions like `normalizeNumericString()` throw on invalid input
+4. **Example pattern:**
+   ```typescript
+   // ❌ Bad - creates "undefined" if amount is undefined
+   const amount = String(data.amount);
+   
+   // ✅ Good - validates then converts
+   if (data.amount === undefined || data.amount === null) {
+     throw new Error('amount is required');
+   }
+   const amount = typeof data.amount === 'number' 
+     ? data.amount.toString() 
+     : data.amount;
+   ```
 
 ## Non-Negotiables
 
@@ -281,7 +302,7 @@ Integration tests run against a real Canton LocalNet environment. They catch iss
 
 ```bash
 # Start LocalNet (cn-quickstart) first
-OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=true npm run test:integration
+npm run test:integration
 ```
 
 **Integration test structure:**
@@ -437,7 +458,7 @@ Note: Integration tests use shared-secret authentication by default. DAR files a
 
 ### OAuth2 Credentials (app-provider)
 
-Used by SDK when `OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1`:
+Default LocalNet OAuth2 credentials (used when OAuth2 mode is configured):
 
 ```
 Auth URL: http://localhost:8082/realms/AppProvider/protocol/openid-connect/token

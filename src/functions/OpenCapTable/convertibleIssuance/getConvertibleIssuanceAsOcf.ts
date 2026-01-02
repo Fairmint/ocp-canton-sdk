@@ -220,7 +220,11 @@ export async function getConvertibleIssuanceAsOcf(
               conversion_mfn: Boolean(value.conversion_mfn),
               ...(typeof value.conversion_discount === 'number' || typeof value.conversion_discount === 'string'
                 ? {
-                    conversion_discount: normalizeNumericString(String(value.conversion_discount)),
+                    conversion_discount: normalizeNumericString(
+                      typeof value.conversion_discount === 'number' 
+                        ? value.conversion_discount.toString() 
+                        : value.conversion_discount
+                    ),
                   }
                 : {}),
               ...(value.conversion_valuation_cap
@@ -258,8 +262,13 @@ export async function getConvertibleIssuanceAsOcf(
               type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
               converts_to_percent: normalizeNumericString(
                 typeof value.converts_to_percent === 'number'
-                  ? String(value.converts_to_percent)
-                  : String(value.converts_to_percent)
+                  ? value.converts_to_percent.toString()
+                  : (() => {
+                      if (typeof value.converts_to_percent !== 'string') {
+                        throw new Error(`converts_to_percent must be string or number, got ${typeof value.converts_to_percent}`);
+                      }
+                      return value.converts_to_percent;
+                    })()
               ),
               ...(value.capitalization_definition
                 ? { capitalization_definition: value.capitalization_definition }
@@ -275,8 +284,13 @@ export async function getConvertibleIssuanceAsOcf(
               type: 'FIXED_AMOUNT_CONVERSION',
               converts_to_quantity: normalizeNumericString(
                 typeof value.converts_to_quantity === 'number'
-                  ? String(value.converts_to_quantity)
-                  : String(value.converts_to_quantity)
+                  ? value.converts_to_quantity.toString()
+                  : (() => {
+                      if (typeof value.converts_to_quantity !== 'string') {
+                        throw new Error(`converts_to_quantity must be string or number, got ${typeof value.converts_to_quantity}`);
+                      }
+                      return value.converts_to_quantity;
+                    })()
               ),
             } as FixedAmountMechanism;
             return mech;
@@ -311,8 +325,10 @@ export async function getConvertibleIssuanceAsOcf(
                 ? {
                     discount_percentage:
                       typeof value.discount_percentage === 'number'
-                        ? String(value.discount_percentage)
-                        : value.discount_percentage,
+                        ? value.discount_percentage.toString()
+                        : typeof value.discount_percentage === 'string'
+                        ? value.discount_percentage
+                        : (() => { throw new Error(`discount_percentage must be string or number, got ${typeof value.discount_percentage}`); })(),
                   }
                 : {}),
               ...(value.discount_amount
@@ -330,10 +346,15 @@ export async function getConvertibleIssuanceAsOcf(
             const interest_rates = Array.isArray(value.interest_rates)
               ? value.interest_rates.map((ir: unknown) => {
                   const irObj = ir as Record<string, unknown>;
+                  // Validate interest rate
+                  if (irObj.rate === undefined || irObj.rate === null) {
+                    throw new Error('Interest rate is required');
+                  }
+                  if (typeof irObj.rate !== 'string' && typeof irObj.rate !== 'number') {
+                    throw new Error(`Interest rate must be string or number, got ${typeof irObj.rate}`);
+                  }
                   return {
-                    rate: normalizeNumericString(
-                      typeof irObj.rate === 'number' ? String(irObj.rate) : String(irObj.rate)
-                    ),
+                    rate: normalizeNumericString(typeof irObj.rate === 'number' ? irObj.rate.toString() : irObj.rate),
                     accrual_start_date: (irObj.accrual_start_date as string).split('T')[0],
                     ...(irObj.accrual_end_date
                       ? { accrual_end_date: (irObj.accrual_end_date as string).split('T')[0] }
@@ -380,7 +401,11 @@ export async function getConvertibleIssuanceAsOcf(
               ...(value.compounding_type ? { compounding_type: compoundingFromDaml(value.compounding_type) } : {}),
               ...(typeof value.conversion_discount === 'number' || typeof value.conversion_discount === 'string'
                 ? {
-                    conversion_discount: normalizeNumericString(String(value.conversion_discount)),
+                    conversion_discount: normalizeNumericString(
+                      typeof value.conversion_discount === 'number' 
+                        ? value.conversion_discount.toString() 
+                        : value.conversion_discount
+                    ),
                   }
                 : {}),
               ...(value.conversion_valuation_cap
@@ -543,7 +568,9 @@ export async function getConvertibleIssuanceAsOcf(
     ),
     ...(typeof d.pro_rata === 'number' || typeof d.pro_rata === 'string'
       ? {
-          pro_rata: normalizeNumericString(String(d.pro_rata)),
+          pro_rata: normalizeNumericString(
+            typeof d.pro_rata === 'number' ? d.pro_rata.toString() : d.pro_rata
+          ),
         }
       : {}),
     seniority: typeof d.seniority === 'number' ? d.seniority : Number(d.seniority),
