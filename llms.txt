@@ -411,7 +411,6 @@ make start
 # Run integration tests with shared-secret auth
 OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1 \
 OCP_TEST_AUTH_MODE=shared-secret \
-OCP_TEST_DAR_FILE_PATH=/path/to/OpenCapTable-v25-0.0.1.dar \
 npm run test:integration
 ```
 
@@ -427,7 +426,7 @@ make start
 OCP_TEST_USE_CN_QUICKSTART_DEFAULTS=1 npm run test:integration
 ```
 
-Note: OAuth2 mode requires the DAR to be pre-deployed to LocalNet.
+Note: DAR files are auto-discovered from the `@fairmint/open-captable-protocol-daml-js` npm package.
 
 ### LocalNet Services and Ports
 
