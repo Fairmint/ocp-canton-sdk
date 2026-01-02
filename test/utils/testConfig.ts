@@ -64,8 +64,10 @@ export function isIntegrationTestConfigured(): boolean {
   const hasRemoteConfig = Boolean(
     getEnv('OCP_TEST_LEDGER_JSON_API_URI') && getEnv('OCP_TEST_AUTH_URL') && getEnv('OCP_TEST_CLIENT_ID')
   );
-  // Default to true - LocalNet is always available
-  return hasRemoteConfig || true;
+  // Check if LocalNet defaults are explicitly enabled
+  const localNetEnv = getEnv('OCP_TEST_USE_CN_QUICKSTART_DEFAULTS');
+  const hasLocalNetConfig = localNetEnv === '1' || localNetEnv === 'true';
+  return hasRemoteConfig || hasLocalNetConfig;
 }
 
 /**
