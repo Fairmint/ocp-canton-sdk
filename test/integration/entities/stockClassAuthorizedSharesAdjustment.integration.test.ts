@@ -274,3 +274,4 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
     await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 });
+

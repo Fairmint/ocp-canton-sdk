@@ -171,3 +171,4 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
     // Archive operation succeeded if no error thrown
   });
 });
+
