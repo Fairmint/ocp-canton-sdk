@@ -327,7 +327,7 @@ export async function getConvertibleIssuanceAsOcf(
               discount: Boolean(value.discount),
               ...(value.discount_percentage !== undefined && value.discount_percentage !== null
                 ? {
-                    discount_percentage:
+                    discount_percentage: normalizeNumericString(
                       typeof value.discount_percentage === 'number'
                         ? value.discount_percentage.toString()
                         : typeof value.discount_percentage === 'string'
@@ -336,7 +336,8 @@ export async function getConvertibleIssuanceAsOcf(
                               throw new Error(
                                 `discount_percentage must be string or number, got ${typeof value.discount_percentage}`
                               );
-                            })(),
+                            })()
+                    ),
                   }
                 : {}),
               ...(value.discount_amount
@@ -361,9 +362,13 @@ export async function getConvertibleIssuanceAsOcf(
                   if (typeof irObj.rate !== 'string' && typeof irObj.rate !== 'number') {
                     throw new Error(`Interest rate must be string or number, got ${typeof irObj.rate}`);
                   }
+                  // Validate accrual_start_date
+                  if (typeof irObj.accrual_start_date !== 'string' || !irObj.accrual_start_date) {
+                    throw new Error('Interest rate accrual_start_date is required and must be a non-empty string');
+                  }
                   return {
                     rate: normalizeNumericString(typeof irObj.rate === 'number' ? irObj.rate.toString() : irObj.rate),
-                    accrual_start_date: (irObj.accrual_start_date as string).split('T')[0],
+                    accrual_start_date: irObj.accrual_start_date.split('T')[0],
                     ...(irObj.accrual_end_date
                       ? { accrual_end_date: (irObj.accrual_end_date as string).split('T')[0] }
                       : {}),
