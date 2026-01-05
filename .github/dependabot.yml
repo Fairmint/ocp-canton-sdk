@@ -3,42 +3,25 @@
 
 version: 2
 updates:
-  # NPM dependencies - daily for internal packages
+  # NPM dependencies - daily updates for all packages
+  # Note: Dependabot doesn't support different schedules for different packages in the same directory
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
       interval: 'daily'
       time: '09:00'
       timezone: 'America/Los_Angeles'
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: 'deps'
-    allow:
-      - dependency-name: '@fairmint/canton-node-sdk'
-      - dependency-name: '@fairmint/open-captable-protocol-daml-js'
-
-  # NPM dependencies - weekly for external packages
-  - package-ecosystem: 'npm'
-    directory: '/'
-    schedule:
-      interval: 'weekly'
-      day: 'monday'
-      time: '09:00'
-      timezone: 'America/Los_Angeles'
     open-pull-requests-limit: 10
     commit-message:
       prefix: 'deps'
     groups:
-      # Group all minor and patch updates
+      # Group all minor and patch updates to reduce PR noise
       minor-and-patch:
         patterns:
           - '*'
         update-types:
           - 'minor'
           - 'patch'
-    ignore:
-      - dependency-name: '@fairmint/canton-node-sdk'
-      - dependency-name: '@fairmint/open-captable-protocol-daml-js'
 
   # GitHub Actions
   - package-ecosystem: 'github-actions'
@@ -48,5 +31,14 @@ updates:
       day: 'monday'
       time: '09:00'
       timezone: 'America/Los_Angeles'
+    open-pull-requests-limit: 5
     commit-message:
       prefix: 'ci'
+    groups:
+      # Group all minor and patch updates for GitHub Actions
+      minor-and-patch:
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
