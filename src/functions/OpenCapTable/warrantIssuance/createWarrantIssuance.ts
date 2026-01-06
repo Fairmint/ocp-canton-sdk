@@ -1,6 +1,5 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, Monetary } from '../../../types';
+import type { Monetary } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -8,13 +7,11 @@ import {
   numberToString,
   optionalString,
 } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
 
 export interface SimpleVesting {
   date: string;
   amount: string | number;
 }
-
 
 type WarrantTriggerTypeInput =
   | 'AUTOMATIC_ON_CONDITION'
@@ -276,4 +273,3 @@ export function warrantIssuanceDataToDaml(d: {
     comments: cleanComments(d.comments),
   };
 }
-

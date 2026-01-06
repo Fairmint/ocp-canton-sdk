@@ -1,11 +1,5 @@
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, DocumentOcfData, OcfObjectReference } from '../../../types';
-import { cleanComments, extractUpdateId, optionalString } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
+import type { DocumentOcfData, OcfObjectReference } from '../../../types';
+import { cleanComments, optionalString } from '../../../utils/typeConversions';
 
 function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
   switch (t) {
@@ -145,4 +139,3 @@ export function documentDataToDaml(d: DocumentOcfData): Record<string, unknown> 
     comments: cleanComments(d.comments),
   };
 }
-

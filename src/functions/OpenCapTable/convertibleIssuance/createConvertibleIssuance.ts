@@ -1,6 +1,5 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, Monetary } from '../../../types';
+import type { Monetary } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -9,8 +8,6 @@ import {
   optionalString,
   safeString,
 } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
-
 
 type ConversionTriggerTypeInput =
   | 'AUTOMATIC_ON_CONDITION'
@@ -369,4 +366,3 @@ export function convertibleIssuanceDataToDaml(d: {
     comments: cleanComments(d.comments),
   };
 }
-

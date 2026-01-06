@@ -1,7 +1,5 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
-  CommandWithDisclosedContracts,
   ContactInfo,
   ContactInfoWithoutName,
   EmailType,
@@ -11,7 +9,6 @@ import type {
   StakeholderType,
 } from '../../../types';
 import { addressToDaml, cleanComments, optionalString } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
 
 function stakeholderTypeToDaml(
   stakeholderType: StakeholderType
@@ -164,4 +161,3 @@ export function stakeholderDataToDaml(
 
   return payload;
 }
-

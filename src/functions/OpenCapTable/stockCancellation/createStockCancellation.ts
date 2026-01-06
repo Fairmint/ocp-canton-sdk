@@ -1,7 +1,5 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import type { CommandWithDisclosedContracts, OcfStockCancellationTxData } from '../../../types';
+import type { OcfStockCancellationTxData } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
 
 export function stockCancellationDataToDaml(d: OcfStockCancellationTxData): Record<string, unknown> {
   return {
@@ -14,4 +12,3 @@ export function stockCancellationDataToDaml(d: OcfStockCancellationTxData): Reco
     comments: cleanComments(d.comments),
   };
 }
-

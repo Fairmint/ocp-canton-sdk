@@ -1,8 +1,6 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, StockLegendTemplateOcfData } from '../../../types';
+import type { StockLegendTemplateOcfData } from '../../../types';
 import { cleanComments } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
 
 export function stockLegendTemplateDataToDaml(
   data: StockLegendTemplateOcfData
@@ -15,4 +13,3 @@ export function stockLegendTemplateDataToDaml(
     comments: cleanComments(data.comments),
   };
 }
-

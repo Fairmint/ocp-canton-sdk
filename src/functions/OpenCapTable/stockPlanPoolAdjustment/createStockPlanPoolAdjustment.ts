@@ -1,7 +1,5 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import type { CommandWithDisclosedContracts, OcfStockPlanPoolAdjustmentTxData } from '../../../types';
+import type { OcfStockPlanPoolAdjustmentTxData } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
 
 export function stockPlanPoolAdjustmentDataToDaml(d: OcfStockPlanPoolAdjustmentTxData): Record<string, unknown> {
   return {
@@ -14,4 +12,3 @@ export function stockPlanPoolAdjustmentDataToDaml(d: OcfStockPlanPoolAdjustmentT
     comments: cleanComments(d.comments),
   };
 }
-

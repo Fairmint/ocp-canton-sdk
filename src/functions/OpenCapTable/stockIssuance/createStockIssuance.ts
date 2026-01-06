@@ -1,5 +1,4 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import type { CommandWithDisclosedContracts, StockIssuanceOcfData, StockIssuanceType } from '../../../types';
+import type { StockIssuanceOcfData, StockIssuanceType } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -7,7 +6,6 @@ import {
   numberToString,
   optionalString,
 } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
 
 function getIssuanceType(t: StockIssuanceType | undefined): string | null {
   if (!t) return null;
@@ -64,4 +62,3 @@ export function stockIssuanceDataToDaml(d: StockIssuanceOcfData): Record<string,
     comments: cleanComments(d.comments),
   };
 }
-

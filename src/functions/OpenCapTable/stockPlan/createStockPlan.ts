@@ -1,8 +1,6 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, StockPlanCancellationBehavior, StockPlanOcfData } from '../../../types';
+import type { StockPlanCancellationBehavior, StockPlanOcfData } from '../../../types';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
 
 function cancellationBehaviorToDaml(
   b: StockPlanCancellationBehavior | undefined
@@ -36,4 +34,3 @@ export function stockPlanDataToDaml(d: StockPlanOcfData): Fairmint.OpenCapTable.
     comments: cleanComments(d.comments),
   };
 }
-

@@ -1,7 +1,5 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import type { CommandWithDisclosedContracts, OcfEquityCompensationExerciseTxData } from '../../../types';
+import type { OcfEquityCompensationExerciseTxData } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
 
 export function equityCompensationExerciseDataToDaml(d: OcfEquityCompensationExerciseTxData): Record<string, unknown> {
   return {
@@ -14,4 +12,3 @@ export function equityCompensationExerciseDataToDaml(d: OcfEquityCompensationExe
     comments: cleanComments(d.comments),
   };
 }
-

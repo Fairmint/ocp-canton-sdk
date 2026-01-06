@@ -1,7 +1,5 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import type { CommandWithDisclosedContracts, OcfStockClassAuthorizedSharesAdjustmentTxData } from '../../../types';
+import type { OcfStockClassAuthorizedSharesAdjustmentTxData } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
 
 export function stockClassAuthorizedSharesAdjustmentDataToDaml(
   d: OcfStockClassAuthorizedSharesAdjustmentTxData
@@ -16,4 +14,3 @@ export function stockClassAuthorizedSharesAdjustmentDataToDaml(
     comments: cleanComments(d.comments),
   };
 }
-

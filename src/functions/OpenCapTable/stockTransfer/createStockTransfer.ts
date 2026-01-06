@@ -1,7 +1,5 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import type { CommandWithDisclosedContracts, OcfStockTransferTxData } from '../../../types';
+import type { OcfStockTransferTxData } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
-import { buildCapTableCommand } from '../capTable';
 
 export function stockTransferDataToDaml(d: OcfStockTransferTxData): Record<string, unknown> {
   // Validate required array field
@@ -19,4 +17,3 @@ export function stockTransferDataToDaml(d: OcfStockTransferTxData): Record<strin
     comments: cleanComments(d.comments),
   };
 }
-

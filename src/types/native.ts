@@ -874,4 +874,3 @@ export interface OcfStockRepurchaseTxData {
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
-
