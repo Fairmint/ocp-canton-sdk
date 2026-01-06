@@ -1,7 +1,7 @@
-import type { OcfStockTransferTxData } from '../../../types';
+import type { OcfStockTransfer } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
 
-export function stockTransferDataToDaml(d: OcfStockTransferTxData): Record<string, unknown> {
+export function stockTransferDataToDaml(d: OcfStockTransfer): Record<string, unknown> {
   // Validate required array field
   if (d.resulting_security_ids.length === 0) {
     throw new Error('resulting_security_ids must contain at least one element');

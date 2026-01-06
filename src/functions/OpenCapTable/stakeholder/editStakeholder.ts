@@ -3,14 +3,14 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, OcfStakeholderData } from '../../../types';
+import type { CommandWithDisclosedContracts, OcfStakeholder } from '../../../types';
 import { stakeholderDataToDaml } from './addStakeholder';
 
 export interface EditStakeholderParams {
   capTableContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   stakeholderId: string;
-  stakeholderData: OcfStakeholderData;
+  stakeholderData: OcfStakeholder;
 }
 
 export function buildEditStakeholderCommand(params: EditStakeholderParams): CommandWithDisclosedContracts {

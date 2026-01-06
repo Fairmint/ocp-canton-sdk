@@ -3,7 +3,7 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, EmailType, IssuerOcfData, PhoneType } from '../../../types';
+import type { CommandWithDisclosedContracts, EmailType, OcfIssuer, PhoneType } from '../../../types';
 import { addressToDaml, cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 
 function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfEmailType {
@@ -21,7 +21,7 @@ function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfE
   }
 }
 
-function emailToDaml(email: IssuerOcfData['email']): Fairmint.OpenCapTable.Types.OcfEmail | null {
+function emailToDaml(email: OcfIssuer['email']): Fairmint.OpenCapTable.Types.OcfEmail | null {
   if (!email) return null;
   return {
     email_type: emailTypeToDaml(email.email_type),
@@ -46,7 +46,7 @@ function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfP
   }
 }
 
-function phoneToDaml(phone: IssuerOcfData['phone']): Fairmint.OpenCapTable.Types.OcfPhone | null {
+function phoneToDaml(phone: OcfIssuer['phone']): Fairmint.OpenCapTable.Types.OcfPhone | null {
   if (!phone) return null;
   return {
     phone_type: phoneTypeToDaml(phone.phone_type),
@@ -54,7 +54,7 @@ function phoneToDaml(phone: IssuerOcfData['phone']): Fairmint.OpenCapTable.Types
   };
 }
 
-function issuerDataToDaml(issuerData: IssuerOcfData): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
+function issuerDataToDaml(issuerData: OcfIssuer): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
   if (!issuerData.id) throw new Error('issuerData.id is required');
   return {
     id: issuerData.id,
@@ -112,7 +112,7 @@ export interface CreateIssuerParams {
    * - Initial_shares_authorized (optional): Initial authorized shares (enum or numeric)
    * - Comments (optional): Additional comments
    */
-  issuerData: IssuerOcfData;
+  issuerData: OcfIssuer;
 }
 
 export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWithDisclosedContracts {

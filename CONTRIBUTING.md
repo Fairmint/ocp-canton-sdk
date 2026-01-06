@@ -25,7 +25,7 @@ function process(data: any): any {
 const event = response.event as any; // ❌ Bad
 
 // ✅ Good - proper types
-function process(data: OcfStockCancellationTxData): ProcessedData {
+function process(data: OcfStockCancellation): ProcessedData {
   return { ...data, processed: true };
 }
 

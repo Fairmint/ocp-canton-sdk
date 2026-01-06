@@ -4,7 +4,7 @@ import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 import * as fs from 'fs';
 import * as path from 'path';
-import { type IssuerOcfData, OcpClient } from '../../src';
+import { type OcfIssuer, OcpClient } from '../../src';
 import {
   clearEventsFixture,
   clearTransactionTreeFixture,

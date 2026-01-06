@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { EmailType, IssuerOcfData, PhoneType } from '../../../types/native';
+import type { EmailType, OcfIssuer as OcfIssuerInput, PhoneType } from '../../../types/native';
 import { damlAddressToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailType): EmailType {
@@ -18,7 +18,7 @@ function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailTyp
   }
 }
 
-function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.OcfEmail): IssuerOcfData['email'] {
+function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.OcfEmail): OcfIssuerInput['email'] {
   return {
     email_type: damlEmailTypeToNative(damlEmail.email_type),
     email_address: damlEmail.email_address,
@@ -42,15 +42,15 @@ function damlPhoneTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfPhoneTyp
   }
 }
 
-function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): IssuerOcfData['phone'] {
+function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): OcfIssuerInput['phone'] {
   return {
     phone_type: damlPhoneTypeToNative(phone.phone_type),
     phone_number: phone.phone_number,
   };
 }
 
-function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): IssuerOcfData {
-  const normalizeInitialSharesValue = (v: unknown): IssuerOcfData['initial_shares_authorized'] | undefined => {
+function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
+  const normalizeInitialSharesValue = (v: unknown): OcfIssuerInput['initial_shares_authorized'] | undefined => {
     if (typeof v === 'string' || typeof v === 'number') return normalizeNumericString(String(v));
     if (v && typeof v === 'object' && 'tag' in (v as { tag: string })) {
       const i = v as { tag: 'OcfInitialSharesNumeric' | 'OcfInitialSharesEnum'; value?: unknown };
@@ -63,7 +63,7 @@ function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.Issue
   };
 
   const dataWithId = damlData as unknown as { id?: string };
-  const out: IssuerOcfData = {
+  const out: OcfIssuerInput = {
     id: dataWithId.id ?? '',
     legal_name: damlData.legal_name,
     country_of_formation: damlData.country_of_formation,
@@ -100,7 +100,7 @@ function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.Issue
  *
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/Issuer.schema.json
  */
-export interface OcfIssuer {
+interface OcfIssuerOutput {
   object_type: 'ISSUER';
   legal_name: string;
   dba?: string;
@@ -129,7 +129,7 @@ export interface GetIssuerAsOcfParams {
 }
 
 export interface GetIssuerAsOcfResult {
-  issuer: OcfIssuer;
+  issuer: OcfIssuerOutput;
   contractId: string;
 }
 
@@ -150,7 +150,7 @@ export async function getIssuerAsOcf(
   const issuerData = createArgument.issuer_data as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
   const native = damlIssuerDataToNative(issuerData);
 
-  const ocfIssuer: OcfIssuer = {
+  const ocfIssuer: OcfIssuerOutput = {
     object_type: 'ISSUER',
     ...native,
   };

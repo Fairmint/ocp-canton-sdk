@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
-export interface OcfEquityCompensationExercise {
+interface OcfEquityCompensationExerciseOutput {
   object_type: 'TX_EQUITY_COMPENSATION_EXERCISE';
   id: string;
   quantity: string | number;
@@ -18,7 +18,7 @@ export interface GetEquityCompensationExerciseEventAsOcfParams {
 }
 
 export interface GetEquityCompensationExerciseEventAsOcfResult {
-  event: OcfEquityCompensationExercise;
+  event: OcfEquityCompensationExerciseOutput;
   contractId: string;
 }
 
@@ -48,7 +48,7 @@ export async function getEquityCompensationExerciseEventAsOcf(
     throw new Error(`Exercise quantity must be string or number, got ${typeof d.quantity}`);
   }
 
-  const ocf: OcfEquityCompensationExercise = {
+  const ocf: OcfEquityCompensationExerciseOutput = {
     object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
     id: d.id as string,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),

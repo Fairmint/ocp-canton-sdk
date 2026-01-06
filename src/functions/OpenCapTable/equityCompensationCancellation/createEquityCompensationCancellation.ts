@@ -1,4 +1,4 @@
-import type { OcfEquityCompensationCancellationTxData } from '../../../types';
+import type { OcfEquityCompensationCancellation } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
 
 /**
@@ -8,7 +8,7 @@ import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } f
  * @returns DAML-formatted equity compensation cancellation data
  */
 export function equityCompensationCancellationDataToDaml(
-  d: OcfEquityCompensationCancellationTxData
+  d: OcfEquityCompensationCancellation
 ): Record<string, unknown> {
   return {
     id: d.id,

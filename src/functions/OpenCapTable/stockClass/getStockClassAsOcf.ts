@@ -4,7 +4,6 @@ import type {
   ConversionMechanism,
   ConversionTrigger,
   StockClassConversionRight,
-  StockClassOcfData,
   StockClassType,
 } from '../../../types/native';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
@@ -20,9 +19,8 @@ function damlStockClassTypeToNative(damlType: string): StockClassType {
   }
 }
 
-function damlStockClassDataToNative(
-  damlData: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData
-): StockClassOcfData {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData): any {
   const dAny = damlData as unknown as Record<string, unknown>;
   let initialShares = '0';
   const isa = dAny.initial_shares_authorized;
@@ -237,7 +235,7 @@ function damlStockClassDataToNative(
  *
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/StockClass.schema.json
  */
-export interface OcfStockClass {
+interface OcfStockClassOutput {
   /** Object type identifier - must be "STOCK_CLASS" */
   object_type: 'STOCK_CLASS';
 
@@ -321,7 +319,7 @@ export interface GetStockClassAsOcfParams {
 
 export interface GetStockClassAsOcfResult {
   /** The OCF StockClass object */
-  stockClass: OcfStockClass;
+  stockClass: OcfStockClassOutput;
   /** The original contract ID */
   contractId: string;
 }
@@ -415,7 +413,7 @@ export async function getStockClassAsOcf(
   } = nativeStockClassData;
 
   // Transform native stock class data to OCF format, adding OCF-specific fields
-  const ocfStockClass: OcfStockClass = {
+  const ocfStockClassOutput: OcfStockClassOutput = {
     object_type: 'STOCK_CLASS',
     id,
     ...baseStockClassData,
@@ -451,7 +449,7 @@ export async function getStockClassAsOcf(
   };
 
   return {
-    stockClass: ocfStockClass,
+    stockClass: ocfStockClassOutput,
     contractId: params.contractId,
   };
 }
