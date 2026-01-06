@@ -614,6 +614,7 @@ export function createTestConvertibleIssuanceData(
         nickname: 'Standard Conversion',
         trigger_description: 'Convert at holder election',
         conversion_right: {
+          type: 'CONVERTIBLE_CONVERSION_RIGHT',
           conversion_mechanism: {
             type: 'SAFE_CONVERSION',
             conversion_mfn: false,

@@ -68,6 +68,284 @@ export type ConversionTrigger =
   | 'ELECTIVE_AT_WILL';
 
 /**
+ * Extended Conversion Trigger Type for Warrants and Convertibles Includes additional trigger types used by these
+ * instruments
+ */
+export type ConversionTriggerType =
+  | 'AUTOMATIC_ON_CONDITION'
+  | 'AUTOMATIC_ON_DATE'
+  | 'ELECTIVE_IN_RANGE'
+  | 'ELECTIVE_ON_CONDITION'
+  | 'ELECTIVE_AT_WILL'
+  | 'UNSPECIFIED';
+
+// ===== Capitalization Definition Rules =====
+
+/** Type - Capitalization Definition Rules Rules for how capitalization is calculated for conversion purposes */
+export interface CapitalizationDefinitionRules {
+  /** Include outstanding shares in capitalization calculation */
+  include_outstanding_shares?: boolean;
+  /** Include outstanding options in capitalization calculation */
+  include_outstanding_options?: boolean;
+  /** Include outstanding unissued options in capitalization calculation */
+  include_outstanding_unissued_options?: boolean;
+  /** Include this security in capitalization calculation */
+  include_this_security?: boolean;
+  /** Include other converting securities in capitalization calculation */
+  include_other_converting_securities?: boolean;
+  /** Include option pool top-up for promised options */
+  include_option_pool_topup_for_promised_options?: boolean;
+  /** Include additional option pool top-up */
+  include_additional_option_pool_topup?: boolean;
+  /** Include new money in capitalization calculation */
+  include_new_money?: boolean;
+}
+
+// ===== Warrant Conversion Mechanism Types =====
+
+/** Warrant Conversion Mechanism - Custom Custom conversion description for non-standard warrant conversions */
+export interface WarrantMechanismCustom {
+  type: 'CUSTOM_CONVERSION';
+  /** Description of custom conversion mechanism */
+  custom_conversion_description: string;
+}
+
+/** Warrant Conversion Mechanism - Fixed Percent of Capitalization Converts to a fixed percentage of capitalization */
+export interface WarrantMechanismPercentCapitalization {
+  type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
+  /** Percentage of capitalization to convert to (as decimal string, e.g., "0.05" for 5%) */
+  converts_to_percent: string;
+  /** Description of capitalization definition */
+  capitalization_definition?: string;
+  /** Rules for capitalization calculation */
+  capitalization_definition_rules?: CapitalizationDefinitionRules;
+}
+
+/** Warrant Conversion Mechanism - Fixed Amount Converts to a fixed quantity of shares */
+export interface WarrantMechanismFixedAmount {
+  type: 'FIXED_AMOUNT_CONVERSION';
+  /** Fixed quantity of shares to convert to */
+  converts_to_quantity: string;
+}
+
+/** Warrant Conversion Mechanism - Valuation Based Conversion based on company valuation */
+export interface WarrantMechanismValuationBased {
+  type: 'VALUATION_BASED_CONVERSION';
+  /** Type of valuation (e.g., "409A", "FMV") */
+  valuation_type?: string;
+  /** Valuation amount */
+  valuation_amount?: { amount: string; currency: string };
+  /** Description of capitalization definition */
+  capitalization_definition?: string;
+  /** Rules for capitalization calculation */
+  capitalization_definition_rules?: CapitalizationDefinitionRules;
+}
+
+/** Warrant Conversion Mechanism - Share Price Based Conversion based on share price with optional discount */
+export interface WarrantMechanismSharePriceBased {
+  type: 'SHARE_PRICE_BASED_CONVERSION';
+  /** Description of the share price basis */
+  description?: string;
+  /** Whether a discount applies */
+  discount: boolean;
+  /** Discount percentage (as decimal string, e.g., "0.20" for 20%) */
+  discount_percentage?: string;
+  /** Fixed discount amount */
+  discount_amount?: { amount: string; currency: string };
+}
+
+/** Union type for all Warrant Conversion Mechanisms */
+export type WarrantConversionMechanism =
+  | WarrantMechanismCustom
+  | WarrantMechanismPercentCapitalization
+  | WarrantMechanismFixedAmount
+  | WarrantMechanismValuationBased
+  | WarrantMechanismSharePriceBased;
+
+/** Warrant Conversion Right Describes the conversion rights associated with a warrant */
+export interface WarrantConversionRight {
+  type: 'WARRANT_CONVERSION_RIGHT';
+  /** Mechanism by which conversion occurs */
+  conversion_mechanism: WarrantConversionMechanism;
+  /** Whether this converts to a future financing round */
+  converts_to_future_round?: boolean;
+  /** Stock class ID to convert to (if not future round) */
+  converts_to_stock_class_id?: string;
+}
+
+/** Warrant Exercise Trigger Describes when and how a warrant can be exercised */
+export interface WarrantExerciseTrigger {
+  /** Type of trigger */
+  type: ConversionTriggerType;
+  /** Unique identifier for this trigger */
+  trigger_id: string;
+  /** Conversion right associated with this trigger */
+  conversion_right: WarrantConversionRight;
+  /** Human-readable nickname for the trigger */
+  nickname?: string;
+  /** Description of trigger conditions */
+  trigger_description?: string;
+  /** Date when trigger becomes active (YYYY-MM-DD) */
+  trigger_date?: string;
+  /** Condition that activates the trigger */
+  trigger_condition?: string;
+}
+
+// ===== Convertible Conversion Mechanism Types =====
+
+/** Convertible Conversion Mechanism - Custom Custom conversion description for non-standard conversions */
+export interface ConvertibleMechanismCustom {
+  type: 'CUSTOM_CONVERSION';
+  /** Description of custom conversion mechanism */
+  custom_conversion_description?: string;
+}
+
+/** Exit Multiple Ratio Represents a multiplier as a fraction */
+export interface ExitMultiple {
+  numerator: string;
+  denominator: string;
+}
+
+/** Convertible Conversion Mechanism - SAFE Conversion terms for Simple Agreement for Future Equity */
+export interface ConvertibleMechanismSafe {
+  type: 'SAFE_CONVERSION';
+  /** Whether Most Favored Nation clause applies */
+  conversion_mfn: boolean;
+  /** Discount on conversion (as decimal string, e.g., "0.20" for 20%) */
+  conversion_discount?: string;
+  /** Valuation cap for conversion */
+  conversion_valuation_cap?: { amount: string; currency: string };
+  /** Timing of conversion relative to financing */
+  conversion_timing?: 'PRE_MONEY' | 'POST_MONEY';
+  /** Description of capitalization definition */
+  capitalization_definition?: string;
+  /** Rules for capitalization calculation */
+  capitalization_definition_rules?: CapitalizationDefinitionRules;
+  /** Exit multiple for liquidity events */
+  exit_multiple?: ExitMultiple;
+}
+
+/** Convertible Conversion Mechanism - Fixed Percent of Capitalization */
+export interface ConvertibleMechanismPercentCapitalization {
+  type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
+  /** Percentage of capitalization to convert to */
+  converts_to_percent: string;
+  /** Description of capitalization definition */
+  capitalization_definition?: string;
+  /** Rules for capitalization calculation */
+  capitalization_definition_rules?: CapitalizationDefinitionRules;
+}
+
+/** Convertible Conversion Mechanism - Fixed Amount */
+export interface ConvertibleMechanismFixedAmount {
+  type: 'FIXED_AMOUNT_CONVERSION';
+  /** Fixed quantity to convert to */
+  converts_to_quantity: string;
+}
+
+/** Convertible Conversion Mechanism - Valuation Based */
+export interface ConvertibleMechanismValuationBased {
+  type: 'VALUATION_BASED_CONVERSION';
+  /** Type of valuation */
+  valuation_type?: string;
+  /** Valuation amount */
+  valuation_amount?: { amount: string; currency: string };
+  /** Description of capitalization definition */
+  capitalization_definition?: string;
+  /** Rules for capitalization calculation */
+  capitalization_definition_rules?: CapitalizationDefinitionRules;
+}
+
+/** Convertible Conversion Mechanism - Share Price Based */
+export interface ConvertibleMechanismSharePriceBased {
+  type: 'SHARE_PRICE_BASED_CONVERSION';
+  /** Description of the share price basis */
+  description?: string;
+  /** Whether a discount applies */
+  discount: boolean;
+  /** Discount percentage */
+  discount_percentage?: string;
+  /** Fixed discount amount */
+  discount_amount?: { amount: string; currency: string };
+}
+
+/** Interest Rate entry for Convertible Notes */
+export interface ConvertibleInterestRate {
+  /** Interest rate (as decimal string, e.g., "0.08" for 8%) */
+  rate: string;
+  /** Date interest starts accruing (YYYY-MM-DD) */
+  accrual_start_date: string;
+  /** Date interest stops accruing (YYYY-MM-DD) */
+  accrual_end_date?: string;
+}
+
+/** Convertible Conversion Mechanism - Convertible Note Full conversion terms for convertible promissory notes */
+export interface ConvertibleMechanismNote {
+  type: 'CONVERTIBLE_NOTE_CONVERSION';
+  /** Interest rate schedule */
+  interest_rates: ConvertibleInterestRate[] | null;
+  /** Day count convention for interest calculation */
+  day_count_convention?: 'ACTUAL_365' | '30_360';
+  /** How interest is paid */
+  interest_payout?: 'DEFERRED' | 'CASH';
+  /** Interest accrual period */
+  interest_accrual_period?: 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL';
+  /** Type of interest compounding */
+  compounding_type?: 'SIMPLE' | 'COMPOUNDING';
+  /** Discount on conversion */
+  conversion_discount?: string;
+  /** Valuation cap for conversion */
+  conversion_valuation_cap?: { amount: string; currency: string };
+  /** Description of capitalization definition */
+  capitalization_definition?: string;
+  /** Rules for capitalization calculation */
+  capitalization_definition_rules?: CapitalizationDefinitionRules;
+  /** Exit multiple for liquidity events */
+  exit_multiple?: ExitMultiple | null;
+  /** Whether Most Favored Nation clause applies */
+  conversion_mfn?: boolean;
+}
+
+/** Union type for all Convertible Conversion Mechanisms */
+export type ConvertibleConversionMechanism =
+  | ConvertibleMechanismCustom
+  | ConvertibleMechanismSafe
+  | ConvertibleMechanismPercentCapitalization
+  | ConvertibleMechanismFixedAmount
+  | ConvertibleMechanismValuationBased
+  | ConvertibleMechanismSharePriceBased
+  | ConvertibleMechanismNote;
+
+/** Convertible Conversion Right Describes the conversion rights associated with a convertible instrument */
+export interface ConvertibleConversionRight {
+  type: 'CONVERTIBLE_CONVERSION_RIGHT';
+  /** Mechanism by which conversion occurs */
+  conversion_mechanism: ConvertibleConversionMechanism;
+  /** Whether this converts to a future financing round */
+  converts_to_future_round?: boolean;
+  /** Stock class ID to convert to (if not future round) */
+  converts_to_stock_class_id?: string;
+}
+
+/** Convertible Conversion Trigger Describes when and how a convertible instrument can convert */
+export interface ConvertibleConversionTrigger {
+  /** Type of trigger */
+  type: ConversionTriggerType;
+  /** Unique identifier for this trigger */
+  trigger_id: string;
+  /** Conversion right associated with this trigger */
+  conversion_right: ConvertibleConversionRight;
+  /** Human-readable nickname for the trigger */
+  nickname?: string;
+  /** Description of trigger conditions */
+  trigger_description?: string;
+  /** Date when trigger becomes active (YYYY-MM-DD) */
+  trigger_date?: string;
+  /** Condition that activates the trigger */
+  trigger_condition?: string;
+}
+
+/**
  * Enum - Rounding Type Rounding method for numeric values OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/RoundingType.schema.json
  */
@@ -726,8 +1004,8 @@ export interface OcfConvertibleIssuanceDataNative {
   investment_amount: Monetary;
   /** What kind of convertible instrument is this (of the supported, enumerated types) */
   convertible_type: ConvertibleType;
-  /** Convertible - Conversion Trigger Array (simplified) */
-  conversion_triggers: unknown[];
+  /** Convertible - Conversion Trigger Array */
+  conversion_triggers: ConvertibleConversionTrigger[];
   /** If different convertible instruments have seniority over one another, use this value to build a seniority stack */
   seniority: number;
   /** What pro-rata (if any) is the holder entitled to buy at the next round? */
@@ -767,14 +1045,14 @@ export interface WarrantIssuanceOcfDataNative {
   exercise_price?: Monetary;
   /** Actual purchase price of the warrant (sum up purported value of all consideration, including in-kind) */
   purchase_price: Monetary;
-  /** Warrant Issuance - Exercise Trigger Array (complex nested type) */
-  exercise_triggers: unknown[];
+  /** Warrant Issuance - Exercise Trigger Array */
+  exercise_triggers: WarrantExerciseTrigger[];
   /** What is expiration date of the warrant (if applicable) */
   warrant_expiration_date?: string;
   /** Identifier of the VestingTerms to which this security is subject */
   vesting_terms_id?: string;
-  /** Conversion triggers (complex nested type) */
-  conversion_triggers?: unknown[];
+  /** Conversion triggers for automatic warrant conversion */
+  conversion_triggers?: WarrantExerciseTrigger[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
