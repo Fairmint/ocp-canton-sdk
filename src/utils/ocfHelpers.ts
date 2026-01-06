@@ -100,6 +100,12 @@ export function getOcfTypeLabel(type: OcfObjectType, count: number): string {
       plural: 'Stock Class Authorized Shares Adjustments',
     },
     TX_STOCK_CANCELLATION: { singular: 'Stock Cancellation', plural: 'Stock Cancellations' },
+    TX_WARRANT_CANCELLATION: { singular: 'Warrant Cancellation', plural: 'Warrant Cancellations' },
+    TX_CONVERTIBLE_CANCELLATION: { singular: 'Convertible Cancellation', plural: 'Convertible Cancellations' },
+    TX_EQUITY_COMPENSATION_CANCELLATION: {
+      singular: 'Equity Compensation Cancellation',
+      plural: 'Equity Compensation Cancellations',
+    },
     TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: {
       singular: 'Issuer Authorized Shares Adjustment',
       plural: 'Issuer Authorized Shares Adjustments',

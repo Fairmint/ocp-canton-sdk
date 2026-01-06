@@ -789,6 +789,68 @@ export interface OcfStockCancellationTxData {
   comments?: string[];
 }
 
+/**
+ * Object - Warrant Cancellation Transaction Object describing a warrant cancellation transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/cancellation/WarrantCancellation.schema.json
+ */
+export interface OcfWarrantCancellationTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being cancelled */
+  security_id: string;
+  /** Quantity of warrants being cancelled */
+  quantity: string | number;
+  /** Identifier for the security that holds the remainder balance (for partial cancellations) */
+  balance_security_id?: string;
+  /** Reason for the cancellation */
+  reason_text: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Convertible Cancellation Transaction Object describing a convertible cancellation transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/cancellation/ConvertibleCancellation.schema.json
+ */
+export interface OcfConvertibleCancellationTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being cancelled */
+  security_id: string;
+  /** Identifier for the security that holds the remainder balance (for partial cancellations) */
+  balance_security_id?: string;
+  /** Reason for the cancellation */
+  reason_text: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Equity Compensation Cancellation Transaction Object describing an equity compensation cancellation
+ * transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/cancellation/EquityCompensationCancellation.schema.json
+ */
+export interface OcfEquityCompensationCancellationTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being cancelled */
+  security_id: string;
+  /** Quantity of equity compensation being cancelled */
+  quantity: string | number;
+  /** Identifier for the security that holds the remainder balance (for partial cancellations) */
+  balance_security_id?: string;
+  /** Reason for the cancellation */
+  reason_text: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
 export interface OcfIssuerAuthorizedSharesAdjustmentTxData {
   id: string;
   date: string;
