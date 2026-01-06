@@ -3,7 +3,6 @@ import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
 import type {
-  AddStockRepurchaseParams,
   AuthorizeIssuerParams,
   AuthorizeIssuerResult,
   CreateCompanyValuationReportParams,
@@ -37,9 +36,9 @@ import type {
 import {
   addObserversToCompanyValuationReport,
   authorizeIssuer,
-  buildAddStockRepurchaseCommand,
   buildCreateCompanyValuationReportCommand,
   buildCreateIssuerCommand,
+  buildCreateStockRepurchaseCommand,
   createCompanyValuationReport,
   getConvertibleIssuanceAsOcf,
   getDocumentAsOcf,
@@ -255,7 +254,9 @@ export class OcpClient {
       getStockRepurchaseAsOcf: (
         params: GetStockRepurchaseAsOcfParams
       ) => Promise<import('./functions').GetStockRepurchaseAsOcfResult>;
-      buildAddStockRepurchaseCommand: (params: AddStockRepurchaseParams) => CommandWithDisclosedContracts;
+      buildCreateStockRepurchaseCommand: (
+        params: import('./functions').CreateStockRepurchaseParams
+      ) => CommandWithDisclosedContracts;
     };
     document: {
       getDocumentAsOcf: (params: GetDocumentAsOcfParams) => Promise<import('./functions').GetDocumentAsOcfResult>;
@@ -521,7 +522,7 @@ export class OcpClient {
       },
       stockRepurchase: {
         getStockRepurchaseAsOcf: async (params) => getStockRepurchaseAsOcf(this.client, params),
-        buildAddStockRepurchaseCommand: (params) => buildAddStockRepurchaseCommand(params),
+        buildCreateStockRepurchaseCommand: (params) => buildCreateStockRepurchaseCommand(params),
       },
       issuerAuthorization: {
         authorizeIssuer: async (params) => authorizeIssuer(this.client, params),

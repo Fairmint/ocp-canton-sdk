@@ -3,13 +3,13 @@ import type { CommandWithDisclosedContracts, StockClassOcfData } from '../../../
 import { buildCapTableCommand } from '../capTable';
 import { stockClassDataToDaml } from './stockClassDataToDaml';
 
-export interface AddStockClassParams {
+export interface CreateStockClassParams {
   capTableContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   stockClassData: StockClassOcfData;
 }
 
-export function buildAddStockClassCommand(params: AddStockClassParams): CommandWithDisclosedContracts {
+export function buildCreateStockClassCommand(params: CreateStockClassParams): CommandWithDisclosedContracts {
   return buildCapTableCommand({
     capTableContractId: params.capTableContractId,
     featuredAppRightContractDetails: params.featuredAppRightContractDetails,

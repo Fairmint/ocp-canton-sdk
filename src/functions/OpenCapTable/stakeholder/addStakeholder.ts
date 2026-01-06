@@ -167,13 +167,13 @@ export function stakeholderDataToDaml(
   return payload;
 }
 
-export interface AddStakeholderParams {
+export interface CreateStakeholderParams {
   capTableContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   stakeholderData: OcfStakeholderData;
 }
 
-export function buildAddStakeholderCommand(params: AddStakeholderParams): CommandWithDisclosedContracts {
+export function buildCreateStakeholderCommand(params: CreateStakeholderParams): CommandWithDisclosedContracts {
   const damlData = stakeholderDataToDaml(params.stakeholderData);
 
   // Omit current_status if it's null for JSON API compatibility

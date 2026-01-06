@@ -33,13 +33,13 @@ export function stockRepurchaseDataToDaml(d: OcfStockRepurchaseTxData): Record<s
   };
 }
 
-export interface AddStockRepurchaseParams {
+export interface CreateStockRepurchaseParams {
   capTableContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   stockRepurchaseData: OcfStockRepurchaseTxData;
 }
 
-export function buildAddStockRepurchaseCommand(params: AddStockRepurchaseParams): CommandWithDisclosedContracts {
+export function buildCreateStockRepurchaseCommand(params: CreateStockRepurchaseParams): CommandWithDisclosedContracts {
   return buildCapTableCommand({
     capTableContractId: params.capTableContractId,
     featuredAppRightContractDetails: params.featuredAppRightContractDetails,
