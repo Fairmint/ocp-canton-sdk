@@ -1,14 +1,10 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, OcfStockPlanData, StockPlanCancellationBehavior } from '../../../types';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { StockPlanCancellationBehavior, StockPlanOcfData } from '../../../types';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 function cancellationBehaviorToDaml(
   b: StockPlanCancellationBehavior | undefined
-): Fairmint.OpenCapTable.StockPlan.OcfStockPlanData['default_cancellation_behavior'] {
+): Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData['default_cancellation_behavior'] {
   if (!b) return null;
   switch (b) {
     case 'RETIRE':
@@ -24,7 +20,7 @@ function cancellationBehaviorToDaml(
   }
 }
 
-function stockPlanDataToDaml(d: OcfStockPlanData): Fairmint.OpenCapTable.StockPlan.OcfStockPlanData {
+export function stockPlanDataToDaml(d: StockPlanOcfData): Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData {
   if (!d.id) throw new Error('stockPlan.id is required');
   return {
     id: d.id,
@@ -37,37 +33,4 @@ function stockPlanDataToDaml(d: OcfStockPlanData): Fairmint.OpenCapTable.StockPl
     stock_class_ids: d.stock_class_ids,
     comments: cleanComments(d.comments),
   };
-}
-
-export interface CreateStockPlanParams {
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  planData: OcfStockPlanData;
-}
-
-export function buildCreateStockPlanCommand(params: CreateStockPlanParams): CommandWithDisclosedContracts {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlan = {
-    plan_data: stockPlanDataToDaml(params.planData),
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateStockPlan',
-      choiceArgument: choiceArguments,
-    },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
 }

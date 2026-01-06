@@ -1,9 +1,5 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, Monetary } from '../../../types';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { Monetary } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -15,38 +11,6 @@ import {
 export interface SimpleVesting {
   date: string;
   amount: string | number;
-}
-
-export interface CreateWarrantIssuanceParams {
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  issuanceData: {
-    id: string;
-    date: string;
-    security_id: string;
-    custom_id: string;
-    stakeholder_id: string;
-    board_approval_date?: string;
-    stockholder_approval_date?: string;
-    consideration_text?: string;
-    security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-    quantity?: string | number;
-    quantity_source?:
-      | 'HUMAN_ESTIMATED'
-      | 'MACHINE_ESTIMATED'
-      | 'UNSPECIFIED'
-      | 'INSTRUMENT_FIXED'
-      | 'INSTRUMENT_MAX'
-      | 'INSTRUMENT_MIN';
-    exercise_price?: Monetary;
-    purchase_price: Monetary;
-    exercise_triggers: WarrantExerciseTriggerInput[];
-    warrant_expiration_date?: string;
-    vesting_terms_id?: string;
-    vestings?: SimpleVesting[];
-    comments?: string[];
-  };
 }
 
 type WarrantTriggerTypeInput =
@@ -198,7 +162,15 @@ function buildWarrantRight(
 }
 
 function quantitySourceToDamlEnum(
-  qs: CreateWarrantIssuanceParams['issuanceData']['quantity_source'] | null | undefined
+  qs:
+    | 'HUMAN_ESTIMATED'
+    | 'MACHINE_ESTIMATED'
+    | 'UNSPECIFIED'
+    | 'INSTRUMENT_FIXED'
+    | 'INSTRUMENT_MAX'
+    | 'INSTRUMENT_MIN'
+    | null
+    | undefined
 ): Fairmint.OpenCapTable.Types.OcfQuantitySourceType | null {
   if (qs === undefined || qs === null) return null;
   switch (qs) {
@@ -244,15 +216,40 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
   };
 }
 
-export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceParams): CommandWithDisclosedContracts {
-  const d = params.issuanceData;
+export function warrantIssuanceDataToDaml(d: {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
+  quantity?: string | number;
+  quantity_source?:
+    | 'HUMAN_ESTIMATED'
+    | 'MACHINE_ESTIMATED'
+    | 'UNSPECIFIED'
+    | 'INSTRUMENT_FIXED'
+    | 'INSTRUMENT_MAX'
+    | 'INSTRUMENT_MIN';
+  exercise_price?: Monetary;
+  purchase_price: Monetary;
+  exercise_triggers: WarrantExerciseTriggerInput[];
+  warrant_expiration_date?: string;
+  vesting_terms_id?: string;
+  vestings?: SimpleVesting[];
+  comments?: string[];
+}): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
   const quantitySourceDaml =
     d.quantity !== undefined
       ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
       : d.quantity_source
         ? quantitySourceToDamlEnum(d.quantity_source)
         : null;
-  const issuance_data: Fairmint.OpenCapTable.WarrantIssuance.OcfWarrantIssuanceData = {
+
+  return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
@@ -275,28 +272,4 @@ export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceP
     })),
     comments: cleanComments(d.comments),
   };
-
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateWarrantIssuance = {
-    issuance_data,
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateWarrantIssuance',
-      choiceArgument: choiceArguments,
-    },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
 }

@@ -1,9 +1,4 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, OcfStockClassData, StockClassType } from '../../../types';
+import type { StockClassOcfData, StockClassType } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, monetaryToDaml } from '../../../utils/typeConversions';
 
 function stockClassTypeToDaml(
@@ -21,7 +16,7 @@ function stockClassTypeToDaml(
   }
 }
 
-function stockClassDataToDaml(stockClassData: OcfStockClassData): Record<string, unknown> {
+export function stockClassDataToDaml(stockClassData: StockClassOcfData): Record<string, unknown> {
   const d = stockClassData;
   if (!d.id) throw new Error('stockClassData.id is required');
   return {
@@ -139,63 +134,4 @@ function stockClassDataToDaml(stockClassData: OcfStockClassData): Record<string,
       : null,
     comments: cleanComments(d.comments),
   };
-}
-
-export interface CreateStockClassParams {
-  /** Contract ID of the Issuer contract */
-  issuerContractId: string;
-  /** Details of the FeaturedAppRight contract for disclosed contracts */
-  featuredAppRightContractDetails: DisclosedContract;
-  /** The party that will act as the issuer */
-  issuerParty: string;
-  /**
-   * Stock class data to create
-   *
-   * Schema: https://schema.opencaptablecoalition.com/v/1.2.0/objects/StockClass.schema.json
-   *
-   * - Name: Name for the stock type (e.g. Series A Preferred or Class A Common)
-   * - Class_type: The type of this stock class (e.g. Preferred or Common)
-   * - Default_id_prefix: Default prefix for certificate numbers in certificated shares (e.g. CS- in CS-1). If certificate
-   *   IDs have a dash, the prefix should end in the dash like CS-
-   * - Initial_shares_authorized: The initial number of shares authorized for this stock class
-   * - Board_approval_date (optional): Date on which the board approved the stock class (YYYY-MM-DD)
-   * - Stockholder_approval_date (optional): Date on which the stockholders approved the stock class (YYYY-MM-DD)
-   * - Votes_per_share: The number of votes each share of this stock class gets
-   * - Par_value (optional): Per-share par value of this stock class
-   * - Price_per_share (optional): Per-share price this stock class was issued for
-   * - Seniority: Seniority of the stock - determines repayment priority. Seniority is ordered by increasing number so
-   *   that stock classes with a higher seniority have higher repayment priority. Multiple stock classes can share the
-   *   same seniority.
-   * - Conversion_rights (optional): List of stock class conversion rights possible for this stock class
-   * - Liquidation_preference_multiple (optional): The liquidation preference per share for this stock class
-   * - Participation_cap_multiple (optional): The participation cap multiple per share for this stock class
-   * - Comments (optional): Additional comments or notes about the stock class
-   */
-  stockClassData: OcfStockClassData;
-}
-
-export function buildCreateStockClassCommand(params: CreateStockClassParams): CommandWithDisclosedContracts {
-  const choiceArguments = {
-    stock_class_data: stockClassDataToDaml(params.stockClassData),
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateStockClass',
-      choiceArgument: choiceArguments,
-    },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
 }

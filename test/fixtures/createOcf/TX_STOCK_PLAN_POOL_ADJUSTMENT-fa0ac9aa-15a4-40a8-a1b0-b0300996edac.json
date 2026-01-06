@@ -14,7 +14,7 @@
   },
   "request": {
     "ExerciseCommand": {
-      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.CapTable:CapTable",
       "contractId": "009bf6ae28fb2879917081bd990c931718685fc3b7fd90eede2e6757a5d5a4945dca11122076c9c1b3cc1ef19a20436c8d277fad9d2dc97b185995863bf450dfa76441a2e0",
       "choice": "CreateStockPlanPoolAdjustment",
       "choiceArgument": {
@@ -45,7 +45,7 @@
                 "offset": 841519,
                 "nodeId": 0,
                 "contractId": "009bf6ae28fb2879917081bd990c931718685fc3b7fd90eede2e6757a5d5a4945dca11122076c9c1b3cc1ef19a20436c8d277fad9d2dc97b185995863bf450dfa76441a2e0",
-                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.CapTable:CapTable",
                 "interfaceId": null,
                 "choice": "CreateStockPlanPoolAdjustment",
                 "choiceArgument": {

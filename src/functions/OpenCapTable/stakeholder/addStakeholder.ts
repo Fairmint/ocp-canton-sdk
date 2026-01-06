@@ -15,7 +15,9 @@ import type {
 } from '../../../types';
 import { addressToDaml, cleanComments, optionalString } from '../../../utils/typeConversions';
 
-function stakeholderTypeToDaml(stakeholderType: StakeholderType): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderType {
+function stakeholderTypeToDaml(
+  stakeholderType: StakeholderType
+): Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderType {
   switch (stakeholderType) {
     case 'INDIVIDUAL':
       return 'OcfStakeholderTypeIndividual';
@@ -74,7 +76,7 @@ function phoneToDaml(phone: { phone_type: PhoneType; phone_number: string }): Fa
   };
 }
 
-function nameToDaml(n: Name): Fairmint.OpenCapTable.Stakeholder.OcfName {
+function nameToDaml(n: Name): Fairmint.OpenCapTable.OCF.Stakeholder.OcfName {
   return {
     legal_name: n.legal_name,
     first_name: optionalString(n.first_name),
@@ -82,7 +84,7 @@ function nameToDaml(n: Name): Fairmint.OpenCapTable.Stakeholder.OcfName {
   };
 }
 
-function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.Stakeholder.OcfContactInfo {
+function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfo {
   return {
     name: nameToDaml(info.name),
     phone_numbers: (info.phone_numbers ?? []).map(phoneToDaml),
@@ -92,7 +94,7 @@ function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.Stakeholder
 
 function contactInfoWithoutNameToDaml(
   info: ContactInfoWithoutName
-): Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName | null {
+): Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfoWithoutName | null {
   const phones = (info.phone_numbers ?? []).map(phoneToDaml);
   const emails = (info.emails ?? []).map(emailToDaml);
 
@@ -106,7 +108,9 @@ function contactInfoWithoutNameToDaml(
   };
 }
 
-function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData {
+export function stakeholderDataToDaml(
+  data: OcfStakeholderData
+): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
   if (!data.id) throw new Error('stakeholder.id is required');
 
   const dataWithSingular = data as OcfStakeholderData & { current_relationship?: string };
@@ -128,7 +132,7 @@ function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.
     return 'OcfRelOther';
   };
 
-  const payload: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData = {
+  const payload: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData = {
     id: data.id,
     name: nameToDaml(data.name),
     stakeholder_type: stakeholderTypeToDaml(data.stakeholder_type),
@@ -164,9 +168,8 @@ function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.
 }
 
 export interface CreateStakeholderParams {
-  issuerContractId: string;
+  capTableContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
   stakeholderData: OcfStakeholderData;
 }
 
@@ -183,8 +186,8 @@ export function buildCreateStakeholderCommand(params: CreateStakeholderParams): 
 
   const command: Command = {
     ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
+      templateId: Fairmint.OpenCapTable.CapTable.CapTable.templateId,
+      contractId: params.capTableContractId,
       choice: 'CreateStakeholder',
       choiceArgument: choiceArguments,
     },

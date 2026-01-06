@@ -29,64 +29,64 @@ interface OcfTypeMetadata {
 /** Central registry of OCF type metadata Maps each OCF object type to its DAML template ID and OCF ID extraction path */
 export const OCF_METADATA: Record<OcfObjectType, OcfTypeMetadata> = {
   STOCK_CLASS: {
-    templateId: Fairmint.OpenCapTable.StockClass.StockClass.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
     ocfIdPath: ['stock_class_data', 'id'],
   },
   STAKEHOLDER: {
-    templateId: Fairmint.OpenCapTable.Stakeholder.Stakeholder.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId,
     ocfIdPath: ['stakeholder_data', 'id'],
   },
   STOCK_PLAN: {
-    templateId: Fairmint.OpenCapTable.StockPlan.StockPlan.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
     ocfIdPath: ['plan_data', 'id'],
   },
   STOCK_LEGEND_TEMPLATE: {
-    templateId: Fairmint.OpenCapTable.StockLegendTemplate.StockLegendTemplate.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplate.templateId,
     ocfIdPath: ['template_data', 'id'],
   },
   DOCUMENT: {
-    templateId: Fairmint.OpenCapTable.Document.Document.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
     ocfIdPath: ['document_data', 'id'],
   },
   VESTING_TERMS: {
-    templateId: Fairmint.OpenCapTable.VestingTerms.VestingTerms.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
     ocfIdPath: ['vesting_terms_data', 'id'],
   },
   TX_STOCK_ISSUANCE: {
-    templateId: Fairmint.OpenCapTable.StockIssuance.StockIssuance.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId,
     ocfIdPath: ['issuance_data', 'id'],
   },
   TX_WARRANT_ISSUANCE: {
-    templateId: Fairmint.OpenCapTable.WarrantIssuance.WarrantIssuance.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance.templateId,
     ocfIdPath: ['issuance_data', 'id'],
   },
   TX_CONVERTIBLE_ISSUANCE: {
-    templateId: Fairmint.OpenCapTable.ConvertibleIssuance.ConvertibleIssuance.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuance.templateId,
     ocfIdPath: ['issuance_data', 'id'],
   },
   TX_STOCK_PLAN_POOL_ADJUSTMENT: {
-    templateId: Fairmint.OpenCapTable.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId,
     ocfIdPath: ['adjustment_data', 'id'],
   },
   TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT: {
     templateId:
-      Fairmint.OpenCapTable.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment.templateId,
+      Fairmint.OpenCapTable.OCF.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment.templateId,
     ocfIdPath: ['adjustment_data', 'id'],
   },
   TX_STOCK_CANCELLATION: {
-    templateId: Fairmint.OpenCapTable.StockCancellation.StockCancellation.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.templateId,
     ocfIdPath: ['cancellation_data', 'id'],
   },
   TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: {
-    templateId: Fairmint.OpenCapTable.IssuerAuthorizedSharesAdjustment.IssuerAuthorizedSharesAdjustment.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.IssuerAuthorizedSharesAdjustment.IssuerAuthorizedSharesAdjustment.templateId,
     ocfIdPath: ['adjustment_data', 'id'],
   },
   TX_EQUITY_COMPENSATION_ISSUANCE: {
-    templateId: Fairmint.OpenCapTable.EquityCompensationIssuance.EquityCompensationIssuance.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuance.templateId,
     ocfIdPath: ['issuance_data', 'id'],
   },
   TX_EQUITY_COMPENSATION_EXERCISE: {
-    templateId: Fairmint.OpenCapTable.EquityCompensationExercise.EquityCompensationExercise.templateId,
+    templateId: Fairmint.OpenCapTable.OCF.EquityCompensationExercise.EquityCompensationExercise.templateId,
     ocfIdPath: ['exercise_data', 'id'],
   },
 };

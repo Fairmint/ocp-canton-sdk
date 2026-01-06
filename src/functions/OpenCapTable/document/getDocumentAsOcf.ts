@@ -1,8 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { OcfDocumentData, OcfObjectReference } from '../../../types/native';
+import type { DocumentOcfData, OcfObjectReference } from '../../../types/native';
 
-function objectTypeToNative(t: Fairmint.OpenCapTable.Document.OcfObjectType): OcfObjectReference['object_type'] {
+function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType): OcfObjectReference['object_type'] {
   switch (t) {
     case 'OcfObjIssuer':
       return 'ISSUER';
@@ -123,7 +123,7 @@ function objectTypeToNative(t: Fairmint.OpenCapTable.Document.OcfObjectType): Oc
   }
 }
 
-function damlDocumentDataToNative(d: Fairmint.OpenCapTable.Document.OcfDocument): OcfDocumentData {
+function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData): DocumentOcfData {
   const docWithId = d as unknown as { id?: string };
   return {
     id: docWithId.id ?? '',
@@ -145,7 +145,7 @@ export interface GetDocumentAsOcfParams {
 }
 
 export interface GetDocumentAsOcfResult {
-  document: OcfDocumentData & { object_type: 'DOCUMENT'; id?: string };
+  document: DocumentOcfData & { object_type: 'DOCUMENT'; id?: string };
   contractId: string;
 }
 
@@ -160,7 +160,7 @@ export async function getDocumentAsOcf(
 
   const { createArgument } = eventsResponse.created.createdEvent;
 
-  function hasDocumentData(arg: unknown): arg is { document_data: Fairmint.OpenCapTable.Document.OcfDocument } {
+  function hasDocumentData(arg: unknown): arg is { document_data: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData } {
     const record = arg as Record<string, unknown>;
     return (
       typeof arg === 'object' && arg !== null && 'document_data' in record && typeof record.document_data === 'object'

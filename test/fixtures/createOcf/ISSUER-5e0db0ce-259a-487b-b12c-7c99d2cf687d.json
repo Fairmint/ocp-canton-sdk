@@ -112,7 +112,7 @@
     "ExerciseCommand": {
       "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
       "contractId": "000f916d41266d1687edf9dcbf3817f285d36fc9ef207339ee06ed7ab4e12827f2ca111220ce061b1746dca17e1fd3addb3b93f8a7bd2da8f82a1c04f23cf02d1b68739deb",
-      "choice": "CreateIssuer",
+      "choice": "CreateCapTable",
       "choiceArgument": {
         "issuer_data": {
           "id": "5e0db0ce-259a-487b-b12c-7c99d2cf687d",
@@ -166,7 +166,7 @@
               "contractId": "000f916d41266d1687edf9dcbf3817f285d36fc9ef207339ee06ed7ab4e12827f2ca111220ce061b1746dca17e1fd3addb3b93f8a7bd2da8f82a1c04f23cf02d1b68739deb",
               "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.IssuerAuthorization:IssuerAuthorization",
               "interfaceId": null,
-              "choice": "CreateIssuer",
+              "choice": "CreateCapTable",
               "choiceArgument": {
                 "issuer_data": {
                   "id": "5e0db0ce-259a-487b-b12c-7c99d2cf687d",
@@ -277,7 +277,7 @@
               "offset": 832217,
               "nodeId": 3,
               "contractId": "0010a8ee552d279bddca97777c41005949deea441dc13c5cd807315c8ca0343c29ca11122066bff8ae6d4764bdab6e4c2ceb5cbd435f42df7ee7573852337dba29d5af2a9f",
-              "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+              "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.CapTable:CapTable",
               "contractKey": null,
               "createArgument": {
                 "context": {
