@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface OcfStockPlanPoolAdjustmentEvent {
@@ -20,26 +21,8 @@ export interface GetStockPlanPoolAdjustmentEventAsOcfResult {
   contractId: string;
 }
 
-interface AdjustmentData {
-  id: string;
-  date: string;
-  stock_plan_id: string;
-  shares_reserved: string | number;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  comments?: string[];
-}
-
-interface CreateArgument {
-  adjustment_data?: AdjustmentData;
-  id?: string;
-  date?: string;
-  stock_plan_id?: string;
-  shares_reserved?: string | number;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  comments?: string[];
-}
+/** Type alias for DAML StockPlanPoolAdjustment contract createArgument */
+type StockPlanPoolAdjustmentCreateArgument = Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment;
 
 export async function getStockPlanPoolAdjustmentEventAsOcf(
   client: LedgerJsonApiClient,
@@ -47,25 +30,20 @@ export async function getStockPlanPoolAdjustmentEventAsOcf(
 ): Promise<GetStockPlanPoolAdjustmentEventAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created?.createdEvent.createArgument) throw new Error('Missing createArgument');
-  const arg = res.created.createdEvent.createArgument as CreateArgument;
-  const d = arg.adjustment_data ?? arg;
-
-  if (!d.id) throw new Error('Missing id');
-  if (!d.stock_plan_id) throw new Error('Missing stock_plan_id');
-  if (d.shares_reserved === undefined) throw new Error('Missing shares_reserved');
-  if (!d.date) throw new Error('Missing date');
+  const contract = res.created.createdEvent.createArgument as StockPlanPoolAdjustmentCreateArgument;
+  const data = contract.adjustment_data;
 
   const event: OcfStockPlanPoolAdjustmentEvent = {
     object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
-    id: d.id,
-    date: d.date.split('T')[0],
-    stock_plan_id: d.stock_plan_id,
-    shares_reserved: normalizeNumericString(
-      typeof d.shares_reserved === 'number' ? String(d.shares_reserved) : d.shares_reserved
-    ),
-    ...(d.board_approval_date ? { board_approval_date: d.board_approval_date.split('T')[0] } : {}),
-    ...(d.stockholder_approval_date ? { stockholder_approval_date: d.stockholder_approval_date.split('T')[0] } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
+    id: data.id,
+    date: data.date.split('T')[0],
+    stock_plan_id: data.stock_plan_id,
+    shares_reserved: normalizeNumericString(data.shares_reserved),
+    ...(data.board_approval_date ? { board_approval_date: data.board_approval_date.split('T')[0] } : {}),
+    ...(data.stockholder_approval_date
+      ? { stockholder_approval_date: data.stockholder_approval_date.split('T')[0] }
+      : {}),
+    ...(data.comments.length ? { comments: data.comments } : {}),
   };
   return { event, contractId: params.contractId };
 }

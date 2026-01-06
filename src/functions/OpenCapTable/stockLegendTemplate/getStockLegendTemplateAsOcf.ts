@@ -1,22 +1,17 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { StockLegendTemplateOcfData } from '../../../types/native';
 
-interface DamlDataWithId extends Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData {
-  id: string;
-}
+/** Type alias for DAML StockLegendTemplate contract createArgument */
+type StockLegendTemplateCreateArgument = Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplate;
+type DamlStockLegendTemplateOcfData = Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData;
 
-function damlStockLegendTemplateDataToNative(
-  damlData: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData
-): StockLegendTemplateOcfData {
-  const dataWithId = damlData as DamlDataWithId;
+function damlStockLegendTemplateDataToNative(damlData: DamlStockLegendTemplateOcfData): StockLegendTemplateOcfData {
   return {
-    id: dataWithId.id,
-    name: damlData.name || '',
-    text: damlData.text || '',
-    comments: Array.isArray((damlData as unknown as { comments?: unknown }).comments)
-      ? (damlData as unknown as { comments: string[] }).comments
-      : [],
+    id: damlData.id,
+    name: damlData.name,
+    text: damlData.text,
+    comments: damlData.comments,
   };
 }
 
@@ -45,25 +40,8 @@ export async function getStockLegendTemplateAsOcf(
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new Error('Invalid contract events response: missing created event or create argument');
   }
-  const { createArgument } = eventsResponse.created.createdEvent;
-
-  interface HasTemplateData {
-    template_data: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData;
-  }
-
-  function hasTemplateData(arg: unknown): arg is HasTemplateData {
-    return (
-      typeof arg === 'object' &&
-      arg !== null &&
-      'template_data' in arg &&
-      typeof (arg as { template_data: unknown }).template_data === 'object'
-    );
-  }
-  if (!hasTemplateData(createArgument)) {
-    throw new Error('Template data not found in contract create argument');
-  }
-
-  const native = damlStockLegendTemplateDataToNative(createArgument.template_data);
+  const contract = eventsResponse.created.createdEvent.createArgument as StockLegendTemplateCreateArgument;
+  const native = damlStockLegendTemplateDataToNative(contract.template_data);
 
   const ocf: OcfStockLegendTemplate = {
     object_type: 'STOCK_LEGEND_TEMPLATE',
