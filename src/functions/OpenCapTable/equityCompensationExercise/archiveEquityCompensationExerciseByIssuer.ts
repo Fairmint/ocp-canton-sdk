@@ -9,10 +9,11 @@ export interface ArchiveEquityCompensationExerciseByIssuerParams {
 /**
  * @deprecated This function is no longer functional. Use buildDeleteEquityCompensationExerciseCommand instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - equityCompensationExerciseId: The OCF ID of the equity compensation exercise to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - EquityCompensationExerciseId: The OCF ID of the equity compensation exercise to delete
  *
  * @throws Error Always throws - use buildDeleteEquityCompensationExerciseCommand instead
  */

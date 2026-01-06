@@ -1,9 +1,9 @@
 export * from './addStockClass';
-export * from './editStockClass';
 export * from './deleteStockClass';
-export * from './stockClassDataToDaml';
+export * from './editStockClass';
 export * from './getStockClassAsOcf';
+export * from './stockClassDataToDaml';
 
 // Legacy exports - deprecated, will be removed in a future version
-export * from './createStockClass';
 export * from './archiveStockClassByIssuer';
+export * from './createStockClass';

@@ -9,10 +9,11 @@ export interface ArchiveVestingTermsByIssuerParams {
 /**
  * @deprecated This function is no longer functional. Use buildDeleteVestingTermsCommand instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - vestingTermsId: The OCF ID of the vesting terms to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - VestingTermsId: The OCF ID of the vesting terms to delete
  *
  * @throws Error Always throws - use buildDeleteVestingTermsCommand instead
  */

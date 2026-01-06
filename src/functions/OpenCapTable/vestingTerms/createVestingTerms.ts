@@ -3,9 +3,9 @@ import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   AllocationType,
   CommandWithDisclosedContracts,
-  VestingTermsOcfData,
   VestingCondition,
   VestingConditionPortion,
+  VestingTermsOcfData,
 } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 import { buildCapTableCommand } from '../capTable';
@@ -296,8 +296,8 @@ export interface CreateVestingTermsParams {
 /**
  * Create vesting terms by exercising the CreateVestingTerms choice on a CapTable contract
  *
- * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/VestingTerms.schema.json
  * @deprecated Use buildAddVestingTermsCommand instead.
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/VestingTerms.schema.json
  */
 
 export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams): CommandWithDisclosedContracts {

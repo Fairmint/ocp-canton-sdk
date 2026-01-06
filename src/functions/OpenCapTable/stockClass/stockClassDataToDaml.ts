@@ -135,4 +135,3 @@ export function stockClassDataToDaml(stockClassData: StockClassOcfData): Record<
     comments: cleanComments(d.comments),
   };
 }
-

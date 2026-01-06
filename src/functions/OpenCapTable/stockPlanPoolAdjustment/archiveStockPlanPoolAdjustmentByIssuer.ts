@@ -9,10 +9,11 @@ export interface ArchiveStockPlanPoolAdjustmentByIssuerParams {
 /**
  * @deprecated This function is no longer functional. Use buildDeleteStockPlanPoolAdjustmentCommand instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - stockPlanPoolAdjustmentId: The OCF ID of the adjustment to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - StockPlanPoolAdjustmentId: The OCF ID of the adjustment to delete
  *
  * @throws Error Always throws - use buildDeleteStockPlanPoolAdjustmentCommand instead
  */

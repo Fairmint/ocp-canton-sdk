@@ -9,10 +9,11 @@ export interface ArchiveConvertibleIssuanceByIssuerParams {
 /**
  * @deprecated This function is no longer functional. Use buildDeleteConvertibleIssuanceCommand instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - convertibleIssuanceId: The OCF ID of the convertible issuance to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - ConvertibleIssuanceId: The OCF ID of the convertible issuance to delete
  *
  * @throws Error Always throws - use buildDeleteConvertibleIssuanceCommand instead
  */

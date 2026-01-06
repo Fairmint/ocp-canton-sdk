@@ -1,18 +1,23 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 
-/** @deprecated Use DeleteStockClassAuthorizedSharesAdjustmentParams and buildDeleteStockClassAuthorizedSharesAdjustmentCommand instead */
+/**
+ * @deprecated Use DeleteStockClassAuthorizedSharesAdjustmentParams and
+ *   buildDeleteStockClassAuthorizedSharesAdjustmentCommand instead
+ */
 export interface ArchiveStockClassAuthorizedSharesAdjustmentByIssuerParams {
   contractId: string;
   issuerParty: string;
 }
 
 /**
- * @deprecated This function is no longer functional. Use buildDeleteStockClassAuthorizedSharesAdjustmentCommand instead.
+ * @deprecated This function is no longer functional. Use buildDeleteStockClassAuthorizedSharesAdjustmentCommand
+ *   instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - stockClassAuthorizedSharesAdjustmentId: The OCF ID of the adjustment to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - StockClassAuthorizedSharesAdjustmentId: The OCF ID of the adjustment to delete
  *
  * @throws Error Always throws - use buildDeleteStockClassAuthorizedSharesAdjustmentCommand instead
  */

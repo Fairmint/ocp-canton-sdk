@@ -9,10 +9,11 @@ export interface ArchiveStockPlanByIssuerParams {
 /**
  * @deprecated This function is no longer functional. Use buildDeleteStockPlanCommand instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - stockPlanId: The OCF ID of the stock plan to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - StockPlanId: The OCF ID of the stock plan to delete
  *
  * @throws Error Always throws - use buildDeleteStockPlanCommand instead
  */

@@ -15,9 +15,7 @@ export function stockCancellationDataToDaml(d: OcfStockCancellationTxData): Reco
   };
 }
 
-/**
- * @deprecated Use AddStockCancellationParams and buildAddStockCancellationCommand instead.
- */
+/** @deprecated Use AddStockCancellationParams and buildAddStockCancellationCommand instead. */
 export interface CreateStockCancellationParams {
   /** @deprecated This parameter is renamed to capTableContractId */
   issuerContractId: string;
@@ -26,9 +24,7 @@ export interface CreateStockCancellationParams {
   cancellationData: OcfStockCancellationTxData;
 }
 
-/**
- * @deprecated Use buildAddStockCancellationCommand instead.
- */
+/** @deprecated Use buildAddStockCancellationCommand instead. */
 export function buildCreateStockCancellationCommand(
   params: CreateStockCancellationParams
 ): CommandWithDisclosedContracts {

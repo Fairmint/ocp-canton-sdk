@@ -21,4 +21,3 @@ export function buildEditStockClassCommand(params: EditStockClassParams): Comman
     },
   });
 }
-

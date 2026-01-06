@@ -15,7 +15,9 @@ import type {
 } from '../../../types';
 import { addressToDaml, cleanComments, optionalString } from '../../../utils/typeConversions';
 
-function stakeholderTypeToDaml(stakeholderType: StakeholderType): Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderType {
+function stakeholderTypeToDaml(
+  stakeholderType: StakeholderType
+): Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderType {
   switch (stakeholderType) {
     case 'INDIVIDUAL':
       return 'OcfStakeholderTypeIndividual';
@@ -106,7 +108,9 @@ function contactInfoWithoutNameToDaml(
   };
 }
 
-function stakeholderDataToDamlInternal(data: OcfStakeholderData): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
+function stakeholderDataToDamlInternal(
+  data: OcfStakeholderData
+): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
   if (!data.id) throw new Error('stakeholder.id is required');
 
   const dataWithSingular = data as OcfStakeholderData & { current_relationship?: string };

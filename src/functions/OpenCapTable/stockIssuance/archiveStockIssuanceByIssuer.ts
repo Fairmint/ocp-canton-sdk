@@ -9,10 +9,11 @@ export interface ArchiveStockIssuanceByIssuerParams {
 /**
  * @deprecated This function is no longer functional. Use buildDeleteStockIssuanceCommand instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - stockIssuanceId: The OCF ID of the stock issuance to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - StockIssuanceId: The OCF ID of the stock issuance to delete
  *
  * @throws Error Always throws - use buildDeleteStockIssuanceCommand instead
  */

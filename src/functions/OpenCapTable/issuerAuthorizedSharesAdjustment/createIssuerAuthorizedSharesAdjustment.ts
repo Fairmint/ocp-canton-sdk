@@ -17,7 +17,10 @@ export function issuerAuthorizedSharesAdjustmentDataToDaml(
   };
 }
 
-/** @deprecated Use AddIssuerAuthorizedSharesAdjustmentParams and buildAddIssuerAuthorizedSharesAdjustmentCommand instead. */
+/**
+ * @deprecated Use AddIssuerAuthorizedSharesAdjustmentParams and buildAddIssuerAuthorizedSharesAdjustmentCommand
+ *   instead.
+ */
 export interface CreateIssuerAuthorizedSharesAdjustmentParams {
   /** @deprecated This parameter is renamed to capTableContractId */
   issuerContractId: string;

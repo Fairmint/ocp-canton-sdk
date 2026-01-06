@@ -9,10 +9,11 @@ export interface ArchiveStockLegendTemplateByIssuerParams {
 /**
  * @deprecated This function is no longer functional. Use buildDeleteStockLegendTemplateCommand instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - stockLegendTemplateId: The OCF ID of the stock legend template to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - StockLegendTemplateId: The OCF ID of the stock legend template to delete
  *
  * @throws Error Always throws - use buildDeleteStockLegendTemplateCommand instead
  */

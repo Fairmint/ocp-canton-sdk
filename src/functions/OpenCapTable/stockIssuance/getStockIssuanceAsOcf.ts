@@ -2,9 +2,9 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   Monetary,
-  StockIssuanceOcfData,
   SecurityExemption,
   ShareNumberRange,
+  StockIssuanceOcfData,
   StockIssuanceType,
 } from '../../../types/native';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
@@ -115,7 +115,9 @@ export async function getStockIssuanceAsOcf(
     throw new Error('Missing createArgument for StockIssuance');
   }
   const arg = created.createArgument as Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance;
-  const argWithData = arg as unknown as { issuance_data?: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData };
+  const argWithData = arg as unknown as {
+    issuance_data?: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData;
+  };
   if (!argWithData.issuance_data) {
     throw new Error('Missing issuance_data in StockIssuance');
   }

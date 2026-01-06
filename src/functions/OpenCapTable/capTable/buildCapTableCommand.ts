@@ -6,10 +6,10 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts } from '../../../types';
 
 /**
- * Build a command to exercise a choice on the CapTable contract.
- * This is a generic helper used by all add/edit/delete operations.
+ * Build a command to exercise a choice on the CapTable contract. This is a generic helper used by all add/edit/delete
+ * operations.
  */
- 
+
 export function buildCapTableCommand(params: {
   capTableContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
@@ -39,4 +39,3 @@ export function buildCapTableCommand(params: {
 
   return { command, disclosedContracts };
 }
-

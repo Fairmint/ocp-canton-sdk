@@ -4,13 +4,13 @@ import { buildCapTableCommand } from '../capTable';
 import { stockClassDataToDaml } from './stockClassDataToDaml';
 
 /**
- * @deprecated Use AddStockClassParams and buildAddStockClassCommand instead.
- * This interface uses the legacy issuerContractId parameter which has been replaced with capTableContractId.
+ * @deprecated Use AddStockClassParams and buildAddStockClassCommand instead. This interface uses the legacy
+ *   issuerContractId parameter which has been replaced with capTableContractId.
  */
 export interface CreateStockClassParams {
   /**
-   * @deprecated This parameter is renamed to capTableContractId.
-   * Contract ID of the CapTable contract (previously Issuer contract).
+   * @deprecated This parameter is renamed to capTableContractId. Contract ID of the CapTable contract (previously
+   *   Issuer contract).
    */
   issuerContractId: string;
   /** Details of the FeaturedAppRight contract for disclosed contracts */
@@ -26,9 +26,8 @@ export interface CreateStockClassParams {
 }
 
 /**
- * @deprecated Use buildAddStockClassCommand instead.
- * This function now uses the CapTable contract pattern internally.
- * The issuerContractId parameter is now treated as capTableContractId.
+ * @deprecated Use buildAddStockClassCommand instead. This function now uses the CapTable contract pattern internally.
+ *   The issuerContractId parameter is now treated as capTableContractId.
  */
 export function buildCreateStockClassCommand(params: CreateStockClassParams): CommandWithDisclosedContracts {
   return buildCapTableCommand({

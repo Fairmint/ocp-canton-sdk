@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { StockPlanOcfData, StockPlanCancellationBehavior } from '../../../types/native';
+import type { StockPlanCancellationBehavior, StockPlanOcfData } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehavior | undefined {

@@ -2,9 +2,9 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   AllocationType,
-  VestingTermsOcfData,
   VestingCondition,
   VestingConditionPortion,
+  VestingTermsOcfData,
 } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -215,7 +215,9 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
   return native;
 }
 
-function damlVestingTermsDataToNative(d: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData): VestingTermsOcfData {
+function damlVestingTermsDataToNative(
+  d: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
+): VestingTermsOcfData {
   const dataWithId = d as unknown as { id?: string };
   return {
     id: dataWithId.id ?? '',

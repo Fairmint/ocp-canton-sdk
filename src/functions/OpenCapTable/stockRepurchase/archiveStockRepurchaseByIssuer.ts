@@ -9,10 +9,11 @@ export interface ArchiveStockRepurchaseByIssuerParams {
 /**
  * @deprecated This function is no longer functional. Use buildDeleteStockRepurchaseCommand instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - stockRepurchaseId: The OCF ID of the stock repurchase to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - StockRepurchaseId: The OCF ID of the stock repurchase to delete
  *
  * @throws Error Always throws - use buildDeleteStockRepurchaseCommand instead
  */

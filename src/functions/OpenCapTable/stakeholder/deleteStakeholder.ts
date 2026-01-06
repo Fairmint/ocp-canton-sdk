@@ -36,4 +36,3 @@ export function buildDeleteStakeholderCommand(params: DeleteStakeholderParams): 
 
   return { command, disclosedContracts };
 }
-

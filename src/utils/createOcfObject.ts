@@ -2,20 +2,20 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import type { OcpClient } from '../OcpClient';
 import type {
   CommandWithDisclosedContracts,
-  OcfConvertibleIssuanceDataNative,
   DocumentOcfDataData,
+  OcfConvertibleIssuanceDataNative,
   OcfEquityCompensationExerciseTxData,
   OcfEquityCompensationIssuanceData,
   OcfIssuerAuthorizedSharesAdjustmentTxData,
   OcfStakeholderData,
   OcfStockCancellationTxData,
   OcfStockClassAuthorizedSharesAdjustmentTxData,
+  OcfStockPlanPoolAdjustmentTxData,
+  OcfStockTransferTxData,
   StockClassOcfData,
   StockIssuanceOcfData,
   StockLegendTemplateOcfData,
   StockPlanOcfData,
-  OcfStockPlanPoolAdjustmentTxData,
-  OcfStockTransferTxData,
   VestingTermsOcfData,
   WarrantIssuanceOcfDataNative,
 } from '../types';

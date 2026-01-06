@@ -18,4 +18,3 @@ export function buildDeleteStockClassCommand(params: DeleteStockClassParams): Co
     },
   });
 }
-

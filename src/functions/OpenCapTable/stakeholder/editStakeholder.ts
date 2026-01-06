@@ -45,4 +45,3 @@ export function buildEditStakeholderCommand(params: EditStakeholderParams): Comm
 
   return { command, disclosedContracts };
 }
-

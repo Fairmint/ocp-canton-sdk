@@ -85,7 +85,9 @@ function damlContactInfoWithoutNameToNative(
   } as ContactInfoWithoutName;
 }
 
-function damlStakeholderTypeToNative(damlType: Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderType): StakeholderType {
+function damlStakeholderTypeToNative(
+  damlType: Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderType
+): StakeholderType {
   switch (damlType) {
     case 'OcfStakeholderTypeIndividual':
       return 'INDIVIDUAL';

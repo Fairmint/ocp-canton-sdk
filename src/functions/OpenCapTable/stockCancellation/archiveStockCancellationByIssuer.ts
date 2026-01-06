@@ -9,10 +9,11 @@ export interface ArchiveStockCancellationByIssuerParams {
 /**
  * @deprecated This function is no longer functional. Use buildDeleteStockCancellationCommand instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - stockCancellationId: The OCF ID of the stock cancellation to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - StockCancellationId: The OCF ID of the stock cancellation to delete
  *
  * @throws Error Always throws - use buildDeleteStockCancellationCommand instead
  */

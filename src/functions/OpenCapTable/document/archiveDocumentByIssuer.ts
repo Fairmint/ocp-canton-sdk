@@ -9,10 +9,11 @@ export interface ArchiveDocumentByIssuerParams {
 /**
  * @deprecated This function is no longer functional. Use buildDeleteDocumentCommand instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - documentId: The OCF ID of the document to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - DocumentId: The OCF ID of the document to delete
  *
  * @throws Error Always throws - use buildDeleteDocumentCommand instead
  */

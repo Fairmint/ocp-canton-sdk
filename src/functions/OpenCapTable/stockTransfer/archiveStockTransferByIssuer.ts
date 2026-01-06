@@ -9,10 +9,11 @@ export interface ArchiveStockTransferByIssuerParams {
 /**
  * @deprecated This function is no longer functional. Use buildDeleteStockTransferCommand instead.
  *
- * With the new CapTable pattern, deletion requires:
- * - capTableContractId: The CapTable contract ID
- * - featuredAppRightContractDetails: Disclosed contract details
- * - stockTransferId: The OCF ID of the stock transfer to delete
+ *   With the new CapTable pattern, deletion requires:
+ *
+ *   - CapTableContractId: The CapTable contract ID
+ *   - FeaturedAppRightContractDetails: Disclosed contract details
+ *   - StockTransferId: The OCF ID of the stock transfer to delete
  *
  * @throws Error Always throws - use buildDeleteStockTransferCommand instead
  */

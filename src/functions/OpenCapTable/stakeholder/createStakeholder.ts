@@ -106,7 +106,9 @@ function contactInfoWithoutNameToDaml(
   };
 }
 
-export function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
+export function stakeholderDataToDaml(
+  data: OcfStakeholderData
+): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
   if (!data.id) throw new Error('stakeholder.id is required');
 
   const dataWithSingular = data as OcfStakeholderData & { current_relationship?: string };
