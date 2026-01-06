@@ -1221,7 +1221,7 @@ export interface OcfStockRepurchaseTxData {
  * Object - Warrant Transfer Transaction Object describing a warrant transfer transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/WarrantTransfer.schema.json
  */
-export interface OcfWarrantTransferTxData {
+export interface OcfWarrantTransfer {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1244,7 +1244,7 @@ export interface OcfWarrantTransferTxData {
  * Object - Convertible Transfer Transaction Object describing a convertible transfer transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/ConvertibleTransfer.schema.json
  */
-export interface OcfConvertibleTransferTxData {
+export interface OcfConvertibleTransfer {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1267,7 +1267,7 @@ export interface OcfConvertibleTransferTxData {
  * Object - Equity Compensation Transfer Transaction Object describing an equity compensation transfer transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/EquityCompensationTransfer.schema.json
  */
-export interface OcfEquityCompensationTransferTxData {
+export interface OcfEquityCompensationTransfer {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1292,7 +1292,7 @@ export interface OcfEquityCompensationTransferTxData {
  * Object - Stock Acceptance Transaction Object describing a stock acceptance transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/StockAcceptance.schema.json
  */
-export interface OcfStockAcceptanceTxData {
+export interface OcfStockAcceptance {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1307,7 +1307,7 @@ export interface OcfStockAcceptanceTxData {
  * Object - Warrant Acceptance Transaction Object describing a warrant acceptance transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/WarrantAcceptance.schema.json
  */
-export interface OcfWarrantAcceptanceTxData {
+export interface OcfWarrantAcceptance {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1322,7 +1322,7 @@ export interface OcfWarrantAcceptanceTxData {
  * Object - Convertible Acceptance Transaction Object describing a convertible acceptance transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/ConvertibleAcceptance.schema.json
  */
-export interface OcfConvertibleAcceptanceTxData {
+export interface OcfConvertibleAcceptance {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1338,7 +1338,7 @@ export interface OcfConvertibleAcceptanceTxData {
  * OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/EquityCompensationAcceptance.schema.json
  */
-export interface OcfEquityCompensationAcceptanceTxData {
+export interface OcfEquityCompensationAcceptance {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1355,7 +1355,7 @@ export interface OcfEquityCompensationAcceptanceTxData {
  * Object - Stock Retraction Transaction Object describing a stock retraction transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/StockRetraction.schema.json
  */
-export interface OcfStockRetractionTxData {
+export interface OcfStockRetraction {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1372,7 +1372,7 @@ export interface OcfStockRetractionTxData {
  * Object - Warrant Retraction Transaction Object describing a warrant retraction transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/WarrantRetraction.schema.json
  */
-export interface OcfWarrantRetractionTxData {
+export interface OcfWarrantRetraction {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1389,7 +1389,7 @@ export interface OcfWarrantRetractionTxData {
  * Object - Convertible Retraction Transaction Object describing a convertible retraction transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/ConvertibleRetraction.schema.json
  */
-export interface OcfConvertibleRetractionTxData {
+export interface OcfConvertibleRetraction {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1407,7 +1407,7 @@ export interface OcfConvertibleRetractionTxData {
  * OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/EquityCompensationRetraction.schema.json
  */
-export interface OcfEquityCompensationRetractionTxData {
+export interface OcfEquityCompensationRetraction {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1426,7 +1426,7 @@ export interface OcfEquityCompensationRetractionTxData {
  * Object - Warrant Exercise Transaction Object describing a warrant exercise transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/exercise/WarrantExercise.schema.json
  */
-export interface OcfWarrantExerciseTxData {
+export interface OcfWarrantExercise {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1451,7 +1451,7 @@ export interface OcfWarrantExerciseTxData {
  * Object - Stock Conversion Transaction Object describing a stock conversion transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/conversion/StockConversion.schema.json
  */
-export interface OcfStockConversionTxData {
+export interface OcfStockConversion {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1472,7 +1472,7 @@ export interface OcfStockConversionTxData {
  * Object - Convertible Conversion Transaction Object describing a convertible conversion transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/conversion/ConvertibleConversion.schema.json
  */
-export interface OcfConvertibleConversionTxData {
+export interface OcfConvertibleConversion {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1495,7 +1495,7 @@ export interface OcfConvertibleConversionTxData {
  * Object - Equity Compensation Release Transaction Object describing an equity compensation release transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/release/EquityCompensationRelease.schema.json
  */
-export interface OcfEquityCompensationReleaseTxData {
+export interface OcfEquityCompensationRelease {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1522,7 +1522,7 @@ export interface OcfEquityCompensationReleaseTxData {
  * Object - Vesting Start Transaction Object describing the start of vesting for a security OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/vesting/VestingStart.schema.json
  */
-export interface OcfVestingStartTxData {
+export interface OcfVestingStart {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1539,7 +1539,7 @@ export interface OcfVestingStartTxData {
  * Object - Vesting Event Transaction Object describing a vesting event for a security OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/vesting/VestingEvent.schema.json
  */
-export interface OcfVestingEventTxData {
+export interface OcfVestingEvent {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1556,7 +1556,7 @@ export interface OcfVestingEventTxData {
  * Object - Vesting Acceleration Transaction Object describing a vesting acceleration for a security OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/vesting/VestingAcceleration.schema.json
  */
-export interface OcfVestingAccelerationTxData {
+export interface OcfVestingAcceleration {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1577,7 +1577,7 @@ export interface OcfVestingAccelerationTxData {
  * Object - Stock Class Split Transaction Object describing a stock class split transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/adjustment/StockClassSplit.schema.json
  */
-export interface OcfStockClassSplitTxData {
+export interface OcfStockClassSplit {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1600,7 +1600,7 @@ export interface OcfStockClassSplitTxData {
  * Object - Stock Class Conversion Ratio Adjustment Transaction Object describing a conversion ratio adjustment OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/adjustment/StockClassConversionRatioAdjustment.schema.json
  */
-export interface OcfStockClassConversionRatioAdjustmentTxData {
+export interface OcfStockClassConversionRatioAdjustment {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1623,7 +1623,7 @@ export interface OcfStockClassConversionRatioAdjustmentTxData {
  * Object - Stock Plan Return To Pool Transaction Object describing shares returned to the stock plan pool OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/adjustment/StockPlanReturnToPool.schema.json
  */
-export interface OcfStockPlanReturnToPoolTxData {
+export interface OcfStockPlanReturnToPool {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1644,7 +1644,7 @@ export interface OcfStockPlanReturnToPoolTxData {
  * Object - Stock Reissuance Transaction Object describing a stock reissuance transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/reissuance/StockReissuance.schema.json
  */
-export interface OcfStockReissuanceTxData {
+export interface OcfStockReissuance {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1661,7 +1661,7 @@ export interface OcfStockReissuanceTxData {
  * Object - Stock Consolidation Transaction Object describing a stock consolidation transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/consolidation/StockConsolidation.schema.json
  */
-export interface OcfStockConsolidationTxData {
+export interface OcfStockConsolidation {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1681,7 +1681,7 @@ export interface OcfStockConsolidationTxData {
  * OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/repricing/EquityCompensationRepricing.schema.json
  */
-export interface OcfEquityCompensationRepricingTxData {
+export interface OcfEquityCompensationRepricing {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1700,7 +1700,7 @@ export interface OcfEquityCompensationRepricingTxData {
  * Object - Plan Security Issuance Transaction Object describing a plan security issuance transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/PlanSecurityIssuance.schema.json
  */
-export interface OcfPlanSecurityIssuanceTxData {
+export interface OcfPlanSecurityIssuance {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1739,7 +1739,7 @@ export interface OcfPlanSecurityIssuanceTxData {
  * Object - Plan Security Exercise Transaction Object describing a plan security exercise transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/exercise/PlanSecurityExercise.schema.json
  */
-export interface OcfPlanSecurityExerciseTxData {
+export interface OcfPlanSecurityExercise {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1762,7 +1762,7 @@ export interface OcfPlanSecurityExerciseTxData {
  * Object - Plan Security Cancellation Transaction Object describing a plan security cancellation transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/cancellation/PlanSecurityCancellation.schema.json
  */
-export interface OcfPlanSecurityCancellationTxData {
+export interface OcfPlanSecurityCancellation {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1783,7 +1783,7 @@ export interface OcfPlanSecurityCancellationTxData {
  * Object - Plan Security Acceptance Transaction Object describing a plan security acceptance transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/PlanSecurityAcceptance.schema.json
  */
-export interface OcfPlanSecurityAcceptanceTxData {
+export interface OcfPlanSecurityAcceptance {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1798,7 +1798,7 @@ export interface OcfPlanSecurityAcceptanceTxData {
  * Object - Plan Security Release Transaction Object describing a plan security release transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/release/PlanSecurityRelease.schema.json
  */
-export interface OcfPlanSecurityReleaseTxData {
+export interface OcfPlanSecurityRelease {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1823,7 +1823,7 @@ export interface OcfPlanSecurityReleaseTxData {
  * Object - Plan Security Retraction Transaction Object describing a plan security retraction transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/PlanSecurityRetraction.schema.json
  */
-export interface OcfPlanSecurityRetractionTxData {
+export interface OcfPlanSecurityRetraction {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1840,7 +1840,7 @@ export interface OcfPlanSecurityRetractionTxData {
  * Object - Plan Security Transfer Transaction Object describing a plan security transfer transaction OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/PlanSecurityTransfer.schema.json
  */
-export interface OcfPlanSecurityTransferTxData {
+export interface OcfPlanSecurityTransfer {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1865,7 +1865,7 @@ export interface OcfPlanSecurityTransferTxData {
  * Object - Financing Object describing a financing round OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Financing.schema.json
  */
-export interface OcfFinancingData {
+export interface OcfFinancing {
   /** Identifier for the object */
   id: string;
   /** Name of the financing round */
