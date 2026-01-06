@@ -108,7 +108,7 @@ function contactInfoWithoutNameToDaml(
   };
 }
 
-function stakeholderDataToDamlInternal(
+export function stakeholderDataToDaml(
   data: OcfStakeholderData
 ): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
   if (!data.id) throw new Error('stakeholder.id is required');
@@ -174,7 +174,7 @@ export interface AddStakeholderParams {
 }
 
 export function buildAddStakeholderCommand(params: AddStakeholderParams): CommandWithDisclosedContracts {
-  const damlData = stakeholderDataToDamlInternal(params.stakeholderData);
+  const damlData = stakeholderDataToDaml(params.stakeholderData);
 
   // Omit current_status if it's null for JSON API compatibility
   const { current_status, ...restData } = damlData;

@@ -61,8 +61,6 @@ import {
   withdrawAuthorization,
 } from './functions';
 import type { CommandWithDisclosedContracts } from './types';
-import type { CreateOcfObjectParams } from './utils/createOcfObject';
-import { buildCreateOcfObjectCommandFactory } from './utils/createOcfObject';
 
 /**
  * High-level client for interacting with Open Cap Table Protocol (OCP) contracts on Canton.
@@ -178,150 +176,85 @@ export class OcpClient {
   public OpenCapTable: {
     issuer: {
       buildCreateIssuerCommand: (params: CreateIssuerParams) => CommandWithDisclosedContracts;
-      buildArchiveIssuerByIssuerCommand: (params: { contractId: string }) => Command;
       getIssuerAsOcf: (params: GetIssuerAsOcfParams) => Promise<GetIssuerAsOcfResult>;
     };
     stockClass: {
-      buildCreateStockClassCommand: (params: CreateStockClassParams) => CommandWithDisclosedContracts;
-      buildArchiveStockClassByIssuerCommand: (params: { contractId: string }) => Command;
       getStockClassAsOcf: (params: GetStockClassAsOcfParams) => Promise<GetStockClassAsOcfResult>;
     };
     stakeholder: {
-      buildCreateStakeholderCommand: (
-        params: import('./functions').CreateStakeholderParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveStakeholderByIssuerCommand: (params: { contractId: string }) => Command;
       getStakeholderAsOcf: (
         params: GetStakeholderAsOcfParams
       ) => Promise<import('./functions').GetStakeholderAsOcfResult>;
     };
     stockLegendTemplate: {
-      buildCreateStockLegendTemplateCommand: (
-        params: import('./functions').CreateStockLegendTemplateParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveStockLegendTemplateByIssuerCommand: (params: { contractId: string }) => Command;
       getStockLegendTemplateAsOcf: (
         params: GetStockLegendTemplateAsOcfParams
       ) => Promise<import('./functions').GetStockLegendTemplateAsOcfResult>;
     };
     vestingTerms: {
-      buildCreateVestingTermsCommand: (
-        params: import('./functions').CreateVestingTermsParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveVestingTermsByIssuerCommand: (params: { contractId: string }) => Command;
       getVestingTermsAsOcf: (
         params: GetVestingTermsAsOcfParams
       ) => Promise<import('./functions').GetVestingTermsAsOcfResult>;
     };
     stockPlan: {
-      buildCreateStockPlanCommand: (
-        params: import('./functions').CreateStockPlanParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveStockPlanByIssuerCommand: (params: { contractId: string }) => Command;
       getStockPlanAsOcf: (params: GetStockPlanAsOcfParams) => Promise<import('./functions').GetStockPlanAsOcfResult>;
     };
     equityCompensationIssuance: {
-      buildCreateEquityCompensationIssuanceCommand: (
-        params: import('./functions').CreateEquityCompensationIssuanceParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveEquityCompensationIssuanceByIssuerCommand: (params: { contractId: string }) => Command;
       getEquityCompensationIssuanceEventAsOcf: (
         params: GetEquityCompensationIssuanceEventAsOcfParams
       ) => Promise<import('./functions').GetEquityCompensationIssuanceEventAsOcfResult>;
     };
     equityCompensationExercise: {
-      buildCreateEquityCompensationExerciseCommand: (
-        params: import('./functions').CreateEquityCompensationExerciseParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveEquityCompensationExerciseByIssuerCommand: (params: { contractId: string }) => Command;
       getEquityCompensationExerciseEventAsOcf: (
         params: GetEquityCompensationExerciseEventAsOcfParams
       ) => Promise<import('./functions').GetEquityCompensationExerciseEventAsOcfResult>;
     };
     warrantIssuance: {
-      buildCreateWarrantIssuanceCommand: (
-        params: import('./functions').CreateWarrantIssuanceParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveWarrantIssuanceByIssuerCommand: (params: { contractId: string }) => Command;
       getWarrantIssuanceAsOcf: (
         params: GetWarrantIssuanceAsOcfParams
       ) => Promise<import('./functions').GetWarrantIssuanceAsOcfResult>;
     };
     convertibleIssuance: {
-      buildCreateConvertibleIssuanceCommand: (
-        params: import('./functions').CreateConvertibleIssuanceParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveConvertibleIssuanceByIssuerCommand: (params: { contractId: string }) => Command;
       getConvertibleIssuanceAsOcf: (
         params: GetConvertibleIssuanceAsOcfParams
       ) => Promise<import('./functions').GetConvertibleIssuanceAsOcfResult>;
     };
     stockCancellation: {
-      buildCreateStockCancellationCommand: (
-        params: import('./functions').CreateStockCancellationParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveStockCancellationByIssuerCommand: (params: { contractId: string }) => Command;
       getStockCancellationEventAsOcf: (
         params: GetStockCancellationEventAsOcfParams
       ) => Promise<import('./functions').GetStockCancellationEventAsOcfResult>;
     };
     stockTransfer: {
-      buildCreateStockTransferCommand: (
-        params: import('./functions').CreateStockTransferParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveStockTransferByIssuerCommand: (params: { contractId: string }) => Command;
       getStockTransferAsOcf: (
         params: GetStockTransferAsOcfParams
       ) => Promise<import('./functions').GetStockTransferAsOcfResult>;
     };
     issuerAuthorizedSharesAdjustment: {
-      buildCreateIssuerAuthorizedSharesAdjustmentCommand: (
-        params: import('./functions').CreateIssuerAuthorizedSharesAdjustmentParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand: (params: { contractId: string }) => Command;
       getIssuerAuthorizedSharesAdjustmentEventAsOcf: (
         params: GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams
       ) => Promise<import('./functions').GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult>;
     };
     stockClassAuthorizedSharesAdjustment: {
-      buildCreateStockClassAuthorizedSharesAdjustmentCommand: (
-        params: import('./functions').CreateStockClassAuthorizedSharesAdjustmentParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand: (params: { contractId: string }) => Command;
       getStockClassAuthorizedSharesAdjustmentEventAsOcf: (
         params: GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams
       ) => Promise<import('./functions').GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult>;
     };
     stockPlanPoolAdjustment: {
-      buildCreateStockPlanPoolAdjustmentCommand: (
-        params: import('./functions').CreateStockPlanPoolAdjustmentParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveStockPlanPoolAdjustmentByIssuerCommand: (params: { contractId: string }) => Command;
       getStockPlanPoolAdjustmentEventAsOcf: (
         params: GetStockPlanPoolAdjustmentEventAsOcfParams
       ) => Promise<import('./functions').GetStockPlanPoolAdjustmentEventAsOcfResult>;
     };
     stockIssuance: {
-      buildCreateStockIssuanceCommand: (
-        params: import('./functions').CreateStockIssuanceParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveStockIssuanceByIssuerCommand: (params: { contractId: string }) => Command;
       getStockIssuanceAsOcf: (
         params: GetStockIssuanceAsOcfParams
       ) => Promise<import('./functions').GetStockIssuanceAsOcfResult>;
     };
     stockRepurchase: {
-      buildCreateStockRepurchaseCommand: (
-        params: import('./functions').CreateStockRepurchaseParams
-      ) => CommandWithDisclosedContracts;
-      buildArchiveStockRepurchaseByIssuerCommand: (params: { contractId: string }) => Command;
       getStockRepurchaseAsOcf: (
         params: GetStockRepurchaseAsOcfParams
       ) => Promise<import('./functions').GetStockRepurchaseAsOcfResult>;
     };
     document: {
-      buildCreateDocumentCommand: (params: import('./functions').CreateDocumentParams) => CommandWithDisclosedContracts;
-      buildArchiveDocumentByIssuerCommand: (params: { contractId: string }) => Command;
       getDocumentAsOcf: (params: GetDocumentAsOcfParams) => Promise<import('./functions').GetDocumentAsOcfResult>;
     };
     issuerAuthorization: {
@@ -492,16 +425,6 @@ export class OcpClient {
     };
   };
 
-  /**
-   * Build commands for creating any OCF object type.
-   *
-   * This is a generic factory method that routes to the appropriate buildCreate*Command based on the object_type in the
-   * data.
-   *
-   * @param params - Creation parameters including object type and data
-   * @returns Array of commands with disclosed contracts
-   */
-  public buildCreateOcfObjectCommand: (params: CreateOcfObjectParams) => CommandWithDisclosedContracts[];
 
   /**
    * Create a new OcpClient instance.
@@ -539,106 +462,62 @@ export class OcpClient {
     this.OpenCapTable = {
       issuer: {
         buildCreateIssuerCommand: (params: CreateIssuerParams) => buildCreateIssuerCommand(params),
-        buildArchiveIssuerByIssuerCommand: (params) => buildArchiveIssuerByIssuerCommand(params),
         getIssuerAsOcf: async (params: GetIssuerAsOcfParams) => getIssuerAsOcf(this.client, params),
       },
       stockClass: {
-        buildCreateStockClassCommand: (params: CreateStockClassParams) => buildCreateStockClassCommand(params),
-        buildArchiveStockClassByIssuerCommand: (params) => buildArchiveStockClassByIssuerCommand(params),
         getStockClassAsOcf: async (params: GetStockClassAsOcfParams) => getStockClassAsOcf(this.client, params),
       },
       stakeholder: {
-        buildCreateStakeholderCommand: (params) => buildCreateStakeholderCommand(params),
-        buildArchiveStakeholderByIssuerCommand: (params) => buildArchiveStakeholderByIssuerCommand(params),
         getStakeholderAsOcf: async (params) => getStakeholderAsOcf(this.client, params),
       },
       stockLegendTemplate: {
-        buildCreateStockLegendTemplateCommand: (params) => buildCreateStockLegendTemplateCommand(params),
-        buildArchiveStockLegendTemplateByIssuerCommand: (params) =>
-          buildArchiveStockLegendTemplateByIssuerCommand(params),
         getStockLegendTemplateAsOcf: async (params) => getStockLegendTemplateAsOcf(this.client, params),
       },
       vestingTerms: {
-        buildCreateVestingTermsCommand: (params) => buildCreateVestingTermsCommand(params),
-        buildArchiveVestingTermsByIssuerCommand: (params) => buildArchiveVestingTermsByIssuerCommand(params),
         getVestingTermsAsOcf: async (params) => getVestingTermsAsOcf(this.client, params),
       },
       stockPlan: {
-        buildCreateStockPlanCommand: (params) => buildCreateStockPlanCommand(params),
-        buildArchiveStockPlanByIssuerCommand: (params) => buildArchiveStockPlanByIssuerCommand(params),
         getStockPlanAsOcf: async (params) => getStockPlanAsOcf(this.client, params),
       },
       equityCompensationIssuance: {
-        buildCreateEquityCompensationIssuanceCommand: (params) => buildCreateEquityCompensationIssuanceCommand(params),
-        buildArchiveEquityCompensationIssuanceByIssuerCommand: (params) =>
-          buildArchiveEquityCompensationIssuanceByIssuerCommand(params),
         getEquityCompensationIssuanceEventAsOcf: async (params) =>
           getEquityCompensationIssuanceEventAsOcf(this.client, params),
       },
       equityCompensationExercise: {
-        buildCreateEquityCompensationExerciseCommand: (params) => buildCreateEquityCompensationExerciseCommand(params),
-        buildArchiveEquityCompensationExerciseByIssuerCommand: (params) =>
-          buildArchiveEquityCompensationExerciseByIssuerCommand(params),
         getEquityCompensationExerciseEventAsOcf: async (params) =>
           getEquityCompensationExerciseEventAsOcf(this.client, params),
       },
       warrantIssuance: {
-        buildCreateWarrantIssuanceCommand: (params) => buildCreateWarrantIssuanceCommand(params),
-        buildArchiveWarrantIssuanceByIssuerCommand: (params) => buildArchiveWarrantIssuanceByIssuerCommand(params),
         getWarrantIssuanceAsOcf: async (params) => getWarrantIssuanceAsOcf(this.client, params),
       },
       convertibleIssuance: {
-        buildCreateConvertibleIssuanceCommand: (params) => buildCreateConvertibleIssuanceCommand(params),
-        buildArchiveConvertibleIssuanceByIssuerCommand: (params) =>
-          buildArchiveConvertibleIssuanceByIssuerCommand(params),
         getConvertibleIssuanceAsOcf: async (params) => getConvertibleIssuanceAsOcf(this.client, params),
       },
       stockCancellation: {
-        buildCreateStockCancellationCommand: (params) => buildCreateStockCancellationCommand(params),
-        buildArchiveStockCancellationByIssuerCommand: (params) => buildArchiveStockCancellationByIssuerCommand(params),
         getStockCancellationEventAsOcf: async (params) => getStockCancellationEventAsOcf(this.client, params),
       },
       stockTransfer: {
-        buildCreateStockTransferCommand: (params) => buildCreateStockTransferCommand(params),
-        buildArchiveStockTransferByIssuerCommand: (params) => buildArchiveStockTransferByIssuerCommand(params),
         getStockTransferAsOcf: async (params) => getStockTransferAsOcf(this.client, params),
       },
       issuerAuthorizedSharesAdjustment: {
-        buildCreateIssuerAuthorizedSharesAdjustmentCommand: (params) =>
-          buildCreateIssuerAuthorizedSharesAdjustmentCommand(params),
-        buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand: (params) =>
-          buildArchiveIssuerAuthorizedSharesAdjustmentByIssuerCommand(params),
         getIssuerAuthorizedSharesAdjustmentEventAsOcf: async (params) =>
           getIssuerAuthorizedSharesAdjustmentEventAsOcf(this.client, params),
       },
       stockClassAuthorizedSharesAdjustment: {
-        buildCreateStockClassAuthorizedSharesAdjustmentCommand: (params) =>
-          buildCreateStockClassAuthorizedSharesAdjustmentCommand(params),
-        buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand: (params) =>
-          buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand(params),
         getStockClassAuthorizedSharesAdjustmentEventAsOcf: async (params) =>
           getStockClassAuthorizedSharesAdjustmentEventAsOcf(this.client, params),
       },
       stockPlanPoolAdjustment: {
-        buildCreateStockPlanPoolAdjustmentCommand: (params) => buildCreateStockPlanPoolAdjustmentCommand(params),
-        buildArchiveStockPlanPoolAdjustmentByIssuerCommand: (params) =>
-          buildArchiveStockPlanPoolAdjustmentByIssuerCommand(params),
         getStockPlanPoolAdjustmentEventAsOcf: async (params) =>
           getStockPlanPoolAdjustmentEventAsOcf(this.client, params),
       },
       document: {
-        buildCreateDocumentCommand: (params) => buildCreateDocumentCommand(params),
-        buildArchiveDocumentByIssuerCommand: (params) => buildArchiveDocumentByIssuerCommand(params),
         getDocumentAsOcf: async (params) => getDocumentAsOcf(this.client, params),
       },
       stockIssuance: {
-        buildCreateStockIssuanceCommand: (params) => buildCreateStockIssuanceCommand(params),
-        buildArchiveStockIssuanceByIssuerCommand: (params) => buildArchiveStockIssuanceByIssuerCommand(params),
         getStockIssuanceAsOcf: async (params) => getStockIssuanceAsOcf(this.client, params),
       },
       stockRepurchase: {
-        buildCreateStockRepurchaseCommand: (params) => buildCreateStockRepurchaseCommand(params),
-        buildArchiveStockRepurchaseByIssuerCommand: (params) => buildArchiveStockRepurchaseByIssuerCommand(params),
         getStockRepurchaseAsOcf: async (params) => getStockRepurchaseAsOcf(this.client, params),
       },
       issuerAuthorization: {
@@ -819,8 +698,6 @@ export class OcpClient {
       },
     };
     /* eslint-enable @typescript-eslint/no-require-imports */
-
-    this.buildCreateOcfObjectCommand = buildCreateOcfObjectCommandFactory(this);
   }
 
   /**

@@ -4,7 +4,7 @@ import type {
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts, OcfStakeholderData } from '../../../types';
-import { stakeholderDataToDaml } from './createStakeholder';
+import { stakeholderDataToDaml } from './addStakeholder';
 
 export interface EditStakeholderParams {
   capTableContractId: string;
