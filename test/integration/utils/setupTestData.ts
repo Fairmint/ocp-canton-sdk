@@ -20,22 +20,22 @@ import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
 import type {
-  DocumentOcfData,
-  IssuerOcfData,
-  OcfConvertibleIssuanceDataNative,
-  OcfEquityCompensationIssuanceData,
-  OcfIssuerAuthorizedSharesAdjustmentTxData,
-  OcfStakeholderData,
-  OcfStockCancellationTxData,
-  OcfStockClassAuthorizedSharesAdjustmentTxData,
-  OcfStockPlanPoolAdjustmentTxData,
-  OcfStockTransferTxData,
-  StockClassOcfData,
-  StockIssuanceOcfData,
-  StockLegendTemplateOcfData,
-  StockPlanOcfData,
-  VestingTermsOcfData,
-  WarrantIssuanceOcfDataNative,
+  OcfConvertibleIssuance,
+  OcfDocument,
+  OcfEquityCompensationIssuance,
+  OcfIssuer,
+  OcfIssuerAuthorizedSharesAdjustment,
+  OcfStakeholder,
+  OcfStockCancellation,
+  OcfStockClass,
+  OcfStockClassAuthorizedSharesAdjustment,
+  OcfStockIssuance,
+  OcfStockLegendTemplate,
+  OcfStockPlan,
+  OcfStockPlanPoolAdjustment,
+  OcfStockTransfer,
+  OcfVestingTerms,
+  OcfWarrantIssuance,
 } from '../../../src/types/native';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
@@ -44,7 +44,7 @@ export interface TestIssuerSetup {
   /** The contract ID of the created issuer */
   issuerContractId: string;
   /** The issuer data used to create it */
-  issuerData: IssuerOcfData;
+  issuerData: OcfIssuer;
   /** The issuer authorization contract details (needed for subsequent operations) */
   issuerAuthorizationContractDetails: DisclosedContract;
   /** The featured app right contract details */
@@ -56,7 +56,7 @@ export interface TestStakeholderSetup {
   /** The contract ID of the created stakeholder */
   stakeholderContractId: string;
   /** The stakeholder data used to create it */
-  stakeholderData: OcfStakeholderData;
+  stakeholderData: OcfStakeholder;
 }
 
 /** Result from setting up a test stock class. */
@@ -64,7 +64,7 @@ export interface TestStockClassSetup {
   /** The contract ID of the created stock class */
   stockClassContractId: string;
   /** The stock class data used to create it */
-  stockClassData: StockClassOcfData;
+  stockClassData: OcfStockClass;
 }
 
 /** Result from setting up a test stock issuance. */
@@ -72,7 +72,7 @@ export interface TestStockIssuanceSetup {
   /** The contract ID of the created stock issuance */
   stockIssuanceContractId: string;
   /** The stock issuance data used to create it */
-  stockIssuanceData: StockIssuanceOcfData;
+  stockIssuanceData: OcfStockIssuance;
 }
 
 /** Result from setting up a test stock class authorized shares adjustment. */
@@ -80,7 +80,7 @@ export interface TestStockClassAuthorizedSharesAdjustmentSetup {
   /** The contract ID of the created adjustment */
   adjustmentContractId: string;
   /** The adjustment data used to create it */
-  adjustmentData: OcfStockClassAuthorizedSharesAdjustmentTxData;
+  adjustmentData: OcfStockClassAuthorizedSharesAdjustment;
 }
 
 /** Result from setting up a test stock legend template. */
@@ -88,7 +88,7 @@ export interface TestStockLegendTemplateSetup {
   /** The contract ID of the created stock legend template */
   stockLegendTemplateContractId: string;
   /** The stock legend template data used to create it */
-  stockLegendTemplateData: StockLegendTemplateOcfData;
+  stockLegendTemplateData: OcfStockLegendTemplate;
 }
 
 /** Result from setting up a test vesting terms. */
@@ -96,7 +96,7 @@ export interface TestVestingTermsSetup {
   /** The contract ID of the created vesting terms */
   vestingTermsContractId: string;
   /** The vesting terms data used to create it */
-  vestingTermsData: VestingTermsOcfData;
+  vestingTermsData: OcfVestingTerms;
 }
 
 /** Result from setting up a test stock plan. */
@@ -104,7 +104,7 @@ export interface TestStockPlanSetup {
   /** The contract ID of the created stock plan */
   stockPlanContractId: string;
   /** The stock plan data used to create it */
-  stockPlanData: StockPlanOcfData;
+  stockPlanData: OcfStockPlan;
 }
 
 /** Result from setting up a test document. */
@@ -112,7 +112,7 @@ export interface TestDocumentSetup {
   /** The contract ID of the created document */
   documentContractId: string;
   /** The document data used to create it */
-  documentData: DocumentOcfData;
+  documentData: OcfDocument;
 }
 
 /** Result from setting up a test issuer authorized shares adjustment. */
@@ -120,7 +120,7 @@ export interface TestIssuerAuthorizedSharesAdjustmentSetup {
   /** The contract ID of the created adjustment */
   adjustmentContractId: string;
   /** The adjustment data used to create it */
-  adjustmentData: OcfIssuerAuthorizedSharesAdjustmentTxData;
+  adjustmentData: OcfIssuerAuthorizedSharesAdjustment;
 }
 
 /** Result from setting up a test stock plan pool adjustment. */
@@ -128,7 +128,7 @@ export interface TestStockPlanPoolAdjustmentSetup {
   /** The contract ID of the created adjustment */
   adjustmentContractId: string;
   /** The adjustment data used to create it */
-  adjustmentData: OcfStockPlanPoolAdjustmentTxData;
+  adjustmentData: OcfStockPlanPoolAdjustment;
 }
 
 /** Result from setting up a test stock cancellation. */
@@ -136,7 +136,7 @@ export interface TestStockCancellationSetup {
   /** The contract ID of the created stock cancellation */
   stockCancellationContractId: string;
   /** The stock cancellation data used to create it */
-  stockCancellationData: OcfStockCancellationTxData;
+  stockCancellationData: OcfStockCancellation;
 }
 
 /** Result from setting up a test equity compensation issuance. */
@@ -144,7 +144,7 @@ export interface TestEquityCompensationIssuanceSetup {
   /** The contract ID of the created equity compensation issuance */
   equityCompensationIssuanceContractId: string;
   /** The equity compensation issuance data used to create it */
-  equityCompensationIssuanceData: OcfEquityCompensationIssuanceData;
+  equityCompensationIssuanceData: OcfEquityCompensationIssuance;
 }
 
 /** Result from setting up a test warrant issuance. */
@@ -152,7 +152,7 @@ export interface TestWarrantIssuanceSetup {
   /** The contract ID of the created warrant issuance */
   warrantIssuanceContractId: string;
   /** The warrant issuance data used to create it */
-  warrantIssuanceData: WarrantIssuanceOcfDataNative;
+  warrantIssuanceData: OcfWarrantIssuance;
 }
 
 /** Result from setting up a test convertible issuance. */
@@ -160,7 +160,7 @@ export interface TestConvertibleIssuanceSetup {
   /** The contract ID of the created convertible issuance */
   convertibleIssuanceContractId: string;
   /** The convertible issuance data used to create it */
-  convertibleIssuanceData: OcfConvertibleIssuanceDataNative;
+  convertibleIssuanceData: OcfConvertibleIssuance;
 }
 
 /** Result from setting up a test stock transfer. */
@@ -168,7 +168,7 @@ export interface TestStockTransferSetup {
   /** The contract ID of the created stock transfer */
   stockTransferContractId: string;
   /** The stock transfer data used to create it */
-  stockTransferData: OcfStockTransferTxData;
+  stockTransferData: OcfStockTransfer;
 }
 
 /** Result from setting up a complete cap table for testing. */
@@ -211,9 +211,9 @@ export function generateDateString(daysFromNow = 0): string {
  * Create default issuer data for testing.
  *
  * @param overrides - Optional overrides for specific fields
- * @returns Complete IssuerOcfData for testing
+ * @returns Complete OcfIssuer for testing
  */
-export function createTestIssuerData(overrides: Partial<IssuerOcfData> = {}): IssuerOcfData {
+export function createTestIssuerData(overrides: Partial<OcfIssuer> = {}): OcfIssuer {
   return {
     id: generateTestId('issuer'),
     legal_name: 'Test Integration Corp',
@@ -230,9 +230,9 @@ export function createTestIssuerData(overrides: Partial<IssuerOcfData> = {}): Is
  * Create default stakeholder data for testing.
  *
  * @param overrides - Optional overrides for specific fields
- * @returns Complete OcfStakeholderData for testing
+ * @returns Complete OcfStakeholder for testing
  */
-export function createTestStakeholderData(overrides: Partial<OcfStakeholderData> = {}): OcfStakeholderData {
+export function createTestStakeholderData(overrides: Partial<OcfStakeholder> = {}): OcfStakeholder {
   return {
     id: generateTestId('stakeholder'),
     name: {
@@ -250,9 +250,9 @@ export function createTestStakeholderData(overrides: Partial<OcfStakeholderData>
  * Create default stock class data for testing.
  *
  * @param overrides - Optional overrides for specific fields
- * @returns Complete StockClassOcfData for testing
+ * @returns Complete OcfStockClass for testing
  */
-export function createTestStockClassData(overrides: Partial<StockClassOcfData> = {}): StockClassOcfData {
+export function createTestStockClassData(overrides: Partial<OcfStockClass> = {}): OcfStockClass {
   return {
     id: generateTestId('stock-class'),
     name: 'Common Stock',
@@ -272,13 +272,13 @@ export function createTestStockClassData(overrides: Partial<StockClassOcfData> =
  * @param stakeholderId - The stakeholder receiving the shares
  * @param stockClassId - The stock class being issued
  * @param overrides - Optional overrides for specific fields
- * @returns Complete StockIssuanceOcfData for testing
+ * @returns Complete OcfStockIssuance for testing
  */
 export function createTestStockIssuanceData(
   stakeholderId: string,
   stockClassId: string,
-  overrides: Partial<StockIssuanceOcfData> = {}
-): StockIssuanceOcfData {
+  overrides: Partial<OcfStockIssuance> = {}
+): OcfStockIssuance {
   const securityId = generateTestId('security');
   return {
     id: generateTestId('issuance'),
@@ -300,13 +300,13 @@ export function createTestStockIssuanceData(
  * @param securityId - The security being transferred
  * @param quantity - Amount to transfer
  * @param overrides - Optional overrides for specific fields
- * @returns Complete OcfStockTransferTxData for testing
+ * @returns Complete OcfStockTransfer for testing
  */
 export function createTestStockTransferData(
   securityId: string,
   quantity: string | number,
-  overrides: Partial<OcfStockTransferTxData> = {}
-): OcfStockTransferTxData {
+  overrides: Partial<OcfStockTransfer> = {}
+): OcfStockTransfer {
   return {
     id: generateTestId('transfer'),
     date: generateDateString(),
@@ -323,12 +323,12 @@ export function createTestStockTransferData(
  *
  * @param stockClassId - The stock class being adjusted
  * @param overrides - Optional overrides for specific fields
- * @returns Complete OcfStockClassAuthorizedSharesAdjustmentTxData for testing
+ * @returns Complete OcfStockClassAuthorizedSharesAdjustment for testing
  */
 export function createTestStockClassAuthorizedSharesAdjustmentData(
   stockClassId: string,
-  overrides: Partial<OcfStockClassAuthorizedSharesAdjustmentTxData> = {}
-): OcfStockClassAuthorizedSharesAdjustmentTxData {
+  overrides: Partial<OcfStockClassAuthorizedSharesAdjustment> = {}
+): OcfStockClassAuthorizedSharesAdjustment {
   return {
     id: generateTestId('adjustment'),
     date: generateDateString(),
@@ -344,11 +344,11 @@ export function createTestStockClassAuthorizedSharesAdjustmentData(
  * Create default stock legend template data for testing.
  *
  * @param overrides - Optional overrides for specific fields
- * @returns Complete StockLegendTemplateOcfData for testing
+ * @returns Complete OcfStockLegendTemplate for testing
  */
 export function createTestStockLegendTemplateData(
-  overrides: Partial<StockLegendTemplateOcfData> = {}
-): StockLegendTemplateOcfData {
+  overrides: Partial<OcfStockLegendTemplate> = {}
+): OcfStockLegendTemplate {
   return {
     id: generateTestId('legend'),
     name: 'Standard Stock Legend',
@@ -362,9 +362,9 @@ export function createTestStockLegendTemplateData(
  * Create default vesting terms data for testing.
  *
  * @param overrides - Optional overrides for specific fields
- * @returns Complete VestingTermsOcfData for testing
+ * @returns Complete OcfVestingTerms for testing
  */
-export function createTestVestingTermsData(overrides: Partial<VestingTermsOcfData> = {}): VestingTermsOcfData {
+export function createTestVestingTermsData(overrides: Partial<OcfVestingTerms> = {}): OcfVestingTerms {
   return {
     id: generateTestId('vesting'),
     name: '4 Year Standard Vesting',
@@ -376,7 +376,7 @@ export function createTestVestingTermsData(overrides: Partial<VestingTermsOcfDat
       {
         id: 'vesting-start',
         quantity: '0', // Required even for start trigger per OCF schema oneOf
-        trigger: { type: 'VESTING_START_DATE' } as unknown as VestingTermsOcfData['vesting_conditions'][0]['trigger'],
+        trigger: { type: 'VESTING_START_DATE' } as unknown as OcfVestingTerms['vesting_conditions'][0]['trigger'],
         next_condition_ids: ['cliff'],
       },
       {
@@ -392,7 +392,7 @@ export function createTestVestingTermsData(overrides: Partial<VestingTermsOcfDat
             day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
           },
           relative_to_condition_id: 'vesting-start',
-        } as unknown as VestingTermsOcfData['vesting_conditions'][0]['trigger'],
+        } as unknown as OcfVestingTerms['vesting_conditions'][0]['trigger'],
         next_condition_ids: ['monthly-thereafter'],
       },
       {
@@ -408,7 +408,7 @@ export function createTestVestingTermsData(overrides: Partial<VestingTermsOcfDat
             day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
           },
           relative_to_condition_id: 'cliff',
-        } as unknown as VestingTermsOcfData['vesting_conditions'][0]['trigger'],
+        } as unknown as OcfVestingTerms['vesting_conditions'][0]['trigger'],
         next_condition_ids: [],
       },
     ],
@@ -422,12 +422,9 @@ export function createTestVestingTermsData(overrides: Partial<VestingTermsOcfDat
  *
  * @param stockClassIds - The stock class IDs associated with this plan
  * @param overrides - Optional overrides for specific fields
- * @returns Complete StockPlanOcfData for testing
+ * @returns Complete OcfStockPlan for testing
  */
-export function createTestStockPlanData(
-  stockClassIds: string[],
-  overrides: Partial<StockPlanOcfData> = {}
-): StockPlanOcfData {
+export function createTestStockPlanData(stockClassIds: string[], overrides: Partial<OcfStockPlan> = {}): OcfStockPlan {
   return {
     id: generateTestId('plan'),
     plan_name: '2024 Equity Incentive Plan',
@@ -445,9 +442,9 @@ export function createTestStockPlanData(
  * Create default document data for testing.
  *
  * @param overrides - Optional overrides for specific fields
- * @returns Complete DocumentOcfData for testing
+ * @returns Complete OcfDocument for testing
  */
-export function createTestDocumentData(overrides: Partial<DocumentOcfData> = {}): DocumentOcfData {
+export function createTestDocumentData(overrides: Partial<OcfDocument> = {}): OcfDocument {
   // OCF schema requires exactly one of path or uri (oneOf)
   // If uri is provided in overrides, don't include default path
   const hasUri = 'uri' in overrides && overrides.uri;
@@ -465,12 +462,12 @@ export function createTestDocumentData(overrides: Partial<DocumentOcfData> = {})
  *
  * @param issuerId - The issuer ID being adjusted
  * @param overrides - Optional overrides for specific fields
- * @returns Complete OcfIssuerAuthorizedSharesAdjustmentTxData for testing
+ * @returns Complete OcfIssuerAuthorizedSharesAdjustment for testing
  */
 export function createTestIssuerAuthorizedSharesAdjustmentData(
   issuerId: string,
-  overrides: Partial<OcfIssuerAuthorizedSharesAdjustmentTxData> = {}
-): OcfIssuerAuthorizedSharesAdjustmentTxData {
+  overrides: Partial<OcfIssuerAuthorizedSharesAdjustment> = {}
+): OcfIssuerAuthorizedSharesAdjustment {
   return {
     id: generateTestId('issuer-adj'),
     date: generateDateString(),
@@ -487,12 +484,12 @@ export function createTestIssuerAuthorizedSharesAdjustmentData(
  *
  * @param stockPlanId - The stock plan being adjusted
  * @param overrides - Optional overrides for specific fields
- * @returns Complete OcfStockPlanPoolAdjustmentTxData for testing
+ * @returns Complete OcfStockPlanPoolAdjustment for testing
  */
 export function createTestStockPlanPoolAdjustmentData(
   stockPlanId: string,
-  overrides: Partial<OcfStockPlanPoolAdjustmentTxData> = {}
-): OcfStockPlanPoolAdjustmentTxData {
+  overrides: Partial<OcfStockPlanPoolAdjustment> = {}
+): OcfStockPlanPoolAdjustment {
   return {
     id: generateTestId('pool-adj'),
     date: generateDateString(),
@@ -510,13 +507,13 @@ export function createTestStockPlanPoolAdjustmentData(
  * @param securityId - The security being cancelled
  * @param quantity - Amount to cancel
  * @param overrides - Optional overrides for specific fields
- * @returns Complete OcfStockCancellationTxData for testing
+ * @returns Complete OcfStockCancellation for testing
  */
 export function createTestStockCancellationData(
   securityId: string,
   quantity: string | number,
-  overrides: Partial<OcfStockCancellationTxData> = {}
-): OcfStockCancellationTxData {
+  overrides: Partial<OcfStockCancellation> = {}
+): OcfStockCancellation {
   return {
     id: generateTestId('cancellation'),
     date: generateDateString(),
@@ -533,12 +530,12 @@ export function createTestStockCancellationData(
  *
  * @param stakeholderId - The stakeholder receiving the equity compensation
  * @param overrides - Optional overrides for specific fields
- * @returns Complete OcfEquityCompensationIssuanceData for testing
+ * @returns Complete OcfEquityCompensationIssuance for testing
  */
 export function createTestEquityCompensationIssuanceData(
   stakeholderId: string,
-  overrides: Partial<OcfEquityCompensationIssuanceData> = {}
-): OcfEquityCompensationIssuanceData {
+  overrides: Partial<OcfEquityCompensationIssuance> = {}
+): OcfEquityCompensationIssuance {
   const securityId = generateTestId('ec-security');
   return {
     id: generateTestId('ec-issuance'),
@@ -560,12 +557,12 @@ export function createTestEquityCompensationIssuanceData(
  *
  * @param stakeholderId - The stakeholder receiving the warrant
  * @param overrides - Optional overrides for specific fields
- * @returns Complete WarrantIssuanceOcfDataNative for testing
+ * @returns Complete OcfWarrantIssuance for testing
  */
 export function createTestWarrantIssuanceData(
   stakeholderId: string,
-  overrides: Partial<WarrantIssuanceOcfDataNative> = {}
-): WarrantIssuanceOcfDataNative {
+  overrides: Partial<OcfWarrantIssuance> = {}
+): OcfWarrantIssuance {
   const securityId = generateTestId('warrant-security');
   return {
     id: generateTestId('warrant'),
@@ -589,12 +586,12 @@ export function createTestWarrantIssuanceData(
  *
  * @param stakeholderId - The stakeholder receiving the convertible
  * @param overrides - Optional overrides for specific fields
- * @returns Complete OcfConvertibleIssuanceDataNative for testing
+ * @returns Complete OcfConvertibleIssuance for testing
  */
 export function createTestConvertibleIssuanceData(
   stakeholderId: string,
-  overrides: Partial<OcfConvertibleIssuanceDataNative> = {}
-): OcfConvertibleIssuanceDataNative {
+  overrides: Partial<OcfConvertibleIssuance> = {}
+): OcfConvertibleIssuance {
   const securityId = generateTestId('convertible-security');
   const triggerId = generateTestId('trigger');
   return {
@@ -767,7 +764,7 @@ export async function setupTestIssuer(
     /** Pre-fetched featured app right (for reuse across tests) */
     featuredAppRightContractDetails: DisclosedContract;
     /** Optional issuer data overrides */
-    issuerData?: Partial<IssuerOcfData>;
+    issuerData?: Partial<OcfIssuer>;
     /** Pre-existing issuer authorization (if already authorized) */
     issuerAuthorizationContractDetails?: DisclosedContract;
     /** The system operator party (owner of the OcpFactory). Required for LocalNet when ocpFactoryContractId is provided. */
@@ -838,7 +835,7 @@ export async function setupTestStakeholder(
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
     /** Optional stakeholder data overrides */
-    stakeholderData?: Partial<OcfStakeholderData>;
+    stakeholderData?: Partial<OcfStakeholder>;
   }
 ): Promise<TestStakeholderSetup> {
   // NOTE: This function has been temporarily disabled because it calls deprecated

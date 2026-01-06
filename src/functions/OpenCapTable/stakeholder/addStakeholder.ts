@@ -9,7 +9,7 @@ import type {
   ContactInfoWithoutName,
   EmailType,
   Name,
-  OcfStakeholderData,
+  OcfStakeholder,
   PhoneType,
   StakeholderType,
 } from '../../../types';
@@ -108,12 +108,10 @@ function contactInfoWithoutNameToDaml(
   };
 }
 
-export function stakeholderDataToDaml(
-  data: OcfStakeholderData
-): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
+export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
   if (!data.id) throw new Error('stakeholder.id is required');
 
-  const dataWithSingular = data as OcfStakeholderData & { current_relationship?: string };
+  const dataWithSingular = data as OcfStakeholder & { current_relationship?: string };
   const relationships =
     (data.current_relationships ?? []).length > 0
       ? data.current_relationships
@@ -170,7 +168,7 @@ export function stakeholderDataToDaml(
 export interface CreateStakeholderParams {
   capTableContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
-  stakeholderData: OcfStakeholderData;
+  stakeholderData: OcfStakeholder;
 }
 
 export function buildCreateStakeholderCommand(params: CreateStakeholderParams): CommandWithDisclosedContracts {

@@ -1,9 +1,9 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { StockLegendTemplateOcfData } from '../../../types';
+import type { OcfStockLegendTemplate } from '../../../types';
 import { cleanComments } from '../../../utils/typeConversions';
 
 export function stockLegendTemplateDataToDaml(
-  data: StockLegendTemplateOcfData
+  data: OcfStockLegendTemplate
 ): Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData {
   if (!data.id) throw new Error('stockLegendTemplate.id is required');
   return {

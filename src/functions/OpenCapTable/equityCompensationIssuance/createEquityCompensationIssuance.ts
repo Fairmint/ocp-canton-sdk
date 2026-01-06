@@ -1,5 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CompensationType, OcfEquityCompensationIssuanceData, TerminationWindow } from '../../../types';
+import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -49,7 +49,7 @@ const terminationWindowPeriodTypeMap: Record<
 };
 
 export function equityCompensationIssuanceDataToDaml(
-  d: OcfEquityCompensationIssuanceData & {
+  d: OcfEquityCompensationIssuance & {
     id: string;
     date: string;
     security_id: string;

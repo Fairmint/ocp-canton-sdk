@@ -1,8 +1,8 @@
-import type { OcfStockClassAuthorizedSharesAdjustmentTxData } from '../../../types';
+import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString } from '../../../utils/typeConversions';
 
 export function stockClassAuthorizedSharesAdjustmentDataToDaml(
-  d: OcfStockClassAuthorizedSharesAdjustmentTxData
+  d: OcfStockClassAuthorizedSharesAdjustment
 ): Record<string, unknown> {
   return {
     id: d.id,

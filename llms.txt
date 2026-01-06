@@ -150,7 +150,7 @@ Each operation exports: `Params`, `Result`, function, and optionally `buildXComm
 // src/functions/OpenCapTable/stakeholder/createStakeholder.ts
 export interface CreateStakeholderParams {
   issuerContractId: ContractId;
-  stakeholderData: OcfStakeholderData;
+  stakeholderData: OcfStakeholder;
   featuredAppRightContractDetails: ContractDetails;
 }
 

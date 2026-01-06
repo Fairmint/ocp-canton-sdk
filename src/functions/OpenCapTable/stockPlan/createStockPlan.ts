@@ -1,5 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { StockPlanCancellationBehavior, StockPlanOcfData } from '../../../types';
+import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 function cancellationBehaviorToDaml(
@@ -20,7 +20,7 @@ function cancellationBehaviorToDaml(
   }
 }
 
-export function stockPlanDataToDaml(d: StockPlanOcfData): Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData {
+export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData {
   if (!d.id) throw new Error('stockPlan.id is required');
   return {
     id: d.id,

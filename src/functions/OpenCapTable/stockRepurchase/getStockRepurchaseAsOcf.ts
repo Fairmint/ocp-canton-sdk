@@ -1,13 +1,13 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { OcfStockRepurchaseTxData } from '../../../types/native';
+import type { OcfStockRepurchase } from '../../../types/native';
 import { damlMonetaryToNative, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * OCF Stock Repurchase Event with object_type discriminator OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/repurchase/StockRepurchase.schema.json
  */
-export interface OcfStockRepurchaseEvent extends Omit<OcfStockRepurchaseTxData, 'quantity'> {
+export interface OcfStockRepurchaseEvent extends Omit<OcfStockRepurchase, 'quantity'> {
   object_type: 'TX_STOCK_REPURCHASE';
   /** Quantity as string for OCF JSON serialization */
   quantity: string;

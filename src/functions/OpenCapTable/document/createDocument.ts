@@ -1,4 +1,4 @@
-import type { DocumentOcfData, OcfObjectReference } from '../../../types';
+import type { OcfDocument, OcfObjectReference } from '../../../types';
 import { cleanComments, optionalString } from '../../../utils/typeConversions';
 
 function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
@@ -123,7 +123,7 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
   }
 }
 
-export function documentDataToDaml(d: DocumentOcfData): Record<string, unknown> {
+export function documentDataToDaml(d: OcfDocument): Record<string, unknown> {
   if (!d.id) throw new Error('document.id is required');
   if (!d.md5) throw new Error('document.md5 is required');
   if (!d.path && !d.uri) throw new Error('document requires path or uri');
