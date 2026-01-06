@@ -15,38 +15,6 @@ export interface SimpleVesting {
   amount: string | number;
 }
 
-export interface CreateWarrantIssuanceParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  issuanceData: {
-    id: string;
-    date: string;
-    security_id: string;
-    custom_id: string;
-    stakeholder_id: string;
-    board_approval_date?: string;
-    stockholder_approval_date?: string;
-    consideration_text?: string;
-    security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-    quantity?: string | number;
-    quantity_source?:
-      | 'HUMAN_ESTIMATED'
-      | 'MACHINE_ESTIMATED'
-      | 'UNSPECIFIED'
-      | 'INSTRUMENT_FIXED'
-      | 'INSTRUMENT_MAX'
-      | 'INSTRUMENT_MIN';
-    exercise_price?: Monetary;
-    purchase_price: Monetary;
-    exercise_triggers: WarrantExerciseTriggerInput[];
-    warrant_expiration_date?: string;
-    vesting_terms_id?: string;
-    vestings?: SimpleVesting[];
-    comments?: string[];
-  };
-}
 
 type WarrantTriggerTypeInput =
   | 'AUTOMATIC_ON_CONDITION'
@@ -197,7 +165,15 @@ function buildWarrantRight(
 }
 
 function quantitySourceToDamlEnum(
-  qs: CreateWarrantIssuanceParams['issuanceData']['quantity_source'] | null | undefined
+  qs:
+    | 'HUMAN_ESTIMATED'
+    | 'MACHINE_ESTIMATED'
+    | 'UNSPECIFIED'
+    | 'INSTRUMENT_FIXED'
+    | 'INSTRUMENT_MAX'
+    | 'INSTRUMENT_MIN'
+    | null
+    | undefined
 ): Fairmint.OpenCapTable.Types.OcfQuantitySourceType | null {
   if (qs === undefined || qs === null) return null;
   switch (qs) {
@@ -243,9 +219,32 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
   };
 }
 
-export function warrantIssuanceDataToDaml(
-  d: CreateWarrantIssuanceParams['issuanceData']
-): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
+export function warrantIssuanceDataToDaml(d: {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
+  quantity?: string | number;
+  quantity_source?:
+    | 'HUMAN_ESTIMATED'
+    | 'MACHINE_ESTIMATED'
+    | 'UNSPECIFIED'
+    | 'INSTRUMENT_FIXED'
+    | 'INSTRUMENT_MAX'
+    | 'INSTRUMENT_MIN';
+  exercise_price?: Monetary;
+  purchase_price: Monetary;
+  exercise_triggers: WarrantExerciseTriggerInput[];
+  warrant_expiration_date?: string;
+  vesting_terms_id?: string;
+  vestings?: SimpleVesting[];
+  comments?: string[];
+}): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
   const quantitySourceDaml =
     d.quantity !== undefined
       ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
@@ -278,14 +277,3 @@ export function warrantIssuanceDataToDaml(
   };
 }
 
-/** @deprecated Use buildAddWarrantIssuanceCommand instead. */
-export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceParams): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateWarrantIssuance',
-    choiceArgument: {
-      issuance_data: warrantIssuanceDataToDaml(params.issuanceData),
-    },
-  });
-}

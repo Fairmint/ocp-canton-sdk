@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { DocumentOcfDataData, OcfObjectReference } from '../../../types/native';
+import type { DocumentOcfData, OcfObjectReference } from '../../../types/native';
 
 function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType): OcfObjectReference['object_type'] {
   switch (t) {
@@ -123,7 +123,7 @@ function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType)
   }
 }
 
-function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData): DocumentOcfDataData {
+function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData): DocumentOcfData {
   const docWithId = d as unknown as { id?: string };
   return {
     id: docWithId.id ?? '',
@@ -145,7 +145,7 @@ export interface GetDocumentAsOcfParams {
 }
 
 export interface GetDocumentAsOcfResult {
-  document: DocumentOcfDataData & { object_type: 'DOCUMENT'; id?: string };
+  document: DocumentOcfData & { object_type: 'DOCUMENT'; id?: string };
   contractId: string;
 }
 

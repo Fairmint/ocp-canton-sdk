@@ -15,25 +15,3 @@ export function equityCompensationExerciseDataToDaml(d: OcfEquityCompensationExe
   };
 }
 
-/** @deprecated Use AddEquityCompensationExerciseParams and buildAddEquityCompensationExerciseCommand instead. */
-export interface CreateEquityCompensationExerciseParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  exerciseData: OcfEquityCompensationExerciseTxData;
-}
-
-/** @deprecated Use buildAddEquityCompensationExerciseCommand instead. */
-export function buildCreateEquityCompensationExerciseCommand(
-  params: CreateEquityCompensationExerciseParams
-): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateEquityCompensationExercise',
-    choiceArgument: {
-      exercise_data: equityCompensationExerciseDataToDaml(params.exerciseData),
-    },
-  });
-}

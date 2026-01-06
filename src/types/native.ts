@@ -412,7 +412,7 @@ export interface OcfObjectReference {
  * Object - Document Object describing a document OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Document.schema.json
  */
-export interface DocumentOcfDataData {
+export interface DocumentOcfData {
   /** Identifier for the object */
   id: string;
   /** Relative file path to the document within the OCF bundle */
@@ -875,20 +875,3 @@ export interface OcfStockRepurchaseTxData {
   comments?: string[];
 }
 
-// ===== Type Aliases for backwards compatibility with tests =====
-/** @deprecated Use IssuerOcfData instead */
-export type OcfIssuerData = IssuerOcfData;
-/** @deprecated Use StockClassOcfData instead */
-export type OcfStockClassData = StockClassOcfData;
-/** @deprecated Use StockIssuanceOcfData instead */
-export type OcfStockIssuanceData = StockIssuanceOcfData;
-/** @deprecated Use StockLegendTemplateOcfData instead */
-export type OcfStockLegendTemplateData = StockLegendTemplateOcfData;
-/** @deprecated Use StockPlanOcfData instead */
-export type OcfStockPlanData = StockPlanOcfData;
-/** @deprecated Use VestingTermsOcfData instead */
-export type OcfVestingTermsData = VestingTermsOcfData;
-/** @deprecated Use WarrantIssuanceOcfDataNative instead */
-export type OcfWarrantIssuanceDataNative = WarrantIssuanceOcfDataNative;
-/** @deprecated Use DocumentOcfDataData instead */
-export type OcfDocumentData = DocumentOcfDataData;

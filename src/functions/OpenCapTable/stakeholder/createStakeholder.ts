@@ -165,29 +165,3 @@ export function stakeholderDataToDaml(
   return payload;
 }
 
-/** @deprecated Use AddStakeholderParams and buildAddStakeholderCommand instead. */
-export interface CreateStakeholderParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  stakeholderData: OcfStakeholderData;
-}
-
-/** @deprecated Use buildAddStakeholderCommand instead. */
-export function buildCreateStakeholderCommand(params: CreateStakeholderParams): CommandWithDisclosedContracts {
-  const damlData = stakeholderDataToDaml(params.stakeholderData);
-
-  // Omit current_status if it's null for JSON API compatibility
-  const { current_status, ...restData } = damlData;
-  const stakeholderDataForJson = current_status === null ? restData : damlData;
-
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateStakeholder',
-    choiceArgument: {
-      stakeholder_data: stakeholderDataForJson,
-    },
-  });
-}

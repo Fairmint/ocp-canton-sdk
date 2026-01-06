@@ -17,28 +17,3 @@ export function stockClassAuthorizedSharesAdjustmentDataToDaml(
   };
 }
 
-/**
- * @deprecated Use AddStockClassAuthorizedSharesAdjustmentParams and buildAddStockClassAuthorizedSharesAdjustmentCommand
- *   instead.
- */
-export interface CreateStockClassAuthorizedSharesAdjustmentParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  adjustmentData: OcfStockClassAuthorizedSharesAdjustmentTxData;
-}
-
-/** @deprecated Use buildAddStockClassAuthorizedSharesAdjustmentCommand instead. */
-export function buildCreateStockClassAuthorizedSharesAdjustmentCommand(
-  params: CreateStockClassAuthorizedSharesAdjustmentParams
-): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateStockClassAuthorizedSharesAdjustment',
-    choiceArgument: {
-      adjustment_data: stockClassAuthorizedSharesAdjustmentDataToDaml(params.adjustmentData),
-    },
-  });
-}

@@ -11,29 +11,6 @@ import {
 } from '../../../utils/typeConversions';
 import { buildCapTableCommand } from '../capTable';
 
-export interface CreateConvertibleIssuanceParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  issuanceData: {
-    id: string;
-    date: string;
-    security_id: string;
-    custom_id: string;
-    stakeholder_id: string;
-    board_approval_date?: string;
-    stockholder_approval_date?: string;
-    consideration_text?: string;
-    security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-    investment_amount: Monetary;
-    convertible_type: 'NOTE' | 'SAFE' | 'SECURITY';
-    conversion_triggers: ConversionTriggerInput[];
-    pro_rata?: string | number;
-    seniority: number;
-    comments?: string[];
-  };
-}
 
 type ConversionTriggerTypeInput =
   | 'AUTOMATIC_ON_CONDITION'
@@ -357,9 +334,23 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
   };
 }
 
-export function convertibleIssuanceDataToDaml(
-  d: CreateConvertibleIssuanceParams['issuanceData']
-): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
+export function convertibleIssuanceDataToDaml(d: {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
+  investment_amount: Monetary;
+  convertible_type: 'NOTE' | 'SAFE' | 'SECURITY';
+  conversion_triggers: ConversionTriggerInput[];
+  pro_rata?: string | number;
+  seniority: number;
+  comments?: string[];
+}): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -379,16 +370,3 @@ export function convertibleIssuanceDataToDaml(
   };
 }
 
-/** @deprecated Use buildAddConvertibleIssuanceCommand instead. */
-export function buildCreateConvertibleIssuanceCommand(
-  params: CreateConvertibleIssuanceParams
-): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateConvertibleIssuance',
-    choiceArgument: {
-      issuance_data: convertibleIssuanceDataToDaml(params.issuanceData),
-    },
-  });
-}

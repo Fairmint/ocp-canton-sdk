@@ -16,25 +16,3 @@ export function stockLegendTemplateDataToDaml(
   };
 }
 
-/** @deprecated Use AddStockLegendTemplateParams and buildAddStockLegendTemplateCommand instead. */
-export interface CreateStockLegendTemplateParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  templateData: StockLegendTemplateOcfData;
-}
-
-/** @deprecated Use buildAddStockLegendTemplateCommand instead. */
-export function buildCreateStockLegendTemplateCommand(
-  params: CreateStockLegendTemplateParams
-): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateStockLegendTemplate',
-    choiceArgument: {
-      template_data: stockLegendTemplateDataToDaml(params.templateData),
-    },
-  });
-}

@@ -2,7 +2,7 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import type { OcpClient } from '../OcpClient';
 import type {
   CommandWithDisclosedContracts,
-  DocumentOcfDataData,
+  DocumentOcfData,
   OcfConvertibleIssuanceDataNative,
   OcfEquityCompensationExerciseTxData,
   OcfEquityCompensationIssuanceData,
@@ -226,7 +226,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            documentData: ocfData as unknown as DocumentOcfDataData,
+            documentData: ocfData as unknown as DocumentOcfData,
           });
 
         case 'TX_WARRANT_ISSUANCE':

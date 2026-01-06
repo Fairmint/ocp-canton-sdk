@@ -3,7 +3,7 @@ import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, DocumentOcfDataData, OcfObjectReference } from '../../../types';
+import type { CommandWithDisclosedContracts, DocumentOcfData, OcfObjectReference } from '../../../types';
 import { cleanComments, extractUpdateId, optionalString } from '../../../utils/typeConversions';
 import { buildCapTableCommand } from '../capTable';
 
@@ -129,7 +129,7 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
   }
 }
 
-export function documentDataToDaml(d: DocumentOcfDataData): Record<string, unknown> {
+export function documentDataToDaml(d: DocumentOcfData): Record<string, unknown> {
   if (!d.id) throw new Error('document.id is required');
   if (!d.md5) throw new Error('document.md5 is required');
   if (!d.path && !d.uri) throw new Error('document requires path or uri');
@@ -146,54 +146,3 @@ export function documentDataToDaml(d: DocumentOcfDataData): Record<string, unkno
   };
 }
 
-/** @deprecated Use AddDocumentParams and buildAddDocumentCommand instead. */
-export interface CreateDocumentParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  documentData: DocumentOcfDataData;
-}
-
-export interface CreateDocumentResult {
-  contractId: string;
-  updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
-}
-
-/** @deprecated Use addDocument with CapTable contract instead. */
-export async function createDocument(
-  client: LedgerJsonApiClient,
-  params: CreateDocumentParams
-): Promise<CreateDocumentResult> {
-  const { command, disclosedContracts } = buildCreateDocumentCommand(params);
-
-  const response = (await client.submitAndWaitForTransactionTree({
-    actAs: [params.issuerParty],
-    commands: [command],
-    disclosedContracts,
-  })) as SubmitAndWaitForTransactionTreeResponse;
-
-  const created = findCreatedEventByTemplateId(response, Fairmint.OpenCapTable.OCF.Document.Document.templateId);
-  if (!created) {
-    throw new Error('Expected CreatedTreeEvent not found');
-  }
-
-  return {
-    contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: extractUpdateId(response),
-    response,
-  };
-}
-
-/** @deprecated Use buildAddDocumentCommand instead. */
-export function buildCreateDocumentCommand(params: CreateDocumentParams): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateDocument',
-    choiceArgument: {
-      document_data: documentDataToDaml(params.documentData),
-    },
-  });
-}

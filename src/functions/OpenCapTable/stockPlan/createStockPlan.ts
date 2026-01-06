@@ -37,23 +37,3 @@ export function stockPlanDataToDaml(d: StockPlanOcfData): Fairmint.OpenCapTable.
   };
 }
 
-/** @deprecated Use AddStockPlanParams and buildAddStockPlanCommand instead. */
-export interface CreateStockPlanParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  planData: StockPlanOcfData;
-}
-
-/** @deprecated Use buildAddStockPlanCommand instead. */
-export function buildCreateStockPlanCommand(params: CreateStockPlanParams): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateStockPlan',
-    choiceArgument: {
-      plan_data: stockPlanDataToDaml(params.planData),
-    },
-  });
-}

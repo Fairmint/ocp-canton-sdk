@@ -20,23 +20,3 @@ export function stockTransferDataToDaml(d: OcfStockTransferTxData): Record<strin
   };
 }
 
-/** @deprecated Use AddStockTransferParams and buildAddStockTransferCommand instead. */
-export interface CreateStockTransferParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  transferData: OcfStockTransferTxData;
-}
-
-/** @deprecated Use buildAddStockTransferCommand instead. */
-export function buildCreateStockTransferCommand(params: CreateStockTransferParams): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateStockTransfer',
-    choiceArgument: {
-      transfer_data: stockTransferDataToDaml(params.transferData),
-    },
-  });
-}

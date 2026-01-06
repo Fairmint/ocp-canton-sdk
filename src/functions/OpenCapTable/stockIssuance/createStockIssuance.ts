@@ -65,23 +65,3 @@ export function stockIssuanceDataToDaml(d: StockIssuanceOcfData): Record<string,
   };
 }
 
-/** @deprecated Use AddStockIssuanceParams and buildAddStockIssuanceCommand instead. */
-export interface CreateStockIssuanceParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  issuanceData: StockIssuanceOcfData;
-}
-
-/** @deprecated Use buildAddStockIssuanceCommand instead. */
-export function buildCreateStockIssuanceCommand(params: CreateStockIssuanceParams): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateStockIssuance',
-    choiceArgument: {
-      issuance_data: stockIssuanceDataToDaml(params.issuanceData),
-    },
-  });
-}

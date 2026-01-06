@@ -284,29 +284,3 @@ export function vestingTermsDataToDaml(d: VestingTermsOcfData): Record<string, u
   };
 }
 
-/** @deprecated Use AddVestingTermsParams and buildAddVestingTermsCommand instead. */
-export interface CreateVestingTermsParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  vestingTermsData: VestingTermsOcfData;
-}
-
-/**
- * Create vesting terms by exercising the CreateVestingTerms choice on a CapTable contract
- *
- * @deprecated Use buildAddVestingTermsCommand instead.
- * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/VestingTerms.schema.json
- */
-
-export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateVestingTerms',
-    choiceArgument: {
-      vesting_terms_data: vestingTermsDataToDaml(params.vestingTermsData),
-    },
-  });
-}

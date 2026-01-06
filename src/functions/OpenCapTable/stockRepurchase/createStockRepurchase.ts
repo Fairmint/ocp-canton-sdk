@@ -33,23 +33,3 @@ export function stockRepurchaseDataToDaml(d: OcfStockRepurchaseTxData): Record<s
   };
 }
 
-/** @deprecated Use AddStockRepurchaseParams and buildAddStockRepurchaseCommand instead. */
-export interface CreateStockRepurchaseParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  repurchaseData: OcfStockRepurchaseTxData;
-}
-
-/** @deprecated Use buildAddStockRepurchaseCommand instead. */
-export function buildCreateStockRepurchaseCommand(params: CreateStockRepurchaseParams): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateStockRepurchase',
-    choiceArgument: {
-      repurchase_data: stockRepurchaseDataToDaml(params.repurchaseData),
-    },
-  });
-}

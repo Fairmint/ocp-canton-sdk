@@ -15,25 +15,3 @@ export function stockPlanPoolAdjustmentDataToDaml(d: OcfStockPlanPoolAdjustmentT
   };
 }
 
-/** @deprecated Use AddStockPlanPoolAdjustmentParams and buildAddStockPlanPoolAdjustmentCommand instead. */
-export interface CreateStockPlanPoolAdjustmentParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  adjustmentData: OcfStockPlanPoolAdjustmentTxData;
-}
-
-/** @deprecated Use buildAddStockPlanPoolAdjustmentCommand instead. */
-export function buildCreateStockPlanPoolAdjustmentCommand(
-  params: CreateStockPlanPoolAdjustmentParams
-): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateStockPlanPoolAdjustment',
-    choiceArgument: {
-      adjustment_data: stockPlanPoolAdjustmentDataToDaml(params.adjustmentData),
-    },
-  });
-}

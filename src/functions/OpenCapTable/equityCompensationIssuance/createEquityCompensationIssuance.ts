@@ -107,37 +107,3 @@ export function equityCompensationIssuanceDataToDaml(
   };
 }
 
-/** @deprecated Use AddEquityCompensationIssuanceParams and buildAddEquityCompensationIssuanceCommand instead. */
-export interface CreateEquityCompensationIssuanceParams {
-  /** @deprecated This parameter is renamed to capTableContractId */
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  issuanceData: OcfEquityCompensationIssuanceData & {
-    id: string;
-    date: string;
-    security_id: string;
-    custom_id: string;
-    stakeholder_id: string;
-    stock_plan_id?: string;
-    stock_class_id?: string;
-    board_approval_date?: string;
-    stockholder_approval_date?: string;
-    consideration_text?: string;
-    vesting_terms_id?: string;
-  };
-}
-
-/** @deprecated Use buildAddEquityCompensationIssuanceCommand instead. */
-export function buildCreateEquityCompensationIssuanceCommand(
-  params: CreateEquityCompensationIssuanceParams
-): CommandWithDisclosedContracts {
-  return buildCapTableCommand({
-    capTableContractId: params.issuerContractId,
-    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
-    choice: 'CreateEquityCompensationIssuance',
-    choiceArgument: {
-      issuance_data: equityCompensationIssuanceDataToDaml(params.issuanceData),
-    },
-  });
-}
