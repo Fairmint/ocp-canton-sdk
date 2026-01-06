@@ -833,7 +833,9 @@ export async function setupTestStakeholder(
   // NOTE: This function has been temporarily disabled because it calls deprecated
   // buildCreateStakeholderCommand that was removed.
   // TODO: Update to use buildAddStakeholderCommand with CapTable pattern
-  return Promise.reject(new Error('setupTestStakeholder is temporarily disabled - function needs to be updated to use new API'));
+  return Promise.reject(
+    new Error('setupTestStakeholder is temporarily disabled - function needs to be updated to use new API')
+  );
 }
 
 // NOTE: The remaining helper functions in this file have been temporarily disabled

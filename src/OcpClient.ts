@@ -425,7 +425,6 @@ export class OcpClient {
     };
   };
 
-
   /**
    * Create a new OcpClient instance.
    *
