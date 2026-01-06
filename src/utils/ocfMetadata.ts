@@ -14,6 +14,9 @@ export type OcfObjectType =
   | 'TX_STOCK_PLAN_POOL_ADJUSTMENT'
   | 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT'
   | 'TX_STOCK_CANCELLATION'
+  | 'TX_WARRANT_CANCELLATION'
+  | 'TX_CONVERTIBLE_CANCELLATION'
+  | 'TX_EQUITY_COMPENSATION_CANCELLATION'
   | 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT'
   | 'TX_EQUITY_COMPENSATION_ISSUANCE'
   | 'TX_EQUITY_COMPENSATION_EXERCISE';
@@ -75,6 +78,18 @@ export const OCF_METADATA: Record<OcfObjectType, OcfTypeMetadata> = {
   },
   TX_STOCK_CANCELLATION: {
     templateId: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.templateId,
+    ocfIdPath: ['cancellation_data', 'id'],
+  },
+  TX_WARRANT_CANCELLATION: {
+    templateId: Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellation.templateId,
+    ocfIdPath: ['cancellation_data', 'id'],
+  },
+  TX_CONVERTIBLE_CANCELLATION: {
+    templateId: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.templateId,
+    ocfIdPath: ['cancellation_data', 'id'],
+  },
+  TX_EQUITY_COMPENSATION_CANCELLATION: {
+    templateId: Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellation.templateId,
     ocfIdPath: ['cancellation_data', 'id'],
   },
   TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: {

@@ -8,8 +8,10 @@ import type {
   CreateCompanyValuationReportParams,
   CreateCompanyValuationReportResult,
   CreateIssuerParams,
+  GetConvertibleCancellationEventAsOcfParams,
   GetConvertibleIssuanceAsOcfParams,
   GetDocumentAsOcfParams,
+  GetEquityCompensationCancellationEventAsOcfParams,
   GetEquityCompensationExerciseEventAsOcfParams,
   GetEquityCompensationIssuanceEventAsOcfParams,
   GetIssuerAsOcfParams,
@@ -27,6 +29,7 @@ import type {
   GetStockRepurchaseAsOcfParams,
   GetStockTransferAsOcfParams,
   GetVestingTermsAsOcfParams,
+  GetWarrantCancellationEventAsOcfParams,
   GetWarrantIssuanceAsOcfParams,
   UpdateCompanyValuationParams,
   UpdateCompanyValuationResult,
@@ -40,8 +43,10 @@ import {
   buildCreateIssuerCommand,
   buildCreateStockRepurchaseCommand,
   createCompanyValuationReport,
+  getConvertibleCancellationEventAsOcf,
   getConvertibleIssuanceAsOcf,
   getDocumentAsOcf,
+  getEquityCompensationCancellationEventAsOcf,
   getEquityCompensationExerciseEventAsOcf,
   getEquityCompensationIssuanceEventAsOcf,
   getIssuerAsOcf,
@@ -57,6 +62,7 @@ import {
   getStockRepurchaseAsOcf,
   getStockTransferAsOcf,
   getVestingTermsAsOcf,
+  getWarrantCancellationEventAsOcf,
   getWarrantIssuanceAsOcf,
   updateCompanyValuationReport,
   withdrawAuthorization,
@@ -224,6 +230,21 @@ export class OcpClient {
       getStockCancellationEventAsOcf: (
         params: GetStockCancellationEventAsOcfParams
       ) => Promise<import('./functions').GetStockCancellationEventAsOcfResult>;
+    };
+    warrantCancellation: {
+      getWarrantCancellationEventAsOcf: (
+        params: GetWarrantCancellationEventAsOcfParams
+      ) => Promise<import('./functions').GetWarrantCancellationEventAsOcfResult>;
+    };
+    convertibleCancellation: {
+      getConvertibleCancellationEventAsOcf: (
+        params: GetConvertibleCancellationEventAsOcfParams
+      ) => Promise<import('./functions').GetConvertibleCancellationEventAsOcfResult>;
+    };
+    equityCompensationCancellation: {
+      getEquityCompensationCancellationEventAsOcf: (
+        params: GetEquityCompensationCancellationEventAsOcfParams
+      ) => Promise<import('./functions').GetEquityCompensationCancellationEventAsOcfResult>;
     };
     stockTransfer: {
       getStockTransferAsOcf: (
@@ -498,6 +519,17 @@ export class OcpClient {
       },
       stockCancellation: {
         getStockCancellationEventAsOcf: async (params) => getStockCancellationEventAsOcf(this.client, params),
+      },
+      warrantCancellation: {
+        getWarrantCancellationEventAsOcf: async (params) => getWarrantCancellationEventAsOcf(this.client, params),
+      },
+      convertibleCancellation: {
+        getConvertibleCancellationEventAsOcf: async (params) =>
+          getConvertibleCancellationEventAsOcf(this.client, params),
+      },
+      equityCompensationCancellation: {
+        getEquityCompensationCancellationEventAsOcf: async (params) =>
+          getEquityCompensationCancellationEventAsOcf(this.client, params),
       },
       stockTransfer: {
         getStockTransferAsOcf: async (params) => getStockTransferAsOcf(this.client, params),

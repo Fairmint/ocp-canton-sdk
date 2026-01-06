@@ -1,6 +1,8 @@
 export * from './capTable';
+export * from './convertibleCancellation';
 export * from './convertibleIssuance';
 export * from './document';
+export * from './equityCompensationCancellation';
 export * from './equityCompensationExercise';
 export * from './equityCompensationIssuance';
 export * from './issuer';
@@ -17,4 +19,5 @@ export * from './stockPlanPoolAdjustment';
 export * from './stockRepurchase';
 export * from './stockTransfer';
 export * from './vestingTerms';
+export * from './warrantCancellation';
 export * from './warrantIssuance';
