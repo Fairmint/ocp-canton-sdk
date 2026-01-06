@@ -1,14 +1,14 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { OcfStockLegendTemplateData } from '../../../types/native';
+import type { StockLegendTemplateOcfData } from '../../../types/native';
 
-interface DamlDataWithId extends Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData {
+interface DamlDataWithId extends Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData {
   id: string;
 }
 
 function damlStockLegendTemplateDataToNative(
-  damlData: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData
-): OcfStockLegendTemplateData {
+  damlData: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData
+): StockLegendTemplateOcfData {
   const dataWithId = damlData as DamlDataWithId;
   return {
     id: dataWithId.id,
@@ -48,7 +48,7 @@ export async function getStockLegendTemplateAsOcf(
   const { createArgument } = eventsResponse.created.createdEvent;
 
   interface HasTemplateData {
-    template_data: Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData;
+    template_data: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData;
   }
 
   function hasTemplateData(arg: unknown): arg is HasTemplateData {

@@ -38,7 +38,7 @@
   },
   "request": {
     "ExerciseCommand": {
-      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.CapTable:CapTable",
       "contractId": "00bc38e90508ea7d1e1d46159b361cc6b9df039a366c1552c3412b23659e7e5872ca111220aab29d95ab49fe10be1b9658a4b05253d91a1d342914aad6da92b3dc5a83522e",
       "choice": "CreateStakeholder",
       "choiceArgument": {
@@ -97,7 +97,7 @@
                 "offset": 846235,
                 "nodeId": 0,
                 "contractId": "00bc38e90508ea7d1e1d46159b361cc6b9df039a366c1552c3412b23659e7e5872ca111220aab29d95ab49fe10be1b9658a4b05253d91a1d342914aad6da92b3dc5a83522e",
-                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.CapTable:CapTable",
                 "interfaceId": null,
                 "choice": "CreateStakeholder",
                 "choiceArgument": {

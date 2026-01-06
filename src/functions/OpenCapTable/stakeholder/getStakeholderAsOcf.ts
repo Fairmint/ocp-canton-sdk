@@ -59,7 +59,7 @@ function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): Phone {
   };
 }
 
-function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.Stakeholder.OcfContactInfo): ContactInfo {
+function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfo): ContactInfo {
   const name: Name = {
     legal_name: damlInfo.name.legal_name || '',
     ...(damlInfo.name.first_name ? { first_name: damlInfo.name.first_name } : {}),
@@ -75,7 +75,7 @@ function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.Stakeholder.Ocf
 }
 
 function damlContactInfoWithoutNameToNative(
-  damlInfo: Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName
+  damlInfo: Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfoWithoutName
 ): ContactInfoWithoutName {
   const phones: Phone[] = damlInfo.phone_numbers.map(damlPhoneToNative);
   const emails: Email[] = damlInfo.emails.map(damlEmailToNative);
@@ -85,7 +85,7 @@ function damlContactInfoWithoutNameToNative(
   } as ContactInfoWithoutName;
 }
 
-function damlStakeholderTypeToNative(damlType: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderType): StakeholderType {
+function damlStakeholderTypeToNative(damlType: Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderType): StakeholderType {
   switch (damlType) {
     case 'OcfStakeholderTypeIndividual':
       return 'INDIVIDUAL';
@@ -99,7 +99,7 @@ function damlStakeholderTypeToNative(damlType: Fairmint.OpenCapTable.Stakeholder
 }
 
 function damlStakeholderDataToNative(
-  damlData: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData
+  damlData: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData
 ): OcfStakeholderData {
   const dAny = damlData as unknown as Record<string, unknown>;
   const nameData = dAny.name as Record<string, unknown> | undefined;
@@ -242,7 +242,7 @@ export async function getStakeholderAsOcf(
 
   function hasStakeholderData(
     arg: unknown
-  ): arg is { stakeholder_data: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData } {
+  ): arg is { stakeholder_data: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData } {
     const record = arg as Record<string, unknown>;
     return (
       typeof arg === 'object' &&

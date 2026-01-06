@@ -25,6 +25,7 @@ import type {
   GetStockLegendTemplateAsOcfParams,
   GetStockPlanAsOcfParams,
   GetStockPlanPoolAdjustmentEventAsOcfParams,
+  GetStockRepurchaseAsOcfParams,
   GetStockTransferAsOcfParams,
   GetVestingTermsAsOcfParams,
   GetWarrantIssuanceAsOcfParams,
@@ -50,6 +51,7 @@ import {
   buildArchiveStockLegendTemplateByIssuerCommand,
   buildArchiveStockPlanByIssuerCommand,
   buildArchiveStockPlanPoolAdjustmentByIssuerCommand,
+  buildArchiveStockRepurchaseByIssuerCommand,
   buildArchiveStockTransferByIssuerCommand,
   buildArchiveVestingTermsByIssuerCommand,
   buildArchiveWarrantIssuanceByIssuerCommand,
@@ -68,6 +70,7 @@ import {
   buildCreateStockLegendTemplateCommand,
   buildCreateStockPlanCommand,
   buildCreateStockPlanPoolAdjustmentCommand,
+  buildCreateStockRepurchaseCommand,
   buildCreateStockTransferCommand,
   buildCreateVestingTermsCommand,
   buildCreateWarrantIssuanceCommand,
@@ -86,6 +89,7 @@ import {
   getStockLegendTemplateAsOcf,
   getStockPlanAsOcf,
   getStockPlanPoolAdjustmentEventAsOcf,
+  getStockRepurchaseAsOcf,
   getStockTransferAsOcf,
   getVestingTermsAsOcf,
   getWarrantIssuanceAsOcf,
@@ -341,6 +345,15 @@ export class OcpClient {
       getStockIssuanceAsOcf: (
         params: GetStockIssuanceAsOcfParams
       ) => Promise<import('./functions').GetStockIssuanceAsOcfResult>;
+    };
+    stockRepurchase: {
+      buildCreateStockRepurchaseCommand: (
+        params: import('./functions').CreateStockRepurchaseParams
+      ) => CommandWithDisclosedContracts;
+      buildArchiveStockRepurchaseByIssuerCommand: (params: { contractId: string }) => Command;
+      getStockRepurchaseAsOcf: (
+        params: GetStockRepurchaseAsOcfParams
+      ) => Promise<import('./functions').GetStockRepurchaseAsOcfResult>;
     };
     document: {
       buildCreateDocumentCommand: (params: import('./functions').CreateDocumentParams) => CommandWithDisclosedContracts;
@@ -658,6 +671,11 @@ export class OcpClient {
         buildCreateStockIssuanceCommand: (params) => buildCreateStockIssuanceCommand(params),
         buildArchiveStockIssuanceByIssuerCommand: (params) => buildArchiveStockIssuanceByIssuerCommand(params),
         getStockIssuanceAsOcf: async (params) => getStockIssuanceAsOcf(this.client, params),
+      },
+      stockRepurchase: {
+        buildCreateStockRepurchaseCommand: (params) => buildCreateStockRepurchaseCommand(params),
+        buildArchiveStockRepurchaseByIssuerCommand: (params) => buildArchiveStockRepurchaseByIssuerCommand(params),
+        getStockRepurchaseAsOcf: async (params) => getStockRepurchaseAsOcf(this.client, params),
       },
       issuerAuthorization: {
         authorizeIssuer: async (params) => authorizeIssuer(this.client, params),

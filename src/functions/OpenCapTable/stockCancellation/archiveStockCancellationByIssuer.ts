@@ -1,18 +1,24 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
+/** @deprecated Use DeleteStockCancellationParams and buildDeleteStockCancellationCommand instead */
 export interface ArchiveStockCancellationByIssuerParams {
   contractId: string;
   issuerParty: string;
 }
 
-export function buildArchiveStockCancellationByIssuerCommand(params: { contractId: string }): Command {
-  return {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.StockCancellation.StockCancellation.templateId,
-      contractId: params.contractId,
-      choice: 'ArchiveByIssuer',
-      choiceArgument: {},
-    },
-  };
+/**
+ * @deprecated This function is no longer functional. Use buildDeleteStockCancellationCommand instead.
+ *
+ * With the new CapTable pattern, deletion requires:
+ * - capTableContractId: The CapTable contract ID
+ * - featuredAppRightContractDetails: Disclosed contract details
+ * - stockCancellationId: The OCF ID of the stock cancellation to delete
+ *
+ * @throws Error Always throws - use buildDeleteStockCancellationCommand instead
+ */
+export function buildArchiveStockCancellationByIssuerCommand(_params: { contractId: string }): Command {
+  throw new Error(
+    'buildArchiveStockCancellationByIssuerCommand is deprecated and no longer functional. ' +
+      'Use buildDeleteStockCancellationCommand instead, which uses the CapTable.DeleteStockCancellation choice.'
+  );
 }

@@ -1,8 +1,5 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts, Monetary } from '../../../types';
 import {
   cleanComments,
@@ -11,6 +8,7 @@ import {
   numberToString,
   optionalString,
 } from '../../../utils/typeConversions';
+import { buildCapTableCommand } from '../capTable';
 
 export interface SimpleVesting {
   date: string;
@@ -18,6 +16,7 @@ export interface SimpleVesting {
 }
 
 export interface CreateWarrantIssuanceParams {
+  /** @deprecated This parameter is renamed to capTableContractId */
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
@@ -244,15 +243,17 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
   };
 }
 
-export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceParams): CommandWithDisclosedContracts {
-  const d = params.issuanceData;
+export function warrantIssuanceDataToDaml(
+  d: CreateWarrantIssuanceParams['issuanceData']
+): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
   const quantitySourceDaml =
     d.quantity !== undefined
       ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
       : d.quantity_source
         ? quantitySourceToDamlEnum(d.quantity_source)
         : null;
-  const issuance_data: Fairmint.OpenCapTable.WarrantIssuance.OcfWarrantIssuanceData = {
+
+  return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
@@ -275,28 +276,16 @@ export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceP
     })),
     comments: cleanComments(d.comments),
   };
+}
 
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateWarrantIssuance = {
-    issuance_data,
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateWarrantIssuance',
-      choiceArgument: choiceArguments,
+/** @deprecated Use buildAddWarrantIssuanceCommand instead. */
+export function buildCreateWarrantIssuanceCommand(params: CreateWarrantIssuanceParams): CommandWithDisclosedContracts {
+  return buildCapTableCommand({
+    capTableContractId: params.issuerContractId,
+    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
+    choice: 'CreateWarrantIssuance',
+    choiceArgument: {
+      issuance_data: warrantIssuanceDataToDaml(params.issuanceData),
     },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
+  });
 }

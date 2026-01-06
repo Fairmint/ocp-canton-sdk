@@ -1,21 +1,26 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
+/** @deprecated Use DeleteStockClassAuthorizedSharesAdjustmentParams and buildDeleteStockClassAuthorizedSharesAdjustmentCommand instead */
 export interface ArchiveStockClassAuthorizedSharesAdjustmentByIssuerParams {
   contractId: string;
   issuerParty: string;
 }
 
-export function buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand(params: {
+/**
+ * @deprecated This function is no longer functional. Use buildDeleteStockClassAuthorizedSharesAdjustmentCommand instead.
+ *
+ * With the new CapTable pattern, deletion requires:
+ * - capTableContractId: The CapTable contract ID
+ * - featuredAppRightContractDetails: Disclosed contract details
+ * - stockClassAuthorizedSharesAdjustmentId: The OCF ID of the adjustment to delete
+ *
+ * @throws Error Always throws - use buildDeleteStockClassAuthorizedSharesAdjustmentCommand instead
+ */
+export function buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand(_params: {
   contractId: string;
 }): Command {
-  return {
-    ExerciseCommand: {
-      templateId:
-        Fairmint.OpenCapTable.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment.templateId,
-      contractId: params.contractId,
-      choice: 'ArchiveByIssuer',
-      choiceArgument: {},
-    },
-  };
+  throw new Error(
+    'buildArchiveStockClassAuthorizedSharesAdjustmentByIssuerCommand is deprecated and no longer functional. ' +
+      'Use buildDeleteStockClassAuthorizedSharesAdjustmentCommand instead, which uses the CapTable.DeleteStockClassAuthorizedSharesAdjustment choice.'
+  );
 }

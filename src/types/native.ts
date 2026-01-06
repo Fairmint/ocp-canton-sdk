@@ -180,7 +180,7 @@ export interface StockClassConversionRight {
  * Object - Issuer Object describing the issuer of the cap table (the company whose cap table this is). OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Issuer.schema.json
  */
-export interface OcfIssuerData {
+export interface IssuerOcfData {
   /** Identifier for the object */
   id: string;
   /** Legal name of the issuer */
@@ -213,7 +213,7 @@ export interface OcfIssuerData {
  * Object - Stock Class Object describing a class of stock issued by the issuer OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/StockClass.schema.json
  */
-export interface OcfStockClassData {
+export interface StockClassOcfData {
   /** Identifier for the object */
   id: string;
   /** The type of this stock class (e.g. Preferred or Common) */
@@ -330,7 +330,7 @@ export interface OcfStakeholderData {
  * Object - Stock Legend Template Object describing a stock legend template OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/StockLegendTemplate.schema.json
  */
-export interface OcfStockLegendTemplateData {
+export interface StockLegendTemplateOcfData {
   /** Identifier for the object */
   id: string;
   /** Name for the stock legend template */
@@ -412,7 +412,7 @@ export interface OcfObjectReference {
  * Object - Document Object describing a document OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Document.schema.json
  */
-export interface OcfDocumentData {
+export interface DocumentOcfDataData {
   /** Identifier for the object */
   id: string;
   /** Relative file path to the document within the OCF bundle */
@@ -483,7 +483,7 @@ export interface VestingSimple {
   amount: string | number;
 }
 
-export interface OcfStockIssuanceData {
+export interface StockIssuanceOcfData {
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -599,7 +599,7 @@ export interface VestingCondition {
  * Object - Vesting Terms Object describing the terms under which a security vests OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/VestingTerms.schema.json
  */
-export interface OcfVestingTermsData {
+export interface VestingTermsOcfData {
   id: string;
   /** Concise name for the vesting schedule */
   name: string;
@@ -621,7 +621,7 @@ export type StockPlanCancellationBehavior =
   | 'HOLD_AS_CAPITAL_STOCK'
   | 'DEFINED_PER_PLAN_SECURITY';
 
-export interface OcfStockPlanData {
+export interface StockPlanOcfData {
   id: string;
   /** Human-friendly name of the plan */
   plan_name: string;
@@ -741,7 +741,7 @@ export interface OcfConvertibleIssuanceDataNative {
  * and held by a stakeholder OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/WarrantIssuance.schema.json
  */
-export interface OcfWarrantIssuanceDataNative {
+export interface WarrantIssuanceOcfDataNative {
   id: string;
   date: string;
   security_id: string;
@@ -851,3 +851,44 @@ export interface OcfStockTransferTxData {
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
+
+/**
+ * Object - Stock Repurchase Transaction Object describing a stock repurchase transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/repurchase/StockRepurchase.schema.json
+ */
+export interface OcfStockRepurchaseTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being repurchased */
+  security_id: string;
+  /** Quantity of shares being repurchased */
+  quantity: string | number;
+  /** Price per share paid for repurchase */
+  price: Monetary;
+  /** Identifier for the security that holds the remainder balance (for partial repurchases) */
+  balance_security_id?: string;
+  /** Unstructured text description of consideration provided in exchange for security repurchase */
+  consideration_text?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Type Aliases for backwards compatibility with tests =====
+/** @deprecated Use IssuerOcfData instead */
+export type OcfIssuerData = IssuerOcfData;
+/** @deprecated Use StockClassOcfData instead */
+export type OcfStockClassData = StockClassOcfData;
+/** @deprecated Use StockIssuanceOcfData instead */
+export type OcfStockIssuanceData = StockIssuanceOcfData;
+/** @deprecated Use StockLegendTemplateOcfData instead */
+export type OcfStockLegendTemplateData = StockLegendTemplateOcfData;
+/** @deprecated Use StockPlanOcfData instead */
+export type OcfStockPlanData = StockPlanOcfData;
+/** @deprecated Use VestingTermsOcfData instead */
+export type OcfVestingTermsData = VestingTermsOcfData;
+/** @deprecated Use WarrantIssuanceOcfDataNative instead */
+export type OcfWarrantIssuanceDataNative = WarrantIssuanceOcfDataNative;
+/** @deprecated Use DocumentOcfDataData instead */
+export type OcfDocumentData = DocumentOcfDataData;

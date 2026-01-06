@@ -1,18 +1,16 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   AllocationType,
   CommandWithDisclosedContracts,
-  OcfVestingTermsData,
+  VestingTermsOcfData,
   VestingCondition,
   VestingConditionPortion,
 } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import { buildCapTableCommand } from '../capTable';
 
-function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.VestingTerms.OcfAllocationType {
+function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType {
   switch (t) {
     case 'CUMULATIVE_ROUNDING':
       return 'OcfAllocationCumulativeRounding';
@@ -109,20 +107,20 @@ function mapOcfDayOfMonthToDaml(day: string): OcfVestingDay {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger {
+function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger {
   const type: string | undefined = typeof t?.type === 'string' ? t.type.toUpperCase() : undefined;
 
   if (type === 'VESTING_START_DATE') {
     return {
       tag: 'OcfVestingStartTrigger',
       value: {},
-    } as Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger;
+    } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
   }
   if (type === 'VESTING_EVENT') {
     return {
       tag: 'OcfVestingEventTrigger',
       value: {},
-    } as Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger;
+    } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
   }
   if (type === 'VESTING_SCHEDULE_ABSOLUTE') {
     const date: string | undefined = 'date' in t ? (t.date ?? t.at) : undefined;
@@ -130,7 +128,7 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVes
     return {
       tag: 'OcfVestingScheduleAbsoluteTrigger',
       value: dateStringToDAMLTime(date),
-    } as unknown as Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger;
+    } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
   }
   if (type === 'VESTING_SCHEDULE_RELATIVE') {
     const p = t?.period ?? {};
@@ -187,10 +185,10 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVes
     return {
       tag: 'OcfVestingScheduleRelativeTrigger',
       value: {
-        period: period as unknown as Fairmint.OpenCapTable.VestingTerms.OcfVestingPeriod,
+        period: period as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingPeriod,
         relative_to_condition_id: t?.relative_to_condition_id,
       },
-    } as Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger;
+    } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
   }
 
   throw new Error('Unknown vesting trigger');
@@ -198,7 +196,7 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.VestingTerms.OcfVes
 
 function vestingConditionPortionToDaml(
   p: VestingConditionPortion
-): Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion {
+): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion {
   return {
     numerator: typeof p.numerator === 'number' ? p.numerator.toString() : p.numerator,
     denominator: typeof p.denominator === 'number' ? p.denominator.toString() : p.denominator,
@@ -206,7 +204,7 @@ function vestingConditionPortionToDaml(
   };
 }
 
-function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition {
+function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition {
   return {
     id: c.id,
     description: optionalString(c.description),
@@ -214,7 +212,7 @@ function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.Vest
       ? ({
           tag: 'Some',
           value: vestingConditionPortionToDaml(c.portion),
-        } as unknown as Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition['portion'])
+        } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition['portion'])
       : null,
     quantity: c.quantity !== undefined ? (typeof c.quantity === 'number' ? c.quantity.toString() : c.quantity) : null,
     trigger: vestingTriggerToDaml(c.trigger),
@@ -222,9 +220,10 @@ function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.Vest
   };
 }
 
-function vestingTermsDataToDaml(d: OcfVestingTermsData): Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData {
+export function vestingTermsDataToDaml(d: VestingTermsOcfData): Record<string, unknown> {
   if (!d.id) throw new Error('vestingTerms.id is required');
-  return {
+
+  const damlData: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData = {
     id: d.id,
     name: d.name,
     description: d.description,
@@ -232,98 +231,82 @@ function vestingTermsDataToDaml(d: OcfVestingTermsData): Fairmint.OpenCapTable.V
     vesting_conditions: d.vesting_conditions.map(vestingConditionToDaml),
     comments: cleanComments(d.comments),
   };
-}
-
-export interface CreateVestingTermsParams {
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  vestingTermsData: OcfVestingTermsData;
-}
-
-/**
- * Create vesting terms by exercising the CreateVestingTerms choice on an Issuer contract
- *
- * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/VestingTerms.schema.json
- */
-
-export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams): CommandWithDisclosedContracts {
-  const damlArgs = {
-    vesting_terms_data: vestingTermsDataToDaml(params.vestingTermsData),
-  };
-
-  // Normalize Optional fields for JSON API: use direct value for Some, null for None
-  const vtData = damlArgs.vesting_terms_data;
 
   interface VestingConditionJson {
     id: string;
     description: string | null;
     quantity: string | null;
     next_condition_ids: string[];
-    portion: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion | null;
-    trigger: Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger;
+    portion: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion | null;
+    trigger: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
   }
 
-  const choiceArguments = {
-    vesting_terms_data: {
-      id: vtData.id,
-      name: vtData.name,
-      description: vtData.description,
-      allocation_type: vtData.allocation_type,
-      comments: vtData.comments,
-      vesting_conditions: damlArgs.vesting_terms_data.vesting_conditions.map((c): VestingConditionJson => {
-        // Extract portion value from Optional<OcfVestingConditionPortion>
-        let portion: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion | null = null;
-        if (c.portion && typeof c.portion === 'object' && 'tag' in c.portion) {
-          const portionOpt = c.portion as {
-            tag: string;
-            value?: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion;
-          };
-          if (portionOpt.tag === 'Some' && portionOpt.value) {
-            portion = portionOpt.value;
-          }
-        }
-
-        // Normalize trigger for JSON API
-        const trigger = ((): Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger => {
-          if (typeof c.trigger === 'object' && 'tag' in c.trigger) {
-            const t = c.trigger as { tag: string; value?: unknown };
-            return 'value' in t
-              ? c.trigger
-              : ({ tag: t.tag, value: null } as unknown as Fairmint.OpenCapTable.VestingTerms.OcfVestingTrigger);
-          }
-          return c.trigger;
-        })();
-
-        return {
-          id: c.id,
-          description: c.description,
-          quantity: c.quantity,
-          next_condition_ids: c.next_condition_ids,
-          portion,
-          trigger,
+  // Normalize Optional fields for JSON API: use direct value for Some, null for None
+  return {
+    id: damlData.id,
+    name: damlData.name,
+    description: damlData.description,
+    allocation_type: damlData.allocation_type,
+    comments: damlData.comments,
+    vesting_conditions: damlData.vesting_conditions.map((c): VestingConditionJson => {
+      // Extract portion value from Optional<OcfVestingConditionPortion>
+      let portion: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion | null = null;
+      if (c.portion && typeof c.portion === 'object' && 'tag' in c.portion) {
+        const portionOpt = c.portion as {
+          tag: string;
+          value?: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion;
         };
-      }),
-    },
+        if (portionOpt.tag === 'Some' && portionOpt.value) {
+          portion = portionOpt.value;
+        }
+      }
+
+      // Normalize trigger for JSON API
+      const trigger = ((): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger => {
+        if (typeof c.trigger === 'object' && 'tag' in c.trigger) {
+          const t = c.trigger as { tag: string; value?: unknown };
+          return 'value' in t
+            ? c.trigger
+            : ({ tag: t.tag, value: null } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger);
+        }
+        return c.trigger;
+      })();
+
+      return {
+        id: c.id,
+        description: c.description,
+        quantity: c.quantity,
+        next_condition_ids: c.next_condition_ids,
+        portion,
+        trigger,
+      };
+    }),
   };
+}
 
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateVestingTerms',
-      choiceArgument: choiceArguments,
+/** @deprecated Use AddVestingTermsParams and buildAddVestingTermsCommand instead. */
+export interface CreateVestingTermsParams {
+  /** @deprecated This parameter is renamed to capTableContractId */
+  issuerContractId: string;
+  featuredAppRightContractDetails: DisclosedContract;
+  issuerParty: string;
+  vestingTermsData: VestingTermsOcfData;
+}
+
+/**
+ * Create vesting terms by exercising the CreateVestingTerms choice on a CapTable contract
+ *
+ * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/VestingTerms.schema.json
+ * @deprecated Use buildAddVestingTermsCommand instead.
+ */
+
+export function buildCreateVestingTermsCommand(params: CreateVestingTermsParams): CommandWithDisclosedContracts {
+  return buildCapTableCommand({
+    capTableContractId: params.issuerContractId,
+    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
+    choice: 'CreateVestingTerms',
+    choiceArgument: {
+      vesting_terms_data: vestingTermsDataToDaml(params.vestingTermsData),
     },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
+  });
 }

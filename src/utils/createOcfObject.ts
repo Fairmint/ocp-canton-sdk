@@ -3,21 +3,21 @@ import type { OcpClient } from '../OcpClient';
 import type {
   CommandWithDisclosedContracts,
   OcfConvertibleIssuanceDataNative,
-  OcfDocumentData,
+  DocumentOcfDataData,
   OcfEquityCompensationExerciseTxData,
   OcfEquityCompensationIssuanceData,
   OcfIssuerAuthorizedSharesAdjustmentTxData,
   OcfStakeholderData,
   OcfStockCancellationTxData,
   OcfStockClassAuthorizedSharesAdjustmentTxData,
-  OcfStockClassData,
-  OcfStockIssuanceData,
-  OcfStockLegendTemplateData,
-  OcfStockPlanData,
+  StockClassOcfData,
+  StockIssuanceOcfData,
+  StockLegendTemplateOcfData,
+  StockPlanOcfData,
   OcfStockPlanPoolAdjustmentTxData,
   OcfStockTransferTxData,
-  OcfVestingTermsData,
-  OcfWarrantIssuanceDataNative,
+  VestingTermsOcfData,
+  WarrantIssuanceOcfDataNative,
 } from '../types';
 
 export interface CreateOcfObjectParams {
@@ -118,7 +118,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            stockClassData: ocfData as unknown as OcfStockClassData,
+            stockClassData: ocfData as unknown as StockClassOcfData,
           });
 
         case 'STAKEHOLDER':
@@ -134,7 +134,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            templateData: ocfData as unknown as OcfStockLegendTemplateData,
+            templateData: ocfData as unknown as StockLegendTemplateOcfData,
           });
 
         case 'VESTING_TERMS':
@@ -142,7 +142,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            vestingTermsData: ocfData as unknown as OcfVestingTermsData,
+            vestingTermsData: ocfData as unknown as VestingTermsOcfData,
           });
 
         case 'STOCK_PLAN':
@@ -150,7 +150,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            planData: ocfData as unknown as OcfStockPlanData,
+            planData: ocfData as unknown as StockPlanOcfData,
           });
 
         case 'TX_STOCK_ISSUANCE':
@@ -158,7 +158,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            issuanceData: ocfData as unknown as OcfStockIssuanceData,
+            issuanceData: ocfData as unknown as StockIssuanceOcfData,
           });
 
         case 'TX_STOCK_CANCELLATION':
@@ -226,7 +226,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
             issuerContractId,
             featuredAppRightContractDetails,
             issuerParty,
-            documentData: ocfData as unknown as OcfDocumentData,
+            documentData: ocfData as unknown as DocumentOcfDataData,
           });
 
         case 'TX_WARRANT_ISSUANCE':
@@ -235,7 +235,7 @@ export function buildCreateOcfObjectCommandFactory(client: OcpClient): BuildCrea
             featuredAppRightContractDetails,
             issuerParty,
             // @ts-expect-error - exercise_triggers and conversion_triggers type mismatch: using unknown[] to avoid complex recursive types
-            issuanceData: ocfData as unknown as OcfWarrantIssuanceDataNative,
+            issuanceData: ocfData as unknown as WarrantIssuanceOcfDataNative,
           });
 
         case 'TX_CONVERTIBLE_ISSUANCE':

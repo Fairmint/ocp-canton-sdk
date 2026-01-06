@@ -1,18 +1,24 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
+/** @deprecated Use DeleteStockLegendTemplateParams and buildDeleteStockLegendTemplateCommand instead */
 export interface ArchiveStockLegendTemplateByIssuerParams {
   contractId: string;
   issuerParty: string;
 }
 
-export function buildArchiveStockLegendTemplateByIssuerCommand(params: { contractId: string }): Command {
-  return {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.StockLegendTemplate.StockLegendTemplate.templateId,
-      contractId: params.contractId,
-      choice: 'ArchiveByIssuer',
-      choiceArgument: {},
-    },
-  };
+/**
+ * @deprecated This function is no longer functional. Use buildDeleteStockLegendTemplateCommand instead.
+ *
+ * With the new CapTable pattern, deletion requires:
+ * - capTableContractId: The CapTable contract ID
+ * - featuredAppRightContractDetails: Disclosed contract details
+ * - stockLegendTemplateId: The OCF ID of the stock legend template to delete
+ *
+ * @throws Error Always throws - use buildDeleteStockLegendTemplateCommand instead
+ */
+export function buildArchiveStockLegendTemplateByIssuerCommand(_params: { contractId: string }): Command {
+  throw new Error(
+    'buildArchiveStockLegendTemplateByIssuerCommand is deprecated and no longer functional. ' +
+      'Use buildDeleteStockLegendTemplateCommand instead, which uses the CapTable.DeleteStockLegendTemplate choice.'
+  );
 }

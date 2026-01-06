@@ -1,8 +1,5 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   CommandWithDisclosedContracts,
   CompensationType,
@@ -16,6 +13,7 @@ import {
   numberToString,
   optionalString,
 } from '../../../utils/typeConversions';
+import { buildCapTableCommand } from '../capTable';
 
 function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.OcfCompensationType {
   switch (t) {
@@ -57,7 +55,61 @@ const terminationWindowPeriodTypeMap: Record<
   MONTHS: 'OcfPeriodMonths',
 };
 
+export function equityCompensationIssuanceDataToDaml(
+  d: OcfEquityCompensationIssuanceData & {
+    id: string;
+    date: string;
+    security_id: string;
+    custom_id: string;
+    stakeholder_id: string;
+    stock_plan_id?: string;
+    stock_class_id?: string;
+    board_approval_date?: string;
+    stockholder_approval_date?: string;
+    consideration_text?: string;
+    vesting_terms_id?: string;
+  }
+): Record<string, unknown> {
+  const filteredVestings = (d.vestings ?? []).filter((v) => Number(v.amount) > 0);
+
+  return {
+    id: d.id,
+    security_id: d.security_id,
+    custom_id: d.custom_id,
+    stakeholder_id: d.stakeholder_id,
+    date: dateStringToDAMLTime(d.date),
+    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
+    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    consideration_text: optionalString(d.consideration_text),
+    security_law_exemptions: (d.security_law_exemptions ?? []).map((e) => ({
+      description: e.description,
+      jurisdiction: e.jurisdiction,
+    })),
+    stock_plan_id: optionalString(d.stock_plan_id),
+    stock_class_id: optionalString(d.stock_class_id),
+    vesting_terms_id: optionalString(d.vesting_terms_id),
+    compensation_type: compensationTypeToDaml(d.compensation_type),
+    quantity: numberToString(d.quantity),
+    exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
+    base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
+    early_exercisable: d.early_exercisable ?? null,
+    vestings: filteredVestings.map((v) => ({
+      date: dateStringToDAMLTime(v.date),
+      amount: numberToString(v.amount),
+    })),
+    expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
+    termination_exercise_windows: (d.termination_exercise_windows ?? []).map((w) => ({
+      reason: terminationWindowReasonMap[w.reason],
+      period: numberToString(w.period),
+      period_type: terminationWindowPeriodTypeMap[w.period_type],
+    })),
+    comments: cleanComments(d.comments),
+  };
+}
+
+/** @deprecated Use AddEquityCompensationIssuanceParams and buildAddEquityCompensationIssuanceCommand instead. */
 export interface CreateEquityCompensationIssuanceParams {
+  /** @deprecated This parameter is renamed to capTableContractId */
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
@@ -76,59 +128,16 @@ export interface CreateEquityCompensationIssuanceParams {
   };
 }
 
+/** @deprecated Use buildAddEquityCompensationIssuanceCommand instead. */
 export function buildCreateEquityCompensationIssuanceCommand(
   params: CreateEquityCompensationIssuanceParams
 ): CommandWithDisclosedContracts {
-  const { issuanceData: d } = params;
-
-  const filteredVestings = (d.vestings ?? []).filter((v) => Number(v.amount) > 0);
-
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateEquityCompensationIssuance = {
-    issuance_data: {
-      id: d.id,
-      security_id: d.security_id,
-      custom_id: d.custom_id,
-      stakeholder_id: d.stakeholder_id,
-      date: dateStringToDAMLTime(d.date),
-      board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-      stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-      consideration_text: optionalString(d.consideration_text),
-      security_law_exemptions: (d.security_law_exemptions ?? []).map((e) => ({
-        description: e.description,
-        jurisdiction: e.jurisdiction,
-      })),
-      stock_plan_id: optionalString(d.stock_plan_id),
-      stock_class_id: optionalString(d.stock_class_id),
-      vesting_terms_id: optionalString(d.vesting_terms_id),
-      compensation_type: compensationTypeToDaml(d.compensation_type),
-      quantity: numberToString(d.quantity),
-      exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
-      base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
-      early_exercisable: d.early_exercisable ?? null,
-      vestings: filteredVestings.map((v) => ({
-        date: dateStringToDAMLTime(v.date),
-        amount: numberToString(v.amount),
-      })),
-      expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
-      termination_exercise_windows: (d.termination_exercise_windows ?? []).map((w) => ({
-        reason: terminationWindowReasonMap[w.reason],
-        period: numberToString(w.period),
-        period_type: terminationWindowPeriodTypeMap[w.period_type],
-      })),
-      comments: cleanComments(d.comments),
+  return buildCapTableCommand({
+    capTableContractId: params.issuerContractId,
+    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
+    choice: 'CreateEquityCompensationIssuance',
+    choiceArgument: {
+      issuance_data: equityCompensationIssuanceDataToDaml(params.issuanceData),
     },
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateEquityCompensationIssuance',
-      choiceArgument: choiceArguments,
-    },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [params.featuredAppRightContractDetails];
-
-  return { command, disclosedContracts };
+  });
 }

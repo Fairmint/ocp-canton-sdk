@@ -12,7 +12,7 @@
   },
   "request": {
     "ExerciseCommand": {
-      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.Issuer:Issuer",
+      "templateId": "#OpenCapTable-v25:Fairmint.OpenCapTable.CapTable:CapTable",
       "contractId": "004ad9ebd9b4f8644cf54d9652d510e1e5ce549312c996485b58212b75d98d0127ca111220fd7977679378aea3c414298bcef9e472d1941704c5d2545f92e3004104dc78e5",
       "choice": "CreateStockLegendTemplate",
       "choiceArgument": {
@@ -40,7 +40,7 @@
                 "offset": 845444,
                 "nodeId": 0,
                 "contractId": "004ad9ebd9b4f8644cf54d9652d510e1e5ce549312c996485b58212b75d98d0127ca111220fd7977679378aea3c414298bcef9e472d1941704c5d2545f92e3004104dc78e5",
-                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.Issuer:Issuer",
+                "templateId": "e3657ab5c2090361be936cb66611f95df4abf6911c3c94172afcf2e9c26f75f6:Fairmint.OpenCapTable.CapTable:CapTable",
                 "interfaceId": null,
                 "choice": "CreateStockLegendTemplate",
                 "choiceArgument": {

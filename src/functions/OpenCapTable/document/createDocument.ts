@@ -1,15 +1,13 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, OcfDocumentData, OcfObjectReference } from '../../../types';
+import type { CommandWithDisclosedContracts, DocumentOcfDataData, OcfObjectReference } from '../../../types';
 import { cleanComments, extractUpdateId, optionalString } from '../../../utils/typeConversions';
+import { buildCapTableCommand } from '../capTable';
 
-function objectTypeToDaml(t: OcfObjectReference['object_type']): Fairmint.OpenCapTable.Document.OcfObjectType {
+function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
   switch (t) {
     case 'ISSUER':
       return 'OcfObjIssuer';
@@ -131,7 +129,7 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): Fairmint.OpenCa
   }
 }
 
-function documentDataToDaml(d: OcfDocumentData): Fairmint.OpenCapTable.Document.OcfDocument {
+export function documentDataToDaml(d: DocumentOcfDataData): Record<string, unknown> {
   if (!d.id) throw new Error('document.id is required');
   if (!d.md5) throw new Error('document.md5 is required');
   if (!d.path && !d.uri) throw new Error('document requires path or uri');
@@ -148,11 +146,13 @@ function documentDataToDaml(d: OcfDocumentData): Fairmint.OpenCapTable.Document.
   };
 }
 
+/** @deprecated Use AddDocumentParams and buildAddDocumentCommand instead. */
 export interface CreateDocumentParams {
+  /** @deprecated This parameter is renamed to capTableContractId */
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
-  documentData: OcfDocumentData;
+  documentData: DocumentOcfDataData;
 }
 
 export interface CreateDocumentResult {
@@ -161,6 +161,7 @@ export interface CreateDocumentResult {
   response: SubmitAndWaitForTransactionTreeResponse;
 }
 
+/** @deprecated Use addDocument with CapTable contract instead. */
 export async function createDocument(
   client: LedgerJsonApiClient,
   params: CreateDocumentParams
@@ -173,7 +174,7 @@ export async function createDocument(
     disclosedContracts,
   })) as SubmitAndWaitForTransactionTreeResponse;
 
-  const created = findCreatedEventByTemplateId(response, Fairmint.OpenCapTable.Document.Document.templateId);
+  const created = findCreatedEventByTemplateId(response, Fairmint.OpenCapTable.OCF.Document.Document.templateId);
   if (!created) {
     throw new Error('Expected CreatedTreeEvent not found');
   }
@@ -185,28 +186,14 @@ export async function createDocument(
   };
 }
 
+/** @deprecated Use buildAddDocumentCommand instead. */
 export function buildCreateDocumentCommand(params: CreateDocumentParams): CommandWithDisclosedContracts {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateDocument = {
-    document_data: documentDataToDaml(params.documentData),
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateDocument',
-      choiceArgument: choiceArguments,
+  return buildCapTableCommand({
+    capTableContractId: params.issuerContractId,
+    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
+    choice: 'CreateDocument',
+    choiceArgument: {
+      document_data: documentDataToDaml(params.documentData),
     },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
+  });
 }

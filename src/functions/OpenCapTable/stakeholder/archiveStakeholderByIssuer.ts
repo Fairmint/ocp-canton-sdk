@@ -1,18 +1,24 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
+/** @deprecated Use DeleteStakeholderParams and buildDeleteStakeholderCommand instead */
 export interface ArchiveStakeholderByIssuerParams {
   contractId: string;
   issuerParty: string;
 }
 
-export function buildArchiveStakeholderByIssuerCommand(params: { contractId: string }): Command {
-  return {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Stakeholder.Stakeholder.templateId,
-      contractId: params.contractId,
-      choice: 'ArchiveByIssuer',
-      choiceArgument: {},
-    },
-  };
+/**
+ * @deprecated This function is no longer functional. Use buildDeleteStakeholderCommand instead.
+ *
+ * With the new CapTable pattern, deletion requires:
+ * - capTableContractId: The CapTable contract ID
+ * - featuredAppRightContractDetails: Disclosed contract details
+ * - stakeholderId: The OCF ID of the stakeholder to delete
+ *
+ * @throws Error Always throws - use buildDeleteStakeholderCommand instead
+ */
+export function buildArchiveStakeholderByIssuerCommand(_params: { contractId: string }): Command {
+  throw new Error(
+    'buildArchiveStakeholderByIssuerCommand is deprecated and no longer functional. ' +
+      'Use buildDeleteStakeholderCommand from deleteStakeholder.ts instead, which uses the CapTable.DeleteStakeholder choice.'
+  );
 }

@@ -1,3 +1,4 @@
+export * from './capTable';
 export * from './convertibleIssuance';
 export * from './document';
 export * from './equityCompensationExercise';
@@ -13,6 +14,7 @@ export * from './stockIssuance';
 export * from './stockLegendTemplate';
 export * from './stockPlan';
 export * from './stockPlanPoolAdjustment';
+export * from './stockRepurchase';
 export * from './stockTransfer';
 export * from './vestingTerms';
 export * from './warrantIssuance';

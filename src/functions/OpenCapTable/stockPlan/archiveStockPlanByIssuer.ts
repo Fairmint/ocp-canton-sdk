@@ -1,18 +1,24 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
+/** @deprecated Use DeleteStockPlanParams and buildDeleteStockPlanCommand instead */
 export interface ArchiveStockPlanByIssuerParams {
   contractId: string;
   issuerParty: string;
 }
 
-export function buildArchiveStockPlanByIssuerCommand(params: { contractId: string }): Command {
-  return {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.StockPlan.StockPlan.templateId,
-      contractId: params.contractId,
-      choice: 'ArchiveByIssuer',
-      choiceArgument: {},
-    },
-  };
+/**
+ * @deprecated This function is no longer functional. Use buildDeleteStockPlanCommand instead.
+ *
+ * With the new CapTable pattern, deletion requires:
+ * - capTableContractId: The CapTable contract ID
+ * - featuredAppRightContractDetails: Disclosed contract details
+ * - stockPlanId: The OCF ID of the stock plan to delete
+ *
+ * @throws Error Always throws - use buildDeleteStockPlanCommand instead
+ */
+export function buildArchiveStockPlanByIssuerCommand(_params: { contractId: string }): Command {
+  throw new Error(
+    'buildArchiveStockPlanByIssuerCommand is deprecated and no longer functional. ' +
+      'Use buildDeleteStockPlanCommand instead, which uses the CapTable.DeleteStockPlan choice.'
+  );
 }

@@ -1,8 +1,5 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts, Monetary } from '../../../types';
 import {
   cleanComments,
@@ -12,8 +9,10 @@ import {
   optionalString,
   safeString,
 } from '../../../utils/typeConversions';
+import { buildCapTableCommand } from '../capTable';
 
 export interface CreateConvertibleIssuanceParams {
+  /** @deprecated This parameter is renamed to capTableContractId */
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
@@ -358,11 +357,10 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
   };
 }
 
-export function buildCreateConvertibleIssuanceCommand(
-  params: CreateConvertibleIssuanceParams
-): CommandWithDisclosedContracts {
-  const d = params.issuanceData;
-  const issuance_data: Fairmint.OpenCapTable.ConvertibleIssuance.OcfConvertibleIssuanceTxData = {
+export function convertibleIssuanceDataToDaml(
+  d: CreateConvertibleIssuanceParams['issuanceData']
+): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
+  return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
@@ -379,28 +377,18 @@ export function buildCreateConvertibleIssuanceCommand(
     seniority: d.seniority.toString(),
     comments: cleanComments(d.comments),
   };
+}
 
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateConvertibleIssuance = {
-    issuance_data,
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateConvertibleIssuance',
-      choiceArgument: choiceArguments,
+/** @deprecated Use buildAddConvertibleIssuanceCommand instead. */
+export function buildCreateConvertibleIssuanceCommand(
+  params: CreateConvertibleIssuanceParams
+): CommandWithDisclosedContracts {
+  return buildCapTableCommand({
+    capTableContractId: params.issuerContractId,
+    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
+    choice: 'CreateConvertibleIssuance',
+    choiceArgument: {
+      issuance_data: convertibleIssuanceDataToDaml(params.issuanceData),
     },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
+  });
 }

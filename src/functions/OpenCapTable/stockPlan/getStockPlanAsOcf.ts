@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { OcfStockPlanData, StockPlanCancellationBehavior } from '../../../types/native';
+import type { StockPlanOcfData, StockPlanCancellationBehavior } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehavior | undefined {
@@ -18,7 +18,7 @@ function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehav
   }
 }
 
-function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.StockPlan.OcfStockPlanData): OcfStockPlanData {
+function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData): StockPlanOcfData {
   const dataWithId = d as unknown as { id?: string };
   return {
     id: dataWithId.id ?? '',
@@ -82,7 +82,7 @@ export async function getStockPlanAsOcf(
   }
 
   const native = damlStockPlanDataToNative(
-    createArgument.plan_data as Fairmint.OpenCapTable.StockPlan.OcfStockPlanData
+    createArgument.plan_data as Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData
   );
 
   const ocf: OcfStockPlan = {

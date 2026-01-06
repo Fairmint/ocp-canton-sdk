@@ -1,0 +1,21 @@
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import type { CommandWithDisclosedContracts, StockClassOcfData } from '../../../types';
+import { buildCapTableCommand } from '../capTable';
+import { stockClassDataToDaml } from './stockClassDataToDaml';
+
+export interface AddStockClassParams {
+  capTableContractId: string;
+  featuredAppRightContractDetails: DisclosedContract;
+  stockClassData: StockClassOcfData;
+}
+
+export function buildAddStockClassCommand(params: AddStockClassParams): CommandWithDisclosedContracts {
+  return buildCapTableCommand({
+    capTableContractId: params.capTableContractId,
+    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
+    choice: 'CreateStockClass',
+    choiceArgument: {
+      stock_class_data: stockClassDataToDaml(params.stockClassData),
+    },
+  });
+}

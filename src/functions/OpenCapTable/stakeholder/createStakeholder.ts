@@ -1,8 +1,5 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   CommandWithDisclosedContracts,
   ContactInfo,
@@ -14,8 +11,11 @@ import type {
   StakeholderType,
 } from '../../../types';
 import { addressToDaml, cleanComments, optionalString } from '../../../utils/typeConversions';
+import { buildCapTableCommand } from '../capTable';
 
-function stakeholderTypeToDaml(stakeholderType: StakeholderType): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderType {
+function stakeholderTypeToDaml(
+  stakeholderType: StakeholderType
+): Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderType {
   switch (stakeholderType) {
     case 'INDIVIDUAL':
       return 'OcfStakeholderTypeIndividual';
@@ -74,7 +74,7 @@ function phoneToDaml(phone: { phone_type: PhoneType; phone_number: string }): Fa
   };
 }
 
-function nameToDaml(n: Name): Fairmint.OpenCapTable.Stakeholder.OcfName {
+function nameToDaml(n: Name): Fairmint.OpenCapTable.OCF.Stakeholder.OcfName {
   return {
     legal_name: n.legal_name,
     first_name: optionalString(n.first_name),
@@ -82,7 +82,7 @@ function nameToDaml(n: Name): Fairmint.OpenCapTable.Stakeholder.OcfName {
   };
 }
 
-function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.Stakeholder.OcfContactInfo {
+function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfo {
   return {
     name: nameToDaml(info.name),
     phone_numbers: (info.phone_numbers ?? []).map(phoneToDaml),
@@ -92,7 +92,7 @@ function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.Stakeholder
 
 function contactInfoWithoutNameToDaml(
   info: ContactInfoWithoutName
-): Fairmint.OpenCapTable.Stakeholder.OcfContactInfoWithoutName | null {
+): Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfoWithoutName | null {
   const phones = (info.phone_numbers ?? []).map(phoneToDaml);
   const emails = (info.emails ?? []).map(emailToDaml);
 
@@ -106,7 +106,7 @@ function contactInfoWithoutNameToDaml(
   };
 }
 
-function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData {
+export function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
   if (!data.id) throw new Error('stakeholder.id is required');
 
   const dataWithSingular = data as OcfStakeholderData & { current_relationship?: string };
@@ -128,7 +128,7 @@ function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.
     return 'OcfRelOther';
   };
 
-  const payload: Fairmint.OpenCapTable.Stakeholder.OcfStakeholderData = {
+  const payload: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData = {
     id: data.id,
     name: nameToDaml(data.name),
     stakeholder_type: stakeholderTypeToDaml(data.stakeholder_type),
@@ -163,13 +163,16 @@ function stakeholderDataToDaml(data: OcfStakeholderData): Fairmint.OpenCapTable.
   return payload;
 }
 
+/** @deprecated Use AddStakeholderParams and buildAddStakeholderCommand instead. */
 export interface CreateStakeholderParams {
+  /** @deprecated This parameter is renamed to capTableContractId */
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
   stakeholderData: OcfStakeholderData;
 }
 
+/** @deprecated Use buildAddStakeholderCommand instead. */
 export function buildCreateStakeholderCommand(params: CreateStakeholderParams): CommandWithDisclosedContracts {
   const damlData = stakeholderDataToDaml(params.stakeholderData);
 
@@ -177,27 +180,12 @@ export function buildCreateStakeholderCommand(params: CreateStakeholderParams): 
   const { current_status, ...restData } = damlData;
   const stakeholderDataForJson = current_status === null ? restData : damlData;
 
-  const choiceArguments = {
-    stakeholder_data: stakeholderDataForJson,
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateStakeholder',
-      choiceArgument: choiceArguments,
+  return buildCapTableCommand({
+    capTableContractId: params.issuerContractId,
+    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
+    choice: 'CreateStakeholder',
+    choiceArgument: {
+      stakeholder_data: stakeholderDataForJson,
     },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
+  });
 }

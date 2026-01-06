@@ -1,14 +1,12 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, OcfStockPlanData, StockPlanCancellationBehavior } from '../../../types';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { CommandWithDisclosedContracts, StockPlanOcfData, StockPlanCancellationBehavior } from '../../../types';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { buildCapTableCommand } from '../capTable';
 
 function cancellationBehaviorToDaml(
   b: StockPlanCancellationBehavior | undefined
-): Fairmint.OpenCapTable.StockPlan.OcfStockPlanData['default_cancellation_behavior'] {
+): Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData['default_cancellation_behavior'] {
   if (!b) return null;
   switch (b) {
     case 'RETIRE':
@@ -24,7 +22,7 @@ function cancellationBehaviorToDaml(
   }
 }
 
-function stockPlanDataToDaml(d: OcfStockPlanData): Fairmint.OpenCapTable.StockPlan.OcfStockPlanData {
+export function stockPlanDataToDaml(d: StockPlanOcfData): Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData {
   if (!d.id) throw new Error('stockPlan.id is required');
   return {
     id: d.id,
@@ -39,35 +37,23 @@ function stockPlanDataToDaml(d: OcfStockPlanData): Fairmint.OpenCapTable.StockPl
   };
 }
 
+/** @deprecated Use AddStockPlanParams and buildAddStockPlanCommand instead. */
 export interface CreateStockPlanParams {
+  /** @deprecated This parameter is renamed to capTableContractId */
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
-  planData: OcfStockPlanData;
+  planData: StockPlanOcfData;
 }
 
+/** @deprecated Use buildAddStockPlanCommand instead. */
 export function buildCreateStockPlanCommand(params: CreateStockPlanParams): CommandWithDisclosedContracts {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockPlan = {
-    plan_data: stockPlanDataToDaml(params.planData),
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateStockPlan',
-      choiceArgument: choiceArguments,
+  return buildCapTableCommand({
+    capTableContractId: params.issuerContractId,
+    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
+    choice: 'CreateStockPlan',
+    choiceArgument: {
+      plan_data: stockPlanDataToDaml(params.planData),
     },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
+  });
 }

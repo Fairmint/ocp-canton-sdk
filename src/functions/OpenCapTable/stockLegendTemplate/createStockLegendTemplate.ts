@@ -1,14 +1,12 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, OcfStockLegendTemplateData } from '../../../types';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { CommandWithDisclosedContracts, StockLegendTemplateOcfData } from '../../../types';
 import { cleanComments } from '../../../utils/typeConversions';
+import { buildCapTableCommand } from '../capTable';
 
-function stockLegendTemplateDataToDaml(
-  data: OcfStockLegendTemplateData
-): Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData {
+export function stockLegendTemplateDataToDaml(
+  data: StockLegendTemplateOcfData
+): Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData {
   if (!data.id) throw new Error('stockLegendTemplate.id is required');
   return {
     id: data.id,
@@ -18,37 +16,25 @@ function stockLegendTemplateDataToDaml(
   };
 }
 
+/** @deprecated Use AddStockLegendTemplateParams and buildAddStockLegendTemplateCommand instead. */
 export interface CreateStockLegendTemplateParams {
+  /** @deprecated This parameter is renamed to capTableContractId */
   issuerContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
-  templateData: OcfStockLegendTemplateData;
+  templateData: StockLegendTemplateOcfData;
 }
 
+/** @deprecated Use buildAddStockLegendTemplateCommand instead. */
 export function buildCreateStockLegendTemplateCommand(
   params: CreateStockLegendTemplateParams
 ): CommandWithDisclosedContracts {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockLegendTemplate = {
-    template_data: stockLegendTemplateDataToDaml(params.templateData),
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateStockLegendTemplate',
-      choiceArgument: choiceArguments,
+  return buildCapTableCommand({
+    capTableContractId: params.issuerContractId,
+    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
+    choice: 'CreateStockLegendTemplate',
+    choiceArgument: {
+      template_data: stockLegendTemplateDataToDaml(params.templateData),
     },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
+  });
 }

@@ -35,6 +35,7 @@ import type {
   OcfStockLegendTemplateData,
   OcfStockPlanData,
   OcfStockPlanPoolAdjustmentTxData,
+  OcfStockRepurchaseTxData,
   OcfStockTransferTxData,
   OcfVestingTermsData,
   OcfWarrantIssuanceDataNative,
@@ -1570,5 +1571,92 @@ export async function setupTestConvertibleIssuance(
   return {
     convertibleIssuanceContractId,
     convertibleIssuanceData,
+  };
+}
+
+// ===== Stock Repurchase Test Data =====
+
+/** Result from setting up a test stock repurchase. */
+export interface TestStockRepurchaseSetup {
+  /** The contract ID of the created stock repurchase */
+  stockRepurchaseContractId: string;
+  /** The stock repurchase data used to create it */
+  stockRepurchaseData: OcfStockRepurchaseTxData;
+}
+
+/**
+ * Creates test stock repurchase data with reasonable defaults.
+ *
+ * @param securityId - The security ID of the stock being repurchased
+ * @param quantity - The quantity of shares being repurchased
+ * @param overrides - Optional field overrides
+ * @returns Complete test stock repurchase data
+ */
+export function createTestStockRepurchaseData(
+  securityId: string,
+  quantity: string | number,
+  overrides?: Partial<OcfStockRepurchaseTxData>
+): OcfStockRepurchaseTxData {
+  return {
+    id: `test-stock-repurchase-${generateTestId('repurchase')}`,
+    date: new Date().toISOString().split('T')[0],
+    security_id: securityId,
+    quantity: typeof quantity === 'number' ? quantity.toString() : quantity,
+    price: { amount: '1.00', currency: 'USD' },
+    ...overrides,
+  };
+}
+
+/**
+ * Setup a test stock repurchase.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockRepurchaseSetup with the created stock repurchase
+ */
+export async function setupTestStockRepurchase(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** The security ID of the stock being repurchased */
+    securityId: string;
+    /** The quantity of shares being repurchased */
+    quantity: string | number;
+    /** Optional stock repurchase data overrides */
+    stockRepurchaseData?: Partial<OcfStockRepurchaseTxData>;
+  }
+): Promise<TestStockRepurchaseSetup> {
+  const stockRepurchaseData = createTestStockRepurchaseData(options.securityId, options.quantity, {
+    ...options.stockRepurchaseData,
+    security_id: options.securityId,
+    quantity: typeof options.quantity === 'number' ? options.quantity.toString() : options.quantity,
+  });
+
+  const cmd = ocp.OpenCapTable.stockRepurchase.buildCreateStockRepurchaseCommand({
+    issuerContractId: options.issuerContractId,
+    issuerParty: options.issuerParty,
+    repurchaseData: stockRepurchaseData,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+  });
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: cmd.disclosedContracts,
+  });
+
+  const stockRepurchaseContractId = extractContractIdFromResponse(result, 'StockRepurchase');
+  if (!stockRepurchaseContractId) {
+    throw new Error('Failed to extract stock repurchase contract ID from transaction result');
+  }
+
+  return {
+    stockRepurchaseContractId,
+    stockRepurchaseData,
   };
 }
