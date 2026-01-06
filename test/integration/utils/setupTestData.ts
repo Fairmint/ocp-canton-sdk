@@ -819,6 +819,7 @@ export async function setupTestIssuer(
   };
 }
 
+/* eslint-disable unused-imports/no-unused-vars */
 /**
  * Setup a test stakeholder under an existing issuer.
  *
@@ -827,8 +828,8 @@ export async function setupTestIssuer(
  * @returns TestStakeholderSetup with the created stakeholder
  */
 export async function setupTestStakeholder(
-  _ocp: OcpClient,
-  _options: {
+  ocp: OcpClient,
+  options: {
     /** The issuer contract ID */
     issuerContractId: string;
     /** The issuer party ID */
@@ -841,11 +842,12 @@ export async function setupTestStakeholder(
 ): Promise<TestStakeholderSetup> {
   // NOTE: This function has been temporarily disabled because it calls deprecated
   // buildCreateStakeholderCommand that was removed.
-  // TODO: Update to use buildAddStakeholderCommand with CapTable pattern
+  // TODO: Update to use buildCreateStakeholderCommand with CapTable pattern
   return Promise.reject(
     new Error('setupTestStakeholder is temporarily disabled - function needs to be updated to use new API')
   );
 }
+/* eslint-enable unused-imports/no-unused-vars */
 
 // NOTE: The remaining helper functions in this file have been temporarily disabled
 // because they call deprecated buildCreate* and buildArchive* functions that were removed.
