@@ -22,11 +22,20 @@ import type { OcpClient } from '../../../src/OcpClient';
 import type {
   DocumentOcfData,
   IssuerOcfData,
+  OcfConvertibleIssuanceDataNative,
+  OcfEquityCompensationIssuanceData,
+  OcfIssuerAuthorizedSharesAdjustmentTxData,
   OcfStakeholderData,
+  OcfStockCancellationTxData,
+  OcfStockClassAuthorizedSharesAdjustmentTxData,
+  OcfStockPlanPoolAdjustmentTxData,
+  OcfStockTransferTxData,
   StockClassOcfData,
+  StockIssuanceOcfData,
   StockLegendTemplateOcfData,
   StockPlanOcfData,
   VestingTermsOcfData,
+  WarrantIssuanceOcfDataNative,
 } from '../../../src/types/native';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
