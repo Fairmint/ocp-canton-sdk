@@ -3,8 +3,8 @@ import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   ConversionMechanism,
   ConversionTrigger,
-  OcfStockClassData,
   StockClassConversionRight,
+  StockClassOcfData,
   StockClassType,
 } from '../../../types/native';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
@@ -20,7 +20,9 @@ function damlStockClassTypeToNative(damlType: string): StockClassType {
   }
 }
 
-function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.StockClass.OcfStockClassData): OcfStockClassData {
+function damlStockClassDataToNative(
+  damlData: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData
+): StockClassOcfData {
   const dAny = damlData as unknown as Record<string, unknown>;
   let initialShares = '0';
   const isa = dAny.initial_shares_authorized;
@@ -372,7 +374,7 @@ export async function getStockClassAsOcf(
   // Type guard to ensure we have the expected stock class data structure
   function hasStockClassData(
     arg: unknown
-  ): arg is { stock_class_data: Fairmint.OpenCapTable.StockClass.OcfStockClassData } {
+  ): arg is { stock_class_data: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData } {
     const record = arg as Record<string, unknown>;
     return (
       typeof arg === 'object' &&

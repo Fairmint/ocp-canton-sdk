@@ -2,13 +2,13 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   AllocationType,
-  OcfVestingTermsData,
   VestingCondition,
   VestingConditionPortion,
+  VestingTermsOcfData,
 } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
-function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.VestingTerms.OcfAllocationType): AllocationType {
+function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
   switch (t) {
     case 'OcfAllocationCumulativeRounding':
       return 'CUMULATIVE_ROUNDING';
@@ -178,7 +178,7 @@ function damlVestingTriggerToNative(
 }
 
 function damlVestingConditionPortionToNative(
-  p: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion
+  p: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion
 ): VestingConditionPortion {
   return {
     numerator: normalizeNumericString(p.numerator),
@@ -187,7 +187,7 @@ function damlVestingConditionPortionToNative(
   };
 }
 
-function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfVestingCondition): VestingCondition {
+function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition): VestingCondition {
   const conditionWithId = c as unknown as { id?: string };
   const native: VestingCondition = {
     id: conditionWithId.id ?? '',
@@ -204,18 +204,20 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.VestingTerms.OcfV
       (portionUnknown as { tag: unknown }).tag === 'Some' &&
       'value' in portionUnknown
     ) {
-      const { value } = portionUnknown as { value: Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion };
+      const { value } = portionUnknown as { value: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion };
       native.portion = damlVestingConditionPortionToNative(value);
     } else if (typeof portionUnknown === 'object') {
       native.portion = damlVestingConditionPortionToNative(
-        portionUnknown as Fairmint.OpenCapTable.VestingTerms.OcfVestingConditionPortion
+        portionUnknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion
       );
     }
   }
   return native;
 }
 
-function damlVestingTermsDataToNative(d: Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData): OcfVestingTermsData {
+function damlVestingTermsDataToNative(
+  d: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
+): VestingTermsOcfData {
   const dataWithId = d as unknown as { id?: string };
   return {
     id: dataWithId.id ?? '',
@@ -265,7 +267,7 @@ export async function getVestingTermsAsOcf(
 
   function hasData(
     arg: unknown
-  ): arg is { vesting_terms_data: Fairmint.OpenCapTable.VestingTerms.OcfVestingTermsData } {
+  ): arg is { vesting_terms_data: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData } {
     const record = arg as Record<string, unknown>;
     return (
       typeof arg === 'object' &&

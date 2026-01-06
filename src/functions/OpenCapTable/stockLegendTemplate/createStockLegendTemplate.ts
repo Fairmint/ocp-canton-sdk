@@ -1,14 +1,10 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, OcfStockLegendTemplateData } from '../../../types';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { StockLegendTemplateOcfData } from '../../../types';
 import { cleanComments } from '../../../utils/typeConversions';
 
-function stockLegendTemplateDataToDaml(
-  data: OcfStockLegendTemplateData
-): Fairmint.OpenCapTable.StockLegendTemplate.OcfStockLegendTemplateData {
+export function stockLegendTemplateDataToDaml(
+  data: StockLegendTemplateOcfData
+): Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData {
   if (!data.id) throw new Error('stockLegendTemplate.id is required');
   return {
     id: data.id,
@@ -16,39 +12,4 @@ function stockLegendTemplateDataToDaml(
     text: data.text,
     comments: cleanComments(data.comments),
   };
-}
-
-export interface CreateStockLegendTemplateParams {
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  templateData: OcfStockLegendTemplateData;
-}
-
-export function buildCreateStockLegendTemplateCommand(
-  params: CreateStockLegendTemplateParams
-): CommandWithDisclosedContracts {
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockLegendTemplate = {
-    template_data: stockLegendTemplateDataToDaml(params.templateData),
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateStockLegendTemplate',
-      choiceArgument: choiceArguments,
-    },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
 }

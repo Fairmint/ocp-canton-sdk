@@ -1,3 +1,4 @@
-export * from './archiveStakeholderByIssuer';
-export * from './createStakeholder';
+export * from './addStakeholder';
+export * from './deleteStakeholder';
+export * from './editStakeholder';
 export * from './getStakeholderAsOcf';

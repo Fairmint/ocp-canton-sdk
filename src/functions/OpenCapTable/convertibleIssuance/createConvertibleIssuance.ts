@@ -1,9 +1,5 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { CommandWithDisclosedContracts, Monetary } from '../../../types';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { Monetary } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -12,29 +8,6 @@ import {
   optionalString,
   safeString,
 } from '../../../utils/typeConversions';
-
-export interface CreateConvertibleIssuanceParams {
-  issuerContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  issuerParty: string;
-  issuanceData: {
-    id: string;
-    date: string;
-    security_id: string;
-    custom_id: string;
-    stakeholder_id: string;
-    board_approval_date?: string;
-    stockholder_approval_date?: string;
-    consideration_text?: string;
-    security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-    investment_amount: Monetary;
-    convertible_type: 'NOTE' | 'SAFE' | 'SECURITY';
-    conversion_triggers: ConversionTriggerInput[];
-    pro_rata?: string | number;
-    seniority: number;
-    comments?: string[];
-  };
-}
 
 type ConversionTriggerTypeInput =
   | 'AUTOMATIC_ON_CONDITION'
@@ -358,11 +331,24 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
   };
 }
 
-export function buildCreateConvertibleIssuanceCommand(
-  params: CreateConvertibleIssuanceParams
-): CommandWithDisclosedContracts {
-  const d = params.issuanceData;
-  const issuance_data: Fairmint.OpenCapTable.ConvertibleIssuance.OcfConvertibleIssuanceTxData = {
+export function convertibleIssuanceDataToDaml(d: {
+  id: string;
+  date: string;
+  security_id: string;
+  custom_id: string;
+  stakeholder_id: string;
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  consideration_text?: string;
+  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
+  investment_amount: Monetary;
+  convertible_type: 'NOTE' | 'SAFE' | 'SECURITY';
+  conversion_triggers: ConversionTriggerInput[];
+  pro_rata?: string | number;
+  seniority: number;
+  comments?: string[];
+}): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
+  return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
@@ -379,28 +365,4 @@ export function buildCreateConvertibleIssuanceCommand(
     seniority: d.seniority.toString(),
     comments: cleanComments(d.comments),
   };
-
-  const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateConvertibleIssuance = {
-    issuance_data,
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.Issuer.Issuer.templateId,
-      contractId: params.issuerContractId,
-      choice: 'CreateConvertibleIssuance',
-      choiceArgument: choiceArguments,
-    },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
 }
