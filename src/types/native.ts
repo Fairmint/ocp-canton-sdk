@@ -1214,3 +1214,686 @@ export interface OcfStockRepurchaseTxData {
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
+
+// ===== Transfer Transaction Types =====
+
+/**
+ * Object - Warrant Transfer Transaction Object describing a warrant transfer transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/WarrantTransfer.schema.json
+ */
+export interface OcfWarrantTransferTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being transferred */
+  security_id: string;
+  /** Quantity of warrants being transferred */
+  quantity: string | number;
+  /** Array of identifiers for new securities created as a result of the transfer (min 1 item) */
+  resulting_security_ids: string[];
+  /** Identifier for the security that holds the remainder balance (for partial transfers) */
+  balance_security_id?: string;
+  /** Unstructured text description of consideration provided in exchange for security transfer */
+  consideration_text?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Convertible Transfer Transaction Object describing a convertible transfer transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/ConvertibleTransfer.schema.json
+ */
+export interface OcfConvertibleTransferTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being transferred */
+  security_id: string;
+  /** Amount of convertible being transferred */
+  amount: Monetary;
+  /** Array of identifiers for new securities created as a result of the transfer (min 1 item) */
+  resulting_security_ids: string[];
+  /** Identifier for the security that holds the remainder balance (for partial transfers) */
+  balance_security_id?: string;
+  /** Unstructured text description of consideration provided in exchange for security transfer */
+  consideration_text?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Equity Compensation Transfer Transaction Object describing an equity compensation transfer transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/EquityCompensationTransfer.schema.json
+ */
+export interface OcfEquityCompensationTransferTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being transferred */
+  security_id: string;
+  /** Quantity of equity compensation being transferred */
+  quantity: string | number;
+  /** Array of identifiers for new securities created as a result of the transfer (min 1 item) */
+  resulting_security_ids: string[];
+  /** Identifier for the security that holds the remainder balance (for partial transfers) */
+  balance_security_id?: string;
+  /** Unstructured text description of consideration provided in exchange for security transfer */
+  consideration_text?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Acceptance Transaction Types =====
+
+/**
+ * Object - Stock Acceptance Transaction Object describing a stock acceptance transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/StockAcceptance.schema.json
+ */
+export interface OcfStockAcceptanceTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being accepted */
+  security_id: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Warrant Acceptance Transaction Object describing a warrant acceptance transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/WarrantAcceptance.schema.json
+ */
+export interface OcfWarrantAcceptanceTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being accepted */
+  security_id: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Convertible Acceptance Transaction Object describing a convertible acceptance transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/ConvertibleAcceptance.schema.json
+ */
+export interface OcfConvertibleAcceptanceTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being accepted */
+  security_id: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Equity Compensation Acceptance Transaction Object describing an equity compensation acceptance transaction
+ * OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/EquityCompensationAcceptance.schema.json
+ */
+export interface OcfEquityCompensationAcceptanceTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being accepted */
+  security_id: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Retraction Transaction Types =====
+
+/**
+ * Object - Stock Retraction Transaction Object describing a stock retraction transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/StockRetraction.schema.json
+ */
+export interface OcfStockRetractionTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being retracted */
+  security_id: string;
+  /** Reason for the retraction */
+  reason_text: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Warrant Retraction Transaction Object describing a warrant retraction transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/WarrantRetraction.schema.json
+ */
+export interface OcfWarrantRetractionTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being retracted */
+  security_id: string;
+  /** Reason for the retraction */
+  reason_text: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Convertible Retraction Transaction Object describing a convertible retraction transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/ConvertibleRetraction.schema.json
+ */
+export interface OcfConvertibleRetractionTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being retracted */
+  security_id: string;
+  /** Reason for the retraction */
+  reason_text: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Equity Compensation Retraction Transaction Object describing an equity compensation retraction transaction
+ * OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/EquityCompensationRetraction.schema.json
+ */
+export interface OcfEquityCompensationRetractionTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being retracted */
+  security_id: string;
+  /** Reason for the retraction */
+  reason_text: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Exercise Transaction Types =====
+
+/**
+ * Object - Warrant Exercise Transaction Object describing a warrant exercise transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/exercise/WarrantExercise.schema.json
+ */
+export interface OcfWarrantExerciseTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the warrant security being exercised */
+  security_id: string;
+  /** Quantity of warrants being exercised */
+  quantity: string | number;
+  /** Array of identifiers for new securities resulting from the exercise */
+  resulting_security_ids: string[];
+  /** Identifier for the security that holds the remainder balance (for partial exercises) */
+  balance_security_id?: string;
+  /** Unstructured text description of consideration provided in exchange for security exercise */
+  consideration_text?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Conversion Transaction Types =====
+
+/**
+ * Object - Stock Conversion Transaction Object describing a stock conversion transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/conversion/StockConversion.schema.json
+ */
+export interface OcfStockConversionTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the stock security being converted */
+  security_id: string;
+  /** Quantity of stock being converted */
+  quantity: string | number;
+  /** Array of identifiers for new securities resulting from the conversion */
+  resulting_security_ids: string[];
+  /** Identifier for the security that holds the remainder balance (for partial conversions) */
+  balance_security_id?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Convertible Conversion Transaction Object describing a convertible conversion transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/conversion/ConvertibleConversion.schema.json
+ */
+export interface OcfConvertibleConversionTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the convertible security being converted */
+  security_id: string;
+  /** Array of identifiers for new securities resulting from the conversion */
+  resulting_security_ids: string[];
+  /** Identifier for the security that holds the remainder balance (for partial conversions) */
+  balance_security_id?: string;
+  /** Identifier of the trigger that caused conversion */
+  trigger_id?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Release Transaction Types =====
+
+/**
+ * Object - Equity Compensation Release Transaction Object describing an equity compensation release transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/release/EquityCompensationRelease.schema.json
+ */
+export interface OcfEquityCompensationReleaseTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the equity compensation security being released */
+  security_id: string;
+  /** Quantity of equity compensation being released */
+  quantity: string | number;
+  /** Array of identifiers for new securities resulting from the release */
+  resulting_security_ids: string[];
+  /** Identifier for the security that holds the remainder balance (for partial releases) */
+  balance_security_id?: string;
+  /** Settlement date for the release */
+  settlement_date?: string;
+  /** Unstructured text description of consideration provided */
+  consideration_text?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Vesting Transaction Types =====
+
+/**
+ * Object - Vesting Start Transaction Object describing the start of vesting for a security OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/vesting/VestingStart.schema.json
+ */
+export interface OcfVestingStartTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security whose vesting is starting */
+  security_id: string;
+  /** ID of the vesting condition that is satisfied by this vesting start event */
+  vesting_condition_id: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Vesting Event Transaction Object describing a vesting event for a security OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/vesting/VestingEvent.schema.json
+ */
+export interface OcfVestingEventTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security whose vesting event is occurring */
+  security_id: string;
+  /** ID of the vesting condition that is satisfied by this vesting event */
+  vesting_condition_id: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Vesting Acceleration Transaction Object describing a vesting acceleration for a security OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/vesting/VestingAcceleration.schema.json
+ */
+export interface OcfVestingAccelerationTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security whose vesting is being accelerated */
+  security_id: string;
+  /** Quantity of shares/units being accelerated */
+  quantity: string | number;
+  /** Reason for the vesting acceleration */
+  reason_text: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Stock Class Adjustment Transaction Types =====
+
+/**
+ * Object - Stock Class Split Transaction Object describing a stock class split transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/adjustment/StockClassSplit.schema.json
+ */
+export interface OcfStockClassSplitTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the stock class being split */
+  stock_class_id: string;
+  /** Split ratio - numerator (e.g., 2 for a 2-for-1 split) */
+  split_ratio_numerator: string | number;
+  /** Split ratio - denominator (e.g., 1 for a 2-for-1 split) */
+  split_ratio_denominator: string | number;
+  /** Date on which the board approved the split */
+  board_approval_date?: string;
+  /** Date on which stockholders approved the split */
+  stockholder_approval_date?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Stock Class Conversion Ratio Adjustment Transaction Object describing a conversion ratio adjustment OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/adjustment/StockClassConversionRatioAdjustment.schema.json
+ */
+export interface OcfStockClassConversionRatioAdjustmentTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the stock class whose conversion ratio is being adjusted */
+  stock_class_id: string;
+  /** New conversion ratio - numerator */
+  new_ratio_numerator: string | number;
+  /** New conversion ratio - denominator */
+  new_ratio_denominator: string | number;
+  /** Date on which the board approved the adjustment */
+  board_approval_date?: string;
+  /** Date on which stockholders approved the adjustment */
+  stockholder_approval_date?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Stock Plan Return To Pool Transaction Object describing shares returned to the stock plan pool OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/adjustment/StockPlanReturnToPool.schema.json
+ */
+export interface OcfStockPlanReturnToPoolTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the stock plan to which shares are being returned */
+  stock_plan_id: string;
+  /** Quantity of shares being returned to the pool */
+  quantity: string | number;
+  /** Reason for shares returning to pool */
+  reason_text: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Other Stock Transaction Types =====
+
+/**
+ * Object - Stock Reissuance Transaction Object describing a stock reissuance transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/reissuance/StockReissuance.schema.json
+ */
+export interface OcfStockReissuanceTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being reissued */
+  security_id: string;
+  /** Array of identifiers for new securities resulting from the reissuance */
+  resulting_security_ids: string[];
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Stock Consolidation Transaction Object describing a stock consolidation transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/consolidation/StockConsolidation.schema.json
+ */
+export interface OcfStockConsolidationTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Array of identifiers for securities being consolidated */
+  security_ids: string[];
+  /** Array of identifiers for new securities resulting from the consolidation */
+  resulting_security_ids: string[];
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Equity Compensation Repricing =====
+
+/**
+ * Object - Equity Compensation Repricing Transaction Object describing an equity compensation repricing transaction
+ * OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/repricing/EquityCompensationRepricing.schema.json
+ */
+export interface OcfEquityCompensationRepricingTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being repriced */
+  security_id: string;
+  /** Array of identifiers for new securities resulting from the repricing */
+  resulting_security_ids: string[];
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Plan Security Transaction Types =====
+
+/**
+ * Object - Plan Security Issuance Transaction Object describing a plan security issuance transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/PlanSecurityIssuance.schema.json
+ */
+export interface OcfPlanSecurityIssuanceTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the security being issued */
+  security_id: string;
+  /** A custom ID for this security */
+  custom_id: string;
+  /** Identifier for the stakeholder receiving the security */
+  stakeholder_id: string;
+  /** Identifier for the stock plan */
+  stock_plan_id: string;
+  /** Identifier for the stock class */
+  stock_class_id?: string;
+  /** Type of plan security */
+  plan_security_type: 'OPTION' | 'RSU' | 'OTHER';
+  /** Quantity of plan securities being issued */
+  quantity: string | number;
+  /** Exercise price per share/unit */
+  exercise_price?: Monetary;
+  /** Identifier for the vesting terms */
+  vesting_terms_id?: string;
+  /** Date on which the board approved the issuance */
+  board_approval_date?: string;
+  /** Date on which stockholders approved the issuance */
+  stockholder_approval_date?: string;
+  /** Unstructured text description of consideration */
+  consideration_text?: string;
+  /** Security law exemptions */
+  security_law_exemptions?: SecurityExemption[];
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Plan Security Exercise Transaction Object describing a plan security exercise transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/exercise/PlanSecurityExercise.schema.json
+ */
+export interface OcfPlanSecurityExerciseTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the plan security being exercised */
+  security_id: string;
+  /** Quantity being exercised */
+  quantity: string | number;
+  /** Array of identifiers for new securities resulting from the exercise */
+  resulting_security_ids: string[];
+  /** Identifier for the security that holds the remainder balance (for partial exercises) */
+  balance_security_id?: string;
+  /** Unstructured text description of consideration */
+  consideration_text?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Plan Security Cancellation Transaction Object describing a plan security cancellation transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/cancellation/PlanSecurityCancellation.schema.json
+ */
+export interface OcfPlanSecurityCancellationTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the plan security being cancelled */
+  security_id: string;
+  /** Quantity being cancelled */
+  quantity: string | number;
+  /** Identifier for the security that holds the remainder balance (for partial cancellations) */
+  balance_security_id?: string;
+  /** Reason for the cancellation */
+  reason_text: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Plan Security Acceptance Transaction Object describing a plan security acceptance transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/PlanSecurityAcceptance.schema.json
+ */
+export interface OcfPlanSecurityAcceptanceTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the plan security being accepted */
+  security_id: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Plan Security Release Transaction Object describing a plan security release transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/release/PlanSecurityRelease.schema.json
+ */
+export interface OcfPlanSecurityReleaseTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the plan security being released */
+  security_id: string;
+  /** Quantity being released */
+  quantity: string | number;
+  /** Array of identifiers for new securities resulting from the release */
+  resulting_security_ids: string[];
+  /** Identifier for the security that holds the remainder balance (for partial releases) */
+  balance_security_id?: string;
+  /** Settlement date for the release */
+  settlement_date?: string;
+  /** Unstructured text description of consideration */
+  consideration_text?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Plan Security Retraction Transaction Object describing a plan security retraction transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/PlanSecurityRetraction.schema.json
+ */
+export interface OcfPlanSecurityRetractionTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the plan security being retracted */
+  security_id: string;
+  /** Reason for the retraction */
+  reason_text: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Plan Security Transfer Transaction Object describing a plan security transfer transaction OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/PlanSecurityTransfer.schema.json
+ */
+export interface OcfPlanSecurityTransferTxData {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the transaction occurred */
+  date: string;
+  /** Identifier for the plan security being transferred */
+  security_id: string;
+  /** Quantity being transferred */
+  quantity: string | number;
+  /** Array of identifiers for new securities resulting from the transfer */
+  resulting_security_ids: string[];
+  /** Identifier for the security that holds the remainder balance (for partial transfers) */
+  balance_security_id?: string;
+  /** Unstructured text description of consideration */
+  consideration_text?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Financing Object Type =====
+
+/**
+ * Object - Financing Object describing a financing round OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Financing.schema.json
+ */
+export interface OcfFinancingData {
+  /** Identifier for the object */
+  id: string;
+  /** Name of the financing round */
+  round_name: string;
+  /** Date the financing round was announced or closed */
+  financing_date: string;
+  /** Type of financing round */
+  financing_type?:
+    | 'PRE_SEED'
+    | 'SEED'
+    | 'SERIES_A'
+    | 'SERIES_B'
+    | 'SERIES_C'
+    | 'SERIES_D'
+    | 'SERIES_E'
+    | 'SERIES_F'
+    | 'BRIDGE'
+    | 'CONVERTIBLE_NOTE'
+    | 'SAFE'
+    | 'OTHER';
+  /** Total amount raised in this financing round */
+  amount_raised?: Monetary;
+  /** Pre-money valuation */
+  pre_money_valuation?: Monetary;
+  /** Post-money valuation */
+  post_money_valuation?: Monetary;
+  /** Identifier for the stock class created or used in this financing */
+  stock_class_id?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
