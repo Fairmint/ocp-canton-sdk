@@ -28,6 +28,7 @@ import {
   equityCompensationIssuanceDataToDaml,
   issuerAuthorizedSharesAdjustmentDataToDaml,
   stockCancellationDataToDaml,
+  stockClassAuthorizedSharesAdjustmentDataToDaml,
   stockIssuanceDataToDaml,
   stockLegendTemplateDataToDaml,
   stockPlanDataToDaml,
@@ -1087,19 +1088,7 @@ export async function setupTestStockClassAuthorizedSharesAdjustment(
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
     choice: 'CreateStockClassAuthorizedSharesAdjustment',
     choiceArgument: {
-      adjustment_data: {
-        id: adjustmentData.id,
-        date: adjustmentData.date ? new Date(adjustmentData.date).toISOString() : new Date().toISOString(),
-        stock_class_id: adjustmentData.stock_class_id,
-        new_shares_authorized: adjustmentData.new_shares_authorized.toString(),
-        board_approval_date: adjustmentData.board_approval_date
-          ? new Date(adjustmentData.board_approval_date).toISOString()
-          : null,
-        stockholder_approval_date: adjustmentData.stockholder_approval_date
-          ? new Date(adjustmentData.stockholder_approval_date).toISOString()
-          : null,
-        comments: adjustmentData.comments ?? [],
-      },
+      adjustment_data: stockClassAuthorizedSharesAdjustmentDataToDaml(adjustmentData),
     },
   });
 
