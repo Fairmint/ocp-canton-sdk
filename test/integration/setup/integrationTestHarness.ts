@@ -64,7 +64,13 @@ interface HarnessState {
   initError: Error | null;
 }
 
-const state: HarnessState = {
+// Use global object to persist state across Jest's module isolation
+// This ensures the harness only initializes once even when running multiple test suites
+declare global {
+  var __integrationTestHarnessState: HarnessState | undefined;
+}
+
+const state: HarnessState = global.__integrationTestHarnessState ?? {
   ocp: null,
   issuerParty: null,
   systemOperatorParty: null,
@@ -75,6 +81,9 @@ const state: HarnessState = {
   initialized: false,
   initError: null,
 };
+
+// Store reference in global for persistence across module reloads
+global.__integrationTestHarnessState = state;
 
 /**
  * Initialize the test harness. Called once before all tests.
