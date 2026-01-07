@@ -936,6 +936,7 @@ export async function setupTestStockClass(
   const cmd = buildCreateStockClassCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     stockClassData,
   });
 
