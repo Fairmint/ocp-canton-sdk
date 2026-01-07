@@ -1,4 +1,4 @@
-import type { OcfWarrantCancellationTxData } from '../../../types';
+import type { OcfWarrantCancellation } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
 
 /**
@@ -7,7 +7,7 @@ import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } f
  * @param d - The native warrant cancellation data
  * @returns DAML-formatted warrant cancellation data
  */
-export function warrantCancellationDataToDaml(d: OcfWarrantCancellationTxData): Record<string, unknown> {
+export function warrantCancellationDataToDaml(d: OcfWarrantCancellation): Record<string, unknown> {
   return {
     id: d.id,
     security_id: d.security_id,

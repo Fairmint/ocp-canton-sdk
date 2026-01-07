@@ -6,7 +6,6 @@ import type {
   Email,
   EmailType,
   Name,
-  OcfStakeholderData,
   Phone,
   PhoneType,
   StakeholderType,
@@ -102,7 +101,7 @@ function damlStakeholderTypeToNative(
 
 function damlStakeholderDataToNative(
   damlData: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData
-): OcfStakeholderData {
+): Omit<OcfStakeholderOutput, 'object_type'> {
   const dAny = damlData as unknown as Record<string, unknown>;
   const nameData = dAny.name as Record<string, unknown> | undefined;
   const name: Name = {
@@ -134,7 +133,7 @@ function damlStakeholderDataToNative(
     ? (dAny.current_relationships as string[]).map((r) => mapRelBack(r) ?? 'OTHER')
     : [];
   const dataWithId = dAny as { id?: string };
-  const native: OcfStakeholderData = {
+  const native: Omit<OcfStakeholderOutput, 'object_type'> = {
     id: dataWithId.id ?? '',
     name,
     stakeholder_type: damlStakeholderTypeToNative(damlData.stakeholder_type),
@@ -180,11 +179,11 @@ function damlStakeholderDataToNative(
     ...(Array.isArray((dAny as { comments?: unknown }).comments) && (dAny as { comments: string[] }).comments.length > 0
       ? { comments: (dAny as { comments: string[] }).comments }
       : {}),
-  } as OcfStakeholderData;
+  } as Omit<OcfStakeholderOutput, 'object_type'>;
   return native;
 }
 
-export interface OcfStakeholder {
+interface OcfStakeholderOutput {
   object_type: 'STAKEHOLDER';
   id?: string;
   name: { legal_name: string; first_name?: string; last_name?: string };
@@ -223,7 +222,7 @@ export interface GetStakeholderAsOcfParams {
 }
 
 export interface GetStakeholderAsOcfResult {
-  stakeholder: OcfStakeholder;
+  stakeholder: OcfStakeholderOutput;
   contractId: string;
 }
 
@@ -260,11 +259,11 @@ export async function getStakeholderAsOcf(
 
   const native = damlStakeholderDataToNative(createArgument.stakeholder_data);
 
-  const ocfStakeholder: OcfStakeholder = {
+  const ocfStakeholder: OcfStakeholderOutput = {
     object_type: 'STAKEHOLDER',
     ...native,
-    addresses: native.addresses ?? [],
-    tax_ids: native.tax_ids ?? [],
+    addresses: native.addresses,
+    tax_ids: native.tax_ids,
   };
 
   return { stakeholder: ocfStakeholder, contractId: params.contractId };

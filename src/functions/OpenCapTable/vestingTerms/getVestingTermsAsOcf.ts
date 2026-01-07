@@ -1,11 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type {
-  AllocationType,
-  VestingCondition,
-  VestingConditionPortion,
-  VestingTermsOcfData,
-} from '../../../types/native';
+import type { AllocationType, VestingCondition, VestingConditionPortion } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
@@ -217,7 +212,7 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
 
 function damlVestingTermsDataToNative(
   d: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
-): VestingTermsOcfData {
+): Omit<OcfVestingTermsOutput, 'object_type'> {
   const dataWithId = d as unknown as { id?: string };
   return {
     id: dataWithId.id ?? '',
@@ -231,7 +226,7 @@ function damlVestingTermsDataToNative(
   };
 }
 
-export interface OcfVestingTerms {
+interface OcfVestingTermsOutput {
   object_type: 'VESTING_TERMS';
   id?: string;
   name: string;
@@ -246,7 +241,7 @@ export interface GetVestingTermsAsOcfParams {
 }
 
 export interface GetVestingTermsAsOcfResult {
-  vestingTerms: OcfVestingTerms;
+  vestingTerms: OcfVestingTermsOutput;
   contractId: string;
 }
 
@@ -282,7 +277,7 @@ export async function getVestingTermsAsOcf(
 
   const native = damlVestingTermsDataToNative(createArgument.vesting_terms_data);
 
-  const ocf: OcfVestingTerms = {
+  const ocf: OcfVestingTermsOutput = {
     object_type: 'VESTING_TERMS',
     ...native,
   };

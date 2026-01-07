@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { StockPlanCancellationBehavior, StockPlanOcfData } from '../../../types/native';
+import type { StockPlanCancellationBehavior } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehavior | undefined {
@@ -18,7 +18,9 @@ function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehav
   }
 }
 
-function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData): StockPlanOcfData {
+function damlStockPlanDataToNative(
+  d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData
+): Omit<OcfStockPlanOutput, 'object_type'> {
   const dataWithId = d as unknown as { id?: string };
   return {
     id: dataWithId.id ?? '',
@@ -42,7 +44,7 @@ function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockP
   };
 }
 
-export interface OcfStockPlan {
+interface OcfStockPlanOutput {
   object_type: 'STOCK_PLAN';
   id?: string;
   plan_name: string;
@@ -50,6 +52,7 @@ export interface OcfStockPlan {
   board_approval_date?: string;
   stockholder_approval_date?: string;
   default_cancellation_behavior?: string;
+  stock_class_ids?: string[];
   comments?: string[];
 }
 
@@ -58,7 +61,7 @@ export interface GetStockPlanAsOcfParams {
 }
 
 export interface GetStockPlanAsOcfResult {
-  stockPlan: OcfStockPlan;
+  stockPlan: OcfStockPlanOutput;
   contractId: string;
 }
 
@@ -85,7 +88,7 @@ export async function getStockPlanAsOcf(
     createArgument.plan_data as Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData
   );
 
-  const ocf: OcfStockPlan = {
+  const ocf: OcfStockPlanOutput = {
     object_type: 'STOCK_PLAN',
     ...native,
   };

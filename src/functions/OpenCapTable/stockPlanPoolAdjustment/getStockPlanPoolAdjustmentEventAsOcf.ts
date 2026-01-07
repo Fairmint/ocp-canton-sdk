@@ -33,17 +33,21 @@ export async function getStockPlanPoolAdjustmentEventAsOcf(
   const contract = res.created.createdEvent.createArgument as StockPlanPoolAdjustmentCreateArgument;
   const data = contract.adjustment_data;
 
+  // Convert shares_reserved to string for normalization (DAML Numeric may come as number at runtime)
+  const sharesReserved = data.shares_reserved as string | number;
+  const sharesReservedStr = typeof sharesReserved === 'number' ? sharesReserved.toString() : sharesReserved;
+
   const event: OcfStockPlanPoolAdjustmentEvent = {
     object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
     id: data.id,
     date: data.date.split('T')[0],
     stock_plan_id: data.stock_plan_id,
-    shares_reserved: normalizeNumericString(data.shares_reserved),
+    shares_reserved: normalizeNumericString(sharesReservedStr),
     ...(data.board_approval_date ? { board_approval_date: data.board_approval_date.split('T')[0] } : {}),
     ...(data.stockholder_approval_date
       ? { stockholder_approval_date: data.stockholder_approval_date.split('T')[0] }
       : {}),
-    ...(data.comments.length ? { comments: data.comments } : {}),
+    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
   return { event, contractId: params.contractId };
 }

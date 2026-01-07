@@ -1,7 +1,7 @@
-import type { OcfEquityCompensationExerciseTxData } from '../../../types';
+import type { OcfEquityCompensationExercise } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
 
-export function equityCompensationExerciseDataToDaml(d: OcfEquityCompensationExerciseTxData): Record<string, unknown> {
+export function equityCompensationExerciseDataToDaml(d: OcfEquityCompensationExercise): Record<string, unknown> {
   return {
     id: d.id,
     security_id: d.security_id,

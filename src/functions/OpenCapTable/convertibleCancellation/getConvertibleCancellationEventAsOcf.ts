@@ -58,7 +58,7 @@ export async function getConvertibleCancellationEventAsOcf(
     security_id: data.security_id,
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
     reason_text: data.reason_text,
-    ...(data.comments.length ? { comments: data.comments } : {}),
+    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
   return { event, contractId: params.contractId };
 }

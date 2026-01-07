@@ -1,21 +1,22 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { StockLegendTemplateOcfData } from '../../../types/native';
 
 /** Type alias for DAML StockLegendTemplate contract createArgument */
 type StockLegendTemplateCreateArgument = Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplate;
 type DamlStockLegendTemplateOcfData = Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData;
 
-function damlStockLegendTemplateDataToNative(damlData: DamlStockLegendTemplateOcfData): StockLegendTemplateOcfData {
+function damlStockLegendTemplateDataToNative(
+  damlData: DamlStockLegendTemplateOcfData
+): Omit<OcfStockLegendTemplateOutput, 'object_type'> {
   return {
     id: damlData.id,
     name: damlData.name,
     text: damlData.text,
-    comments: damlData.comments,
+    ...(Array.isArray(damlData.comments) && damlData.comments.length ? { comments: damlData.comments } : {}),
   };
 }
 
-export interface OcfStockLegendTemplate {
+interface OcfStockLegendTemplateOutput {
   object_type: 'STOCK_LEGEND_TEMPLATE';
   id?: string;
   name: string;
@@ -28,7 +29,7 @@ export interface GetStockLegendTemplateAsOcfParams {
 }
 
 export interface GetStockLegendTemplateAsOcfResult {
-  stockLegendTemplate: OcfStockLegendTemplate;
+  stockLegendTemplate: OcfStockLegendTemplateOutput;
   contractId: string;
 }
 
@@ -43,7 +44,7 @@ export async function getStockLegendTemplateAsOcf(
   const contract = eventsResponse.created.createdEvent.createArgument as StockLegendTemplateCreateArgument;
   const native = damlStockLegendTemplateDataToNative(contract.template_data);
 
-  const ocf: OcfStockLegendTemplate = {
+  const ocf: OcfStockLegendTemplateOutput = {
     object_type: 'STOCK_LEGEND_TEMPLATE',
     ...native,
   };

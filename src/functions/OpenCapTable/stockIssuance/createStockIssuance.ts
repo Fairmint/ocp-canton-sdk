@@ -1,4 +1,4 @@
-import type { StockIssuanceOcfData, StockIssuanceType } from '../../../types';
+import type { OcfStockIssuance, StockIssuanceType } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -19,7 +19,7 @@ function getIssuanceType(t: StockIssuanceType | undefined): string | null {
   }
 }
 
-export function stockIssuanceDataToDaml(d: StockIssuanceOcfData): Record<string, unknown> {
+export function stockIssuanceDataToDaml(d: OcfStockIssuance): Record<string, unknown> {
   if (!d.id) throw new Error('stockIssuance.id is required');
   if (!d.security_id) throw new Error('stockIssuance.security_id is required');
   if (!d.custom_id) throw new Error('stockIssuance.custom_id is required');

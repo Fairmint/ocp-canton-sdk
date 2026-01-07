@@ -34,17 +34,22 @@ export async function getStockClassAuthorizedSharesAdjustmentEventAsOcf(
   const contract = res.created.createdEvent.createArgument as StockClassAuthorizedSharesAdjustmentCreateArgument;
   const data = contract.adjustment_data;
 
+  // Convert new_shares_authorized to string for normalization (DAML Numeric may come as number at runtime)
+  const newSharesAuthorized = data.new_shares_authorized as string | number;
+  const newSharesAuthorizedStr =
+    typeof newSharesAuthorized === 'number' ? newSharesAuthorized.toString() : newSharesAuthorized;
+
   const event: OcfStockClassAuthorizedSharesAdjustmentEvent = {
     object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
     id: data.id,
     date: data.date.split('T')[0],
     stock_class_id: data.stock_class_id,
-    new_shares_authorized: normalizeNumericString(data.new_shares_authorized),
+    new_shares_authorized: normalizeNumericString(newSharesAuthorizedStr),
     ...(data.board_approval_date ? { board_approval_date: data.board_approval_date.split('T')[0] } : {}),
     ...(data.stockholder_approval_date
       ? { stockholder_approval_date: data.stockholder_approval_date.split('T')[0] }
       : {}),
-    ...(data.comments.length ? { comments: data.comments } : {}),
+    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
   return { event, contractId: params.contractId };
 }

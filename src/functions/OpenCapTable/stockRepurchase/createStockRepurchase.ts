@@ -1,5 +1,5 @@
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import type { CommandWithDisclosedContracts, OcfStockRepurchaseTxData } from '../../../types';
+import type { CommandWithDisclosedContracts, OcfStockRepurchase } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -9,7 +9,7 @@ import {
 } from '../../../utils/typeConversions';
 import { buildCapTableCommand } from '../capTable';
 
-export function stockRepurchaseDataToDaml(d: OcfStockRepurchaseTxData): Record<string, unknown> {
+export function stockRepurchaseDataToDaml(d: OcfStockRepurchase): Record<string, unknown> {
   // Validate required fields
   if (!d.id) {
     throw new Error('repurchaseData.id is required');
@@ -36,7 +36,7 @@ export function stockRepurchaseDataToDaml(d: OcfStockRepurchaseTxData): Record<s
 export interface CreateStockRepurchaseParams {
   capTableContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
-  stockRepurchaseData: OcfStockRepurchaseTxData;
+  stockRepurchaseData: OcfStockRepurchase;
 }
 
 export function buildCreateStockRepurchaseCommand(params: CreateStockRepurchaseParams): CommandWithDisclosedContracts {

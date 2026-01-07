@@ -38,15 +38,19 @@ export async function getStockCancellationEventAsOcf(
   const contract = res.created.createdEvent.createArgument as StockCancellationCreateArgument;
   const data = contract.cancellation_data;
 
+  // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)
+  const quantity = data.quantity as string | number;
+  const quantityStr = typeof quantity === 'number' ? quantity.toString() : quantity;
+
   const event: OcfStockCancellationEvent = {
     object_type: 'TX_STOCK_CANCELLATION',
     id: data.id,
     date: data.date.split('T')[0],
     security_id: data.security_id,
-    quantity: normalizeNumericString(data.quantity),
+    quantity: normalizeNumericString(quantityStr),
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
     reason_text: data.reason_text,
-    ...(data.comments.length ? { comments: data.comments } : {}),
+    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
   return { event, contractId: params.contractId };
 }

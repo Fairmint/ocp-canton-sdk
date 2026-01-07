@@ -2,9 +2,9 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   Monetary,
+  OcfStockIssuance,
   SecurityExemption,
   ShareNumberRange,
-  StockIssuanceOcfData,
   StockIssuanceType,
 } from '../../../types/native';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
@@ -33,7 +33,7 @@ function damlStockIssuanceTypeToNative(t: string): StockIssuanceType | undefined
 
 function damlStockIssuanceDataToNative(
   d: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData
-): StockIssuanceOcfData {
+): OcfStockIssuance {
   const anyD = d as unknown as Record<string, unknown>;
   const dataWithId = anyD as { id?: string };
   return {
@@ -91,7 +91,7 @@ export interface GetStockIssuanceAsOcfParams {
 
 export interface GetStockIssuanceAsOcfResult {
   contractId: string;
-  stockIssuance: Partial<StockIssuanceOcfData> & {
+  stockIssuance: Partial<OcfStockIssuance> & {
     object_type: 'TX_STOCK_ISSUANCE';
     id: string;
     date: string;

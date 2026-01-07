@@ -1,5 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { AllocationType, VestingCondition, VestingConditionPortion, VestingTermsOcfData } from '../../../types';
+import type { AllocationType, OcfVestingTerms, VestingCondition, VestingConditionPortion } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 
 function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType {
@@ -212,7 +212,7 @@ function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.OCF.
   };
 }
 
-export function vestingTermsDataToDaml(d: VestingTermsOcfData): Record<string, unknown> {
+export function vestingTermsDataToDaml(d: OcfVestingTerms): Record<string, unknown> {
   if (!d.id) throw new Error('vestingTerms.id is required');
 
   const damlData: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData = {

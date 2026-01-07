@@ -1,7 +1,7 @@
-import type { OcfStockCancellationTxData } from '../../../types';
+import type { OcfStockCancellation } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
 
-export function stockCancellationDataToDaml(d: OcfStockCancellationTxData): Record<string, unknown> {
+export function stockCancellationDataToDaml(d: OcfStockCancellation): Record<string, unknown> {
   return {
     id: d.id,
     security_id: d.security_id,

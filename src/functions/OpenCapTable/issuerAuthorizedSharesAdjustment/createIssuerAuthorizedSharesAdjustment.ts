@@ -1,8 +1,8 @@
-import type { OcfIssuerAuthorizedSharesAdjustmentTxData } from '../../../types';
+import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString } from '../../../utils/typeConversions';
 
 export function issuerAuthorizedSharesAdjustmentDataToDaml(
-  d: OcfIssuerAuthorizedSharesAdjustmentTxData
+  d: OcfIssuerAuthorizedSharesAdjustment
 ): Record<string, unknown> {
   return {
     id: d.id,

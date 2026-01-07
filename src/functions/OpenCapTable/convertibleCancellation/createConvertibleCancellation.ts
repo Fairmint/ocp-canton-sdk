@@ -1,4 +1,4 @@
-import type { OcfConvertibleCancellationTxData } from '../../../types';
+import type { OcfConvertibleCancellation } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 
 /**
@@ -10,7 +10,7 @@ import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../ut
  * @param d - The native convertible cancellation data
  * @returns DAML-formatted convertible cancellation data
  */
-export function convertibleCancellationDataToDaml(d: OcfConvertibleCancellationTxData): Record<string, unknown> {
+export function convertibleCancellationDataToDaml(d: OcfConvertibleCancellation): Record<string, unknown> {
   return {
     id: d.id,
     security_id: d.security_id,

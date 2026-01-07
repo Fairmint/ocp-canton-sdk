@@ -1,4 +1,4 @@
-import type { StockClassOcfData, StockClassType } from '../../../types';
+import type { OcfStockClass, StockClassType } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, monetaryToDaml } from '../../../utils/typeConversions';
 
 function stockClassTypeToDaml(
@@ -16,7 +16,7 @@ function stockClassTypeToDaml(
   }
 }
 
-export function stockClassDataToDaml(stockClassData: StockClassOcfData): Record<string, unknown> {
+export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<string, unknown> {
   const d = stockClassData;
   if (!d.id) throw new Error('stockClassData.id is required');
   return {
