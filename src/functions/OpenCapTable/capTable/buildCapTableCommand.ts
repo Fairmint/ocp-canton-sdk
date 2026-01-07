@@ -13,6 +13,7 @@ import type { CommandWithDisclosedContracts } from '../../../types';
 export function buildCapTableCommand(params: {
   capTableContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
+  capTableContractDetails?: DisclosedContract;
   choice: string;
   choiceArgument: Record<string, unknown>;
 }): CommandWithDisclosedContracts {
@@ -36,6 +37,16 @@ export function buildCapTableCommand(params: {
       synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
     },
   ];
+
+  // Include CapTable contract in disclosed contracts if provided
+  if (params.capTableContractDetails) {
+    disclosedContracts.push({
+      templateId: params.capTableContractDetails.templateId,
+      contractId: params.capTableContractDetails.contractId,
+      createdEventBlob: params.capTableContractDetails.createdEventBlob,
+      synchronizerId: params.capTableContractDetails.synchronizerId,
+    });
+  }
 
   return { command, disclosedContracts };
 }

@@ -69,6 +69,8 @@ export interface TestIssuerSetup {
   issuerAuthorizationContractDetails: DisclosedContract;
   /** The featured app right contract details */
   featuredAppRightContractDetails: DisclosedContract;
+  /** The CapTable contract details (needed for disclosed contracts when exercising choices) */
+  capTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stakeholder. */
@@ -830,11 +832,26 @@ export async function setupTestIssuer(
     throw new Error('Failed to extract issuer contract ID from transaction result');
   }
 
+  // Get the CapTable contract's createdEventBlob for use in disclosed contracts
+  // This is needed when exercising choices on the CapTable
+  const capTableEvents = await ocp.client.getEventsByContractId({ contractId: issuerContractId });
+  if (!capTableEvents.created?.createdEvent) {
+    throw new Error('Failed to get CapTable contract created event');
+  }
+
+  const capTableContractDetails: DisclosedContract = {
+    templateId: capTableEvents.created.createdEvent.templateId,
+    contractId: issuerContractId,
+    createdEventBlob: capTableEvents.created.createdEvent.createdEventBlob,
+    synchronizerId: featuredAppRightContractDetails.synchronizerId,
+  };
+
   return {
     issuerContractId,
     issuerData,
     issuerAuthorizationContractDetails,
     featuredAppRightContractDetails,
+    capTableContractDetails,
   };
 }
 
@@ -854,6 +871,8 @@ export async function setupTestStakeholder(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** Optional stakeholder data overrides */
     stakeholderData?: Partial<OcfStakeholder>;
   }
@@ -863,6 +882,7 @@ export async function setupTestStakeholder(
   const cmd = buildCreateStakeholderCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     stakeholderData,
   });
 

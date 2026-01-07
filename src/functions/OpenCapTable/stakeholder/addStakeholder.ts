@@ -1,8 +1,5 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type {
   CommandWithDisclosedContracts,
   ContactInfo,
@@ -14,6 +11,7 @@ import type {
   StakeholderType,
 } from '../../../types';
 import { addressToDaml, cleanComments, optionalString } from '../../../utils/typeConversions';
+import { buildCapTableCommand } from '../capTable';
 
 function stakeholderTypeToDaml(
   stakeholderType: StakeholderType
@@ -168,6 +166,7 @@ export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTab
 export interface CreateStakeholderParams {
   capTableContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
+  capTableContractDetails?: DisclosedContract;
   stakeholderData: OcfStakeholder;
 }
 
@@ -178,27 +177,13 @@ export function buildCreateStakeholderCommand(params: CreateStakeholderParams): 
   const { current_status, ...restData } = damlData;
   const stakeholderDataForJson = current_status === null ? restData : damlData;
 
-  const choiceArguments = {
-    stakeholder_data: stakeholderDataForJson,
-  };
-
-  const command: Command = {
-    ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.CapTable.CapTable.templateId,
-      contractId: params.capTableContractId,
-      choice: 'CreateStakeholder',
-      choiceArgument: choiceArguments,
+  return buildCapTableCommand({
+    capTableContractId: params.capTableContractId,
+    featuredAppRightContractDetails: params.featuredAppRightContractDetails,
+    capTableContractDetails: params.capTableContractDetails,
+    choice: 'CreateStakeholder',
+    choiceArgument: {
+      stakeholder_data: stakeholderDataForJson,
     },
-  };
-
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  return { command, disclosedContracts };
+  });
 }
