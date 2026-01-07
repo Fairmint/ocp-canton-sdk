@@ -206,6 +206,7 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
     const deleteCmd = ctx.ocp.OpenCapTable.stockClass.buildDeleteStockClassCommand({
       capTableContractId: issuerSetup.issuerContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassId: stockClassSetup.stockClassData.id,
     });
 

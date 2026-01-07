@@ -62,6 +62,7 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassId: stockClassSetup.stockClassData.id,
       adjustmentData: {
         id: generateTestId('adjustment-ocf-test'),
@@ -101,6 +102,7 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
     const originalData = createTestStockClassAuthorizedSharesAdjustmentData(stockClassSetup.stockClassData.id, {
@@ -115,6 +117,7 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassId: stockClassSetup.stockClassData.id,
       adjustmentData: originalData,
     });
@@ -166,6 +169,7 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassId: stockClassSetup.stockClassData.id,
       adjustmentData: {
         id: generateTestId('adjustment-reference-test'),
@@ -201,12 +205,14 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
     const adjustmentSetup = await setupTestStockClassAuthorizedSharesAdjustment(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassId: stockClassSetup.stockClassData.id,
       adjustmentData: {
         id: generateTestId('adjustment-archive-test'),
@@ -233,6 +239,7 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
     // Create adjustment with all optional fields populated
@@ -240,6 +247,7 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassId: stockClassSetup.stockClassData.id,
       adjustmentData: {
         id: generateTestId('adjustment-full-fields'),

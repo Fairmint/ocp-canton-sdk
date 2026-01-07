@@ -70,6 +70,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
@@ -147,6 +148,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
@@ -227,6 +229,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
@@ -253,6 +256,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
     const deleteCmd = ctx.ocp.OpenCapTable.stockRepurchase.buildDeleteStockRepurchaseCommand({
       capTableContractId: issuerSetup.issuerContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockRepurchaseId: repurchaseSetup.stockRepurchaseData.id,
     });
 

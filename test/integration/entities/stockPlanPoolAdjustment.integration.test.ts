@@ -56,6 +56,7 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-for-pool-adj'),
@@ -116,6 +117,7 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-for-pool-adj-rt'),
@@ -179,6 +181,7 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-for-pool-adj-archive'),

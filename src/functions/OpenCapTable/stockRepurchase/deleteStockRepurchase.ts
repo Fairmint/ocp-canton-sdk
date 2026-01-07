@@ -5,6 +5,7 @@ import { buildCapTableCommand } from '../capTable';
 export interface DeleteStockRepurchaseParams {
   capTableContractId: string;
   featuredAppRightContractDetails: DisclosedContract;
+  capTableContractDetails?: DisclosedContract;
   stockRepurchaseId: string;
 }
 
@@ -12,6 +13,7 @@ export function buildDeleteStockRepurchaseCommand(params: DeleteStockRepurchaseP
   return buildCapTableCommand({
     capTableContractId: params.capTableContractId,
     featuredAppRightContractDetails: params.featuredAppRightContractDetails,
+    capTableContractDetails: params.capTableContractDetails,
     choice: 'DeleteStockRepurchase',
     choiceArgument: {
       id: params.stockRepurchaseId,

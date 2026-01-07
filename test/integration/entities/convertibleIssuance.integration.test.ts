@@ -52,6 +52,7 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       convertibleIssuanceData: {
         id: generateTestId('safe-ocf-test'),
@@ -98,6 +99,7 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       convertibleIssuanceData: {
         id: generateTestId('note-ocf-test'),
@@ -152,6 +154,7 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       convertibleIssuanceData: originalData,
     });
@@ -194,6 +197,7 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       convertibleIssuanceData: {
         id: generateTestId('convertible-archive-test'),

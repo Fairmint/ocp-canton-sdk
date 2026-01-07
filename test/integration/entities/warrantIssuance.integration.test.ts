@@ -51,6 +51,7 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       warrantIssuanceData: {
         id: generateTestId('warrant-ocf-test'),
@@ -104,6 +105,7 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       warrantIssuanceData: originalData,
     });
@@ -144,6 +146,7 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       warrantIssuanceData: {
         id: generateTestId('warrant-archive-test'),

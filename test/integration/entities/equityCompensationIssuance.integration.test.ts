@@ -70,6 +70,7 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-for-ec'),
@@ -82,6 +83,7 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockPlanId: planSetup.stockPlanData.id,
       stockClassId: stockClassSetup.stockClassData.id,
@@ -138,6 +140,7 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       equityCompensationIssuanceData: originalData,
     });
@@ -178,6 +181,7 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       equityCompensationIssuanceData: {
         id: generateTestId('rsu-test'),
@@ -222,6 +226,7 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       equityCompensationIssuanceData: {
         id: generateTestId('ec-archive-test'),

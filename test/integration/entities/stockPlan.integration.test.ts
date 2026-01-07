@@ -55,6 +55,7 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-ocf-test'),
@@ -111,6 +112,7 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: originalData,
     });
@@ -155,6 +157,7 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-archive-test'),
