@@ -46,16 +46,10 @@ export function buildCapTableCommand(params: {
     },
   ];
 
-  // Include CapTable contract in disclosed contracts if provided
-  // This is necessary for Canton to validate the contract being exercised
-  if (params.capTableContractDetails) {
-    disclosedContracts.push({
-      templateId: params.capTableContractDetails.templateId,
-      contractId: params.capTableContractDetails.contractId,
-      createdEventBlob: params.capTableContractDetails.createdEventBlob,
-      synchronizerId: params.capTableContractDetails.synchronizerId,
-    });
-  }
+  // NOTE: We do NOT include the CapTable contract being exercised in disclosed contracts.
+  // Canton automatically has visibility into contracts being exercised via ExerciseCommand.
+  // Disclosed contracts are for contracts that are REFERENCED but not directly exercised.
+  // However, we still use capTableContractDetails to get the correct templateId for the command.
 
   return { command, disclosedContracts };
 }
