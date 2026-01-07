@@ -172,9 +172,7 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
     await validateOcfObject(ocfResult.stockClass as unknown as Record<string, unknown>);
   });
 
-  // TODO: Archive test requires buildDeleteStockClassCommand to be exposed in OcpClient
-  // See: src/functions/OpenCapTable/stockClass/deleteStockClass.ts
-  test.skip('archives stock class', async () => {
+  test('deletes stock class', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -189,29 +187,33 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stockClassData: {
-        id: generateTestId('stock-class-archive-test'),
-        name: 'Stock To Archive',
+        id: generateTestId('stock-class-delete-test'),
+        name: 'Stock To Delete',
         class_type: 'COMMON',
-        default_id_prefix: 'STA-',
+        default_id_prefix: 'STD-',
         initial_shares_authorized: '1000000',
         votes_per_share: '1',
         seniority: '1',
       },
     });
 
-    // Build and execute archive command
-    // const archiveCmd = ctx.ocp.OpenCapTable.stockClass.buildArchiveStockClassByIssuerCommand({
-    //   contractId: stockClassSetup.stockClassContractId,
-    // });
+    // Build and execute delete command
+    const deleteCmd = ctx.ocp.OpenCapTable.stockClass.buildDeleteStockClassCommand({
+      capTableContractId: issuerSetup.issuerContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stockClassId: stockClassSetup.stockClassData.id,
+    });
 
-    // await ctx.ocp.client.submitAndWaitForTransactionTree({
-    //   commands: [archiveCmd],
-    //   actAs: [ctx.issuerParty],
-    // });
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
 
-    // Verify the contract is archived by trying to read it
-    // getEventsByContractId should still work but the contract is archived
-    // This test validates that the archive operation succeeds without error
-    expect(stockClassSetup.stockClassContractId).toBeDefined();
+    await ctx.ocp.client.submitAndWaitForTransactionTree({
+      commands: [deleteCmd.command],
+      actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
+    });
+
+    // Delete operation succeeded if no error thrown
   });
 });

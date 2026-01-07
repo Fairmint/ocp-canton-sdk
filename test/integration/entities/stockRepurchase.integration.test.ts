@@ -179,8 +179,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
     expect(ocfResult.event.consideration_text).toBe(originalData.consideration_text);
   });
 
-  // TODO: Archive test requires delete command to be exposed in OcpClient
-  test.skip('archives stock repurchase', async () => {
+  test('deletes stock repurchase', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -195,8 +194,8 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stakeholderData: {
-        id: generateTestId('stakeholder-for-repurchase-archive'),
-        name: { legal_name: 'Archive Repurchase Shareholder' },
+        id: generateTestId('stakeholder-for-repurchase-delete'),
+        name: { legal_name: 'Delete Repurchase Shareholder' },
         stakeholder_type: 'INDIVIDUAL',
       },
     });
@@ -206,7 +205,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stockClassData: {
-        id: generateTestId('stock-class-for-repurchase-archive'),
+        id: generateTestId('stock-class-for-repurchase-delete'),
         name: 'Common Stock',
         class_type: 'COMMON',
         default_id_prefix: 'CS-',
@@ -223,7 +222,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
-        id: generateTestId('issuance-for-repurchase-archive'),
+        id: generateTestId('issuance-for-repurchase-delete'),
         quantity: '100000',
         share_price: { amount: '1.00', currency: 'USD' },
       },
@@ -236,12 +235,28 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '10000',
       stockRepurchaseData: {
-        id: generateTestId('repurchase-archive-test'),
+        id: generateTestId('repurchase-delete-test'),
         price: { amount: '1.25', currency: 'USD' },
       },
     });
 
-    // Archive operation not yet exposed in OcpClient
-    expect(repurchaseSetup.stockRepurchaseContractId).toBeDefined();
+    // Build and execute delete command
+    const deleteCmd = ctx.ocp.OpenCapTable.stockRepurchase.buildDeleteStockRepurchaseCommand({
+      capTableContractId: issuerSetup.issuerContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stockRepurchaseId: repurchaseSetup.stockRepurchaseData.id,
+    });
+
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
+
+    await ctx.ocp.client.submitAndWaitForTransactionTree({
+      commands: [deleteCmd.command],
+      actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
+    });
+
+    // Delete operation succeeded if no error thrown
   });
 });
