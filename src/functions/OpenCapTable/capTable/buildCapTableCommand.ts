@@ -20,9 +20,17 @@ export function buildCapTableCommand(params: {
   // Use explicit any for choiceArgument since the SDK Command type requires a specific shape
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const choiceArg = params.choiceArgument as any;
+
+  // Use the templateId from capTableContractDetails when provided (from actual ledger),
+  // otherwise fall back to the DAML-JS package's hardcoded templateId.
+  // This prevents WRONGLY_TYPED_CONTRACT errors when the deployed packages have
+  // different package IDs than the DAML-JS package.
+  const capTableTemplateId =
+    params.capTableContractDetails?.templateId ?? Fairmint.OpenCapTable.CapTable.CapTable.templateId;
+
   const command: Command = {
     ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.CapTable.CapTable.templateId,
+      templateId: capTableTemplateId,
       contractId: params.capTableContractId,
       choice: params.choice,
       choiceArgument: choiceArg,
