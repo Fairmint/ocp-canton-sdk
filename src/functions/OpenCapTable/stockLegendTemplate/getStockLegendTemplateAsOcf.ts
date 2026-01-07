@@ -8,6 +8,12 @@ type DamlStockLegendTemplateOcfData = Fairmint.OpenCapTable.OCF.StockLegendTempl
 function damlStockLegendTemplateDataToNative(
   damlData: DamlStockLegendTemplateOcfData
 ): Omit<OcfStockLegendTemplateOutput, 'object_type'> {
+  if (!damlData.name) {
+    throw new Error('stockLegendTemplate.name is required');
+  }
+  if (!damlData.text) {
+    throw new Error('stockLegendTemplate.text is required');
+  }
   return {
     id: damlData.id,
     name: damlData.name,
