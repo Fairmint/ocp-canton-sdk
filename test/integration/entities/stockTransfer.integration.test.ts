@@ -41,6 +41,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-transfer'),
         name: { legal_name: 'Transfer Shareholder' },
@@ -52,6 +53,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-transfer'),
         name: 'Common Stock',
@@ -82,6 +84,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '25000',
       stockTransferData: {
@@ -113,6 +116,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-transfer-rt'),
         name: { legal_name: 'Roundtrip Transfer Shareholder' },
@@ -124,6 +128,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-transfer-rt'),
         name: 'Common Stock',
@@ -158,6 +163,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '50000',
       stockTransferData: originalData,
@@ -187,6 +193,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-transfer-archive'),
         name: { legal_name: 'Archive Transfer Shareholder' },
@@ -198,6 +205,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-transfer-archive'),
         name: 'Common Stock',
@@ -226,6 +234,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '10000',
       stockTransferData: {

@@ -41,6 +41,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-repurchase'),
         name: { legal_name: 'Repurchase Shareholder' },
@@ -52,6 +53,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-repurchase'),
         name: 'Common Stock',
@@ -82,6 +84,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '25000',
       stockRepurchaseData: {
@@ -116,6 +119,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-repurchase-rt'),
         name: { legal_name: 'Roundtrip Repurchase Shareholder' },
@@ -127,6 +131,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-repurchase-rt'),
         name: 'Common Stock',
@@ -162,6 +167,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '50000',
       stockRepurchaseData: originalData,
@@ -193,6 +199,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-repurchase-delete'),
         name: { legal_name: 'Delete Repurchase Shareholder' },
@@ -204,6 +211,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-repurchase-delete'),
         name: 'Common Stock',
@@ -232,6 +240,7 @@ createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '10000',
       stockRepurchaseData: {

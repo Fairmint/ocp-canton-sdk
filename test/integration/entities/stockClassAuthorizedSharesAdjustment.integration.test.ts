@@ -45,6 +45,7 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-adjustment'),
         name: 'Common Stock',
@@ -149,6 +150,7 @@ createIntegrationTestSuite('StockClassAuthorizedSharesAdjustment operations', (g
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: stockClassId,
         name: 'Specific Stock Class',

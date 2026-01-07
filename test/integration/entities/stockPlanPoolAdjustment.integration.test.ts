@@ -40,6 +40,7 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-pool-adj'),
         name: 'Common Stock',
@@ -67,6 +68,7 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockPlanId: planSetup.stockPlanData.id,
       adjustmentData: {
         id: generateTestId('pool-adj-ocf-test'),
@@ -98,6 +100,7 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-pool-adj-rt'),
         name: 'Common Stock',
@@ -131,6 +134,7 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockPlanId: planSetup.stockPlanData.id,
       adjustmentData: originalData,
     });
@@ -159,6 +163,7 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-pool-adj-archive'),
         name: 'Common Stock',
@@ -186,6 +191,7 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockPlanId: planSetup.stockPlanData.id,
       adjustmentData: {
         id: generateTestId('pool-adj-archive-test'),

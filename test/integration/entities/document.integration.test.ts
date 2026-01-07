@@ -33,6 +33,7 @@ createIntegrationTestSuite('Document operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       documentData: {
         id: generateTestId('doc-ocf-test'),
         path: 'documents/test-agreement.pdf',
@@ -71,6 +72,7 @@ createIntegrationTestSuite('Document operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       documentData: originalData,
     });
 
@@ -97,6 +99,7 @@ createIntegrationTestSuite('Document operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       documentData: {
         id: generateTestId('doc-uri-test'),
         uri: 'https://example.com/documents/external-doc.pdf',
@@ -129,6 +132,7 @@ createIntegrationTestSuite('Document operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       documentData: {
         id: generateTestId('doc-archive-test'),
         path: 'documents/to-archive.pdf',

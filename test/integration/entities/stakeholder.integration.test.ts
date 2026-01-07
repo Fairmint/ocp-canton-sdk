@@ -70,6 +70,7 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-institution'),
         name: { legal_name: 'Venture Capital Fund LP' },

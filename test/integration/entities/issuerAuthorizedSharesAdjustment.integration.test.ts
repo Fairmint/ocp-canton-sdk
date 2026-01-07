@@ -38,6 +38,7 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       issuerId: issuerSetup.issuerData.id,
       adjustmentData: {
         id: generateTestId('issuer-adj-ocf-test'),
@@ -76,6 +77,7 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       issuerId: issuerSetup.issuerData.id,
       adjustmentData: originalData,
     });
@@ -105,6 +107,7 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       issuerId: issuerSetup.issuerData.id,
       adjustmentData: {
         id: generateTestId('issuer-adj-archive-test'),

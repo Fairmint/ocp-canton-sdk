@@ -41,6 +41,7 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-cancellation'),
         name: { legal_name: 'Cancellation Shareholder' },
@@ -52,6 +53,7 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-cancellation'),
         name: 'Common Stock',
@@ -82,6 +84,7 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '25000',
       stockCancellationData: {
@@ -114,6 +117,7 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-cancellation-rt'),
         name: { legal_name: 'Roundtrip Cancellation Shareholder' },
@@ -125,6 +129,7 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-cancellation-rt'),
         name: 'Common Stock',
@@ -159,6 +164,7 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '50000',
       stockCancellationData: originalData,
@@ -189,6 +195,7 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-cancellation-archive'),
         name: { legal_name: 'Archive Cancellation Shareholder' },
@@ -200,6 +207,7 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-cancellation-archive'),
         name: 'Common Stock',
@@ -228,6 +236,7 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '10000',
       stockCancellationData: {

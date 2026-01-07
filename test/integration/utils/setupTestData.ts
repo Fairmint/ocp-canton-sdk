@@ -785,6 +785,8 @@ export async function setupTestIssuer(
     issuerParty: string;
     /** Pre-fetched featured app right (for reuse across tests) */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** Optional issuer data overrides */
     issuerData?: Partial<OcfIssuer>;
     /** Pre-existing issuer authorization (if already authorized) */
@@ -923,6 +925,8 @@ export async function setupTestStockClass(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** Optional stock class data overrides */
     stockClassData?: Partial<OcfStockClass>;
   }
@@ -972,6 +976,8 @@ export async function setupTestStockIssuance(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** The stakeholder receiving the shares */
     stakeholderId: string;
     /** The stock class being issued */
@@ -989,6 +995,7 @@ export async function setupTestStockIssuance(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateStockIssuance',
     choiceArgument: {
       issuance_data: stockIssuanceDataToDaml(stockIssuanceData),
@@ -1032,6 +1039,8 @@ export async function setupTestStockTransfer(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** The security being transferred */
     securityId: string;
     /** Amount to transfer */
@@ -1049,6 +1058,7 @@ export async function setupTestStockTransfer(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateStockTransfer',
     choiceArgument: {
       transfer_data: stockTransferDataToDaml(stockTransferData),
@@ -1092,6 +1102,8 @@ export async function setupTestStockClassAuthorizedSharesAdjustment(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** The stock class being adjusted */
     stockClassId: string;
     /** Optional adjustment data overrides */
@@ -1106,6 +1118,7 @@ export async function setupTestStockClassAuthorizedSharesAdjustment(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateStockClassAuthorizedSharesAdjustment',
     choiceArgument: {
       adjustment_data: stockClassAuthorizedSharesAdjustmentDataToDaml(adjustmentData),
@@ -1173,6 +1186,8 @@ export async function setupTestStockRepurchase(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** The security being repurchased */
     securityId: string;
     /** Amount to repurchase */
@@ -1190,6 +1205,7 @@ export async function setupTestStockRepurchase(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateStockRepurchase',
     choiceArgument: {
       repurchase_data: stockRepurchaseDataToDaml(stockRepurchaseData),
@@ -1233,6 +1249,8 @@ export async function setupTestStockCancellation(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** The security being cancelled */
     securityId: string;
     /** Amount to cancel */
@@ -1250,6 +1268,7 @@ export async function setupTestStockCancellation(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateStockCancellation',
     choiceArgument: {
       cancellation_data: stockCancellationDataToDaml(stockCancellationData),
@@ -1293,6 +1312,8 @@ export async function setupTestDocument(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** Optional document data overrides */
     documentData?: Partial<OcfDocument>;
   }
@@ -1302,6 +1323,7 @@ export async function setupTestDocument(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateDocument',
     choiceArgument: {
       document_data: documentDataToDaml(documentData),
@@ -1345,6 +1367,8 @@ export async function setupTestStockLegendTemplate(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** Optional stock legend template data overrides */
     stockLegendTemplateData?: Partial<OcfStockLegendTemplate>;
   }
@@ -1354,6 +1378,7 @@ export async function setupTestStockLegendTemplate(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateStockLegendTemplate',
     choiceArgument: {
       legend_template_data: stockLegendTemplateDataToDaml(stockLegendTemplateData),
@@ -1397,6 +1422,8 @@ export async function setupTestVestingTerms(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** Optional vesting terms data overrides */
     vestingTermsData?: Partial<OcfVestingTerms>;
   }
@@ -1406,6 +1433,7 @@ export async function setupTestVestingTerms(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateVestingTerms',
     choiceArgument: {
       vesting_terms_data: vestingTermsDataToDaml(vestingTermsData),
@@ -1449,6 +1477,8 @@ export async function setupTestStockPlan(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** The stock class IDs associated with this plan */
     stockClassIds: string[];
     /** Optional stock plan data overrides */
@@ -1460,6 +1490,7 @@ export async function setupTestStockPlan(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateStockPlan',
     choiceArgument: {
       stock_plan_data: stockPlanDataToDaml(stockPlanData),
@@ -1503,6 +1534,8 @@ export async function setupTestIssuerAuthorizedSharesAdjustment(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** The issuer ID being adjusted */
     issuerId: string;
     /** Optional adjustment data overrides */
@@ -1514,6 +1547,7 @@ export async function setupTestIssuerAuthorizedSharesAdjustment(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateIssuerAuthorizedSharesAdjustment',
     choiceArgument: {
       adjustment_data: issuerAuthorizedSharesAdjustmentDataToDaml(adjustmentData),
@@ -1557,6 +1591,8 @@ export async function setupTestStockPlanPoolAdjustment(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** The stock plan ID being adjusted */
     stockPlanId: string;
     /** Optional adjustment data overrides */
@@ -1568,6 +1604,7 @@ export async function setupTestStockPlanPoolAdjustment(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateStockPlanPoolAdjustment',
     choiceArgument: {
       adjustment_data: stockPlanPoolAdjustmentDataToDaml(adjustmentData),
@@ -1611,6 +1648,8 @@ export async function setupTestConvertibleIssuance(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** The stakeholder receiving the convertible */
     stakeholderId: string;
     /** Optional convertible issuance data overrides */
@@ -1625,6 +1664,7 @@ export async function setupTestConvertibleIssuance(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateConvertibleIssuance',
     choiceArgument: {
       // Type assertion needed because OcfConvertibleIssuance has a broader type for conversion_triggers
@@ -1672,6 +1712,8 @@ export async function setupTestWarrantIssuance(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** The stakeholder receiving the warrant */
     stakeholderId: string;
     /** Optional warrant issuance data overrides */
@@ -1683,6 +1725,7 @@ export async function setupTestWarrantIssuance(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateWarrantIssuance',
     choiceArgument: {
       // Type assertion needed because OcfWarrantIssuance has a broader type for exercise_triggers
@@ -1730,6 +1773,8 @@ export async function setupTestEquityCompensationIssuance(
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** The stakeholder receiving the equity compensation */
     stakeholderId: string;
     /** Optional stock plan ID (for plan-based equity compensation) */
@@ -1749,6 +1794,7 @@ export async function setupTestEquityCompensationIssuance(
   const cmd = buildCapTableCommand({
     capTableContractId: options.issuerContractId,
     featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateEquityCompensationIssuance',
     choiceArgument: {
       issuance_data: equityCompensationIssuanceDataToDaml(equityCompensationIssuanceData),

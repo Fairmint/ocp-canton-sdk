@@ -40,6 +40,7 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-safe'),
         name: { legal_name: 'SAFE Investor' },
@@ -85,6 +86,7 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-note'),
         name: { legal_name: 'Note Investor' },
@@ -130,6 +132,7 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-convertible-rt'),
         name: { legal_name: 'Roundtrip Convertible Investor' },
@@ -179,6 +182,7 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-convertible-archive'),
         name: { legal_name: 'Archive Convertible Investor' },

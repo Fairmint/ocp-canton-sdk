@@ -39,6 +39,7 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-plan'),
         name: 'Common Stock for Plan',
@@ -86,6 +87,7 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-plan-rt'),
         name: 'Common Stock for Roundtrip Plan',
@@ -137,6 +139,7 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-archive-plan'),
         name: 'Common Stock for Archive Plan',

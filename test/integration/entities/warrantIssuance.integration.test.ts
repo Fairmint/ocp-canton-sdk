@@ -39,6 +39,7 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-warrant'),
         name: { legal_name: 'Warrant Holder' },
@@ -83,6 +84,7 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-warrant-rt'),
         name: { legal_name: 'Roundtrip Warrant Holder' },
@@ -130,6 +132,7 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-warrant-archive'),
         name: { legal_name: 'Archive Warrant Holder' },

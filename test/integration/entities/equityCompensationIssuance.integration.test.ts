@@ -42,6 +42,7 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-ec'),
         name: { legal_name: 'Employee One' },
@@ -53,6 +54,7 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-ec'),
         name: 'Common Stock',
@@ -116,6 +118,7 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-ec-rt'),
         name: { legal_name: 'Employee Two' },
@@ -163,6 +166,7 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-rsu'),
         name: { legal_name: 'Employee Three' },
@@ -206,6 +210,7 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-ec-archive'),
         name: { legal_name: 'Employee Archive' },

@@ -33,6 +33,7 @@ createIntegrationTestSuite('VestingTerms operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       vestingTermsData: {
         id: generateTestId('vesting-ocf-test'),
         name: 'Test Vesting Schedule',
@@ -69,6 +70,7 @@ createIntegrationTestSuite('VestingTerms operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       vestingTermsData: originalData,
     });
 
@@ -97,6 +99,7 @@ createIntegrationTestSuite('VestingTerms operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       vestingTermsData: {
         id: generateTestId('vesting-archive-test'),
         name: 'Vesting To Archive',

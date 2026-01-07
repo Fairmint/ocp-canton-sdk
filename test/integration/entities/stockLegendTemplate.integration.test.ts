@@ -38,6 +38,7 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockLegendTemplateData: {
         id: generateTestId('legend-ocf-test'),
         name: 'Test Legend Template',
@@ -76,6 +77,7 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockLegendTemplateData: originalData,
     });
 
@@ -103,6 +105,7 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockLegendTemplateData: {
         id: generateTestId('legend-archive-test'),
         name: 'Legend To Archive',

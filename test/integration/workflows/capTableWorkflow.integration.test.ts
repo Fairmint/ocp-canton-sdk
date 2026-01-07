@@ -36,6 +36,7 @@ createIntegrationTestSuite('Full cap table workflow', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('full-workflow-stock'),
         name: 'Common Stock',
@@ -52,6 +53,7 @@ createIntegrationTestSuite('Full cap table workflow', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('founder-1'),
         name: { legal_name: 'Jane Founder', first_name: 'Jane', last_name: 'Founder' },
@@ -64,6 +66,7 @@ createIntegrationTestSuite('Full cap table workflow', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('investor-1'),
         name: { legal_name: 'Angel Investor LLC' },

@@ -40,6 +40,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-issuance'),
         name: { legal_name: 'Shareholder One' },
@@ -51,6 +52,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-issuance'),
         name: 'Common Stock',
@@ -99,6 +101,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-issuance-rt'),
         name: { legal_name: 'Roundtrip Shareholder' },
@@ -110,6 +113,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-issuance-rt'),
         name: 'Common Stock',
@@ -165,6 +169,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('founder-stakeholder'),
         name: { legal_name: 'Founder One' },
@@ -176,6 +181,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-founders'),
         name: 'Common Stock',
@@ -224,6 +230,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-for-archive-issuance'),
         name: { legal_name: 'Archive Shareholder' },
@@ -235,6 +242,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-archive-issuance'),
         name: 'Common Stock',
