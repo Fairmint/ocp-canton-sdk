@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface OcfStockClassAuthorizedSharesAdjustmentEvent {
@@ -20,26 +21,9 @@ export interface GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult {
   contractId: string;
 }
 
-interface AdjustmentData {
-  id: string;
-  date: string;
-  stock_class_id: string;
-  new_shares_authorized: string | number;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  comments?: string[];
-}
-
-interface CreateArgument {
-  adjustment_data?: AdjustmentData;
-  id?: string;
-  date?: string;
-  stock_class_id?: string;
-  new_shares_authorized?: string | number;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  comments?: string[];
-}
+/** Type alias for DAML StockClassAuthorizedSharesAdjustment contract createArgument */
+type StockClassAuthorizedSharesAdjustmentCreateArgument =
+  Fairmint.OpenCapTable.OCF.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment;
 
 export async function getStockClassAuthorizedSharesAdjustmentEventAsOcf(
   client: LedgerJsonApiClient,
@@ -47,25 +31,25 @@ export async function getStockClassAuthorizedSharesAdjustmentEventAsOcf(
 ): Promise<GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created?.createdEvent.createArgument) throw new Error('Missing createArgument');
-  const arg = res.created.createdEvent.createArgument as CreateArgument;
-  const d = arg.adjustment_data ?? arg;
+  const contract = res.created.createdEvent.createArgument as StockClassAuthorizedSharesAdjustmentCreateArgument;
+  const data = contract.adjustment_data;
 
-  if (!d.id) throw new Error('Missing id');
-  if (!d.stock_class_id) throw new Error('Missing stock_class_id');
-  if (d.new_shares_authorized === undefined) throw new Error('Missing new_shares_authorized');
-  if (!d.date) throw new Error('Missing date');
+  // Convert new_shares_authorized to string for normalization (DAML Numeric may come as number at runtime)
+  const newSharesAuthorized = data.new_shares_authorized as string | number;
+  const newSharesAuthorizedStr =
+    typeof newSharesAuthorized === 'number' ? newSharesAuthorized.toString() : newSharesAuthorized;
 
   const event: OcfStockClassAuthorizedSharesAdjustmentEvent = {
     object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
-    id: d.id,
-    date: d.date.split('T')[0],
-    stock_class_id: d.stock_class_id,
-    new_shares_authorized: normalizeNumericString(
-      typeof d.new_shares_authorized === 'number' ? String(d.new_shares_authorized) : d.new_shares_authorized
-    ),
-    ...(d.board_approval_date ? { board_approval_date: d.board_approval_date.split('T')[0] } : {}),
-    ...(d.stockholder_approval_date ? { stockholder_approval_date: d.stockholder_approval_date.split('T')[0] } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
+    id: data.id,
+    date: data.date.split('T')[0],
+    stock_class_id: data.stock_class_id,
+    new_shares_authorized: normalizeNumericString(newSharesAuthorizedStr),
+    ...(data.board_approval_date ? { board_approval_date: data.board_approval_date.split('T')[0] } : {}),
+    ...(data.stockholder_approval_date
+      ? { stockholder_approval_date: data.stockholder_approval_date.split('T')[0] }
+      : {}),
+    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
   return { event, contractId: params.contractId };
 }

@@ -22,30 +22,8 @@ export interface GetStockRepurchaseAsOcfResult {
   contractId: string;
 }
 
-/** Shape of repurchase_data from DAML ledger */
-interface DamlStockRepurchaseData {
-  id: string;
-  date: string;
-  security_id: string;
-  quantity: number | string;
-  price: Fairmint.OpenCapTable.Types.OcfMonetary;
-  balance_security_id?: string;
-  consideration_text?: string;
-  comments?: string[];
-}
-
-/** Shape of createArgument from ledger - may have nested repurchase_data or flat structure */
-interface CreateArgument {
-  repurchase_data?: DamlStockRepurchaseData;
-  id?: string;
-  date?: string;
-  security_id?: string;
-  quantity?: number | string;
-  price?: Fairmint.OpenCapTable.Types.OcfMonetary;
-  balance_security_id?: string;
-  consideration_text?: string;
-  comments?: string[];
-}
+/** Type alias for DAML StockRepurchase contract createArgument */
+type StockRepurchaseCreateArgument = Fairmint.OpenCapTable.OCF.StockRepurchase.StockRepurchase;
 
 export async function getStockRepurchaseAsOcf(
   client: LedgerJsonApiClient,
@@ -58,21 +36,12 @@ export async function getStockRepurchaseAsOcf(
   if (!res.created.createdEvent.createArgument) {
     throw new Error('Missing createArgument');
   }
-  const d = res.created.createdEvent.createArgument as CreateArgument;
-  const data = d.repurchase_data ?? d; // template stores as repurchase_data
+  const contract = res.created.createdEvent.createArgument as StockRepurchaseCreateArgument;
+  const data = contract.repurchase_data;
 
-  if (!data.id) throw new Error('Missing required field: id');
-  if (!data.date) throw new Error('Missing required field: date');
-  if (!data.security_id) throw new Error('Missing required field: security_id');
-  if (data.quantity == null) {
-    throw new Error('Missing required field: quantity');
-  }
-  if (!data.price) {
-    throw new Error('Missing required field: price');
-  }
-
-  // Convert quantity to string for normalization
-  const quantityStr = typeof data.quantity === 'number' ? data.quantity.toString() : data.quantity;
+  // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)
+  const quantity = data.quantity as string | number;
+  const quantityStr = typeof quantity === 'number' ? quantity.toString() : quantity;
 
   const event: OcfStockRepurchaseEvent = {
     object_type: 'TX_STOCK_REPURCHASE',

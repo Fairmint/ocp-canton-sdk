@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfStockTransfer } from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -21,30 +22,8 @@ export interface GetStockTransferAsOcfResult {
   contractId: string;
 }
 
-/** Shape of transfer_data from DAML ledger */
-interface DamlStockTransferData {
-  id: string;
-  date: string;
-  security_id: string;
-  quantity: number | string;
-  resulting_security_ids: string[];
-  balance_security_id?: string;
-  consideration_text?: string;
-  comments?: string[];
-}
-
-/** Shape of createArgument from ledger - may have nested transfer_data or flat structure */
-interface CreateArgument {
-  transfer_data?: DamlStockTransferData;
-  id?: string;
-  date?: string;
-  security_id?: string;
-  quantity?: number | string;
-  resulting_security_ids?: string[];
-  balance_security_id?: string;
-  consideration_text?: string;
-  comments?: string[];
-}
+/** Type alias for DAML StockTransfer contract createArgument */
+type StockTransferCreateArgument = Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer;
 
 export async function getStockTransferAsOcf(
   client: LedgerJsonApiClient,
@@ -57,21 +36,12 @@ export async function getStockTransferAsOcf(
   if (!res.created.createdEvent.createArgument) {
     throw new Error('Missing createArgument');
   }
-  const d = res.created.createdEvent.createArgument as CreateArgument;
-  const data = d.transfer_data ?? d; // template stores as transfer_data
+  const contract = res.created.createdEvent.createArgument as StockTransferCreateArgument;
+  const data = contract.transfer_data;
 
-  if (!data.id) throw new Error('Missing required field: id');
-  if (!data.date) throw new Error('Missing required field: date');
-  if (!data.security_id) throw new Error('Missing required field: security_id');
-  if (data.quantity == null) {
-    throw new Error('Missing required field: quantity');
-  }
-  if (!data.resulting_security_ids || data.resulting_security_ids.length === 0) {
-    throw new Error('Missing required field: resulting_security_ids');
-  }
-
-  // Convert quantity to string for normalization
-  const quantityStr = typeof data.quantity === 'number' ? data.quantity.toString() : data.quantity;
+  // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)
+  const quantity = data.quantity as string | number;
+  const quantityStr = typeof quantity === 'number' ? quantity.toString() : quantity;
 
   const event: OcfStockTransferEvent = {
     object_type: 'TX_STOCK_TRANSFER',
