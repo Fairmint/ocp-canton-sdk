@@ -834,18 +834,21 @@ export async function setupTestIssuer(
     throw new Error('Failed to extract issuer contract ID from transaction result');
   }
 
-  // Get the CapTable contract's createdEventBlob for use in disclosed contracts
+  // Get the CapTable contract's event details for use in disclosed contracts
   // This is needed when exercising choices on the CapTable
   const capTableEvents = await ocp.client.getEventsByContractId({ contractId: issuerContractId });
   if (!capTableEvents.created?.createdEvent) {
     throw new Error('Failed to get CapTable contract created event');
   }
 
+  // Use synchronizerId from the transaction result (matches the CapTable contract's domain)
+  const capTableSynchronizerId = result.transactionTree.synchronizerId;
+
   const capTableContractDetails: DisclosedContract = {
     templateId: capTableEvents.created.createdEvent.templateId,
     contractId: issuerContractId,
     createdEventBlob: capTableEvents.created.createdEvent.createdEventBlob,
-    synchronizerId: featuredAppRightContractDetails.synchronizerId,
+    synchronizerId: capTableSynchronizerId,
   };
 
   return {

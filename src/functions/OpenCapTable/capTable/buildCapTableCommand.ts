@@ -47,6 +47,7 @@ export function buildCapTableCommand(params: {
   ];
 
   // Include CapTable contract in disclosed contracts if provided
+  // This is necessary for Canton to validate the contract being exercised
   if (params.capTableContractDetails) {
     disclosedContracts.push({
       templateId: params.capTableContractDetails.templateId,
