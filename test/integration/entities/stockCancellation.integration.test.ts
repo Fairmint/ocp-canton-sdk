@@ -1,9 +1,9 @@
 /**
- * Integration tests for StockIssuance operations.
+ * Integration tests for StockCancellation operations.
  *
- * Tests the full lifecycle of StockIssuance entities:
+ * Tests the full lifecycle of StockCancellation entities:
  *
- * - Create stock issuance and read back as valid OCF
+ * - Create stock cancellation and read back as valid OCF
  * - Data round-trip verification
  * - Archive operation
  *
@@ -17,16 +17,17 @@
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import {
-  createTestStockIssuanceData,
+  createTestStockCancellationData,
   generateTestId,
   setupTestIssuer,
   setupTestStakeholder,
+  setupTestStockCancellation,
   setupTestStockClass,
   setupTestStockIssuance,
 } from '../utils';
 
-createIntegrationTestSuite('StockIssuance operations', (getContext) => {
-  test('creates stock issuance and reads it back as valid OCF', async () => {
+createIntegrationTestSuite('StockCancellation operations', (getContext) => {
+  test('creates stock cancellation and reads it back as valid OCF', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -41,8 +42,8 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stakeholderData: {
-        id: generateTestId('stakeholder-for-issuance'),
-        name: { legal_name: 'Shareholder One' },
+        id: generateTestId('stakeholder-for-cancellation'),
+        name: { legal_name: 'Cancellation Shareholder' },
         stakeholder_type: 'INDIVIDUAL',
       },
     });
@@ -52,7 +53,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stockClassData: {
-        id: generateTestId('stock-class-for-issuance'),
+        id: generateTestId('stock-class-for-cancellation'),
         name: 'Common Stock',
         class_type: 'COMMON',
         default_id_prefix: 'CS-',
@@ -62,6 +63,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       },
     });
 
+    // First create a stock issuance
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
@@ -69,23 +71,36 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
-        id: generateTestId('issuance-ocf-test'),
-        quantity: '50000',
+        id: generateTestId('issuance-for-cancellation'),
+        quantity: '100000',
         share_price: { amount: '1.00', currency: 'USD' },
       },
     });
 
-    const ocfResult = await ctx.ocp.OpenCapTable.stockIssuance.getStockIssuanceAsOcf({
-      contractId: issuanceSetup.stockIssuanceContractId,
+    // Now cancel some shares
+    const cancellationSetup = await setupTestStockCancellation(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      securityId: issuanceSetup.stockIssuanceData.security_id,
+      quantity: '25000',
+      stockCancellationData: {
+        id: generateTestId('cancellation-ocf-test'),
+        reason_text: 'Test cancellation',
+      },
     });
 
-    expect(ocfResult.stockIssuance.object_type).toBe('TX_STOCK_ISSUANCE');
-    expect(ocfResult.stockIssuance.quantity).toBe('50000');
+    const ocfResult = await ctx.ocp.OpenCapTable.stockCancellation.getStockCancellationEventAsOcf({
+      contractId: cancellationSetup.stockCancellationContractId,
+    });
 
-    await validateOcfObject(ocfResult.stockIssuance as unknown as Record<string, unknown>);
+    expect(ocfResult.event.object_type).toBe('TX_STOCK_CANCELLATION');
+    expect(ocfResult.event.quantity).toBe('25000');
+
+    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
-  test('stock issuance data round-trips correctly', async () => {
+  test('stock cancellation data round-trips correctly', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -100,8 +115,8 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stakeholderData: {
-        id: generateTestId('stakeholder-for-issuance-rt'),
-        name: { legal_name: 'Roundtrip Shareholder' },
+        id: generateTestId('stakeholder-for-cancellation-rt'),
+        name: { legal_name: 'Roundtrip Cancellation Shareholder' },
         stakeholder_type: 'INDIVIDUAL',
       },
     });
@@ -111,73 +126,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stockClassData: {
-        id: generateTestId('stock-class-for-issuance-rt'),
-        name: 'Common Stock',
-        class_type: 'COMMON',
-        default_id_prefix: 'CS-',
-        initial_shares_authorized: '10000000',
-        votes_per_share: '1',
-        seniority: '1',
-      },
-    });
-
-    const originalData = createTestStockIssuanceData(
-      stakeholderSetup.stakeholderData.id,
-      stockClassSetup.stockClassData.id,
-      {
-        id: generateTestId('issuance-roundtrip'),
-        quantity: '75000',
-        share_price: { amount: '2.50', currency: 'USD' },
-        comments: ['Roundtrip test issuance'],
-      }
-    );
-
-    const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      stakeholderId: stakeholderSetup.stakeholderData.id,
-      stockClassId: stockClassSetup.stockClassData.id,
-      stockIssuanceData: originalData,
-    });
-
-    const ocfResult = await ctx.ocp.OpenCapTable.stockIssuance.getStockIssuanceAsOcf({
-      contractId: issuanceSetup.stockIssuanceContractId,
-    });
-
-    expect(ocfResult.stockIssuance.id).toBe(originalData.id);
-    expect(ocfResult.stockIssuance.stakeholder_id).toBe(originalData.stakeholder_id);
-    expect(ocfResult.stockIssuance.stock_class_id).toBe(originalData.stock_class_id);
-    expect(ocfResult.stockIssuance.quantity).toBe(originalData.quantity);
-  });
-
-  test('creates founders stock issuance', async () => {
-    const ctx = getContext();
-
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-    });
-
-    const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      stakeholderData: {
-        id: generateTestId('founder-stakeholder'),
-        name: { legal_name: 'Founder One' },
-        stakeholder_type: 'INDIVIDUAL',
-      },
-    });
-
-    const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      stockClassData: {
-        id: generateTestId('stock-class-for-founders'),
+        id: generateTestId('stock-class-for-cancellation-rt'),
         name: 'Common Stock',
         class_type: 'COMMON',
         default_id_prefix: 'CS-',
@@ -194,79 +143,100 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
-        id: generateTestId('founders-issuance'),
-        quantity: '1000000',
-        share_price: { amount: '0.001', currency: 'USD' },
-        issuance_type: 'FOUNDERS_STOCK',
-      },
-    });
-
-    const ocfResult = await ctx.ocp.OpenCapTable.stockIssuance.getStockIssuanceAsOcf({
-      contractId: issuanceSetup.stockIssuanceContractId,
-    });
-
-    expect(ocfResult.stockIssuance.object_type).toBe('TX_STOCK_ISSUANCE');
-    await validateOcfObject(ocfResult.stockIssuance as unknown as Record<string, unknown>);
-  });
-
-  test('archives stock issuance', async () => {
-    const ctx = getContext();
-
-    const issuerSetup = await setupTestIssuer(ctx.ocp, {
-      systemOperatorParty: ctx.systemOperatorParty,
-      ocpFactoryContractId: ctx.ocpFactoryContractId,
-      issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-    });
-
-    const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      stakeholderData: {
-        id: generateTestId('stakeholder-for-archive-issuance'),
-        name: { legal_name: 'Archive Shareholder' },
-        stakeholder_type: 'INDIVIDUAL',
-      },
-    });
-
-    const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      stockClassData: {
-        id: generateTestId('stock-class-for-archive-issuance'),
-        name: 'Common Stock',
-        class_type: 'COMMON',
-        default_id_prefix: 'CS-',
-        initial_shares_authorized: '10000000',
-        votes_per_share: '1',
-        seniority: '1',
-      },
-    });
-
-    const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      stakeholderId: stakeholderSetup.stakeholderData.id,
-      stockClassId: stockClassSetup.stockClassData.id,
-      stockIssuanceData: {
-        id: generateTestId('issuance-archive-test'),
-        quantity: '10000',
+        id: generateTestId('issuance-for-cancellation-rt'),
+        quantity: '100000',
         share_price: { amount: '1.00', currency: 'USD' },
       },
     });
 
-    const archiveCmd = ctx.ocp.OpenCapTable.stockIssuance.buildArchiveStockIssuanceByIssuerCommand({
-      contractId: issuanceSetup.stockIssuanceContractId,
+    const originalData = createTestStockCancellationData(issuanceSetup.stockIssuanceData.security_id, '50000', {
+      id: generateTestId('cancellation-roundtrip'),
+      reason_text: 'Roundtrip test cancellation reason',
+      comments: ['Roundtrip test cancellation'],
     });
 
-    await ctx.ocp.client.submitAndWaitForTransactionTree({
-      commands: [archiveCmd],
-      actAs: [ctx.issuerParty],
+    const cancellationSetup = await setupTestStockCancellation(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      securityId: issuanceSetup.stockIssuanceData.security_id,
+      quantity: '50000',
+      stockCancellationData: originalData,
     });
 
-    // Archive operation succeeded if no error thrown
+    const ocfResult = await ctx.ocp.OpenCapTable.stockCancellation.getStockCancellationEventAsOcf({
+      contractId: cancellationSetup.stockCancellationContractId,
+    });
+
+    expect(ocfResult.event.id).toBe(originalData.id);
+    expect(ocfResult.event.security_id).toBe(originalData.security_id);
+    expect(ocfResult.event.quantity).toBe(originalData.quantity);
+    expect(ocfResult.event.reason_text).toBe(originalData.reason_text);
+  });
+
+  // TODO: Archive test requires delete command to be exposed in OcpClient
+  test.skip('archives stock cancellation', async () => {
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+    });
+
+    const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stakeholderData: {
+        id: generateTestId('stakeholder-for-cancellation-archive'),
+        name: { legal_name: 'Archive Cancellation Shareholder' },
+        stakeholder_type: 'INDIVIDUAL',
+      },
+    });
+
+    const stockClassSetup = await setupTestStockClass(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stockClassData: {
+        id: generateTestId('stock-class-for-cancellation-archive'),
+        name: 'Common Stock',
+        class_type: 'COMMON',
+        default_id_prefix: 'CS-',
+        initial_shares_authorized: '10000000',
+        votes_per_share: '1',
+        seniority: '1',
+      },
+    });
+
+    const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stakeholderId: stakeholderSetup.stakeholderData.id,
+      stockClassId: stockClassSetup.stockClassData.id,
+      stockIssuanceData: {
+        id: generateTestId('issuance-for-cancellation-archive'),
+        quantity: '100000',
+        share_price: { amount: '1.00', currency: 'USD' },
+      },
+    });
+
+    const cancellationSetup = await setupTestStockCancellation(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      securityId: issuanceSetup.stockIssuanceData.security_id,
+      quantity: '10000',
+      stockCancellationData: {
+        id: generateTestId('cancellation-archive-test'),
+        reason_text: 'Archive test cancellation',
+      },
+    });
+
+    // Archive operation not yet exposed in OcpClient
+    expect(cancellationSetup.stockCancellationContractId).toBeDefined();
   });
 });

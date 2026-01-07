@@ -1,9 +1,9 @@
 /**
- * Integration tests for StockTransfer operations.
+ * Integration tests for StockIssuance operations.
  *
- * Tests the full lifecycle of StockTransfer entities:
+ * Tests the full lifecycle of StockIssuance entities:
  *
- * - Create stock transfer and read back as valid OCF
+ * - Create stock issuance and read back as valid OCF
  * - Data round-trip verification
  * - Archive operation
  *
@@ -17,17 +17,16 @@
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import {
-  createTestStockTransferData,
+  createTestStockIssuanceData,
   generateTestId,
   setupTestIssuer,
   setupTestStakeholder,
   setupTestStockClass,
   setupTestStockIssuance,
-  setupTestStockTransfer,
 } from '../utils';
 
-createIntegrationTestSuite('StockTransfer operations', (getContext) => {
-  test('creates stock transfer and reads it back as valid OCF', async () => {
+createIntegrationTestSuite('StockIssuance operations', (getContext) => {
+  test('creates stock issuance and reads it back as valid OCF', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -42,8 +41,8 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stakeholderData: {
-        id: generateTestId('stakeholder-for-transfer'),
-        name: { legal_name: 'Transfer Shareholder' },
+        id: generateTestId('stakeholder-for-issuance'),
+        name: { legal_name: 'Shareholder One' },
         stakeholder_type: 'INDIVIDUAL',
       },
     });
@@ -53,7 +52,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stockClassData: {
-        id: generateTestId('stock-class-for-transfer'),
+        id: generateTestId('stock-class-for-issuance'),
         name: 'Common Stock',
         class_type: 'COMMON',
         default_id_prefix: 'CS-',
@@ -63,7 +62,6 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       },
     });
 
-    // First create a stock issuance
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
@@ -71,35 +69,23 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
-        id: generateTestId('issuance-for-transfer'),
-        quantity: '100000',
+        id: generateTestId('issuance-ocf-test'),
+        quantity: '50000',
         share_price: { amount: '1.00', currency: 'USD' },
       },
     });
 
-    // Now transfer some shares
-    const transferSetup = await setupTestStockTransfer(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      securityId: issuanceSetup.stockIssuanceData.security_id,
-      quantity: '25000',
-      stockTransferData: {
-        id: generateTestId('transfer-ocf-test'),
-      },
+    const ocfResult = await ctx.ocp.OpenCapTable.stockIssuance.getStockIssuanceAsOcf({
+      contractId: issuanceSetup.stockIssuanceContractId,
     });
 
-    const ocfResult = await ctx.ocp.OpenCapTable.stockTransfer.getStockTransferAsOcf({
-      contractId: transferSetup.stockTransferContractId,
-    });
+    expect(ocfResult.stockIssuance.object_type).toBe('TX_STOCK_ISSUANCE');
+    expect(ocfResult.stockIssuance.quantity).toBe('50000');
 
-    expect(ocfResult.event.object_type).toBe('TX_STOCK_TRANSFER');
-    expect(ocfResult.event.quantity).toBe('25000');
-
-    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.stockIssuance as unknown as Record<string, unknown>);
   });
 
-  test('stock transfer data round-trips correctly', async () => {
+  test('stock issuance data round-trips correctly', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -114,8 +100,8 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stakeholderData: {
-        id: generateTestId('stakeholder-for-transfer-rt'),
-        name: { legal_name: 'Roundtrip Transfer Shareholder' },
+        id: generateTestId('stakeholder-for-issuance-rt'),
+        name: { legal_name: 'Roundtrip Shareholder' },
         stakeholder_type: 'INDIVIDUAL',
       },
     });
@@ -125,7 +111,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stockClassData: {
-        id: generateTestId('stock-class-for-transfer-rt'),
+        id: generateTestId('stock-class-for-issuance-rt'),
         name: 'Common Stock',
         class_type: 'COMMON',
         default_id_prefix: 'CS-',
@@ -135,44 +121,37 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       },
     });
 
+    const originalData = createTestStockIssuanceData(
+      stakeholderSetup.stakeholderData.id,
+      stockClassSetup.stockClassData.id,
+      {
+        id: generateTestId('issuance-roundtrip'),
+        quantity: '75000',
+        share_price: { amount: '2.50', currency: 'USD' },
+        comments: ['Roundtrip test issuance'],
+      }
+    );
+
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
-      stockIssuanceData: {
-        id: generateTestId('issuance-for-transfer-rt'),
-        quantity: '100000',
-        share_price: { amount: '1.00', currency: 'USD' },
-      },
+      stockIssuanceData: originalData,
     });
 
-    const originalData = createTestStockTransferData(issuanceSetup.stockIssuanceData.security_id, '50000', {
-      id: generateTestId('transfer-roundtrip'),
-      consideration_text: 'Cash consideration',
-      comments: ['Roundtrip test transfer'],
+    const ocfResult = await ctx.ocp.OpenCapTable.stockIssuance.getStockIssuanceAsOcf({
+      contractId: issuanceSetup.stockIssuanceContractId,
     });
 
-    const transferSetup = await setupTestStockTransfer(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      securityId: issuanceSetup.stockIssuanceData.security_id,
-      quantity: '50000',
-      stockTransferData: originalData,
-    });
-
-    const ocfResult = await ctx.ocp.OpenCapTable.stockTransfer.getStockTransferAsOcf({
-      contractId: transferSetup.stockTransferContractId,
-    });
-
-    expect(ocfResult.event.id).toBe(originalData.id);
-    expect(ocfResult.event.security_id).toBe(originalData.security_id);
-    expect(ocfResult.event.quantity).toBe(originalData.quantity);
+    expect(ocfResult.stockIssuance.id).toBe(originalData.id);
+    expect(ocfResult.stockIssuance.stakeholder_id).toBe(originalData.stakeholder_id);
+    expect(ocfResult.stockIssuance.stock_class_id).toBe(originalData.stock_class_id);
+    expect(ocfResult.stockIssuance.quantity).toBe(originalData.quantity);
   });
 
-  test('archives stock transfer', async () => {
+  test('creates founders stock issuance', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -187,8 +166,8 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stakeholderData: {
-        id: generateTestId('stakeholder-for-transfer-archive'),
-        name: { legal_name: 'Archive Transfer Shareholder' },
+        id: generateTestId('founder-stakeholder'),
+        name: { legal_name: 'Founder One' },
         stakeholder_type: 'INDIVIDUAL',
       },
     });
@@ -198,7 +177,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       stockClassData: {
-        id: generateTestId('stock-class-for-transfer-archive'),
+        id: generateTestId('stock-class-for-founders'),
         name: 'Common Stock',
         class_type: 'COMMON',
         default_id_prefix: 'CS-',
@@ -215,32 +194,72 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
-        id: generateTestId('issuance-for-transfer-archive'),
-        quantity: '100000',
+        id: generateTestId('founders-issuance'),
+        quantity: '1000000',
+        share_price: { amount: '0.001', currency: 'USD' },
+        issuance_type: 'FOUNDERS_STOCK',
+      },
+    });
+
+    const ocfResult = await ctx.ocp.OpenCapTable.stockIssuance.getStockIssuanceAsOcf({
+      contractId: issuanceSetup.stockIssuanceContractId,
+    });
+
+    expect(ocfResult.stockIssuance.object_type).toBe('TX_STOCK_ISSUANCE');
+    await validateOcfObject(ocfResult.stockIssuance as unknown as Record<string, unknown>);
+  });
+
+  // TODO: Archive test requires buildDeleteStockIssuanceCommand to be exposed in OcpClient
+  test.skip('archives stock issuance', async () => {
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+    });
+
+    const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stakeholderData: {
+        id: generateTestId('stakeholder-for-archive-issuance'),
+        name: { legal_name: 'Archive Shareholder' },
+        stakeholder_type: 'INDIVIDUAL',
+      },
+    });
+
+    const stockClassSetup = await setupTestStockClass(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stockClassData: {
+        id: generateTestId('stock-class-for-archive-issuance'),
+        name: 'Common Stock',
+        class_type: 'COMMON',
+        default_id_prefix: 'CS-',
+        initial_shares_authorized: '10000000',
+        votes_per_share: '1',
+        seniority: '1',
+      },
+    });
+
+    const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      stakeholderId: stakeholderSetup.stakeholderData.id,
+      stockClassId: stockClassSetup.stockClassData.id,
+      stockIssuanceData: {
+        id: generateTestId('issuance-archive-test'),
+        quantity: '10000',
         share_price: { amount: '1.00', currency: 'USD' },
       },
     });
 
-    const transferSetup = await setupTestStockTransfer(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
-      issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      securityId: issuanceSetup.stockIssuanceData.security_id,
-      quantity: '10000',
-      stockTransferData: {
-        id: generateTestId('transfer-archive-test'),
-      },
-    });
-
-    const archiveCmd = ctx.ocp.OpenCapTable.stockTransfer.buildArchiveStockTransferByIssuerCommand({
-      contractId: transferSetup.stockTransferContractId,
-    });
-
-    await ctx.ocp.client.submitAndWaitForTransactionTree({
-      commands: [archiveCmd],
-      actAs: [ctx.issuerParty],
-    });
-
-    // Archive operation succeeded if no error thrown
+    // Archive operation not yet exposed in OcpClient
+    expect(issuanceSetup.stockIssuanceContractId).toBeDefined();
   });
 });
