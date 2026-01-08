@@ -48,11 +48,12 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       },
     });
 
+    // Use the new CapTable contract from stakeholderSetup (the old one was consumed)
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-issuance'),
         name: 'Common Stock',
@@ -64,11 +65,12 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       },
     });
 
+    // Use the new CapTable contract from stockClassSetup (the old one was consumed)
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {

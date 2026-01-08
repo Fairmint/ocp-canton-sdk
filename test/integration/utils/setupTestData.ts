@@ -61,8 +61,10 @@ import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
 /** Result from setting up a test issuer. */
 export interface TestIssuerSetup {
-  /** The contract ID of the created issuer */
+  /** The contract ID of the created CapTable contract (for exercising choices) - legacy name for backward compat */
   issuerContractId: string;
+  /** The contract ID of the actual Issuer contract (for getIssuerAsOcf) */
+  issuerOcfContractId: string;
   /** The issuer data used to create it */
   issuerData: OcfIssuer;
   /** The issuer authorization contract details (needed for subsequent operations) */
@@ -79,6 +81,10 @@ export interface TestStakeholderSetup {
   stakeholderContractId: string;
   /** The stakeholder data used to create it */
   stakeholderData: OcfStakeholder;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock class. */
@@ -87,6 +93,10 @@ export interface TestStockClassSetup {
   stockClassContractId: string;
   /** The stock class data used to create it */
   stockClassData: OcfStockClass;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock issuance. */
@@ -705,7 +715,12 @@ function extractContractIdFromResponse(
     if (eventData.CreatedTreeEvent) {
       const created = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
       const templateId = created.templateId as string;
-      if (templateId.includes(templateIdContains)) {
+      // Use more specific matching to avoid false positives.
+      // e.g., "CapTable" should match "CapTable:CapTable" but not "OpenCapTable" in module paths.
+      // We match either ":TemplateIdContains:" (in module path) or ":TemplateIdContains" (at end for template name)
+      const isMatch =
+        templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
+      if (isMatch) {
         return created.contractId as string;
       }
     }
@@ -827,16 +842,21 @@ export async function setupTestIssuer(
     disclosedContracts: validDisclosedContracts,
   });
 
-  // Extract the issuer contract ID from the result
-  // Note: CreateCapTable creates a CapTable contract (which contains issuer_data)
-  const issuerContractId = extractContractIdFromResponse(result, 'CapTable');
-  if (!issuerContractId) {
-    throw new Error('Failed to extract issuer contract ID from transaction result');
+  // Extract the Issuer contract ID from the result (for getIssuerAsOcf)
+  const issuerOcfContractId = extractContractIdFromResponse(result, 'Issuer');
+  if (!issuerOcfContractId) {
+    throw new Error('Failed to extract Issuer contract ID from transaction result');
+  }
+
+  // Extract the CapTable contract ID from the result (for exercising choices)
+  const capTableContractId = extractContractIdFromResponse(result, 'CapTable');
+  if (!capTableContractId) {
+    throw new Error('Failed to extract CapTable contract ID from transaction result');
   }
 
   // Get the CapTable contract's event details for use in disclosed contracts
   // This is needed when exercising choices on the CapTable
-  const capTableEvents = await ocp.client.getEventsByContractId({ contractId: issuerContractId });
+  const capTableEvents = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
   if (!capTableEvents.created?.createdEvent) {
     throw new Error('Failed to get CapTable contract created event');
   }
@@ -846,13 +866,16 @@ export async function setupTestIssuer(
 
   const capTableContractDetails: DisclosedContract = {
     templateId: capTableEvents.created.createdEvent.templateId,
-    contractId: issuerContractId,
+    contractId: capTableContractId,
     createdEventBlob: capTableEvents.created.createdEvent.createdEventBlob,
     synchronizerId: capTableSynchronizerId,
   };
 
   return {
-    issuerContractId,
+    // issuerContractId points to CapTable for backward compatibility with existing tests
+    issuerContractId: capTableContractId,
+    // issuerOcfContractId points to the actual Issuer contract (for getIssuerAsOcf)
+    issuerOcfContractId,
     issuerData,
     issuerAuthorizationContractDetails,
     featuredAppRightContractDetails,
@@ -906,9 +929,30 @@ export async function setupTestStakeholder(
     throw new Error('Failed to extract stakeholder contract ID from transaction result');
   }
 
+  // Extract the new CapTable contract ID (the old one was consumed)
+  const newCapTableContractId = extractContractIdFromResponse(result, 'CapTable');
+  if (!newCapTableContractId) {
+    throw new Error('Failed to extract new CapTable contract ID from transaction result');
+  }
+
+  // Get the new CapTable contract details for subsequent operations
+  const newCapTableEvents = await ocp.client.getEventsByContractId({ contractId: newCapTableContractId });
+  if (!newCapTableEvents.created?.createdEvent) {
+    throw new Error('Failed to get new CapTable contract created event');
+  }
+
+  const newCapTableContractDetails: DisclosedContract = {
+    templateId: newCapTableEvents.created.createdEvent.templateId,
+    contractId: newCapTableContractId,
+    createdEventBlob: newCapTableEvents.created.createdEvent.createdEventBlob,
+    synchronizerId: result.transactionTree.synchronizerId,
+  };
+
   return {
     stakeholderContractId,
     stakeholderData,
+    newCapTableContractId,
+    newCapTableContractDetails,
   };
 }
 
@@ -958,9 +1002,30 @@ export async function setupTestStockClass(
     throw new Error('Failed to extract stock class contract ID from transaction result');
   }
 
+  // Extract the new CapTable contract ID (the old one was consumed)
+  const newCapTableContractId = extractContractIdFromResponse(result, 'CapTable');
+  if (!newCapTableContractId) {
+    throw new Error('Failed to extract new CapTable contract ID from transaction result');
+  }
+
+  // Get the new CapTable contract details for subsequent operations
+  const newCapTableEvents = await ocp.client.getEventsByContractId({ contractId: newCapTableContractId });
+  if (!newCapTableEvents.created?.createdEvent) {
+    throw new Error('Failed to get new CapTable contract created event');
+  }
+
+  const newCapTableContractDetails: DisclosedContract = {
+    templateId: newCapTableEvents.created.createdEvent.templateId,
+    contractId: newCapTableContractId,
+    createdEventBlob: newCapTableEvents.created.createdEvent.createdEventBlob,
+    synchronizerId: result.transactionTree.synchronizerId,
+  };
+
   return {
     stockClassContractId,
     stockClassData,
+    newCapTableContractId,
+    newCapTableContractDetails,
   };
 }
 
@@ -1385,7 +1450,7 @@ export async function setupTestStockLegendTemplate(
     capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateStockLegendTemplate',
     choiceArgument: {
-      legend_template_data: stockLegendTemplateDataToDaml(stockLegendTemplateData),
+      template_data: stockLegendTemplateDataToDaml(stockLegendTemplateData),
     },
   });
 
