@@ -718,8 +718,7 @@ function extractContractIdFromResponse(
       // Use more specific matching to avoid false positives.
       // e.g., "CapTable" should match "CapTable:CapTable" but not "OpenCapTable" in module paths.
       // We match either ":TemplateIdContains:" (in module path) or ":TemplateIdContains" (at end for template name)
-      const isMatch =
-        templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
+      const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
       if (isMatch) {
         return created.contractId as string;
       }
