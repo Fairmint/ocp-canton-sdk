@@ -204,10 +204,10 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
     });
 
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: stakeholderSetup.newCapTableContractId || issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: stakeholderSetup.newCapTableContractDetails || issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-transfer-archive'),
         name: 'Common Stock',
@@ -220,10 +220,10 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
     });
 
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: stockClassSetup.newCapTableContractId || stakeholderSetup.newCapTableContractId || issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: stockClassSetup.newCapTableContractDetails || stakeholderSetup.newCapTableContractDetails || issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
