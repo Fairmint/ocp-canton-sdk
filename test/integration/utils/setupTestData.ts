@@ -792,9 +792,8 @@ function extractContractIdFromResponse(
 }
 
 /**
- * Extract the new CapTable contract details from a transaction result.
- * This is used after exercising a consuming choice on CapTable, which archives
- * the old contract and creates a new one.
+ * Extract the new CapTable contract details from a transaction result. This is used after exercising a consuming choice
+ * on CapTable, which archives the old contract and creates a new one.
  */
 async function extractNewCapTableDetails(
   ocp: OcpClient,
