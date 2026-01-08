@@ -8,6 +8,7 @@
 - A best practice or pattern is established during AI conversations
 - An important architectural or coding decision is made
 - The user communicates a preference that applies beyond the current task
+- **Creating a PR**: Before creating a PR, review the completed task for any generalizable learnings or best practices that should be added to this file. This ensures AI improves with every task.
 
 Keep content concise but comprehensive. Avoid verbosity—capture the essence.
 
@@ -22,10 +23,10 @@ npm run docs                                    # Generate TypeDoc
 
 ## Pre-Push Requirements (CRITICAL)
 
-**⚠️ ALWAYS run before pushing ANY changes or opening PRs:**
+**⚠️ ALWAYS run before committing/pushing ANY changes:**
 
 ```bash
-npm run fix        # Auto-fixes ESLint and Prettier issues
+npm run fix        # Auto-fixes ESLint and Prettier issues (MUST run before commit)
 npm run typecheck  # TypeScript type checking
 ```
 
@@ -62,24 +63,21 @@ Some issues can't be auto-fixed. Common manual fixes:
 
 This preserves commit history and makes PR review easier.
 
-**After creating a PR**, open it in the browser for review: `open <PR_URL>`
+### After Creating a PR
 
-**Monitoring PR CI Status (Required):**
+1. **Open the PR to the files/changes page:**
+   ```bash
+   open <PR_URL>/files    # Review your changes
+   ```
 
-Always check CI status after creating a PR using the GitHub CLI:
+2. **Monitor CI status** and automatically investigate/fix any failures:
+   ```bash
+   gh pr checks <PR_NUMBER>              # Check all CI checks
+   gh run view <RUN_ID> --log-failed     # View failed job logs
+   gh run view --job=<JOB_ID>            # View specific job details
+   ```
 
-```bash
-gh pr checks <PR_NUMBER>              # Check all CI checks
-gh run view <RUN_ID> --log-failed     # View failed job logs
-gh run view --job=<JOB_ID>            # View specific job details
-```
-
-**Workflow:**
-1. Create PR and push
-2. Wait ~30 seconds for CI to start
-3. Run `gh pr checks <PR_NUMBER>` to monitor
-4. If CI fails, view logs and fix issues
-5. Push fixes and re-check until CI passes
+3. **If CI fails:** Investigate the failure, fix the issue, and push the fix. Repeat until CI passes.
 
 ## Architecture
 
@@ -205,13 +203,13 @@ import {
    ```typescript
    // ❌ Bad - creates "undefined" if amount is undefined
    const amount = String(data.amount);
-   
+
    // ✅ Good - validates then converts
    if (data.amount === undefined || data.amount === null) {
      throw new Error('amount is required');
    }
-   const amount = typeof data.amount === 'number' 
-     ? data.amount.toString() 
+   const amount = typeof data.amount === 'number'
+     ? data.amount.toString()
      : data.amount;
    ```
 
@@ -455,7 +453,7 @@ npm run test:integration
 
 **Pre-push checklist:**
 1. `npm run fix` - Format and lint
-2. `npm run test:ci` - Unit tests  
+2. `npm run test:ci` - Unit tests
 3. `npm run test:integration` - Integration tests (requires LocalNet)
 
 Note: Integration tests use shared-secret authentication by default. DAR files are auto-discovered from the `@fairmint/open-captable-protocol-daml-js` npm package.

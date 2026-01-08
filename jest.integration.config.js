@@ -11,4 +11,6 @@ module.exports = {
   },
   // Transform jose ESM module to CommonJS for Jest compatibility
   transformIgnorePatterns: ['/node_modules/(?!(jose)/)'],
+  // Run integration tests serially to avoid DAR upload collisions
+  maxWorkers: 1,
 };
