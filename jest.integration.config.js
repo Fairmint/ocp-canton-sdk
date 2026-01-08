@@ -11,7 +11,6 @@ module.exports = {
   },
   // Transform jose ESM module to CommonJS for Jest compatibility
   transformIgnorePatterns: ['/node_modules/(?!(jose)/)'],
-  // Use single worker to share module state across test files
-  // This prevents the integration test harness from reinitializing for each test suite
+  // Run integration tests serially to avoid DAR upload collisions
   maxWorkers: 1,
 };
