@@ -537,12 +537,15 @@ The publish workflow requires:
 
 ## Related Repos
 
-| Repo | Purpose |
-|------|---------|
-| `canton-node-sdk` | Low-level Canton client |
-| `canton` | Trading infrastructure, ADRs |
-| `open-captable-protocol-daml` | DAML contracts (OCF implementation) |
-| `Open-Cap-Format-OCF` | OCF JSON schemas (submodule) |
+| Repo | Purpose | Docs |
+|------|---------|------|
+| `canton` | Trading infrastructure, ADRs | `llms.txt` |
+| `canton-explorer` | Next.js explorer UI | `llms.txt`, [cantonops.fairmint.com](https://cantonops.fairmint.com/) |
+| `canton-fairmint-sdk` | Shared TypeScript utilities | `llms.txt` |
+| `canton-node-sdk` | Low-level Canton client | `llms.txt`, [sdk.canton.fairmint.com](https://sdk.canton.fairmint.com/) |
+| `ocp-position-nft` | Soulbound NFT smart contracts | `llms.txt` |
+| `open-captable-protocol-daml` | DAML contracts (OCF impl) | `llms.txt` |
+| `Open-Cap-Format-OCF` | OCF JSON schemas (submodule) | [GitHub](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF) |
 
 ## Tasks
 
