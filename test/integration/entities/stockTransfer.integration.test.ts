@@ -50,10 +50,10 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
     });
 
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-transfer'),
         name: 'Common Stock',
@@ -67,10 +67,10 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
 
     // First create a stock issuance
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
@@ -82,10 +82,10 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
 
     // Now transfer some shares
     const transferSetup = await setupTestStockTransfer(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: issuanceSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: issuanceSetup.newCapTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '25000',
       stockTransferData: {
@@ -126,10 +126,10 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
     });
 
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-transfer-rt'),
         name: 'Common Stock',
@@ -142,10 +142,10 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
     });
 
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
@@ -162,10 +162,10 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
     });
 
     const transferSetup = await setupTestStockTransfer(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: issuanceSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: issuanceSetup.newCapTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '50000',
       stockTransferData: originalData,

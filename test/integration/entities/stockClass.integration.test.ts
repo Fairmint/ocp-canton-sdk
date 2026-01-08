@@ -202,11 +202,11 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
       },
     });
 
-    // Build and execute delete command
+    // Build and execute delete command using the NEW CapTable contract from stockClassSetup
     const deleteCmd = ctx.ocp.OpenCapTable.stockClass.buildDeleteStockClassCommand({
-      capTableContractId: issuerSetup.issuerContractId,
+      capTableContractId: stockClassSetup.newCapTableContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stockClassId: stockClassSetup.stockClassData.id,
     });
 

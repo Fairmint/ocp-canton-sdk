@@ -49,10 +49,10 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
     });
 
     const convertibleSetup = await setupTestConvertibleIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       convertibleIssuanceData: {
         id: generateTestId('safe-ocf-test'),
@@ -96,10 +96,10 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
     });
 
     const convertibleSetup = await setupTestConvertibleIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       convertibleIssuanceData: {
         id: generateTestId('note-ocf-test'),
@@ -151,10 +151,10 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
     });
 
     const convertibleSetup = await setupTestConvertibleIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       convertibleIssuanceData: originalData,
     });
@@ -194,10 +194,10 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
     });
 
     const convertibleSetup = await setupTestConvertibleIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       convertibleIssuanceData: {
         id: generateTestId('convertible-archive-test'),

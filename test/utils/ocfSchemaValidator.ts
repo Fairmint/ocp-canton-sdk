@@ -27,6 +27,7 @@ const SCHEMA_MAP: Record<string, string> = {
   TX_EQUITY_COMPENSATION_EXERCISE: 'objects/transactions/exercise/EquityCompensationExercise.schema.json',
   TX_WARRANT_ISSUANCE: 'objects/transactions/issuance/WarrantIssuance.schema.json',
   TX_CONVERTIBLE_ISSUANCE: 'objects/transactions/issuance/ConvertibleIssuance.schema.json',
+  TX_STOCK_REPURCHASE: 'objects/transactions/repurchase/StockRepurchase.schema.json',
   DOCUMENT: 'objects/Document.schema.json',
 };
 

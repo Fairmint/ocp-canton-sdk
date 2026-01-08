@@ -52,10 +52,10 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
     });
 
     const planSetup = await setupTestStockPlan(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-ocf-test'),
@@ -109,10 +109,10 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
     });
 
     const planSetup = await setupTestStockPlan(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: originalData,
     });
@@ -154,10 +154,10 @@ createIntegrationTestSuite('StockPlan operations', (getContext) => {
     });
 
     const planSetup = await setupTestStockPlan(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-archive-test'),

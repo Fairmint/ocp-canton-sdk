@@ -31,7 +31,7 @@ createIntegrationTestSuite('Full cap table workflow', (getContext) => {
       },
     });
 
-    // 2. Create stock class
+    // 2. Create stock class (uses issuer's CapTable contract)
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
@@ -48,12 +48,12 @@ createIntegrationTestSuite('Full cap table workflow', (getContext) => {
       },
     });
 
-    // 3. Create stakeholders
+    // 3. Create stakeholders (chain the CapTable contracts from previous operations)
     const founderSetup = await setupTestStakeholder(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stakeholderData: {
         id: generateTestId('founder-1'),
         name: { legal_name: 'Jane Founder', first_name: 'Jane', last_name: 'Founder' },
@@ -63,10 +63,10 @@ createIntegrationTestSuite('Full cap table workflow', (getContext) => {
     });
 
     const investorSetup = await setupTestStakeholder(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: founderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: founderSetup.newCapTableContractDetails,
       stakeholderData: {
         id: generateTestId('investor-1'),
         name: { legal_name: 'Angel Investor LLC' },
@@ -75,8 +75,9 @@ createIntegrationTestSuite('Full cap table workflow', (getContext) => {
     });
 
     // Verify all entities were created
+    // Note: Use issuerOcfContractId for the actual Issuer contract
     const issuerOcf = await ctx.ocp.OpenCapTable.issuer.getIssuerAsOcf({
-      contractId: issuerSetup.issuerContractId,
+      contractId: issuerSetup.issuerOcfContractId,
     });
     expect(issuerOcf.issuer.legal_name).toBe('Full Workflow Corp');
 

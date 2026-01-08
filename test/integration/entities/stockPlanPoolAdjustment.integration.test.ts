@@ -53,10 +53,10 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
     });
 
     const planSetup = await setupTestStockPlan(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-for-pool-adj'),
@@ -66,10 +66,10 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
     });
 
     const adjustmentSetup = await setupTestStockPlanPoolAdjustment(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: planSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: planSetup.newCapTableContractDetails,
       stockPlanId: planSetup.stockPlanData.id,
       adjustmentData: {
         id: generateTestId('pool-adj-ocf-test'),
@@ -114,10 +114,10 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
     });
 
     const planSetup = await setupTestStockPlan(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-for-pool-adj-rt'),
@@ -133,10 +133,10 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
     });
 
     const adjustmentSetup = await setupTestStockPlanPoolAdjustment(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: planSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: planSetup.newCapTableContractDetails,
       stockPlanId: planSetup.stockPlanData.id,
       adjustmentData: originalData,
     });
@@ -178,10 +178,10 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
     });
 
     const planSetup = await setupTestStockPlan(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-for-pool-adj-archive'),
@@ -191,10 +191,10 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
     });
 
     const adjustmentSetup = await setupTestStockPlanPoolAdjustment(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: planSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: planSetup.newCapTableContractDetails,
       stockPlanId: planSetup.stockPlanData.id,
       adjustmentData: {
         id: generateTestId('pool-adj-archive-test'),

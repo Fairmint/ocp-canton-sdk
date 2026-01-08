@@ -50,10 +50,10 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
     });
 
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-cancellation'),
         name: 'Common Stock',
@@ -67,10 +67,10 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
 
     // First create a stock issuance
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
@@ -82,10 +82,10 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
 
     // Now cancel some shares
     const cancellationSetup = await setupTestStockCancellation(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: issuanceSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: issuanceSetup.newCapTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '25000',
       stockCancellationData: {
@@ -127,10 +127,10 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
     });
 
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-cancellation-rt'),
         name: 'Common Stock',
@@ -143,10 +143,10 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
     });
 
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
@@ -163,10 +163,10 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
     });
 
     const cancellationSetup = await setupTestStockCancellation(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: issuanceSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: issuanceSetup.newCapTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '50000',
       stockCancellationData: originalData,
@@ -206,10 +206,10 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
     });
 
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-cancellation-archive'),
         name: 'Common Stock',
@@ -222,10 +222,10 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
     });
 
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
@@ -236,10 +236,10 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
     });
 
     const cancellationSetup = await setupTestStockCancellation(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: issuanceSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: issuanceSetup.newCapTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '10000',
       stockCancellationData: {

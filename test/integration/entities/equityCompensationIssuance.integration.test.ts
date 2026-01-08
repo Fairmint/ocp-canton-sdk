@@ -51,10 +51,10 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
     });
 
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-for-ec'),
         name: 'Common Stock',
@@ -67,10 +67,10 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
     });
 
     const planSetup = await setupTestStockPlan(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stockClassIds: [stockClassSetup.stockClassData.id],
       stockPlanData: {
         id: generateTestId('plan-for-ec'),
@@ -80,10 +80,10 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
     });
 
     const ecSetup = await setupTestEquityCompensationIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: planSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: planSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockPlanId: planSetup.stockPlanData.id,
       stockClassId: stockClassSetup.stockClassData.id,
@@ -137,10 +137,10 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
     });
 
     const ecSetup = await setupTestEquityCompensationIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       equityCompensationIssuanceData: originalData,
     });
@@ -178,10 +178,10 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
     });
 
     const ecSetup = await setupTestEquityCompensationIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       equityCompensationIssuanceData: {
         id: generateTestId('rsu-test'),
@@ -223,10 +223,10 @@ createIntegrationTestSuite('EquityCompensationIssuance operations', (getContext)
     });
 
     const ecSetup = await setupTestEquityCompensationIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       equityCompensationIssuanceData: {
         id: generateTestId('ec-archive-test'),

@@ -105,6 +105,10 @@ export interface TestStockIssuanceSetup {
   stockIssuanceContractId: string;
   /** The stock issuance data used to create it */
   stockIssuanceData: OcfStockIssuance;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock class authorized shares adjustment. */
@@ -113,6 +117,10 @@ export interface TestStockClassAuthorizedSharesAdjustmentSetup {
   adjustmentContractId: string;
   /** The adjustment data used to create it */
   adjustmentData: OcfStockClassAuthorizedSharesAdjustment;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock legend template. */
@@ -121,6 +129,10 @@ export interface TestStockLegendTemplateSetup {
   stockLegendTemplateContractId: string;
   /** The stock legend template data used to create it */
   stockLegendTemplateData: OcfStockLegendTemplate;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test vesting terms. */
@@ -129,6 +141,10 @@ export interface TestVestingTermsSetup {
   vestingTermsContractId: string;
   /** The vesting terms data used to create it */
   vestingTermsData: OcfVestingTerms;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock plan. */
@@ -137,6 +153,10 @@ export interface TestStockPlanSetup {
   stockPlanContractId: string;
   /** The stock plan data used to create it */
   stockPlanData: OcfStockPlan;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test document. */
@@ -145,6 +165,10 @@ export interface TestDocumentSetup {
   documentContractId: string;
   /** The document data used to create it */
   documentData: OcfDocument;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test issuer authorized shares adjustment. */
@@ -153,6 +177,10 @@ export interface TestIssuerAuthorizedSharesAdjustmentSetup {
   adjustmentContractId: string;
   /** The adjustment data used to create it */
   adjustmentData: OcfIssuerAuthorizedSharesAdjustment;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock plan pool adjustment. */
@@ -161,6 +189,10 @@ export interface TestStockPlanPoolAdjustmentSetup {
   adjustmentContractId: string;
   /** The adjustment data used to create it */
   adjustmentData: OcfStockPlanPoolAdjustment;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock cancellation. */
@@ -169,6 +201,10 @@ export interface TestStockCancellationSetup {
   stockCancellationContractId: string;
   /** The stock cancellation data used to create it */
   stockCancellationData: OcfStockCancellation;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test equity compensation issuance. */
@@ -177,6 +213,10 @@ export interface TestEquityCompensationIssuanceSetup {
   equityCompensationIssuanceContractId: string;
   /** The equity compensation issuance data used to create it */
   equityCompensationIssuanceData: OcfEquityCompensationIssuance;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test warrant issuance. */
@@ -185,6 +225,10 @@ export interface TestWarrantIssuanceSetup {
   warrantIssuanceContractId: string;
   /** The warrant issuance data used to create it */
   warrantIssuanceData: OcfWarrantIssuance;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test convertible issuance. */
@@ -193,6 +237,10 @@ export interface TestConvertibleIssuanceSetup {
   convertibleIssuanceContractId: string;
   /** The convertible issuance data used to create it */
   convertibleIssuanceData: OcfConvertibleIssuance;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock transfer. */
@@ -201,6 +249,22 @@ export interface TestStockTransferSetup {
   stockTransferContractId: string;
   /** The stock transfer data used to create it */
   stockTransferData: OcfStockTransfer;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
+}
+
+/** Result from setting up a test stock repurchase. */
+export interface TestStockRepurchaseSetup {
+  /** The contract ID of the created stock repurchase */
+  stockRepurchaseContractId: string;
+  /** The stock repurchase data used to create it */
+  stockRepurchaseData: OcfStockRepurchase;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a complete cap table for testing. */
@@ -728,6 +792,35 @@ function extractContractIdFromResponse(
 }
 
 /**
+ * Extract the new CapTable contract details from a transaction result.
+ * This is used after exercising a consuming choice on CapTable, which archives
+ * the old contract and creates a new one.
+ */
+async function extractNewCapTableDetails(
+  ocp: OcpClient,
+  result: SubmitAndWaitForTransactionTreeResponse
+): Promise<{ contractId: string; contractDetails: DisclosedContract }> {
+  const contractId = extractContractIdFromResponse(result, 'CapTable');
+  if (!contractId) {
+    throw new Error('Failed to extract new CapTable contract ID from transaction result');
+  }
+
+  const events = await ocp.client.getEventsByContractId({ contractId });
+  if (!events.created?.createdEvent) {
+    throw new Error('Failed to get new CapTable contract created event');
+  }
+
+  const contractDetails: DisclosedContract = {
+    templateId: events.created.createdEvent.templateId,
+    contractId,
+    createdEventBlob: events.created.createdEvent.createdEventBlob,
+    synchronizerId: result.transactionTree.synchronizerId,
+  };
+
+  return { contractId, contractDetails };
+}
+
+/**
  * Get or create issuer authorization.
  *
  * If issuerAuthorizationContractDetails is provided in options, returns it directly. Otherwise, creates a new
@@ -1085,9 +1178,14 @@ export async function setupTestStockIssuance(
     throw new Error('Failed to extract stock issuance contract ID from transaction result');
   }
 
+  // Extract the new CapTable contract details
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     stockIssuanceContractId,
     stockIssuanceData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1148,9 +1246,13 @@ export async function setupTestStockTransfer(
     throw new Error('Failed to extract stock transfer contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     stockTransferContractId,
     stockTransferData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1208,9 +1310,13 @@ export async function setupTestStockClassAuthorizedSharesAdjustment(
     throw new Error('Failed to extract adjustment contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     adjustmentContractId,
     adjustmentData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1263,7 +1369,7 @@ export async function setupTestStockRepurchase(
     /** Optional stock repurchase data overrides */
     stockRepurchaseData?: Partial<OcfStockRepurchase>;
   }
-): Promise<{ stockRepurchaseContractId: string; stockRepurchaseData: OcfStockRepurchase }> {
+): Promise<TestStockRepurchaseSetup> {
   const stockRepurchaseData = createTestStockRepurchaseData(
     options.securityId,
     options.quantity,
@@ -1295,9 +1401,13 @@ export async function setupTestStockRepurchase(
     throw new Error('Failed to extract stock repurchase contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     stockRepurchaseContractId,
     stockRepurchaseData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1358,9 +1468,13 @@ export async function setupTestStockCancellation(
     throw new Error('Failed to extract stock cancellation contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     stockCancellationContractId,
     stockCancellationData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1413,9 +1527,13 @@ export async function setupTestDocument(
     throw new Error('Failed to extract document contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     documentContractId,
     documentData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1468,9 +1586,13 @@ export async function setupTestStockLegendTemplate(
     throw new Error('Failed to extract stock legend template contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     stockLegendTemplateContractId,
     stockLegendTemplateData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1523,9 +1645,13 @@ export async function setupTestVestingTerms(
     throw new Error('Failed to extract vesting terms contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     vestingTermsContractId,
     vestingTermsData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1561,7 +1687,7 @@ export async function setupTestStockPlan(
     capTableContractDetails: options.capTableContractDetails,
     choice: 'CreateStockPlan',
     choiceArgument: {
-      stock_plan_data: stockPlanDataToDaml(stockPlanData),
+      plan_data: stockPlanDataToDaml(stockPlanData),
     },
   });
 
@@ -1580,9 +1706,13 @@ export async function setupTestStockPlan(
     throw new Error('Failed to extract stock plan contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     stockPlanContractId,
     stockPlanData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1637,9 +1767,13 @@ export async function setupTestIssuerAuthorizedSharesAdjustment(
     throw new Error('Failed to extract adjustment contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     adjustmentContractId,
     adjustmentData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1694,9 +1828,13 @@ export async function setupTestStockPlanPoolAdjustment(
     throw new Error('Failed to extract adjustment contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     adjustmentContractId,
     adjustmentData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1758,9 +1896,13 @@ export async function setupTestConvertibleIssuance(
     throw new Error('Failed to extract convertible issuance contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     convertibleIssuanceContractId,
     convertibleIssuanceData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1819,9 +1961,13 @@ export async function setupTestWarrantIssuance(
     throw new Error('Failed to extract warrant issuance contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     warrantIssuanceContractId,
     warrantIssuanceData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
 
@@ -1884,8 +2030,12 @@ export async function setupTestEquityCompensationIssuance(
     throw new Error('Failed to extract equity compensation issuance contract ID from transaction result');
   }
 
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
   return {
     equityCompensationIssuanceContractId,
     equityCompensationIssuanceData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
   };
 }
