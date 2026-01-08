@@ -481,6 +481,42 @@ Client ID: app-provider-validator
 Client Secret: AL8648b9SfdTFImq7FV56Vd0KHifHBuC
 ```
 
+### Troubleshooting LocalNet
+
+#### "Cannot connect to Docker daemon"
+```bash
+# Start Docker Desktop, then verify
+docker ps
+```
+
+#### "HTTP 503" or "Connection refused" during tests
+Services aren't ready yet. Wait for all containers to show "healthy":
+```bash
+docker ps --format "table {{.Names}}\t{{.Status}}" | grep -v healthy
+# Should return nothing when ready (all healthy)
+```
+
+#### "Container keeps restarting"
+Reset everything and start fresh:
+```bash
+cd libs/cn-quickstart/quickstart
+make clean-all-docker  # Removes all containers and volumes
+make start
+```
+
+#### "Port already in use"
+Stop existing containers or find conflicting process:
+```bash
+make stop              # Stop LocalNet containers
+lsof -i :3975          # Find what's using JSON API port
+```
+
+#### "DAR upload failed" or "Package not found"
+Canton may have restarted, clearing deployed packages. Tests auto-deploy DARs on startup.
+
+#### Integration tests timeout
+LocalNet startup can take 4-5 minutes. Ensure all services are healthy before running tests.
+
 ### Known Limitations
 
 1. **OAuth2 Disclosed Contracts**: In OAuth2 mode, the app_provider can't fetch `createdEventBlob` for contracts it doesn't own (returns 403). This breaks the disclosed contracts mechanism needed for cross-party visibility. **Solution:** Use shared-secret auth mode for full integration test coverage (`make setup` and select shared-secret).

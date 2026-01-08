@@ -33,12 +33,7 @@ import { ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../../src/OcpClient';
 import { buildIntegrationTestClientConfig } from '../../utils/testConfig';
-import {
-  createFeaturedAppRight,
-  deployAndCreateFactory,
-  lookupFeaturedAppRightViaScanApi,
-  type DeploymentResult,
-} from './contractDeployment';
+import { createFeaturedAppRight, deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
 
 /** Shared context available to all integration tests. */
 export interface IntegrationTestContext {
@@ -69,7 +64,13 @@ interface HarnessState {
   initError: Error | null;
 }
 
-const state: HarnessState = {
+// Use global object to persist state across Jest's module isolation
+// This ensures the harness only initializes once even when running multiple test suites
+declare global {
+  var __integrationTestHarnessState: HarnessState | undefined;
+}
+
+const state: HarnessState = global.__integrationTestHarnessState ?? {
   ocp: null,
   issuerParty: null,
   systemOperatorParty: null,
@@ -80,6 +81,9 @@ const state: HarnessState = {
   initialized: false,
   initError: null,
 };
+
+// Store reference in global for persistence across module reloads
+global.__integrationTestHarnessState = state;
 
 /**
  * Initialize the test harness. Called once before all tests.
@@ -174,28 +178,21 @@ async function initializeHarness(): Promise<void> {
     console.log(`   DSO party: ${dsoPartyId}`);
     console.log(`   Synchronizer: ${synchronizerId}`);
 
-    // Try to look up existing FeaturedAppRight via the scan API
-    console.log(`📋 Looking up FeaturedAppRight for ${state.issuerParty}...`);
-    let featuredAppRightResult = await lookupFeaturedAppRightViaScanApi(state.issuerParty, synchronizerId);
-    if (featuredAppRightResult) {
-      console.log(`   Found existing FeaturedAppRight: ${featuredAppRightResult.contractId}`);
-    }
-
-    // If no existing FeaturedAppRight, try to create one
-    if (!featuredAppRightResult) {
-      console.log('   Attempting to create FeaturedAppRight via AmuletRules_DevNet_FeatureApp...');
-      try {
-        featuredAppRightResult = await createFeaturedAppRight(state.ocp.client, state.issuerParty, validatorClient);
-        console.log(`   Created FeaturedAppRight: ${featuredAppRightResult.contractId}`);
-      } catch (createErr) {
-        // FeaturedAppRight creation failed
-        const errorMessage = createErr instanceof Error ? createErr.message : String(createErr);
-        throw new Error(
-          `FeaturedAppRight creation failed.\n\n` +
-            `Details: ${errorMessage}\n\n` +
-            `Make sure cn-quickstart LocalNet is running and healthy.`
-        );
-      }
+    // Always create a fresh FeaturedAppRight to ensure we have the latest package IDs
+    // (After DAML recompilations, existing contracts may have stale template IDs)
+    console.log(`📋 Creating fresh FeaturedAppRight for ${state.issuerParty}...`);
+    let featuredAppRightResult: Awaited<ReturnType<typeof createFeaturedAppRight>>;
+    try {
+      featuredAppRightResult = await createFeaturedAppRight(state.ocp.client, state.issuerParty, validatorClient);
+      console.log(`   Created FeaturedAppRight: ${featuredAppRightResult.contractId}`);
+    } catch (createErr) {
+      // FeaturedAppRight creation failed
+      const errorMessage = createErr instanceof Error ? createErr.message : String(createErr);
+      throw new Error(
+        `FeaturedAppRight creation failed.\n\n` +
+          `Details: ${errorMessage}\n\n` +
+          `Make sure cn-quickstart LocalNet is running and healthy.`
+      );
     }
 
     state.featuredAppRight = {

@@ -52,14 +52,18 @@ function findDarFilePath(): string | null {
 
 /** Check if the OCP packages are already deployed on the ledger. */
 async function arePackagesDeployed(client: LedgerJsonApiClient): Promise<boolean> {
-  const { packageIds } = await client.listPackages();
-
-  // Check if the OcpFactory template exists by looking for its package
-  // The package ID is in the template ID format: packageId:modulePath:templateName
-  const ocpFactoryTemplateId = Fairmint.OpenCapTable.OcpFactory.OcpFactory.templateId;
-  const expectedPackageId = ocpFactoryTemplateId.split(':')[0];
-
-  return packageIds.includes(expectedPackageId);
+  try {
+    // Try to query for OcpFactory contracts - if this succeeds, packages are deployed
+    // (Even if no contracts exist, the query will succeed if the template is known)
+    await client.getActiveContracts({
+      templateIds: [Fairmint.OpenCapTable.OcpFactory.OcpFactory.templateId],
+    });
+    // If we got here without an error, the template is known, so packages are deployed
+    return true;
+  } catch {
+    // If the template is unknown, we'll get an error, meaning packages aren't deployed
+    return false;
+  }
 }
 
 /** Deploy OCP DAML contracts to the ledger. */

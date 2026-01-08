@@ -37,6 +37,7 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-common'),
         name: 'Common Stock',
@@ -84,6 +85,7 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: originalData,
     });
 
@@ -115,6 +117,7 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-common-variant'),
         name: 'Common Stock Class A',
@@ -149,6 +152,7 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
         id: generateTestId('stock-class-preferred'),
         name: 'Series A Preferred',
@@ -172,7 +176,7 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
     await validateOcfObject(ocfResult.stockClass as unknown as Record<string, unknown>);
   });
 
-  test('archives stock class', async () => {
+  test('deletes stock class', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -186,29 +190,36 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stockClassData: {
-        id: generateTestId('stock-class-archive-test'),
-        name: 'Stock To Archive',
+        id: generateTestId('stock-class-delete-test'),
+        name: 'Stock To Delete',
         class_type: 'COMMON',
-        default_id_prefix: 'STA-',
+        default_id_prefix: 'STD-',
         initial_shares_authorized: '1000000',
         votes_per_share: '1',
         seniority: '1',
       },
     });
 
-    // Build and execute archive command
-    const archiveCmd = ctx.ocp.OpenCapTable.stockClass.buildArchiveStockClassByIssuerCommand({
-      contractId: stockClassSetup.stockClassContractId,
+    // Build and execute delete command using the NEW CapTable contract from stockClassSetup
+    const deleteCmd = ctx.ocp.OpenCapTable.stockClass.buildDeleteStockClassCommand({
+      capTableContractId: stockClassSetup.newCapTableContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
+      stockClassId: stockClassSetup.stockClassData.id,
     });
+
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
 
     await ctx.ocp.client.submitAndWaitForTransactionTree({
-      commands: [archiveCmd],
+      commands: [deleteCmd.command],
       actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
     });
 
-    // Verify the contract is archived by trying to read it
-    // getEventsByContractId should still work but the contract is archived
-    // This test validates that the archive operation succeeds without error
+    // Delete operation succeeded if no error thrown
   });
 });
