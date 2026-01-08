@@ -19,6 +19,25 @@ import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmin
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
+import {
+  buildCapTableCommand,
+  buildCreateStakeholderCommand,
+  buildCreateStockClassCommand,
+  convertibleIssuanceDataToDaml,
+  documentDataToDaml,
+  equityCompensationIssuanceDataToDaml,
+  issuerAuthorizedSharesAdjustmentDataToDaml,
+  stockCancellationDataToDaml,
+  stockClassAuthorizedSharesAdjustmentDataToDaml,
+  stockIssuanceDataToDaml,
+  stockLegendTemplateDataToDaml,
+  stockPlanDataToDaml,
+  stockPlanPoolAdjustmentDataToDaml,
+  stockRepurchaseDataToDaml,
+  stockTransferDataToDaml,
+  vestingTermsDataToDaml,
+  warrantIssuanceDataToDaml,
+} from '../../../src/functions/OpenCapTable';
 import type {
   OcfConvertibleIssuance,
   OcfDocument,
@@ -33,6 +52,7 @@ import type {
   OcfStockLegendTemplate,
   OcfStockPlan,
   OcfStockPlanPoolAdjustment,
+  OcfStockRepurchase,
   OcfStockTransfer,
   OcfVestingTerms,
   OcfWarrantIssuance,
@@ -41,14 +61,18 @@ import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
 /** Result from setting up a test issuer. */
 export interface TestIssuerSetup {
-  /** The contract ID of the created issuer */
+  /** The contract ID of the created CapTable contract (for exercising choices) - legacy name for backward compat */
   issuerContractId: string;
+  /** The contract ID of the actual Issuer contract (for getIssuerAsOcf) */
+  issuerOcfContractId: string;
   /** The issuer data used to create it */
   issuerData: OcfIssuer;
   /** The issuer authorization contract details (needed for subsequent operations) */
   issuerAuthorizationContractDetails: DisclosedContract;
   /** The featured app right contract details */
   featuredAppRightContractDetails: DisclosedContract;
+  /** The CapTable contract details (needed for disclosed contracts when exercising choices) */
+  capTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stakeholder. */
@@ -57,6 +81,10 @@ export interface TestStakeholderSetup {
   stakeholderContractId: string;
   /** The stakeholder data used to create it */
   stakeholderData: OcfStakeholder;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock class. */
@@ -65,6 +93,10 @@ export interface TestStockClassSetup {
   stockClassContractId: string;
   /** The stock class data used to create it */
   stockClassData: OcfStockClass;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock issuance. */
@@ -73,6 +105,10 @@ export interface TestStockIssuanceSetup {
   stockIssuanceContractId: string;
   /** The stock issuance data used to create it */
   stockIssuanceData: OcfStockIssuance;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock class authorized shares adjustment. */
@@ -81,6 +117,10 @@ export interface TestStockClassAuthorizedSharesAdjustmentSetup {
   adjustmentContractId: string;
   /** The adjustment data used to create it */
   adjustmentData: OcfStockClassAuthorizedSharesAdjustment;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock legend template. */
@@ -89,6 +129,10 @@ export interface TestStockLegendTemplateSetup {
   stockLegendTemplateContractId: string;
   /** The stock legend template data used to create it */
   stockLegendTemplateData: OcfStockLegendTemplate;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test vesting terms. */
@@ -97,6 +141,10 @@ export interface TestVestingTermsSetup {
   vestingTermsContractId: string;
   /** The vesting terms data used to create it */
   vestingTermsData: OcfVestingTerms;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock plan. */
@@ -105,6 +153,10 @@ export interface TestStockPlanSetup {
   stockPlanContractId: string;
   /** The stock plan data used to create it */
   stockPlanData: OcfStockPlan;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test document. */
@@ -113,6 +165,10 @@ export interface TestDocumentSetup {
   documentContractId: string;
   /** The document data used to create it */
   documentData: OcfDocument;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test issuer authorized shares adjustment. */
@@ -121,6 +177,10 @@ export interface TestIssuerAuthorizedSharesAdjustmentSetup {
   adjustmentContractId: string;
   /** The adjustment data used to create it */
   adjustmentData: OcfIssuerAuthorizedSharesAdjustment;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock plan pool adjustment. */
@@ -129,6 +189,10 @@ export interface TestStockPlanPoolAdjustmentSetup {
   adjustmentContractId: string;
   /** The adjustment data used to create it */
   adjustmentData: OcfStockPlanPoolAdjustment;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock cancellation. */
@@ -137,6 +201,10 @@ export interface TestStockCancellationSetup {
   stockCancellationContractId: string;
   /** The stock cancellation data used to create it */
   stockCancellationData: OcfStockCancellation;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test equity compensation issuance. */
@@ -145,6 +213,10 @@ export interface TestEquityCompensationIssuanceSetup {
   equityCompensationIssuanceContractId: string;
   /** The equity compensation issuance data used to create it */
   equityCompensationIssuanceData: OcfEquityCompensationIssuance;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test warrant issuance. */
@@ -153,6 +225,10 @@ export interface TestWarrantIssuanceSetup {
   warrantIssuanceContractId: string;
   /** The warrant issuance data used to create it */
   warrantIssuanceData: OcfWarrantIssuance;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test convertible issuance. */
@@ -161,6 +237,10 @@ export interface TestConvertibleIssuanceSetup {
   convertibleIssuanceContractId: string;
   /** The convertible issuance data used to create it */
   convertibleIssuanceData: OcfConvertibleIssuance;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a test stock transfer. */
@@ -169,6 +249,22 @@ export interface TestStockTransferSetup {
   stockTransferContractId: string;
   /** The stock transfer data used to create it */
   stockTransferData: OcfStockTransfer;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
+}
+
+/** Result from setting up a test stock repurchase. */
+export interface TestStockRepurchaseSetup {
+  /** The contract ID of the created stock repurchase */
+  stockRepurchaseContractId: string;
+  /** The stock repurchase data used to create it */
+  stockRepurchaseData: OcfStockRepurchase;
+  /** The new CapTable contract ID (after this operation consumed the old one) */
+  newCapTableContractId: string;
+  /** The new CapTable contract details (for subsequent operations) */
+  newCapTableContractDetails: DisclosedContract;
 }
 
 /** Result from setting up a complete cap table for testing. */
@@ -683,12 +779,44 @@ function extractContractIdFromResponse(
     if (eventData.CreatedTreeEvent) {
       const created = (eventData.CreatedTreeEvent as Record<string, unknown>).value as Record<string, unknown>;
       const templateId = created.templateId as string;
-      if (templateId.includes(templateIdContains)) {
+      // Use more specific matching to avoid false positives.
+      // e.g., "CapTable" should match "CapTable:CapTable" but not "OpenCapTable" in module paths.
+      // We match either ":TemplateIdContains:" (in module path) or ":TemplateIdContains" (at end for template name)
+      const isMatch = templateId.includes(`:${templateIdContains}:`) || templateId.endsWith(`:${templateIdContains}`);
+      if (isMatch) {
         return created.contractId as string;
       }
     }
   }
   return '';
+}
+
+/**
+ * Extract the new CapTable contract details from a transaction result. This is used after exercising a consuming choice
+ * on CapTable, which archives the old contract and creates a new one.
+ */
+async function extractNewCapTableDetails(
+  ocp: OcpClient,
+  result: SubmitAndWaitForTransactionTreeResponse
+): Promise<{ contractId: string; contractDetails: DisclosedContract }> {
+  const contractId = extractContractIdFromResponse(result, 'CapTable');
+  if (!contractId) {
+    throw new Error('Failed to extract new CapTable contract ID from transaction result');
+  }
+
+  const events = await ocp.client.getEventsByContractId({ contractId });
+  if (!events.created?.createdEvent) {
+    throw new Error('Failed to get new CapTable contract created event');
+  }
+
+  const contractDetails: DisclosedContract = {
+    templateId: events.created.createdEvent.templateId,
+    contractId,
+    createdEventBlob: events.created.createdEvent.createdEventBlob,
+    synchronizerId: result.transactionTree.synchronizerId,
+  };
+
+  return { contractId, contractDetails };
 }
 
 /**
@@ -763,6 +891,8 @@ export async function setupTestIssuer(
     issuerParty: string;
     /** Pre-fetched featured app right (for reuse across tests) */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** Optional issuer data overrides */
     issuerData?: Partial<OcfIssuer>;
     /** Pre-existing issuer authorization (if already authorized) */
@@ -803,21 +933,47 @@ export async function setupTestIssuer(
     disclosedContracts: validDisclosedContracts,
   });
 
-  // Extract the issuer contract ID from the result
-  const issuerContractId = extractContractIdFromResponse(result, 'Issuer');
-  if (!issuerContractId) {
-    throw new Error('Failed to extract issuer contract ID from transaction result');
+  // Extract the Issuer contract ID from the result (for getIssuerAsOcf)
+  const issuerOcfContractId = extractContractIdFromResponse(result, 'Issuer');
+  if (!issuerOcfContractId) {
+    throw new Error('Failed to extract Issuer contract ID from transaction result');
   }
 
+  // Extract the CapTable contract ID from the result (for exercising choices)
+  const capTableContractId = extractContractIdFromResponse(result, 'CapTable');
+  if (!capTableContractId) {
+    throw new Error('Failed to extract CapTable contract ID from transaction result');
+  }
+
+  // Get the CapTable contract's event details for use in disclosed contracts
+  // This is needed when exercising choices on the CapTable
+  const capTableEvents = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+  if (!capTableEvents.created?.createdEvent) {
+    throw new Error('Failed to get CapTable contract created event');
+  }
+
+  // Use synchronizerId from the transaction result (matches the CapTable contract's domain)
+  const capTableSynchronizerId = result.transactionTree.synchronizerId;
+
+  const capTableContractDetails: DisclosedContract = {
+    templateId: capTableEvents.created.createdEvent.templateId,
+    contractId: capTableContractId,
+    createdEventBlob: capTableEvents.created.createdEvent.createdEventBlob,
+    synchronizerId: capTableSynchronizerId,
+  };
+
   return {
-    issuerContractId,
+    // issuerContractId points to CapTable for backward compatibility with existing tests
+    issuerContractId: capTableContractId,
+    // issuerOcfContractId points to the actual Issuer contract (for getIssuerAsOcf)
+    issuerOcfContractId,
     issuerData,
     issuerAuthorizationContractDetails,
     featuredAppRightContractDetails,
+    capTableContractDetails,
   };
 }
 
-/* eslint-disable unused-imports/no-unused-vars */
 /**
  * Setup a test stakeholder under an existing issuer.
  *
@@ -828,26 +984,1057 @@ export async function setupTestIssuer(
 export async function setupTestStakeholder(
   ocp: OcpClient,
   options: {
-    /** The issuer contract ID */
+    /** The issuer contract ID (which is also the CapTable contract ID) */
     issuerContractId: string;
     /** The issuer party ID */
     issuerParty: string;
     /** Featured app right contract details */
     featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
     /** Optional stakeholder data overrides */
     stakeholderData?: Partial<OcfStakeholder>;
   }
 ): Promise<TestStakeholderSetup> {
-  // NOTE: This function has been temporarily disabled because it calls deprecated
-  // buildCreateStakeholderCommand that was removed.
-  // TODO: Update to use buildCreateStakeholderCommand with CapTable pattern
-  return Promise.reject(
-    new Error('setupTestStakeholder is temporarily disabled - function needs to be updated to use new API')
-  );
-}
-/* eslint-enable unused-imports/no-unused-vars */
+  const stakeholderData = createTestStakeholderData(options.stakeholderData);
 
-// NOTE: The remaining helper functions in this file have been temporarily disabled
-// because they call deprecated buildCreate* and buildArchive* functions that were removed.
-// These functions need to be rewritten to use the new API patterns.
-// TODO: Update these helpers to use buildAdd*, buildEdit*, buildDelete* patterns
+  const cmd = buildCreateStakeholderCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    stakeholderData,
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const stakeholderContractId = extractContractIdFromResponse(result, 'Stakeholder');
+  if (!stakeholderContractId) {
+    throw new Error('Failed to extract stakeholder contract ID from transaction result');
+  }
+
+  // Extract the new CapTable contract ID (the old one was consumed)
+  const newCapTableContractId = extractContractIdFromResponse(result, 'CapTable');
+  if (!newCapTableContractId) {
+    throw new Error('Failed to extract new CapTable contract ID from transaction result');
+  }
+
+  // Get the new CapTable contract details for subsequent operations
+  const newCapTableEvents = await ocp.client.getEventsByContractId({ contractId: newCapTableContractId });
+  if (!newCapTableEvents.created?.createdEvent) {
+    throw new Error('Failed to get new CapTable contract created event');
+  }
+
+  const newCapTableContractDetails: DisclosedContract = {
+    templateId: newCapTableEvents.created.createdEvent.templateId,
+    contractId: newCapTableContractId,
+    createdEventBlob: newCapTableEvents.created.createdEvent.createdEventBlob,
+    synchronizerId: result.transactionTree.synchronizerId,
+  };
+
+  return {
+    stakeholderContractId,
+    stakeholderData,
+    newCapTableContractId,
+    newCapTableContractDetails,
+  };
+}
+
+/**
+ * Setup a test stock class under an existing issuer.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockClassSetup with the created stock class
+ */
+export async function setupTestStockClass(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** Optional stock class data overrides */
+    stockClassData?: Partial<OcfStockClass>;
+  }
+): Promise<TestStockClassSetup> {
+  const stockClassData = createTestStockClassData(options.stockClassData);
+
+  const cmd = buildCreateStockClassCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    stockClassData,
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const stockClassContractId = extractContractIdFromResponse(result, 'StockClass');
+  if (!stockClassContractId) {
+    throw new Error('Failed to extract stock class contract ID from transaction result');
+  }
+
+  // Extract the new CapTable contract ID (the old one was consumed)
+  const newCapTableContractId = extractContractIdFromResponse(result, 'CapTable');
+  if (!newCapTableContractId) {
+    throw new Error('Failed to extract new CapTable contract ID from transaction result');
+  }
+
+  // Get the new CapTable contract details for subsequent operations
+  const newCapTableEvents = await ocp.client.getEventsByContractId({ contractId: newCapTableContractId });
+  if (!newCapTableEvents.created?.createdEvent) {
+    throw new Error('Failed to get new CapTable contract created event');
+  }
+
+  const newCapTableContractDetails: DisclosedContract = {
+    templateId: newCapTableEvents.created.createdEvent.templateId,
+    contractId: newCapTableContractId,
+    createdEventBlob: newCapTableEvents.created.createdEvent.createdEventBlob,
+    synchronizerId: result.transactionTree.synchronizerId,
+  };
+
+  return {
+    stockClassContractId,
+    stockClassData,
+    newCapTableContractId,
+    newCapTableContractDetails,
+  };
+}
+
+/**
+ * Setup a test stock issuance under an existing issuer.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockIssuanceSetup with the created stock issuance
+ */
+export async function setupTestStockIssuance(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** The stakeholder receiving the shares */
+    stakeholderId: string;
+    /** The stock class being issued */
+    stockClassId: string;
+    /** Optional stock issuance data overrides */
+    stockIssuanceData?: Partial<OcfStockIssuance>;
+  }
+): Promise<TestStockIssuanceSetup> {
+  const stockIssuanceData = createTestStockIssuanceData(
+    options.stakeholderId,
+    options.stockClassId,
+    options.stockIssuanceData
+  );
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateStockIssuance',
+    choiceArgument: {
+      issuance_data: stockIssuanceDataToDaml(stockIssuanceData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const stockIssuanceContractId = extractContractIdFromResponse(result, 'StockIssuance');
+  if (!stockIssuanceContractId) {
+    throw new Error('Failed to extract stock issuance contract ID from transaction result');
+  }
+
+  // Extract the new CapTable contract details
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    stockIssuanceContractId,
+    stockIssuanceData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup a test stock transfer under an existing issuer.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockTransferSetup with the created stock transfer
+ */
+export async function setupTestStockTransfer(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** The security being transferred */
+    securityId: string;
+    /** Amount to transfer */
+    quantity: string | number;
+    /** Optional stock transfer data overrides */
+    stockTransferData?: Partial<OcfStockTransfer>;
+  }
+): Promise<TestStockTransferSetup> {
+  const stockTransferData = createTestStockTransferData(
+    options.securityId,
+    options.quantity,
+    options.stockTransferData
+  );
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateStockTransfer',
+    choiceArgument: {
+      transfer_data: stockTransferDataToDaml(stockTransferData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const stockTransferContractId = extractContractIdFromResponse(result, 'StockTransfer');
+  if (!stockTransferContractId) {
+    throw new Error('Failed to extract stock transfer contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    stockTransferContractId,
+    stockTransferData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup a test stock class authorized shares adjustment.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockClassAuthorizedSharesAdjustmentSetup with the created adjustment
+ */
+export async function setupTestStockClassAuthorizedSharesAdjustment(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** The stock class being adjusted */
+    stockClassId: string;
+    /** Optional adjustment data overrides */
+    adjustmentData?: Partial<OcfStockClassAuthorizedSharesAdjustment>;
+  }
+): Promise<TestStockClassAuthorizedSharesAdjustmentSetup> {
+  const adjustmentData = createTestStockClassAuthorizedSharesAdjustmentData(
+    options.stockClassId,
+    options.adjustmentData
+  );
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateStockClassAuthorizedSharesAdjustment',
+    choiceArgument: {
+      adjustment_data: stockClassAuthorizedSharesAdjustmentDataToDaml(adjustmentData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const adjustmentContractId = extractContractIdFromResponse(result, 'StockClassAuthorizedSharesAdjustment');
+  if (!adjustmentContractId) {
+    throw new Error('Failed to extract adjustment contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    adjustmentContractId,
+    adjustmentData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Create default stock repurchase data for testing.
+ *
+ * @param securityId - The security being repurchased
+ * @param quantity - Amount to repurchase
+ * @param overrides - Optional overrides for specific fields
+ * @returns Complete OcfStockRepurchase for testing
+ */
+export function createTestStockRepurchaseData(
+  securityId: string,
+  quantity: string | number,
+  overrides: Partial<OcfStockRepurchase> = {}
+): OcfStockRepurchase {
+  return {
+    id: generateTestId('repurchase'),
+    date: generateDateString(),
+    security_id: securityId,
+    quantity,
+    price: { amount: '1.00', currency: 'USD' },
+    comments: ['Integration test stock repurchase'],
+    ...overrides,
+  };
+}
+
+/**
+ * Setup a test stock repurchase.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockRepurchaseSetup with the created repurchase
+ */
+export async function setupTestStockRepurchase(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** The security being repurchased */
+    securityId: string;
+    /** Amount to repurchase */
+    quantity: string | number;
+    /** Optional stock repurchase data overrides */
+    stockRepurchaseData?: Partial<OcfStockRepurchase>;
+  }
+): Promise<TestStockRepurchaseSetup> {
+  const stockRepurchaseData = createTestStockRepurchaseData(
+    options.securityId,
+    options.quantity,
+    options.stockRepurchaseData
+  );
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateStockRepurchase',
+    choiceArgument: {
+      repurchase_data: stockRepurchaseDataToDaml(stockRepurchaseData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const stockRepurchaseContractId = extractContractIdFromResponse(result, 'StockRepurchase');
+  if (!stockRepurchaseContractId) {
+    throw new Error('Failed to extract stock repurchase contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    stockRepurchaseContractId,
+    stockRepurchaseData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup a test stock cancellation.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockCancellationSetup with the created cancellation
+ */
+export async function setupTestStockCancellation(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** The security being cancelled */
+    securityId: string;
+    /** Amount to cancel */
+    quantity: string | number;
+    /** Optional stock cancellation data overrides */
+    stockCancellationData?: Partial<OcfStockCancellation>;
+  }
+): Promise<TestStockCancellationSetup> {
+  const stockCancellationData = createTestStockCancellationData(
+    options.securityId,
+    options.quantity,
+    options.stockCancellationData
+  );
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateStockCancellation',
+    choiceArgument: {
+      cancellation_data: stockCancellationDataToDaml(stockCancellationData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const stockCancellationContractId = extractContractIdFromResponse(result, 'StockCancellation');
+  if (!stockCancellationContractId) {
+    throw new Error('Failed to extract stock cancellation contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    stockCancellationContractId,
+    stockCancellationData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup a test document.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestDocumentSetup with the created document
+ */
+export async function setupTestDocument(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** Optional document data overrides */
+    documentData?: Partial<OcfDocument>;
+  }
+): Promise<TestDocumentSetup> {
+  const documentData = createTestDocumentData(options.documentData);
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateDocument',
+    choiceArgument: {
+      document_data: documentDataToDaml(documentData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const documentContractId = extractContractIdFromResponse(result, 'Document');
+  if (!documentContractId) {
+    throw new Error('Failed to extract document contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    documentContractId,
+    documentData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup a test stock legend template.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockLegendTemplateSetup with the created template
+ */
+export async function setupTestStockLegendTemplate(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** Optional stock legend template data overrides */
+    stockLegendTemplateData?: Partial<OcfStockLegendTemplate>;
+  }
+): Promise<TestStockLegendTemplateSetup> {
+  const stockLegendTemplateData = createTestStockLegendTemplateData(options.stockLegendTemplateData);
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateStockLegendTemplate',
+    choiceArgument: {
+      template_data: stockLegendTemplateDataToDaml(stockLegendTemplateData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const stockLegendTemplateContractId = extractContractIdFromResponse(result, 'StockLegendTemplate');
+  if (!stockLegendTemplateContractId) {
+    throw new Error('Failed to extract stock legend template contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    stockLegendTemplateContractId,
+    stockLegendTemplateData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup test vesting terms.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestVestingTermsSetup with the created vesting terms
+ */
+export async function setupTestVestingTerms(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** Optional vesting terms data overrides */
+    vestingTermsData?: Partial<OcfVestingTerms>;
+  }
+): Promise<TestVestingTermsSetup> {
+  const vestingTermsData = createTestVestingTermsData(options.vestingTermsData);
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateVestingTerms',
+    choiceArgument: {
+      vesting_terms_data: vestingTermsDataToDaml(vestingTermsData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const vestingTermsContractId = extractContractIdFromResponse(result, 'VestingTerms');
+  if (!vestingTermsContractId) {
+    throw new Error('Failed to extract vesting terms contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    vestingTermsContractId,
+    vestingTermsData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup a test stock plan.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockPlanSetup with the created stock plan
+ */
+export async function setupTestStockPlan(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** The stock class IDs associated with this plan */
+    stockClassIds: string[];
+    /** Optional stock plan data overrides */
+    stockPlanData?: Partial<OcfStockPlan>;
+  }
+): Promise<TestStockPlanSetup> {
+  const stockPlanData = createTestStockPlanData(options.stockClassIds, options.stockPlanData);
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateStockPlan',
+    choiceArgument: {
+      plan_data: stockPlanDataToDaml(stockPlanData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const stockPlanContractId = extractContractIdFromResponse(result, 'StockPlan');
+  if (!stockPlanContractId) {
+    throw new Error('Failed to extract stock plan contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    stockPlanContractId,
+    stockPlanData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup a test issuer authorized shares adjustment.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestIssuerAuthorizedSharesAdjustmentSetup with the created adjustment
+ */
+export async function setupTestIssuerAuthorizedSharesAdjustment(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** The issuer ID being adjusted */
+    issuerId: string;
+    /** Optional adjustment data overrides */
+    adjustmentData?: Partial<OcfIssuerAuthorizedSharesAdjustment>;
+  }
+): Promise<TestIssuerAuthorizedSharesAdjustmentSetup> {
+  const adjustmentData = createTestIssuerAuthorizedSharesAdjustmentData(options.issuerId, options.adjustmentData);
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateIssuerAuthorizedSharesAdjustment',
+    choiceArgument: {
+      adjustment_data: issuerAuthorizedSharesAdjustmentDataToDaml(adjustmentData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const adjustmentContractId = extractContractIdFromResponse(result, 'IssuerAuthorizedSharesAdjustment');
+  if (!adjustmentContractId) {
+    throw new Error('Failed to extract adjustment contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    adjustmentContractId,
+    adjustmentData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup a test stock plan pool adjustment.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestStockPlanPoolAdjustmentSetup with the created adjustment
+ */
+export async function setupTestStockPlanPoolAdjustment(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** The stock plan ID being adjusted */
+    stockPlanId: string;
+    /** Optional adjustment data overrides */
+    adjustmentData?: Partial<OcfStockPlanPoolAdjustment>;
+  }
+): Promise<TestStockPlanPoolAdjustmentSetup> {
+  const adjustmentData = createTestStockPlanPoolAdjustmentData(options.stockPlanId, options.adjustmentData);
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateStockPlanPoolAdjustment',
+    choiceArgument: {
+      adjustment_data: stockPlanPoolAdjustmentDataToDaml(adjustmentData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const adjustmentContractId = extractContractIdFromResponse(result, 'StockPlanPoolAdjustment');
+  if (!adjustmentContractId) {
+    throw new Error('Failed to extract adjustment contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    adjustmentContractId,
+    adjustmentData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup a test convertible issuance.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestConvertibleIssuanceSetup with the created issuance
+ */
+export async function setupTestConvertibleIssuance(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** The stakeholder receiving the convertible */
+    stakeholderId: string;
+    /** Optional convertible issuance data overrides */
+    convertibleIssuanceData?: Partial<OcfConvertibleIssuance>;
+  }
+): Promise<TestConvertibleIssuanceSetup> {
+  const convertibleIssuanceData = createTestConvertibleIssuanceData(
+    options.stakeholderId,
+    options.convertibleIssuanceData
+  );
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateConvertibleIssuance',
+    choiceArgument: {
+      // Type assertion needed because OcfConvertibleIssuance has a broader type for conversion_triggers
+      // than what the DAML converter expects. The test data generator creates valid data.
+      issuance_data: convertibleIssuanceDataToDaml(
+        convertibleIssuanceData as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]
+      ),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const convertibleIssuanceContractId = extractContractIdFromResponse(result, 'ConvertibleIssuance');
+  if (!convertibleIssuanceContractId) {
+    throw new Error('Failed to extract convertible issuance contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    convertibleIssuanceContractId,
+    convertibleIssuanceData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup a test warrant issuance.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestWarrantIssuanceSetup with the created issuance
+ */
+export async function setupTestWarrantIssuance(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** The stakeholder receiving the warrant */
+    stakeholderId: string;
+    /** Optional warrant issuance data overrides */
+    warrantIssuanceData?: Partial<OcfWarrantIssuance>;
+  }
+): Promise<TestWarrantIssuanceSetup> {
+  const warrantIssuanceData = createTestWarrantIssuanceData(options.stakeholderId, options.warrantIssuanceData);
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateWarrantIssuance',
+    choiceArgument: {
+      // Type assertion needed because OcfWarrantIssuance has a broader type for exercise_triggers
+      // than what the DAML converter expects. The test data generator creates valid data.
+      issuance_data: warrantIssuanceDataToDaml(
+        warrantIssuanceData as unknown as Parameters<typeof warrantIssuanceDataToDaml>[0]
+      ),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const warrantIssuanceContractId = extractContractIdFromResponse(result, 'WarrantIssuance');
+  if (!warrantIssuanceContractId) {
+    throw new Error('Failed to extract warrant issuance contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    warrantIssuanceContractId,
+    warrantIssuanceData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+/**
+ * Setup a test equity compensation issuance.
+ *
+ * @param ocp - The OcpClient instance
+ * @param options - Setup options
+ * @returns TestEquityCompensationIssuanceSetup with the created issuance
+ */
+export async function setupTestEquityCompensationIssuance(
+  ocp: OcpClient,
+  options: {
+    /** The issuer contract ID (which is also the CapTable contract ID) */
+    issuerContractId: string;
+    /** The issuer party ID */
+    issuerParty: string;
+    /** Featured app right contract details */
+    featuredAppRightContractDetails: DisclosedContract;
+    /** CapTable contract details (for disclosed contracts) - optional for backward compatibility */
+    capTableContractDetails?: DisclosedContract;
+    /** The stakeholder receiving the equity compensation */
+    stakeholderId: string;
+    /** Optional stock plan ID (for plan-based equity compensation) */
+    stockPlanId?: string;
+    /** Optional stock class ID (for stock class-based equity compensation) */
+    stockClassId?: string;
+    /** Optional equity compensation issuance data overrides */
+    equityCompensationIssuanceData?: Partial<OcfEquityCompensationIssuance>;
+  }
+): Promise<TestEquityCompensationIssuanceSetup> {
+  const equityCompensationIssuanceData = createTestEquityCompensationIssuanceData(options.stakeholderId, {
+    stock_plan_id: options.stockPlanId,
+    stock_class_id: options.stockClassId,
+    ...options.equityCompensationIssuanceData,
+  });
+
+  const cmd = buildCapTableCommand({
+    capTableContractId: options.issuerContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails: options.capTableContractDetails,
+    choice: 'CreateEquityCompensationIssuance',
+    choiceArgument: {
+      issuance_data: equityCompensationIssuanceDataToDaml(equityCompensationIssuanceData),
+    },
+  });
+
+  const validDisclosedContracts = cmd.disclosedContracts.filter(
+    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+  );
+
+  const result = await ocp.client.submitAndWaitForTransactionTree({
+    commands: [cmd.command],
+    actAs: [options.issuerParty],
+    disclosedContracts: validDisclosedContracts,
+  });
+
+  const equityCompensationIssuanceContractId = extractContractIdFromResponse(result, 'EquityCompensationIssuance');
+  if (!equityCompensationIssuanceContractId) {
+    throw new Error('Failed to extract equity compensation issuance contract ID from transaction result');
+  }
+
+  const newCapTable = await extractNewCapTableDetails(ocp, result);
+
+  return {
+    equityCompensationIssuanceContractId,
+    equityCompensationIssuanceData,
+    newCapTableContractId: newCapTable.contractId,
+    newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}

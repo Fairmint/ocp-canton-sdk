@@ -42,6 +42,9 @@ import {
   buildCreateCompanyValuationReportCommand,
   buildCreateIssuerCommand,
   buildCreateStockRepurchaseCommand,
+  buildDeleteStakeholderCommand,
+  buildDeleteStockClassCommand,
+  buildDeleteStockRepurchaseCommand,
   createCompanyValuationReport,
   getConvertibleCancellationEventAsOcf,
   getConvertibleIssuanceAsOcf,
@@ -187,11 +190,17 @@ export class OcpClient {
     };
     stockClass: {
       getStockClassAsOcf: (params: GetStockClassAsOcfParams) => Promise<GetStockClassAsOcfResult>;
+      buildDeleteStockClassCommand: (
+        params: import('./functions').DeleteStockClassParams
+      ) => CommandWithDisclosedContracts;
     };
     stakeholder: {
       getStakeholderAsOcf: (
         params: GetStakeholderAsOcfParams
       ) => Promise<import('./functions').GetStakeholderAsOcfResult>;
+      buildDeleteStakeholderCommand: (
+        params: import('./functions').DeleteStakeholderParams
+      ) => CommandWithDisclosedContracts;
     };
     stockLegendTemplate: {
       getStockLegendTemplateAsOcf: (
@@ -277,6 +286,9 @@ export class OcpClient {
       ) => Promise<import('./functions').GetStockRepurchaseAsOcfResult>;
       buildCreateStockRepurchaseCommand: (
         params: import('./functions').CreateStockRepurchaseParams
+      ) => CommandWithDisclosedContracts;
+      buildDeleteStockRepurchaseCommand: (
+        params: import('./functions').DeleteStockRepurchaseParams
       ) => CommandWithDisclosedContracts;
     };
     document: {
@@ -490,9 +502,11 @@ export class OcpClient {
       },
       stockClass: {
         getStockClassAsOcf: async (params: GetStockClassAsOcfParams) => getStockClassAsOcf(this.client, params),
+        buildDeleteStockClassCommand: (params) => buildDeleteStockClassCommand(params),
       },
       stakeholder: {
         getStakeholderAsOcf: async (params) => getStakeholderAsOcf(this.client, params),
+        buildDeleteStakeholderCommand: (params) => buildDeleteStakeholderCommand(params),
       },
       stockLegendTemplate: {
         getStockLegendTemplateAsOcf: async (params) => getStockLegendTemplateAsOcf(this.client, params),
@@ -555,6 +569,7 @@ export class OcpClient {
       stockRepurchase: {
         getStockRepurchaseAsOcf: async (params) => getStockRepurchaseAsOcf(this.client, params),
         buildCreateStockRepurchaseCommand: (params) => buildCreateStockRepurchaseCommand(params),
+        buildDeleteStockRepurchaseCommand: (params) => buildDeleteStockRepurchaseCommand(params),
       },
       issuerAuthorization: {
         authorizeIssuer: async (params) => authorizeIssuer(this.client, params),

@@ -1,9 +1,9 @@
 /**
- * Integration tests for StockCancellation operations.
+ * Integration tests for StockRepurchase operations.
  *
- * Tests the full lifecycle of StockCancellation entities:
+ * Tests the full lifecycle of StockRepurchase entities:
  *
- * - Create stock cancellation and read back as valid OCF
+ * - Create stock repurchase and read back as valid OCF
  * - Data round-trip verification
  * - Archive operation
  *
@@ -17,17 +17,17 @@
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import {
-  createTestStockCancellationData,
+  createTestStockRepurchaseData,
   generateTestId,
   setupTestIssuer,
   setupTestStakeholder,
-  setupTestStockCancellation,
   setupTestStockClass,
   setupTestStockIssuance,
+  setupTestStockRepurchase,
 } from '../utils';
 
-createIntegrationTestSuite('StockCancellation operations', (getContext) => {
-  test('creates stock cancellation and reads it back as valid OCF', async () => {
+createIntegrationTestSuite('StockRepurchase operations', (getContext) => {
+  test('creates stock repurchase and reads it back as valid OCF', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -41,19 +41,21 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
-        id: generateTestId('stakeholder-for-cancellation'),
-        name: { legal_name: 'Cancellation Shareholder' },
+        id: generateTestId('stakeholder-for-repurchase'),
+        name: { legal_name: 'Repurchase Shareholder' },
         stakeholder_type: 'INDIVIDUAL',
       },
     });
 
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stockClassData: {
-        id: generateTestId('stock-class-for-cancellation'),
+        id: generateTestId('stock-class-for-repurchase'),
         name: 'Common Stock',
         class_type: 'COMMON',
         default_id_prefix: 'CS-',
@@ -65,42 +67,46 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
 
     // First create a stock issuance
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
-        id: generateTestId('issuance-for-cancellation'),
+        id: generateTestId('issuance-for-repurchase'),
         quantity: '100000',
         share_price: { amount: '1.00', currency: 'USD' },
       },
     });
 
-    // Now cancel some shares
-    const cancellationSetup = await setupTestStockCancellation(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+    // Now repurchase some shares
+    const repurchaseSetup = await setupTestStockRepurchase(ctx.ocp, {
+      issuerContractId: issuanceSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuanceSetup.newCapTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '25000',
-      stockCancellationData: {
-        id: generateTestId('cancellation-ocf-test'),
-        reason_text: 'Test cancellation',
+      stockRepurchaseData: {
+        id: generateTestId('repurchase-ocf-test'),
+        price: { amount: '1.50', currency: 'USD' },
       },
     });
 
-    const ocfResult = await ctx.ocp.OpenCapTable.stockCancellation.getStockCancellationEventAsOcf({
-      contractId: cancellationSetup.stockCancellationContractId,
+    const ocfResult = await ctx.ocp.OpenCapTable.stockRepurchase.getStockRepurchaseAsOcf({
+      contractId: repurchaseSetup.stockRepurchaseContractId,
     });
 
-    expect(ocfResult.event.object_type).toBe('TX_STOCK_CANCELLATION');
+    expect(ocfResult.event.object_type).toBe('TX_STOCK_REPURCHASE');
     expect(ocfResult.event.quantity).toBe('25000');
+    expect(ocfResult.event.price.amount).toBe('1.5');
+    expect(ocfResult.event.price.currency).toBe('USD');
 
     await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
   });
 
-  test('stock cancellation data round-trips correctly', async () => {
+  test('stock repurchase data round-trips correctly', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -114,19 +120,21 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
-        id: generateTestId('stakeholder-for-cancellation-rt'),
-        name: { legal_name: 'Roundtrip Cancellation Shareholder' },
+        id: generateTestId('stakeholder-for-repurchase-rt'),
+        name: { legal_name: 'Roundtrip Repurchase Shareholder' },
         stakeholder_type: 'INDIVIDUAL',
       },
     });
 
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stockClassData: {
-        id: generateTestId('stock-class-for-cancellation-rt'),
+        id: generateTestId('stock-class-for-repurchase-rt'),
         name: 'Common Stock',
         class_type: 'COMMON',
         default_id_prefix: 'CS-',
@@ -137,44 +145,49 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
     });
 
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
-        id: generateTestId('issuance-for-cancellation-rt'),
+        id: generateTestId('issuance-for-repurchase-rt'),
         quantity: '100000',
         share_price: { amount: '1.00', currency: 'USD' },
       },
     });
 
-    const originalData = createTestStockCancellationData(issuanceSetup.stockIssuanceData.security_id, '50000', {
-      id: generateTestId('cancellation-roundtrip'),
-      reason_text: 'Roundtrip test cancellation reason',
-      comments: ['Roundtrip test cancellation'],
+    const originalData = createTestStockRepurchaseData(issuanceSetup.stockIssuanceData.security_id, '50000', {
+      id: generateTestId('repurchase-roundtrip'),
+      price: { amount: '2.00', currency: 'USD' },
+      consideration_text: 'Cash consideration for stock repurchase',
+      comments: ['Roundtrip test repurchase'],
     });
 
-    const cancellationSetup = await setupTestStockCancellation(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+    const repurchaseSetup = await setupTestStockRepurchase(ctx.ocp, {
+      issuerContractId: issuanceSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuanceSetup.newCapTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '50000',
-      stockCancellationData: originalData,
+      stockRepurchaseData: originalData,
     });
 
-    const ocfResult = await ctx.ocp.OpenCapTable.stockCancellation.getStockCancellationEventAsOcf({
-      contractId: cancellationSetup.stockCancellationContractId,
+    const ocfResult = await ctx.ocp.OpenCapTable.stockRepurchase.getStockRepurchaseAsOcf({
+      contractId: repurchaseSetup.stockRepurchaseContractId,
     });
 
     expect(ocfResult.event.id).toBe(originalData.id);
     expect(ocfResult.event.security_id).toBe(originalData.security_id);
-    expect(ocfResult.event.quantity).toBe(originalData.quantity);
-    expect(ocfResult.event.reason_text).toBe(originalData.reason_text);
+    expect(ocfResult.event.quantity).toBe(String(originalData.quantity));
+    expect(ocfResult.event.price.amount).toBe('2');
+    expect(ocfResult.event.price.currency).toBe('USD');
+    expect(ocfResult.event.consideration_text).toBe(originalData.consideration_text);
   });
 
-  test('archives stock cancellation', async () => {
+  test('deletes stock repurchase', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -188,19 +201,21 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
-        id: generateTestId('stakeholder-for-cancellation-archive'),
-        name: { legal_name: 'Archive Cancellation Shareholder' },
+        id: generateTestId('stakeholder-for-repurchase-delete'),
+        name: { legal_name: 'Delete Repurchase Shareholder' },
         stakeholder_type: 'INDIVIDUAL',
       },
     });
 
     const stockClassSetup = await setupTestStockClass(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stakeholderSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       stockClassData: {
-        id: generateTestId('stock-class-for-cancellation-archive'),
+        id: generateTestId('stock-class-for-repurchase-delete'),
         name: 'Common Stock',
         class_type: 'COMMON',
         default_id_prefix: 'CS-',
@@ -211,39 +226,50 @@ createIntegrationTestSuite('StockCancellation operations', (getContext) => {
     });
 
     const issuanceSetup = await setupTestStockIssuance(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: stockClassSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
       stakeholderId: stakeholderSetup.stakeholderData.id,
       stockClassId: stockClassSetup.stockClassData.id,
       stockIssuanceData: {
-        id: generateTestId('issuance-for-cancellation-archive'),
+        id: generateTestId('issuance-for-repurchase-delete'),
         quantity: '100000',
         share_price: { amount: '1.00', currency: 'USD' },
       },
     });
 
-    const cancellationSetup = await setupTestStockCancellation(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+    const repurchaseSetup = await setupTestStockRepurchase(ctx.ocp, {
+      issuerContractId: issuanceSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuanceSetup.newCapTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '10000',
-      stockCancellationData: {
-        id: generateTestId('cancellation-archive-test'),
-        reason_text: 'Archive test cancellation',
+      stockRepurchaseData: {
+        id: generateTestId('repurchase-delete-test'),
+        price: { amount: '1.25', currency: 'USD' },
       },
     });
 
-    const archiveCmd = ctx.ocp.OpenCapTable.stockCancellation.buildArchiveStockCancellationByIssuerCommand({
-      contractId: cancellationSetup.stockCancellationContractId,
+    // Build and execute delete command using the new CapTable contract from repurchaseSetup
+    const deleteCmd = ctx.ocp.OpenCapTable.stockRepurchase.buildDeleteStockRepurchaseCommand({
+      capTableContractId: repurchaseSetup.newCapTableContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: repurchaseSetup.newCapTableContractDetails,
+      stockRepurchaseId: repurchaseSetup.stockRepurchaseData.id,
     });
+
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
 
     await ctx.ocp.client.submitAndWaitForTransactionTree({
-      commands: [archiveCmd],
+      commands: [deleteCmd.command],
       actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
     });
 
-    // Archive operation succeeded if no error thrown
+    // Delete operation succeeded if no error thrown
   });
 });

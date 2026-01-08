@@ -34,6 +34,7 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-ocf-test'),
         name: { legal_name: 'John Doe', first_name: 'John', last_name: 'Doe' },
@@ -69,6 +70,7 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-institution'),
         name: { legal_name: 'Venture Capital Fund LP' },

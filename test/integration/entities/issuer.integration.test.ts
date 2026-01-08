@@ -32,9 +32,9 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
       },
     });
 
-    // Read back the issuer as OCF
+    // Read back the issuer as OCF using the actual Issuer contract ID
     const ocfResult = await ctx.ocp.OpenCapTable.issuer.getIssuerAsOcf({
-      contractId: testSetup.issuerContractId,
+      contractId: testSetup.issuerOcfContractId,
     });
 
     // Validate OCF structure
@@ -68,7 +68,7 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
     });
 
     const ocfResult = await ctx.ocp.OpenCapTable.issuer.getIssuerAsOcf({
-      contractId: testSetup.issuerContractId,
+      contractId: testSetup.issuerOcfContractId,
     });
 
     // Verify data round-trip
