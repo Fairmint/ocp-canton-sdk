@@ -170,8 +170,7 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
     expect(ocfResult.event.seniority).toBe(originalData.seniority);
   });
 
-  // TODO: Archive test requires delete command to be exposed in OcpClient
-  test.skip('archives convertible issuance', async () => {
+  test('deletes convertible issuance', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -207,7 +206,24 @@ createIntegrationTestSuite('ConvertibleIssuance operations', (getContext) => {
       },
     });
 
-    // Archive operation not yet exposed in OcpClient
-    expect(convertibleSetup.convertibleIssuanceContractId).toBeDefined();
+    // Build and execute delete command using the NEW CapTable contract from convertibleSetup
+    const deleteCmd = ctx.ocp.OpenCapTable.convertibleIssuance.buildDeleteConvertibleIssuanceCommand({
+      capTableContractId: convertibleSetup.newCapTableContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: convertibleSetup.newCapTableContractDetails,
+      convertibleIssuanceId: convertibleSetup.convertibleIssuanceData.id,
+    });
+
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
+
+    await ctx.ocp.client.submitAndWaitForTransactionTree({
+      commands: [deleteCmd.command],
+      actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
+    });
+
+    // Delete operation succeeded if no error thrown
   });
 });

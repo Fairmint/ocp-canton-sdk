@@ -92,8 +92,7 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
     expect(ocfResult.event.new_shares_authorized).toBe(originalData.new_shares_authorized);
   });
 
-  // TODO: Archive test requires delete command to be exposed in OcpClient
-  test.skip('archives issuer authorized shares adjustment', async () => {
+  test('deletes issuer authorized shares adjustment', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -115,7 +114,25 @@ createIntegrationTestSuite('IssuerAuthorizedSharesAdjustment operations', (getCo
       },
     });
 
-    // Archive operation not yet exposed in OcpClient
-    expect(adjustmentSetup.adjustmentContractId).toBeDefined();
+    // Build and execute delete command using the NEW CapTable contract from adjustmentSetup
+    const deleteCmd =
+      ctx.ocp.OpenCapTable.issuerAuthorizedSharesAdjustment.buildDeleteIssuerAuthorizedSharesAdjustmentCommand({
+        capTableContractId: adjustmentSetup.newCapTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: adjustmentSetup.newCapTableContractDetails,
+        issuerAuthorizedSharesAdjustmentId: adjustmentSetup.adjustmentData.id,
+      });
+
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
+
+    await ctx.ocp.client.submitAndWaitForTransactionTree({
+      commands: [deleteCmd.command],
+      actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
+    });
+
+    // Delete operation succeeded if no error thrown
   });
 });

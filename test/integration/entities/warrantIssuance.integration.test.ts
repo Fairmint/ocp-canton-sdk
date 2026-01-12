@@ -119,8 +119,7 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
     expect(ocfResult.event.quantity).toBe(originalData.quantity);
   });
 
-  // TODO: Archive test requires delete command to be exposed in OcpClient
-  test.skip('archives warrant issuance', async () => {
+  test('deletes warrant issuance', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -156,7 +155,24 @@ createIntegrationTestSuite('WarrantIssuance operations', (getContext) => {
       },
     });
 
-    // Archive operation not yet exposed in OcpClient
-    expect(warrantSetup.warrantIssuanceContractId).toBeDefined();
+    // Build and execute delete command using the NEW CapTable contract from warrantSetup
+    const deleteCmd = ctx.ocp.OpenCapTable.warrantIssuance.buildDeleteWarrantIssuanceCommand({
+      capTableContractId: warrantSetup.newCapTableContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: warrantSetup.newCapTableContractDetails,
+      warrantIssuanceId: warrantSetup.warrantIssuanceData.id,
+    });
+
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
+
+    await ctx.ocp.client.submitAndWaitForTransactionTree({
+      commands: [deleteCmd.command],
+      actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
+    });
+
+    // Delete operation succeeded if no error thrown
   });
 });

@@ -90,8 +90,7 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
     expect(ocfResult.stockLegendTemplate.text).toBe(originalData.text);
   });
 
-  // TODO: Archive test requires delete command to be exposed in OcpClient
-  test.skip('archives stock legend template', async () => {
+  test('deletes stock legend template', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -113,7 +112,24 @@ createIntegrationTestSuite('StockLegendTemplate operations', (getContext) => {
       },
     });
 
-    // Archive operation not yet exposed in OcpClient
-    expect(legendSetup.stockLegendTemplateContractId).toBeDefined();
+    // Build and execute delete command using the NEW CapTable contract from legendSetup
+    const deleteCmd = ctx.ocp.OpenCapTable.stockLegendTemplate.buildDeleteStockLegendTemplateCommand({
+      capTableContractId: legendSetup.newCapTableContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: legendSetup.newCapTableContractDetails,
+      stockLegendTemplateId: legendSetup.stockLegendTemplateData.id,
+    });
+
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
+
+    await ctx.ocp.client.submitAndWaitForTransactionTree({
+      commands: [deleteCmd.command],
+      actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
+    });
+
+    // Delete operation succeeded if no error thrown
   });
 });

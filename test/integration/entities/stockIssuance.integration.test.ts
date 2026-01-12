@@ -220,8 +220,7 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
     await validateOcfObject(ocfResult.stockIssuance as unknown as Record<string, unknown>);
   });
 
-  // TODO: Archive test requires buildDeleteStockIssuanceCommand to be exposed in OcpClient
-  test.skip('archives stock issuance', async () => {
+  test('deletes stock issuance', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -273,7 +272,24 @@ createIntegrationTestSuite('StockIssuance operations', (getContext) => {
       },
     });
 
-    // Archive operation not yet exposed in OcpClient
-    expect(issuanceSetup.stockIssuanceContractId).toBeDefined();
+    // Build and execute delete command using the NEW CapTable contract from issuanceSetup
+    const deleteCmd = ctx.ocp.OpenCapTable.stockIssuance.buildDeleteStockIssuanceCommand({
+      capTableContractId: issuanceSetup.newCapTableContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuanceSetup.newCapTableContractDetails,
+      stockIssuanceId: issuanceSetup.stockIssuanceData.id,
+    });
+
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
+
+    await ctx.ocp.client.submitAndWaitForTransactionTree({
+      commands: [deleteCmd.command],
+      actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
+    });
+
+    // Delete operation succeeded if no error thrown
   });
 });
