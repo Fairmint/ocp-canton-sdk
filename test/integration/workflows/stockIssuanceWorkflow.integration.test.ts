@@ -447,7 +447,7 @@ createIntegrationTestSuite('Stock issuance workflow', (getContext) => {
     expect(repurchaseOcf.event.quantity).toBe(repurchaseQuantity);
     expect(repurchaseOcf.event.security_id).toBe(issuanceSetup.stockIssuanceData.security_id);
     expect(repurchaseOcf.event.balance_security_id).toBe(balanceSecurityId);
-    expect(repurchaseOcf.event.price.amount).toBe('10.00');
+    expect(repurchaseOcf.event.price.amount).toBe('10');
 
     await validateOcfObject(repurchaseOcf.event as unknown as Record<string, unknown>);
   });
