@@ -585,9 +585,15 @@ The publish workflow requires:
 
 ## Tasks
 
-All tasks tracked in [canton/tasks](https://github.com/fairmint/canton/tree/main/tasks).
+Task tracking lives in the `tasks/` directory. See [tasks/README.md](tasks/README.md) for the current task index.
 
-**Changelog Requirement:** When creating PRs for this repo, update the parent task's changelog in `canton/tasks`. Every PR must be logged with date, description, and PR links. See `canton/llms.txt` for the full changelog format.
+**Task Index Maintenance:** When adding or completing tasks:
+
+1. **Adding a new task:** Create the task file in `tasks/YYYY/MM/` and add an entry to the "Open Tasks" table in `tasks/README.md`
+2. **Completing a task:** Update the task's status to "Complete" in both the task file and `tasks/README.md`, then move it to a "Completed Tasks" section if desired
+3. **Keep the index current:** The `tasks/README.md` should always reflect the actual state of tasks
+
+**Changelog Requirement:** When creating PRs for this repo, update the parent task's changelog. Every PR must be logged with date, description, and PR links.
 
 ## Docs
 
