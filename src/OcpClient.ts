@@ -42,9 +42,22 @@ import {
   buildCreateCompanyValuationReportCommand,
   buildCreateIssuerCommand,
   buildCreateStockRepurchaseCommand,
+  buildDeleteConvertibleIssuanceCommand,
+  buildDeleteDocumentCommand,
+  buildDeleteEquityCompensationIssuanceCommand,
+  buildDeleteIssuerAuthorizedSharesAdjustmentCommand,
   buildDeleteStakeholderCommand,
+  buildDeleteStockCancellationCommand,
+  buildDeleteStockClassAuthorizedSharesAdjustmentCommand,
   buildDeleteStockClassCommand,
+  buildDeleteStockIssuanceCommand,
+  buildDeleteStockLegendTemplateCommand,
+  buildDeleteStockPlanCommand,
+  buildDeleteStockPlanPoolAdjustmentCommand,
   buildDeleteStockRepurchaseCommand,
+  buildDeleteStockTransferCommand,
+  buildDeleteVestingTermsCommand,
+  buildDeleteWarrantIssuanceCommand,
   createCompanyValuationReport,
   getConvertibleCancellationEventAsOcf,
   getConvertibleIssuanceAsOcf,
@@ -206,19 +219,31 @@ export class OcpClient {
       getStockLegendTemplateAsOcf: (
         params: GetStockLegendTemplateAsOcfParams
       ) => Promise<import('./functions').GetStockLegendTemplateAsOcfResult>;
+      buildDeleteStockLegendTemplateCommand: (
+        params: import('./functions').DeleteStockLegendTemplateParams
+      ) => CommandWithDisclosedContracts;
     };
     vestingTerms: {
       getVestingTermsAsOcf: (
         params: GetVestingTermsAsOcfParams
       ) => Promise<import('./functions').GetVestingTermsAsOcfResult>;
+      buildDeleteVestingTermsCommand: (
+        params: import('./functions').DeleteVestingTermsParams
+      ) => CommandWithDisclosedContracts;
     };
     stockPlan: {
       getStockPlanAsOcf: (params: GetStockPlanAsOcfParams) => Promise<import('./functions').GetStockPlanAsOcfResult>;
+      buildDeleteStockPlanCommand: (
+        params: import('./functions').DeleteStockPlanParams
+      ) => CommandWithDisclosedContracts;
     };
     equityCompensationIssuance: {
       getEquityCompensationIssuanceEventAsOcf: (
         params: GetEquityCompensationIssuanceEventAsOcfParams
       ) => Promise<import('./functions').GetEquityCompensationIssuanceEventAsOcfResult>;
+      buildDeleteEquityCompensationIssuanceCommand: (
+        params: import('./functions').DeleteEquityCompensationIssuanceParams
+      ) => CommandWithDisclosedContracts;
     };
     equityCompensationExercise: {
       getEquityCompensationExerciseEventAsOcf: (
@@ -229,16 +254,25 @@ export class OcpClient {
       getWarrantIssuanceAsOcf: (
         params: GetWarrantIssuanceAsOcfParams
       ) => Promise<import('./functions').GetWarrantIssuanceAsOcfResult>;
+      buildDeleteWarrantIssuanceCommand: (
+        params: import('./functions').DeleteWarrantIssuanceParams
+      ) => CommandWithDisclosedContracts;
     };
     convertibleIssuance: {
       getConvertibleIssuanceAsOcf: (
         params: GetConvertibleIssuanceAsOcfParams
       ) => Promise<import('./functions').GetConvertibleIssuanceAsOcfResult>;
+      buildDeleteConvertibleIssuanceCommand: (
+        params: import('./functions').DeleteConvertibleIssuanceParams
+      ) => CommandWithDisclosedContracts;
     };
     stockCancellation: {
       getStockCancellationEventAsOcf: (
         params: GetStockCancellationEventAsOcfParams
       ) => Promise<import('./functions').GetStockCancellationEventAsOcfResult>;
+      buildDeleteStockCancellationCommand: (
+        params: import('./functions').DeleteStockCancellationParams
+      ) => CommandWithDisclosedContracts;
     };
     warrantCancellation: {
       getWarrantCancellationEventAsOcf: (
@@ -259,26 +293,41 @@ export class OcpClient {
       getStockTransferAsOcf: (
         params: GetStockTransferAsOcfParams
       ) => Promise<import('./functions').GetStockTransferAsOcfResult>;
+      buildDeleteStockTransferCommand: (
+        params: import('./functions').DeleteStockTransferParams
+      ) => CommandWithDisclosedContracts;
     };
     issuerAuthorizedSharesAdjustment: {
       getIssuerAuthorizedSharesAdjustmentEventAsOcf: (
         params: GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams
       ) => Promise<import('./functions').GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult>;
+      buildDeleteIssuerAuthorizedSharesAdjustmentCommand: (
+        params: import('./functions').DeleteIssuerAuthorizedSharesAdjustmentParams
+      ) => CommandWithDisclosedContracts;
     };
     stockClassAuthorizedSharesAdjustment: {
       getStockClassAuthorizedSharesAdjustmentEventAsOcf: (
         params: GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams
       ) => Promise<import('./functions').GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult>;
+      buildDeleteStockClassAuthorizedSharesAdjustmentCommand: (
+        params: import('./functions').DeleteStockClassAuthorizedSharesAdjustmentParams
+      ) => CommandWithDisclosedContracts;
     };
     stockPlanPoolAdjustment: {
       getStockPlanPoolAdjustmentEventAsOcf: (
         params: GetStockPlanPoolAdjustmentEventAsOcfParams
       ) => Promise<import('./functions').GetStockPlanPoolAdjustmentEventAsOcfResult>;
+      buildDeleteStockPlanPoolAdjustmentCommand: (
+        params: import('./functions').DeleteStockPlanPoolAdjustmentParams
+      ) => CommandWithDisclosedContracts;
     };
     stockIssuance: {
       getStockIssuanceAsOcf: (
         params: GetStockIssuanceAsOcfParams
       ) => Promise<import('./functions').GetStockIssuanceAsOcfResult>;
+      buildDeleteStockIssuanceCommand: (
+        params: import('./functions').DeleteStockIssuanceParams
+      ) => CommandWithDisclosedContracts;
     };
     stockRepurchase: {
       getStockRepurchaseAsOcf: (
@@ -293,6 +342,7 @@ export class OcpClient {
     };
     document: {
       getDocumentAsOcf: (params: GetDocumentAsOcfParams) => Promise<import('./functions').GetDocumentAsOcfResult>;
+      buildDeleteDocumentCommand: (params: import('./functions').DeleteDocumentParams) => CommandWithDisclosedContracts;
     };
     issuerAuthorization: {
       authorizeIssuer: (params: AuthorizeIssuerParams) => Promise<AuthorizeIssuerResult>;
@@ -510,16 +560,20 @@ export class OcpClient {
       },
       stockLegendTemplate: {
         getStockLegendTemplateAsOcf: async (params) => getStockLegendTemplateAsOcf(this.client, params),
+        buildDeleteStockLegendTemplateCommand: (params) => buildDeleteStockLegendTemplateCommand(params),
       },
       vestingTerms: {
         getVestingTermsAsOcf: async (params) => getVestingTermsAsOcf(this.client, params),
+        buildDeleteVestingTermsCommand: (params) => buildDeleteVestingTermsCommand(params),
       },
       stockPlan: {
         getStockPlanAsOcf: async (params) => getStockPlanAsOcf(this.client, params),
+        buildDeleteStockPlanCommand: (params) => buildDeleteStockPlanCommand(params),
       },
       equityCompensationIssuance: {
         getEquityCompensationIssuanceEventAsOcf: async (params) =>
           getEquityCompensationIssuanceEventAsOcf(this.client, params),
+        buildDeleteEquityCompensationIssuanceCommand: (params) => buildDeleteEquityCompensationIssuanceCommand(params),
       },
       equityCompensationExercise: {
         getEquityCompensationExerciseEventAsOcf: async (params) =>
@@ -527,12 +581,15 @@ export class OcpClient {
       },
       warrantIssuance: {
         getWarrantIssuanceAsOcf: async (params) => getWarrantIssuanceAsOcf(this.client, params),
+        buildDeleteWarrantIssuanceCommand: (params) => buildDeleteWarrantIssuanceCommand(params),
       },
       convertibleIssuance: {
         getConvertibleIssuanceAsOcf: async (params) => getConvertibleIssuanceAsOcf(this.client, params),
+        buildDeleteConvertibleIssuanceCommand: (params) => buildDeleteConvertibleIssuanceCommand(params),
       },
       stockCancellation: {
         getStockCancellationEventAsOcf: async (params) => getStockCancellationEventAsOcf(this.client, params),
+        buildDeleteStockCancellationCommand: (params) => buildDeleteStockCancellationCommand(params),
       },
       warrantCancellation: {
         getWarrantCancellationEventAsOcf: async (params) => getWarrantCancellationEventAsOcf(this.client, params),
@@ -547,24 +604,32 @@ export class OcpClient {
       },
       stockTransfer: {
         getStockTransferAsOcf: async (params) => getStockTransferAsOcf(this.client, params),
+        buildDeleteStockTransferCommand: (params) => buildDeleteStockTransferCommand(params),
       },
       issuerAuthorizedSharesAdjustment: {
         getIssuerAuthorizedSharesAdjustmentEventAsOcf: async (params) =>
           getIssuerAuthorizedSharesAdjustmentEventAsOcf(this.client, params),
+        buildDeleteIssuerAuthorizedSharesAdjustmentCommand: (params) =>
+          buildDeleteIssuerAuthorizedSharesAdjustmentCommand(params),
       },
       stockClassAuthorizedSharesAdjustment: {
         getStockClassAuthorizedSharesAdjustmentEventAsOcf: async (params) =>
           getStockClassAuthorizedSharesAdjustmentEventAsOcf(this.client, params),
+        buildDeleteStockClassAuthorizedSharesAdjustmentCommand: (params) =>
+          buildDeleteStockClassAuthorizedSharesAdjustmentCommand(params),
       },
       stockPlanPoolAdjustment: {
         getStockPlanPoolAdjustmentEventAsOcf: async (params) =>
           getStockPlanPoolAdjustmentEventAsOcf(this.client, params),
+        buildDeleteStockPlanPoolAdjustmentCommand: (params) => buildDeleteStockPlanPoolAdjustmentCommand(params),
       },
       document: {
         getDocumentAsOcf: async (params) => getDocumentAsOcf(this.client, params),
+        buildDeleteDocumentCommand: (params) => buildDeleteDocumentCommand(params),
       },
       stockIssuance: {
         getStockIssuanceAsOcf: async (params) => getStockIssuanceAsOcf(this.client, params),
+        buildDeleteStockIssuanceCommand: (params) => buildDeleteStockIssuanceCommand(params),
       },
       stockRepurchase: {
         getStockRepurchaseAsOcf: async (params) => getStockRepurchaseAsOcf(this.client, params),

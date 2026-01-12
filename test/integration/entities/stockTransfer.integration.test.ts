@@ -180,8 +180,7 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
     expect(ocfResult.event.quantity).toBe(originalData.quantity);
   });
 
-  // TODO: Archive test requires buildDeleteStockTransferCommand to be exposed in OcpClient
-  test.skip('archives stock transfer', async () => {
+  test('deletes stock transfer', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -234,10 +233,10 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
     });
 
     const transferSetup = await setupTestStockTransfer(ctx.ocp, {
-      issuerContractId: issuerSetup.issuerContractId,
+      issuerContractId: issuanceSetup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: issuanceSetup.newCapTableContractDetails,
       securityId: issuanceSetup.stockIssuanceData.security_id,
       quantity: '10000',
       stockTransferData: {
@@ -245,7 +244,24 @@ createIntegrationTestSuite('StockTransfer operations', (getContext) => {
       },
     });
 
-    // Archive operation not yet exposed in OcpClient
-    expect(transferSetup.stockTransferContractId).toBeDefined();
+    // Build and execute delete command using the NEW CapTable contract from transferSetup
+    const deleteCmd = ctx.ocp.OpenCapTable.stockTransfer.buildDeleteStockTransferCommand({
+      capTableContractId: transferSetup.newCapTableContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: transferSetup.newCapTableContractDetails,
+      stockTransferId: transferSetup.stockTransferData.id,
+    });
+
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
+
+    await ctx.ocp.client.submitAndWaitForTransactionTree({
+      commands: [deleteCmd.command],
+      actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
+    });
+
+    // Delete operation succeeded if no error thrown
   });
 });

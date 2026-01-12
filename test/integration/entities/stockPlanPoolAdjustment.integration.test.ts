@@ -150,8 +150,7 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
     expect(ocfResult.event.shares_reserved).toBe(originalData.shares_reserved);
   });
 
-  // TODO: Archive test requires delete command to be exposed in OcpClient
-  test.skip('archives stock plan pool adjustment', async () => {
+  test('deletes stock plan pool adjustment', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -202,7 +201,24 @@ createIntegrationTestSuite('StockPlanPoolAdjustment operations', (getContext) =>
       },
     });
 
-    // Archive operation not yet exposed in OcpClient
-    expect(adjustmentSetup.adjustmentContractId).toBeDefined();
+    // Build and execute delete command using the NEW CapTable contract from adjustmentSetup
+    const deleteCmd = ctx.ocp.OpenCapTable.stockPlanPoolAdjustment.buildDeleteStockPlanPoolAdjustmentCommand({
+      capTableContractId: adjustmentSetup.newCapTableContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: adjustmentSetup.newCapTableContractDetails,
+      stockPlanPoolAdjustmentId: adjustmentSetup.adjustmentData.id,
+    });
+
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
+
+    await ctx.ocp.client.submitAndWaitForTransactionTree({
+      commands: [deleteCmd.command],
+      actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
+    });
+
+    // Delete operation succeeded if no error thrown
   });
 });
