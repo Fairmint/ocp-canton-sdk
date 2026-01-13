@@ -4,9 +4,9 @@ This directory contains Architecture Decision Records for the OCP Canton SDK.
 
 ## ADR Index
 
-| ADR                                                       | Status   | Date       | Summary                                                             |
-| --------------------------------------------------------- | -------- | ---------- | ------------------------------------------------------------------- |
-| [ADR-001](./001-batch-cap-table-updates.md)               | Proposed | 2026-01-12 | Batch Cap Table Updates API using fluent builder pattern            |
+| ADR                                         | Status   | Date       | Summary                                                  |
+| ------------------------------------------- | -------- | ---------- | -------------------------------------------------------- |
+| [ADR-001](./001-batch-cap-table-updates.md) | Proposed | 2026-01-12 | Batch Cap Table Updates API using fluent builder pattern |
 
 ## What is an ADR?
 
@@ -18,12 +18,12 @@ An Architecture Decision Record (ADR) documents a significant architectural deci
 
 ## ADR Lifecycle
 
-| Status   | Meaning                                    |
-| -------- | ------------------------------------------ |
-| Proposed | Under discussion, not yet approved         |
-| Accepted | Approved and ready for implementation      |
-| Rejected | Considered but not adopted                 |
-| Superseded | Replaced by a newer ADR                 |
+| Status     | Meaning                               |
+| ---------- | ------------------------------------- |
+| Proposed   | Under discussion, not yet approved    |
+| Accepted   | Approved and ready for implementation |
+| Rejected   | Considered but not adopted            |
+| Superseded | Replaced by a newer ADR               |
 
 ## Creating a New ADR
 
@@ -53,9 +53,11 @@ An Architecture Decision Record (ADR) documents a significant architectural deci
 ## Consequences
 
 ### Positive
+
 - [Benefits]
 
 ### Negative
+
 - [Trade-offs]
 
 ## References
