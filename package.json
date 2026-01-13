@@ -34,7 +34,7 @@
   "dependencies": {
     "@daml/ledger": "2.10.3",
     "@daml/types": "3.4.10",
-    "@fairmint/canton-node-sdk": "0.0.148",
+    "@fairmint/canton-node-sdk": "0.0.149",
     "@fairmint/open-captable-protocol-daml-js": "0.2.98"
   },
   "devDependencies": {
