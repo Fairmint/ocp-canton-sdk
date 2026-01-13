@@ -237,4 +237,4 @@ src/
 
 - [DAML CapTable Contract](https://www.npmjs.com/package/@fairmint/open-captable-protocol-daml-js)
 - [OCF Specification](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF)
-- [Milestone 2 Task](./tasks/2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)
+- [Milestone 2 Task](../tasks/2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)
