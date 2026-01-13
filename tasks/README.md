@@ -4,15 +4,21 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ## Open Tasks
 
-| Task                                                                                                                          | Status      | Priority | Description                                                          |
-| ----------------------------------------------------------------------------------------------------------------------------- | ----------- | -------- | -------------------------------------------------------------------- |
-| [CouponMinter canMintCouponsNow Helper](../project/tasks/2025.01.13_coupon_minter_can_mint_helper.task.md)                    | Open        | Low      | Client-side utility to check TPS rate limits before minting          |
-| [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                                                 | Open        | High     | SDK redesign to use batch UpdateCapTable choice                      |
-| [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                                              | Blocked     | High     | Update SDK for Canton 3.4 compatibility                              |
-| [OCP SDK Implementation & Testing](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)                                | In Progress | High     | Add SDK support for all OCF object types, establish testing strategy |
-| [Comprehensive Integration Tests](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation/comprehensive-integration-tests.md) | In Progress | High     | Expand integration test coverage with dynamic contract deployment    |
-| [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)                                 | In Progress | Medium   | API ergonomics, type safety improvements, testing gaps               |
-| [Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)                                         | Open        | Medium   | Document and resolve 21 skipped integration tests                    |
+| Task                                                                                              | Status             | Priority | Description                                                          |
+| ------------------------------------------------------------------------------------------------- | ------------------ | -------- | -------------------------------------------------------------------- |
+| [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                     | Open               | High     | SDK redesign to use batch UpdateCapTable choice                      |
+| [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                  | Blocked            | High     | Update SDK for Canton 3.4 compatibility                              |
+| [OCP SDK Implementation & Testing](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)    | In Progress        | High     | Add SDK support for all OCF object types, establish testing strategy |
+| [Remaining OCF Object Types](./2026/01/ai/2026.01.13-remaining-ocf-types.md)                      | Open               | Medium   | Implement SDK support for 27 remaining OCF types from DAML spec      |
+| [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)     | In Progress        | Medium   | API ergonomics, type safety improvements, testing gaps               |
+| [Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)             | Partially Complete | Medium   | Document and resolve 8 skipped integration tests                     |
+| [CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)                   | Open               | Low      | Add CouponMinter helper functions and full SDK integration           |
+
+## Completed Tasks
+
+| Task                                                                                 | Completed  | Description                                                       |
+| ------------------------------------------------------------------------------------ | ---------- | ----------------------------------------------------------------- |
+| [Comprehensive Integration Tests](./2025/12/2025.12.30-comprehensive-integration-tests.md) | 2026-01-12 | Expanded integration test coverage with dynamic contract deployment |
 
 ## Related ADRs
 
@@ -28,15 +34,16 @@ tasks/
 ├── 2025/
 │   └── 12/
 │       ├── 2025.12.17-milestone-2-ocp-sdk-implementation.md
-│       ├── 2025.12.17-milestone-2-ocp-sdk-implementation/
-│       │   └── comprehensive-integration-tests.md
+│       ├── 2025.12.30-comprehensive-integration-tests.md
 │       └── 2025.12.31-canton-3.4-upgrade.md
 └── 2026/
     └── 01/
         └── ai/
             ├── 2026.01.02-library-refactoring-and-testing.md
             ├── 2026.01.08-remaining-integration-tests.md
-            └── 2026.01.12-batch-cap-table-updates.md
+            ├── 2026.01.12-batch-cap-table-updates.md
+            ├── 2026.01.13-remaining-ocf-types.md
+            └── 2026.01.13-couponminter-sdk-support.md
 ```
 
 ## Task Naming Convention
@@ -51,6 +58,7 @@ Tasks follow the pattern: `YYYY.MM.DD-task-name.md`
 
 - **Open**: Not started
 - **In Progress**: Actively being worked on
+- **Partially Complete**: Some work done, more remains
 - **Blocked**: Waiting on dependencies
 - **Complete**: Done
 
