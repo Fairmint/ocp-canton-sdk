@@ -583,6 +583,20 @@ The publish workflow requires:
 | `open-captable-protocol-daml` | DAML contracts (OCF impl) | `llms.txt` |
 | `open-cap-format-ocf` | OCF JSON schemas (submodule) | [GitHub](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF) |
 
+## Architecture Decision Records (ADRs)
+
+ADRs document significant architectural decisions. They live in the `adr/` directory.
+
+**ADR Index:** See [adr/README.md](adr/README.md) for the current ADR index.
+
+**When creating a new ADR:**
+
+1. Create the ADR file: `adr/NNN-short-title.md` (NNN = next sequential number)
+2. **ALWAYS update `adr/README.md`** to add the new ADR to the index table
+3. Link the ADR from any related task files
+
+**ADR Status Values:** Proposed → Accepted → (Superseded/Rejected)
+
 ## Tasks
 
 Task tracking lives in the `tasks/` directory. See [tasks/README.md](tasks/README.md) for the current task index.

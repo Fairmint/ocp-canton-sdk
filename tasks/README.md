@@ -6,11 +6,18 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 | Task                                                                                                                          | Status      | Priority | Description                                                          |
 | ----------------------------------------------------------------------------------------------------------------------------- | ----------- | -------- | -------------------------------------------------------------------- |
+| [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                                                 | Open        | High     | SDK redesign to use batch UpdateCapTable choice                      |
 | [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                                              | Blocked     | High     | Update SDK for Canton 3.4 compatibility                              |
 | [OCP SDK Implementation & Testing](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)                                | In Progress | High     | Add SDK support for all OCF object types, establish testing strategy |
 | [Comprehensive Integration Tests](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation/comprehensive-integration-tests.md) | In Progress | High     | Expand integration test coverage with dynamic contract deployment    |
 | [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)                                 | In Progress | Medium   | API ergonomics, type safety improvements, testing gaps               |
 | [Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)                                         | Open        | Medium   | Document and resolve 21 skipped integration tests                    |
+
+## Related ADRs
+
+| ADR                                                                       | Status   | Description                              |
+| ------------------------------------------------------------------------- | -------- | ---------------------------------------- |
+| [ADR-001: Batch Cap Table Updates](../adr/001-batch-cap-table-updates.md) | Proposed | Redesign SDK to use batch UpdateCapTable |
 
 ## Task Structure
 
@@ -27,7 +34,8 @@ tasks/
     └── 01/
         └── ai/
             ├── 2026.01.02-library-refactoring-and-testing.md
-            └── 2026.01.08-remaining-integration-tests.md
+            ├── 2026.01.08-remaining-integration-tests.md
+            └── 2026.01.12-batch-cap-table-updates.md
 ```
 
 ## Task Naming Convention
