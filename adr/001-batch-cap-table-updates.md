@@ -7,7 +7,10 @@
 
 ## Context
 
-The OCP Canton SDK currently uses individual DAML choices for each OCF entity operation (e.g., `CreateStakeholder`, `EditStockClass`, `DeleteDocument`). However, the underlying DAML CapTable contract has evolved to use a unified batch `UpdateCapTable` choice that handles all creates, edits, and deletes in a single atomic transaction.
+The OCP Canton SDK currently uses individual DAML choices for each OCF entity operation (e.g.,
+`CreateStakeholder`, `EditStockClass`, `DeleteDocument`). However, the underlying DAML CapTable
+contract has evolved to use a unified batch `UpdateCapTable` choice that handles all creates, edits,
+and deletes in a single atomic transaction.
 
 ### Current SDK Architecture
 
@@ -149,11 +152,13 @@ export function convertToDaml<T extends OcfEntityType>(
 }
 ```
 
-The individual converter functions (`stakeholderToDaml`, `stockClassToDaml`, etc.) can be extracted from existing code.
+The individual converter functions (`stakeholderToDaml`, `stockClassToDaml`, etc.) can be extracted
+from existing code.
 
 ### Read Operations
 
-The batch approach applies to writes (create/edit/delete). Read operations (`get*AsOcf`) remain unchanged as they query individual contracts.
+The batch approach applies to writes (create/edit/delete). Read operations (`get*AsOcf`) remain
+unchanged as they query individual contracts.
 
 ## File Structure
 
