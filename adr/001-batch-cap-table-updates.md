@@ -63,11 +63,9 @@ type OcfCreateData =
 
 ## Decision
 
-**Redesign the SDK to use the batch `UpdateCapTable` choice as the primary API.**
+**Redesign the SDK to use the batch `UpdateCapTable` choice with a fluent batch builder API.**
 
-### Proposed Architecture
-
-#### Option A: Fluent Batch Builder (Recommended)
+### Fluent Batch Builder API
 
 ```typescript
 // New primary API
@@ -88,7 +86,7 @@ result.stakeholders['sh-123']; // ContractId
 result.stockClasses['sc-456']; // ContractId
 ```
 
-**Implementation:**
+### Implementation
 
 ```typescript
 // src/functions/OpenCapTable/capTable/CapTableBatch.ts
@@ -123,44 +121,7 @@ export class CapTableBatch {
 }
 ```
 
-#### Option B: Direct Batch Function
-
-```typescript
-// Simpler but less ergonomic
-const result = await ocp.capTable.updateCapTable({
-  capTableContractId,
-  featuredAppRightContractDetails,
-  creates: [
-    { type: 'stakeholder', data: stakeholderData },
-    { type: 'stockClass', data: stockClassData },
-  ],
-  edits: [{ type: 'stakeholder', data: updatedStakeholderData }],
-  deletes: [{ type: 'document', id: 'doc-123' }],
-});
-```
-
-#### Option C: Keep Individual Functions (Wrapper Layer)
-
-Keep the existing `createStakeholder()`, `editStockClass()` functions but implement them as thin wrappers around the batch API:
-
-```typescript
-// src/functions/OpenCapTable/stakeholder/addStakeholder.ts
-export async function createStakeholder(params: CreateStakeholderParams) {
-  return ocp.capTable
-    .update(params)
-    .create('stakeholder', params.stakeholderData)
-    .execute();
-}
-```
-
-**Pros**: Backward compatible, familiar API  
-**Cons**: Doesn't expose batch capability, still requires 144 wrapper functions
-
-### Recommendation
-
-**Use Option A (Fluent Batch Builder)** as the primary API, with Option C wrappers for backward compatibility during migration.
-
-Benefits:
+### Benefits
 
 1. **Atomic transactions**: Multiple operations in one ledger command
 2. **Type-safe**: TypeScript discriminated unions provide compile-time checks
@@ -207,11 +168,8 @@ src/
 │   │   ├── stakeholderToDaml.ts
 │   │   ├── stockClassToDaml.ts
 │   │   └── ...
-│   ├── readers/                     # get*AsOcf functions (unchanged)
-│   │   ├── getStakeholderAsOcf.ts
-│   │   └── ...
-│   └── legacy/                      # Deprecated individual functions
-│       ├── addStakeholder.ts        # Thin wrapper
+│   └── readers/                     # get*AsOcf functions (unchanged)
+│       ├── getStakeholderAsOcf.ts
 │       └── ...
 ├── types/
 │   ├── ocfEntities.ts               # All 48 OCF entity types
@@ -223,11 +181,12 @@ src/
 
 ## Migration Path
 
-### Phase 1: Add Batch API (Non-breaking)
+### Phase 1: Implement Batch API
 
-1. Implement `CapTableBatch` class
-2. Add centralized converters
-3. Keep existing individual functions working
+1. Implement `CapTableBatch` class with fluent builder pattern
+2. Add centralized converters extracted from existing code
+3. Add type definitions for batch operations
+4. Add unit tests for batch builder
 
 ### Phase 2: Add Missing Entity Types
 
@@ -235,16 +194,12 @@ src/
 2. Add type definitions for new entities
 3. Update `ocfMetadata.ts` registry
 
-### Phase 3: Deprecate Individual Functions
+### Phase 3: Integration & Documentation
 
-1. Mark `create*`, `edit*`, `delete*` as deprecated
-2. Update documentation to recommend batch API
-3. Keep working for backward compatibility
-
-### Phase 4: Remove Deprecated Code (Major Version)
-
-1. Remove individual function wrappers
-2. Clean up legacy folder
+1. Add integration tests for batch operations
+2. Update `OcpClient` to expose batch API
+3. Update documentation with examples
+4. Remove old individual create/edit/delete functions
 
 ## Consequences
 
@@ -258,7 +213,7 @@ src/
 
 ### Negative
 
-- Breaking change for existing consumers (mitigated by wrapper layer)
+- Breaking change for existing consumers
 - Learning curve for new batch API
 - Initial implementation effort (~2-3 days)
 

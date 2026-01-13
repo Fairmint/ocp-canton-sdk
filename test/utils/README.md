@@ -11,10 +11,26 @@ This validator ensures that all OCF data structures conform to the
 [Open Cap Format JSON schemas](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF)
 maintained by the Open Cap Table Coalition.
 
+### Prerequisites
+
+The OCF schemas are available as a git submodule. To enable validation, initialize the submodule:
+
+```bash
+git submodule update --init --recursive libs/Open-Cap-Format-OCF
+```
+
+**Note:** The CI workflow automatically initializes the submodule. For local development, you can
+skip validation by setting `OCP_SKIP_OCF_VALIDATION=true` in your environment.
+
 ### Usage
 
 ```typescript
-import { validateOcfObject } from '../utils/ocfSchemaValidator';
+import { validateOcfObject, isOcfValidationAvailable } from '../utils/ocfSchemaValidator';
+
+// Check if validation is available (optional)
+if (!isOcfValidationAvailable()) {
+  console.warn('OCF validation unavailable - submodule not initialized');
+}
 
 // Validate an OCF object
 await validateOcfObject({
@@ -26,7 +42,7 @@ await validateOcfObject({
   // ... other fields
 });
 
-// Throws an error if validation fails
+// Throws an error if validation fails or submodule is not initialized
 ```
 
 ### Supported Object Types
@@ -62,6 +78,12 @@ To update the schemas to the latest version:
 ```bash
 git submodule update --remote libs/Open-Cap-Format-OCF
 ```
+
+### Environment Variables
+
+| Variable                  | Description                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `OCP_SKIP_OCF_VALIDATION` | Set to `true` to skip OCF validation when schemas are unavailable. Only use for local development; CI always requires schemas. |
 
 ### Testing
 

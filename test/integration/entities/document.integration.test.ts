@@ -117,8 +117,7 @@ createIntegrationTestSuite('Document operations', (getContext) => {
     await validateOcfObject(ocfResult.document as unknown as Record<string, unknown>);
   });
 
-  // TODO: Archive test requires delete command to be exposed in OcpClient
-  test.skip('archives document', async () => {
+  test('deletes document', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -140,7 +139,24 @@ createIntegrationTestSuite('Document operations', (getContext) => {
       },
     });
 
-    // Archive operation not yet exposed in OcpClient
-    expect(documentSetup.documentContractId).toBeDefined();
+    // Build and execute delete command using the NEW CapTable contract from documentSetup
+    const deleteCmd = ctx.ocp.OpenCapTable.document.buildDeleteDocumentCommand({
+      capTableContractId: documentSetup.newCapTableContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: documentSetup.newCapTableContractDetails,
+      documentId: documentSetup.documentData.id,
+    });
+
+    const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
+      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
+
+    await ctx.ocp.client.submitAndWaitForTransactionTree({
+      commands: [deleteCmd.command],
+      actAs: [ctx.issuerParty],
+      disclosedContracts: validDisclosedContracts,
+    });
+
+    // Delete operation succeeded if no error thrown
   });
 });
