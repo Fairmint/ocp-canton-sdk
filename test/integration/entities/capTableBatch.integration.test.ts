@@ -17,9 +17,9 @@
 
 import { createIntegrationTestSuite } from '../setup';
 import {
+  createTestDocumentData,
   createTestStakeholderData,
   createTestStockClassData,
-  createTestDocumentData,
   generateTestId,
   setupTestIssuer,
   setupTestStakeholder,
@@ -133,9 +133,7 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       actAs: [ctx.issuerParty],
     });
 
-    const createResult = await createBatch
-      .create('document', createTestDocumentData({ id: documentId }))
-      .execute();
+    const createResult = await createBatch.create('document', createTestDocumentData({ id: documentId })).execute();
 
     expect(createResult.createdIds).toContain(documentId);
     const newCapTableContractId = createResult.updatedCapTableCid;
