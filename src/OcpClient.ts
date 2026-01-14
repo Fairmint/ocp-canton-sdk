@@ -1,7 +1,11 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
-import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import type {
+  Command,
+  DisclosedContract,
+} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
+import { CapTableBatch } from './functions/OpenCapTable/capTable';
 import type {
   AuthorizeIssuerParams,
   AuthorizeIssuerResult,
@@ -41,23 +45,6 @@ import {
   authorizeIssuer,
   buildCreateCompanyValuationReportCommand,
   buildCreateIssuerCommand,
-  buildCreateStockRepurchaseCommand,
-  buildDeleteConvertibleIssuanceCommand,
-  buildDeleteDocumentCommand,
-  buildDeleteEquityCompensationIssuanceCommand,
-  buildDeleteIssuerAuthorizedSharesAdjustmentCommand,
-  buildDeleteStakeholderCommand,
-  buildDeleteStockCancellationCommand,
-  buildDeleteStockClassAuthorizedSharesAdjustmentCommand,
-  buildDeleteStockClassCommand,
-  buildDeleteStockIssuanceCommand,
-  buildDeleteStockLegendTemplateCommand,
-  buildDeleteStockPlanCommand,
-  buildDeleteStockPlanPoolAdjustmentCommand,
-  buildDeleteStockRepurchaseCommand,
-  buildDeleteStockTransferCommand,
-  buildDeleteVestingTermsCommand,
-  buildDeleteWarrantIssuanceCommand,
   createCompanyValuationReport,
   getConvertibleCancellationEventAsOcf,
   getConvertibleIssuanceAsOcf,
@@ -96,105 +83,53 @@ import type { CommandWithDisclosedContracts } from './types';
  * - **PaymentStreams**: Recurring payment stream management
  *
  * @example
- *   Basic usage - Creating an issuer
+ *   Creating an issuer
  *   ```typescript
  *   import { OcpClient } from '@open-captable-protocol/canton';
  *
- *   // Create client (uses default LocalNet config)
  *   const ocp = new OcpClient({ network: 'localnet' });
  *
- *   // Build a command (for use with batching)
  *   const cmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({
- *   issuerAuthorizationContractDetails: authDetails,
- *   featuredAppRightContractDetails: featuredDetails,
- *   issuerParty: 'alice::...',
- *   issuerData: {
- *   id: 'issuer-1',
- *   legal_name: 'Acme Corp',
- *   formation_date: '2024-01-01',
- *   country_of_formation: 'US',
- *   tax_ids: [],
- *   },
+ *     issuerAuthorizationContractDetails: authDetails,
+ *     featuredAppRightContractDetails: featuredDetails,
+ *     issuerParty: 'alice::...',
+ *     issuerData: {
+ *       id: 'issuer-1',
+ *       legal_name: 'Acme Corp',
+ *       formation_date: '2024-01-01',
+ *       country_of_formation: 'US',
+ *       tax_ids: [],
+ *     },
  *   });
- *
- *   // Submit with a batch
- *   const batch = ocp.createBatch({ actAs: ['alice::...'] });
- *   batch.addCommand(cmd.command, cmd.disclosedContracts);
- *   const result = await batch.submitAndWait();
  *   ```
  *
  * @example
- *   Reading data as OCF
+ *   Batch cap table updates
  *   ```typescript
- *   // Read an issuer contract and get OCF-formatted data
- *   const { issuer } = await ocp.OpenCapTable.issuer.getIssuerAsOcf({
- *   contractId: 'issuer-contract-id',
- *   });
- *
- *   console.log(issuer.object_type); // 'ISSUER'
- *   console.log(issuer.legal_name);  // 'Acme Corp'
- *   ```
- *
- * @example
- *   Batch operations
- *   ```typescript
- *   const batch = ocp.createBatch({ actAs: [issuerParty] });
- *
- *   // Add multiple commands to a single transaction
- *   const issuerCmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({...});
- *   const stockClassCmd = ocp.OpenCapTable.stockClass.buildCreateStockClassCommand({...});
- *
- *   batch.addCommand(issuerCmd.command, issuerCmd.disclosedContracts);
- *   batch.addCommand(stockClassCmd.command, stockClassCmd.disclosedContracts);
- *
- *   // Submit all commands atomically
- *   const result = await batch.submitAndWait();
+ *   const result = await ocp.OpenCapTable.capTable
+ *     .update({
+ *       capTableContractId,
+ *       featuredAppRightContractDetails,
+ *       actAs: [issuerParty],
+ *     })
+ *     .create('stakeholder', stakeholderData)
+ *     .create('stockClass', stockClassData)
+ *     .edit('stakeholder', updatedStakeholderData)
+ *     .delete('document', documentId)
+ *     .execute();
  *   ```
  *
  * @see https://ocp.canton.fairmint.com/ - Full SDK documentation
- * @see https://schema.opencaptablecoalition.com/ - OCF schema documentation
  */
 export class OcpClient {
-  /**
-   * The underlying LedgerJsonApiClient for direct ledger access. Use this for low-level operations not covered by the
-   * high-level API.
-   */
+  /** The underlying LedgerJsonApiClient for direct ledger access. */
   public readonly client: LedgerJsonApiClient;
 
   /**
    * Core cap table operations.
    *
-   * Provides operations for managing:
-   *
-   * - **issuer**: Company/issuer records
-   * - **stakeholder**: Shareholders, employees, investors
-   * - **stockClass**: Common/preferred stock classes
-   * - **stockIssuance**: Stock grants and purchases
-   * - **stockTransfer**: Secondary transfers
-   * - **stockCancellation**: Stock cancellations
-   * - **equityCompensationIssuance**: Options, RSUs, SARs
-   * - **equityCompensationExercise**: Option exercises
-   * - **vestingTerms**: Vesting schedules
-   * - **stockPlan**: Equity incentive plans
-   * - **convertibleIssuance**: SAFEs, convertible notes
-   * - **warrantIssuance**: Warrants
-   * - **document**: Document references
-   * - **issuerAuthorization**: Authorization management
-   * - And more...
-   *
-   * @example
-   *   ```typescript
-   *   // Create a stakeholder
-   *   const cmd = ocp.OpenCapTable.stakeholder.buildCreateStakeholderCommand({
-   *     issuerContractId: 'issuer-cid',
-   *     featuredAppRightContractDetails: featured,
-   *     stakeholderData: {
-   *       id: 'sh-1',
-   *       name: { legal_name: 'John Doe' },
-   *       stakeholder_type: 'INDIVIDUAL',
-   *     },
-   *   });
-   *   ```;
+   * Use `capTable.update()` for all creates, edits, and deletes of OCF entities.
+   * Use entity-specific `get*AsOcf()` methods to read data.
    */
   public OpenCapTable: {
     issuer: {
@@ -203,47 +138,25 @@ export class OcpClient {
     };
     stockClass: {
       getStockClassAsOcf: (params: GetStockClassAsOcfParams) => Promise<GetStockClassAsOcfResult>;
-      buildDeleteStockClassCommand: (
-        params: import('./functions').DeleteStockClassParams
-      ) => CommandWithDisclosedContracts;
     };
     stakeholder: {
-      getStakeholderAsOcf: (
-        params: GetStakeholderAsOcfParams
-      ) => Promise<import('./functions').GetStakeholderAsOcfResult>;
-      buildDeleteStakeholderCommand: (
-        params: import('./functions').DeleteStakeholderParams
-      ) => CommandWithDisclosedContracts;
+      getStakeholderAsOcf: (params: GetStakeholderAsOcfParams) => Promise<import('./functions').GetStakeholderAsOcfResult>;
     };
     stockLegendTemplate: {
       getStockLegendTemplateAsOcf: (
         params: GetStockLegendTemplateAsOcfParams
       ) => Promise<import('./functions').GetStockLegendTemplateAsOcfResult>;
-      buildDeleteStockLegendTemplateCommand: (
-        params: import('./functions').DeleteStockLegendTemplateParams
-      ) => CommandWithDisclosedContracts;
     };
     vestingTerms: {
-      getVestingTermsAsOcf: (
-        params: GetVestingTermsAsOcfParams
-      ) => Promise<import('./functions').GetVestingTermsAsOcfResult>;
-      buildDeleteVestingTermsCommand: (
-        params: import('./functions').DeleteVestingTermsParams
-      ) => CommandWithDisclosedContracts;
+      getVestingTermsAsOcf: (params: GetVestingTermsAsOcfParams) => Promise<import('./functions').GetVestingTermsAsOcfResult>;
     };
     stockPlan: {
       getStockPlanAsOcf: (params: GetStockPlanAsOcfParams) => Promise<import('./functions').GetStockPlanAsOcfResult>;
-      buildDeleteStockPlanCommand: (
-        params: import('./functions').DeleteStockPlanParams
-      ) => CommandWithDisclosedContracts;
     };
     equityCompensationIssuance: {
       getEquityCompensationIssuanceEventAsOcf: (
         params: GetEquityCompensationIssuanceEventAsOcfParams
       ) => Promise<import('./functions').GetEquityCompensationIssuanceEventAsOcfResult>;
-      buildDeleteEquityCompensationIssuanceCommand: (
-        params: import('./functions').DeleteEquityCompensationIssuanceParams
-      ) => CommandWithDisclosedContracts;
     };
     equityCompensationExercise: {
       getEquityCompensationExerciseEventAsOcf: (
@@ -251,28 +164,17 @@ export class OcpClient {
       ) => Promise<import('./functions').GetEquityCompensationExerciseEventAsOcfResult>;
     };
     warrantIssuance: {
-      getWarrantIssuanceAsOcf: (
-        params: GetWarrantIssuanceAsOcfParams
-      ) => Promise<import('./functions').GetWarrantIssuanceAsOcfResult>;
-      buildDeleteWarrantIssuanceCommand: (
-        params: import('./functions').DeleteWarrantIssuanceParams
-      ) => CommandWithDisclosedContracts;
+      getWarrantIssuanceAsOcf: (params: GetWarrantIssuanceAsOcfParams) => Promise<import('./functions').GetWarrantIssuanceAsOcfResult>;
     };
     convertibleIssuance: {
       getConvertibleIssuanceAsOcf: (
         params: GetConvertibleIssuanceAsOcfParams
       ) => Promise<import('./functions').GetConvertibleIssuanceAsOcfResult>;
-      buildDeleteConvertibleIssuanceCommand: (
-        params: import('./functions').DeleteConvertibleIssuanceParams
-      ) => CommandWithDisclosedContracts;
     };
     stockCancellation: {
       getStockCancellationEventAsOcf: (
         params: GetStockCancellationEventAsOcfParams
       ) => Promise<import('./functions').GetStockCancellationEventAsOcfResult>;
-      buildDeleteStockCancellationCommand: (
-        params: import('./functions').DeleteStockCancellationParams
-      ) => CommandWithDisclosedContracts;
     };
     warrantCancellation: {
       getWarrantCancellationEventAsOcf: (
@@ -290,117 +192,62 @@ export class OcpClient {
       ) => Promise<import('./functions').GetEquityCompensationCancellationEventAsOcfResult>;
     };
     stockTransfer: {
-      getStockTransferAsOcf: (
-        params: GetStockTransferAsOcfParams
-      ) => Promise<import('./functions').GetStockTransferAsOcfResult>;
-      buildDeleteStockTransferCommand: (
-        params: import('./functions').DeleteStockTransferParams
-      ) => CommandWithDisclosedContracts;
+      getStockTransferAsOcf: (params: GetStockTransferAsOcfParams) => Promise<import('./functions').GetStockTransferAsOcfResult>;
     };
     issuerAuthorizedSharesAdjustment: {
       getIssuerAuthorizedSharesAdjustmentEventAsOcf: (
         params: GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams
       ) => Promise<import('./functions').GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult>;
-      buildDeleteIssuerAuthorizedSharesAdjustmentCommand: (
-        params: import('./functions').DeleteIssuerAuthorizedSharesAdjustmentParams
-      ) => CommandWithDisclosedContracts;
     };
     stockClassAuthorizedSharesAdjustment: {
       getStockClassAuthorizedSharesAdjustmentEventAsOcf: (
         params: GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams
       ) => Promise<import('./functions').GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult>;
-      buildDeleteStockClassAuthorizedSharesAdjustmentCommand: (
-        params: import('./functions').DeleteStockClassAuthorizedSharesAdjustmentParams
-      ) => CommandWithDisclosedContracts;
     };
     stockPlanPoolAdjustment: {
       getStockPlanPoolAdjustmentEventAsOcf: (
         params: GetStockPlanPoolAdjustmentEventAsOcfParams
       ) => Promise<import('./functions').GetStockPlanPoolAdjustmentEventAsOcfResult>;
-      buildDeleteStockPlanPoolAdjustmentCommand: (
-        params: import('./functions').DeleteStockPlanPoolAdjustmentParams
-      ) => CommandWithDisclosedContracts;
     };
     stockIssuance: {
-      getStockIssuanceAsOcf: (
-        params: GetStockIssuanceAsOcfParams
-      ) => Promise<import('./functions').GetStockIssuanceAsOcfResult>;
-      buildDeleteStockIssuanceCommand: (
-        params: import('./functions').DeleteStockIssuanceParams
-      ) => CommandWithDisclosedContracts;
+      getStockIssuanceAsOcf: (params: GetStockIssuanceAsOcfParams) => Promise<import('./functions').GetStockIssuanceAsOcfResult>;
     };
     stockRepurchase: {
-      getStockRepurchaseAsOcf: (
-        params: GetStockRepurchaseAsOcfParams
-      ) => Promise<import('./functions').GetStockRepurchaseAsOcfResult>;
-      buildCreateStockRepurchaseCommand: (
-        params: import('./functions').CreateStockRepurchaseParams
-      ) => CommandWithDisclosedContracts;
-      buildDeleteStockRepurchaseCommand: (
-        params: import('./functions').DeleteStockRepurchaseParams
-      ) => CommandWithDisclosedContracts;
+      getStockRepurchaseAsOcf: (params: GetStockRepurchaseAsOcfParams) => Promise<import('./functions').GetStockRepurchaseAsOcfResult>;
     };
     document: {
       getDocumentAsOcf: (params: GetDocumentAsOcfParams) => Promise<import('./functions').GetDocumentAsOcfResult>;
-      buildDeleteDocumentCommand: (params: import('./functions').DeleteDocumentParams) => CommandWithDisclosedContracts;
     };
     issuerAuthorization: {
       authorizeIssuer: (params: AuthorizeIssuerParams) => Promise<AuthorizeIssuerResult>;
       withdrawAuthorization: (params: WithdrawAuthorizationParams) => Promise<WithdrawAuthorizationResult>;
     };
+    /** Batch cap table update operations for atomic creates, edits, and deletes. */
+    capTable: {
+      update: (params: {
+        capTableContractId: string;
+        featuredAppRightContractDetails: DisclosedContract;
+        capTableContractDetails?: DisclosedContract;
+        actAs: string[];
+        readAs?: string[];
+      }) => CapTableBatch;
+    };
   };
 
-  /**
-   * Reporting operations for cap table analytics.
-   *
-   * Currently supports:
-   *
-   * - **companyValuationReport**: Company valuation tracking and reporting
-   *
-   * @example
-   *   ```typescript
-   *   const result = await ocp.OpenCapTableReports.companyValuationReport.createCompanyValuationReport({
-   *     issuerContractId: 'issuer-cid',
-   *     // ... valuation data
-   *   });
-   *   ```;
-   */
+  /** Reporting operations for cap table analytics. */
   public OpenCapTableReports: {
     companyValuationReport: {
       addObserversToCompanyValuationReport: (params: {
         companyValuationReportContractId: string;
         added: string[];
-      }) => Promise<{
-        contractId: string;
-        updateId: string;
-      }>;
-      createCompanyValuationReport: (
-        params: CreateCompanyValuationReportParams
-      ) => Promise<CreateCompanyValuationReportResult>;
+      }) => Promise<{ contractId: string; updateId: string }>;
+      createCompanyValuationReport: (params: CreateCompanyValuationReportParams) => Promise<CreateCompanyValuationReportResult>;
       updateCompanyValuationReport: (params: UpdateCompanyValuationParams) => Promise<UpdateCompanyValuationResult>;
-      buildCreateCompanyValuationReportCommand: (
-        params: CreateCompanyValuationReportParams
-      ) => CommandWithDisclosedContracts;
+      buildCreateCompanyValuationReportCommand: (params: CreateCompanyValuationReportParams) => CommandWithDisclosedContracts;
     };
   };
 
-  /**
-   * Payment and airdrop operations using Canton's native token (Amulet/CC).
-   *
-   * Provides:
-   *
-   * - **airdrop**: Multi-recipient token airdrops with join mechanism
-   * - **simpleAirdrop**: Direct token distribution to recipients
-   *
-   * @example
-   *   ```typescript
-   *   const cmd = ocp.CantonPayments.simpleAirdrop.buildCreateSimpleAirdropCommand({
-   *     sender: senderParty,
-   *     recipients: [{ party: recipient1, amount: '100' }],
-   *     // ...
-   *   });
-   *   ```;
-   */
+  /** Payment and airdrop operations using Canton's native token. */
   public CantonPayments: {
     airdrop: {
       buildCreateAirdropCommand: (params: import('./functions').CreateAirdropParams) => Command;
@@ -416,28 +263,7 @@ export class OcpClient {
     };
   };
 
-  /**
-   * Recurring payment stream management.
-   *
-   * Enables subscription-style payments with:
-   *
-   * - **paymentStreamFactory**: Create new payment stream proposals
-   * - **proposedPaymentStream**: Approve/reject/start proposed streams
-   * - **activePaymentStream**: Process payments, cancel, modify active streams
-   * - **paymentStreamChangeProposal**: Handle stream modification proposals
-   * - **partyMigrationProposal**: Migrate streams between parties
-   * - **utils**: Helper functions for building payment contexts
-   *
-   * @example
-   *   ```typescript
-   *   // Create a payment stream proposal
-   *   const cmd = ocp.PaymentStreams.paymentStreamFactory.buildCreatePaymentStreamProposalCommand({
-   *     payer: payerParty,
-   *     payee: payeeParty,
-   *     // ... stream configuration
-   *   });
-   *   ```;
-   */
+  /** Recurring payment stream management. */
   public PaymentStreams: {
     paymentStreamFactory: {
       buildCreatePaymentStreamProposalCommand: (
@@ -445,12 +271,8 @@ export class OcpClient {
       ) => CommandWithDisclosedContracts;
     };
     proposedPaymentStream: {
-      buildApproveCommand: (
-        params: import('./functions').ProposedPaymentStreamApproveParams
-      ) => CommandWithDisclosedContracts;
-      buildStartPaymentStreamCommand: (
-        params: import('./functions').ProposedPaymentStreamStartParams
-      ) => CommandWithDisclosedContracts;
+      buildApproveCommand: (params: import('./functions').ProposedPaymentStreamApproveParams) => CommandWithDisclosedContracts;
+      buildStartPaymentStreamCommand: (params: import('./functions').ProposedPaymentStreamStartParams) => CommandWithDisclosedContracts;
       buildEditPaymentStreamProposalCommand: (params: import('./functions').EditPaymentStreamProposalParams) => Command;
       buildWithdrawCommand: (params: import('./functions').ProposedPaymentStreamWithdrawParams) => Command;
       buildChangePartyCommand: (params: import('./functions').ProposedPaymentStreamChangePartyParams) => Command;
@@ -461,9 +283,7 @@ export class OcpClient {
       buildCancelCommand: (params: import('./functions').CancelPaymentStreamParams) => Command;
       buildProposeChangesCommand: (params: import('./functions').ProposeChangesParams) => Command;
       buildRefundCommand: (params: import('./functions').RefundPaymentStreamParams) => Command;
-      buildArchiveInactivePaymentStreamCommand: (
-        params: import('./functions').ArchiveInactivePaymentStreamParams
-      ) => Command;
+      buildArchiveInactivePaymentStreamCommand: (params: import('./functions').ArchiveInactivePaymentStreamParams) => Command;
       buildChangePartyCommand: (params: import('./functions').ActivePaymentStreamChangePartyParams) => Command;
     };
     paymentStreamChangeProposal: {
@@ -473,12 +293,8 @@ export class OcpClient {
     };
     partyMigrationProposal: {
       buildApproveCommand: (params: import('./functions').PartyMigrationProposalApproveParams) => Command;
-      buildMigrateActivePaymentStreamCommand: (
-        params: import('./functions').MigrateActivePaymentStreamParams
-      ) => Command;
-      buildMigrateProposedPaymentStreamCommand: (
-        params: import('./functions').MigrateProposedPaymentStreamParams
-      ) => Command;
+      buildMigrateActivePaymentStreamCommand: (params: import('./functions').MigrateActivePaymentStreamParams) => Command;
+      buildMigrateProposedPaymentStreamCommand: (params: import('./functions').MigrateProposedPaymentStreamParams) => Command;
       buildArchiveCommand: (params: import('./functions').PartyMigrationProposalArchiveParams) => Command;
     };
     utils: {
@@ -491,14 +307,7 @@ export class OcpClient {
       getProposedPaymentStreamDisclosedContracts: (
         proposedPaymentStreamContractId: string,
         readAs?: string[]
-      ) => Promise<
-        Array<{
-          templateId: string;
-          contractId: string;
-          createdEventBlob: string;
-          synchronizerId: string;
-        }>
-      >;
+      ) => Promise<Array<{ templateId: string; contractId: string; createdEventBlob: string; synchronizerId: string }>>;
       buildPaymentContext: (
         validatorClient: import('@fairmint/canton-node-sdk').ValidatorApiClient,
         provider?: string
@@ -512,39 +321,9 @@ export class OcpClient {
     };
   };
 
-  /**
-   * Create a new OcpClient instance.
-   *
-   * @example
-   *   LocalNet(cn - quickstart)```typescript
-   *   const ocp = new OcpClient({ network: 'localnet' });
-   *   ```;
-   *
-   * @example
-   *   DevNet with auth
-   *   ```typescript
-   *   const ocp = new OcpClient({
-   *   network: 'devnet',
-   *   authUrl: 'https://auth.example.com',
-   *   apis: {
-   *   LEDGER_JSON_API: {
-   *   apiUrl: 'https://ledger.example.com',
-   *   auth: {
-   *   grantType: 'client_credentials',
-   *   clientId: 'my-client',
-   *   clientSecret: 'secret',
-   *   },
-   *   },
-   *   },
-   *   });
-   *   ```
-   *
-   * @param config - Optional client configuration. If not provided, uses environment defaults.
-   */
   constructor(config?: ClientConfig) {
     this.client = new LedgerJsonApiClient(config);
 
-    // OpenCapTable namespace
     this.OpenCapTable = {
       issuer: {
         buildCreateIssuerCommand: (params: CreateIssuerParams) => buildCreateIssuerCommand(params),
@@ -552,105 +331,81 @@ export class OcpClient {
       },
       stockClass: {
         getStockClassAsOcf: async (params: GetStockClassAsOcfParams) => getStockClassAsOcf(this.client, params),
-        buildDeleteStockClassCommand: (params) => buildDeleteStockClassCommand(params),
       },
       stakeholder: {
         getStakeholderAsOcf: async (params) => getStakeholderAsOcf(this.client, params),
-        buildDeleteStakeholderCommand: (params) => buildDeleteStakeholderCommand(params),
       },
       stockLegendTemplate: {
         getStockLegendTemplateAsOcf: async (params) => getStockLegendTemplateAsOcf(this.client, params),
-        buildDeleteStockLegendTemplateCommand: (params) => buildDeleteStockLegendTemplateCommand(params),
       },
       vestingTerms: {
         getVestingTermsAsOcf: async (params) => getVestingTermsAsOcf(this.client, params),
-        buildDeleteVestingTermsCommand: (params) => buildDeleteVestingTermsCommand(params),
       },
       stockPlan: {
         getStockPlanAsOcf: async (params) => getStockPlanAsOcf(this.client, params),
-        buildDeleteStockPlanCommand: (params) => buildDeleteStockPlanCommand(params),
       },
       equityCompensationIssuance: {
-        getEquityCompensationIssuanceEventAsOcf: async (params) =>
-          getEquityCompensationIssuanceEventAsOcf(this.client, params),
-        buildDeleteEquityCompensationIssuanceCommand: (params) => buildDeleteEquityCompensationIssuanceCommand(params),
+        getEquityCompensationIssuanceEventAsOcf: async (params) => getEquityCompensationIssuanceEventAsOcf(this.client, params),
       },
       equityCompensationExercise: {
-        getEquityCompensationExerciseEventAsOcf: async (params) =>
-          getEquityCompensationExerciseEventAsOcf(this.client, params),
+        getEquityCompensationExerciseEventAsOcf: async (params) => getEquityCompensationExerciseEventAsOcf(this.client, params),
       },
       warrantIssuance: {
         getWarrantIssuanceAsOcf: async (params) => getWarrantIssuanceAsOcf(this.client, params),
-        buildDeleteWarrantIssuanceCommand: (params) => buildDeleteWarrantIssuanceCommand(params),
       },
       convertibleIssuance: {
         getConvertibleIssuanceAsOcf: async (params) => getConvertibleIssuanceAsOcf(this.client, params),
-        buildDeleteConvertibleIssuanceCommand: (params) => buildDeleteConvertibleIssuanceCommand(params),
       },
       stockCancellation: {
         getStockCancellationEventAsOcf: async (params) => getStockCancellationEventAsOcf(this.client, params),
-        buildDeleteStockCancellationCommand: (params) => buildDeleteStockCancellationCommand(params),
       },
       warrantCancellation: {
         getWarrantCancellationEventAsOcf: async (params) => getWarrantCancellationEventAsOcf(this.client, params),
       },
       convertibleCancellation: {
-        getConvertibleCancellationEventAsOcf: async (params) =>
-          getConvertibleCancellationEventAsOcf(this.client, params),
+        getConvertibleCancellationEventAsOcf: async (params) => getConvertibleCancellationEventAsOcf(this.client, params),
       },
       equityCompensationCancellation: {
-        getEquityCompensationCancellationEventAsOcf: async (params) =>
-          getEquityCompensationCancellationEventAsOcf(this.client, params),
+        getEquityCompensationCancellationEventAsOcf: async (params) => getEquityCompensationCancellationEventAsOcf(this.client, params),
       },
       stockTransfer: {
         getStockTransferAsOcf: async (params) => getStockTransferAsOcf(this.client, params),
-        buildDeleteStockTransferCommand: (params) => buildDeleteStockTransferCommand(params),
       },
       issuerAuthorizedSharesAdjustment: {
         getIssuerAuthorizedSharesAdjustmentEventAsOcf: async (params) =>
           getIssuerAuthorizedSharesAdjustmentEventAsOcf(this.client, params),
-        buildDeleteIssuerAuthorizedSharesAdjustmentCommand: (params) =>
-          buildDeleteIssuerAuthorizedSharesAdjustmentCommand(params),
       },
       stockClassAuthorizedSharesAdjustment: {
         getStockClassAuthorizedSharesAdjustmentEventAsOcf: async (params) =>
           getStockClassAuthorizedSharesAdjustmentEventAsOcf(this.client, params),
-        buildDeleteStockClassAuthorizedSharesAdjustmentCommand: (params) =>
-          buildDeleteStockClassAuthorizedSharesAdjustmentCommand(params),
       },
       stockPlanPoolAdjustment: {
-        getStockPlanPoolAdjustmentEventAsOcf: async (params) =>
-          getStockPlanPoolAdjustmentEventAsOcf(this.client, params),
-        buildDeleteStockPlanPoolAdjustmentCommand: (params) => buildDeleteStockPlanPoolAdjustmentCommand(params),
+        getStockPlanPoolAdjustmentEventAsOcf: async (params) => getStockPlanPoolAdjustmentEventAsOcf(this.client, params),
       },
       document: {
         getDocumentAsOcf: async (params) => getDocumentAsOcf(this.client, params),
-        buildDeleteDocumentCommand: (params) => buildDeleteDocumentCommand(params),
       },
       stockIssuance: {
         getStockIssuanceAsOcf: async (params) => getStockIssuanceAsOcf(this.client, params),
-        buildDeleteStockIssuanceCommand: (params) => buildDeleteStockIssuanceCommand(params),
       },
       stockRepurchase: {
         getStockRepurchaseAsOcf: async (params) => getStockRepurchaseAsOcf(this.client, params),
-        buildCreateStockRepurchaseCommand: (params) => buildCreateStockRepurchaseCommand(params),
-        buildDeleteStockRepurchaseCommand: (params) => buildDeleteStockRepurchaseCommand(params),
       },
       issuerAuthorization: {
         authorizeIssuer: async (params) => authorizeIssuer(this.client, params),
         withdrawAuthorization: async (params) => withdrawAuthorization(this.client, params),
       },
+      capTable: {
+        update: (params) => new CapTableBatch(params, this.client),
+      },
     };
 
-    // OpenCapTableReports namespace
     this.OpenCapTableReports = {
       companyValuationReport: {
         buildCreateCompanyValuationReportCommand: (params: CreateCompanyValuationReportParams) =>
           buildCreateCompanyValuationReportCommand(this.client, params),
-        addObserversToCompanyValuationReport: async (params: {
-          companyValuationReportContractId: string;
-          added: string[];
-        }) => addObserversToCompanyValuationReport(this.client, params),
+        addObserversToCompanyValuationReport: async (params: { companyValuationReportContractId: string; added: string[] }) =>
+          addObserversToCompanyValuationReport(this.client, params),
         createCompanyValuationReport: async (params: CreateCompanyValuationReportParams) =>
           createCompanyValuationReport(this.client, params),
         updateCompanyValuationReport: async (params: UpdateCompanyValuationParams) =>
@@ -658,7 +413,6 @@ export class OcpClient {
       },
     };
 
-    // CantonPayments namespace - lazy import to avoid circular dependencies
     /* eslint-disable @typescript-eslint/no-require-imports */
     this.CantonPayments = {
       airdrop: {
@@ -699,7 +453,6 @@ export class OcpClient {
       },
     };
 
-    // PaymentStreams namespace - lazy import to avoid circular dependencies
     this.PaymentStreams = {
       paymentStreamFactory: {
         buildCreatePaymentStreamProposalCommand: (params) => {
@@ -796,10 +549,7 @@ export class OcpClient {
           const { getFactoryDisclosedContracts } = require('./functions/PaymentStreams');
           return getFactoryDisclosedContracts(this);
         },
-        getProposedPaymentStreamDisclosedContracts: async (
-          proposedPaymentStreamContractId: string,
-          readAs?: string[]
-        ) => {
+        getProposedPaymentStreamDisclosedContracts: async (proposedPaymentStreamContractId: string, readAs?: string[]) => {
           const { getProposedPaymentStreamDisclosedContracts } = require('./functions/PaymentStreams');
           return await getProposedPaymentStreamDisclosedContracts(this, proposedPaymentStreamContractId, readAs);
         },
@@ -816,32 +566,7 @@ export class OcpClient {
     /* eslint-enable @typescript-eslint/no-require-imports */
   }
 
-  /**
-   * Create a new transaction batch for submitting multiple commands atomically.
-   *
-   * Use batches when you need to execute multiple operations in a single transaction, ensuring all-or-nothing
-   * semantics.
-   *
-   * @example
-   *   ```typescript
-   *   const batch = ocp.createBatch({ actAs: [issuerParty] });
-   *
-   *   // Add commands
-   *   const cmd1 = ocp.OpenCapTable.stakeholder.buildCreateStakeholderCommand({...});
-   *   const cmd2 = ocp.OpenCapTable.stockClass.buildCreateStockClassCommand({...});
-   *
-   *   batch.addCommand(cmd1.command, cmd1.disclosedContracts);
-   *   batch.addCommand(cmd2.command, cmd2.disclosedContracts);
-   *
-   *   // Submit atomically
-   *   const result = await batch.submitAndWait();
-   *   ```;
-   *
-   * @param params - Batch parameters
-   * @param params.actAs - Party IDs to act as (signatories)
-   * @param params.readAs - Optional additional party IDs for read access
-   * @returns A TransactionBatch instance for adding commands
-   */
+  /** Create a new transaction batch for submitting multiple commands atomically. */
   public createBatch(params: { actAs: string[]; readAs?: string[] }): TransactionBatch {
     return new TransactionBatch(this.client, params.actAs, params.readAs);
   }

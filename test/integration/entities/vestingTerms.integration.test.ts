@@ -14,6 +14,8 @@
  * ```
  */
 
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import { createTestVestingTermsData, generateTestId, setupTestIssuer, setupTestVestingTerms } from '../utils';
@@ -106,15 +108,17 @@ createIntegrationTestSuite('VestingTerms operations', (getContext) => {
     });
 
     // Build and execute delete command using the NEW CapTable contract from vestingSetup
-    const deleteCmd = ctx.ocp.OpenCapTable.vestingTerms.buildDeleteVestingTermsCommand({
-      capTableContractId: vestingSetup.newCapTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: vestingSetup.newCapTableContractDetails,
-      vestingTermsId: vestingSetup.vestingTermsData.id,
-    });
+    const deleteCmd = buildUpdateCapTableCommand(
+      {
+        capTableContractId: vestingSetup.newCapTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: vestingSetup.newCapTableContractDetails,
+      },
+      { deletes: [{ type: 'vestingTerms', id: vestingSetup.vestingTermsData.id }] }
+    );
 
     const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
-      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
     await ctx.ocp.client.submitAndWaitForTransactionTree({

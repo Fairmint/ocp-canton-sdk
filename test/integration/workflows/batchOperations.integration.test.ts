@@ -11,11 +11,12 @@
  * ```
  */
 
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import {
   buildCapTableCommand,
-  buildCreateStakeholderCommand,
-  buildCreateStockClassCommand,
+  buildUpdateCapTableCommand,
   stockLegendTemplateDataToDaml,
+  ENTITY_TAG_MAP,
 } from '../../../src/functions/OpenCapTable';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
@@ -82,16 +83,18 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       stakeholder_type: 'INDIVIDUAL' as const,
     };
 
-    const cmd1 = buildCreateStakeholderCommand({
-      capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      stakeholderData: stakeholder1,
-    });
+    const cmd1 = buildUpdateCapTableCommand(
+      {
+        capTableContractId: issuerSetup.issuerContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      },
+      { creates: [{ type: 'stakeholder', data: stakeholder1 }] }
+    );
 
     // Submit single command via direct API (batch API is for advanced use cases)
     const validDisclosedContracts = cmd1.disclosedContracts.filter(
-      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
     const result = await ctx.ocp.client.submitAndWaitForTransactionTree({
@@ -138,15 +141,17 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       name: 'Batch Common Stock',
     });
 
-    const stockClassCmd = buildCreateStockClassCommand({
-      capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      stockClassData,
-    });
+    const stockClassCmd = buildUpdateCapTableCommand(
+      {
+        capTableContractId: issuerSetup.issuerContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      },
+      { creates: [{ type: 'stockClass', data: stockClassData }] }
+    );
 
     const validStockClassDC = stockClassCmd.disclosedContracts.filter(
-      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
     const stockClassResult = await ctx.ocp.client.submitAndWaitForTransactionTree({
@@ -323,15 +328,17 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       stakeholder_type: 'INDIVIDUAL' as const,
     };
 
-    const cmd = buildCreateStakeholderCommand({
-      capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
-      stakeholderData,
-    });
+    const cmd = buildUpdateCapTableCommand(
+      {
+        capTableContractId: issuerSetup.issuerContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      },
+      { creates: [{ type: 'stakeholder', data: stakeholderData }] }
+    );
 
     // Filter disclosed contracts
-    const validDC = cmd.disclosedContracts.filter((dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0);
+    const validDC = cmd.disclosedContracts.filter((dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0);
 
     // Submit using direct client API (TransactionBatch API is for more advanced use cases)
     const result = await ctx.ocp.client.submitAndWaitForTransactionTree({

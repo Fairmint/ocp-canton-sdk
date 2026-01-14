@@ -21,8 +21,7 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import type { OcpClient } from '../../../src/OcpClient';
 import {
   buildCapTableCommand,
-  buildCreateStakeholderCommand,
-  buildCreateStockClassCommand,
+  buildUpdateCapTableCommand,
   convertibleIssuanceDataToDaml,
   documentDataToDaml,
   equityCompensationIssuanceDataToDaml,
@@ -998,15 +997,17 @@ export async function setupTestStakeholder(
 ): Promise<TestStakeholderSetup> {
   const stakeholderData = createTestStakeholderData(options.stakeholderData);
 
-  const cmd = buildCreateStakeholderCommand({
-    capTableContractId: options.issuerContractId,
-    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
-    capTableContractDetails: options.capTableContractDetails,
-    stakeholderData,
-  });
+  const cmd = buildUpdateCapTableCommand(
+    {
+      capTableContractId: options.issuerContractId,
+      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+      capTableContractDetails: options.capTableContractDetails,
+    },
+    { creates: [{ type: 'stakeholder', data: stakeholderData }] }
+  );
 
   const validDisclosedContracts = cmd.disclosedContracts.filter(
-    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
   );
 
   const result = await ocp.client.submitAndWaitForTransactionTree({
@@ -1071,15 +1072,17 @@ export async function setupTestStockClass(
 ): Promise<TestStockClassSetup> {
   const stockClassData = createTestStockClassData(options.stockClassData);
 
-  const cmd = buildCreateStockClassCommand({
-    capTableContractId: options.issuerContractId,
-    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
-    capTableContractDetails: options.capTableContractDetails,
-    stockClassData,
-  });
+  const cmd = buildUpdateCapTableCommand(
+    {
+      capTableContractId: options.issuerContractId,
+      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+      capTableContractDetails: options.capTableContractDetails,
+    },
+    { creates: [{ type: 'stockClass', data: stockClassData }] }
+  );
 
   const validDisclosedContracts = cmd.disclosedContracts.filter(
-    (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
   );
 
   const result = await ocp.client.submitAndWaitForTransactionTree({

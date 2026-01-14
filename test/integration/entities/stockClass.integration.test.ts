@@ -18,6 +18,8 @@
  * ```
  */
 
+import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import { createTestStockClassData, generateTestId, setupTestIssuer, setupTestStockClass } from '../utils';
@@ -203,15 +205,17 @@ createIntegrationTestSuite('StockClass operations', (getContext) => {
     });
 
     // Build and execute delete command using the NEW CapTable contract from stockClassSetup
-    const deleteCmd = ctx.ocp.OpenCapTable.stockClass.buildDeleteStockClassCommand({
-      capTableContractId: stockClassSetup.newCapTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: stockClassSetup.newCapTableContractDetails,
-      stockClassId: stockClassSetup.stockClassData.id,
-    });
+    const deleteCmd = buildUpdateCapTableCommand(
+      {
+        capTableContractId: stockClassSetup.newCapTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: stockClassSetup.newCapTableContractDetails,
+      },
+      { deletes: [{ type: 'stockClass', id: stockClassSetup.stockClassData.id }] }
+    );
 
     const validDisclosedContracts = deleteCmd.disclosedContracts.filter(
-      (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
     await ctx.ocp.client.submitAndWaitForTransactionTree({

@@ -15,7 +15,7 @@ import { equityCompensationCancellationDataToDaml } from '../equityCompensationC
 import { equityCompensationExerciseDataToDaml } from '../equityCompensationExercise/createEquityCompensationExercise';
 import { equityCompensationIssuanceDataToDaml } from '../equityCompensationIssuance/createEquityCompensationIssuance';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
-import { stakeholderDataToDaml } from '../stakeholder/addStakeholder';
+import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
 import { stockCancellationDataToDaml } from '../stockCancellation/createStockCancellation';
 import { stockClassDataToDaml } from '../stockClass/stockClassDataToDaml';
 import { stockClassAuthorizedSharesAdjustmentDataToDaml } from '../stockClassAuthorizedSharesAdjustment/createStockClassAuthorizedSharesAdjustment';
@@ -23,7 +23,7 @@ import { stockIssuanceDataToDaml } from '../stockIssuance/createStockIssuance';
 import { stockLegendTemplateDataToDaml } from '../stockLegendTemplate/createStockLegendTemplate';
 import { stockPlanDataToDaml } from '../stockPlan/createStockPlan';
 import { stockPlanPoolAdjustmentDataToDaml } from '../stockPlanPoolAdjustment/createStockPlanPoolAdjustment';
-import { stockRepurchaseDataToDaml } from '../stockRepurchase/createStockRepurchase';
+import { stockRepurchaseDataToDaml } from '../stockRepurchase/stockRepurchaseDataToDaml';
 import { stockTransferDataToDaml } from '../stockTransfer/createStockTransfer';
 import { vestingTermsDataToDaml } from '../vestingTerms/createVestingTerms';
 import { warrantCancellationDataToDaml } from '../warrantCancellation/createWarrantCancellation';
@@ -48,8 +48,6 @@ import type {
   OcfEquityCompensationRepricing,
   OcfEquityCompensationRetraction,
   OcfEquityCompensationTransfer,
-  OcfStakeholderRelationshipChangeEvent,
-  OcfStakeholderStatusChangeEvent,
   OcfStockAcceptance,
   OcfStockClassConversionRatioAdjustment,
   OcfStockClassSplit,
@@ -66,66 +64,9 @@ import type {
   OcfWarrantExercise,
   OcfWarrantRetraction,
   OcfWarrantTransfer,
-  StakeholderRelationshipType,
-  StakeholderStatusType,
 } from '../../../types';
 
-// ===== Relationship type mapping =====
-
-const RELATIONSHIP_TYPE_MAP: Record<StakeholderRelationshipType, string> = {
-  ADVISOR: 'OcfRelAdvisor',
-  BOARD_MEMBER: 'OcfRelBoardMember',
-  CONSULTANT: 'OcfRelConsultant',
-  EMPLOYEE: 'OcfRelEmployee',
-  EX_ADVISOR: 'OcfRelExAdvisor',
-  EX_CONSULTANT: 'OcfRelExConsultant',
-  EX_EMPLOYEE: 'OcfRelExEmployee',
-  EXECUTIVE: 'OcfRelExecutive',
-  FOUNDER: 'OcfRelFounder',
-  INVESTOR: 'OcfRelInvestor',
-  NON_US_EMPLOYEE: 'OcfRelNonUsEmployee',
-  OFFICER: 'OcfRelOfficer',
-  OTHER: 'OcfRelOther',
-};
-
-const STATUS_TYPE_MAP: Record<StakeholderStatusType, string> = {
-  ACTIVE: 'OcfStakeholderStatusActive',
-  LEAVE_OF_ABSENCE: 'OcfStakeholderStatusLeaveOfAbsence',
-  TERMINATION_VOLUNTARY_OTHER: 'OcfStakeholderStatusTerminationVoluntaryOther',
-  TERMINATION_VOLUNTARY_GOOD_CAUSE: 'OcfStakeholderStatusTerminationVoluntaryGoodCause',
-  TERMINATION_VOLUNTARY_RETIREMENT: 'OcfStakeholderStatusTerminationVoluntaryRetirement',
-  TERMINATION_INVOLUNTARY_OTHER: 'OcfStakeholderStatusTerminationInvoluntaryOther',
-  TERMINATION_INVOLUNTARY_DEATH: 'OcfStakeholderStatusTerminationInvoluntaryDeath',
-  TERMINATION_INVOLUNTARY_DISABILITY: 'OcfStakeholderStatusTerminationInvoluntaryDisability',
-  TERMINATION_INVOLUNTARY_WITH_CAUSE: 'OcfStakeholderStatusTerminationInvoluntaryWithCause',
-};
-
 // ===== Simple converters for types without dedicated files =====
-
-function stakeholderRelationshipChangeEventDataToDaml(
-  d: OcfStakeholderRelationshipChangeEvent
-): Record<string, unknown> {
-  if (!d.id) throw new Error('stakeholderRelationshipChangeEvent.id is required');
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    stakeholder_id: d.stakeholder_id,
-    relationship_ended: d.relationship_ended ? RELATIONSHIP_TYPE_MAP[d.relationship_ended] : null,
-    relationship_started: d.relationship_started ? RELATIONSHIP_TYPE_MAP[d.relationship_started] : null,
-    comments: cleanComments(d.comments),
-  };
-}
-
-function stakeholderStatusChangeEventDataToDaml(d: OcfStakeholderStatusChangeEvent): Record<string, unknown> {
-  if (!d.id) throw new Error('stakeholderStatusChangeEvent.id is required');
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    stakeholder_id: d.stakeholder_id,
-    new_status: STATUS_TYPE_MAP[d.new_status],
-    comments: cleanComments(d.comments),
-  };
-}
 
 function stockAcceptanceDataToDaml(d: OcfStockAcceptance): Record<string, unknown> {
   if (!d.id) throw new Error('stockAcceptance.id is required');
@@ -446,10 +387,6 @@ export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTyp
   switch (type) {
     case 'stakeholder':
       return stakeholderDataToDaml(data as OcfDataTypeFor<'stakeholder'>);
-    case 'stakeholderRelationshipChangeEvent':
-      return stakeholderRelationshipChangeEventDataToDaml(data as OcfDataTypeFor<'stakeholderRelationshipChangeEvent'>);
-    case 'stakeholderStatusChangeEvent':
-      return stakeholderStatusChangeEventDataToDaml(data as OcfDataTypeFor<'stakeholderStatusChangeEvent'>);
     case 'stockClass':
       return stockClassDataToDaml(data as OcfDataTypeFor<'stockClass'>);
     case 'stockIssuance':

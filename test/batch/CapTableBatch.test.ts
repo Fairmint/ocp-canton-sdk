@@ -297,8 +297,9 @@ describe('ENTITY_TAG_MAP', () => {
     });
   });
 
-  it('should have all 47 entity types', () => {
-    // The DAML contract supports 47 entity types (excluding Issuer which is handled separately)
-    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(47);
+  it('should have all 45 entity types', () => {
+    // The DAML contract supports 45 entity types (excluding Issuer which is handled separately,
+    // and stakeholderRelationshipChangeEvent/stakeholderStatusChangeEvent which are not yet implemented)
+    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(45);
   });
 });
