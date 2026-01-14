@@ -64,7 +64,16 @@ import type {
   OcfWarrantExercise,
   OcfWarrantRetraction,
   OcfWarrantTransfer,
+  ValuationType,
 } from '../../../types';
+
+/**
+ * Map from OCF ValuationType to DAML OcfValuationType. Currently OCF only supports '409A', which maps to
+ * 'OcfValuationType409A'.
+ */
+const VALUATION_TYPE_MAP: Record<ValuationType, string> = {
+  '409A': 'OcfValuationType409A',
+};
 
 // ===== Simple converters for types without dedicated files =====
 
@@ -168,6 +177,9 @@ function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): Record<st
 
 function valuationDataToDaml(d: OcfValuation): Record<string, unknown> {
   if (!d.id) throw new Error('valuation.id is required');
+
+  const damlValuationType = VALUATION_TYPE_MAP[d.valuation_type];
+
   return {
     id: d.id,
     stock_class_id: d.stock_class_id,
@@ -176,7 +188,7 @@ function valuationDataToDaml(d: OcfValuation): Record<string, unknown> {
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     price_per_share: monetaryToDaml(d.price_per_share),
     effective_date: dateStringToDAMLTime(d.effective_date),
-    valuation_type: 'OcfValuation409A',
+    valuation_type: damlValuationType,
     comments: cleanComments(d.comments),
   };
 }

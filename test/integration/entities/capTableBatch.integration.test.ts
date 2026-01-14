@@ -61,11 +61,8 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       .create('document', documentData)
       .execute();
 
-    // Verify entities were created (result contains IDs of created entities)
-    expect(result.createdIds).toHaveLength(3);
-    expect(result.createdIds).toContain(stakeholderData.id);
-    expect(result.createdIds).toContain(stockClassData.id);
-    expect(result.createdIds).toContain(documentData.id);
+    // Verify entities were created (result contains contract IDs of created entities)
+    expect(result.createdCids).toHaveLength(3);
     expect(result.updatedCapTableCid).toBeTruthy();
   });
 
@@ -108,8 +105,7 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
     const result = await batch.edit('stakeholder', updatedStakeholderData).execute();
 
     // Verify the edit was successful
-    expect(result.editedIds).toHaveLength(1);
-    expect(result.editedIds).toContain(stakeholderSetup.stakeholderData.id);
+    expect(result.editedCids).toHaveLength(1);
   });
 
   test('deletes an entity', async () => {
@@ -135,7 +131,7 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
 
     const createResult = await createBatch.create('document', createTestDocumentData({ id: documentId })).execute();
 
-    expect(createResult.createdIds).toContain(documentId);
+    expect(createResult.createdCids).toHaveLength(1);
     const newCapTableContractId = createResult.updatedCapTableCid;
 
     // Get updated CapTable contract details
@@ -222,7 +218,7 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       .execute();
 
     // Verify all operations succeeded
-    expect(result.createdIds).toContain(newStockClassId);
-    expect(result.editedIds).toContain(existingStakeholderId);
+    expect(result.createdCids).toHaveLength(1);
+    expect(result.editedCids).toHaveLength(1);
   });
 });
