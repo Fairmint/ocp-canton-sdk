@@ -16,7 +16,6 @@ import {
   buildCapTableCommand,
   buildUpdateCapTableCommand,
   stockLegendTemplateDataToDaml,
-  ENTITY_TAG_MAP,
 } from '../../../src/functions/OpenCapTable';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
@@ -338,7 +337,9 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     );
 
     // Filter disclosed contracts
-    const validDC = cmd.disclosedContracts.filter((dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0);
+    const validDC = cmd.disclosedContracts.filter(
+      (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
+    );
 
     // Submit using direct client API (TransactionBatch API is for more advanced use cases)
     const result = await ctx.ocp.client.submitAndWaitForTransactionTree({

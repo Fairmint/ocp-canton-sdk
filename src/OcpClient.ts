@@ -5,7 +5,6 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
-import { CapTableBatch } from './functions/OpenCapTable/capTable';
 import type {
   AuthorizeIssuerParams,
   AuthorizeIssuerResult,
@@ -70,6 +69,7 @@ import {
   updateCompanyValuationReport,
   withdrawAuthorization,
 } from './functions';
+import { CapTableBatch } from './functions/OpenCapTable/capTable';
 import type { CommandWithDisclosedContracts } from './types';
 
 /**
@@ -90,16 +90,16 @@ import type { CommandWithDisclosedContracts } from './types';
  *   const ocp = new OcpClient({ network: 'localnet' });
  *
  *   const cmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({
- *     issuerAuthorizationContractDetails: authDetails,
- *     featuredAppRightContractDetails: featuredDetails,
- *     issuerParty: 'alice::...',
- *     issuerData: {
- *       id: 'issuer-1',
- *       legal_name: 'Acme Corp',
- *       formation_date: '2024-01-01',
- *       country_of_formation: 'US',
- *       tax_ids: [],
- *     },
+ *   issuerAuthorizationContractDetails: authDetails,
+ *   featuredAppRightContractDetails: featuredDetails,
+ *   issuerParty: 'alice::...',
+ *   issuerData: {
+ *   id: 'issuer-1',
+ *   legal_name: 'Acme Corp',
+ *   formation_date: '2024-01-01',
+ *   country_of_formation: 'US',
+ *   tax_ids: [],
+ *   },
  *   });
  *   ```
  *
@@ -107,16 +107,16 @@ import type { CommandWithDisclosedContracts } from './types';
  *   Batch cap table updates
  *   ```typescript
  *   const result = await ocp.OpenCapTable.capTable
- *     .update({
- *       capTableContractId,
- *       featuredAppRightContractDetails,
- *       actAs: [issuerParty],
- *     })
- *     .create('stakeholder', stakeholderData)
- *     .create('stockClass', stockClassData)
- *     .edit('stakeholder', updatedStakeholderData)
- *     .delete('document', documentId)
- *     .execute();
+ *   .update({
+ *   capTableContractId,
+ *   featuredAppRightContractDetails,
+ *   actAs: [issuerParty],
+ *   })
+ *   .create('stakeholder', stakeholderData)
+ *   .create('stockClass', stockClassData)
+ *   .edit('stakeholder', updatedStakeholderData)
+ *   .delete('document', documentId)
+ *   .execute();
  *   ```
  *
  * @see https://ocp.canton.fairmint.com/ - Full SDK documentation
@@ -128,8 +128,8 @@ export class OcpClient {
   /**
    * Core cap table operations.
    *
-   * Use `capTable.update()` for all creates, edits, and deletes of OCF entities.
-   * Use entity-specific `get*AsOcf()` methods to read data.
+   * Use `capTable.update()` for all creates, edits, and deletes of OCF entities. Use entity-specific `get*AsOcf()`
+   * methods to read data.
    */
   public OpenCapTable: {
     issuer: {
@@ -140,7 +140,9 @@ export class OcpClient {
       getStockClassAsOcf: (params: GetStockClassAsOcfParams) => Promise<GetStockClassAsOcfResult>;
     };
     stakeholder: {
-      getStakeholderAsOcf: (params: GetStakeholderAsOcfParams) => Promise<import('./functions').GetStakeholderAsOcfResult>;
+      getStakeholderAsOcf: (
+        params: GetStakeholderAsOcfParams
+      ) => Promise<import('./functions').GetStakeholderAsOcfResult>;
     };
     stockLegendTemplate: {
       getStockLegendTemplateAsOcf: (
@@ -148,7 +150,9 @@ export class OcpClient {
       ) => Promise<import('./functions').GetStockLegendTemplateAsOcfResult>;
     };
     vestingTerms: {
-      getVestingTermsAsOcf: (params: GetVestingTermsAsOcfParams) => Promise<import('./functions').GetVestingTermsAsOcfResult>;
+      getVestingTermsAsOcf: (
+        params: GetVestingTermsAsOcfParams
+      ) => Promise<import('./functions').GetVestingTermsAsOcfResult>;
     };
     stockPlan: {
       getStockPlanAsOcf: (params: GetStockPlanAsOcfParams) => Promise<import('./functions').GetStockPlanAsOcfResult>;
@@ -164,7 +168,9 @@ export class OcpClient {
       ) => Promise<import('./functions').GetEquityCompensationExerciseEventAsOcfResult>;
     };
     warrantIssuance: {
-      getWarrantIssuanceAsOcf: (params: GetWarrantIssuanceAsOcfParams) => Promise<import('./functions').GetWarrantIssuanceAsOcfResult>;
+      getWarrantIssuanceAsOcf: (
+        params: GetWarrantIssuanceAsOcfParams
+      ) => Promise<import('./functions').GetWarrantIssuanceAsOcfResult>;
     };
     convertibleIssuance: {
       getConvertibleIssuanceAsOcf: (
@@ -192,7 +198,9 @@ export class OcpClient {
       ) => Promise<import('./functions').GetEquityCompensationCancellationEventAsOcfResult>;
     };
     stockTransfer: {
-      getStockTransferAsOcf: (params: GetStockTransferAsOcfParams) => Promise<import('./functions').GetStockTransferAsOcfResult>;
+      getStockTransferAsOcf: (
+        params: GetStockTransferAsOcfParams
+      ) => Promise<import('./functions').GetStockTransferAsOcfResult>;
     };
     issuerAuthorizedSharesAdjustment: {
       getIssuerAuthorizedSharesAdjustmentEventAsOcf: (
@@ -210,10 +218,14 @@ export class OcpClient {
       ) => Promise<import('./functions').GetStockPlanPoolAdjustmentEventAsOcfResult>;
     };
     stockIssuance: {
-      getStockIssuanceAsOcf: (params: GetStockIssuanceAsOcfParams) => Promise<import('./functions').GetStockIssuanceAsOcfResult>;
+      getStockIssuanceAsOcf: (
+        params: GetStockIssuanceAsOcfParams
+      ) => Promise<import('./functions').GetStockIssuanceAsOcfResult>;
     };
     stockRepurchase: {
-      getStockRepurchaseAsOcf: (params: GetStockRepurchaseAsOcfParams) => Promise<import('./functions').GetStockRepurchaseAsOcfResult>;
+      getStockRepurchaseAsOcf: (
+        params: GetStockRepurchaseAsOcfParams
+      ) => Promise<import('./functions').GetStockRepurchaseAsOcfResult>;
     };
     document: {
       getDocumentAsOcf: (params: GetDocumentAsOcfParams) => Promise<import('./functions').GetDocumentAsOcfResult>;
@@ -241,9 +253,13 @@ export class OcpClient {
         companyValuationReportContractId: string;
         added: string[];
       }) => Promise<{ contractId: string; updateId: string }>;
-      createCompanyValuationReport: (params: CreateCompanyValuationReportParams) => Promise<CreateCompanyValuationReportResult>;
+      createCompanyValuationReport: (
+        params: CreateCompanyValuationReportParams
+      ) => Promise<CreateCompanyValuationReportResult>;
       updateCompanyValuationReport: (params: UpdateCompanyValuationParams) => Promise<UpdateCompanyValuationResult>;
-      buildCreateCompanyValuationReportCommand: (params: CreateCompanyValuationReportParams) => CommandWithDisclosedContracts;
+      buildCreateCompanyValuationReportCommand: (
+        params: CreateCompanyValuationReportParams
+      ) => CommandWithDisclosedContracts;
     };
   };
 
@@ -271,8 +287,12 @@ export class OcpClient {
       ) => CommandWithDisclosedContracts;
     };
     proposedPaymentStream: {
-      buildApproveCommand: (params: import('./functions').ProposedPaymentStreamApproveParams) => CommandWithDisclosedContracts;
-      buildStartPaymentStreamCommand: (params: import('./functions').ProposedPaymentStreamStartParams) => CommandWithDisclosedContracts;
+      buildApproveCommand: (
+        params: import('./functions').ProposedPaymentStreamApproveParams
+      ) => CommandWithDisclosedContracts;
+      buildStartPaymentStreamCommand: (
+        params: import('./functions').ProposedPaymentStreamStartParams
+      ) => CommandWithDisclosedContracts;
       buildEditPaymentStreamProposalCommand: (params: import('./functions').EditPaymentStreamProposalParams) => Command;
       buildWithdrawCommand: (params: import('./functions').ProposedPaymentStreamWithdrawParams) => Command;
       buildChangePartyCommand: (params: import('./functions').ProposedPaymentStreamChangePartyParams) => Command;
@@ -283,7 +303,9 @@ export class OcpClient {
       buildCancelCommand: (params: import('./functions').CancelPaymentStreamParams) => Command;
       buildProposeChangesCommand: (params: import('./functions').ProposeChangesParams) => Command;
       buildRefundCommand: (params: import('./functions').RefundPaymentStreamParams) => Command;
-      buildArchiveInactivePaymentStreamCommand: (params: import('./functions').ArchiveInactivePaymentStreamParams) => Command;
+      buildArchiveInactivePaymentStreamCommand: (
+        params: import('./functions').ArchiveInactivePaymentStreamParams
+      ) => Command;
       buildChangePartyCommand: (params: import('./functions').ActivePaymentStreamChangePartyParams) => Command;
     };
     paymentStreamChangeProposal: {
@@ -293,8 +315,12 @@ export class OcpClient {
     };
     partyMigrationProposal: {
       buildApproveCommand: (params: import('./functions').PartyMigrationProposalApproveParams) => Command;
-      buildMigrateActivePaymentStreamCommand: (params: import('./functions').MigrateActivePaymentStreamParams) => Command;
-      buildMigrateProposedPaymentStreamCommand: (params: import('./functions').MigrateProposedPaymentStreamParams) => Command;
+      buildMigrateActivePaymentStreamCommand: (
+        params: import('./functions').MigrateActivePaymentStreamParams
+      ) => Command;
+      buildMigrateProposedPaymentStreamCommand: (
+        params: import('./functions').MigrateProposedPaymentStreamParams
+      ) => Command;
       buildArchiveCommand: (params: import('./functions').PartyMigrationProposalArchiveParams) => Command;
     };
     utils: {
@@ -345,10 +371,12 @@ export class OcpClient {
         getStockPlanAsOcf: async (params) => getStockPlanAsOcf(this.client, params),
       },
       equityCompensationIssuance: {
-        getEquityCompensationIssuanceEventAsOcf: async (params) => getEquityCompensationIssuanceEventAsOcf(this.client, params),
+        getEquityCompensationIssuanceEventAsOcf: async (params) =>
+          getEquityCompensationIssuanceEventAsOcf(this.client, params),
       },
       equityCompensationExercise: {
-        getEquityCompensationExerciseEventAsOcf: async (params) => getEquityCompensationExerciseEventAsOcf(this.client, params),
+        getEquityCompensationExerciseEventAsOcf: async (params) =>
+          getEquityCompensationExerciseEventAsOcf(this.client, params),
       },
       warrantIssuance: {
         getWarrantIssuanceAsOcf: async (params) => getWarrantIssuanceAsOcf(this.client, params),
@@ -363,10 +391,12 @@ export class OcpClient {
         getWarrantCancellationEventAsOcf: async (params) => getWarrantCancellationEventAsOcf(this.client, params),
       },
       convertibleCancellation: {
-        getConvertibleCancellationEventAsOcf: async (params) => getConvertibleCancellationEventAsOcf(this.client, params),
+        getConvertibleCancellationEventAsOcf: async (params) =>
+          getConvertibleCancellationEventAsOcf(this.client, params),
       },
       equityCompensationCancellation: {
-        getEquityCompensationCancellationEventAsOcf: async (params) => getEquityCompensationCancellationEventAsOcf(this.client, params),
+        getEquityCompensationCancellationEventAsOcf: async (params) =>
+          getEquityCompensationCancellationEventAsOcf(this.client, params),
       },
       stockTransfer: {
         getStockTransferAsOcf: async (params) => getStockTransferAsOcf(this.client, params),
@@ -380,7 +410,8 @@ export class OcpClient {
           getStockClassAuthorizedSharesAdjustmentEventAsOcf(this.client, params),
       },
       stockPlanPoolAdjustment: {
-        getStockPlanPoolAdjustmentEventAsOcf: async (params) => getStockPlanPoolAdjustmentEventAsOcf(this.client, params),
+        getStockPlanPoolAdjustmentEventAsOcf: async (params) =>
+          getStockPlanPoolAdjustmentEventAsOcf(this.client, params),
       },
       document: {
         getDocumentAsOcf: async (params) => getDocumentAsOcf(this.client, params),
@@ -404,8 +435,10 @@ export class OcpClient {
       companyValuationReport: {
         buildCreateCompanyValuationReportCommand: (params: CreateCompanyValuationReportParams) =>
           buildCreateCompanyValuationReportCommand(this.client, params),
-        addObserversToCompanyValuationReport: async (params: { companyValuationReportContractId: string; added: string[] }) =>
-          addObserversToCompanyValuationReport(this.client, params),
+        addObserversToCompanyValuationReport: async (params: {
+          companyValuationReportContractId: string;
+          added: string[];
+        }) => addObserversToCompanyValuationReport(this.client, params),
         createCompanyValuationReport: async (params: CreateCompanyValuationReportParams) =>
           createCompanyValuationReport(this.client, params),
         updateCompanyValuationReport: async (params: UpdateCompanyValuationParams) =>
@@ -549,7 +582,10 @@ export class OcpClient {
           const { getFactoryDisclosedContracts } = require('./functions/PaymentStreams');
           return getFactoryDisclosedContracts(this);
         },
-        getProposedPaymentStreamDisclosedContracts: async (proposedPaymentStreamContractId: string, readAs?: string[]) => {
+        getProposedPaymentStreamDisclosedContracts: async (
+          proposedPaymentStreamContractId: string,
+          readAs?: string[]
+        ) => {
           const { getProposedPaymentStreamDisclosedContracts } = require('./functions/PaymentStreams');
           return await getProposedPaymentStreamDisclosedContracts(this, proposedPaymentStreamContractId, readAs);
         },
