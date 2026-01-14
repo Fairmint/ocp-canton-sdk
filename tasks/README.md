@@ -13,7 +13,7 @@ This directory contains task documentation for the OCP Canton SDK project.
 | [Comprehensive Integration Tests](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation/comprehensive-integration-tests.md) | In Progress | High     | Expand integration test coverage with dynamic contract deployment    |
 | [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)                                 | In Progress | Medium   | API ergonomics, type safety improvements, testing gaps               |
 | [Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)                                         | Open        | Medium   | Document and resolve 21 skipped integration tests                    |
-| [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md)                         | Blocked     | Medium   | Support new `amuletRulesCidOverride` parameter (awaiting NPM pkg)    |
+| [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md)                         | Complete    | Medium   | Support new `amuletRulesCidOverride` parameter (NPM pkg updated)     |
 
 ## Related ADRs
 
@@ -62,3 +62,16 @@ Tasks follow the pattern: `YYYY.MM.DD-task-name.md`
 2. Follow the template format from existing tasks
 3. Update this README to add the task to the index
 4. Link to parent tasks in other repos if applicable
+
+## Keeping Task Status in Sync
+
+**IMPORTANT:** When updating a task's status, always update BOTH:
+
+1. The task file itself (e.g., `## Status: Complete ✅`)
+2. The "Open Tasks" table in this README
+
+This ensures the index stays accurate and discoverable. The same applies when:
+
+- Completing a task
+- Marking a task as blocked/unblocked
+- Changing task priority
