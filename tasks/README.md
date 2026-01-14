@@ -13,6 +13,7 @@ This directory contains task documentation for the OCP Canton SDK project.
 | [Comprehensive Integration Tests](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation/comprehensive-integration-tests.md) | In Progress | High     | Expand integration test coverage with dynamic contract deployment    |
 | [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)                                 | In Progress | Medium   | API ergonomics, type safety improvements, testing gaps               |
 | [Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)                                         | Open        | Medium   | Document and resolve 21 skipped integration tests                    |
+| [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md)                          | Blocked     | Medium   | Support new `amuletRulesCidOverride` parameter (awaiting NPM pkg)    |
 
 ## Related ADRs
 
@@ -33,6 +34,7 @@ tasks/
 │       └── 2025.12.31-canton-3.4-upgrade.md
 └── 2026/
     └── 01/
+        ├── 2026.01.14-personalairdrop-amulet-rules-override.md
         └── ai/
             ├── 2026.01.02-library-refactoring-and-testing.md
             ├── 2026.01.08-remaining-integration-tests.md
