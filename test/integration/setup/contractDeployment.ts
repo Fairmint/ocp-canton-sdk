@@ -124,20 +124,17 @@ async function findExistingFactory(client: LedgerJsonApiClient, systemOperatorPa
 /** Create the OcpFactory contract. */
 async function createOcpFactory(
   client: LedgerJsonApiClient,
-  systemOperatorParty: string,
-  featuredAppRightContractId: string
+  systemOperatorParty: string
 ): Promise<{ contractId: string; templateId: string }> {
   const { templateId } = Fairmint.OpenCapTable.OcpFactory.OcpFactory;
 
   console.log(`Creating OcpFactory contract...`);
   console.log(`  System operator: ${systemOperatorParty}`);
-  console.log(`  FeaturedAppRight: ${featuredAppRightContractId}`);
 
-  // Use type assertion for the ContractId - it's a string at runtime
-  const createArguments = {
+  // v28 OcpFactory only requires system_operator
+  const createArguments: Fairmint.OpenCapTable.OcpFactory.OcpFactory = {
     system_operator: systemOperatorParty,
-    featured_app_right: featuredAppRightContractId,
-  } as Fairmint.OpenCapTable.OcpFactory.OcpFactory;
+  };
 
   const response = (await client.submitAndWaitForTransactionTree({
     commands: [
@@ -485,12 +482,10 @@ export async function authorizeIssuerWithFactory(
  *
  * @param client - The ledger client
  * @param systemOperatorParty - The party that will be the system operator
- * @param featuredAppRightContractId - The FeaturedAppRight contract ID from cn-quickstart
  */
 export async function deployAndCreateFactory(
   client: LedgerJsonApiClient,
-  systemOperatorParty: string,
-  featuredAppRightContractId: string
+  systemOperatorParty: string
 ): Promise<DeploymentResult> {
   // Check if packages are deployed
   const packagesDeployed = await arePackagesDeployed(client);
@@ -518,7 +513,7 @@ export async function deployAndCreateFactory(
   }
 
   // Create new factory
-  const factory = await createOcpFactory(client, systemOperatorParty, featuredAppRightContractId);
+  const factory = await createOcpFactory(client, systemOperatorParty);
 
   return {
     ocpFactoryContractId: factory.contractId,
