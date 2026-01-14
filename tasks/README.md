@@ -4,14 +4,16 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ## Open Tasks
 
-| Task                                                                                           | Status      | Priority | Description                                                          |
-| ---------------------------------------------------------------------------------------------- | ----------- | -------- | -------------------------------------------------------------------- |
-| [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                  | Open        | High     | SDK redesign to use batch UpdateCapTable choice                      |
-| [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                               | Blocked     | High     | Update SDK for Canton 3.4 compatibility                              |
-| [OCP SDK Implementation & Testing](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md) | In Progress | High     | Add SDK support for all OCF object types, establish testing strategy |
-| [Remaining OCF Object Types](./2026/01/ai/2026.01.13-remaining-ocf-types.md)                   | Open        | Medium   | Implement SDK support for 27 remaining OCF types from DAML spec      |
-| [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)  | In Progress | Medium   | API ergonomics, type safety improvements, testing gaps               |
-| [CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)                | Open        | Low      | Add CouponMinter helper functions and full SDK integration           |
+| Task                                                                                                       | Status      | Priority | Description                                                          |
+| ---------------------------------------------------------------------------------------------------------- | ----------- | -------- | -------------------------------------------------------------------- |
+| [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                              | Open        | High     | SDK redesign to use batch UpdateCapTable choice                      |
+| [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                           | Blocked     | High     | Update SDK for Canton 3.4 compatibility                              |
+| [OCP SDK Implementation & Testing](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)             | In Progress | High     | Add SDK support for all OCF object types, establish testing strategy |
+| [Remaining OCF Object Types](./2026/01/ai/2026.01.13-remaining-ocf-types.md)                               | Open        | Medium   | Implement SDK support for 27 remaining OCF types from DAML spec      |
+| [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md)      | Blocked     | Medium   | Support new `amuletRulesCidOverride` parameter (awaiting NPM pkg)    |
+| [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)              | In Progress | Medium   | API ergonomics, type safety improvements, testing gaps               |
+| [CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)                            | Open        | Low      | Add CouponMinter helper functions and full SDK integration           |
+| [CouponMinter canMintCouponsNow Helper](../project/tasks/2025.01.13_coupon_minter_can_mint_helper.task.md) | Open        | Low      | Client-side utility to check TPS rate limits before minting          |
 
 ## Completed Tasks
 
@@ -38,6 +40,7 @@ tasks/
 │       └── 2025.12.31-canton-3.4-upgrade.md
 └── 2026/
     └── 01/
+        ├── 2026.01.14-personalairdrop-amulet-rules-override.md
         └── ai/
             ├── 2026.01.02-library-refactoring-and-testing.md
             ├── 2026.01.08-remaining-integration-tests.md
