@@ -15,6 +15,7 @@
     "docs": "typedoc",
     "docs:clean": "rm -rf docs",
     "fix": "npm run lint:fix && npm run format:fix",
+    "flatten-schemas": "ts-node scripts/flatten-ocf-schemas.ts",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "lint": "eslint . --max-warnings=0",
@@ -38,6 +39,7 @@
     "@fairmint/open-captable-protocol-daml-js": "0.2.68"
   },
   "devDependencies": {
+    "@apidevtools/json-schema-ref-parser": "15.2.0",
     "@eslint/eslintrc": "3.3.3",
     "@types/jest": "30.0.0",
     "@types/jsonwebtoken": "9.0.10",
