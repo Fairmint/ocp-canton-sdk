@@ -207,14 +207,16 @@ export class CapTableBatch {
     const { eventsById } = tree;
 
     // Find the exercised event for UpdateCapTable
+    // Canton returns ExercisedTreeEvent (not ExercisedEvent) in transaction tree responses
     for (const eventId of Object.keys(eventsById)) {
       const event = eventsById[eventId] as Record<string, unknown> | undefined;
-      if (event && 'ExercisedEvent' in event) {
-        const exercised = event.ExercisedEvent as {
+      if (event && 'ExercisedTreeEvent' in event) {
+        const treeEvent = event.ExercisedTreeEvent as { value?: Record<string, unknown> };
+        const exercised = treeEvent.value as {
           choice?: string;
           exerciseResult?: UpdateCapTableResult;
         };
-        if (exercised.choice === 'UpdateCapTable' && exercised.exerciseResult) {
+        if (exercised?.choice === 'UpdateCapTable' && exercised.exerciseResult) {
           return exercised.exerciseResult;
         }
       }

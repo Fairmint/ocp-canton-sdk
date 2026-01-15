@@ -127,6 +127,7 @@ export function createTestDocumentData(overrides: Partial<OcfDocument> = {}): Oc
   return {
     id,
     md5: '00000000000000000000000000000000', // Placeholder MD5 hash
+    path: `/documents/${id}.pdf`, // Default path (required: document must have path or uri)
     ...overrides,
   };
 }
