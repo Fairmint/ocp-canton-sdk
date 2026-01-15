@@ -5,7 +5,7 @@
  * special edge cases.
  */
 
-import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/addStakeholder';
+import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
 import type { OcfStakeholder } from '../../src/types';
 import { normalizeNumericString, numberToString, optionalString } from '../../src/utils/typeConversions';
 

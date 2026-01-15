@@ -1,9 +1,7 @@
 # ADR-001: Batch Cap Table Updates API
 
-**Status**: Proposed  
-**Date**: 2026-01-12  
-**Authors**: Cursor Agent  
-**Reviewers**: @HardlyDifficult
+**Status**: Implemented **Date**: 2026-01-12 **Authors**: Cursor Agent **Reviewers**:
+@HardlyDifficult
 
 ## Context
 

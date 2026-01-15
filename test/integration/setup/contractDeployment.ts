@@ -29,15 +29,15 @@ export interface DeploymentResult {
 function findDarFilePath(): string | null {
   // __dirname is test/integration/setup/, so ../../../ gets to project root
   const possiblePaths = [
-    // From npm package - DAR file included in package
+    // From npm package - DAR file included in package (v29)
     path.resolve(
       __dirname,
-      '../../../node_modules/@fairmint/open-captable-protocol-daml-js/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
+      '../../../node_modules/@fairmint/open-captable-protocol-daml-js/OpenCapTable-v29/.daml/dist/OpenCapTable-v29-0.0.1.dar'
     ),
     // From sibling directory (local development in monorepo)
     path.resolve(
       __dirname,
-      '../../../open-captable-protocol-daml/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
+      '../../../open-captable-protocol-daml/OpenCapTable-v29/.daml/dist/OpenCapTable-v29-0.0.1.dar'
     ),
   ];
 
@@ -115,20 +115,16 @@ async function findExistingFactory(client: LedgerJsonApiClient, systemOperatorPa
 /** Create the OcpFactory contract. */
 async function createOcpFactory(
   client: LedgerJsonApiClient,
-  systemOperatorParty: string,
-  featuredAppRightContractId: string
+  systemOperatorParty: string
 ): Promise<{ contractId: string; templateId: string }> {
   const { templateId } = Fairmint.OpenCapTable.OcpFactory.OcpFactory;
 
   console.log(`Creating OcpFactory contract...`);
   console.log(`  System operator: ${systemOperatorParty}`);
-  console.log(`  FeaturedAppRight: ${featuredAppRightContractId}`);
 
-  // Use type assertion for the ContractId - it's a string at runtime
-  const createArguments = {
+  const createArguments: Fairmint.OpenCapTable.OcpFactory.OcpFactory = {
     system_operator: systemOperatorParty,
-    featured_app_right: featuredAppRightContractId,
-  } as Fairmint.OpenCapTable.OcpFactory.OcpFactory;
+  };
 
   const response = (await client.submitAndWaitForTransactionTree({
     commands: [
@@ -476,12 +472,10 @@ export async function authorizeIssuerWithFactory(
  *
  * @param client - The ledger client
  * @param systemOperatorParty - The party that will be the system operator
- * @param featuredAppRightContractId - The FeaturedAppRight contract ID from cn-quickstart
  */
 export async function deployAndCreateFactory(
   client: LedgerJsonApiClient,
-  systemOperatorParty: string,
-  featuredAppRightContractId: string
+  systemOperatorParty: string
 ): Promise<DeploymentResult> {
   // Check if packages are deployed
   const packagesDeployed = await arePackagesDeployed(client);
@@ -509,7 +503,7 @@ export async function deployAndCreateFactory(
   }
 
   // Create new factory
-  const factory = await createOcpFactory(client, systemOperatorParty, featuredAppRightContractId);
+  const factory = await createOcpFactory(client, systemOperatorParty);
 
   return {
     ocpFactoryContractId: factory.contractId,

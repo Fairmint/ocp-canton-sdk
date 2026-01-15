@@ -5,7 +5,7 @@
  * the llms.txt guidelines.
  */
 
-import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/addStakeholder';
+import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
 import { stockIssuanceDataToDaml } from '../../src/functions/OpenCapTable/stockIssuance/createStockIssuance';
 import type { OcfStakeholder, OcfStockIssuance } from '../../src/types';
 
