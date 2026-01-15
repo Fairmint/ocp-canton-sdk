@@ -29,15 +29,15 @@ export interface DeploymentResult {
 function findDarFilePath(): string | null {
   // __dirname is test/integration/setup/, so ../../../ gets to project root
   const possiblePaths = [
-    // From npm package - DAR file included in package (v28)
+    // From npm package - DAR file included in package (v29)
     path.resolve(
       __dirname,
-      '../../../node_modules/@fairmint/open-captable-protocol-daml-js/OpenCapTable-v28/.daml/dist/OpenCapTable-v28-0.0.1.dar'
+      '../../../node_modules/@fairmint/open-captable-protocol-daml-js/OpenCapTable-v29/.daml/dist/OpenCapTable-v29-0.0.1.dar'
     ),
     // From sibling directory (local development in monorepo)
     path.resolve(
       __dirname,
-      '../../../open-captable-protocol-daml/OpenCapTable-v28/.daml/dist/OpenCapTable-v28-0.0.1.dar'
+      '../../../open-captable-protocol-daml/OpenCapTable-v29/.daml/dist/OpenCapTable-v29-0.0.1.dar'
     ),
   ];
 
