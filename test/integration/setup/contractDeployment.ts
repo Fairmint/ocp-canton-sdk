@@ -39,15 +39,6 @@ function findDarFilePath(): string | null {
       __dirname,
       '../../../open-captable-protocol-daml/OpenCapTable-v28/.daml/dist/OpenCapTable-v28-0.0.1.dar'
     ),
-    // Legacy paths for older versions (v25)
-    path.resolve(
-      __dirname,
-      '../../../node_modules/@fairmint/open-captable-protocol-daml-js/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
-    ),
-    path.resolve(
-      __dirname,
-      '../../../open-captable-protocol-daml/OpenCapTable-v25/.daml/dist/OpenCapTable-v25-0.0.1.dar'
-    ),
   ];
 
   for (const darPath of possiblePaths) {
