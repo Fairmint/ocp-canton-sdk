@@ -116,19 +116,17 @@ async function findExistingFactory(client: LedgerJsonApiClient, systemOperatorPa
 async function createOcpFactory(
   client: LedgerJsonApiClient,
   systemOperatorParty: string,
-  featuredAppRightContractId: string
+  _featuredAppRightContractId: string
 ): Promise<{ contractId: string; templateId: string }> {
   const { templateId } = Fairmint.OpenCapTable.OcpFactory.OcpFactory;
 
   console.log(`Creating OcpFactory contract...`);
   console.log(`  System operator: ${systemOperatorParty}`);
-  console.log(`  FeaturedAppRight: ${featuredAppRightContractId}`);
 
-  // Use type assertion for the ContractId - it's a string at runtime
-  const createArguments = {
+  // OcpFactory v29 only requires system_operator (featured_app_right removed)
+  const createArguments: Fairmint.OpenCapTable.OcpFactory.OcpFactory = {
     system_operator: systemOperatorParty,
-    featured_app_right: featuredAppRightContractId,
-  } as Fairmint.OpenCapTable.OcpFactory.OcpFactory;
+  };
 
   const response = (await client.submitAndWaitForTransactionTree({
     commands: [
