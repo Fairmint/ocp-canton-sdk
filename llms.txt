@@ -2,6 +2,10 @@
 
 > High-level TypeScript SDK for Open Cap Table Protocol contracts on Canton.
 
+## Skills
+
+For reusable [Agent Skills](https://agentskills.io), see [github.com/HardlyDifficult/ai](https://github.com/HardlyDifficult/ai).
+
 ## Living Document
 
 **This file is a living document.** Update it automatically when:
