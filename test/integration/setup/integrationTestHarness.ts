@@ -206,11 +206,7 @@ async function initializeHarness(): Promise<void> {
 
     // Deploy contracts and create factory
     console.log('📦 Deploying contracts and creating OcpFactory...');
-    state.deployment = await deployAndCreateFactory(
-      state.ocp.client,
-      state.issuerParty,
-      state.featuredAppRight.contractId
-    );
+    state.deployment = await deployAndCreateFactory(state.ocp.client, state.issuerParty);
     state.ocpFactoryContractId = state.deployment.ocpFactoryContractId;
     console.log(`   OcpFactory contract: ${state.ocpFactoryContractId}`);
     console.log(`   Packages deployed: ${state.deployment.packageIds.length}`);
