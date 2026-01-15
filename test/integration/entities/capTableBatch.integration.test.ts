@@ -29,9 +29,9 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
   /**
    * Test: Create multiple entities in a single batch transaction.
    *
-   * Note: stockClass creation via batch API is currently blocked due to DAML JSON API v2 numeric encoding issues.
-   * The JSON API expects Numeric fields as objects but receives strings. This is tracked as a known limitation.
-   * For now, we test with stakeholders and documents which don't have numeric fields.
+   * Note: stockClass creation via batch API is currently blocked due to DAML JSON API v2 numeric encoding issues. The
+   * JSON API expects Numeric fields as objects but receives strings. This is tracked as a known limitation. For now, we
+   * test with stakeholders and documents which don't have numeric fields.
    */
   test('creates multiple entities in a single batch transaction', async () => {
     const ctx = getContext();
@@ -175,8 +175,8 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
   /**
    * Test: Perform mixed operations (create + edit) atomically.
    *
-   * Note: Uses stockLegendTemplate instead of stockClass due to DAML JSON API v2 numeric encoding issues.
-   * StockClass has numeric fields (initial_shares_authorized, etc.) that fail with the current JSON encoding.
+   * Note: Uses stockLegendTemplate instead of stockClass due to DAML JSON API v2 numeric encoding issues. StockClass
+   * has numeric fields (initial_shares_authorized, etc.) that fail with the current JSON encoding.
    */
   test('performs mixed operations (create + edit) atomically', async () => {
     const ctx = getContext();

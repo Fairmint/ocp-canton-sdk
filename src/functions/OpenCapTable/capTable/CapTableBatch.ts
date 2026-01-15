@@ -212,11 +212,12 @@ export class CapTableBatch {
       const event = eventsById[eventId] as Record<string, unknown> | undefined;
       if (event && 'ExercisedTreeEvent' in event) {
         const treeEvent = event.ExercisedTreeEvent as { value?: Record<string, unknown> };
+        if (!treeEvent.value) continue;
         const exercised = treeEvent.value as {
           choice?: string;
           exerciseResult?: UpdateCapTableResult;
         };
-        if (exercised?.choice === 'UpdateCapTable' && exercised.exerciseResult) {
+        if (exercised.choice === 'UpdateCapTable' && exercised.exerciseResult) {
           return exercised.exerciseResult;
         }
       }

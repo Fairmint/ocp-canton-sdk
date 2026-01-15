@@ -15,12 +15,7 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
-import {
-  createTestStockLegendTemplateData,
-  generateTestId,
-  setupTestIssuer,
-  setupTestStakeholder,
-} from '../utils';
+import { createTestStockLegendTemplateData, generateTestId, setupTestIssuer, setupTestStakeholder } from '../utils';
 
 /** Extract a contract ID from a transaction tree response. */
 function extractContractIdFromResponse(
@@ -114,10 +109,10 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
    * This test verifies that related entities can be created in sequence, with each subsequent operation using the
    * updated CapTable contract from the previous batch operation.
    *
-   * Note: This test was originally designed to create a stockClass followed by a legend template.
-   * However, stockClass creation via the batch/UpdateCapTable API fails due to DAML JSON API v2 numeric encoding issues.
-   * The JSON API expects Numeric fields as objects but receives strings. This is tracked as a known limitation.
-   * The test has been modified to use stakeholder + legend template instead.
+   * Note: This test was originally designed to create a stockClass followed by a legend template. However, stockClass
+   * creation via the batch/UpdateCapTable API fails due to DAML JSON API v2 numeric encoding issues. The JSON API
+   * expects Numeric fields as objects but receives strings. This is tracked as a known limitation. The test has been
+   * modified to use stakeholder + legend template instead.
    */
   test('creates stakeholder followed by legend template in sequence', async () => {
     const ctx = getContext();
