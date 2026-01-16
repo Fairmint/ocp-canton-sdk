@@ -8,6 +8,8 @@ import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/tran
 import type {
   AuthorizeIssuerParams,
   AuthorizeIssuerResult,
+  CanMintResult,
+  CouponMinterPayload,
   CreateCompanyValuationReportParams,
   CreateCompanyValuationReportResult,
   CreateIssuerParams,
@@ -69,6 +71,7 @@ import {
   updateCompanyValuationReport,
   withdrawAuthorization,
 } from './functions';
+import { canMintCouponsNow } from './functions/CouponMinter';
 import { CapTableBatch } from './functions/OpenCapTable/capTable';
 import type { CommandWithDisclosedContracts } from './types';
 
@@ -263,6 +266,18 @@ export class OcpClient {
     };
   };
 
+  /** CouponMinter utilities for TPS rate limit checking. */
+  public CouponMinter: {
+    /**
+     * Checks if minting coupons is currently allowed based on TPS rate limits.
+     *
+     * @param payload - The CouponMinter contract payload
+     * @param now - Optional current time for testing
+     * @returns {canMint: true} Or { canMint: false, waitMs: number }
+     */
+    canMintCouponsNow: (payload: CouponMinterPayload, now?: Date) => CanMintResult;
+  };
+
   /** Payment and airdrop operations using Canton's native token. */
   public CantonPayments: {
     airdrop: {
@@ -444,6 +459,10 @@ export class OcpClient {
         updateCompanyValuationReport: async (params: UpdateCompanyValuationParams) =>
           updateCompanyValuationReport(this.client, params),
       },
+    };
+
+    this.CouponMinter = {
+      canMintCouponsNow: (payload: CouponMinterPayload, now?: Date) => canMintCouponsNow(payload, now),
     };
 
     /* eslint-disable @typescript-eslint/no-require-imports */
