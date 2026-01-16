@@ -7,7 +7,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 | Task                                                                                                       | Status      | Priority | Description                                                          |
 | ---------------------------------------------------------------------------------------------------------- | ----------- | -------- | -------------------------------------------------------------------- |
 | [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                              | Open        | High     | SDK redesign to use batch UpdateCapTable choice                      |
-| [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                           | Blocked     | High     | Update SDK for Canton 3.4 compatibility                              |
 | [OCP SDK Implementation & Testing](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)             | In Progress | High     | Add SDK support for all OCF object types, establish testing strategy |
 | [Remaining OCF Object Types](./2026/01/ai/2026.01.13-remaining-ocf-types.md)                               | Open        | Medium   | Implement SDK support for 27 remaining OCF types from DAML spec      |
 | [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md)      | Blocked     | Medium   | Support new `amuletRulesCidOverride` parameter (awaiting NPM pkg)    |
@@ -19,6 +18,7 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 | Task                                                                                       | Completed  | Description                                                         |
 | ------------------------------------------------------------------------------------------ | ---------- | ------------------------------------------------------------------- |
+| [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                           | 2026-01-16 | Update SDK for Canton 3.4 compatibility                             |
 | [Comprehensive Integration Tests](./2025/12/2025.12.30-comprehensive-integration-tests.md) | 2026-01-12 | Expanded integration test coverage with dynamic contract deployment |
 | [Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)      | 2026-01-13 | 13 delete tests enabled; 8 remaining blocked by infrastructure      |
 
