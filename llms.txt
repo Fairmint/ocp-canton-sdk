@@ -605,10 +605,12 @@ ADRs document significant architectural decisions. They live in the `adr/` direc
 
 Task tracking lives in the `tasks/` directory. See [tasks/README.md](tasks/README.md) for the current task index.
 
+**⚠️ CRITICAL: Always update `tasks/README.md` when changing task status!**
+
 **Task Index Maintenance:** When adding or completing tasks:
 
 1. **Adding a new task:** Create the task file in `tasks/YYYY/MM/` and add an entry to the "Open Tasks" table in `tasks/README.md`
-2. **Completing a task:** Update the task's status to "Complete" in both the task file and `tasks/README.md`, then move it to a "Completed Tasks" section if desired
+2. **Completing a task:** Update the task's status to "Complete" in both the task file **AND** move it from "Open Tasks" to "Completed Tasks" in `tasks/README.md`
 3. **Keep the index current:** The `tasks/README.md` should always reflect the actual state of tasks
 
 **Blocked Tasks to Monitor:**
