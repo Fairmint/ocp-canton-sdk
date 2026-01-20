@@ -6,7 +6,6 @@
  *
  * @example
  *   ```typescript
- *
  *   const result = await ocp.capTable
  *     .update({
  *       capTableContractId,
@@ -74,7 +73,6 @@ export class CapTableBatch {
    *
    * @example
    *   ```typescript
-   *
    *   batch.create('stakeholder', {
    *     id: 'sh-123',
    *     name: { legal_name: 'John Doe' },
@@ -98,7 +96,6 @@ export class CapTableBatch {
    *
    * @example
    *   ```typescript
-   *
    *   batch.edit('stakeholder', {
    *     id: 'sh-123',
    *     name: { legal_name: 'Jane Doe' },
@@ -122,7 +119,6 @@ export class CapTableBatch {
    *
    * @example
    *   ```typescript
-   *
    *   batch.delete('document', 'doc-123');
    *   ```;
    *

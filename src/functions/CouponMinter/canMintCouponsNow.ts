@@ -38,7 +38,6 @@ export interface CouponMinterPayload {
  *
  * @example
  *   ```typescript
- *
  *   const result = canMintCouponsNow(couponMinterPayload);
  *   if (result.canMint) {
  *   await mintCoupons(...);
