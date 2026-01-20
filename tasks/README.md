@@ -39,38 +39,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 | ------------------------------------------------------------------------- | -------- | ---------------------------------------- |
 | [ADR-001: Batch Cap Table Updates](../adr/001-batch-cap-table-updates.md) | Proposed | Redesign SDK to use batch UpdateCapTable |
 
-## Task Structure
-
-```
-tasks/
-├── README.md                    # This file - task index
-├── 2025/
-│   └── 12/
-│       ├── 2025.12.17-milestone-2-ocp-sdk-implementation.md
-│       ├── 2025.12.30-comprehensive-integration-tests.md
-│       └── 2025.12.31-canton-3.4-upgrade.md
-└── 2026/
-    └── 01/
-        ├── 2026.01.14-personalairdrop-amulet-rules-override.md
-        └── ai/
-            ├── 2026.01.02-library-refactoring-and-testing.md
-            ├── 2026.01.08-remaining-integration-tests.md
-            ├── 2026.01.12-batch-cap-table-updates.md
-            ├── 2026.01.13-couponminter-sdk-support.md
-            ├── 2026.01.13-remaining-ocf-types.md
-            ├── 2026.01.16-command-tracking-retry-logic.md
-            ├── 2026.01.16-consolidate-entity-converters.md
-            ├── 2026.01.16-environment-configuration-patterns.md
-            ├── 2026.01.16-health-check-integration.md
-            ├── 2026.01.16-legacy-function-deprecation.md
-            ├── 2026.01.16-observability-tracing-support.md
-            ├── 2026.01.16-ocp-client-api-simplification.md
-            ├── 2026.01.16-pqs-query-store-support.md
-            ├── 2026.01.16-property-based-testing.md
-            ├── 2026.01.16-structured-error-types.md
-            └── 2026.01.16-type-guards-for-ocf-objects.md
-```
-
 ## Task Naming Convention
 
 Tasks follow the pattern: `YYYY.MM.DD-task-name.md`
