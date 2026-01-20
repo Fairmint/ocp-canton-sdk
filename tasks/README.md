@@ -19,8 +19,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 | [Property-Based Testing](./2026/01/ai/2026.01.16-property-based-testing.md)                         | Open               | Low      | Add fast-check property tests for type conversion invariants         |
 | [Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)               | Open               | Low      | Deprecate per-entity functions replaced by batch API                 |
 | [CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)                     | Partially Complete | Low      | Add CouponMinter helper functions (TPS helper done, full ops future) |
-| [Health Check Integration](./2026/01/ai/2026.01.16-health-check-integration.md)                     | Open               | Low      | Service health check utilities and wait-for-ready patterns           |
-| [PQS Query Store Support](./2026/01/ai/2026.01.16-pqs-query-store-support.md)                       | Open               | Low      | Evaluate PQS integration for optimized read queries                  |
 
 ## Completed Tasks
 
