@@ -91,7 +91,15 @@ import {
   type WithdrawAuthorizationParams,
   type WithdrawAuthorizationResult,
 } from './functions';
-import { canMintCouponsNow } from './functions/CouponMinter';
+import {
+  canMintCouponsNow,
+  getRateLimitStatus,
+  mintWithRateLimit,
+  waitUntilCanMint,
+  type MintWithRateLimitOptions,
+  type MintWithRateLimitResult,
+  type WaitUntilCanMintOptions,
+} from './functions/CouponMinter';
 import { CapTableBatch } from './functions/OpenCapTable/capTable';
 import type { CommandWithDisclosedContracts } from './types';
 
@@ -317,6 +325,14 @@ export class OcpClient {
     // Initialize CouponMinter methods
     this.CouponMinter = {
       canMintCouponsNow: (payload: CouponMinterPayload, now?: Date) => canMintCouponsNow(payload, now),
+      getRateLimitStatus: (payload: CouponMinterPayload, now?: Date) => getRateLimitStatus(payload, now),
+      waitUntilCanMint: async (payload: CouponMinterPayload, options?: WaitUntilCanMintOptions) =>
+        waitUntilCanMint(payload, options),
+      mintWithRateLimit: async <T>(
+        payload: CouponMinterPayload,
+        mintFn: () => Promise<T>,
+        options?: MintWithRateLimitOptions
+      ) => mintWithRateLimit(payload, mintFn, options),
     };
 
     // Initialize extensions
@@ -593,7 +609,24 @@ interface OpenCapTableReportsMethods {
 }
 
 interface CouponMinterMethods {
+  /** Check if minting is currently allowed based on rate limits */
   canMintCouponsNow: (payload: CouponMinterPayload, now?: Date) => CanMintResult;
+
+  /** Get detailed rate limit status with additional context */
+  getRateLimitStatus: (
+    payload: CouponMinterPayload,
+    now?: Date
+  ) => CanMintResult & { waitSeconds?: number; isRateLimitEnabled: boolean };
+
+  /** Wait until minting is allowed, sleeping as needed */
+  waitUntilCanMint: (payload: CouponMinterPayload, options?: WaitUntilCanMintOptions) => Promise<void>;
+
+  /** Wait for rate limit then execute mint function (fire and forget style) */
+  mintWithRateLimit: <T>(
+    payload: CouponMinterPayload,
+    mintFn: () => Promise<T>,
+    options?: MintWithRateLimitOptions
+  ) => Promise<MintWithRateLimitResult<T>>;
 }
 
 /** PaymentStreams methods with client already bound for utils */
