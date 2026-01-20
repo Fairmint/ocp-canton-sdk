@@ -9,7 +9,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "npm run generate:client && tsc",
     "clean": "rm -rf dist",
     "dev": "tsc --watch",
     "docs": "typedoc",
@@ -18,6 +18,7 @@
     "flatten-schemas": "ts-node scripts/flatten-ocf-schemas.ts",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
+    "generate:client": "npx ts-node scripts/generate-ocp-client.ts",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix --max-warnings=0",
     "prepare-release": "ts-node scripts/prepare-release.ts",

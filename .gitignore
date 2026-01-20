@@ -8,3 +8,6 @@ docs/
 coverage/
 .backup-*/
 generated/
+
+# Auto-generated client (regenerate with: npm run generate:client)
+src/OcpClient.ts
