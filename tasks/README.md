@@ -12,7 +12,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 | [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)              | In Progress | Medium   | API ergonomics, type safety improvements, testing gaps               |
 | [OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)                   | Open        | Medium   | Simplify OcpClient class, add context caching, cleanup require()     |
 | [Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)                  | Open        | Medium   | Extract and centralize duplicated entity conversion code             |
-| [Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)                                | Open        | Medium   | Implement OcpValidationError, OcpContractError for better DX         |
 | [Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)                | Open        | Medium   | Add correlation IDs, logging hooks, and trace propagation            |
 | [Command Tracking & Retry Logic](./2026/01/ai/2026.01.16-command-tracking-retry-logic.md)                  | Open        | Medium   | Command deduplication, retry with exponential backoff                |
 | [Environment Configuration Patterns](./2026/01/ai/2026.01.16-environment-configuration-patterns.md)        | Open        | Medium   | Environment presets for LocalNet/DevNet, configuration validation    |
@@ -27,6 +26,7 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 | Task                                                                                                  | Completed  | Description                                                            |
 | ----------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| [Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)                           | 2026-01-20 | Implement OcpValidationError, OcpContractError for better DX           |
 | [Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)                 | 2026-01-20 | Runtime type guards and validation utilities for OCF objects           |
 | [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md) | 2026-01-16 | Support new `amuletRulesCidOverride` parameter (no SDK changes needed) |
 | [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                      | 2026-01-16 | Update SDK for Canton 3.4 compatibility                                |
