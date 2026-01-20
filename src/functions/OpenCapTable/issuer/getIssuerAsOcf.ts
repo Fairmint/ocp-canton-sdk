@@ -1,45 +1,14 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type { EmailType, OcfIssuer as OcfIssuerInput, PhoneType } from '../../../types/native';
+import type { OcfIssuer as OcfIssuerInput } from '../../../types/native';
+import { damlEmailTypeToNative, damlPhoneTypeToNative } from '../../../utils/enumConversions';
 import { damlAddressToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
-
-function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailType): EmailType {
-  switch (damlType) {
-    case 'OcfEmailTypePersonal':
-      return 'PERSONAL';
-    case 'OcfEmailTypeBusiness':
-      return 'BUSINESS';
-    case 'OcfEmailTypeOther':
-      return 'OTHER';
-    default: {
-      const exhaustiveCheck: never = damlType;
-      throw new Error(`Unknown DAML email type: ${exhaustiveCheck as string}`);
-    }
-  }
-}
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.OcfEmail): OcfIssuerInput['email'] {
   return {
     email_type: damlEmailTypeToNative(damlEmail.email_type),
     email_address: damlEmail.email_address,
   };
-}
-
-function damlPhoneTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfPhoneType): PhoneType {
-  switch (damlType) {
-    case 'OcfPhoneHome':
-      return 'HOME';
-    case 'OcfPhoneMobile':
-      return 'MOBILE';
-    case 'OcfPhoneBusiness':
-      return 'BUSINESS';
-    case 'OcfPhoneOther':
-      return 'OTHER';
-    default: {
-      const exhaustiveCheck: never = damlType;
-      throw new Error(`Unknown DAML phone type: ${exhaustiveCheck as string}`);
-    }
-  }
 }
 
 function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): OcfIssuerInput['phone'] {
