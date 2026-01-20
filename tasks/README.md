@@ -6,23 +6,18 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ### Milestone 2: OCP SDK Implementation
 
-| Task                                                                                              | Status      | Priority | Description                                                        |
+| Task                                                                                              | Status      | Priority | Description / Scope                                                |
 | ------------------------------------------------------------------------------------------------- | ----------- | -------- | ------------------------------------------------------------------ |
 | [Milestone 2: OCP SDK Implementation](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md) | In Progress | High     | Parent milestone - SDK support for all OCF types, testing strategy |
-| [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                     | In Progress | High     | SDK redesign to use batch UpdateCapTable choice (Phase 1-3 done)   |
+| [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                     | In Progress | High     | Batch API infrastructure (Phase 1-2 done, Phase 3 split)           |
+| [Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)           | Open        | High     | OCF exercise & conversion types (3 types)                          |
+| [Valuation & Vesting Types](./2026/01/ai/2026.01.20-ocf-valuation-vesting-types.md)               | Open        | High     | OCF valuation & vesting types (4 types)                            |
+| [Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)                          | Open        | Medium   | OCF security transfer types (3 types)                              |
+| [Acceptance Types](./2026/01/ai/2026.01.20-ocf-acceptance-types.md)                               | Open        | Medium   | OCF acceptance types (4 types)                                     |
+| [Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)                 | Open        | Medium   | OCF stock class adjustment types (4 types)                         |
+| [Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)                                 | Open        | Low      | Remaining OCF types (9 types)                                      |
 
-#### OCF Type Implementation (27 remaining types)
-
-| Task                                                                                    | Status | Priority | Types   |
-| --------------------------------------------------------------------------------------- | ------ | -------- | ------- |
-| [Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md) | Open   | High     | 3 types |
-| [Valuation & Vesting Types](./2026/01/ai/2026.01.20-ocf-valuation-vesting-types.md)     | Open   | High     | 4 types |
-| [Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)                | Open   | Medium   | 3 types |
-| [Acceptance Types](./2026/01/ai/2026.01.20-ocf-acceptance-types.md)                     | Open   | Medium   | 4 types |
-| [Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)       | Open   | Medium   | 4 types |
-| [Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)                       | Open   | Low      | 9 types |
-
-### SDK Improvements
+### SDK Refactoring & Improvements
 
 | Task                                                                                                | Status             | Priority | Description                                                          |
 | --------------------------------------------------------------------------------------------------- | ------------------ | -------- | -------------------------------------------------------------------- |
