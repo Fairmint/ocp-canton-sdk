@@ -603,15 +603,17 @@ ADRs document significant architectural decisions. They live in the `adr/` direc
 
 ## Tasks
 
-Task tracking lives in the `tasks/` directory. See [tasks/README.md](tasks/README.md) for the current task index.
+Task tracking lives in the `tasks/` directory. The canonical task index is [`tasks/index.yaml`](tasks/index.yaml).
 
-**⚠️ CRITICAL: Always update `tasks/README.md` when changing task status!**
+**⚠️ CRITICAL: Always update `tasks/index.yaml` when changing task status!**
+
+**Why YAML?** The YAML format reduces merge conflicts compared to Markdown tables. Each task is an independent block, so changes to different tasks don't conflict.
 
 **Task Index Maintenance:** When adding or completing tasks:
 
-1. **Adding a new task:** Create the task file in `tasks/YYYY/MM/` and add an entry to the "Open Tasks" table in `tasks/README.md`
-2. **Completing a task:** Update the task's status to "Complete" in both the task file **AND** move it from "Open Tasks" to "Completed Tasks" in `tasks/README.md`
-3. **Keep the index current:** The `tasks/README.md` should always reflect the actual state of tasks
+1. **Adding a new task:** Create the task file in `tasks/YYYY/MM/` and add an entry to `open_tasks` in `tasks/index.yaml`
+2. **Completing a task:** Update the task's status to "Complete" in the task file **AND** move it from `open_tasks` to `completed_tasks` in `tasks/index.yaml` (add `completed` date)
+3. **Keep the index current:** The `tasks/index.yaml` should always reflect the actual state of tasks
 
 **Changelog Requirement:** When creating PRs for this repo, update the parent task's changelog. Every PR must be logged with date, description, and PR links.
 
