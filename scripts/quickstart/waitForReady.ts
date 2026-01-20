@@ -4,10 +4,7 @@
  * This script is used by CI to ensure LocalNet is fully started before running tests. Defaults to LocalNet
  * configuration. Use OCP_TEST_AUTH_MODE=shared-secret for shared-secret mode.
  *
- * @example
- *   ```bash
- *   npx ts-node scripts/quickstart/waitForReady.ts
- *   ```;
+ * Run with: npx ts-node scripts/quickstart/waitForReady.ts
  */
 
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';

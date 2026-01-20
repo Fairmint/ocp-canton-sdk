@@ -330,25 +330,6 @@ export interface GetStockClassAsOcfResult {
  * This function fetches the stock class contract data from the ledger and transforms it into the Open Cap Table
  * Coalition (OCF) format according to the official schema.
  *
- * @example
- *   ```typescript
- *   const result = await getStockClassAsOcf(client, {
- *     contractId: "1234567890abcdef"
- *   });
- *
- *   console.log(result.stockClass);
- *   // {
- *   //   object_type: "STOCK_CLASS",
- *   //   name: "Series A Preferred",
- *   //   class_type: "PREFERRED",
- *   //   default_id_prefix: "SA-",
- *   //   initial_shares_authorized: "1000000",
- *   //   votes_per_share: "1",
- *   //   seniority: "1",
- *   //   // ... other fields
- *   // }
- *   ```;
- *
  * @param client - The ledger JSON API client
  * @param params - Parameters for retrieving the stock class
  * @returns Promise resolving to the OCF StockClass object

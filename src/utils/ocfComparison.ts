@@ -109,13 +109,6 @@ function isUndefinedLike(value: unknown): boolean {
  * - Trims string whitespace
  * - Recursively compares nested objects
  *
- * @example
- *   ```typescript
- *   const obj1 = { quantity: '100.0000000000', name: 'Test' };
- *   const obj2 = { quantity: '100', name: 'Test' };
- *   ocfDeepEqual(obj1, obj2); // true - normalized numbers match
- *   ```;
- *
  * @param a - First OCF object
  * @param b - Second OCF object
  * @returns True if objects are semantically equal

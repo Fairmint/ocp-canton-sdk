@@ -12,10 +12,15 @@ import type { OcpClient } from '../../../src/OcpClient';
 import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
 import type {
   OcfDocument,
+  OcfEquityCompensationIssuance,
   OcfIssuer,
   OcfStakeholder,
   OcfStockClass,
+  OcfStockIssuance,
   OcfStockLegendTemplate,
+  OcfStockPlan,
+  OcfValuation,
+  OcfVestingTerms,
 } from '../../../src/types/native';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
@@ -129,6 +134,148 @@ export function createTestDocumentData(overrides: Partial<OcfDocument> = {}): Oc
     md5: '00000000000000000000000000000000', // Placeholder MD5 hash
     path: `/documents/${id}.pdf`, // Default path (required: document must have path or uri)
     ...overrides,
+  };
+}
+
+/** Create test valuation data with optional overrides. */
+export function createTestValuationData(overrides: Partial<OcfValuation> & { stock_class_id: string }): OcfValuation {
+  const id = overrides.id ?? generateTestId('valuation');
+  const { stock_class_id, ...rest } = overrides;
+  return {
+    id,
+    stock_class_id,
+    effective_date: generateDateString(-30),
+    valuation_type: '409A',
+    price_per_share: { amount: '1.50', currency: 'USD' },
+    provider: 'Test Valuation Provider',
+    board_approval_date: generateDateString(-35),
+    ...rest,
+  };
+}
+
+/** Create test vesting terms data with optional overrides. */
+export function createTestVestingTermsData(overrides: Partial<OcfVestingTerms> = {}): OcfVestingTerms {
+  const id = overrides.id ?? generateTestId('vesting-terms');
+  // Note: The vesting trigger format uses 'type' (e.g., 'VESTING_START_DATE') for actual OCF JSON format,
+  // which is what the SDK's vestingTriggerToDaml function expects. The TypeScript VestingTrigger type
+  // uses 'kind' which is a simplified version. We cast here to satisfy TypeScript while using the
+  // correct runtime format.
+  return {
+    id,
+    name: overrides.name ?? `Vesting Terms ${id}`,
+    description: overrides.description ?? '4-year vesting with 1-year cliff',
+    allocation_type: overrides.allocation_type ?? 'CUMULATIVE_ROUNDING',
+    vesting_conditions:
+      overrides.vesting_conditions ??
+      ([
+        {
+          id: 'vesting-start',
+          description: 'Vesting start condition',
+          quantity: '0',
+          trigger: { type: 'VESTING_START_DATE' },
+          next_condition_ids: ['cliff'],
+        },
+        {
+          id: 'cliff',
+          description: '1-year cliff (25%)',
+          portion: { numerator: '12', denominator: '48', remainder: false },
+          trigger: {
+            type: 'VESTING_SCHEDULE_RELATIVE',
+            period: {
+              type: 'MONTHS',
+              length: 12,
+              occurrences: 1,
+              day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
+            },
+            relative_to_condition_id: 'vesting-start',
+          },
+          next_condition_ids: ['monthly'],
+        },
+        {
+          id: 'monthly',
+          description: 'Monthly vesting (1/48 each month)',
+          portion: { numerator: '1', denominator: '48', remainder: false },
+          trigger: {
+            type: 'VESTING_SCHEDULE_RELATIVE',
+            period: {
+              type: 'MONTHS',
+              length: 1,
+              occurrences: 36,
+              day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
+            },
+            relative_to_condition_id: 'cliff',
+          },
+          next_condition_ids: [],
+        },
+      ] as unknown as OcfVestingTerms['vesting_conditions']),
+    ...overrides,
+  };
+}
+
+/** Create test stock plan data with optional overrides. */
+export function createTestStockPlanData(
+  overrides: Partial<OcfStockPlan> & { stock_class_ids: string[] }
+): OcfStockPlan {
+  const id = overrides.id ?? generateTestId('stock-plan');
+  const { stock_class_ids, ...rest } = overrides;
+  return {
+    id,
+    plan_name: `Stock Plan ${id}`,
+    initial_shares_reserved: '1000000',
+    stock_class_ids,
+    default_cancellation_behavior: 'RETURN_TO_POOL',
+    board_approval_date: generateDateString(-90),
+    ...rest,
+  };
+}
+
+/** Create test stock issuance data with optional overrides. */
+export function createTestStockIssuanceData(
+  overrides: Partial<OcfStockIssuance> & {
+    stakeholder_id: string;
+    stock_class_id: string;
+  }
+): OcfStockIssuance {
+  const id = overrides.id ?? generateTestId('stock-issuance');
+  const securityId = overrides.security_id ?? generateTestId('security');
+  const { stakeholder_id, stock_class_id, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id: securityId,
+    custom_id: `CS-${securityId.substring(0, 8)}`,
+    stakeholder_id,
+    stock_class_id,
+    quantity: '10000',
+    share_price: { amount: '1.00', currency: 'USD' },
+    ...rest,
+  };
+}
+
+/** Create test equity compensation issuance data with optional overrides. */
+export function createTestEquityCompensationIssuanceData(
+  overrides: Partial<OcfEquityCompensationIssuance> & {
+    stakeholder_id: string;
+    stock_plan_id?: string;
+    stock_class_id?: string;
+  }
+): OcfEquityCompensationIssuance {
+  const id = overrides.id ?? generateTestId('equity-comp-issuance');
+  const securityId = overrides.security_id ?? generateTestId('eq-security');
+  const { stakeholder_id, stock_plan_id, stock_class_id, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id: securityId,
+    custom_id: `OPT-${securityId.substring(0, 8)}`,
+    stakeholder_id,
+    stock_plan_id,
+    stock_class_id,
+    compensation_type: 'OPTION_ISO',
+    quantity: '50000',
+    exercise_price: { amount: '0.50', currency: 'USD' },
+    expiration_date: generateDateString(365 * 10), // 10 years
+    ...rest,
   };
 }
 

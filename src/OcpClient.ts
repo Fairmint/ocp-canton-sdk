@@ -8,6 +8,8 @@ import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/tran
 import type {
   AuthorizeIssuerParams,
   AuthorizeIssuerResult,
+  CanMintResult,
+  CouponMinterPayload,
   CreateCompanyValuationReportParams,
   CreateCompanyValuationReportResult,
   CreateIssuerParams,
@@ -69,6 +71,7 @@ import {
   updateCompanyValuationReport,
   withdrawAuthorization,
 } from './functions';
+import { canMintCouponsNow } from './functions/CouponMinter';
 import { CapTableBatch } from './functions/OpenCapTable/capTable';
 import type { CommandWithDisclosedContracts } from './types';
 
@@ -222,44 +225,7 @@ export class OcpContextManager implements OcpContext {
  * - **CantonPayments**: Payment and airdrop operations
  * - **PaymentStreams**: Recurring payment stream management
  *
- * @example
- *   Creating an issuer
- *   ```typescript
- *   import { OcpClient } from '@open-captable-protocol/canton';
- *
- *   const ocp = new OcpClient({ network: 'localnet' });
- *
- *   const cmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({
- *   issuerAuthorizationContractDetails: authDetails,
- *   featuredAppRightContractDetails: featuredDetails,
- *   issuerParty: 'alice::...',
- *   issuerData: {
- *   id: 'issuer-1',
- *   legal_name: 'Acme Corp',
- *   formation_date: '2024-01-01',
- *   country_of_formation: 'US',
- *   tax_ids: [],
- *   },
- *   });
- *   ```
- *
- * @example
- *   Batch cap table updates
- *   ```typescript
- *   const result = await ocp.OpenCapTable.capTable
- *   .update({
- *   capTableContractId,
- *   featuredAppRightContractDetails,
- *   actAs: [issuerParty],
- *   })
- *   .create('stakeholder', stakeholderData)
- *   .create('stockClass', stockClassData)
- *   .edit('stakeholder', updatedStakeholderData)
- *   .delete('document', documentId)
- *   .execute();
- *   ```
- *
- * @see https://ocp.canton.fairmint.com/ - Full SDK documentation
+ * @see https://ocp.canton.fairmint.com/ - Full SDK documentation with usage examples
  */
 export class OcpClient {
   /** The underlying LedgerJsonApiClient for direct ledger access. */
@@ -424,6 +390,18 @@ export class OcpClient {
         params: CreateCompanyValuationReportParams
       ) => CommandWithDisclosedContracts;
     };
+  };
+
+  /** CouponMinter utilities for TPS rate limit checking. */
+  public CouponMinter: {
+    /**
+     * Checks if minting coupons is currently allowed based on TPS rate limits.
+     *
+     * @param payload - The CouponMinter contract payload
+     * @param now - Optional current time for testing
+     * @returns {canMint: true} Or { canMint: false, waitMs: number }
+     */
+    canMintCouponsNow: (payload: CouponMinterPayload, now?: Date) => CanMintResult;
   };
 
   /** Payment and airdrop operations using Canton's native token. */
@@ -607,6 +585,10 @@ export class OcpClient {
         updateCompanyValuationReport: async (params: UpdateCompanyValuationParams) =>
           updateCompanyValuationReport(this.client, params),
       },
+    };
+
+    this.CouponMinter = {
+      canMintCouponsNow: (payload: CouponMinterPayload, now?: Date) => canMintCouponsNow(payload, now),
     };
 
     /* eslint-disable @typescript-eslint/no-require-imports */
