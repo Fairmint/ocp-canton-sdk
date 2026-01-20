@@ -156,52 +156,58 @@ export function createTestValuationData(overrides: Partial<OcfValuation> & { sto
 /** Create test vesting terms data with optional overrides. */
 export function createTestVestingTermsData(overrides: Partial<OcfVestingTerms> = {}): OcfVestingTerms {
   const id = overrides.id ?? generateTestId('vesting-terms');
+  // Note: The vesting trigger format uses 'type' (e.g., 'VESTING_START_DATE') for actual OCF JSON format,
+  // which is what the SDK's vestingTriggerToDaml function expects. The TypeScript VestingTrigger type
+  // uses 'kind' which is a simplified version. We cast here to satisfy TypeScript while using the
+  // correct runtime format.
   return {
     id,
     name: overrides.name ?? `Vesting Terms ${id}`,
     description: overrides.description ?? '4-year vesting with 1-year cliff',
     allocation_type: overrides.allocation_type ?? 'CUMULATIVE_ROUNDING',
-    vesting_conditions: overrides.vesting_conditions ?? [
-      {
-        id: 'vesting-start',
-        description: 'Vesting start condition',
-        quantity: '0',
-        trigger: { type: 'VESTING_START_DATE' },
-        next_condition_ids: ['cliff'],
-      },
-      {
-        id: 'cliff',
-        description: '1-year cliff (25%)',
-        portion: { numerator: '12', denominator: '48', remainder: false },
-        trigger: {
-          type: 'VESTING_SCHEDULE_RELATIVE',
-          period: {
-            type: 'MONTHS',
-            length: 12,
-            occurrences: 1,
-            day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
-          },
-          relative_to_condition_id: 'vesting-start',
+    vesting_conditions:
+      overrides.vesting_conditions ??
+      ([
+        {
+          id: 'vesting-start',
+          description: 'Vesting start condition',
+          quantity: '0',
+          trigger: { type: 'VESTING_START_DATE' },
+          next_condition_ids: ['cliff'],
         },
-        next_condition_ids: ['monthly'],
-      },
-      {
-        id: 'monthly',
-        description: 'Monthly vesting (1/48 each month)',
-        portion: { numerator: '1', denominator: '48', remainder: false },
-        trigger: {
-          type: 'VESTING_SCHEDULE_RELATIVE',
-          period: {
-            type: 'MONTHS',
-            length: 1,
-            occurrences: 36,
-            day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
+        {
+          id: 'cliff',
+          description: '1-year cliff (25%)',
+          portion: { numerator: '12', denominator: '48', remainder: false },
+          trigger: {
+            type: 'VESTING_SCHEDULE_RELATIVE',
+            period: {
+              type: 'MONTHS',
+              length: 12,
+              occurrences: 1,
+              day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
+            },
+            relative_to_condition_id: 'vesting-start',
           },
-          relative_to_condition_id: 'cliff',
+          next_condition_ids: ['monthly'],
         },
-        next_condition_ids: [],
-      },
-    ],
+        {
+          id: 'monthly',
+          description: 'Monthly vesting (1/48 each month)',
+          portion: { numerator: '1', denominator: '48', remainder: false },
+          trigger: {
+            type: 'VESTING_SCHEDULE_RELATIVE',
+            period: {
+              type: 'MONTHS',
+              length: 1,
+              occurrences: 36,
+              day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
+            },
+            relative_to_condition_id: 'cliff',
+          },
+          next_condition_ids: [],
+        },
+      ] as unknown as OcfVestingTerms['vesting_conditions']),
     ...overrides,
   };
 }
