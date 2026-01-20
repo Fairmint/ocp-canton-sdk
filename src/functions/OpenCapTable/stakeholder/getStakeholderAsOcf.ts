@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type {
   ContactInfo,
   ContactInfoWithoutName,
@@ -246,8 +246,8 @@ export async function getStakeholderAsOcf(
   });
 
   if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
-      contractId: params.contractId,
+    throw new OcpParseError('Invalid contract events response: missing created event or create argument', {
+      source: `contract ${params.contractId}`,
       code: OcpErrorCodes.INVALID_RESPONSE,
     });
   }
