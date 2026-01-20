@@ -9,7 +9,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 | [OCP SDK Implementation & Testing](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)      | In Progress        | High     | Add SDK support for all OCF object types, establish testing strategy |
 | [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                       | In Progress        | High     | SDK redesign to use batch UpdateCapTable choice (Phase 1-3 done)     |
 | [Remaining OCF Object Types](./2026/01/ai/2026.01.13-remaining-ocf-types.md)                        | Open               | Medium   | Implement SDK support for 27 remaining OCF types from DAML spec      |
-| [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)       | Partially Complete | Medium   | API ergonomics, type safety, testing (Phase 1-2 complete)            |
 | [OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)            | Partially Complete | Medium   | Simplify OcpClient class, cleanup require() (context caching done)   |
 | [Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)           | Partially Complete | Medium   | Extract and centralize duplicated entity conversion code             |
 | [Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)         | Open               | Medium   | Add correlation IDs, logging hooks, and trace propagation            |
@@ -23,6 +22,7 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 | Task                                                                                                  | Completed  | Description                                                            |
 | ----------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)         | 2026-01-20 | API ergonomics, type safety, testing improvements - all phases done    |
 | [Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)                           | 2026-01-20 | Implement OcpValidationError, OcpContractError for better DX           |
 | [Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)                 | 2026-01-20 | Runtime type guards and validation utilities for OCF objects           |
 | [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md) | 2026-01-16 | Support new `amuletRulesCidOverride` parameter (no SDK changes needed) |
