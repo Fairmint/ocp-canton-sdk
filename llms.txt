@@ -613,10 +613,6 @@ Task tracking lives in the `tasks/` directory. See [tasks/README.md](tasks/READM
 2. **Completing a task:** Update the task's status to "Complete" in both the task file **AND** move it from "Open Tasks" to "Completed Tasks" in `tasks/README.md`
 3. **Keep the index current:** The `tasks/README.md` should always reflect the actual state of tasks
 
-**Blocked Tasks to Monitor:**
-
-- **PersonalAirdrop AmuletRules Override** (`tasks/2026/01/2026.01.14-personalairdrop-amulet-rules-override.md`): Blocked on `@fairmint/open-captable-protocol-daml-js` NPM package publishing with CantonPayments v0.0.31. Once unblocked, update SDK to pass `amuletRulesCidOverride: null` to `PersonalAirdrop_ExecuteTransfer` choice.
-
 **Changelog Requirement:** When creating PRs for this repo, update the parent task's changelog. Every PR must be logged with date, description, and PR links.
 
 ## Docs
