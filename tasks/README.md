@@ -16,7 +16,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 | [Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)                | Open        | Medium   | Add correlation IDs, logging hooks, and trace propagation            |
 | [Command Tracking & Retry Logic](./2026/01/ai/2026.01.16-command-tracking-retry-logic.md)                  | Open        | Medium   | Command deduplication, retry with exponential backoff                |
 | [Environment Configuration Patterns](./2026/01/ai/2026.01.16-environment-configuration-patterns.md)        | Open        | Medium   | Environment presets for LocalNet/DevNet, configuration validation    |
-| [Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)                      | Open        | Low      | Add runtime type guards for safer type narrowing                     |
 | [Property-Based Testing](./2026/01/ai/2026.01.16-property-based-testing.md)                                | Open        | Low      | Add fast-check property tests for type conversion invariants         |
 | [Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)                      | Open        | Low      | Deprecate per-entity functions replaced by batch API                 |
 | [CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)                            | Open        | Low      | Add CouponMinter helper functions and full SDK integration           |
@@ -28,6 +27,7 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 | Task                                                                                                  | Completed  | Description                                                            |
 | ----------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| [Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)                 | 2026-01-20 | Runtime type guards and validation utilities for OCF objects           |
 | [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md) | 2026-01-16 | Support new `amuletRulesCidOverride` parameter (no SDK changes needed) |
 | [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                      | 2026-01-16 | Update SDK for Canton 3.4 compatibility                                |
 | [Comprehensive Integration Tests](./2025/12/2025.12.30-comprehensive-integration-tests.md)            | 2026-01-12 | Expanded integration test coverage with dynamic contract deployment    |
