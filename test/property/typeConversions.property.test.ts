@@ -44,14 +44,9 @@ describe('Property-based tests: Type Conversions', () => {
               })
           ),
           (numStr) => {
-            // Skip if the generated string isn't valid (e.g., scientific notation edge cases)
-            try {
-              const once = normalizeNumericString(numStr);
-              const twice = normalizeNumericString(once);
-              expect(twice).toBe(once);
-            } catch {
-              // Invalid inputs are expected to throw - that's fine
-            }
+            const once = normalizeNumericString(numStr);
+            const twice = normalizeNumericString(once);
+            expect(twice).toBe(once);
           }
         ),
         { numRuns: 500 }
