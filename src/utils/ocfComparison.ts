@@ -109,11 +109,6 @@ function isUndefinedLike(value: unknown): boolean {
  * - Trims string whitespace
  * - Recursively compares nested objects
  *
- * @example
- *   `ocfDeepEqual({
- *
- *   quantity: '100.0000000000' }, { quantity: '100' })` returns `true`
- *
  * @param a - First OCF object
  * @param b - Second OCF object
  * @returns True if objects are semantically equal

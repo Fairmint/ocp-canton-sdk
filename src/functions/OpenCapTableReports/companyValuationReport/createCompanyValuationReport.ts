@@ -26,19 +26,6 @@ export interface CreateCompanyValuationReportResult {
  *
  * This function requires the FeaturedAppRight contract details to be provided for disclosed contracts, which is
  * necessary for cross-domain contract interactions in Canton.
- *
- * @example
- *   ```typescript
- *
- *
- *
- *   const result = await createCompanyValuationReport(client, {
- *     companyId: "company123",
- *     companyValuation: "1000000",
- *     observers: ["observer1", "observer2"],
- *     featuredAppRightContractDetails
- *   });
- *   ```;
  */
 export async function createCompanyValuationReport(
   client: LedgerJsonApiClient,

@@ -8,20 +8,7 @@
  * - Data round-trip verification
  * - Archive operations
  *
- * @example
- *   ```typescript
- *
- *
- *
- *   defineEntityTests({
- *     entityName: 'StockClass',
- *     expectedObjectType: 'STOCK_CLASS',
- *     createTestData: createTestStockClassData,
- *     setupEntity: async (ctx, data) => setupTestStockClass(ctx.ocp, { stockClassData: data }),
- *     getAsOcf: async (ctx, cid) => (await ctx.ocp.OpenCapTable.stockClass.getStockClassAsOcf({ contractId: cid })).stockClass,
- *     getIdFromResult: (result) => result.stockClassContractId,
- *   });
- *   ```;
+ * Use defineEntityTests() to create a standardized test suite for any OCF entity type.
  */
 
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';

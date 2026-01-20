@@ -17,11 +17,6 @@ import { getAllOcfTypes, getOcfMetadata, isValidOcfType, OCF_METADATA, type OcfO
  * This is the field name where OCF data is stored in the contract's create arguments. Useful for extracting OCF data
  * from transaction trees.
  *
- * @example
- *   `getOcfDataFieldName('STAKEHOLDER')`;
- *
- *   returns`'stakeholder_data'`;
- *
  * @param type - The OCF object type
  * @returns The data field name (e.g., 'stakeholder_data', 'issuance_data')
  */
@@ -35,11 +30,6 @@ export function getOcfDataFieldName(type: OcfObjectType): string {
  * Extract the OCF ID from contract create arguments.
  *
  * Uses the type's metadata to navigate to the ID field.
- *
- * @example
- *   `extractOcfIdFromCreateArgs('STAKEHOLDER',
- *
- *   { stakeholder_data: { id: 'sh-123' } })` returns `'sh-123'`
  *
  * @param type - The OCF object type
  * @param createArgs - The contract's create arguments from a transaction tree
@@ -68,14 +58,9 @@ export function extractOcfIdFromCreateArgs(type: OcfObjectType, createArgs: unkn
  *
  * Useful for logging, notifications, and UI display.
  *
- * @example
- *   `getOcfTypeLabel('STAKEHOLDER',
- *
- *   1)` returns `'1 Stakeholder'`, `getOcfTypeLabel('STAKEHOLDER', 5)` returns `'5 Stakeholders'`
- *
  * @param type - The OCF object type
  * @param count - Number of items (for pluralization)
- * @returns Human-readable label
+ * @returns Human-readable label (e.g., '1 Stakeholder', '5 Stakeholders')
  */
 export function getOcfTypeLabel(type: OcfObjectType, count: number): string {
   // Convert type to title case and handle special cases

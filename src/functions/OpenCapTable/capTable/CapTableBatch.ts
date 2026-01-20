@@ -2,21 +2,7 @@
  * Fluent batch builder for cap table updates.
  *
  * Provides a type-safe API for building batch UpdateCapTable commands that support atomic creates, edits, and deletes
- * of multiple OCF entities.
- *
- * @example
- *   ```typescript
- *
- *
- *
- *   const result = await ocp.capTable
- *     .update({ capTableContractId, featuredAppRightContractDetails })
- *     .create('stakeholder', stakeholderData)
- *     .create('stockClass', stockClassData)
- *     .edit('stakeholder', updatedStakeholderData)
- *     .delete('document', documentId)
- *     .execute();
- *   ```;
+ * of multiple OCF entities. Chain .create(), .edit(), and .delete() calls, then call .execute() to submit.
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
@@ -71,12 +57,7 @@ export class CapTableBatch {
   /**
    * Add a create operation to the batch.
    *
-   * @example
-   *   `batch.create('stakeholder',
-   *
-   *   { id: 'sh-123', name: { legal_name: 'John Doe' }, stakeholder_type: 'INDIVIDUAL' })`;
-   *
-   * @param type - The OCF entity type to create
+   * @param type - The OCF entity type to create (e.g., 'stakeholder', 'stockClass')
    * @param data - The native OCF data for the entity
    * @returns This for chaining
    */
@@ -89,11 +70,6 @@ export class CapTableBatch {
 
   /**
    * Add an edit operation to the batch.
-   *
-   * @example
-   *   `batch.edit('stakeholder',
-   *
-   *   { id: 'sh-123', name: { legal_name: 'Jane Doe' }, stakeholder_type: 'INDIVIDUAL' })`;
    *
    * @param type - The OCF entity type to edit
    * @param data - The updated native OCF data (must include the entity's id)
@@ -108,11 +84,6 @@ export class CapTableBatch {
 
   /**
    * Add a delete operation to the batch.
-   *
-   * @example
-   *   `batch.delete('document',
-   *
-   *   'doc-123')`;
    *
    * @param type - The OCF entity type to delete
    * @param id - The OCF object ID to delete

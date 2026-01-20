@@ -38,11 +38,6 @@ function hasCreatedTreeEvent(event: unknown): event is CreatedTreeEventData {
 /**
  * Extract a contract ID from a transaction tree response by template ID pattern.
  *
- * @example
- *   `extractContractIdByTemplatePattern(result,
- *
- *   'EquityCompensationExercise')`;
- *
  * @param response - The transaction tree response from submitAndWaitForTransactionTree
  * @param templateIdPattern - A string that the template ID should contain (e.g., 'Issuer', 'StockClass')
  * @returns The contract ID if found, or null if not found
@@ -67,11 +62,6 @@ export function extractContractIdByTemplatePattern(
 
 /**
  * Extract a contract ID from a transaction tree response, throwing if not found.
- *
- * @example
- *   `const
- *
- *   contractId = extractContractIdOrThrow(result, 'StockIssuance')`;
  *
  * @param response - The transaction tree response from submitAndWaitForTransactionTree
  * @param templateIdPattern - A string that the template ID should contain

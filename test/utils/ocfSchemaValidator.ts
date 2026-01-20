@@ -187,11 +187,6 @@ export function getOcfValidator(): OcfSchemaValidator {
  * Check if OCF schema validation is available.
  *
  * Returns false if the OCF submodule is not initialized.
- *
- * @example
- *   `if
- *
- *   (!isOcfValidationAvailable()) return;`;
  */
 export function isOcfValidationAvailable(): boolean {
   return getOcfValidator().isAvailable();
@@ -199,11 +194,6 @@ export function isOcfValidationAvailable(): boolean {
 
 /**
  * Validate an OCF object against its schema.
- *
- * @example
- *   `await
- *
- *   validateOcfObject({ object_type: 'ISSUER', id: 'issuer-1', legal_name: 'Acme' })`;
  *
  * @throws Error if validation fails or if OCF schemas are not available (unless OCP_SKIP_OCF_VALIDATION=true is set)
  */
