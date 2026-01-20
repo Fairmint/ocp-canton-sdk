@@ -38,15 +38,6 @@ function hasCreatedTreeEvent(event: unknown): event is CreatedTreeEventData {
 /**
  * Extract a contract ID from a transaction tree response by template ID pattern.
  *
- * @example
- *   ```typescript
- *   const result = await client.submitAndWaitForTransactionTree({ ... });
- *   const contractId = extractContractIdByTemplatePattern(result, 'EquityCompensationExercise');
- *   if (contractId) {
- *     // Use the contract ID
- *   }
- *   ```;
- *
  * @param response - The transaction tree response from submitAndWaitForTransactionTree
  * @param templateIdPattern - A string that the template ID should contain (e.g., 'Issuer', 'StockClass')
  * @returns The contract ID if found, or null if not found
@@ -71,13 +62,6 @@ export function extractContractIdByTemplatePattern(
 
 /**
  * Extract a contract ID from a transaction tree response, throwing if not found.
- *
- * @example
- *   ```typescript
- *   const result = await client.submitAndWaitForTransactionTree({ ... });
- *   const contractId = extractContractIdOrThrow(result, 'StockIssuance');
- *   // contractId is guaranteed to be a valid string
- *   ```;
  *
  * @param response - The transaction tree response from submitAndWaitForTransactionTree
  * @param templateIdPattern - A string that the template ID should contain

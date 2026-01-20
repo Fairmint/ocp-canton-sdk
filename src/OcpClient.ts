@@ -85,44 +85,7 @@ import type { CommandWithDisclosedContracts } from './types';
  * - **CantonPayments**: Payment and airdrop operations
  * - **PaymentStreams**: Recurring payment stream management
  *
- * @example
- *   Creating an issuer
- *   ```typescript
- *   import { OcpClient } from '@open-captable-protocol/canton';
- *
- *   const ocp = new OcpClient({ network: 'localnet' });
- *
- *   const cmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({
- *   issuerAuthorizationContractDetails: authDetails,
- *   featuredAppRightContractDetails: featuredDetails,
- *   issuerParty: 'alice::...',
- *   issuerData: {
- *   id: 'issuer-1',
- *   legal_name: 'Acme Corp',
- *   formation_date: '2024-01-01',
- *   country_of_formation: 'US',
- *   tax_ids: [],
- *   },
- *   });
- *   ```
- *
- * @example
- *   Batch cap table updates
- *   ```typescript
- *   const result = await ocp.OpenCapTable.capTable
- *   .update({
- *   capTableContractId,
- *   featuredAppRightContractDetails,
- *   actAs: [issuerParty],
- *   })
- *   .create('stakeholder', stakeholderData)
- *   .create('stockClass', stockClassData)
- *   .edit('stakeholder', updatedStakeholderData)
- *   .delete('document', documentId)
- *   .execute();
- *   ```
- *
- * @see https://ocp.canton.fairmint.com/ - Full SDK documentation
+ * @see https://ocp.canton.fairmint.com/ - Full SDK documentation with usage examples
  */
 export class OcpClient {
   /** The underlying LedgerJsonApiClient for direct ledger access. */

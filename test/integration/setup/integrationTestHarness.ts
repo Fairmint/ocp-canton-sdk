@@ -10,23 +10,7 @@
  * - Issuer authorization
  *
  * The harness ensures tests run against a fully configured environment with all necessary contracts deployed and
- * factory created.
- *
- * @example
- *   ```typescript
- *   import { createIntegrationTestSuite, IntegrationTestContext } from '../setup';
- *
- *   createIntegrationTestSuite('Issuer operations', (getContext) => {
- *     test('creates issuer', async () => {
- *       const ctx = getContext();
- *       const issuerSetup = await setupTestIssuer(ctx.ocp, {
- *         issuerParty: ctx.issuerParty,
- *         featuredAppRightContractDetails: ctx.featuredAppRight,
- *       });
- *       // ...
- *     });
- *   });
- *   ```;
+ * factory created. Use createIntegrationTestSuite() to wrap your test describe block.
  */
 
 import { ValidatorApiClient } from '@fairmint/canton-node-sdk';
@@ -299,16 +283,6 @@ export function getTestContext(): IntegrationTestContext {
  *
  * Note: If LocalNet is not running, tests will fail (not skip). This is intentional - integration tests should fail
  * clearly when infrastructure is unavailable.
- *
- * @example
- *   ```typescript
- *   createIntegrationTestSuite('Issuer operations', (getContext) => {
- *     test('creates issuer', async () => {
- *       const ctx = getContext();
- *       // ... test implementation
- *     });
- *   });
- *   ```;
  *
  * @param name - The name of the test suite
  * @param testFn - A function that defines the tests, receives the test context getter

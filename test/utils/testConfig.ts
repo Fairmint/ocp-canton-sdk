@@ -1,13 +1,8 @@
 /**
  * Shared test configuration utilities for integration tests.
  *
- * Tests are configured for LocalNet (cn-quickstart) with shared-secret authentication by default.
- *
- * @example
- *   LocalNet usage (default)
- *   ```bash
- *   npm run test:integration
- *   ```
+ * Tests are configured for LocalNet (cn-quickstart) with shared-secret authentication by default. Run integration tests
+ * with: npm run test:integration
  */
 
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
