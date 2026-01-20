@@ -333,6 +333,7 @@ export interface GetStockClassAsOcfResult {
  * @example
  *   ```typescript
  *
+ *
  *   const result = await getStockClassAsOcf(client, {
  *     contractId: "1234567890abcdef"
  *   });

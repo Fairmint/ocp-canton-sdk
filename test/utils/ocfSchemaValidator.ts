@@ -191,6 +191,7 @@ export function getOcfValidator(): OcfSchemaValidator {
  * @example
  *   ```typescript
  *
+ *
  *   if (!isOcfValidationAvailable()) {
  *     console.warn('OCF validation skipped - submodule not initialized');
  *     return;
@@ -207,6 +208,7 @@ export function isOcfValidationAvailable(): boolean {
  *
  * @example
  *   ```typescript
+ *
  *
  *   await validateOcfObject({ object_type: 'ISSUER', ... });
  *   ```;
