@@ -7,6 +7,8 @@ import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../ut
  * Note: Convertible cancellations don't have a quantity field since convertibles are monetary instruments (SAFEs,
  * convertible notes) rather than share-based securities.
  *
+ * @deprecated Use `ocp.OpenCapTable.capTable.update().create('convertibleCancellation', data).execute()` instead.
+ *   This function will be removed in a future major version.
  * @param d - The native convertible cancellation data
  * @returns DAML-formatted convertible cancellation data
  */

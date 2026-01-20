@@ -1,6 +1,12 @@
 import type { OcfStockPlanPoolAdjustment } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString } from '../../../utils/typeConversions';
 
+/**
+ * Convert OCF stock plan pool adjustment data to DAML format.
+ *
+ * @deprecated Use `ocp.OpenCapTable.capTable.update().create('stockPlanPoolAdjustment', data).execute()` instead.
+ *   This function will be removed in a future major version.
+ */
 export function stockPlanPoolAdjustmentDataToDaml(d: OcfStockPlanPoolAdjustment): Record<string, unknown> {
   return {
     id: d.id,

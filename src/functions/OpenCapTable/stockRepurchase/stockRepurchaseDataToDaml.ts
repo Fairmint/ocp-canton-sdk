@@ -7,6 +7,12 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 
+/**
+ * Convert OCF stock repurchase data to DAML format.
+ *
+ * @deprecated Use `ocp.OpenCapTable.capTable.update().create('stockRepurchase', data).execute()` instead.
+ *   This function will be removed in a future major version.
+ */
 export function stockRepurchaseDataToDaml(d: OcfStockRepurchase): Record<string, unknown> {
   if (!d.id) throw new Error('repurchaseData.id is required');
   if (!d.date) throw new Error('repurchaseData.date is required');

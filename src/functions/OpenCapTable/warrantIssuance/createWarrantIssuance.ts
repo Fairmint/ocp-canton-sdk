@@ -216,6 +216,12 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
   };
 }
 
+/**
+ * Convert OCF warrant issuance data to DAML format.
+ *
+ * @deprecated Use `ocp.OpenCapTable.capTable.update().create('warrantIssuance', data).execute()` instead.
+ *   This function will be removed in a future major version.
+ */
 export function warrantIssuanceDataToDaml(d: {
   id: string;
   date: string;

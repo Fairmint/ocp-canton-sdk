@@ -1,6 +1,12 @@
 import type { OcfStockTransfer } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
 
+/**
+ * Convert OCF stock transfer data to DAML format.
+ *
+ * @deprecated Use `ocp.OpenCapTable.capTable.update().create('stockTransfer', data).execute()` instead.
+ *   This function will be removed in a future major version.
+ */
 export function stockTransferDataToDaml(d: OcfStockTransfer): Record<string, unknown> {
   // Validate required array field
   if (d.resulting_security_ids.length === 0) {

@@ -1,6 +1,12 @@
 import type { OcfStockCancellation } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
 
+/**
+ * Convert OCF stock cancellation data to DAML format.
+ *
+ * @deprecated Use `ocp.OpenCapTable.capTable.update().create('stockCancellation', data).execute()` instead.
+ *   This function will be removed in a future major version.
+ */
 export function stockCancellationDataToDaml(d: OcfStockCancellation): Record<string, unknown> {
   return {
     id: d.id,

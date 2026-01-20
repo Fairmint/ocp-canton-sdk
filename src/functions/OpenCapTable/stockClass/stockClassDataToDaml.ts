@@ -16,6 +16,12 @@ function stockClassTypeToDaml(
   }
 }
 
+/**
+ * Convert OCF stock class data to DAML format.
+ *
+ * @deprecated Use `ocp.OpenCapTable.capTable.update().create('stockClass', data).execute()` instead.
+ *   This function will be removed in a future major version.
+ */
 export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<string, unknown> {
   const d = stockClassData;
   if (!d.id) throw new Error('stockClassData.id is required');

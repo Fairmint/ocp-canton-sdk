@@ -1,6 +1,12 @@
 import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString } from '../../../utils/typeConversions';
 
+/**
+ * Convert OCF stock class authorized shares adjustment data to DAML format.
+ *
+ * @deprecated Use `ocp.OpenCapTable.capTable.update().create('stockClassAuthorizedSharesAdjustment', data).execute()` instead.
+ *   This function will be removed in a future major version.
+ */
 export function stockClassAuthorizedSharesAdjustmentDataToDaml(
   d: OcfStockClassAuthorizedSharesAdjustment
 ): Record<string, unknown> {
