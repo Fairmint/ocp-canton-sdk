@@ -5,9 +5,6 @@
  *
  * @example
  *   ```typescript
- *
- *
- *
  *   import { setupTestIssuer, createTestStakeholderData } from './utils';
  *   import { extractContractIdOrThrow } from './utils';
  *   ```;

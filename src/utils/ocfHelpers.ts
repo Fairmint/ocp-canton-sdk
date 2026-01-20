@@ -19,9 +19,6 @@ import { getAllOcfTypes, getOcfMetadata, isValidOcfType, OCF_METADATA, type OcfO
  *
  * @example
  *   ```typescript
- *
- *
- *
  *   getOcfDataFieldName('STAKEHOLDER'); // 'stakeholder_data'
  *   getOcfDataFieldName('TX_STOCK_ISSUANCE'); // 'issuance_data'
  *   getOcfDataFieldName('STOCK_CLASS'); // 'stock_class_data'
@@ -43,9 +40,6 @@ export function getOcfDataFieldName(type: OcfObjectType): string {
  *
  * @example
  *   ```typescript
- *
- *
- *
  *   const args = { stakeholder_data: { id: 'sh-123', name: { legal_name: 'John' } } };
  *   extractOcfIdFromCreateArgs('STAKEHOLDER', args); // 'sh-123'
  *   ```;
@@ -79,9 +73,6 @@ export function extractOcfIdFromCreateArgs(type: OcfObjectType, createArgs: unkn
  *
  * @example
  *   ```typescript
- *
- *
- *
  *   getOcfTypeLabel('STAKEHOLDER', 1); // '1 Stakeholder'
  *   getOcfTypeLabel('STAKEHOLDER', 5); // '5 Stakeholders'
  *   getOcfTypeLabel('TX_STOCK_ISSUANCE', 1); // '1 Stock Issuance'
