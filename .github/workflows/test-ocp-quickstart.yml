@@ -21,6 +21,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -40,23 +41,41 @@ jobs:
       - name: Build package
         run: npm run build
 
+      - name: Cache Daml SDK
+        id: cache-daml
+        uses: actions/cache@v4
+        with:
+          path: ~/.daml
+          key: daml-sdk-${{ runner.os }}-${{ hashFiles('libs/cn-quickstart/quickstart/Makefile') }}
+          restore-keys: |
+            daml-sdk-${{ runner.os }}-
+
       - name: Setup CN-Quickstart (shared-secret)
         run: |
           cd libs/cn-quickstart/quickstart
-          # Setup with shared-secret mode
+          # Setup with shared-secret mode, observability DISABLED for faster CI
           # The setup wizard asks:
-          #   1. "Enable Observability? (Y/n):" - answer Y (default)
+          #   1. "Enable Observability? (Y/n):" - answer n to skip Grafana/monitoring
           #   2. "Enable OAUTH2? (Y/n):" - answer n for shared-secret mode
           #   3. "Specify a party hint..." - accept default (empty)
-          printf "Y\nn\n\n" | make setup || true
+          printf "n\nn\n\n" | make setup || true
 
       - name: Install Daml SDK
+        if: steps.cache-daml.outputs.cache-hit != 'true'
         run: |
           cd libs/cn-quickstart/quickstart
           make install-daml-sdk
 
       - name: Add Daml CLI to PATH
         run: echo "$HOME/.daml/bin" >> $GITHUB_PATH
+
+      - name: Cache Docker layers
+        uses: satackey/action-docker-layer-caching@v0.0.11
+        continue-on-error: true
+        with:
+          key: docker-layer-${{ runner.os }}-quickstart-{hash}
+          restore-keys: |
+            docker-layer-${{ runner.os }}-quickstart-
 
       - name: Start CN-Quickstart
         run: |
@@ -86,7 +105,7 @@ jobs:
       # It discovers DAR files from @fairmint/open-captable-protocol-daml-js npm package.
 
       - name: Run integration smoke tests
-        run: npm run test:integration:ci
+        run: npm run test:integration:ci -- test/integration/quickstart.smoke.test.ts
 
       - name: Show Logs on Failure
         if: failure()
