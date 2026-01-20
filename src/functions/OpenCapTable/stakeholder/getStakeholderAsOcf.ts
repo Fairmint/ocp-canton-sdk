@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type {
   ContactInfo,
   ContactInfoWithoutName,
@@ -22,7 +23,10 @@ function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailTyp
       return 'OTHER';
     default: {
       const exhaustiveCheck: never = damlType;
-      throw new Error(`Unknown DAML email type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown DAML email type: ${exhaustiveCheck as string}`, {
+        source: 'stakeholder.email.email_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -46,7 +50,10 @@ function damlPhoneTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfPhoneTyp
       return 'OTHER';
     default: {
       const exhaustiveCheck: never = damlType;
-      throw new Error(`Unknown DAML phone type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown DAML phone type: ${exhaustiveCheck as string}`, {
+        source: 'stakeholder.phone.phone_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -94,7 +101,10 @@ function damlStakeholderTypeToNative(
       return 'INSTITUTION';
     default: {
       const exhaustiveCheck: never = damlType;
-      throw new Error(`Unknown DAML stakeholder type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown DAML stakeholder type: ${exhaustiveCheck as string}`, {
+        source: 'stakeholder.stakeholder_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -236,7 +246,10 @@ export async function getStakeholderAsOcf(
   });
 
   if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new Error('Invalid contract events response: missing created event or create argument');
+    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.INVALID_RESPONSE,
+    });
   }
 
   const { createArgument } = eventsResponse.created.createdEvent;
@@ -254,7 +267,10 @@ export async function getStakeholderAsOcf(
   }
 
   if (!hasStakeholderData(createArgument)) {
-    throw new Error('Stakeholder data not found in contract create argument');
+    throw new OcpParseError('Stakeholder data not found in contract create argument', {
+      source: 'stakeholder contract',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
   }
 
   const native = damlStakeholderDataToNative(createArgument.stakeholder_data);
