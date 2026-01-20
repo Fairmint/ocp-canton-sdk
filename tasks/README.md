@@ -11,9 +11,15 @@ This directory contains task documentation for the OCP Canton SDK project.
 | [Remaining OCF Object Types](./2026/01/ai/2026.01.13-remaining-ocf-types.md)                               | Open        | Medium   | Implement SDK support for 27 remaining OCF types from DAML spec      |
 | [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md)      | Blocked     | Medium   | Support new `amuletRulesCidOverride` parameter (awaiting NPM pkg)    |
 | [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)              | In Progress | Medium   | API ergonomics, type safety improvements, testing gaps               |
+| [OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)                   | Open        | Medium   | Simplify OcpClient class, add context caching, cleanup require()     |
+| [Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)                  | Open        | Medium   | Extract and centralize duplicated entity conversion code             |
+| [Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)                                | Open        | Medium   | Implement OcpValidationError, OcpContractError for better DX         |
 | [Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)                | Open        | Medium   | Add correlation IDs, logging hooks, and trace propagation            |
 | [Command Tracking & Retry Logic](./2026/01/ai/2026.01.16-command-tracking-retry-logic.md)                  | Open        | Medium   | Command deduplication, retry with exponential backoff                |
 | [Environment Configuration Patterns](./2026/01/ai/2026.01.16-environment-configuration-patterns.md)        | Open        | Medium   | Environment presets for LocalNet/DevNet, configuration validation    |
+| [Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)                      | Open        | Low      | Add runtime type guards for safer type narrowing                     |
+| [Property-Based Testing](./2026/01/ai/2026.01.16-property-based-testing.md)                                | Open        | Low      | Add fast-check property tests for type conversion invariants         |
+| [Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)                      | Open        | Low      | Deprecate per-entity functions replaced by batch API                 |
 | [CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)                            | Open        | Low      | Add CouponMinter helper functions and full SDK integration           |
 | [CouponMinter canMintCouponsNow Helper](../project/tasks/2025.01.13_coupon_minter_can_mint_helper.task.md) | Open        | Low      | Client-side utility to check TPS rate limits before minting          |
 | [Health Check Integration](./2026/01/ai/2026.01.16-health-check-integration.md)                            | Open        | Low      | Service health check utilities and wait-for-ready patterns           |
@@ -53,10 +59,16 @@ tasks/
             ├── 2026.01.13-couponminter-sdk-support.md
             ├── 2026.01.13-remaining-ocf-types.md
             ├── 2026.01.16-command-tracking-retry-logic.md
+            ├── 2026.01.16-consolidate-entity-converters.md
             ├── 2026.01.16-environment-configuration-patterns.md
             ├── 2026.01.16-health-check-integration.md
+            ├── 2026.01.16-legacy-function-deprecation.md
             ├── 2026.01.16-observability-tracing-support.md
-            └── 2026.01.16-pqs-query-store-support.md
+            ├── 2026.01.16-ocp-client-api-simplification.md
+            ├── 2026.01.16-pqs-query-store-support.md
+            ├── 2026.01.16-property-based-testing.md
+            ├── 2026.01.16-structured-error-types.md
+            └── 2026.01.16-type-guards-for-ocf-objects.md
 ```
 
 ## Task Naming Convention
