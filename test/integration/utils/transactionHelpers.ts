@@ -40,6 +40,7 @@ function hasCreatedTreeEvent(event: unknown): event is CreatedTreeEventData {
  *
  * @example
  *   ```typescript
+ *
  *   const result = await client.submitAndWaitForTransactionTree({ ... });
  *   const contractId = extractContractIdByTemplatePattern(result, 'EquityCompensationExercise');
  *   if (contractId) {
@@ -74,6 +75,7 @@ export function extractContractIdByTemplatePattern(
  *
  * @example
  *   ```typescript
+ *
  *   const result = await client.submitAndWaitForTransactionTree({ ... });
  *   const contractId = extractContractIdOrThrow(result, 'StockIssuance');
  *   // contractId is guaranteed to be a valid string
