@@ -6,21 +6,21 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ### Milestone 2: OCP SDK Implementation
 
-| Task                                                                                           | Status             | Priority | Description                                                          |
-| ---------------------------------------------------------------------------------------------- | ------------------ | -------- | -------------------------------------------------------------------- |
-| [Milestone 2: OCP SDK Implementation](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md) | In Progress     | High     | Parent milestone - SDK support for all OCF types, testing strategy   |
-| [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                  | In Progress        | High     | SDK redesign to use batch UpdateCapTable choice (Phase 1-3 done)     |
+| Task                                                                                              | Status      | Priority | Description                                                        |
+| ------------------------------------------------------------------------------------------------- | ----------- | -------- | ------------------------------------------------------------------ |
+| [Milestone 2: OCP SDK Implementation](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md) | In Progress | High     | Parent milestone - SDK support for all OCF types, testing strategy |
+| [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                     | In Progress | High     | SDK redesign to use batch UpdateCapTable choice (Phase 1-3 done)   |
 
 #### OCF Type Implementation (27 remaining types)
 
-| Task                                                                                           | Status | Priority | Types   |
-| ---------------------------------------------------------------------------------------------- | ------ | -------- | ------- |
-| [Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)        | Open   | High     | 3 types |
-| [Valuation & Vesting Types](./2026/01/ai/2026.01.20-ocf-valuation-vesting-types.md)            | Open   | High     | 4 types |
-| [Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)                       | Open   | Medium   | 3 types |
-| [Acceptance Types](./2026/01/ai/2026.01.20-ocf-acceptance-types.md)                            | Open   | Medium   | 4 types |
-| [Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)              | Open   | Medium   | 4 types |
-| [Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)                              | Open   | Low      | 9 types |
+| Task                                                                                    | Status | Priority | Types   |
+| --------------------------------------------------------------------------------------- | ------ | -------- | ------- |
+| [Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md) | Open   | High     | 3 types |
+| [Valuation & Vesting Types](./2026/01/ai/2026.01.20-ocf-valuation-vesting-types.md)     | Open   | High     | 4 types |
+| [Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)                | Open   | Medium   | 3 types |
+| [Acceptance Types](./2026/01/ai/2026.01.20-ocf-acceptance-types.md)                     | Open   | Medium   | 4 types |
+| [Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)       | Open   | Medium   | 4 types |
+| [Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)                       | Open   | Low      | 9 types |
 
 ### SDK Improvements
 
@@ -51,9 +51,9 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ## Superseded Tasks
 
-| Task                                                                               | Superseded | Replaced By                              |
-| ---------------------------------------------------------------------------------- | ---------- | ---------------------------------------- |
-| [Remaining OCF Object Types](./2026/01/ai/2026.01.13-remaining-ocf-types.md)       | 2026-01-20 | Split into 6 focused OCF type sub-tasks  |
+| Task                                                                         | Superseded | Replaced By                             |
+| ---------------------------------------------------------------------------- | ---------- | --------------------------------------- |
+| [Remaining OCF Object Types](./2026/01/ai/2026.01.13-remaining-ocf-types.md) | 2026-01-20 | Split into 6 focused OCF type sub-tasks |
 
 ## Related ADRs
 
