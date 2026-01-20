@@ -182,7 +182,7 @@ export function stockClassTypeToDaml(
       return 'OcfStockClassTypeCommon';
     default: {
       const exhaustiveCheck: never = stockClassType;
-      throw new Error(`Unknown stock class type: ${String(exhaustiveCheck)}`);
+      throw new Error(`Unknown stock class type: ${exhaustiveCheck as string}`);
     }
   }
 }
@@ -226,20 +226,31 @@ export type NativeStakeholderRelationshipType =
 
 /**
  * Convert a native OCF stakeholder relationship string to DAML enum.
- * Uses includes-based matching to handle various formats.
+ * Uses exact string matching (case-insensitive) with fallback to OTHER for unknown values.
  *
  * @param relationship - Native relationship string (e.g., 'EMPLOYEE', 'BOARD_MEMBER')
  * @returns DAML stakeholder relationship type enum value
  */
 export function stakeholderRelationshipToDaml(relationship: string): DamlStakeholderRelationshipType {
-  const v = relationship.toUpperCase();
-  if (v.includes('EMPLOYEE')) return 'OcfRelEmployee';
-  if (v.includes('ADVISOR')) return 'OcfRelAdvisor';
-  if (v.includes('INVESTOR')) return 'OcfRelInvestor';
-  if (v.includes('FOUNDER')) return 'OcfRelFounder';
-  if (v.includes('BOARD')) return 'OcfRelBoardMember';
-  if (v.includes('OFFICER')) return 'OcfRelOfficer';
-  return 'OcfRelOther';
+  const normalized = relationship.toUpperCase();
+  switch (normalized) {
+    case 'EMPLOYEE':
+      return 'OcfRelEmployee';
+    case 'ADVISOR':
+      return 'OcfRelAdvisor';
+    case 'INVESTOR':
+      return 'OcfRelInvestor';
+    case 'FOUNDER':
+      return 'OcfRelFounder';
+    case 'BOARD_MEMBER':
+      return 'OcfRelBoardMember';
+    case 'OFFICER':
+      return 'OcfRelOfficer';
+    case 'OTHER':
+    default:
+      // Unknown relationship types default to OTHER for forward compatibility
+      return 'OcfRelOther';
+  }
 }
 
 /**

@@ -7,7 +7,6 @@ import {
   stakeholderRelationshipToDaml,
   stakeholderStatusToDaml,
   stakeholderTypeToDaml,
-  type NativeStakeholderStatus,
 } from '../../../utils/enumConversions';
 import { addressToDaml, cleanComments, optionalString } from '../../../utils/typeConversions';
 
@@ -84,9 +83,7 @@ export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTab
     tax_ids: data.tax_ids ?? [],
     comments: cleanComments(data.comments),
     current_relationships: relationships?.map(stakeholderRelationshipToDaml) ?? [],
-    current_status: data.current_status
-      ? stakeholderStatusToDaml(data.current_status as NativeStakeholderStatus)
-      : null,
+    current_status: data.current_status ? stakeholderStatusToDaml(data.current_status) : null,
   };
 
   return payload;

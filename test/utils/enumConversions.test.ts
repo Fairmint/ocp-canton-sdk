@@ -168,8 +168,20 @@ describe('enumConversions', () => {
       expect(damlStakeholderRelationshipToNative('OcfRelEmployee')).toBe('EMPLOYEE');
     });
 
+    test('converts OcfRelExEmployee to EMPLOYEE', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelExEmployee')).toBe('EMPLOYEE');
+    });
+
+    test('converts OcfRelNonUsEmployee to EMPLOYEE', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelNonUsEmployee')).toBe('EMPLOYEE');
+    });
+
     test('converts OcfRelAdvisor to ADVISOR', () => {
       expect(damlStakeholderRelationshipToNative('OcfRelAdvisor')).toBe('ADVISOR');
+    });
+
+    test('converts OcfRelExAdvisor to ADVISOR', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelExAdvisor')).toBe('ADVISOR');
     });
 
     test('converts OcfRelInvestor to INVESTOR', () => {
@@ -186,6 +198,18 @@ describe('enumConversions', () => {
 
     test('converts OcfRelOfficer to OFFICER', () => {
       expect(damlStakeholderRelationshipToNative('OcfRelOfficer')).toBe('OFFICER');
+    });
+
+    test('converts OcfRelExecutive to OFFICER', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelExecutive')).toBe('OFFICER');
+    });
+
+    test('converts OcfRelConsultant to OTHER', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelConsultant')).toBe('OTHER');
+    });
+
+    test('converts OcfRelExConsultant to OTHER', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelExConsultant')).toBe('OTHER');
     });
 
     test('converts OcfRelOther to OTHER', () => {
@@ -262,6 +286,50 @@ describe('enumConversions', () => {
 
     test('returns undefined for unknown status', () => {
       expect(damlStakeholderStatusToNative('UnknownStatus')).toBeUndefined();
+    });
+  });
+
+  describe('error handling', () => {
+    test('emailTypeToDaml throws for invalid email type', () => {
+      // @ts-expect-error Testing runtime behavior with invalid input
+      expect(() => emailTypeToDaml('INVALID')).toThrow('Unknown email type: INVALID');
+    });
+
+    test('damlEmailTypeToNative throws for invalid DAML email type', () => {
+      // @ts-expect-error Testing runtime behavior with invalid input
+      expect(() => damlEmailTypeToNative('InvalidDamlType')).toThrow('Unknown DAML email type: InvalidDamlType');
+    });
+
+    test('phoneTypeToDaml throws for invalid phone type', () => {
+      // @ts-expect-error Testing runtime behavior with invalid input
+      expect(() => phoneTypeToDaml('INVALID')).toThrow('Unknown phone type: INVALID');
+    });
+
+    test('damlPhoneTypeToNative throws for invalid DAML phone type', () => {
+      // @ts-expect-error Testing runtime behavior with invalid input
+      expect(() => damlPhoneTypeToNative('InvalidDamlType')).toThrow('Unknown DAML phone type: InvalidDamlType');
+    });
+
+    test('stakeholderTypeToDaml throws for invalid stakeholder type', () => {
+      // @ts-expect-error Testing runtime behavior with invalid input
+      expect(() => stakeholderTypeToDaml('INVALID')).toThrow('Unknown stakeholder type: INVALID');
+    });
+
+    test('damlStakeholderTypeToNative throws for invalid DAML stakeholder type', () => {
+      // @ts-expect-error Testing runtime behavior with invalid input
+      expect(() => damlStakeholderTypeToNative('InvalidDamlType')).toThrow(
+        'Unknown DAML stakeholder type: InvalidDamlType'
+      );
+    });
+
+    test('stockClassTypeToDaml throws for invalid stock class type', () => {
+      // @ts-expect-error Testing runtime behavior with invalid input
+      expect(() => stockClassTypeToDaml('INVALID')).toThrow('Unknown stock class type: INVALID');
+    });
+
+    test('stakeholderStatusToDaml throws for invalid status', () => {
+      // @ts-expect-error Testing runtime behavior with invalid input
+      expect(() => stakeholderStatusToDaml('INVALID')).toThrow('Unknown stakeholder status: INVALID');
     });
   });
 
