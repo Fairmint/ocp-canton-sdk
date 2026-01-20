@@ -111,6 +111,7 @@ function isUndefinedLike(value: unknown): boolean {
  *
  * @example
  *   `ocfDeepEqual({
+ *
  *   quantity: '100.0000000000' }, { quantity: '100' })` returns `true`
  *
  * @param a - First OCF object

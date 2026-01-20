@@ -334,6 +334,7 @@ export interface GetStockClassAsOcfResult {
  *   ```typescript
  *
  *
+ *
  *   const result = await getStockClassAsOcf(client, { contractId: "1234567890abcdef" });
  *   console.log(result.stockClass);
  *   // { object_type: "STOCK_CLASS", name: "Series A Preferred", class_type: "PREFERRED", ... }

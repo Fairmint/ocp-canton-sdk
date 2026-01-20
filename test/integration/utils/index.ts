@@ -5,6 +5,7 @@
  *
  * @example
  *   `import
+ *
  *   { setupTestIssuer, extractContractIdOrThrow } from './utils'`;
  */
 

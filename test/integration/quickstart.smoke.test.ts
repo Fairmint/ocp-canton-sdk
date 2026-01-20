@@ -6,6 +6,7 @@
  *
  * @example
  *   `npm
+ *
  *   run test:integration`;
  */
 

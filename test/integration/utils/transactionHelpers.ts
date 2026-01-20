@@ -40,6 +40,7 @@ function hasCreatedTreeEvent(event: unknown): event is CreatedTreeEventData {
  *
  * @example
  *   `extractContractIdByTemplatePattern(result,
+ *
  *   'EquityCompensationExercise')`;
  *
  * @param response - The transaction tree response from submitAndWaitForTransactionTree
@@ -69,6 +70,7 @@ export function extractContractIdByTemplatePattern(
  *
  * @example
  *   `const
+ *
  *   contractId = extractContractIdOrThrow(result, 'StockIssuance')`;
  *
  * @param response - The transaction tree response from submitAndWaitForTransactionTree

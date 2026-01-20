@@ -85,6 +85,7 @@ import type { CommandWithDisclosedContracts } from './types';
  * @example
  *   Creating
  *
+ *
  *   an issuer:
  *   ```typescript
  *   import { OcpClient } from '@open-captable-protocol/canton';
@@ -99,6 +100,7 @@ import type { CommandWithDisclosedContracts } from './types';
  *
  * @example
  *   Batch
+ *
  *
  *   cap table updates:
  *   ```typescript

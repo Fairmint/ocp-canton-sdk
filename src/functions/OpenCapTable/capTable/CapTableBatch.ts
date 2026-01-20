@@ -8,6 +8,7 @@
  *   ```typescript
  *
  *
+ *
  *   const result = await ocp.capTable
  *     .update({ capTableContractId, featuredAppRightContractDetails })
  *     .create('stakeholder', stakeholderData)
@@ -72,6 +73,7 @@ export class CapTableBatch {
    *
    * @example
    *   `batch.create('stakeholder',
+   *
    *   { id: 'sh-123', name: { legal_name: 'John Doe' }, stakeholder_type: 'INDIVIDUAL' })`;
    *
    * @param type - The OCF entity type to create
@@ -90,6 +92,7 @@ export class CapTableBatch {
    *
    * @example
    *   `batch.edit('stakeholder',
+   *
    *   { id: 'sh-123', name: { legal_name: 'Jane Doe' }, stakeholder_type: 'INDIVIDUAL' })`;
    *
    * @param type - The OCF entity type to edit
@@ -108,6 +111,7 @@ export class CapTableBatch {
    *
    * @example
    *   `batch.delete('document',
+   *
    *   'doc-123')`;
    *
    * @param type - The OCF entity type to delete

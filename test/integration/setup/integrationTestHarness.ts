@@ -16,6 +16,7 @@
  *   ```typescript
  *
  *
+ *
  *   createIntegrationTestSuite('Issuer operations', (getContext) => {
  *     test('creates issuer', async () => {
  *       const ctx = getContext();
@@ -298,6 +299,7 @@ export function getTestContext(): IntegrationTestContext {
  *
  * @example
  *   `createIntegrationTestSuite('Issuer
+ *
  *   ops', (getContext) => { test('...', () => { const ctx = getContext(); }); })`;
  *
  * @param name - The name of the test suite

@@ -12,6 +12,7 @@
  *   ```typescript
  *
  *
+ *
  *   defineEntityTests({
  *     entityName: 'StockClass',
  *     expectedObjectType: 'STOCK_CLASS',

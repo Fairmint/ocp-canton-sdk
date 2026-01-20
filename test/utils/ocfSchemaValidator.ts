@@ -190,6 +190,7 @@ export function getOcfValidator(): OcfSchemaValidator {
  *
  * @example
  *   `if
+ *
  *   (!isOcfValidationAvailable()) return;`;
  */
 export function isOcfValidationAvailable(): boolean {
@@ -201,6 +202,7 @@ export function isOcfValidationAvailable(): boolean {
  *
  * @example
  *   `await
+ *
  *   validateOcfObject({ object_type: 'ISSUER', id: 'issuer-1', legal_name: 'Acme' })`;
  *
  * @throws Error if validation fails or if OCF schemas are not available (unless OCP_SKIP_OCF_VALIDATION=true is set)

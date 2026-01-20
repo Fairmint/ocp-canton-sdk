@@ -19,6 +19,7 @@ import { getAllOcfTypes, getOcfMetadata, isValidOcfType, OCF_METADATA, type OcfO
  *
  * @example
  *   `getOcfDataFieldName('STAKEHOLDER')`;
+ *
  *   returns`'stakeholder_data'`;
  *
  * @param type - The OCF object type
@@ -37,6 +38,7 @@ export function getOcfDataFieldName(type: OcfObjectType): string {
  *
  * @example
  *   `extractOcfIdFromCreateArgs('STAKEHOLDER',
+ *
  *   { stakeholder_data: { id: 'sh-123' } })` returns `'sh-123'`
  *
  * @param type - The OCF object type
@@ -68,6 +70,7 @@ export function extractOcfIdFromCreateArgs(type: OcfObjectType, createArgs: unkn
  *
  * @example
  *   `getOcfTypeLabel('STAKEHOLDER',
+ *
  *   1)` returns `'1 Stakeholder'`, `getOcfTypeLabel('STAKEHOLDER', 5)` returns `'5 Stakeholders'`
  *
  * @param type - The OCF object type
