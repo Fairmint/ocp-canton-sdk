@@ -16,7 +16,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 | [Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)         | Open               | Medium   | Add correlation IDs, logging hooks, and trace propagation            |
 | [Command Tracking & Retry Logic](./2026/01/ai/2026.01.16-command-tracking-retry-logic.md)           | Open               | Medium   | Command deduplication, retry with exponential backoff                |
 | [Environment Configuration Patterns](./2026/01/ai/2026.01.16-environment-configuration-patterns.md) | Open               | Medium   | Environment presets for LocalNet/DevNet, configuration validation    |
-| [Property-Based Testing](./2026/01/ai/2026.01.16-property-based-testing.md)                         | Open               | Low      | Add fast-check property tests for type conversion invariants         |
 | [Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)               | Open               | Low      | Deprecate per-entity functions replaced by batch API                 |
 | [CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)                     | Partially Complete | Low      | Add CouponMinter helper functions (TPS helper done, full ops future) |
 | [Health Check Integration](./2026/01/ai/2026.01.16-health-check-integration.md)                     | Open               | Low      | Service health check utilities and wait-for-ready patterns           |
@@ -26,6 +25,7 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 | Task                                                                                                  | Completed  | Description                                                            |
 | ----------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| [Property-Based Testing](./2026/01/ai/2026.01.16-property-based-testing.md)                           | 2026-01-20 | Property tests using fast-check for type conversion invariants         |
 | [Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)                 | 2026-01-20 | Runtime type guards and validation utilities for OCF objects           |
 | [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md) | 2026-01-16 | Support new `amuletRulesCidOverride` parameter (no SDK changes needed) |
 | [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                      | 2026-01-16 | Update SDK for Canton 3.4 compatibility                                |
