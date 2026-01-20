@@ -18,14 +18,8 @@ import { getAllOcfTypes, getOcfMetadata, isValidOcfType, OCF_METADATA, type OcfO
  * from transaction trees.
  *
  * @example
- *   ```typescript
- *
- *
- *
- *   getOcfDataFieldName('STAKEHOLDER'); // 'stakeholder_data'
- *   getOcfDataFieldName('TX_STOCK_ISSUANCE'); // 'issuance_data'
- *   getOcfDataFieldName('STOCK_CLASS'); // 'stock_class_data'
- *   ```;
+ *   `getOcfDataFieldName('STAKEHOLDER')`;
+ *   returns`'stakeholder_data'`;
  *
  * @param type - The OCF object type
  * @returns The data field name (e.g., 'stakeholder_data', 'issuance_data')
@@ -42,13 +36,8 @@ export function getOcfDataFieldName(type: OcfObjectType): string {
  * Uses the type's metadata to navigate to the ID field.
  *
  * @example
- *   ```typescript
- *
- *
- *
- *   const args = { stakeholder_data: { id: 'sh-123', name: { legal_name: 'John' } } };
- *   extractOcfIdFromCreateArgs('STAKEHOLDER', args); // 'sh-123'
- *   ```;
+ *   `extractOcfIdFromCreateArgs('STAKEHOLDER',
+ *   { stakeholder_data: { id: 'sh-123' } })` returns `'sh-123'`
  *
  * @param type - The OCF object type
  * @param createArgs - The contract's create arguments from a transaction tree
@@ -78,14 +67,8 @@ export function extractOcfIdFromCreateArgs(type: OcfObjectType, createArgs: unkn
  * Useful for logging, notifications, and UI display.
  *
  * @example
- *   ```typescript
- *
- *
- *
- *   getOcfTypeLabel('STAKEHOLDER', 1); // '1 Stakeholder'
- *   getOcfTypeLabel('STAKEHOLDER', 5); // '5 Stakeholders'
- *   getOcfTypeLabel('TX_STOCK_ISSUANCE', 1); // '1 Stock Issuance'
- *   ```;
+ *   `getOcfTypeLabel('STAKEHOLDER',
+ *   1)` returns `'1 Stakeholder'`, `getOcfTypeLabel('STAKEHOLDER', 5)` returns `'5 Stakeholders'`
  *
  * @param type - The OCF object type
  * @param count - Number of items (for pluralization)

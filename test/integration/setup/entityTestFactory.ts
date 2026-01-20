@@ -12,21 +12,12 @@
  *   ```typescript
  *
  *
- *
- *   import { defineEntityTests } from '../setup/entityTestFactory';
- *
  *   defineEntityTests({
  *     entityName: 'StockClass',
  *     expectedObjectType: 'STOCK_CLASS',
  *     createTestData: createTestStockClassData,
- *     setupEntity: async (ctx, data) => {
- *       const issuerSetup = await setupTestIssuer(ctx.ocp, { ... });
- *       return setupTestStockClass(ctx.ocp, { stockClassData: data, ... });
- *     },
- *     getAsOcf: async (ctx, contractId) => {
- *       const result = await ctx.ocp.OpenCapTable.stockClass.getStockClassAsOcf({ contractId });
- *       return result.stockClass;
- *     },
+ *     setupEntity: async (ctx, data) => setupTestStockClass(ctx.ocp, { stockClassData: data }),
+ *     getAsOcf: async (ctx, cid) => (await ctx.ocp.OpenCapTable.stockClass.getStockClassAsOcf({ contractId: cid })).stockClass,
  *     getIdFromResult: (result) => result.stockClassContractId,
  *   });
  *   ```;

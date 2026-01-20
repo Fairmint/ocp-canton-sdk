@@ -334,22 +334,9 @@ export interface GetStockClassAsOcfResult {
  *   ```typescript
  *
  *
- *
- *   const result = await getStockClassAsOcf(client, {
- *     contractId: "1234567890abcdef"
- *   });
- *
+ *   const result = await getStockClassAsOcf(client, { contractId: "1234567890abcdef" });
  *   console.log(result.stockClass);
- *   // {
- *   //   object_type: "STOCK_CLASS",
- *   //   name: "Series A Preferred",
- *   //   class_type: "PREFERRED",
- *   //   default_id_prefix: "SA-",
- *   //   initial_shares_authorized: "1000000",
- *   //   votes_per_share: "1",
- *   //   seniority: "1",
- *   //   // ... other fields
- *   // }
+ *   // { object_type: "STOCK_CLASS", name: "Series A Preferred", class_type: "PREFERRED", ... }
  *   ```;
  *
  * @param client - The ledger JSON API client

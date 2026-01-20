@@ -5,13 +5,8 @@
  * environment.
  *
  * @example
- *   Running
- *
- *
- *   with LocalNet defaults
- *   ```bash
- *   npm run test:integration
- *   ```
+ *   `npm
+ *   run test:integration`;
  */
 
 import { OcpClient } from '../../src/OcpClient';

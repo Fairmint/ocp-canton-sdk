@@ -85,39 +85,25 @@ import type { CommandWithDisclosedContracts } from './types';
  * @example
  *   Creating
  *
- *
- *   an issuer
+ *   an issuer:
  *   ```typescript
  *   import { OcpClient } from '@open-captable-protocol/canton';
- *
  *   const ocp = new OcpClient({ network: 'localnet' });
- *
  *   const cmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({
  *   issuerAuthorizationContractDetails: authDetails,
  *   featuredAppRightContractDetails: featuredDetails,
  *   issuerParty: 'alice::...',
- *   issuerData: {
- *   id: 'issuer-1',
- *   legal_name: 'Acme Corp',
- *   formation_date: '2024-01-01',
- *   country_of_formation: 'US',
- *   tax_ids: [],
- *   },
+ *   issuerData: { id: 'issuer-1', legal_name: 'Acme Corp', formation_date: '2024-01-01', country_of_formation: 'US', tax_ids: [] },
  *   });
  *   ```
  *
  * @example
  *   Batch
  *
- *
- *   cap table updates
+ *   cap table updates:
  *   ```typescript
  *   const result = await ocp.OpenCapTable.capTable
- *   .update({
- *   capTableContractId,
- *   featuredAppRightContractDetails,
- *   actAs: [issuerParty],
- *   })
+ *   .update({ capTableContractId, featuredAppRightContractDetails, actAs: [issuerParty] })
  *   .create('stakeholder', stakeholderData)
  *   .create('stockClass', stockClassData)
  *   .edit('stakeholder', updatedStakeholderData)

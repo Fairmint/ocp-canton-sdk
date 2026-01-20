@@ -8,12 +8,8 @@
  *   ```typescript
  *
  *
- *
  *   const result = await ocp.capTable
- *     .update({
- *       capTableContractId,
- *       featuredAppRightContractDetails,
- *     })
+ *     .update({ capTableContractId, featuredAppRightContractDetails })
  *     .create('stakeholder', stakeholderData)
  *     .create('stockClass', stockClassData)
  *     .edit('stakeholder', updatedStakeholderData)
@@ -75,16 +71,8 @@ export class CapTableBatch {
    * Add a create operation to the batch.
    *
    * @example
-   *   ```typescript
-   *
-   *
-   *
-   *   batch.create('stakeholder', {
-   *     id: 'sh-123',
-   *     name: { legal_name: 'John Doe' },
-   *     stakeholder_type: 'INDIVIDUAL',
-   *   });
-   *   ```;
+   *   `batch.create('stakeholder',
+   *   { id: 'sh-123', name: { legal_name: 'John Doe' }, stakeholder_type: 'INDIVIDUAL' })`;
    *
    * @param type - The OCF entity type to create
    * @param data - The native OCF data for the entity
@@ -101,16 +89,8 @@ export class CapTableBatch {
    * Add an edit operation to the batch.
    *
    * @example
-   *   ```typescript
-   *
-   *
-   *
-   *   batch.edit('stakeholder', {
-   *     id: 'sh-123',
-   *     name: { legal_name: 'Jane Doe' },
-   *     stakeholder_type: 'INDIVIDUAL',
-   *   });
-   *   ```;
+   *   `batch.edit('stakeholder',
+   *   { id: 'sh-123', name: { legal_name: 'Jane Doe' }, stakeholder_type: 'INDIVIDUAL' })`;
    *
    * @param type - The OCF entity type to edit
    * @param data - The updated native OCF data (must include the entity's id)
@@ -127,12 +107,8 @@ export class CapTableBatch {
    * Add a delete operation to the batch.
    *
    * @example
-   *   ```typescript
-   *
-   *
-   *
-   *   batch.delete('document', 'doc-123');
-   *   ```;
+   *   `batch.delete('document',
+   *   'doc-123')`;
    *
    * @param type - The OCF entity type to delete
    * @param id - The OCF object ID to delete

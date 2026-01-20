@@ -16,17 +16,10 @@
  *   ```typescript
  *
  *
- *
- *   import { createIntegrationTestSuite, IntegrationTestContext } from '../setup';
- *
  *   createIntegrationTestSuite('Issuer operations', (getContext) => {
  *     test('creates issuer', async () => {
  *       const ctx = getContext();
- *       const issuerSetup = await setupTestIssuer(ctx.ocp, {
- *         issuerParty: ctx.issuerParty,
- *         featuredAppRightContractDetails: ctx.featuredAppRight,
- *       });
- *       // ...
+ *       const issuerSetup = await setupTestIssuer(ctx.ocp, { issuerParty: ctx.issuerParty });
  *     });
  *   });
  *   ```;
@@ -304,17 +297,8 @@ export function getTestContext(): IntegrationTestContext {
  * clearly when infrastructure is unavailable.
  *
  * @example
- *   ```typescript
- *
- *
- *
- *   createIntegrationTestSuite('Issuer operations', (getContext) => {
- *     test('creates issuer', async () => {
- *       const ctx = getContext();
- *       // ... test implementation
- *     });
- *   });
- *   ```;
+ *   `createIntegrationTestSuite('Issuer
+ *   ops', (getContext) => { test('...', () => { const ctx = getContext(); }); })`;
  *
  * @param name - The name of the test suite
  * @param testFn - A function that defines the tests, receives the test context getter
