@@ -83,10 +83,7 @@ export function isIsoDateString(value: unknown): value is string {
  */
 export function isMonetary(value: unknown): value is { amount: string | number; currency: string } {
   if (!isObject(value)) return false;
-  return (
-    ('amount' in value && isNumericValue(value.amount)) ||
-    (typeof value.amount === 'string' && 'currency' in value && typeof value.currency === 'string')
-  );
+  return 'amount' in value && isNumericValue(value.amount) && 'currency' in value && typeof value.currency === 'string';
 }
 
 // ===== OCF Object Type Guards =====
