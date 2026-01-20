@@ -1,3 +1,4 @@
+export * from './errors';
 export * from './functions';
 export * from './OcpClient';
 export * from './types';

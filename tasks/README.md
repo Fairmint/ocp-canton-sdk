@@ -21,23 +21,21 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 | Task                                                                                                | Status             | Priority | Description                                                          |
 | --------------------------------------------------------------------------------------------------- | ------------------ | -------- | -------------------------------------------------------------------- |
-| [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)       | Partially Complete | Medium   | API ergonomics, type safety, testing (Phase 1-2 complete)            |
 | [OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)            | Partially Complete | Medium   | Simplify OcpClient class, cleanup require() (context caching done)   |
 | [Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)           | Partially Complete | Medium   | Extract and centralize duplicated entity conversion code             |
-| [Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)                         | Open               | Medium   | Implement OcpValidationError, OcpContractError for better DX         |
 | [Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)         | Open               | Medium   | Add correlation IDs, logging hooks, and trace propagation            |
 | [Command Tracking & Retry Logic](./2026/01/ai/2026.01.16-command-tracking-retry-logic.md)           | Open               | Medium   | Command deduplication, retry with exponential backoff                |
 | [Environment Configuration Patterns](./2026/01/ai/2026.01.16-environment-configuration-patterns.md) | Open               | Medium   | Environment presets for LocalNet/DevNet, configuration validation    |
 | [Property-Based Testing](./2026/01/ai/2026.01.16-property-based-testing.md)                         | Open               | Low      | Add fast-check property tests for type conversion invariants         |
 | [Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)               | Open               | Low      | Deprecate per-entity functions replaced by batch API                 |
 | [CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)                     | Partially Complete | Low      | Add CouponMinter helper functions (TPS helper done, full ops future) |
-| [Health Check Integration](./2026/01/ai/2026.01.16-health-check-integration.md)                     | Open               | Low      | Service health check utilities and wait-for-ready patterns           |
-| [PQS Query Store Support](./2026/01/ai/2026.01.16-pqs-query-store-support.md)                       | Open               | Low      | Evaluate PQS integration for optimized read queries                  |
 
 ## Completed Tasks
 
 | Task                                                                                                  | Completed  | Description                                                            |
 | ----------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)         | 2026-01-20 | API ergonomics, type safety, testing improvements - all phases done    |
+| [Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)                           | 2026-01-20 | Implement OcpValidationError, OcpContractError for better DX           |
 | [Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)                 | 2026-01-20 | Runtime type guards and validation utilities for OCF objects           |
 | [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md) | 2026-01-16 | Support new `amuletRulesCidOverride` parameter (no SDK changes needed) |
 | [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                      | 2026-01-16 | Update SDK for Canton 3.4 compatibility                                |

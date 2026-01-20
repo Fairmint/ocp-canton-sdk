@@ -5,6 +5,7 @@
  * invalid inputs.
  */
 
+import { OcpValidationError } from '../../src/errors';
 import {
   damlTimeToDateString,
   dateStringToDAMLTime,
@@ -53,16 +54,18 @@ describe('Type Coercion Utilities', () => {
       expect(normalizeNumericString('-0.100')).toBe('-0.1');
     });
 
-    test('throws error for scientific notation', () => {
-      expect(() => normalizeNumericString('1.5e10')).toThrow('scientific notation is not supported');
-      expect(() => normalizeNumericString('1E10')).toThrow('scientific notation is not supported');
+    test('throws OcpValidationError for scientific notation', () => {
+      expect(() => normalizeNumericString('1.5e10')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString('1.5e10')).toThrow('Scientific notation is not supported');
+      expect(() => normalizeNumericString('1E10')).toThrow(OcpValidationError);
     });
 
-    test('throws error for invalid numeric strings', () => {
+    test('throws OcpValidationError for invalid numeric strings', () => {
+      expect(() => normalizeNumericString('abc')).toThrow(OcpValidationError);
       expect(() => normalizeNumericString('abc')).toThrow('Invalid numeric string format');
-      expect(() => normalizeNumericString('12.34.56')).toThrow('Invalid numeric string format');
-      expect(() => normalizeNumericString('')).toThrow('Invalid numeric string format');
-      expect(() => normalizeNumericString(' 123 ')).toThrow('Invalid numeric string format');
+      expect(() => normalizeNumericString('12.34.56')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString('')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString(' 123 ')).toThrow(OcpValidationError);
     });
   });
 

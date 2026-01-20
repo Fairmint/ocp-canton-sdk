@@ -1,3 +1,4 @@
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfStockClass, StockClassType } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, monetaryToDaml } from '../../../utils/typeConversions';
 
@@ -11,14 +12,22 @@ function stockClassTypeToDaml(
       return 'OcfStockClassTypeCommon';
     default: {
       const exhaustiveCheck: never = stockClassType;
-      throw new Error(`Unknown stock class type: ${String(exhaustiveCheck)}`);
+      throw new OcpParseError(`Unknown stock class type: ${String(exhaustiveCheck)}`, {
+        source: 'stockClass.class_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
 
 export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<string, unknown> {
   const d = stockClassData;
-  if (!d.id) throw new Error('stockClassData.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockClass.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     name: d.name,

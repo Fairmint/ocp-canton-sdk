@@ -7,6 +7,7 @@
 
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, Monetary } from '../types/native';
 
 // ===== Date and Time Conversion Helpers =====
@@ -48,17 +49,25 @@ export function numberToString(value: number | string): string {
  * "5000000.0000000000" but OCF expects "5000000". Also handles removing the decimal point if all fractional digits are
  * zeros.
  *
- * @throws Error if the string contains scientific notation (e.g., "1.5e10") or is not a valid numeric string
+ * @throws OcpValidationError if the string contains scientific notation (e.g., "1.5e10") or is not a valid numeric string
  */
 export function normalizeNumericString(value: string): string {
   // Validate: reject scientific notation
   if (value.toLowerCase().includes('e')) {
-    throw new Error(`Invalid numeric string: scientific notation is not supported (got "${value}")`);
+    throw new OcpValidationError('numericString', `Scientific notation is not supported`, {
+      expectedType: 'string (decimal format)',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
   }
 
   // Validate: must be a valid numeric string (optional minus, digits, optional decimal and more digits)
   if (!/^-?\d+(\.\d+)?$/.test(value)) {
-    throw new Error(`Invalid numeric string format (got "${value}")`);
+    throw new OcpValidationError('numericString', `Invalid numeric string format`, {
+      expectedType: 'string (decimal format)',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
   }
 
   // If no decimal point, return as-is
@@ -141,7 +150,10 @@ function addressTypeToDaml(addressType: AddressType): Fairmint.OpenCapTable.Type
       return 'OcfAddressTypeOther';
     default: {
       const exhaustiveCheck: never = addressType;
-      throw new Error(`Unknown address type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown address type: ${exhaustiveCheck as string}`, {
+        source: 'address.address_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -156,7 +168,10 @@ function damlAddressTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfAddres
       return 'OTHER';
     default: {
       const exhaustiveCheck: never = damlType;
-      throw new Error(`Unknown DAML address type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown DAML address type: ${exhaustiveCheck as string}`, {
+        source: 'address.address_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -217,5 +232,7 @@ export function extractUpdateId(response: SubmitAndWaitForTransactionTreeRespons
     return transaction.updateId;
   }
 
-  throw new Error('updateId not found in transaction tree');
+  throw new OcpContractError('updateId not found in transaction tree', {
+    code: OcpErrorCodes.RESULT_NOT_FOUND,
+  });
 }

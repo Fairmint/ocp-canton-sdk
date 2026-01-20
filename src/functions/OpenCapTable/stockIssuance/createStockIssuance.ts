@@ -1,3 +1,4 @@
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfStockIssuance, StockIssuanceType } from '../../../types';
 import {
   cleanComments,
@@ -15,16 +16,44 @@ function getIssuanceType(t: StockIssuanceType | undefined): string | null {
     case 'FOUNDERS_STOCK':
       return 'OcfStockIssuanceFounders';
     default:
-      throw new Error(`Unknown stock issuance type: ${String(t)}`);
+      throw new OcpParseError(`Unknown stock issuance type: ${String(t)}`, {
+        source: 'stockIssuance.issuance_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
   }
 }
 
 export function stockIssuanceDataToDaml(d: OcfStockIssuance): Record<string, unknown> {
-  if (!d.id) throw new Error('stockIssuance.id is required');
-  if (!d.security_id) throw new Error('stockIssuance.security_id is required');
-  if (!d.custom_id) throw new Error('stockIssuance.custom_id is required');
-  if (!d.stakeholder_id) throw new Error('stockIssuance.stakeholder_id is required');
-  if (!d.stock_class_id) throw new Error('stockIssuance.stock_class_id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockIssuance.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
+  if (!d.security_id) {
+    throw new OcpValidationError('stockIssuance.security_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.security_id,
+    });
+  }
+  if (!d.custom_id) {
+    throw new OcpValidationError('stockIssuance.custom_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.custom_id,
+    });
+  }
+  if (!d.stakeholder_id) {
+    throw new OcpValidationError('stockIssuance.stakeholder_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.stakeholder_id,
+    });
+  }
+  if (!d.stock_class_id) {
+    throw new OcpValidationError('stockIssuance.stock_class_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.stock_class_id,
+    });
+  }
 
   return {
     id: d.id,
