@@ -125,7 +125,7 @@ describe('Property-based tests: Type Conversions', () => {
       fc.assert(
         fc.property(fc.tuple(fc.float({ min: 1, max: 100 }), fc.integer({ min: 1, max: 15 })), ([base, exp]) => {
           const scientific = `${base}e${exp}`;
-          expect(() => normalizeNumericString(scientific)).toThrow('scientific notation');
+          expect(() => normalizeNumericString(scientific)).toThrow(/scientific notation/i);
         }),
         { numRuns: 100 }
       );
