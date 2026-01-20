@@ -26,12 +26,12 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ## Completed Tasks
 
-| Task                                                                                       | Completed  | Description                                                         |
-| ------------------------------------------------------------------------------------------ | ---------- | ------------------------------------------------------------------- |
+| Task                                                                                                  | Completed  | Description                                                            |
+| ----------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
 | [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md) | 2026-01-16 | Support new `amuletRulesCidOverride` parameter (no SDK changes needed) |
-| [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                           | 2026-01-16 | Update SDK for Canton 3.4 compatibility                             |
-| [Comprehensive Integration Tests](./2025/12/2025.12.30-comprehensive-integration-tests.md) | 2026-01-12 | Expanded integration test coverage with dynamic contract deployment |
-| [Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)      | 2026-01-13 | 13 delete tests enabled; 8 remaining blocked by infrastructure      |
+| [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                      | 2026-01-16 | Update SDK for Canton 3.4 compatibility                                |
+| [Comprehensive Integration Tests](./2025/12/2025.12.30-comprehensive-integration-tests.md)            | 2026-01-12 | Expanded integration test coverage with dynamic contract deployment    |
+| [Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)                 | 2026-01-13 | 13 delete tests enabled; 8 remaining blocked by infrastructure         |
 
 ## Related ADRs
 
