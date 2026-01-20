@@ -369,7 +369,8 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
     };
 
     // Should throw during create() due to validation (validation happens synchronously)
-    expect(() => batch.create('stakeholder', invalidStakeholderData)).toThrow('stakeholder.id is required');
+    // The error message now uses structured error format with field path
+    expect(() => batch.create('stakeholder', invalidStakeholderData)).toThrow("'stakeholder.id'");
   });
 
   /**

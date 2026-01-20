@@ -1,5 +1,6 @@
 /** Unit tests for typeConversions utility functions. */
 
+import { OcpValidationError } from '../../src/errors';
 import { normalizeNumericString } from '../../src/utils/typeConversions';
 
 describe('normalizeNumericString', () => {
@@ -30,38 +31,40 @@ describe('normalizeNumericString', () => {
   });
 
   describe('invalid inputs - scientific notation', () => {
-    test('rejects lowercase e notation', () => {
-      expect(() => normalizeNumericString('1.5e10')).toThrow(
-        'Invalid numeric string: scientific notation is not supported (got "1.5e10")'
-      );
-      expect(() => normalizeNumericString('1e5')).toThrow('scientific notation is not supported');
-      expect(() => normalizeNumericString('2.5e-3')).toThrow('scientific notation is not supported');
+    test('rejects lowercase e notation with OcpValidationError', () => {
+      expect(() => normalizeNumericString('1.5e10')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString('1.5e10')).toThrow('Scientific notation is not supported');
+      expect(() => normalizeNumericString('1e5')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString('2.5e-3')).toThrow(OcpValidationError);
     });
 
-    test('rejects uppercase E notation', () => {
-      expect(() => normalizeNumericString('1.5E10')).toThrow('scientific notation is not supported');
-      expect(() => normalizeNumericString('1E5')).toThrow('scientific notation is not supported');
-      expect(() => normalizeNumericString('2.5E-3')).toThrow('scientific notation is not supported');
+    test('rejects uppercase E notation with OcpValidationError', () => {
+      expect(() => normalizeNumericString('1.5E10')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString('1.5E10')).toThrow('Scientific notation is not supported');
+      expect(() => normalizeNumericString('1E5')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString('2.5E-3')).toThrow(OcpValidationError);
     });
   });
 
   describe('invalid inputs - malformed strings', () => {
-    test('rejects non-numeric strings', () => {
-      expect(() => normalizeNumericString('abc')).toThrow('Invalid numeric string format (got "abc")');
-      expect(() => normalizeNumericString('12.34.56')).toThrow('Invalid numeric string format');
-      expect(() => normalizeNumericString('12,345')).toThrow('Invalid numeric string format');
+    test('rejects non-numeric strings with OcpValidationError', () => {
+      expect(() => normalizeNumericString('abc')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString('abc')).toThrow('Invalid numeric string format');
+      expect(() => normalizeNumericString('12.34.56')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString('12,345')).toThrow(OcpValidationError);
     });
 
-    test('rejects empty or invalid formats', () => {
+    test('rejects empty or invalid formats with OcpValidationError', () => {
+      expect(() => normalizeNumericString('')).toThrow(OcpValidationError);
       expect(() => normalizeNumericString('')).toThrow('Invalid numeric string format');
-      expect(() => normalizeNumericString('.')).toThrow('Invalid numeric string format');
-      expect(() => normalizeNumericString('-.5')).toThrow('Invalid numeric string format');
+      expect(() => normalizeNumericString('.')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString('-.5')).toThrow(OcpValidationError);
     });
 
-    test('rejects strings with spaces', () => {
-      expect(() => normalizeNumericString('123 456')).toThrow('Invalid numeric string format');
-      expect(() => normalizeNumericString(' 123')).toThrow('Invalid numeric string format');
-      expect(() => normalizeNumericString('123 ')).toThrow('Invalid numeric string format');
+    test('rejects strings with spaces with OcpValidationError', () => {
+      expect(() => normalizeNumericString('123 456')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString(' 123')).toThrow(OcpValidationError);
+      expect(() => normalizeNumericString('123 ')).toThrow(OcpValidationError);
     });
   });
 });
