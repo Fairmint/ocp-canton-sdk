@@ -11,7 +11,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 | [Remaining OCF Object Types](./2026/01/ai/2026.01.13-remaining-ocf-types.md)                        | Open               | Medium   | Implement SDK support for 27 remaining OCF types from DAML spec      |
 | [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)       | Partially Complete | Medium   | API ergonomics, type safety, testing (Phase 1-2 complete)            |
 | [OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)            | Partially Complete | Medium   | Simplify OcpClient class, cleanup require() (context caching done)   |
-| [Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)           | Partially Complete | Medium   | Extract and centralize duplicated entity conversion code             |
 | [Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)                         | Open               | Medium   | Implement OcpValidationError, OcpContractError for better DX         |
 | [Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)         | Open               | Medium   | Add correlation IDs, logging hooks, and trace propagation            |
 | [Command Tracking & Retry Logic](./2026/01/ai/2026.01.16-command-tracking-retry-logic.md)           | Open               | Medium   | Command deduplication, retry with exponential backoff                |
@@ -26,6 +25,7 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 | Task                                                                                                  | Completed  | Description                                                            |
 | ----------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| [Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)             | 2026-01-20 | Extract and centralize duplicated entity conversion code               |
 | [Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)                 | 2026-01-20 | Runtime type guards and validation utilities for OCF objects           |
 | [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md) | 2026-01-16 | Support new `amuletRulesCidOverride` parameter (no SDK changes needed) |
 | [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                      | 2026-01-16 | Update SDK for Canton 3.4 compatibility                                |
