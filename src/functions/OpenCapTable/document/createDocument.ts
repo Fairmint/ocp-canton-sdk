@@ -123,12 +123,6 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
   }
 }
 
-/**
- * Convert OCF document data to DAML format.
- *
- * @deprecated Use `ocp.OpenCapTable.capTable.update().create('document', data).execute()` instead.
- *   This function will be removed in a future major version.
- */
 export function documentDataToDaml(d: OcfDocument): Record<string, unknown> {
   if (!d.id) throw new Error('document.id is required');
   if (!d.md5) throw new Error('document.md5 is required');

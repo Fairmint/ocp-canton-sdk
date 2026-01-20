@@ -1,14 +1,6 @@
 import type { OcfEquityCompensationCancellation } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
 
-/**
- * Convert native equity compensation cancellation data to DAML format.
- *
- * @deprecated Use `ocp.OpenCapTable.capTable.update().create('equityCompensationCancellation', data).execute()` instead.
- *   This function will be removed in a future major version.
- * @param d - The native equity compensation cancellation data
- * @returns DAML-formatted equity compensation cancellation data
- */
 export function equityCompensationCancellationDataToDaml(
   d: OcfEquityCompensationCancellation
 ): Record<string, unknown> {

@@ -103,12 +103,6 @@ function contactInfoWithoutNameToDaml(
   };
 }
 
-/**
- * Convert OCF stakeholder data to DAML format.
- *
- * @deprecated Use `ocp.OpenCapTable.capTable.update().create('stakeholder', data).execute()` instead.
- *   This function will be removed in a future major version.
- */
 export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
   if (!data.id) throw new Error('stakeholder.id is required');
 

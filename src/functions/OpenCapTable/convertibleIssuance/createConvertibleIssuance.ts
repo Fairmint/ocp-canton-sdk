@@ -331,12 +331,6 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
   };
 }
 
-/**
- * Convert OCF convertible issuance data to DAML format.
- *
- * @deprecated Use `ocp.OpenCapTable.capTable.update().create('convertibleIssuance', data).execute()` instead.
- *   This function will be removed in a future major version.
- */
 export function convertibleIssuanceDataToDaml(d: {
   id: string;
   date: string;

@@ -48,12 +48,6 @@ const terminationWindowPeriodTypeMap: Record<
   MONTHS: 'OcfPeriodMonths',
 };
 
-/**
- * Convert OCF equity compensation issuance data to DAML format.
- *
- * @deprecated Use `ocp.OpenCapTable.capTable.update().create('equityCompensationIssuance', data).execute()` instead.
- *   This function will be removed in a future major version.
- */
 export function equityCompensationIssuanceDataToDaml(
   d: OcfEquityCompensationIssuance & {
     id: string;

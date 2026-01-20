@@ -19,12 +19,6 @@ function getIssuanceType(t: StockIssuanceType | undefined): string | null {
   }
 }
 
-/**
- * Convert OCF stock issuance data to DAML format.
- *
- * @deprecated Use `ocp.OpenCapTable.capTable.update().create('stockIssuance', data).execute()` instead.
- *   This function will be removed in a future major version.
- */
 export function stockIssuanceDataToDaml(d: OcfStockIssuance): Record<string, unknown> {
   if (!d.id) throw new Error('stockIssuance.id is required');
   if (!d.security_id) throw new Error('stockIssuance.security_id is required');

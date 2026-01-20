@@ -212,12 +212,6 @@ function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.OCF.
   };
 }
 
-/**
- * Convert OCF vesting terms data to DAML format.
- *
- * @deprecated Use `ocp.OpenCapTable.capTable.update().create('vestingTerms', data).execute()` instead.
- *   This function will be removed in a future major version.
- */
 export function vestingTermsDataToDaml(d: OcfVestingTerms): Record<string, unknown> {
   if (!d.id) throw new Error('vestingTerms.id is required');
 

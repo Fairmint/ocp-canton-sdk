@@ -20,12 +20,6 @@ function cancellationBehaviorToDaml(
   }
 }
 
-/**
- * Convert OCF stock plan data to DAML format.
- *
- * @deprecated Use `ocp.OpenCapTable.capTable.update().create('stockPlan', data).execute()` instead.
- *   This function will be removed in a future major version.
- */
 export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData {
   if (!d.id) throw new Error('stockPlan.id is required');
   return {
