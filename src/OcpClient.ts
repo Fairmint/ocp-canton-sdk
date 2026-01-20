@@ -86,7 +86,8 @@ import type { CommandWithDisclosedContracts } from './types';
  * - **PaymentStreams**: Recurring payment stream management
  *
  * @example
- *   Creating an issuer
+ *   Creating
+ *   an issuer
  *   ```typescript
  *   import { OcpClient } from '@open-captable-protocol/canton';
  *
@@ -107,7 +108,8 @@ import type { CommandWithDisclosedContracts } from './types';
  *   ```
  *
  * @example
- *   Batch cap table updates
+ *   Batch
+ *   cap table updates
  *   ```typescript
  *   const result = await ocp.OpenCapTable.capTable
  *   .update({
