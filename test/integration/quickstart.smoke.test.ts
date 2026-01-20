@@ -7,6 +7,7 @@
  * @example
  *   Running
  *
+ *
  *   with LocalNet defaults
  *   ```bash
  *   npm run test:integration

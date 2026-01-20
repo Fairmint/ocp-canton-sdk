@@ -8,6 +8,7 @@
  *   ```bash
  *
  *
+ *
  *   npx ts-node scripts/quickstart/waitForReady.ts
  *   ```;
  */

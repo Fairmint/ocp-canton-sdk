@@ -113,6 +113,7 @@ function isUndefinedLike(value: unknown): boolean {
  *   ```typescript
  *
  *
+ *
  *   const obj1 = { quantity: '100.0000000000', name: 'Test' };
  *   const obj2 = { quantity: '100', name: 'Test' };
  *   ocfDeepEqual(obj1, obj2); // true - normalized numbers match

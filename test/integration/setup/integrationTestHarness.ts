@@ -16,6 +16,7 @@
  *   ```typescript
  *
  *
+ *
  *   import { createIntegrationTestSuite, IntegrationTestContext } from '../setup';
  *
  *   createIntegrationTestSuite('Issuer operations', (getContext) => {
@@ -304,6 +305,7 @@ export function getTestContext(): IntegrationTestContext {
  *
  * @example
  *   ```typescript
+ *
  *
  *
  *   createIntegrationTestSuite('Issuer operations', (getContext) => {
