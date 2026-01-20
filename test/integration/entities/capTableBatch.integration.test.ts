@@ -368,8 +368,8 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       stakeholder_type: 'INDIVIDUAL' as const,
     };
 
-    // Should throw during execute due to validation
-    await expect(batch.create('stakeholder', invalidStakeholderData).execute()).rejects.toThrow();
+    // Should throw during create() due to validation (validation happens synchronously)
+    expect(() => batch.create('stakeholder', invalidStakeholderData)).toThrow('stakeholder.id is required');
   });
 
   /**
