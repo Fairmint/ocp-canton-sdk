@@ -388,9 +388,10 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
     expect(editDeleteResult.editedCids).toHaveLength(1);
     // Note: deletedCids is not currently returned by the DAML contract
 
-    // Verify the edit worked
+    // Verify the edit worked - use editDeleteResult.editedCids[0] since DAML archives the original
+    // contract and creates a new one with a new contract ID after an edit
     const editedOcf = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
-      contractId: extractContractIdString(createResult.createdCids[0]), // The first stakeholder was edited
+      contractId: extractContractIdString(editDeleteResult.editedCids[0]),
     });
     expect(editedOcf.stakeholder.name.legal_name).toBe('Successfully Edited');
   });
