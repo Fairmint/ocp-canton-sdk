@@ -5,6 +5,7 @@
  * batch UpdateCapTable API.
  */
 
+import { OcpValidationError } from '../../../errors';
 import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
 
 // Import existing converters
@@ -78,7 +79,12 @@ const VALUATION_TYPE_MAP: Record<ValuationType, string> = {
 // ===== Simple converters for types without dedicated files =====
 
 function stockAcceptanceDataToDaml(d: OcfStockAcceptance): Record<string, unknown> {
-  if (!d.id) throw new Error('stockAcceptance.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockAcceptance.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -88,7 +94,12 @@ function stockAcceptanceDataToDaml(d: OcfStockAcceptance): Record<string, unknow
 }
 
 function stockRetractionDataToDaml(d: OcfStockRetraction): Record<string, unknown> {
-  if (!d.id) throw new Error('stockRetraction.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockRetraction.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -99,7 +110,12 @@ function stockRetractionDataToDaml(d: OcfStockRetraction): Record<string, unknow
 }
 
 function stockConversionDataToDaml(d: OcfStockConversion): Record<string, unknown> {
-  if (!d.id) throw new Error('stockConversion.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockConversion.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -112,7 +128,12 @@ function stockConversionDataToDaml(d: OcfStockConversion): Record<string, unknow
 }
 
 function stockReissuanceDataToDaml(d: OcfStockReissuance): Record<string, unknown> {
-  if (!d.id) throw new Error('stockReissuance.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockReissuance.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -123,7 +144,12 @@ function stockReissuanceDataToDaml(d: OcfStockReissuance): Record<string, unknow
 }
 
 function stockConsolidationDataToDaml(d: OcfStockConsolidation): Record<string, unknown> {
-  if (!d.id) throw new Error('stockConsolidation.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockConsolidation.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -134,7 +160,12 @@ function stockConsolidationDataToDaml(d: OcfStockConsolidation): Record<string, 
 }
 
 function stockClassSplitDataToDaml(d: OcfStockClassSplit): Record<string, unknown> {
-  if (!d.id) throw new Error('stockClassSplit.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockClassSplit.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -150,7 +181,12 @@ function stockClassSplitDataToDaml(d: OcfStockClassSplit): Record<string, unknow
 function stockClassConversionRatioAdjustmentDataToDaml(
   d: OcfStockClassConversionRatioAdjustment
 ): Record<string, unknown> {
-  if (!d.id) throw new Error('stockClassConversionRatioAdjustment.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockClassConversionRatioAdjustment.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -164,7 +200,12 @@ function stockClassConversionRatioAdjustmentDataToDaml(
 }
 
 function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): Record<string, unknown> {
-  if (!d.id) throw new Error('stockPlanReturnToPool.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockPlanReturnToPool.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -176,7 +217,12 @@ function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): Record<st
 }
 
 function valuationDataToDaml(d: OcfValuation): Record<string, unknown> {
-  if (!d.id) throw new Error('valuation.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('valuation.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
 
   const damlValuationType = VALUATION_TYPE_MAP[d.valuation_type];
 
@@ -194,7 +240,12 @@ function valuationDataToDaml(d: OcfValuation): Record<string, unknown> {
 }
 
 function vestingStartDataToDaml(d: OcfVestingStart): Record<string, unknown> {
-  if (!d.id) throw new Error('vestingStart.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('vestingStart.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -205,7 +256,12 @@ function vestingStartDataToDaml(d: OcfVestingStart): Record<string, unknown> {
 }
 
 function vestingEventDataToDaml(d: OcfVestingEvent): Record<string, unknown> {
-  if (!d.id) throw new Error('vestingEvent.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('vestingEvent.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -216,7 +272,12 @@ function vestingEventDataToDaml(d: OcfVestingEvent): Record<string, unknown> {
 }
 
 function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): Record<string, unknown> {
-  if (!d.id) throw new Error('vestingAcceleration.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('vestingAcceleration.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -229,7 +290,12 @@ function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): Record<string
 
 // Warrant converters
 function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): Record<string, unknown> {
-  if (!d.id) throw new Error('warrantAcceptance.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('warrantAcceptance.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -239,7 +305,12 @@ function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): Record<string, un
 }
 
 function warrantExerciseDataToDaml(d: OcfWarrantExercise): Record<string, unknown> {
-  if (!d.id) throw new Error('warrantExercise.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('warrantExercise.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -253,7 +324,12 @@ function warrantExerciseDataToDaml(d: OcfWarrantExercise): Record<string, unknow
 }
 
 function warrantRetractionDataToDaml(d: OcfWarrantRetraction): Record<string, unknown> {
-  if (!d.id) throw new Error('warrantRetraction.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('warrantRetraction.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -264,7 +340,12 @@ function warrantRetractionDataToDaml(d: OcfWarrantRetraction): Record<string, un
 }
 
 function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string, unknown> {
-  if (!d.id) throw new Error('warrantTransfer.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('warrantTransfer.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -279,7 +360,12 @@ function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string, unknow
 
 // Convertible converters
 function convertibleAcceptanceDataToDaml(d: OcfConvertibleAcceptance): Record<string, unknown> {
-  if (!d.id) throw new Error('convertibleAcceptance.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('convertibleAcceptance.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -289,7 +375,12 @@ function convertibleAcceptanceDataToDaml(d: OcfConvertibleAcceptance): Record<st
 }
 
 function convertibleConversionDataToDaml(d: OcfConvertibleConversion): Record<string, unknown> {
-  if (!d.id) throw new Error('convertibleConversion.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('convertibleConversion.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -302,7 +393,12 @@ function convertibleConversionDataToDaml(d: OcfConvertibleConversion): Record<st
 }
 
 function convertibleRetractionDataToDaml(d: OcfConvertibleRetraction): Record<string, unknown> {
-  if (!d.id) throw new Error('convertibleRetraction.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('convertibleRetraction.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -313,7 +409,12 @@ function convertibleRetractionDataToDaml(d: OcfConvertibleRetraction): Record<st
 }
 
 function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record<string, unknown> {
-  if (!d.id) throw new Error('convertibleTransfer.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('convertibleTransfer.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -328,7 +429,12 @@ function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record<string
 
 // Equity compensation converters
 function equityCompensationAcceptanceDataToDaml(d: OcfEquityCompensationAcceptance): Record<string, unknown> {
-  if (!d.id) throw new Error('equityCompensationAcceptance.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('equityCompensationAcceptance.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -338,7 +444,12 @@ function equityCompensationAcceptanceDataToDaml(d: OcfEquityCompensationAcceptan
 }
 
 function equityCompensationReleaseDataToDaml(d: OcfEquityCompensationRelease): Record<string, unknown> {
-  if (!d.id) throw new Error('equityCompensationRelease.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('equityCompensationRelease.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -353,7 +464,12 @@ function equityCompensationReleaseDataToDaml(d: OcfEquityCompensationRelease): R
 }
 
 function equityCompensationRepricingDataToDaml(d: OcfEquityCompensationRepricing): Record<string, unknown> {
-  if (!d.id) throw new Error('equityCompensationRepricing.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('equityCompensationRepricing.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -364,7 +480,12 @@ function equityCompensationRepricingDataToDaml(d: OcfEquityCompensationRepricing
 }
 
 function equityCompensationRetractionDataToDaml(d: OcfEquityCompensationRetraction): Record<string, unknown> {
-  if (!d.id) throw new Error('equityCompensationRetraction.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('equityCompensationRetraction.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
@@ -375,7 +496,12 @@ function equityCompensationRetractionDataToDaml(d: OcfEquityCompensationRetracti
 }
 
 function equityCompensationTransferDataToDaml(d: OcfEquityCompensationTransfer): Record<string, unknown> {
-  if (!d.id) throw new Error('equityCompensationTransfer.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('equityCompensationTransfer.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),

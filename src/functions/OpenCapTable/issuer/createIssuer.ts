@@ -3,6 +3,7 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts, EmailType, OcfIssuer, PhoneType } from '../../../types';
 import { addressToDaml, cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 
@@ -16,7 +17,10 @@ function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfE
       return 'OcfEmailTypeOther';
     default: {
       const exhaustiveCheck: never = emailType;
-      throw new Error(`Unknown email type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown email type: ${exhaustiveCheck as string}`, {
+        source: 'issuer.email.email_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -41,7 +45,10 @@ function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfP
       return 'OcfPhoneOther';
     default: {
       const exhaustiveCheck: never = phoneType;
-      throw new Error(`Unknown phone type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown phone type: ${exhaustiveCheck as string}`, {
+        source: 'issuer.phone.phone_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -55,7 +62,12 @@ function phoneToDaml(phone: OcfIssuer['phone']): Fairmint.OpenCapTable.Types.Ocf
 }
 
 function issuerDataToDaml(issuerData: OcfIssuer): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
-  if (!issuerData.id) throw new Error('issuerData.id is required');
+  if (!issuerData.id) {
+    throw new OcpValidationError('issuer.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: issuerData.id,
+    });
+  }
   return {
     id: issuerData.id,
     legal_name: issuerData.legal_name,
