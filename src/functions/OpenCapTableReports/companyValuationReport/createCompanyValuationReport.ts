@@ -31,6 +31,7 @@ export interface CreateCompanyValuationReportResult {
  *   ```typescript
  *
  *
+ *
  *   const featuredAppRightContractDetails = {
  *     contractId: "1234567890abcdef",
  *     createdEventBlob: "serialized_contract_blob_here",
