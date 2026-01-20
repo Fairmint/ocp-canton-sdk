@@ -1,4 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type {
   ContactInfo,
   ContactInfoWithoutName,
@@ -20,7 +21,10 @@ function stakeholderTypeToDaml(
       return 'OcfStakeholderTypeInstitution';
     default: {
       const exhaustiveCheck: never = stakeholderType;
-      throw new Error(`Unknown stakeholder type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown stakeholder type: ${exhaustiveCheck as string}`, {
+        source: 'stakeholder.stakeholder_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -35,7 +39,10 @@ function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfE
       return 'OcfEmailTypeOther';
     default: {
       const exhaustiveCheck: never = emailType;
-      throw new Error(`Unknown email type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown email type: ${exhaustiveCheck as string}`, {
+        source: 'email.email_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -59,7 +66,10 @@ function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfP
       return 'OcfPhoneOther';
     default: {
       const exhaustiveCheck: never = phoneType;
-      throw new Error(`Unknown phone type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown phone type: ${exhaustiveCheck as string}`, {
+        source: 'phone.phone_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -104,7 +114,12 @@ function contactInfoWithoutNameToDaml(
 }
 
 export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
-  if (!data.id) throw new Error('stakeholder.id is required');
+  if (!data.id) {
+    throw new OcpValidationError('stakeholder.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: data.id,
+    });
+  }
 
   const dataWithSingular = data as OcfStakeholder & { current_relationship?: string };
   const relationships =
