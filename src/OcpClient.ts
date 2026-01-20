@@ -104,10 +104,10 @@ import type { CommandWithDisclosedContracts } from './types';
  *   ```typescript
  *   const ocp = new OcpClient({ network: 'localnet' });
  *
- *   // Set context once
+ *   // Set context once after initial setup
  *   ocp.context.setFeaturedAppRight(featuredAppRightDetails);
  *
- *   // Now operations that need it can access it automatically
+ *   // Later, retrieve cached values when needed
  *   const batch = ocp.OpenCapTable.capTable.update({
  *     capTableContractId,
  *     featuredAppRightContractDetails: ocp.context.requireFeaturedAppRight(),
