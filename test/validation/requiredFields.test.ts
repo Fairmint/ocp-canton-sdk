@@ -5,29 +5,32 @@
  * the llms.txt guidelines.
  */
 
+import { OcpValidationError } from '../../src/errors';
 import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
 import { stockIssuanceDataToDaml } from '../../src/functions/OpenCapTable/stockIssuance/createStockIssuance';
 import type { OcfStakeholder, OcfStockIssuance } from '../../src/types';
 
 describe('Required Field Validation', () => {
   describe('stakeholderDataToDaml', () => {
-    test('throws error when id is missing', () => {
+    test('throws OcpValidationError when id is missing', () => {
       const invalidData = {
         name: { legal_name: 'Test Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
       } as unknown as OcfStakeholder;
 
-      expect(() => stakeholderDataToDaml(invalidData)).toThrow('stakeholder.id is required');
+      expect(() => stakeholderDataToDaml(invalidData)).toThrow(OcpValidationError);
+      expect(() => stakeholderDataToDaml(invalidData)).toThrow("'stakeholder.id'");
     });
 
-    test('throws error when id is empty string', () => {
+    test('throws OcpValidationError when id is empty string', () => {
       const invalidData = {
         id: '',
         name: { legal_name: 'Test Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
       } as OcfStakeholder;
 
-      expect(() => stakeholderDataToDaml(invalidData)).toThrow('stakeholder.id is required');
+      expect(() => stakeholderDataToDaml(invalidData)).toThrow(OcpValidationError);
+      expect(() => stakeholderDataToDaml(invalidData)).toThrow("'stakeholder.id'");
     });
 
     test('succeeds with valid minimal data', () => {
@@ -55,37 +58,34 @@ describe('Required Field Validation', () => {
       quantity: '1000',
     };
 
-    test('throws error when id is missing', () => {
+    test('throws OcpValidationError when id is missing', () => {
       const { id: _, ...invalidData } = validBaseData;
-      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow('stockIssuance.id is required');
+      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow(OcpValidationError);
+      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow("'stockIssuance.id'");
     });
 
-    test('throws error when security_id is missing', () => {
+    test('throws OcpValidationError when security_id is missing', () => {
       const { security_id: _, ...invalidData } = validBaseData;
-      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow(
-        'stockIssuance.security_id is required'
-      );
+      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow(OcpValidationError);
+      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow("'stockIssuance.security_id'");
     });
 
-    test('throws error when custom_id is missing', () => {
+    test('throws OcpValidationError when custom_id is missing', () => {
       const { custom_id: _, ...invalidData } = validBaseData;
-      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow(
-        'stockIssuance.custom_id is required'
-      );
+      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow(OcpValidationError);
+      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow("'stockIssuance.custom_id'");
     });
 
-    test('throws error when stakeholder_id is missing', () => {
+    test('throws OcpValidationError when stakeholder_id is missing', () => {
       const { stakeholder_id: _, ...invalidData } = validBaseData;
-      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow(
-        'stockIssuance.stakeholder_id is required'
-      );
+      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow(OcpValidationError);
+      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow("'stockIssuance.stakeholder_id'");
     });
 
-    test('throws error when stock_class_id is missing', () => {
+    test('throws OcpValidationError when stock_class_id is missing', () => {
       const { stock_class_id: _, ...invalidData } = validBaseData;
-      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow(
-        'stockIssuance.stock_class_id is required'
-      );
+      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow(OcpValidationError);
+      expect(() => stockIssuanceDataToDaml(invalidData as OcfStockIssuance)).toThrow("'stockIssuance.stock_class_id'");
     });
 
     test('succeeds with valid data', () => {

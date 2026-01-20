@@ -1,3 +1,4 @@
+import { OcpValidationError } from '../../../errors';
 import type { OcfStockRepurchase } from '../../../types';
 import {
   cleanComments,
@@ -8,9 +9,24 @@ import {
 } from '../../../utils/typeConversions';
 
 export function stockRepurchaseDataToDaml(d: OcfStockRepurchase): Record<string, unknown> {
-  if (!d.id) throw new Error('repurchaseData.id is required');
-  if (!d.date) throw new Error('repurchaseData.date is required');
-  if (!d.security_id) throw new Error('repurchaseData.security_id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockRepurchase.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
+  if (!d.date) {
+    throw new OcpValidationError('stockRepurchase.date', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.date,
+    });
+  }
+  if (!d.security_id) {
+    throw new OcpValidationError('stockRepurchase.security_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.security_id,
+    });
+  }
 
   return {
     id: d.id,

@@ -3,6 +3,7 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts, OcfIssuer } from '../../../types';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
 import { addressToDaml, cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
@@ -24,7 +25,12 @@ function phoneToDaml(phone: OcfIssuer['phone']): Fairmint.OpenCapTable.Types.Ocf
 }
 
 function issuerDataToDaml(issuerData: OcfIssuer): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
-  if (!issuerData.id) throw new Error('issuerData.id is required');
+  if (!issuerData.id) {
+    throw new OcpValidationError('issuer.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: issuerData.id,
+    });
+  }
   return {
     id: issuerData.id,
     legal_name: issuerData.legal_name,
