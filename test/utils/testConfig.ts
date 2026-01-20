@@ -4,7 +4,8 @@
  * Tests are configured for LocalNet (cn-quickstart) with shared-secret authentication by default.
  *
  * @example
- *   LocalNet usage (default)
+ *   LocalNet
+ *   usage (default)
  *   ```bash
  *   npm run test:integration
  *   ```

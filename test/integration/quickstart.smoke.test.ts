@@ -5,7 +5,8 @@
  * environment.
  *
  * @example
- *   Running with LocalNet defaults
+ *   Running
+ *   with LocalNet defaults
  *   ```bash
  *   npm run test:integration
  *   ```

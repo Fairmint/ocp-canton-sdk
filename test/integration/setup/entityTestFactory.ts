@@ -10,6 +10,7 @@
  *
  * @example
  *   ```typescript
+ *
  *   import { defineEntityTests } from '../setup/entityTestFactory';
  *
  *   defineEntityTests({
