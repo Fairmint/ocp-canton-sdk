@@ -76,6 +76,146 @@ import { CapTableBatch } from './functions/OpenCapTable/capTable';
 import type { CommandWithDisclosedContracts } from './types';
 
 /**
+ * Context for OCP operations that can be cached and reused.
+ *
+ * Store commonly used contract details to avoid passing them repeatedly.
+ *
+ * @example
+ *   ```typescript
+ *   const ocp = new OcpClient({ network: 'localnet' });
+ *
+ *   // Set context once
+ *   ocp.context.setFeaturedAppRight(featuredAppRightDetails);
+ *
+ *   // Now operations that need it can access it automatically
+ *   const batch = ocp.OpenCapTable.capTable.update({
+ *     capTableContractId,
+ *     featuredAppRightContractDetails: ocp.context.featuredAppRight!, // or use requireFeaturedAppRight()
+ *     actAs: [issuerParty],
+ *   });
+ *   ```
+ */
+export interface OcpContext {
+  /** The cached FeaturedAppRight disclosed contract details */
+  featuredAppRight: DisclosedContract | null;
+  /** The cached issuer party ID */
+  issuerParty: string | null;
+  /** The cached cap table contract ID */
+  capTableContractId: string | null;
+}
+
+/**
+ * Manager for OCP operation context.
+ *
+ * Provides methods to set, get, and clear cached context values.
+ */
+export class OcpContextManager implements OcpContext {
+  private _featuredAppRight: DisclosedContract | null = null;
+  private _issuerParty: string | null = null;
+  private _capTableContractId: string | null = null;
+
+  /** Get the cached FeaturedAppRight disclosed contract details */
+  get featuredAppRight(): DisclosedContract | null {
+    return this._featuredAppRight;
+  }
+
+  /** Get the cached issuer party ID */
+  get issuerParty(): string | null {
+    return this._issuerParty;
+  }
+
+  /** Get the cached cap table contract ID */
+  get capTableContractId(): string | null {
+    return this._capTableContractId;
+  }
+
+  /**
+   * Set the FeaturedAppRight disclosed contract details.
+   * @param details - The disclosed contract details to cache
+   */
+  setFeaturedAppRight(details: DisclosedContract): void {
+    this._featuredAppRight = details;
+  }
+
+  /**
+   * Set the issuer party ID.
+   * @param partyId - The party ID to cache
+   */
+  setIssuerParty(partyId: string): void {
+    this._issuerParty = partyId;
+  }
+
+  /**
+   * Set the cap table contract ID.
+   * @param contractId - The contract ID to cache
+   */
+  setCapTableContractId(contractId: string): void {
+    this._capTableContractId = contractId;
+  }
+
+  /**
+   * Set all context values at once.
+   * @param context - Partial context object with values to set
+   */
+  setAll(context: Partial<OcpContext>): void {
+    if (context.featuredAppRight !== undefined) {
+      this._featuredAppRight = context.featuredAppRight;
+    }
+    if (context.issuerParty !== undefined) {
+      this._issuerParty = context.issuerParty;
+    }
+    if (context.capTableContractId !== undefined) {
+      this._capTableContractId = context.capTableContractId;
+    }
+  }
+
+  /**
+   * Get the FeaturedAppRight or throw if not set.
+   * @throws Error if FeaturedAppRight has not been set
+   */
+  requireFeaturedAppRight(): DisclosedContract {
+    if (!this._featuredAppRight) {
+      throw new Error('FeaturedAppRight not set. Call context.setFeaturedAppRight() first.');
+    }
+    return this._featuredAppRight;
+  }
+
+  /**
+   * Get the issuer party or throw if not set.
+   * @throws Error if issuer party has not been set
+   */
+  requireIssuerParty(): string {
+    if (!this._issuerParty) {
+      throw new Error('Issuer party not set. Call context.setIssuerParty() first.');
+    }
+    return this._issuerParty;
+  }
+
+  /**
+   * Get the cap table contract ID or throw if not set.
+   * @throws Error if cap table contract ID has not been set
+   */
+  requireCapTableContractId(): string {
+    if (!this._capTableContractId) {
+      throw new Error('Cap table contract ID not set. Call context.setCapTableContractId() first.');
+    }
+    return this._capTableContractId;
+  }
+
+  /** Clear all cached context values */
+  clear(): void {
+    this._featuredAppRight = null;
+    this._issuerParty = null;
+    this._capTableContractId = null;
+  }
+
+  /** Check if the context has all required values for batch operations */
+  isReadyForBatchOperations(): boolean {
+    return this._featuredAppRight !== null && this._capTableContractId !== null;
+  }
+}
+
+/**
  * High-level client for interacting with Open Cap Table Protocol (OCP) contracts on Canton.
  *
  * The OcpClient provides a clean, organized API for all OCP operations, grouped by domain:
@@ -90,6 +230,29 @@ import type { CommandWithDisclosedContracts } from './types';
 export class OcpClient {
   /** The underlying LedgerJsonApiClient for direct ledger access. */
   public readonly client: LedgerJsonApiClient;
+
+  /**
+   * Context manager for caching commonly used values.
+   *
+   * Use this to store FeaturedAppRight details, issuer party, and cap table contract ID
+   * after fetching them once, so they can be reused across operations.
+   *
+   * @example
+   *   ```typescript
+   *   // Set context after initial setup
+   *   ocp.context.setFeaturedAppRight(featuredAppRightDetails);
+   *   ocp.context.setIssuerParty(issuerParty);
+   *   ocp.context.setCapTableContractId(capTableContractId);
+   *
+   *   // Later, use cached values
+   *   const batch = ocp.OpenCapTable.capTable.update({
+   *     capTableContractId: ocp.context.requireCapTableContractId(),
+   *     featuredAppRightContractDetails: ocp.context.requireFeaturedAppRight(),
+   *     actAs: [ocp.context.requireIssuerParty()],
+   *   });
+   *   ```
+   */
+  public readonly context: OcpContextManager = new OcpContextManager();
 
   /**
    * Core cap table operations.
