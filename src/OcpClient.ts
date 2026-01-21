@@ -15,6 +15,7 @@ import {
   buildCreateIssuerCommand,
   createCompanyValuationReport,
   getConvertibleCancellationEventAsOcf,
+  getConvertibleConversionEventAsOcf,
   getConvertibleIssuanceAsOcf,
   getDocumentAsOcf,
   getEquityCompensationCancellationEventAsOcf,
@@ -28,6 +29,7 @@ import {
   getStockCancellationEventAsOcf,
   getStockClassAsOcf,
   getStockClassAuthorizedSharesAdjustmentEventAsOcf,
+  getStockConversionEventAsOcf,
   getStockIssuanceAsOcf,
   getStockLegendTemplateAsOcf,
   getStockPlanAsOcf,
@@ -36,6 +38,7 @@ import {
   getStockTransferAsOcf,
   getVestingTermsAsOcf,
   getWarrantCancellationEventAsOcf,
+  getWarrantExerciseEventAsOcf,
   getWarrantIssuanceAsOcf,
   updateCompanyValuationReport,
   withdrawAuthorization,
@@ -48,6 +51,8 @@ import {
   type CreateIssuerParams,
   type GetConvertibleCancellationEventAsOcfParams,
   type GetConvertibleCancellationEventAsOcfResult,
+  type GetConvertibleConversionEventAsOcfParams,
+  type GetConvertibleConversionEventAsOcfResult,
   type GetConvertibleIssuanceAsOcfParams,
   type GetConvertibleIssuanceAsOcfResult,
   type GetDocumentAsOcfParams,
@@ -74,6 +79,8 @@ import {
   type GetStockClassAsOcfResult,
   type GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams,
   type GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult,
+  type GetStockConversionEventAsOcfParams,
+  type GetStockConversionEventAsOcfResult,
   type GetStockIssuanceAsOcfParams,
   type GetStockIssuanceAsOcfResult,
   type GetStockLegendTemplateAsOcfParams,
@@ -90,6 +97,8 @@ import {
   type GetVestingTermsAsOcfResult,
   type GetWarrantCancellationEventAsOcfParams,
   type GetWarrantCancellationEventAsOcfResult,
+  type GetWarrantExerciseEventAsOcfParams,
+  type GetWarrantExerciseEventAsOcfResult,
   type GetWarrantIssuanceAsOcfParams,
   type GetWarrantIssuanceAsOcfResult,
   type UpdateCompanyValuationParams,
@@ -394,13 +403,25 @@ export class OcpClient {
         getWarrantIssuanceAsOcf: async (params: GetWarrantIssuanceAsOcfParams) =>
           getWarrantIssuanceAsOcf(client, params),
       },
+      warrantExercise: {
+        getWarrantExerciseEventAsOcf: async (params: GetWarrantExerciseEventAsOcfParams) =>
+          getWarrantExerciseEventAsOcf(client, params),
+      },
       convertibleIssuance: {
         getConvertibleIssuanceAsOcf: async (params: GetConvertibleIssuanceAsOcfParams) =>
           getConvertibleIssuanceAsOcf(client, params),
       },
+      convertibleConversion: {
+        getConvertibleConversionEventAsOcf: async (params: GetConvertibleConversionEventAsOcfParams) =>
+          getConvertibleConversionEventAsOcf(client, params),
+      },
       stockCancellation: {
         getStockCancellationEventAsOcf: async (params: GetStockCancellationEventAsOcfParams) =>
           getStockCancellationEventAsOcf(client, params),
+      },
+      stockConversion: {
+        getStockConversionEventAsOcf: async (params: GetStockConversionEventAsOcfParams) =>
+          getStockConversionEventAsOcf(client, params),
       },
       warrantCancellation: {
         getWarrantCancellationEventAsOcf: async (params: GetWarrantCancellationEventAsOcfParams) =>
@@ -549,15 +570,30 @@ interface OpenCapTableMethods {
   warrantIssuance: {
     getWarrantIssuanceAsOcf: (params: GetWarrantIssuanceAsOcfParams) => Promise<GetWarrantIssuanceAsOcfResult>;
   };
+  warrantExercise: {
+    getWarrantExerciseEventAsOcf: (
+      params: GetWarrantExerciseEventAsOcfParams
+    ) => Promise<GetWarrantExerciseEventAsOcfResult>;
+  };
   convertibleIssuance: {
     getConvertibleIssuanceAsOcf: (
       params: GetConvertibleIssuanceAsOcfParams
     ) => Promise<GetConvertibleIssuanceAsOcfResult>;
   };
+  convertibleConversion: {
+    getConvertibleConversionEventAsOcf: (
+      params: GetConvertibleConversionEventAsOcfParams
+    ) => Promise<GetConvertibleConversionEventAsOcfResult>;
+  };
   stockCancellation: {
     getStockCancellationEventAsOcf: (
       params: GetStockCancellationEventAsOcfParams
     ) => Promise<GetStockCancellationEventAsOcfResult>;
+  };
+  stockConversion: {
+    getStockConversionEventAsOcf: (
+      params: GetStockConversionEventAsOcfParams
+    ) => Promise<GetStockConversionEventAsOcfResult>;
   };
   warrantCancellation: {
     getWarrantCancellationEventAsOcf: (

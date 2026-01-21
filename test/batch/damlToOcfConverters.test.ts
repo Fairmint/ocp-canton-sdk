@@ -4,7 +4,11 @@
  * Tests the reverse conversion from DAML ledger format back to native OCF format.
  */
 
-import { damlStakeholderRelationshipToNative, damlStakeholderStatusToNative } from '../../src/utils/enumConversions';
+import {
+  damlStakeholderRelationshipToNative,
+  damlStakeholderStatusToNative,
+  type DamlStakeholderRelationshipType,
+} from '../../src/utils/enumConversions';
 
 describe('DAML to OCF Converters', () => {
   describe('damlStakeholderStatusToNative', () => {
@@ -34,26 +38,28 @@ describe('DAML to OCF Converters', () => {
       );
     });
 
-    it('throws error for unknown status', () => {
-      expect(() => damlStakeholderStatusToNative('UnknownStatus')).toThrow('Unknown DAML stakeholder status');
+    it('returns undefined for unknown status', () => {
+      expect(damlStakeholderStatusToNative('UnknownStatus')).toBeUndefined();
     });
   });
 
   describe('damlStakeholderRelationshipToNative', () => {
     it('converts all relationship types correctly', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelEmployee')).toBe('EMPLOYEE');
-      expect(damlStakeholderRelationshipToNative('OcfRelAdvisor')).toBe('ADVISOR');
-      expect(damlStakeholderRelationshipToNative('OcfRelInvestor')).toBe('INVESTOR');
-      expect(damlStakeholderRelationshipToNative('OcfRelFounder')).toBe('FOUNDER');
-      expect(damlStakeholderRelationshipToNative('OcfRelBoardMember')).toBe('BOARD_MEMBER');
-      expect(damlStakeholderRelationshipToNative('OcfRelOfficer')).toBe('OFFICER');
-      expect(damlStakeholderRelationshipToNative('OcfRelOther')).toBe('OTHER');
+      expect(damlStakeholderRelationshipToNative('OcfRelEmployee' as DamlStakeholderRelationshipType)).toBe('EMPLOYEE');
+      expect(damlStakeholderRelationshipToNative('OcfRelAdvisor' as DamlStakeholderRelationshipType)).toBe('ADVISOR');
+      expect(damlStakeholderRelationshipToNative('OcfRelInvestor' as DamlStakeholderRelationshipType)).toBe('INVESTOR');
+      expect(damlStakeholderRelationshipToNative('OcfRelFounder' as DamlStakeholderRelationshipType)).toBe('FOUNDER');
+      expect(damlStakeholderRelationshipToNative('OcfRelBoardMember' as DamlStakeholderRelationshipType)).toBe(
+        'BOARD_MEMBER'
+      );
+      expect(damlStakeholderRelationshipToNative('OcfRelOfficer' as DamlStakeholderRelationshipType)).toBe('OFFICER');
+      expect(damlStakeholderRelationshipToNative('OcfRelOther' as DamlStakeholderRelationshipType)).toBe('OTHER');
     });
 
     it('throws error for unknown relationship', () => {
-      expect(() => damlStakeholderRelationshipToNative('UnknownRelationship')).toThrow(
-        'Unknown DAML stakeholder relationship type'
-      );
+      expect(() =>
+        damlStakeholderRelationshipToNative('UnknownRelationship' as DamlStakeholderRelationshipType)
+      ).toThrow('Unknown DAML stakeholder relationship type');
     });
   });
 
@@ -95,7 +101,7 @@ describe('DAML to OCF Converters', () => {
     it('maintains consistency for relationship conversions', () => {
       const relationships = ['EMPLOYEE', 'ADVISOR', 'INVESTOR', 'FOUNDER', 'BOARD_MEMBER', 'OFFICER', 'OTHER'] as const;
 
-      const damlRelationships = [
+      const damlRelationships: DamlStakeholderRelationshipType[] = [
         'OcfRelEmployee',
         'OcfRelAdvisor',
         'OcfRelInvestor',

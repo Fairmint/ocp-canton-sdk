@@ -56,11 +56,16 @@ export async function getStakeholderStatusChangeEventAsOcf(
   const contract = res.created.createdEvent.createArgument as DamlStakeholderStatusChangeEventContract;
   const data = contract.status_change_data;
 
+  const convertedStatus = damlStakeholderStatusToNative(data.new_status);
+  if (!convertedStatus) {
+    throw new Error(`Unknown DAML stakeholder status: ${data.new_status}`);
+  }
+
   const event: OcfStakeholderStatusChangeEvent = {
     id: data.id,
     date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,
-    new_status: damlStakeholderStatusToNative(data.new_status),
+    new_status: convertedStatus,
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
 

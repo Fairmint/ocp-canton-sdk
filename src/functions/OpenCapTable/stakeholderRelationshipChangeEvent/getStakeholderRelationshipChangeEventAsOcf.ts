@@ -4,7 +4,10 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
-import { damlStakeholderRelationshipToNative } from '../../../utils/enumConversions';
+import {
+  damlStakeholderRelationshipToNative,
+  type DamlStakeholderRelationshipType,
+} from '../../../utils/enumConversions';
 
 /** Parameters for getting a stakeholder relationship change event as OCF */
 export interface GetStakeholderRelationshipChangeEventAsOcfParams {
@@ -60,7 +63,9 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
     id: data.id,
     date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,
-    new_relationships: data.new_relationships.map(damlStakeholderRelationshipToNative),
+    new_relationships: data.new_relationships.map((rel) =>
+      damlStakeholderRelationshipToNative(rel as DamlStakeholderRelationshipType)
+    ),
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
 
