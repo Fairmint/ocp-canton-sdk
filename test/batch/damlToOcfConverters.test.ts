@@ -4,10 +4,7 @@
  * Tests the reverse conversion from DAML ledger format back to native OCF format.
  */
 
-import {
-  damlStakeholderRelationshipToNative,
-  damlStakeholderStatusToNative,
-} from '../../src/functions/OpenCapTable/capTable';
+import { damlStakeholderRelationshipToNative, damlStakeholderStatusToNative } from '../../src/utils/enumConversions';
 
 describe('DAML to OCF Converters', () => {
   describe('damlStakeholderStatusToNative', () => {

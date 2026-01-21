@@ -9,6 +9,8 @@ export * from './issuer';
 export * from './issuerAuthorization';
 export * from './issuerAuthorizedSharesAdjustment';
 export * from './stakeholder';
+export * from './stakeholderRelationshipChangeEvent';
+export * from './stakeholderStatusChangeEvent';
 export * from './stockCancellation';
 export * from './stockClass';
 export * from './stockClassAuthorizedSharesAdjustment';
