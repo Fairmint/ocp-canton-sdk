@@ -44,9 +44,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Environment Configuration Patterns](./2026/01/ai/2026.01.16-environment-configuration-patterns.md)**
   — Open Environment presets for LocalNet/DevNet, configuration validation
 
-- **[Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)** — Open
-  Deprecate per-entity functions replaced by batch API
-
 - **[CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)** — Partially
   Complete Add CouponMinter helper functions (TPS helper done, full ops future)
 
@@ -54,6 +51,9 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 - **[Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)** —
   Complete (2026-01-20) Extract and centralize duplicated entity conversion code
+
+- **[Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)** —
+  Complete (2026-01-20) Removed public exports of legacy \*DataToDaml functions
 
 - **[Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)**
   — Complete (2026-01-20) API ergonomics, type safety, testing improvements - all phases done
