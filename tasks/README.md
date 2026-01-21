@@ -9,7 +9,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 | Task                                                                                              | Status      | Priority | Description / Scope                                                |
 | ------------------------------------------------------------------------------------------------- | ----------- | -------- | ------------------------------------------------------------------ |
 | [Milestone 2: OCP SDK Implementation](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md) | In Progress | High     | Parent milestone - SDK support for all OCF types, testing strategy |
-| [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                     | In Progress | High     | Batch API infrastructure (Phase 1-2 done, Phase 3 split)           |
 | [Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)           | Open        | High     | OCF exercise & conversion types (3 types)                          |
 | [Valuation & Vesting Types](./2026/01/ai/2026.01.20-ocf-valuation-vesting-types.md)               | Open        | High     | OCF valuation & vesting types (4 types)                            |
 | [Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)                          | Open        | Medium   | OCF security transfer types (3 types)                              |
@@ -33,6 +32,7 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 | Task                                                                                                  | Completed  | Description                                                            |
 | ----------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                         | 2026-01-21 | Batch API infrastructure - all phases complete, cleanup in separate task |
 | [Property-Based Testing](./2026/01/ai/2026.01.16-property-based-testing.md)                           | 2026-01-20 | Property tests using fast-check for type conversion invariants         |
 | [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)         | 2026-01-20 | API ergonomics, type safety, testing improvements - all phases done    |
 | [Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)                           | 2026-01-20 | Implement OcpValidationError, OcpContractError for better DX           |
