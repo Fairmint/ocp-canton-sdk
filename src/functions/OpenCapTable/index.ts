@@ -1,3 +1,4 @@
+export * from './acceptance';
 export * from './capTable';
 export * from './convertibleCancellation';
 export * from './convertibleIssuance';

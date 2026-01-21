@@ -14,15 +14,18 @@ import {
   buildCreateCompanyValuationReportCommand,
   buildCreateIssuerCommand,
   createCompanyValuationReport,
+  getConvertibleAcceptanceAsOcf,
   getConvertibleCancellationEventAsOcf,
   getConvertibleIssuanceAsOcf,
   getDocumentAsOcf,
+  getEquityCompensationAcceptanceAsOcf,
   getEquityCompensationCancellationEventAsOcf,
   getEquityCompensationExerciseEventAsOcf,
   getEquityCompensationIssuanceEventAsOcf,
   getIssuerAsOcf,
   getIssuerAuthorizedSharesAdjustmentEventAsOcf,
   getStakeholderAsOcf,
+  getStockAcceptanceAsOcf,
   getStockCancellationEventAsOcf,
   getStockClassAsOcf,
   getStockClassAuthorizedSharesAdjustmentEventAsOcf,
@@ -33,6 +36,7 @@ import {
   getStockRepurchaseAsOcf,
   getStockTransferAsOcf,
   getVestingTermsAsOcf,
+  getWarrantAcceptanceAsOcf,
   getWarrantCancellationEventAsOcf,
   getWarrantIssuanceAsOcf,
   updateCompanyValuationReport,
@@ -44,12 +48,16 @@ import {
   type CreateCompanyValuationReportParams,
   type CreateCompanyValuationReportResult,
   type CreateIssuerParams,
+  type GetConvertibleAcceptanceAsOcfParams,
+  type GetConvertibleAcceptanceAsOcfResult,
   type GetConvertibleCancellationEventAsOcfParams,
   type GetConvertibleCancellationEventAsOcfResult,
   type GetConvertibleIssuanceAsOcfParams,
   type GetConvertibleIssuanceAsOcfResult,
   type GetDocumentAsOcfParams,
   type GetDocumentAsOcfResult,
+  type GetEquityCompensationAcceptanceAsOcfParams,
+  type GetEquityCompensationAcceptanceAsOcfResult,
   type GetEquityCompensationCancellationEventAsOcfParams,
   type GetEquityCompensationCancellationEventAsOcfResult,
   type GetEquityCompensationExerciseEventAsOcfParams,
@@ -62,6 +70,8 @@ import {
   type GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult,
   type GetStakeholderAsOcfParams,
   type GetStakeholderAsOcfResult,
+  type GetStockAcceptanceAsOcfParams,
+  type GetStockAcceptanceAsOcfResult,
   type GetStockCancellationEventAsOcfParams,
   type GetStockCancellationEventAsOcfResult,
   type GetStockClassAsOcfParams,
@@ -82,6 +92,8 @@ import {
   type GetStockTransferAsOcfResult,
   type GetVestingTermsAsOcfParams,
   type GetVestingTermsAsOcfResult,
+  type GetWarrantAcceptanceAsOcfParams,
+  type GetWarrantAcceptanceAsOcfResult,
   type GetWarrantCancellationEventAsOcfParams,
   type GetWarrantCancellationEventAsOcfResult,
   type GetWarrantIssuanceAsOcfParams,
@@ -428,6 +440,22 @@ export class OcpClient {
         getStockRepurchaseAsOcf: async (params: GetStockRepurchaseAsOcfParams) =>
           getStockRepurchaseAsOcf(client, params),
       },
+      stockAcceptance: {
+        getStockAcceptanceAsOcf: async (params: GetStockAcceptanceAsOcfParams) =>
+          getStockAcceptanceAsOcf(client, params),
+      },
+      warrantAcceptance: {
+        getWarrantAcceptanceAsOcf: async (params: GetWarrantAcceptanceAsOcfParams) =>
+          getWarrantAcceptanceAsOcf(client, params),
+      },
+      convertibleAcceptance: {
+        getConvertibleAcceptanceAsOcf: async (params: GetConvertibleAcceptanceAsOcfParams) =>
+          getConvertibleAcceptanceAsOcf(client, params),
+      },
+      equityCompensationAcceptance: {
+        getEquityCompensationAcceptanceAsOcf: async (params: GetEquityCompensationAcceptanceAsOcfParams) =>
+          getEquityCompensationAcceptanceAsOcf(client, params),
+      },
       issuerAuthorization: {
         authorizeIssuer: async (params: AuthorizeIssuerParams) => authorizeIssuer(client, params),
         withdrawAuthorization: async (params: WithdrawAuthorizationParams) => withdrawAuthorization(client, params),
@@ -573,6 +601,22 @@ interface OpenCapTableMethods {
   };
   stockRepurchase: {
     getStockRepurchaseAsOcf: (params: GetStockRepurchaseAsOcfParams) => Promise<GetStockRepurchaseAsOcfResult>;
+  };
+  stockAcceptance: {
+    getStockAcceptanceAsOcf: (params: GetStockAcceptanceAsOcfParams) => Promise<GetStockAcceptanceAsOcfResult>;
+  };
+  warrantAcceptance: {
+    getWarrantAcceptanceAsOcf: (params: GetWarrantAcceptanceAsOcfParams) => Promise<GetWarrantAcceptanceAsOcfResult>;
+  };
+  convertibleAcceptance: {
+    getConvertibleAcceptanceAsOcf: (
+      params: GetConvertibleAcceptanceAsOcfParams
+    ) => Promise<GetConvertibleAcceptanceAsOcfResult>;
+  };
+  equityCompensationAcceptance: {
+    getEquityCompensationAcceptanceAsOcf: (
+      params: GetEquityCompensationAcceptanceAsOcfParams
+    ) => Promise<GetEquityCompensationAcceptanceAsOcfResult>;
   };
   document: {
     getDocumentAsOcf: (params: GetDocumentAsOcfParams) => Promise<GetDocumentAsOcfResult>;
