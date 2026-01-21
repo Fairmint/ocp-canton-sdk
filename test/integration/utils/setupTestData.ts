@@ -11,16 +11,19 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import type { OcpClient } from '../../../src/OcpClient';
 import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
 import type {
+  OcfConvertibleConversion,
   OcfDocument,
   OcfEquityCompensationIssuance,
   OcfIssuer,
   OcfStakeholder,
   OcfStockClass,
+  OcfStockConversion,
   OcfStockIssuance,
   OcfStockLegendTemplate,
   OcfStockPlan,
   OcfValuation,
   OcfVestingTerms,
+  OcfWarrantExercise,
 } from '../../../src/types/native';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
@@ -275,6 +278,62 @@ export function createTestEquityCompensationIssuanceData(
     quantity: '50000',
     exercise_price: { amount: '0.50', currency: 'USD' },
     expiration_date: generateDateString(365 * 10), // 10 years
+    ...rest,
+  };
+}
+
+/** Create test warrant exercise data with optional overrides. */
+export function createTestWarrantExerciseData(
+  overrides: Partial<OcfWarrantExercise> & {
+    security_id: string;
+    resulting_security_ids: string[];
+  }
+): OcfWarrantExercise {
+  const id = overrides.id ?? generateTestId('warrant-exercise');
+  const { security_id, resulting_security_ids, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id,
+    quantity: '1000',
+    resulting_security_ids,
+    ...rest,
+  };
+}
+
+/** Create test convertible conversion data with optional overrides. */
+export function createTestConvertibleConversionData(
+  overrides: Partial<OcfConvertibleConversion> & {
+    security_id: string;
+    resulting_security_ids: string[];
+  }
+): OcfConvertibleConversion {
+  const id = overrides.id ?? generateTestId('convertible-conversion');
+  const { security_id, resulting_security_ids, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id,
+    resulting_security_ids,
+    ...rest,
+  };
+}
+
+/** Create test stock conversion data with optional overrides. */
+export function createTestStockConversionData(
+  overrides: Partial<OcfStockConversion> & {
+    security_id: string;
+    resulting_security_ids: string[];
+  }
+): OcfStockConversion {
+  const id = overrides.id ?? generateTestId('stock-conversion');
+  const { security_id, resulting_security_ids, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id,
+    quantity: '1000',
+    resulting_security_ids,
     ...rest,
   };
 }
