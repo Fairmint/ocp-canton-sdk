@@ -9,9 +9,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Milestone 2: OCP SDK Implementation](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)**
   — In Progress Parent milestone - SDK support for all OCF types, testing strategy
 
-- **[Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)** — In Progress
-  Batch API infrastructure (Phase 1-2 done, Phase 3 split)
-
 - **[Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)** — Open
   (High) OCF exercise & conversion types (3 types)
 
@@ -30,43 +27,37 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)** — Open (Low) Remaining OCF
   types (9 types)
 
-### SDK Review & Architecture
+### Integration Testing
 
-- **[OCP Protocol Review](./2026/01/ai/2026.01.21-ocp-protocol-review.md)** — Complete Comprehensive
-  review of SDK architecture with improvement recommendations
+- **[OCF Integration Test Data](./2026/01/ai/2026.01.21-ocf-integration-test-data.md)** — Open
+  Source anonymized prod data for integration tests; round-trip validation for all OCF types
 
-### SDK Refactoring — Immediate Priority (Pre-User Adoption)
+### SDK Improvements — Immediate Priority (Pre-User Adoption)
 
-_From [Protocol Review](./2026/01/ai/2026.01.21-ocp-protocol-review.md) — should be addressed before
-users adopt the SDK._
+- **[API Consistency Refactor](./2026/01/ai/2026.01.21-api-consistency-refactor.md)** — Open (High)
+  Unify API patterns, document when to use batch vs direct methods
 
-- **API Consistency Refactor** — Open (High) Unify API patterns, document when to use batch vs
-  direct methods (see Review Issue 1.1)
+- **[Centralize Converters](./2026/01/ai/2026.01.21-centralize-converters.md)** — Open (High) Create
+  `src/converters/` with bidirectional OCF↔DAML conversions
 
-- **Centralize Converters** — Open (High) Create `src/converters/` with bidirectional OCF↔DAML
-  conversions (see Review Issue 2.1, related to existing Consolidate Entity Converters task)
+- **[Add damlToOcf Dispatcher](./2026/01/ai/2026.01.21-daml-to-ocf-dispatcher.md)** — Open (High)
+  Generic `getEntityAsOcf<T>()` function to DRY up read operations
 
-- **Add damlToOcf Dispatcher** — Open (High) Generic `getEntityAsOcf<T>()` function to DRY up read
-  operations (see Review Issue 2.2)
+- **[Standardize Error Usage](./2026/01/ai/2026.01.21-standardize-error-usage.md)** — Open (Medium)
+  Replace `new Error()` with appropriate OCP error types throughout codebase
 
-- **Standardize Error Usage** — Open (Medium) Replace `new Error()` with appropriate OCP error types
-  throughout codebase (see Review Issue 4.1)
-
-### SDK Refactoring — Short-term
+### SDK Improvements — Short-term
 
 - **[OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)** —
   Partially Complete Simplify OcpClient class, cleanup require() (context caching done)
 
-- **[Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)** —
-  Partially Complete Extract and centralize duplicated entity conversion code
+- **[Input Validation Layer](./2026/01/ai/2026.01.21-input-validation-layer.md)** — Open (Medium)
+  Comprehensive validation before DAML conversion
 
-- **Input Validation Layer** — Open (Medium) Comprehensive validation before DAML conversion (see
-  Review Issue 3.3)
+- **[Round-trip Tests](./2026/01/ai/2026.01.21-round-trip-tests.md)** — Open (Medium) Property-based
+  and round-trip tests for converters
 
-- **Round-trip Tests** — Open (Medium) Property-based and round-trip tests for converters (see
-  Review Issues 5.1, 5.2)
-
-### SDK Refactoring — Longer-term
+### SDK Improvements — Longer-term
 
 - **[Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)** —
   Open Add correlation IDs, logging hooks, and trace propagation
@@ -80,19 +71,31 @@ users adopt the SDK._
 - **[CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)** — Partially
   Complete Add CouponMinter helper functions (TPS helper done, full ops future)
 
-- **JSDoc Coverage** — Open (Low) Add comprehensive documentation to public API (see Review Issue
-  6.1)
+- **[JSDoc Coverage](./2026/01/ai/2026.01.21-jsdoc-coverage.md)** — Open (Low) Add comprehensive
+  documentation to public API
 
-- **Migration Guide** — Open (Low) Document migration from legacy to batch API (see Review Issue
-  6.2)
+- **[Migration Guide](./2026/01/ai/2026.01.21-migration-guide.md)** — Open (Low) Document migration
+  from legacy to batch API
 
-- **Batch Size Limits** — Open (Low) Add configurable limits and pagination support (see Review
-  Issue 7.1)
+- **[Batch Size Limits](./2026/01/ai/2026.01.21-batch-size-limits.md)** — Open (Low) Add
+  configurable limits and pagination support
 
 ## Completed Tasks
 
+- **[Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)** — Complete
+  (2026-01-21) Batch API infrastructure - all phases complete, cleanup in separate task
+
+- **[Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)** —
+  Complete (2026-01-20) Extract and centralize duplicated entity conversion code
+
 - **[Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)** —
   Complete (2026-01-20) Removed public exports of legacy \*DataToDaml functions
+
+- **[Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)**
+  — Complete (2026-01-20) API ergonomics, type safety, testing improvements - all phases done
+
+- **[Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)** — Complete
+  (2026-01-20) Implement OcpValidationError, OcpContractError for better DX
 
 - **[Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)** —
   Complete (2026-01-20) Runtime type guards and validation utilities for OCF objects
@@ -108,6 +111,9 @@ users adopt the SDK._
 
 - **[Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)** —
   Complete (2026-01-13) 13 delete tests enabled; 8 remaining blocked by infrastructure
+
+- **[OCP Protocol Review](./2026/01/ai/2026.01.21-ocp-protocol-review.md)** — Complete (2026-01-21)
+  Comprehensive review of SDK architecture with improvement recommendations
 
 ## Related ADRs
 
