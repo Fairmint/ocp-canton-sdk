@@ -47,11 +47,28 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Environment Configuration Patterns](./2026/01/ai/2026.01.16-environment-configuration-patterns.md)**
   — Open Environment presets for LocalNet/DevNet, configuration validation
 
-- **[Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)** — Open
-  Deprecate per-entity functions replaced by batch API
-
 - **[CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)** — Partially
   Complete Add CouponMinter helper functions (TPS helper done, full ops future)
+
+## Completed Tasks
+
+- **[Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)** —
+  Complete (2026-01-20) Removed public exports of legacy \*DataToDaml functions
+
+- **[Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)** —
+  Complete (2026-01-20) Runtime type guards and validation utilities for OCF objects
+
+- **[PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md)**
+  — Complete (2026-01-16) Support new `amuletRulesCidOverride` parameter (no SDK changes needed)
+
+- **[Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)** — Complete (2026-01-16)
+  Update SDK for Canton 3.4 compatibility
+
+- **[Comprehensive Integration Tests](./2025/12/2025.12.30-comprehensive-integration-tests.md)** —
+  Complete (2026-01-12) Expanded integration test coverage with dynamic contract deployment
+
+- **[Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)** —
+  Complete (2026-01-13) 13 delete tests enabled; 8 remaining blocked by infrastructure
 
 ## Related ADRs
 
