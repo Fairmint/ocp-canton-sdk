@@ -1,0 +1,67 @@
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { OcfStockConversion } from '../../../types/native';
+import { normalizeNumericString } from '../../../utils/typeConversions';
+
+/**
+ * OCF Stock Conversion Event with object_type discriminator OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/conversion/StockConversion.schema.json
+ */
+export interface OcfStockConversionEvent extends Omit<OcfStockConversion, 'quantity'> {
+  object_type: 'TX_STOCK_CONVERSION';
+  /** Quantity as string for OCF JSON serialization */
+  quantity: string;
+}
+
+export interface GetStockConversionEventAsOcfParams {
+  contractId: string;
+}
+
+export interface GetStockConversionEventAsOcfResult {
+  event: OcfStockConversionEvent;
+  contractId: string;
+}
+
+/**
+ * Read a StockConversion contract and return a generic OCF StockConversion object. Schema:
+ * https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/conversion/StockConversion.schema.json
+ */
+export async function getStockConversionEventAsOcf(
+  client: LedgerJsonApiClient,
+  params: GetStockConversionEventAsOcfParams
+): Promise<GetStockConversionEventAsOcfResult> {
+  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
+  if (!eventsResponse.created?.createdEvent.createArgument) {
+    throw new Error('Invalid contract events response: missing created event or create argument');
+  }
+  const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
+
+  // StockConversion contracts store data under conversion_data key
+  const d: Record<string, unknown> =
+    (createArgument.conversion_data as Record<string, unknown> | undefined) ?? createArgument;
+
+  // Validate quantity
+  if (d.quantity === undefined || d.quantity === null) {
+    throw new Error('Stock conversion quantity is required');
+  }
+  if (typeof d.quantity !== 'string' && typeof d.quantity !== 'number') {
+    throw new Error(`Stock conversion quantity must be string or number, got ${typeof d.quantity}`);
+  }
+
+  // Validate resulting_security_ids
+  if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
+    throw new Error('Stock conversion resulting_security_ids is required');
+  }
+
+  const event: OcfStockConversionEvent = {
+    object_type: 'TX_STOCK_CONVERSION',
+    id: d.id as string,
+    date: (d.date as string).split('T')[0],
+    security_id: d.security_id as string,
+    quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
+    resulting_security_ids: d.resulting_security_ids as string[],
+    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id as string } : {}),
+    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments as string[] } : {}),
+  };
+
+  return { event, contractId: params.contractId };
+}
