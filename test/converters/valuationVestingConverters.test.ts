@@ -9,18 +9,18 @@
  */
 
 import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import {
   damlValuationToNative,
   damlValuationTypeToNative,
-  damlVestingAccelerationToNative,
-  damlVestingEventToNative,
-  damlVestingStartToNative,
   type DamlValuationData,
+} from '../../src/functions/OpenCapTable/valuation/damlToOcf';
+import {
+  damlVestingAccelerationToNative,
   type DamlVestingAccelerationData,
-  type DamlVestingEventData,
-  type DamlVestingStartData,
-} from '../../src/functions/OpenCapTable/capTable/damlToOcf';
-import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+} from '../../src/functions/OpenCapTable/vestingAcceleration/damlToOcf';
+import { damlVestingEventToNative, type DamlVestingEventData } from '../../src/functions/OpenCapTable/vestingEvent/damlToOcf';
+import { damlVestingStartToNative, type DamlVestingStartData } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
 import type { OcfValuation, OcfVestingAcceleration, OcfVestingEvent, OcfVestingStart } from '../../src/types';
 
 describe('Valuation Converters', () => {
