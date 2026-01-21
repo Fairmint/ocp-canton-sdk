@@ -139,6 +139,8 @@ function stockReissuanceDataToDaml(d: OcfStockReissuance): Record<string, unknow
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     resulting_security_ids: d.resulting_security_ids,
+    reason_text: optionalString(null), // Optional field
+    split_transaction_id: optionalString(null), // Optional field
     comments: cleanComments(d.comments),
   };
 }
@@ -150,11 +152,14 @@ function stockConsolidationDataToDaml(d: OcfStockConsolidation): Record<string, 
       receivedValue: d.id,
     });
   }
+  // DAML expects resulting_security_id (singular) - take first item from array
+  const resultingSecurityId = d.resulting_security_ids.length > 0 ? d.resulting_security_ids[0] : '';
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_ids: d.security_ids,
-    resulting_security_ids: d.resulting_security_ids,
+    resulting_security_id: resultingSecurityId,
+    reason_text: optionalString(null), // Optional field
     comments: cleanComments(d.comments),
   };
 }
@@ -166,14 +171,15 @@ function stockClassSplitDataToDaml(d: OcfStockClassSplit): Record<string, unknow
       receivedValue: d.id,
     });
   }
+  // DAML expects split_ratio as an OcfRatio object { numerator, denominator }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     stock_class_id: d.stock_class_id,
-    split_ratio_numerator: numberToString(d.split_ratio_numerator),
-    split_ratio_denominator: numberToString(d.split_ratio_denominator),
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    split_ratio: {
+      numerator: numberToString(d.split_ratio_numerator),
+      denominator: numberToString(d.split_ratio_denominator),
+    },
     comments: cleanComments(d.comments),
   };
 }
@@ -187,14 +193,19 @@ function stockClassConversionRatioAdjustmentDataToDaml(
       receivedValue: d.id,
     });
   }
+  // DAML expects new_ratio_conversion_mechanism as an OcfRatioConversionMechanism object
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     stock_class_id: d.stock_class_id,
-    new_ratio_numerator: numberToString(d.new_ratio_numerator),
-    new_ratio_denominator: numberToString(d.new_ratio_denominator),
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    new_ratio_conversion_mechanism: {
+      conversion_price: { amount: '0', currency: 'USD' }, // Default value for required field
+      ratio: {
+        numerator: numberToString(d.new_ratio_numerator),
+        denominator: numberToString(d.new_ratio_denominator),
+      },
+      rounding_type: 'OcfRoundingNormal', // Default rounding type
+    },
     comments: cleanComments(d.comments),
   };
 }

@@ -26,17 +26,17 @@ describe('ocfToDaml - Stock Class Adjustments', () => {
       split_ratio_denominator: '1',
     };
 
-    test('converts basic stock class split', () => {
+    test('converts basic stock class split with nested split_ratio', () => {
       const result = convertToDaml('stockClassSplit', baseData);
 
       expect(result).toEqual({
         id: 'split-001',
         date: expect.any(String), // DAML time format
         stock_class_id: 'class-001',
-        split_ratio_numerator: '2',
-        split_ratio_denominator: '1',
-        board_approval_date: null,
-        stockholder_approval_date: null,
+        split_ratio: {
+          numerator: '2',
+          denominator: '1',
+        },
         comments: [],
       });
     });
@@ -49,22 +49,10 @@ describe('ocfToDaml - Stock Class Adjustments', () => {
       };
 
       const result = convertToDaml('stockClassSplit', dataWithNumericRatio);
+      const splitRatio = result.split_ratio as { numerator: string; denominator: string };
 
-      expect(result.split_ratio_numerator).toBe('3');
-      expect(result.split_ratio_denominator).toBe('1');
-    });
-
-    test('converts with optional approval dates', () => {
-      const dataWithDates = {
-        ...baseData,
-        board_approval_date: '2024-01-10',
-        stockholder_approval_date: '2024-01-12',
-      };
-
-      const result = convertToDaml('stockClassSplit', dataWithDates);
-
-      expect(result.board_approval_date).toBeTruthy();
-      expect(result.stockholder_approval_date).toBeTruthy();
+      expect(splitRatio.numerator).toBe('3');
+      expect(splitRatio.denominator).toBe('1');
     });
 
     test('converts with comments', () => {
@@ -94,17 +82,21 @@ describe('ocfToDaml - Stock Class Adjustments', () => {
       new_ratio_denominator: '2',
     };
 
-    test('converts basic conversion ratio adjustment', () => {
+    test('converts basic conversion ratio adjustment with nested mechanism', () => {
       const result = convertToDaml('stockClassConversionRatioAdjustment', baseData);
 
       expect(result).toEqual({
         id: 'adj-001',
         date: expect.any(String),
         stock_class_id: 'class-002',
-        new_ratio_numerator: '3',
-        new_ratio_denominator: '2',
-        board_approval_date: null,
-        stockholder_approval_date: null,
+        new_ratio_conversion_mechanism: {
+          conversion_price: { amount: '0', currency: 'USD' },
+          ratio: {
+            numerator: '3',
+            denominator: '2',
+          },
+          rounding_type: 'OcfRoundingNormal',
+        },
         comments: [],
       });
     });
@@ -117,23 +109,22 @@ describe('ocfToDaml - Stock Class Adjustments', () => {
       };
 
       const result = convertToDaml('stockClassConversionRatioAdjustment', dataWithNumericRatio);
+      const mechanism = result.new_ratio_conversion_mechanism as {
+        ratio: { numerator: string; denominator: string };
+      };
 
-      expect(result.new_ratio_numerator).toBe('5');
-      expect(result.new_ratio_denominator).toBe('4');
+      expect(mechanism.ratio.numerator).toBe('5');
+      expect(mechanism.ratio.denominator).toBe('4');
     });
 
-    test('converts with optional fields', () => {
+    test('converts with comments', () => {
       const dataWithOptionals = {
         ...baseData,
-        board_approval_date: '2024-01-25',
-        stockholder_approval_date: '2024-01-28',
         comments: ['Ratio adjusted for anti-dilution'],
       };
 
       const result = convertToDaml('stockClassConversionRatioAdjustment', dataWithOptionals);
 
-      expect(result.board_approval_date).toBeTruthy();
-      expect(result.stockholder_approval_date).toBeTruthy();
       expect(result.comments).toEqual(['Ratio adjusted for anti-dilution']);
     });
 
@@ -154,14 +145,15 @@ describe('ocfToDaml - Stock Class Adjustments', () => {
       resulting_security_ids: ['new-sec-001'],
     };
 
-    test('converts basic stock consolidation', () => {
+    test('converts basic stock consolidation with singular resulting_security_id', () => {
       const result = convertToDaml('stockConsolidation', baseData);
 
       expect(result).toEqual({
         id: 'consolidation-001',
         date: expect.any(String),
         security_ids: ['sec-001', 'sec-002', 'sec-003'],
-        resulting_security_ids: ['new-sec-001'],
+        resulting_security_id: 'new-sec-001', // DAML expects singular
+        reason_text: null,
         comments: [],
       });
     });
@@ -177,7 +169,7 @@ describe('ocfToDaml - Stock Class Adjustments', () => {
       expect(result.comments).toEqual(['Reverse split consolidation']);
     });
 
-    test('handles multiple resulting securities', () => {
+    test('takes first resulting security when multiple provided', () => {
       const dataWithMultipleResults = {
         ...baseData,
         resulting_security_ids: ['new-sec-001', 'new-sec-002'],
@@ -185,7 +177,8 @@ describe('ocfToDaml - Stock Class Adjustments', () => {
 
       const result = convertToDaml('stockConsolidation', dataWithMultipleResults);
 
-      expect(result.resulting_security_ids).toEqual(['new-sec-001', 'new-sec-002']);
+      // DAML only supports singular resulting_security_id, takes first
+      expect(result.resulting_security_id).toBe('new-sec-001');
     });
 
     test('throws error when id is missing', () => {
@@ -203,7 +196,7 @@ describe('ocfToDaml - Stock Class Adjustments', () => {
       resulting_security_ids: ['sec-new-001', 'sec-new-002'],
     };
 
-    test('converts basic stock reissuance', () => {
+    test('converts basic stock reissuance with optional fields', () => {
       const result = convertToDaml('stockReissuance', baseData);
 
       expect(result).toEqual({
@@ -211,6 +204,8 @@ describe('ocfToDaml - Stock Class Adjustments', () => {
         date: expect.any(String),
         security_id: 'sec-cancelled-001',
         resulting_security_ids: ['sec-new-001', 'sec-new-002'],
+        reason_text: null,
+        split_transaction_id: null,
         comments: [],
       });
     });
