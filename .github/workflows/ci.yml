@@ -13,7 +13,8 @@ jobs:
         with:
           submodules: false
           # Use PAT to allow auto-fix commits to trigger subsequent workflows
-          token: ${{ secrets.PAT_TOKEN }}
+          # Falls back to GITHUB_TOKEN for dependabot PRs (which don't have access to secrets)
+          token: ${{ secrets.PAT_TOKEN || github.token }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -61,7 +62,8 @@ jobs:
         env:
           # PAT_TOKEN allows this commit to trigger subsequent CI runs
           # (GITHUB_TOKEN commits don't trigger workflows to prevent loops)
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          # Falls back to GITHUB_TOKEN for dependabot PRs (which don't have access to secrets)
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN || github.token }}
 
       - name: Fail if changes were needed
         if: steps.check-changes.outputs.has_changes == 'true'
