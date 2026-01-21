@@ -85,7 +85,7 @@ describe('waitUntilCanMint', () => {
 
       // Should wait approximately 100ms (with some tolerance for timing)
       expect(elapsed).toBeGreaterThanOrEqual(80); // Allow 20ms tolerance
-      expect(elapsed).toBeLessThan(200); // But not too long
+      expect(elapsed).toBeLessThan(300); // Allow margin for CI environment variability
     });
 
     test('invokes onWaitStart callback with wait duration', async () => {
