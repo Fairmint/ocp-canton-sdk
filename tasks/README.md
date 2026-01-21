@@ -12,14 +12,8 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)** — Open
   (High) OCF exercise & conversion types (3 types)
 
-- **[Valuation & Vesting Types](./2026/01/ai/2026.01.20-ocf-valuation-vesting-types.md)** — Open
-  (High) OCF valuation & vesting types (4 types)
-
 - **[Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)** — Open (Medium) OCF
   security transfer types (3 types)
-
-- **[Acceptance Types](./2026/01/ai/2026.01.20-ocf-acceptance-types.md)** — Open (Medium) OCF
-  acceptance types (4 types)
 
 - **[Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)** — Open
   (Medium) OCF stock class adjustment types (4 types)
@@ -82,8 +76,14 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ## Completed Tasks
 
+- **[Acceptance Types](./2026/01/ai/2026.01.20-ocf-acceptance-types.md)** — Complete (2026-01-21)
+  OCF acceptance types with converters and tests (4 types)
+
 - **[Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)** — Complete (2026-01-21)
   Remaining OCF types (stakeholder events) with unit tests
+
+- **[Valuation & Vesting Types](./2026/01/ai/2026.01.20-ocf-valuation-vesting-types.md)** — Complete
+  (2026-01-21) OCF valuation & vesting types (4 types)
 
 - **[Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)** — Complete
   (2026-01-21) Batch API infrastructure - all phases complete, cleanup in separate task

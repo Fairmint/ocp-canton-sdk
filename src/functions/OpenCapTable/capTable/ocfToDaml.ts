@@ -9,16 +9,19 @@ import { OcpValidationError } from '../../../errors';
 import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
 
 // Import existing converters from entity folders
+import { convertibleAcceptanceDataToDaml } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
 import { convertibleCancellationDataToDaml } from '../convertibleCancellation/createConvertibleCancellation';
 import { convertibleIssuanceDataToDaml } from '../convertibleIssuance/createConvertibleIssuance';
 import { convertibleTransferDataToDaml } from '../convertibleTransfer/convertibleTransferDataToDaml';
 import { documentDataToDaml } from '../document/createDocument';
+import { equityCompensationAcceptanceDataToDaml } from '../equityCompensationAcceptance/equityCompensationAcceptanceDataToDaml';
 import { equityCompensationCancellationDataToDaml } from '../equityCompensationCancellation/createEquityCompensationCancellation';
 import { equityCompensationExerciseDataToDaml } from '../equityCompensationExercise/createEquityCompensationExercise';
 import { equityCompensationIssuanceDataToDaml } from '../equityCompensationIssuance/createEquityCompensationIssuance';
 import { equityCompensationTransferDataToDaml } from '../equityCompensationTransfer/equityCompensationTransferDataToDaml';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
+import { stockAcceptanceDataToDaml } from '../stockAcceptance/stockAcceptanceDataToDaml';
 import { stockCancellationDataToDaml } from '../stockCancellation/createStockCancellation';
 import { stockClassDataToDaml } from '../stockClass/stockClassDataToDaml';
 import { stockClassAuthorizedSharesAdjustmentDataToDaml } from '../stockClassAuthorizedSharesAdjustment/createStockClassAuthorizedSharesAdjustment';
@@ -33,6 +36,7 @@ import { stockReissuanceDataToDaml } from '../stockReissuance/stockReissuanceDat
 import { stockRepurchaseDataToDaml } from '../stockRepurchase/stockRepurchaseDataToDaml';
 import { stockTransferDataToDaml } from '../stockTransfer/createStockTransfer';
 import { vestingTermsDataToDaml } from '../vestingTerms/createVestingTerms';
+import { warrantAcceptanceDataToDaml } from '../warrantAcceptance/warrantAcceptanceDataToDaml';
 import { warrantCancellationDataToDaml } from '../warrantCancellation/createWarrantCancellation';
 import { warrantIssuanceDataToDaml } from '../warrantIssuance/createWarrantIssuance';
 import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDataToDaml';
@@ -51,14 +55,11 @@ import {
 } from '../../../utils/typeConversions';
 
 import type {
-  OcfConvertibleAcceptance,
   OcfConvertibleConversion,
   OcfConvertibleRetraction,
-  OcfEquityCompensationAcceptance,
   OcfEquityCompensationRelease,
   OcfEquityCompensationRepricing,
   OcfEquityCompensationRetraction,
-  OcfStockAcceptance,
   OcfStockConversion,
   OcfStockPlanReturnToPool,
   OcfStockRetraction,
@@ -66,7 +67,6 @@ import type {
   OcfVestingAcceleration,
   OcfVestingEvent,
   OcfVestingStart,
-  OcfWarrantAcceptance,
   OcfWarrantExercise,
   OcfWarrantRetraction,
   ValuationType,
@@ -81,21 +81,6 @@ const VALUATION_TYPE_MAP: Record<ValuationType, string> = {
 };
 
 // ===== Simple converters for types without dedicated files =====
-
-function stockAcceptanceDataToDaml(d: OcfStockAcceptance): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('stockAcceptance.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    comments: cleanComments(d.comments),
-  };
-}
 
 function stockRetractionDataToDaml(d: OcfStockRetraction): Record<string, unknown> {
   if (!d.id) {
@@ -221,21 +206,6 @@ function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): Record<string
 }
 
 // Warrant converters
-function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('warrantAcceptance.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    comments: cleanComments(d.comments),
-  };
-}
-
 function warrantExerciseDataToDaml(d: OcfWarrantExercise): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('warrantExercise.id', 'Required field is missing or empty', {
@@ -272,21 +242,6 @@ function warrantRetractionDataToDaml(d: OcfWarrantRetraction): Record<string, un
 }
 
 // Convertible converters
-function convertibleAcceptanceDataToDaml(d: OcfConvertibleAcceptance): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('convertibleAcceptance.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    comments: cleanComments(d.comments),
-  };
-}
-
 function convertibleConversionDataToDaml(d: OcfConvertibleConversion): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('convertibleConversion.id', 'Required field is missing or empty', {
@@ -322,21 +277,6 @@ function convertibleRetractionDataToDaml(d: OcfConvertibleRetraction): Record<st
 }
 
 // Equity compensation converters
-function equityCompensationAcceptanceDataToDaml(d: OcfEquityCompensationAcceptance): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('equityCompensationAcceptance.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    comments: cleanComments(d.comments),
-  };
-}
-
 function equityCompensationReleaseDataToDaml(d: OcfEquityCompensationRelease): Record<string, unknown> {
   if (!d.id) {
     throw new OcpValidationError('equityCompensationRelease.id', 'Required field is missing or empty', {
