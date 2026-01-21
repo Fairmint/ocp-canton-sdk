@@ -49,8 +49,8 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ## Completed Tasks
 
-- **[Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)** —
-  Complete (2026-01-21) Batch API infrastructure - all phases complete, cleanup in separate task
+- **[Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)** — Complete
+  (2026-01-21) Batch API infrastructure - all phases complete, cleanup in separate task
 
 - **[Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)** —
   Complete (2026-01-20) Removed public exports of legacy \*DataToDaml functions
