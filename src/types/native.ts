@@ -1653,6 +1653,10 @@ export interface OcfStockReissuance {
   security_id: string;
   /** Array of identifiers for new securities resulting from the reissuance */
   resulting_security_ids: string[];
+  /** Reason for the reissuance */
+  reason_text?: string;
+  /** Reference to a related split transaction */
+  split_transaction_id?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1670,6 +1674,8 @@ export interface OcfStockConsolidation {
   security_ids: string[];
   /** Array of identifiers for new securities resulting from the consolidation */
   resulting_security_ids: string[];
+  /** Reason for the consolidation */
+  reason_text?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
