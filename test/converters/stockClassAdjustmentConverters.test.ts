@@ -14,12 +14,10 @@
  * - StockReissuance
  */
 
-import {
-  damlStockClassConversionRatioAdjustmentToNative,
-  damlStockClassSplitToNative,
-  damlStockConsolidationToNative,
-  damlStockReissuanceToNative,
-} from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
+import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
+import { damlStockConsolidationToNative } from '../../src/functions/OpenCapTable/stockConsolidation/damlToStockConsolidation';
+import { damlStockReissuanceToNative } from '../../src/functions/OpenCapTable/stockReissuance/damlToStockReissuance';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import type {
   OcfStockClassConversionRatioAdjustment,
