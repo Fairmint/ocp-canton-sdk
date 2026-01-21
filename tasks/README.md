@@ -48,6 +48,9 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ### SDK Improvements — Short-term
 
+- **[Converter File Organization Pattern](./2026/01/ai/2026.01.21-converter-file-organization.md)**
+  — Open (High) Enforce per-entity folder organization for converters, not centralized files
+
 - **[OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)** —
   Partially Complete Simplify OcpClient class, cleanup require() (context caching done)
 

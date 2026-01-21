@@ -144,6 +144,46 @@ test/
     └── ocfSchemaValidator.ts
 ```
 
+## Entity Folder Organization (CRITICAL)
+
+**Each OCF entity type MUST have its own folder** with converter implementations:
+
+```
+src/functions/OpenCapTable/{entityType}/
+├── {entityType}DataToDaml.ts   # OCF→DAML converter (for batch API)
+├── get{EntityType}AsOcf.ts     # DAML→OCF converter (for reads)
+├── create{EntityType}.ts       # Optional: standalone create function
+└── index.ts                    # Exports all functions
+```
+
+### Dispatcher Files (capTable/)
+
+The `capTable/` folder contains **dispatchers only** that import from entity folders:
+
+```typescript
+// capTable/ocfToDaml.ts - DISPATCHER ONLY
+import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
+import { stockTransferDataToDaml } from '../stockTransfer/createStockTransfer';
+// ... imports from entity folders
+
+export function convertToDaml(type: OcfEntityType, data: OcfEntityData): unknown {
+  switch (type) {
+    case 'stakeholder':
+      return stakeholderDataToDaml(data);
+    // ... routes to imported functions
+  }
+}
+```
+
+**DO NOT** put converter implementations in `capTable/ocfToDaml.ts` or `capTable/damlToOcf.ts`.
+
+### Why This Matters
+
+1. **Discoverability**: All code for an entity is in one folder
+2. **Maintainability**: Changes to an entity only affect its folder
+3. **Scalability**: Adding new entities doesn't bloat central files
+4. **Code Review**: PRs for new entities are self-contained
+
 ## Function Pattern
 
 Each operation exports: `Params`, `Result`, function, and optionally `buildXCommand`.
