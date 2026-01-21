@@ -30,17 +30,17 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ## Completed Tasks
 
-| Task                                                                                                  | Completed  | Description                                                            |
-| ----------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| Task                                                                                                  | Completed  | Description                                                              |
+| ----------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------ |
 | [Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)                         | 2026-01-21 | Batch API infrastructure - all phases complete, cleanup in separate task |
-| [Property-Based Testing](./2026/01/ai/2026.01.16-property-based-testing.md)                           | 2026-01-20 | Property tests using fast-check for type conversion invariants         |
-| [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)         | 2026-01-20 | API ergonomics, type safety, testing improvements - all phases done    |
-| [Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)                           | 2026-01-20 | Implement OcpValidationError, OcpContractError for better DX           |
-| [Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)                 | 2026-01-20 | Runtime type guards and validation utilities for OCF objects           |
-| [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md) | 2026-01-16 | Support new `amuletRulesCidOverride` parameter (no SDK changes needed) |
-| [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                      | 2026-01-16 | Update SDK for Canton 3.4 compatibility                                |
-| [Comprehensive Integration Tests](./2025/12/2025.12.30-comprehensive-integration-tests.md)            | 2026-01-12 | Expanded integration test coverage with dynamic contract deployment    |
-| [Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)                 | 2026-01-13 | 13 delete tests enabled; 8 remaining blocked by infrastructure         |
+| [Property-Based Testing](./2026/01/ai/2026.01.16-property-based-testing.md)                           | 2026-01-20 | Property tests using fast-check for type conversion invariants           |
+| [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)         | 2026-01-20 | API ergonomics, type safety, testing improvements - all phases done      |
+| [Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)                           | 2026-01-20 | Implement OcpValidationError, OcpContractError for better DX             |
+| [Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)                 | 2026-01-20 | Runtime type guards and validation utilities for OCF objects             |
+| [PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md) | 2026-01-16 | Support new `amuletRulesCidOverride` parameter (no SDK changes needed)   |
+| [Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)                                      | 2026-01-16 | Update SDK for Canton 3.4 compatibility                                  |
+| [Comprehensive Integration Tests](./2025/12/2025.12.30-comprehensive-integration-tests.md)            | 2026-01-12 | Expanded integration test coverage with dynamic contract deployment      |
+| [Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)                 | 2026-01-13 | 13 delete tests enabled; 8 remaining blocked by infrastructure           |
 
 ## Superseded Tasks
 
