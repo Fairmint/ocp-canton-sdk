@@ -9,15 +9,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Milestone 2: OCP SDK Implementation](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)**
   — In Progress Parent milestone - SDK support for all OCF types, testing strategy
 
-- **[Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)** — Open
-  (High) OCF exercise & conversion types (3 types)
-
-- **[Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)** — Open (Medium) OCF
-  security transfer types (3 types)
-
-- **[Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)** — Open
-  (Medium) OCF stock class adjustment types (4 types)
-
 ### Integration Testing
 
 - **[OCF Integration Test Data](./2026/01/ai/2026.01.21-ocf-integration-test-data.md)** — Open
@@ -30,9 +21,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 - **[Centralize Converters](./2026/01/ai/2026.01.21-centralize-converters.md)** — Open (High) Create
   `src/converters/` with bidirectional OCF↔DAML conversions
-
-- **[Add damlToOcf Dispatcher](./2026/01/ai/2026.01.21-daml-to-ocf-dispatcher.md)** — Open (High)
-  Generic `getEntityAsOcf<T>()` function to DRY up read operations
 
 - **[Standardize Error Usage](./2026/01/ai/2026.01.21-standardize-error-usage.md)** — Open (Medium)
   Replace `new Error()` with appropriate OCP error types throughout codebase
@@ -75,6 +63,18 @@ This directory contains task documentation for the OCP Canton SDK project.
   configurable limits and pagination support
 
 ## Completed Tasks
+
+- **[Add damlToOcf Dispatcher](./2026/01/ai/2026.01.21-daml-to-ocf-dispatcher.md)** — Complete
+  (2026-01-21) Generic `getEntityAsOcf<T>()` function to DRY up read operations
+
+- **[Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)** —
+  Complete (2026-01-21) OCF exercise & conversion types (3 types) - PR #185
+
+- **[Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)** — Complete
+  (2026-01-21) OCF security transfer types (3 types) - PR #183
+
+- **[Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)** — Complete
+  (2026-01-21) OCF stock class adjustment types (4 types) - PR #186
 
 - **[Acceptance Types](./2026/01/ai/2026.01.20-ocf-acceptance-types.md)** — Complete (2026-01-21)
   OCF acceptance types with converters and tests (4 types)
