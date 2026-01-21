@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { OcfValuation } from '../../../types/native';
-import { damlValuationToNative, type DamlValuationData } from '../capTable/damlToOcf';
+import { damlValuationToNative, type DamlValuationData } from './damlToOcf';
 
 export interface GetValuationAsOcfParams {
   contractId: string;

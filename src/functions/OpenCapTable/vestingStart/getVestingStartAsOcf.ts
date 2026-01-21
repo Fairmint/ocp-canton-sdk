@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { OcfVestingStart } from '../../../types/native';
-import { damlVestingStartToNative, type DamlVestingStartData } from '../capTable/damlToOcf';
+import { damlVestingStartToNative, type DamlVestingStartData } from './damlToOcf';
 
 export interface GetVestingStartAsOcfParams {
   contractId: string;
