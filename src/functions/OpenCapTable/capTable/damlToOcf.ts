@@ -1,9 +1,8 @@
 /**
  * Centralized DAML to OCF converter dispatcher for acceptance types.
  *
- * This module provides converters for transforming DAML acceptance transaction data
- * back to native OCF format. These are used when reading acceptance transactions
- * from the ledger.
+ * This module provides a unified interface for converting DAML acceptance data to their OCF equivalents.
+ * Converter implementations are imported from their respective entity folders.
  */
 
 import type {
@@ -12,11 +11,33 @@ import type {
   OcfStockAcceptance,
   OcfWarrantAcceptance,
 } from '../../../types';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+
+// Import converters from entity folders
+import {
+  damlConvertibleAcceptanceToNative,
+  type DamlConvertibleAcceptanceData,
+} from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
+import {
+  damlEquityCompensationAcceptanceToNative,
+  type DamlEquityCompensationAcceptanceData,
+} from '../equityCompensationAcceptance/equityCompensationAcceptanceDataToDaml';
+import {
+  damlStockAcceptanceToNative,
+  type DamlStockAcceptanceData,
+} from '../stockAcceptance/stockAcceptanceDataToDaml';
+import {
+  damlWarrantAcceptanceToNative,
+  type DamlWarrantAcceptanceData,
+} from '../warrantAcceptance/warrantAcceptanceDataToDaml';
+
+// Re-export individual converters for direct use
+export { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
+export { damlEquityCompensationAcceptanceToNative } from '../equityCompensationAcceptance/equityCompensationAcceptanceDataToDaml';
+export { damlStockAcceptanceToNative } from '../stockAcceptance/stockAcceptanceDataToDaml';
+export { damlWarrantAcceptanceToNative } from '../warrantAcceptance/warrantAcceptanceDataToDaml';
 
 /**
- * DAML representation of acceptance transaction data.
- * All acceptance types share this common structure.
+ * Common DAML acceptance data structure shared by all acceptance types.
  */
 export interface DamlAcceptanceData {
   id: string;
@@ -26,69 +47,7 @@ export interface DamlAcceptanceData {
 }
 
 /**
- * Convert DAML Stock Acceptance data to native OCF format.
- *
- * @param damlData - The DAML stock acceptance data
- * @returns Native OCF StockAcceptance object
- */
-export function damlStockAcceptanceToNative(damlData: DamlAcceptanceData): OcfStockAcceptance {
-  return {
-    id: damlData.id,
-    date: damlTimeToDateString(damlData.date),
-    security_id: damlData.security_id,
-    ...(damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
-  };
-}
-
-/**
- * Convert DAML Warrant Acceptance data to native OCF format.
- *
- * @param damlData - The DAML warrant acceptance data
- * @returns Native OCF WarrantAcceptance object
- */
-export function damlWarrantAcceptanceToNative(damlData: DamlAcceptanceData): OcfWarrantAcceptance {
-  return {
-    id: damlData.id,
-    date: damlTimeToDateString(damlData.date),
-    security_id: damlData.security_id,
-    ...(damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
-  };
-}
-
-/**
- * Convert DAML Convertible Acceptance data to native OCF format.
- *
- * @param damlData - The DAML convertible acceptance data
- * @returns Native OCF ConvertibleAcceptance object
- */
-export function damlConvertibleAcceptanceToNative(damlData: DamlAcceptanceData): OcfConvertibleAcceptance {
-  return {
-    id: damlData.id,
-    date: damlTimeToDateString(damlData.date),
-    security_id: damlData.security_id,
-    ...(damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
-  };
-}
-
-/**
- * Convert DAML Equity Compensation Acceptance data to native OCF format.
- *
- * @param damlData - The DAML equity compensation acceptance data
- * @returns Native OCF EquityCompensationAcceptance object
- */
-export function damlEquityCompensationAcceptanceToNative(
-  damlData: DamlAcceptanceData
-): OcfEquityCompensationAcceptance {
-  return {
-    id: damlData.id,
-    date: damlTimeToDateString(damlData.date),
-    security_id: damlData.security_id,
-    ...(damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
-  };
-}
-
-/**
- * Type representing the acceptance entity types supported by this module.
+ * Supported acceptance entity types for the dispatcher.
  */
 export type AcceptanceEntityType =
   | 'stockAcceptance'
@@ -97,7 +56,7 @@ export type AcceptanceEntityType =
   | 'equityCompensationAcceptance';
 
 /**
- * Map from acceptance entity type to its native OCF type.
+ * Type mapping from acceptance entity type to its corresponding OCF type.
  */
 export interface AcceptanceOcfTypeMap {
   stockAcceptance: OcfStockAcceptance;
@@ -107,11 +66,11 @@ export interface AcceptanceOcfTypeMap {
 }
 
 /**
- * Convert DAML acceptance data to native OCF format based on entity type.
+ * Type-safe DAML to OCF converter dispatcher for acceptance types.
  *
  * @param type - The acceptance entity type
- * @param damlData - The DAML acceptance data
- * @returns The native OCF acceptance object
+ * @param damlData - The DAML-formatted acceptance data
+ * @returns The native OCF acceptance object of the corresponding type
  */
 export function convertAcceptanceFromDaml<T extends AcceptanceEntityType>(
   type: T,
@@ -119,16 +78,18 @@ export function convertAcceptanceFromDaml<T extends AcceptanceEntityType>(
 ): AcceptanceOcfTypeMap[T] {
   switch (type) {
     case 'stockAcceptance':
-      return damlStockAcceptanceToNative(damlData) as AcceptanceOcfTypeMap[T];
+      return damlStockAcceptanceToNative(damlData as DamlStockAcceptanceData) as AcceptanceOcfTypeMap[T];
     case 'warrantAcceptance':
-      return damlWarrantAcceptanceToNative(damlData) as AcceptanceOcfTypeMap[T];
+      return damlWarrantAcceptanceToNative(damlData as DamlWarrantAcceptanceData) as AcceptanceOcfTypeMap[T];
     case 'convertibleAcceptance':
-      return damlConvertibleAcceptanceToNative(damlData) as AcceptanceOcfTypeMap[T];
+      return damlConvertibleAcceptanceToNative(damlData as DamlConvertibleAcceptanceData) as AcceptanceOcfTypeMap[T];
     case 'equityCompensationAcceptance':
-      return damlEquityCompensationAcceptanceToNative(damlData) as AcceptanceOcfTypeMap[T];
+      return damlEquityCompensationAcceptanceToNative(
+        damlData as DamlEquityCompensationAcceptanceData
+      ) as AcceptanceOcfTypeMap[T];
     default: {
       const exhaustiveCheck: never = type;
-      throw new Error(`Unsupported acceptance entity type: ${exhaustiveCheck as string}`);
+      throw new Error(`Unsupported acceptance type: ${exhaustiveCheck as string}`);
     }
   }
 }
