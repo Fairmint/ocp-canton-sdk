@@ -6,11 +6,7 @@
  */
 
 // Valuation converters
-export {
-  damlValuationToNative,
-  damlValuationTypeToNative,
-  type DamlValuationData,
-} from '../valuation/damlToOcf';
+export { damlValuationToNative, damlValuationTypeToNative, type DamlValuationData } from '../valuation/damlToOcf';
 
 // VestingStart converters
 export { damlVestingStartToNative, type DamlVestingStartData } from '../vestingStart/damlToOcf';
