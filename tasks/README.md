@@ -9,9 +9,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Milestone 2: OCP SDK Implementation](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)**
   — In Progress Parent milestone - SDK support for all OCF types, testing strategy
 
-- **[Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)** — In Progress
-  Batch API infrastructure (Phase 1-2 done, Phase 3 split)
-
 - **[Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)** — Open
   (High) OCF exercise & conversion types (3 types)
 
@@ -53,6 +50,9 @@ This directory contains task documentation for the OCP Canton SDK project.
   Complete Add CouponMinter helper functions (TPS helper done, full ops future)
 
 ## Completed Tasks
+
+- **[Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)** — Complete
+  (2026-01-21) Batch API infrastructure - all phases complete, cleanup in separate task
 
 - **[Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)** —
   Complete (2026-01-20) Extract and centralize duplicated entity conversion code
