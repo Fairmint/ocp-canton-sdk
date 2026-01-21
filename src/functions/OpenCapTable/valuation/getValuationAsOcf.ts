@@ -1,9 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { OcfValuation } from '../../../types/native';
-import {
-  damlValuationToNative,
-  type DamlValuationData,
-} from '../capTable/damlToOcf';
+import { damlValuationToNative, type DamlValuationData } from '../capTable/damlToOcf';
 
 export interface GetValuationAsOcfParams {
   contractId: string;
@@ -37,10 +34,7 @@ export async function getValuationAsOcf(
   function hasValuationData(arg: unknown): arg is { valuation_data: DamlValuationData } {
     const record = arg as Record<string, unknown>;
     return (
-      typeof arg === 'object' &&
-      arg !== null &&
-      'valuation_data' in record &&
-      typeof record.valuation_data === 'object'
+      typeof arg === 'object' && arg !== null && 'valuation_data' in record && typeof record.valuation_data === 'object'
     );
   }
 

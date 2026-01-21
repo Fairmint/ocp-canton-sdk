@@ -1,9 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { OcfVestingAcceleration } from '../../../types/native';
-import {
-  damlVestingAccelerationToNative,
-  type DamlVestingAccelerationData,
-} from '../capTable/damlToOcf';
+import { damlVestingAccelerationToNative, type DamlVestingAccelerationData } from '../capTable/damlToOcf';
 
 export interface GetVestingAccelerationAsOcfParams {
   contractId: string;
@@ -34,9 +31,7 @@ export async function getVestingAccelerationAsOcf(
 
   const { createArgument } = eventsResponse.created.createdEvent;
 
-  function hasVestingAccelerationData(
-    arg: unknown
-  ): arg is { vesting_acceleration_data: DamlVestingAccelerationData } {
+  function hasVestingAccelerationData(arg: unknown): arg is { vesting_acceleration_data: DamlVestingAccelerationData } {
     const record = arg as Record<string, unknown>;
     return (
       typeof arg === 'object' &&
