@@ -9,15 +9,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Milestone 2: OCP SDK Implementation](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)**
   — In Progress Parent milestone - SDK support for all OCF types, testing strategy
 
-- **[Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)** — Open
-  (High) OCF exercise & conversion types (3 types)
-
-- **[Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)** — Open (Medium) OCF
-  security transfer types (3 types)
-
-- **[Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)** — Open
-  (Medium) OCF stock class adjustment types (4 types)
-
 ### Integration Testing
 
 - **[OCF Integration Test Data](./2026/01/ai/2026.01.21-ocf-integration-test-data.md)** — Open
@@ -27,9 +18,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 - **[API Consistency Refactor](./2026/01/ai/2026.01.21-api-consistency-refactor.md)** — Open (High)
   Unify API patterns, document when to use batch vs direct methods
-
-- **[Centralize Converters](./2026/01/ai/2026.01.21-centralize-converters.md)** — Open (High) Create
-  `src/converters/` with bidirectional OCF↔DAML conversions
 
 - **[Add damlToOcf Dispatcher](./2026/01/ai/2026.01.21-daml-to-ocf-dispatcher.md)** — Open (High)
   Generic `getEntityAsOcf<T>()` function to DRY up read operations
@@ -76,14 +64,23 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ## Completed Tasks
 
+- **[Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)** —
+  Complete (2026-01-21) OCF exercise & conversion types (3 types) - PR #185
+
+- **[Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)** — Complete
+  (2026-01-21) OCF security transfer types (3 types) - PR #183
+
+- **[Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)** — Complete
+  (2026-01-21) OCF stock class adjustment types (4 types) - PR #186
+
 - **[Acceptance Types](./2026/01/ai/2026.01.20-ocf-acceptance-types.md)** — Complete (2026-01-21)
   OCF acceptance types with converters and tests (4 types)
 
 - **[Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)** — Complete (2026-01-21)
-  Remaining OCF types (stakeholder events) with unit tests
+  Remaining OCF types (stakeholder events) with unit tests - PR #188
 
 - **[Valuation & Vesting Types](./2026/01/ai/2026.01.20-ocf-valuation-vesting-types.md)** — Complete
-  (2026-01-21) OCF valuation & vesting types (4 types)
+  (2026-01-21) OCF valuation & vesting types (4 types) - PR #187
 
 - **[Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)** — Complete
   (2026-01-21) Batch API infrastructure - all phases complete, cleanup in separate task
@@ -117,6 +114,9 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 - **[OCP Protocol Review](./2026/01/ai/2026.01.21-ocp-protocol-review.md)** — Complete (2026-01-21)
   Comprehensive review of SDK architecture with improvement recommendations
+
+- **[Centralize Converters](./2026/01/ai/2026.01.21-centralize-converters.md)** — Cancelled
+  (2026-01-21) Superseded - conflicts with per-entity folder architecture in llms.txt
 
 ## Related ADRs
 
