@@ -35,9 +35,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)** —
   Partially Complete Simplify OcpClient class, cleanup require() (context caching done)
 
-- **[Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)** —
-  Partially Complete Extract and centralize duplicated entity conversion code
-
 - **[Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)** —
   Open Add correlation IDs, logging hooks, and trace propagation
 
@@ -52,8 +49,17 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ## Completed Tasks
 
+- **[Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)** —
+  Complete (2026-01-20) Extract and centralize duplicated entity conversion code
+
 - **[Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)** —
   Complete (2026-01-20) Removed public exports of legacy \*DataToDaml functions
+
+- **[Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)**
+  — Complete (2026-01-20) API ergonomics, type safety, testing improvements - all phases done
+
+- **[Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)** — Complete
+  (2026-01-20) Implement OcpValidationError, OcpContractError for better DX
 
 - **[Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)** —
   Complete (2026-01-20) Runtime type guards and validation utilities for OCF objects
