@@ -1,3 +1,4 @@
+export * from './enumConversions';
 export * from './ocfComparison';
 export * from './ocfHelpers';
 export * from './ocfMetadata';

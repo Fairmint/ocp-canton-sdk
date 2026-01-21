@@ -3,27 +3,10 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type { CommandWithDisclosedContracts, EmailType, OcfIssuer, PhoneType } from '../../../types';
+import { OcpValidationError } from '../../../errors';
+import type { CommandWithDisclosedContracts, OcfIssuer } from '../../../types';
+import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
 import { addressToDaml, cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
-
-function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfEmailType {
-  switch (emailType) {
-    case 'PERSONAL':
-      return 'OcfEmailTypePersonal';
-    case 'BUSINESS':
-      return 'OcfEmailTypeBusiness';
-    case 'OTHER':
-      return 'OcfEmailTypeOther';
-    default: {
-      const exhaustiveCheck: never = emailType;
-      throw new OcpParseError(`Unknown email type: ${exhaustiveCheck as string}`, {
-        source: 'issuer.email.email_type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
-  }
-}
 
 function emailToDaml(email: OcfIssuer['email']): Fairmint.OpenCapTable.Types.OcfEmail | null {
   if (!email) return null;
@@ -31,26 +14,6 @@ function emailToDaml(email: OcfIssuer['email']): Fairmint.OpenCapTable.Types.Ocf
     email_type: emailTypeToDaml(email.email_type),
     email_address: email.email_address,
   };
-}
-
-function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfPhoneType {
-  switch (phoneType) {
-    case 'HOME':
-      return 'OcfPhoneHome';
-    case 'MOBILE':
-      return 'OcfPhoneMobile';
-    case 'BUSINESS':
-      return 'OcfPhoneBusiness';
-    case 'OTHER':
-      return 'OcfPhoneOther';
-    default: {
-      const exhaustiveCheck: never = phoneType;
-      throw new OcpParseError(`Unknown phone type: ${exhaustiveCheck as string}`, {
-        source: 'issuer.phone.phone_type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
-  }
 }
 
 function phoneToDaml(phone: OcfIssuer['phone']): Fairmint.OpenCapTable.Types.OcfPhone | null {
