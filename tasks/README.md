@@ -35,13 +35,38 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[OCP Protocol Review](./2026/01/ai/2026.01.21-ocp-protocol-review.md)** — Complete Comprehensive
   review of SDK architecture with improvement recommendations
 
-### SDK Refactoring & Improvements
+### SDK Refactoring — Immediate Priority (Pre-User Adoption)
+
+_From [Protocol Review](./2026/01/ai/2026.01.21-ocp-protocol-review.md) — should be addressed before
+users adopt the SDK._
+
+- **API Consistency Refactor** — Open (High) Unify API patterns, document when to use batch vs
+  direct methods (see Review Issue 1.1)
+
+- **Centralize Converters** — Open (High) Create `src/converters/` with bidirectional OCF↔DAML
+  conversions (see Review Issue 2.1, related to existing Consolidate Entity Converters task)
+
+- **Add damlToOcf Dispatcher** — Open (High) Generic `getEntityAsOcf<T>()` function to DRY up read
+  operations (see Review Issue 2.2)
+
+- **Standardize Error Usage** — Open (Medium) Replace `new Error()` with appropriate OCP error types
+  throughout codebase (see Review Issue 4.1)
+
+### SDK Refactoring — Short-term
 
 - **[OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)** —
   Partially Complete Simplify OcpClient class, cleanup require() (context caching done)
 
 - **[Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)** —
   Partially Complete Extract and centralize duplicated entity conversion code
+
+- **Input Validation Layer** — Open (Medium) Comprehensive validation before DAML conversion (see
+  Review Issue 3.3)
+
+- **Round-trip Tests** — Open (Medium) Property-based and round-trip tests for converters (see
+  Review Issues 5.1, 5.2)
+
+### SDK Refactoring — Longer-term
 
 - **[Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)** —
   Open Add correlation IDs, logging hooks, and trace propagation
@@ -54,6 +79,15 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 - **[CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)** — Partially
   Complete Add CouponMinter helper functions (TPS helper done, full ops future)
+
+- **JSDoc Coverage** — Open (Low) Add comprehensive documentation to public API (see Review Issue
+  6.1)
+
+- **Migration Guide** — Open (Low) Document migration from legacy to batch API (see Review Issue
+  6.2)
+
+- **Batch Size Limits** — Open (Low) Add configurable limits and pagination support (see Review
+  Issue 7.1)
 
 ## Completed Tasks
 
