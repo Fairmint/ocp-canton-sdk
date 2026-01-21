@@ -19,14 +19,25 @@ export function stockConsolidationDataToDaml(d: OcfStockConsolidation): Record<s
       receivedValue: d.id,
     });
   }
+  // Validate that resulting_security_ids has at least one element
+  if (d.resulting_security_ids.length === 0) {
+    throw new OcpValidationError(
+      'stockConsolidation.resulting_security_ids',
+      'Required array must have at least one element',
+      {
+        expectedType: 'string[]',
+        receivedValue: d.resulting_security_ids,
+      }
+    );
+  }
   // DAML expects resulting_security_id (singular) - take first item from array
-  const resultingSecurityId = d.resulting_security_ids.length > 0 ? d.resulting_security_ids[0] : '';
+  const resultingSecurityId = d.resulting_security_ids[0];
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_ids: d.security_ids,
     resulting_security_id: resultingSecurityId,
-    reason_text: optionalString(null), // Optional field
+    reason_text: optionalString(d.reason_text ?? null),
     comments: cleanComments(d.comments),
   };
 }

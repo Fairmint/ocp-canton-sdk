@@ -21,8 +21,8 @@ export function stockReissuanceDataToDaml(d: OcfStockReissuance): Record<string,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     resulting_security_ids: d.resulting_security_ids,
-    reason_text: optionalString(null), // Optional field
-    split_transaction_id: optionalString(null), // Optional field
+    reason_text: optionalString(d.reason_text ?? null),
+    split_transaction_id: optionalString(d.split_transaction_id ?? null),
     comments: cleanComments(d.comments),
   };
 }

@@ -1,24 +1,7 @@
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type { OcfStockClass, StockClassType } from '../../../types';
+import { OcpValidationError } from '../../../errors';
+import type { OcfStockClass } from '../../../types';
+import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import { cleanComments, dateStringToDAMLTime, monetaryToDaml } from '../../../utils/typeConversions';
-
-function stockClassTypeToDaml(
-  stockClassType: StockClassType
-): 'OcfStockClassTypePreferred' | 'OcfStockClassTypeCommon' {
-  switch (stockClassType) {
-    case 'PREFERRED':
-      return 'OcfStockClassTypePreferred';
-    case 'COMMON':
-      return 'OcfStockClassTypeCommon';
-    default: {
-      const exhaustiveCheck: never = stockClassType;
-      throw new OcpParseError(`Unknown stock class type: ${String(exhaustiveCheck)}`, {
-        source: 'stockClass.class_type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
-  }
-}
 
 export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<string, unknown> {
   const d = stockClassData;

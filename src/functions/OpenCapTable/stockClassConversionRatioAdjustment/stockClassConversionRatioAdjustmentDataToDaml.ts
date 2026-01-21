@@ -11,6 +11,15 @@ import { cleanComments, dateStringToDAMLTime, numberToString } from '../../../ut
  *
  * DAML expects new_ratio_conversion_mechanism as an OcfRatioConversionMechanism object
  * while OCF has flat new_ratio_numerator and new_ratio_denominator fields.
+ *
+ * Note: The OCF type includes optional `board_approval_date` and `stockholder_approval_date`
+ * fields, but the DAML StockClassConversionRatioAdjustmentOcfData contract does not support
+ * these fields. They are intentionally omitted from the conversion.
+ *
+ * The DAML OcfRatioConversionMechanism requires `conversion_price` and `rounding_type` fields
+ * that are not present in the OCF type. Default values are used:
+ * - conversion_price: { amount: '0', currency: 'USD' }
+ * - rounding_type: 'OcfRoundingNormal'
  */
 export function stockClassConversionRatioAdjustmentDataToDaml(
   d: OcfStockClassConversionRatioAdjustment
