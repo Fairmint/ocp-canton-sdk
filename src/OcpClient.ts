@@ -32,6 +32,10 @@ import {
   getStockPlanPoolAdjustmentEventAsOcf,
   getStockRepurchaseAsOcf,
   getStockTransferAsOcf,
+  getValuationAsOcf,
+  getVestingAccelerationAsOcf,
+  getVestingEventAsOcf,
+  getVestingStartAsOcf,
   getVestingTermsAsOcf,
   getWarrantCancellationEventAsOcf,
   getWarrantIssuanceAsOcf,
@@ -80,6 +84,14 @@ import {
   type GetStockRepurchaseAsOcfResult,
   type GetStockTransferAsOcfParams,
   type GetStockTransferAsOcfResult,
+  type GetValuationAsOcfParams,
+  type GetValuationAsOcfResult,
+  type GetVestingAccelerationAsOcfParams,
+  type GetVestingAccelerationAsOcfResult,
+  type GetVestingEventAsOcfParams,
+  type GetVestingEventAsOcfResult,
+  type GetVestingStartAsOcfParams,
+  type GetVestingStartAsOcfResult,
   type GetVestingTermsAsOcfParams,
   type GetVestingTermsAsOcfResult,
   type GetWarrantCancellationEventAsOcfParams,
@@ -428,6 +440,19 @@ export class OcpClient {
         getStockRepurchaseAsOcf: async (params: GetStockRepurchaseAsOcfParams) =>
           getStockRepurchaseAsOcf(client, params),
       },
+      valuation: {
+        getValuationAsOcf: async (params: GetValuationAsOcfParams) => getValuationAsOcf(client, params),
+      },
+      vestingStart: {
+        getVestingStartAsOcf: async (params: GetVestingStartAsOcfParams) => getVestingStartAsOcf(client, params),
+      },
+      vestingEvent: {
+        getVestingEventAsOcf: async (params: GetVestingEventAsOcfParams) => getVestingEventAsOcf(client, params),
+      },
+      vestingAcceleration: {
+        getVestingAccelerationAsOcf: async (params: GetVestingAccelerationAsOcfParams) =>
+          getVestingAccelerationAsOcf(client, params),
+      },
       issuerAuthorization: {
         authorizeIssuer: async (params: AuthorizeIssuerParams) => authorizeIssuer(client, params),
         withdrawAuthorization: async (params: WithdrawAuthorizationParams) => withdrawAuthorization(client, params),
@@ -573,6 +598,20 @@ interface OpenCapTableMethods {
   };
   stockRepurchase: {
     getStockRepurchaseAsOcf: (params: GetStockRepurchaseAsOcfParams) => Promise<GetStockRepurchaseAsOcfResult>;
+  };
+  valuation: {
+    getValuationAsOcf: (params: GetValuationAsOcfParams) => Promise<GetValuationAsOcfResult>;
+  };
+  vestingStart: {
+    getVestingStartAsOcf: (params: GetVestingStartAsOcfParams) => Promise<GetVestingStartAsOcfResult>;
+  };
+  vestingEvent: {
+    getVestingEventAsOcf: (params: GetVestingEventAsOcfParams) => Promise<GetVestingEventAsOcfResult>;
+  };
+  vestingAcceleration: {
+    getVestingAccelerationAsOcf: (
+      params: GetVestingAccelerationAsOcfParams
+    ) => Promise<GetVestingAccelerationAsOcfResult>;
   };
   document: {
     getDocumentAsOcf: (params: GetDocumentAsOcfParams) => Promise<GetDocumentAsOcfResult>;
