@@ -26,10 +26,14 @@ import {
   getStockCancellationEventAsOcf,
   getStockClassAsOcf,
   getStockClassAuthorizedSharesAdjustmentEventAsOcf,
+  getStockClassConversionRatioAdjustmentEventAsOcf,
+  getStockClassSplitEventAsOcf,
+  getStockConsolidationEventAsOcf,
   getStockIssuanceAsOcf,
   getStockLegendTemplateAsOcf,
   getStockPlanAsOcf,
   getStockPlanPoolAdjustmentEventAsOcf,
+  getStockReissuanceEventAsOcf,
   getStockRepurchaseAsOcf,
   getStockTransferAsOcf,
   getVestingTermsAsOcf,
@@ -68,6 +72,12 @@ import {
   type GetStockClassAsOcfResult,
   type GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams,
   type GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult,
+  type GetStockClassConversionRatioAdjustmentEventAsOcfParams,
+  type GetStockClassConversionRatioAdjustmentEventAsOcfResult,
+  type GetStockClassSplitEventAsOcfParams,
+  type GetStockClassSplitEventAsOcfResult,
+  type GetStockConsolidationEventAsOcfParams,
+  type GetStockConsolidationEventAsOcfResult,
   type GetStockIssuanceAsOcfParams,
   type GetStockIssuanceAsOcfResult,
   type GetStockLegendTemplateAsOcfParams,
@@ -76,6 +86,8 @@ import {
   type GetStockPlanAsOcfResult,
   type GetStockPlanPoolAdjustmentEventAsOcfParams,
   type GetStockPlanPoolAdjustmentEventAsOcfResult,
+  type GetStockReissuanceEventAsOcfParams,
+  type GetStockReissuanceEventAsOcfResult,
   type GetStockRepurchaseAsOcfParams,
   type GetStockRepurchaseAsOcfResult,
   type GetStockTransferAsOcfParams,
@@ -414,6 +426,23 @@ export class OcpClient {
           params: GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams
         ) => getStockClassAuthorizedSharesAdjustmentEventAsOcf(client, params),
       },
+      stockClassConversionRatioAdjustment: {
+        getStockClassConversionRatioAdjustmentEventAsOcf: async (
+          params: GetStockClassConversionRatioAdjustmentEventAsOcfParams
+        ) => getStockClassConversionRatioAdjustmentEventAsOcf(client, params),
+      },
+      stockClassSplit: {
+        getStockClassSplitEventAsOcf: async (params: GetStockClassSplitEventAsOcfParams) =>
+          getStockClassSplitEventAsOcf(client, params),
+      },
+      stockConsolidation: {
+        getStockConsolidationEventAsOcf: async (params: GetStockConsolidationEventAsOcfParams) =>
+          getStockConsolidationEventAsOcf(client, params),
+      },
+      stockReissuance: {
+        getStockReissuanceEventAsOcf: async (params: GetStockReissuanceEventAsOcfParams) =>
+          getStockReissuanceEventAsOcf(client, params),
+      },
       stockPlanPoolAdjustment: {
         getStockPlanPoolAdjustmentEventAsOcf: async (params: GetStockPlanPoolAdjustmentEventAsOcfParams) =>
           getStockPlanPoolAdjustmentEventAsOcf(client, params),
@@ -562,6 +591,26 @@ interface OpenCapTableMethods {
     getStockClassAuthorizedSharesAdjustmentEventAsOcf: (
       params: GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams
     ) => Promise<GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult>;
+  };
+  stockClassConversionRatioAdjustment: {
+    getStockClassConversionRatioAdjustmentEventAsOcf: (
+      params: GetStockClassConversionRatioAdjustmentEventAsOcfParams
+    ) => Promise<GetStockClassConversionRatioAdjustmentEventAsOcfResult>;
+  };
+  stockClassSplit: {
+    getStockClassSplitEventAsOcf: (
+      params: GetStockClassSplitEventAsOcfParams
+    ) => Promise<GetStockClassSplitEventAsOcfResult>;
+  };
+  stockConsolidation: {
+    getStockConsolidationEventAsOcf: (
+      params: GetStockConsolidationEventAsOcfParams
+    ) => Promise<GetStockConsolidationEventAsOcfResult>;
+  };
+  stockReissuance: {
+    getStockReissuanceEventAsOcf: (
+      params: GetStockReissuanceEventAsOcfParams
+    ) => Promise<GetStockReissuanceEventAsOcfResult>;
   };
   stockPlanPoolAdjustment: {
     getStockPlanPoolAdjustmentEventAsOcf: (
