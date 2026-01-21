@@ -20,8 +20,21 @@ function cancellationBehaviorToDaml(
   }
 }
 
+// Type for handling deprecated stock_class_id field in input data
+type StockPlanDataWithDeprecated = Omit<OcfStockPlan, 'stock_class_ids'> & {
+  stock_class_id?: string;
+  stock_class_ids?: string[];
+};
+
 export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData {
   if (!d.id) throw new Error('stockPlan.id is required');
+
+  // Handle deprecated stock_class_id → stock_class_ids
+  // Cast to allow for deprecated field and potentially missing stock_class_ids (when only deprecated field is provided)
+  const data = d as StockPlanDataWithDeprecated;
+  const currentIds = data.stock_class_ids ?? [];
+  const stockClassIds = currentIds.length > 0 ? currentIds : data.stock_class_id ? [data.stock_class_id] : [];
+
   return {
     id: d.id,
     plan_name: d.plan_name,
@@ -30,7 +43,7 @@ export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.
     initial_shares_reserved:
       typeof d.initial_shares_reserved === 'number' ? d.initial_shares_reserved.toString() : d.initial_shares_reserved,
     default_cancellation_behavior: cancellationBehaviorToDaml(d.default_cancellation_behavior),
-    stock_class_ids: d.stock_class_ids,
+    stock_class_ids: stockClassIds,
     comments: cleanComments(d.comments),
   };
 }
