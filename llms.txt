@@ -531,6 +531,13 @@ LocalNet startup can take 4-5 minutes. Ensure all services are healthy before ru
 
 4. **State persistence**: Canton restarts (via Docker or health checks) clear all ledger state including deployed DARs, created factories, and contracts. Tests must handle re-deployment.
 
+5. **DAML JSON API v2 Nested Numeric Encoding**: The DAML JSON API v2 has encoding issues with nested objects containing Numeric fields. The API expects Numeric fields as objects but receives strings. This affects:
+   - **StockClass creation** via batch API (has `initial_shares_authorized` and other Numeric fields)
+   - **StockClassSplit** via batch API (uses `OcfRatio` with nested `numerator`/`denominator` Numeric fields)
+   - **StockClassConversionRatioAdjustment** via batch API (uses `OcfRatioConversionMechanism` with nested Numeric fields)
+   
+   **Workaround:** For types with flat Numeric fields (e.g., `StockClassAuthorizedSharesAdjustment`), the batch API works. For types with nested Numeric fields, use dedicated create functions if available, or wait for JSON API v2 fix.
+
 ### Useful Make Targets
 
 ```bash
