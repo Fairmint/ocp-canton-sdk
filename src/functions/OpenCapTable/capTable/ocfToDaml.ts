@@ -49,6 +49,8 @@ import type {
   OcfEquityCompensationRepricing,
   OcfEquityCompensationRetraction,
   OcfEquityCompensationTransfer,
+  OcfStakeholderRelationshipChangeEvent,
+  OcfStakeholderStatusChangeEvent,
   OcfStockAcceptance,
   OcfStockClassConversionRatioAdjustment,
   OcfStockClassSplit,
@@ -65,6 +67,8 @@ import type {
   OcfWarrantExercise,
   OcfWarrantRetraction,
   OcfWarrantTransfer,
+  StakeholderRelationshipType,
+  StakeholderStatus,
   ValuationType,
 } from '../../../types';
 
@@ -514,6 +518,91 @@ function equityCompensationTransferDataToDaml(d: OcfEquityCompensationTransfer):
   };
 }
 
+// Stakeholder event converters
+function stakeholderRelationshipTypeToDaml(r: StakeholderRelationshipType): string {
+  switch (r) {
+    case 'EMPLOYEE':
+      return 'OcfRelEmployee';
+    case 'ADVISOR':
+      return 'OcfRelAdvisor';
+    case 'INVESTOR':
+      return 'OcfRelInvestor';
+    case 'FOUNDER':
+      return 'OcfRelFounder';
+    case 'BOARD_MEMBER':
+      return 'OcfRelBoardMember';
+    case 'OFFICER':
+      return 'OcfRelOfficer';
+    case 'OTHER':
+      return 'OcfRelOther';
+    default: {
+      const exhaustiveCheck: never = r;
+      throw new Error(`Unknown stakeholder relationship type: ${exhaustiveCheck as string}`);
+    }
+  }
+}
+
+function stakeholderStatusToDaml(s: StakeholderStatus): string {
+  switch (s) {
+    case 'ACTIVE':
+      return 'OcfStakeholderStatusActive';
+    case 'LEAVE_OF_ABSENCE':
+      return 'OcfStakeholderStatusLeaveOfAbsence';
+    case 'TERMINATION_VOLUNTARY_OTHER':
+      return 'OcfStakeholderStatusTerminationVoluntaryOther';
+    case 'TERMINATION_VOLUNTARY_GOOD_CAUSE':
+      return 'OcfStakeholderStatusTerminationVoluntaryGoodCause';
+    case 'TERMINATION_VOLUNTARY_RETIREMENT':
+      return 'OcfStakeholderStatusTerminationVoluntaryRetirement';
+    case 'TERMINATION_INVOLUNTARY_OTHER':
+      return 'OcfStakeholderStatusTerminationInvoluntaryOther';
+    case 'TERMINATION_INVOLUNTARY_DEATH':
+      return 'OcfStakeholderStatusTerminationInvoluntaryDeath';
+    case 'TERMINATION_INVOLUNTARY_DISABILITY':
+      return 'OcfStakeholderStatusTerminationInvoluntaryDisability';
+    case 'TERMINATION_INVOLUNTARY_WITH_CAUSE':
+      return 'OcfStakeholderStatusTerminationInvoluntaryWithCause';
+    default: {
+      const exhaustiveCheck: never = s;
+      throw new Error(`Unknown stakeholder status: ${exhaustiveCheck as string}`);
+    }
+  }
+}
+
+function stakeholderRelationshipChangeEventDataToDaml(
+  d: OcfStakeholderRelationshipChangeEvent
+): Record<string, unknown> {
+  if (!d.id) {
+    throw new OcpValidationError('stakeholderRelationshipChangeEvent.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
+  return {
+    id: d.id,
+    date: dateStringToDAMLTime(d.date),
+    stakeholder_id: d.stakeholder_id,
+    new_relationships: d.new_relationships.map(stakeholderRelationshipTypeToDaml),
+    comments: cleanComments(d.comments),
+  };
+}
+
+function stakeholderStatusChangeEventDataToDaml(d: OcfStakeholderStatusChangeEvent): Record<string, unknown> {
+  if (!d.id) {
+    throw new OcpValidationError('stakeholderStatusChangeEvent.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
+  return {
+    id: d.id,
+    date: dateStringToDAMLTime(d.date),
+    stakeholder_id: d.stakeholder_id,
+    new_status: stakeholderStatusToDaml(d.new_status),
+    comments: cleanComments(d.comments),
+  };
+}
+
 /**
  * Convert native OCF data to DAML format based on entity type.
  *
@@ -621,6 +710,12 @@ export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTyp
       return equityCompensationRetractionDataToDaml(data as OcfDataTypeFor<'equityCompensationRetraction'>);
     case 'equityCompensationTransfer':
       return equityCompensationTransferDataToDaml(data as OcfDataTypeFor<'equityCompensationTransfer'>);
+
+    // Stakeholder change events
+    case 'stakeholderRelationshipChangeEvent':
+      return stakeholderRelationshipChangeEventDataToDaml(data as OcfDataTypeFor<'stakeholderRelationshipChangeEvent'>);
+    case 'stakeholderStatusChangeEvent':
+      return stakeholderStatusChangeEventDataToDaml(data as OcfDataTypeFor<'stakeholderStatusChangeEvent'>);
 
     default: {
       const exhaustiveCheck: never = type;
