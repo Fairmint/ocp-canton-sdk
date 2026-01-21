@@ -18,6 +18,9 @@ const SCHEMA_MAP: Record<string, string> = {
   TX_CONVERTIBLE_CANCELLATION: 'objects/transactions/cancellation/ConvertibleCancellation.schema.json',
   TX_EQUITY_COMPENSATION_CANCELLATION: 'objects/transactions/cancellation/EquityCompensationCancellation.schema.json',
   TX_STOCK_TRANSFER: 'objects/transactions/transfer/StockTransfer.schema.json',
+  TX_CONVERTIBLE_TRANSFER: 'objects/transactions/transfer/ConvertibleTransfer.schema.json',
+  TX_EQUITY_COMPENSATION_TRANSFER: 'objects/transactions/transfer/EquityCompensationTransfer.schema.json',
+  TX_WARRANT_TRANSFER: 'objects/transactions/transfer/WarrantTransfer.schema.json',
   TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT:
     'objects/transactions/adjustment/IssuerAuthorizedSharesAdjustment.schema.json',
   TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT:

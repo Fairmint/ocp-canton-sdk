@@ -13,11 +13,13 @@ import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable'
 import type {
   OcfConvertibleConversion,
   OcfConvertibleRetraction,
+  OcfConvertibleTransfer,
   OcfDocument,
   OcfEquityCompensationIssuance,
   OcfEquityCompensationRelease,
   OcfEquityCompensationRepricing,
   OcfEquityCompensationRetraction,
+  OcfEquityCompensationTransfer,
   OcfIssuer,
   OcfStakeholder,
   OcfStakeholderRelationshipChangeEvent,
@@ -29,6 +31,7 @@ import type {
   OcfStockPlan,
   OcfStockPlanReturnToPool,
   OcfStockRetraction,
+  OcfStockTransfer,
   OcfValuation,
   OcfVestingAcceleration,
   OcfVestingEvent,
@@ -36,6 +39,7 @@ import type {
   OcfVestingTerms,
   OcfWarrantExercise,
   OcfWarrantRetraction,
+  OcfWarrantTransfer,
 } from '../../../src/types/native';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
@@ -762,5 +766,71 @@ export async function setupTestStakeholder(
     stakeholderData,
     newCapTableContractId: newCapTable.contractId,
     newCapTableContractDetails: newCapTable.contractDetails,
+  };
+}
+
+// ===== Transfer Type Test Data Factories =====
+
+/** Create test stock transfer data with optional overrides. */
+export function createTestStockTransferData(
+  overrides: Partial<OcfStockTransfer> & { security_id: string }
+): OcfStockTransfer {
+  const id = overrides.id ?? generateTestId('stock-transfer');
+  const { security_id, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id,
+    quantity: rest.quantity ?? '1000',
+    resulting_security_ids: rest.resulting_security_ids ?? [generateTestId('result-security')],
+    ...rest,
+  };
+}
+
+/** Create test convertible transfer data with optional overrides. */
+export function createTestConvertibleTransferData(
+  overrides: Partial<OcfConvertibleTransfer> & { security_id: string }
+): OcfConvertibleTransfer {
+  const id = overrides.id ?? generateTestId('convertible-transfer');
+  const { security_id, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id,
+    amount: rest.amount ?? { amount: '50000', currency: 'USD' },
+    resulting_security_ids: rest.resulting_security_ids ?? [generateTestId('result-security')],
+    ...rest,
+  };
+}
+
+/** Create test equity compensation transfer data with optional overrides. */
+export function createTestEquityCompensationTransferData(
+  overrides: Partial<OcfEquityCompensationTransfer> & { security_id: string }
+): OcfEquityCompensationTransfer {
+  const id = overrides.id ?? generateTestId('equity-comp-transfer');
+  const { security_id, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id,
+    quantity: rest.quantity ?? '5000',
+    resulting_security_ids: rest.resulting_security_ids ?? [generateTestId('result-security')],
+    ...rest,
+  };
+}
+
+/** Create test warrant transfer data with optional overrides. */
+export function createTestWarrantTransferData(
+  overrides: Partial<OcfWarrantTransfer> & { security_id: string }
+): OcfWarrantTransfer {
+  const id = overrides.id ?? generateTestId('warrant-transfer');
+  const { security_id, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id,
+    quantity: rest.quantity ?? '2500',
+    resulting_security_ids: rest.resulting_security_ids ?? [generateTestId('result-security')],
+    ...rest,
   };
 }

@@ -12,27 +12,34 @@ import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
 import { convertibleAcceptanceDataToDaml } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
 import { convertibleCancellationDataToDaml } from '../convertibleCancellation/createConvertibleCancellation';
 import { convertibleIssuanceDataToDaml } from '../convertibleIssuance/createConvertibleIssuance';
+import { convertibleTransferDataToDaml } from '../convertibleTransfer/convertibleTransferDataToDaml';
 import { documentDataToDaml } from '../document/createDocument';
 import { equityCompensationAcceptanceDataToDaml } from '../equityCompensationAcceptance/equityCompensationAcceptanceDataToDaml';
 import { equityCompensationCancellationDataToDaml } from '../equityCompensationCancellation/createEquityCompensationCancellation';
 import { equityCompensationExerciseDataToDaml } from '../equityCompensationExercise/createEquityCompensationExercise';
 import { equityCompensationIssuanceDataToDaml } from '../equityCompensationIssuance/createEquityCompensationIssuance';
+import { equityCompensationTransferDataToDaml } from '../equityCompensationTransfer/equityCompensationTransferDataToDaml';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
 import { stockAcceptanceDataToDaml } from '../stockAcceptance/stockAcceptanceDataToDaml';
 import { stockCancellationDataToDaml } from '../stockCancellation/createStockCancellation';
 import { stockClassDataToDaml } from '../stockClass/stockClassDataToDaml';
 import { stockClassAuthorizedSharesAdjustmentDataToDaml } from '../stockClassAuthorizedSharesAdjustment/createStockClassAuthorizedSharesAdjustment';
+import { stockClassConversionRatioAdjustmentDataToDaml } from '../stockClassConversionRatioAdjustment/stockClassConversionRatioAdjustmentDataToDaml';
+import { stockClassSplitDataToDaml } from '../stockClassSplit/stockClassSplitDataToDaml';
+import { stockConsolidationDataToDaml } from '../stockConsolidation/stockConsolidationDataToDaml';
 import { stockIssuanceDataToDaml } from '../stockIssuance/createStockIssuance';
 import { stockLegendTemplateDataToDaml } from '../stockLegendTemplate/createStockLegendTemplate';
 import { stockPlanDataToDaml } from '../stockPlan/createStockPlan';
 import { stockPlanPoolAdjustmentDataToDaml } from '../stockPlanPoolAdjustment/createStockPlanPoolAdjustment';
+import { stockReissuanceDataToDaml } from '../stockReissuance/stockReissuanceDataToDaml';
 import { stockRepurchaseDataToDaml } from '../stockRepurchase/stockRepurchaseDataToDaml';
 import { stockTransferDataToDaml } from '../stockTransfer/createStockTransfer';
 import { vestingTermsDataToDaml } from '../vestingTerms/createVestingTerms';
 import { warrantAcceptanceDataToDaml } from '../warrantAcceptance/warrantAcceptanceDataToDaml';
 import { warrantCancellationDataToDaml } from '../warrantCancellation/createWarrantCancellation';
 import { warrantIssuanceDataToDaml } from '../warrantIssuance/createWarrantIssuance';
+import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDataToDaml';
 
 // Import stakeholder event converters from entity folders
 import { stakeholderRelationshipChangeEventDataToDaml } from '../stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
@@ -50,17 +57,11 @@ import {
 import type {
   OcfConvertibleConversion,
   OcfConvertibleRetraction,
-  OcfConvertibleTransfer,
   OcfEquityCompensationRelease,
   OcfEquityCompensationRepricing,
   OcfEquityCompensationRetraction,
-  OcfEquityCompensationTransfer,
-  OcfStockClassConversionRatioAdjustment,
-  OcfStockClassSplit,
-  OcfStockConsolidation,
   OcfStockConversion,
   OcfStockPlanReturnToPool,
-  OcfStockReissuance,
   OcfStockRetraction,
   OcfValuation,
   OcfVestingAcceleration,
@@ -68,7 +69,6 @@ import type {
   OcfVestingStart,
   OcfWarrantExercise,
   OcfWarrantRetraction,
-  OcfWarrantTransfer,
   ValuationType,
 } from '../../../types';
 
@@ -112,78 +112,6 @@ function stockConversionDataToDaml(d: OcfStockConversion): Record<string, unknow
     quantity: numberToString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,
     balance_security_id: optionalString(d.balance_security_id),
-    comments: cleanComments(d.comments),
-  };
-}
-
-function stockReissuanceDataToDaml(d: OcfStockReissuance): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('stockReissuance.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    resulting_security_ids: d.resulting_security_ids,
-    comments: cleanComments(d.comments),
-  };
-}
-
-function stockConsolidationDataToDaml(d: OcfStockConsolidation): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('stockConsolidation.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_ids: d.security_ids,
-    resulting_security_ids: d.resulting_security_ids,
-    comments: cleanComments(d.comments),
-  };
-}
-
-function stockClassSplitDataToDaml(d: OcfStockClassSplit): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('stockClassSplit.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    stock_class_id: d.stock_class_id,
-    split_ratio_numerator: numberToString(d.split_ratio_numerator),
-    split_ratio_denominator: numberToString(d.split_ratio_denominator),
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-    comments: cleanComments(d.comments),
-  };
-}
-
-function stockClassConversionRatioAdjustmentDataToDaml(
-  d: OcfStockClassConversionRatioAdjustment
-): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('stockClassConversionRatioAdjustment.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    stock_class_id: d.stock_class_id,
-    new_ratio_numerator: numberToString(d.new_ratio_numerator),
-    new_ratio_denominator: numberToString(d.new_ratio_denominator),
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     comments: cleanComments(d.comments),
   };
 }
@@ -313,25 +241,6 @@ function warrantRetractionDataToDaml(d: OcfWarrantRetraction): Record<string, un
   };
 }
 
-function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('warrantTransfer.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    quantity: numberToString(d.quantity),
-    resulting_security_ids: d.resulting_security_ids,
-    balance_security_id: optionalString(d.balance_security_id),
-    consideration_text: optionalString(d.consideration_text),
-    comments: cleanComments(d.comments),
-  };
-}
-
 // Convertible converters
 function convertibleConversionDataToDaml(d: OcfConvertibleConversion): Record<string, unknown> {
   if (!d.id) {
@@ -363,25 +272,6 @@ function convertibleRetractionDataToDaml(d: OcfConvertibleRetraction): Record<st
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     reason_text: d.reason_text,
-    comments: cleanComments(d.comments),
-  };
-}
-
-function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('convertibleTransfer.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    amount: monetaryToDaml(d.amount),
-    resulting_security_ids: d.resulting_security_ids,
-    balance_security_id: optionalString(d.balance_security_id),
-    consideration_text: optionalString(d.consideration_text),
     comments: cleanComments(d.comments),
   };
 }
@@ -435,25 +325,6 @@ function equityCompensationRetractionDataToDaml(d: OcfEquityCompensationRetracti
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     reason_text: d.reason_text,
-    comments: cleanComments(d.comments),
-  };
-}
-
-function equityCompensationTransferDataToDaml(d: OcfEquityCompensationTransfer): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('equityCompensationTransfer.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    quantity: numberToString(d.quantity),
-    resulting_security_ids: d.resulting_security_ids,
-    balance_security_id: optionalString(d.balance_security_id),
-    consideration_text: optionalString(d.consideration_text),
     comments: cleanComments(d.comments),
   };
 }
