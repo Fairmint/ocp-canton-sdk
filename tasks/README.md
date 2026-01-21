@@ -32,10 +32,32 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[OCF Integration Test Data](./2026/01/ai/2026.01.21-ocf-integration-test-data.md)** — Open
   Source anonymized prod data for integration tests; round-trip validation for all OCF types
 
-### SDK Refactoring & Improvements
+### SDK Improvements — Immediate Priority (Pre-User Adoption)
+
+- **[API Consistency Refactor](./2026/01/ai/2026.01.21-api-consistency-refactor.md)** — Open (High)
+  Unify API patterns, document when to use batch vs direct methods
+
+- **[Centralize Converters](./2026/01/ai/2026.01.21-centralize-converters.md)** — Open (High) Create
+  `src/converters/` with bidirectional OCF↔DAML conversions
+
+- **[Add damlToOcf Dispatcher](./2026/01/ai/2026.01.21-daml-to-ocf-dispatcher.md)** — Open (High)
+  Generic `getEntityAsOcf<T>()` function to DRY up read operations
+
+- **[Standardize Error Usage](./2026/01/ai/2026.01.21-standardize-error-usage.md)** — Open (Medium)
+  Replace `new Error()` with appropriate OCP error types throughout codebase
+
+### SDK Improvements — Short-term
 
 - **[OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)** —
   Partially Complete Simplify OcpClient class, cleanup require() (context caching done)
+
+- **[Input Validation Layer](./2026/01/ai/2026.01.21-input-validation-layer.md)** — Open (Medium)
+  Comprehensive validation before DAML conversion
+
+- **[Round-trip Tests](./2026/01/ai/2026.01.21-round-trip-tests.md)** — Open (Medium) Property-based
+  and round-trip tests for converters
+
+### SDK Improvements — Longer-term
 
 - **[Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)** —
   Open Add correlation IDs, logging hooks, and trace propagation
@@ -48,6 +70,15 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 - **[CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)** — Partially
   Complete Add CouponMinter helper functions (TPS helper done, full ops future)
+
+- **[JSDoc Coverage](./2026/01/ai/2026.01.21-jsdoc-coverage.md)** — Open (Low) Add comprehensive
+  documentation to public API
+
+- **[Migration Guide](./2026/01/ai/2026.01.21-migration-guide.md)** — Open (Low) Document migration
+  from legacy to batch API
+
+- **[Batch Size Limits](./2026/01/ai/2026.01.21-batch-size-limits.md)** — Open (Low) Add
+  configurable limits and pagination support
 
 ## Completed Tasks
 
@@ -80,6 +111,9 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 - **[Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)** —
   Complete (2026-01-13) 13 delete tests enabled; 8 remaining blocked by infrastructure
+
+- **[OCP Protocol Review](./2026/01/ai/2026.01.21-ocp-protocol-review.md)** — Complete (2026-01-21)
+  Comprehensive review of SDK architecture with improvement recommendations
 
 ## Related ADRs
 
