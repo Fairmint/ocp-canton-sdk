@@ -1,61 +1,21 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
-import type {
-  ContactInfo,
-  ContactInfoWithoutName,
-  Email,
-  EmailType,
-  Name,
-  Phone,
-  PhoneType,
-  StakeholderType,
-} from '../../../types/native';
+import type { ContactInfo, ContactInfoWithoutName, Email, Name, Phone } from '../../../types/native';
+import {
+  damlEmailTypeToNative,
+  damlPhoneTypeToNative,
+  damlStakeholderRelationshipToNative,
+  damlStakeholderStatusToNative,
+  damlStakeholderTypeToNative,
+} from '../../../utils/enumConversions';
 import { damlAddressToNative } from '../../../utils/typeConversions';
-
-function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailType): EmailType {
-  switch (damlType) {
-    case 'OcfEmailTypePersonal':
-      return 'PERSONAL';
-    case 'OcfEmailTypeBusiness':
-      return 'BUSINESS';
-    case 'OcfEmailTypeOther':
-      return 'OTHER';
-    default: {
-      const exhaustiveCheck: never = damlType;
-      throw new OcpParseError(`Unknown DAML email type: ${exhaustiveCheck as string}`, {
-        source: 'stakeholder.email.email_type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
-  }
-}
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.OcfEmail): Email {
   return {
     email_type: damlEmailTypeToNative(damlEmail.email_type),
     email_address: damlEmail.email_address,
   };
-}
-
-function damlPhoneTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfPhoneType): PhoneType {
-  switch (damlType) {
-    case 'OcfPhoneHome':
-      return 'HOME';
-    case 'OcfPhoneMobile':
-      return 'MOBILE';
-    case 'OcfPhoneBusiness':
-      return 'BUSINESS';
-    case 'OcfPhoneOther':
-      return 'OTHER';
-    default: {
-      const exhaustiveCheck: never = damlType;
-      throw new OcpParseError(`Unknown DAML phone type: ${exhaustiveCheck as string}`, {
-        source: 'stakeholder.phone.phone_type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
-  }
 }
 
 function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): Phone {
@@ -91,24 +51,6 @@ function damlContactInfoWithoutNameToNative(
   } as ContactInfoWithoutName;
 }
 
-function damlStakeholderTypeToNative(
-  damlType: Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderType
-): StakeholderType {
-  switch (damlType) {
-    case 'OcfStakeholderTypeIndividual':
-      return 'INDIVIDUAL';
-    case 'OcfStakeholderTypeInstitution':
-      return 'INSTITUTION';
-    default: {
-      const exhaustiveCheck: never = damlType;
-      throw new OcpParseError(`Unknown DAML stakeholder type: ${exhaustiveCheck as string}`, {
-        source: 'stakeholder.stakeholder_type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
-  }
-}
-
 function damlStakeholderDataToNative(
   damlData: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData
 ): Omit<OcfStakeholderOutput, 'object_type'> {
@@ -119,28 +61,10 @@ function damlStakeholderDataToNative(
     ...(nameData?.first_name ? { first_name: nameData.first_name as string } : {}),
     ...(nameData?.last_name ? { last_name: nameData.last_name as string } : {}),
   };
-  const mapRelBack = (s: string): string | undefined => {
-    switch (s) {
-      case 'OcfRelEmployee':
-        return 'EMPLOYEE';
-      case 'OcfRelAdvisor':
-        return 'ADVISOR';
-      case 'OcfRelInvestor':
-        return 'INVESTOR';
-      case 'OcfRelFounder':
-        return 'FOUNDER';
-      case 'OcfRelBoardMember':
-        return 'BOARD_MEMBER';
-      case 'OcfRelOfficer':
-        return 'OFFICER';
-      case 'OcfRelOther':
-        return 'OTHER';
-      default:
-        return undefined;
-    }
-  };
   const relationships: string[] = Array.isArray(dAny.current_relationships)
-    ? (dAny.current_relationships as string[]).map((r) => mapRelBack(r) ?? 'OTHER')
+    ? (dAny.current_relationships as string[]).map((r) =>
+        damlStakeholderRelationshipToNative(r as Fairmint.OpenCapTable.Types.OcfStakeholderRelationshipType)
+      )
     : [];
   const dataWithId = dAny as { id?: string };
   const native: Omit<OcfStakeholderOutput, 'object_type'> = {
@@ -151,31 +75,7 @@ function damlStakeholderDataToNative(
     current_relationships: relationships,
     ...(dAny.current_status
       ? {
-          current_status: ((): string | undefined => {
-            const s = dAny.current_status as string;
-            switch (s) {
-              case 'OcfStakeholderStatusActive':
-                return 'ACTIVE';
-              case 'OcfStakeholderStatusLeaveOfAbsence':
-                return 'LEAVE_OF_ABSENCE';
-              case 'OcfStakeholderStatusTerminationVoluntaryOther':
-                return 'TERMINATION_VOLUNTARY_OTHER';
-              case 'OcfStakeholderStatusTerminationVoluntaryGoodCause':
-                return 'TERMINATION_VOLUNTARY_GOOD_CAUSE';
-              case 'OcfStakeholderStatusTerminationVoluntaryRetirement':
-                return 'TERMINATION_VOLUNTARY_RETIREMENT';
-              case 'OcfStakeholderStatusTerminationInvoluntaryOther':
-                return 'TERMINATION_INVOLUNTARY_OTHER';
-              case 'OcfStakeholderStatusTerminationInvoluntaryDeath':
-                return 'TERMINATION_INVOLUNTARY_DEATH';
-              case 'OcfStakeholderStatusTerminationInvoluntaryDisability':
-                return 'TERMINATION_INVOLUNTARY_DISABILITY';
-              case 'OcfStakeholderStatusTerminationInvoluntaryWithCause':
-                return 'TERMINATION_INVOLUNTARY_WITH_CAUSE';
-              default:
-                return undefined;
-            }
-          })(),
+          current_status: damlStakeholderStatusToNative(dAny.current_status as string),
         }
       : {}),
     ...(damlData.primary_contact && {

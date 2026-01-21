@@ -24,6 +24,8 @@ import type {
   OcfEquityCompensationTransfer,
   OcfIssuerAuthorizedSharesAdjustment,
   OcfStakeholder,
+  OcfStakeholderRelationshipChangeEvent,
+  OcfStakeholderStatusChangeEvent,
   OcfStockAcceptance,
   OcfStockCancellation,
   OcfStockClass,
@@ -79,6 +81,8 @@ export type OcfEntityType =
   | 'equityCompensationTransfer'
   | 'issuerAuthorizedSharesAdjustment'
   | 'stakeholder'
+  | 'stakeholderRelationshipChangeEvent'
+  | 'stakeholderStatusChangeEvent'
   | 'stockAcceptance'
   | 'stockCancellation'
   | 'stockClass'
@@ -127,6 +131,8 @@ export interface OcfEntityDataMap {
   equityCompensationTransfer: OcfEquityCompensationTransfer;
   issuerAuthorizedSharesAdjustment: OcfIssuerAuthorizedSharesAdjustment;
   stakeholder: OcfStakeholder;
+  stakeholderRelationshipChangeEvent: OcfStakeholderRelationshipChangeEvent;
+  stakeholderStatusChangeEvent: OcfStakeholderStatusChangeEvent;
   stockAcceptance: OcfStockAcceptance;
   stockCancellation: OcfStockCancellation;
   stockClass: OcfStockClass;
@@ -246,6 +252,16 @@ export const ENTITY_TAG_MAP: Record<OcfEntityType, { create: string; edit: strin
     create: 'OcfCreateStakeholder',
     edit: 'OcfEditStakeholder',
     delete: 'OcfDeleteStakeholder',
+  },
+  stakeholderRelationshipChangeEvent: {
+    create: 'OcfCreateStakeholderRelationshipChangeEvent',
+    edit: 'OcfEditStakeholderRelationshipChangeEvent',
+    delete: 'OcfDeleteStakeholderRelationshipChangeEvent',
+  },
+  stakeholderStatusChangeEvent: {
+    create: 'OcfCreateStakeholderStatusChangeEvent',
+    edit: 'OcfEditStakeholderStatusChangeEvent',
+    delete: 'OcfDeleteStakeholderStatusChangeEvent',
   },
   stockAcceptance: {
     create: 'OcfCreateStockAcceptance',

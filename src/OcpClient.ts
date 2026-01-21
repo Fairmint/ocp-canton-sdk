@@ -16,6 +16,7 @@ import {
   createCompanyValuationReport,
   getConvertibleAcceptanceAsOcf,
   getConvertibleCancellationEventAsOcf,
+  getConvertibleConversionEventAsOcf,
   getConvertibleIssuanceAsOcf,
   getDocumentAsOcf,
   getEquityCompensationAcceptanceAsOcf,
@@ -25,19 +26,27 @@ import {
   getIssuerAsOcf,
   getIssuerAuthorizedSharesAdjustmentEventAsOcf,
   getStakeholderAsOcf,
+  getStakeholderRelationshipChangeEventAsOcf,
+  getStakeholderStatusChangeEventAsOcf,
   getStockAcceptanceAsOcf,
   getStockCancellationEventAsOcf,
   getStockClassAsOcf,
   getStockClassAuthorizedSharesAdjustmentEventAsOcf,
+  getStockConversionEventAsOcf,
   getStockIssuanceAsOcf,
   getStockLegendTemplateAsOcf,
   getStockPlanAsOcf,
   getStockPlanPoolAdjustmentEventAsOcf,
   getStockRepurchaseAsOcf,
   getStockTransferAsOcf,
+  getValuationAsOcf,
+  getVestingAccelerationAsOcf,
+  getVestingEventAsOcf,
+  getVestingStartAsOcf,
   getVestingTermsAsOcf,
   getWarrantAcceptanceAsOcf,
   getWarrantCancellationEventAsOcf,
+  getWarrantExerciseEventAsOcf,
   getWarrantIssuanceAsOcf,
   updateCompanyValuationReport,
   withdrawAuthorization,
@@ -52,6 +61,8 @@ import {
   type GetConvertibleAcceptanceAsOcfResult,
   type GetConvertibleCancellationEventAsOcfParams,
   type GetConvertibleCancellationEventAsOcfResult,
+  type GetConvertibleConversionEventAsOcfParams,
+  type GetConvertibleConversionEventAsOcfResult,
   type GetConvertibleIssuanceAsOcfParams,
   type GetConvertibleIssuanceAsOcfResult,
   type GetDocumentAsOcfParams,
@@ -70,6 +81,10 @@ import {
   type GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult,
   type GetStakeholderAsOcfParams,
   type GetStakeholderAsOcfResult,
+  type GetStakeholderRelationshipChangeEventAsOcfParams,
+  type GetStakeholderRelationshipChangeEventAsOcfResult,
+  type GetStakeholderStatusChangeEventAsOcfParams,
+  type GetStakeholderStatusChangeEventAsOcfResult,
   type GetStockAcceptanceAsOcfParams,
   type GetStockAcceptanceAsOcfResult,
   type GetStockCancellationEventAsOcfParams,
@@ -78,6 +93,8 @@ import {
   type GetStockClassAsOcfResult,
   type GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams,
   type GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult,
+  type GetStockConversionEventAsOcfParams,
+  type GetStockConversionEventAsOcfResult,
   type GetStockIssuanceAsOcfParams,
   type GetStockIssuanceAsOcfResult,
   type GetStockLegendTemplateAsOcfParams,
@@ -90,12 +107,22 @@ import {
   type GetStockRepurchaseAsOcfResult,
   type GetStockTransferAsOcfParams,
   type GetStockTransferAsOcfResult,
+  type GetValuationAsOcfParams,
+  type GetValuationAsOcfResult,
+  type GetVestingAccelerationAsOcfParams,
+  type GetVestingAccelerationAsOcfResult,
+  type GetVestingEventAsOcfParams,
+  type GetVestingEventAsOcfResult,
+  type GetVestingStartAsOcfParams,
+  type GetVestingStartAsOcfResult,
   type GetVestingTermsAsOcfParams,
   type GetVestingTermsAsOcfResult,
   type GetWarrantAcceptanceAsOcfParams,
   type GetWarrantAcceptanceAsOcfResult,
   type GetWarrantCancellationEventAsOcfParams,
   type GetWarrantCancellationEventAsOcfResult,
+  type GetWarrantExerciseEventAsOcfParams,
+  type GetWarrantExerciseEventAsOcfResult,
   type GetWarrantIssuanceAsOcfParams,
   type GetWarrantIssuanceAsOcfResult,
   type UpdateCompanyValuationParams,
@@ -370,6 +397,14 @@ export class OcpClient {
       stakeholder: {
         getStakeholderAsOcf: async (params: GetStakeholderAsOcfParams) => getStakeholderAsOcf(client, params),
       },
+      stakeholderRelationshipChangeEvent: {
+        getStakeholderRelationshipChangeEventAsOcf: async (params: GetStakeholderRelationshipChangeEventAsOcfParams) =>
+          getStakeholderRelationshipChangeEventAsOcf(client, params),
+      },
+      stakeholderStatusChangeEvent: {
+        getStakeholderStatusChangeEventAsOcf: async (params: GetStakeholderStatusChangeEventAsOcfParams) =>
+          getStakeholderStatusChangeEventAsOcf(client, params),
+      },
       stockLegendTemplate: {
         getStockLegendTemplateAsOcf: async (params: GetStockLegendTemplateAsOcfParams) =>
           getStockLegendTemplateAsOcf(client, params),
@@ -392,13 +427,25 @@ export class OcpClient {
         getWarrantIssuanceAsOcf: async (params: GetWarrantIssuanceAsOcfParams) =>
           getWarrantIssuanceAsOcf(client, params),
       },
+      warrantExercise: {
+        getWarrantExerciseEventAsOcf: async (params: GetWarrantExerciseEventAsOcfParams) =>
+          getWarrantExerciseEventAsOcf(client, params),
+      },
       convertibleIssuance: {
         getConvertibleIssuanceAsOcf: async (params: GetConvertibleIssuanceAsOcfParams) =>
           getConvertibleIssuanceAsOcf(client, params),
       },
+      convertibleConversion: {
+        getConvertibleConversionEventAsOcf: async (params: GetConvertibleConversionEventAsOcfParams) =>
+          getConvertibleConversionEventAsOcf(client, params),
+      },
       stockCancellation: {
         getStockCancellationEventAsOcf: async (params: GetStockCancellationEventAsOcfParams) =>
           getStockCancellationEventAsOcf(client, params),
+      },
+      stockConversion: {
+        getStockConversionEventAsOcf: async (params: GetStockConversionEventAsOcfParams) =>
+          getStockConversionEventAsOcf(client, params),
       },
       warrantCancellation: {
         getWarrantCancellationEventAsOcf: async (params: GetWarrantCancellationEventAsOcfParams) =>
@@ -455,6 +502,19 @@ export class OcpClient {
       equityCompensationAcceptance: {
         getEquityCompensationAcceptanceAsOcf: async (params: GetEquityCompensationAcceptanceAsOcfParams) =>
           getEquityCompensationAcceptanceAsOcf(client, params),
+      },
+      valuation: {
+        getValuationAsOcf: async (params: GetValuationAsOcfParams) => getValuationAsOcf(client, params),
+      },
+      vestingStart: {
+        getVestingStartAsOcf: async (params: GetVestingStartAsOcfParams) => getVestingStartAsOcf(client, params),
+      },
+      vestingEvent: {
+        getVestingEventAsOcf: async (params: GetVestingEventAsOcfParams) => getVestingEventAsOcf(client, params),
+      },
+      vestingAcceleration: {
+        getVestingAccelerationAsOcf: async (params: GetVestingAccelerationAsOcfParams) =>
+          getVestingAccelerationAsOcf(client, params),
       },
       issuerAuthorization: {
         authorizeIssuer: async (params: AuthorizeIssuerParams) => authorizeIssuer(client, params),
@@ -529,6 +589,16 @@ interface OpenCapTableMethods {
   stakeholder: {
     getStakeholderAsOcf: (params: GetStakeholderAsOcfParams) => Promise<GetStakeholderAsOcfResult>;
   };
+  stakeholderRelationshipChangeEvent: {
+    getStakeholderRelationshipChangeEventAsOcf: (
+      params: GetStakeholderRelationshipChangeEventAsOcfParams
+    ) => Promise<GetStakeholderRelationshipChangeEventAsOcfResult>;
+  };
+  stakeholderStatusChangeEvent: {
+    getStakeholderStatusChangeEventAsOcf: (
+      params: GetStakeholderStatusChangeEventAsOcfParams
+    ) => Promise<GetStakeholderStatusChangeEventAsOcfResult>;
+  };
   stockLegendTemplate: {
     getStockLegendTemplateAsOcf: (
       params: GetStockLegendTemplateAsOcfParams
@@ -553,15 +623,30 @@ interface OpenCapTableMethods {
   warrantIssuance: {
     getWarrantIssuanceAsOcf: (params: GetWarrantIssuanceAsOcfParams) => Promise<GetWarrantIssuanceAsOcfResult>;
   };
+  warrantExercise: {
+    getWarrantExerciseEventAsOcf: (
+      params: GetWarrantExerciseEventAsOcfParams
+    ) => Promise<GetWarrantExerciseEventAsOcfResult>;
+  };
   convertibleIssuance: {
     getConvertibleIssuanceAsOcf: (
       params: GetConvertibleIssuanceAsOcfParams
     ) => Promise<GetConvertibleIssuanceAsOcfResult>;
   };
+  convertibleConversion: {
+    getConvertibleConversionEventAsOcf: (
+      params: GetConvertibleConversionEventAsOcfParams
+    ) => Promise<GetConvertibleConversionEventAsOcfResult>;
+  };
   stockCancellation: {
     getStockCancellationEventAsOcf: (
       params: GetStockCancellationEventAsOcfParams
     ) => Promise<GetStockCancellationEventAsOcfResult>;
+  };
+  stockConversion: {
+    getStockConversionEventAsOcf: (
+      params: GetStockConversionEventAsOcfParams
+    ) => Promise<GetStockConversionEventAsOcfResult>;
   };
   warrantCancellation: {
     getWarrantCancellationEventAsOcf: (
@@ -617,6 +702,20 @@ interface OpenCapTableMethods {
     getEquityCompensationAcceptanceAsOcf: (
       params: GetEquityCompensationAcceptanceAsOcfParams
     ) => Promise<GetEquityCompensationAcceptanceAsOcfResult>;
+  };
+  valuation: {
+    getValuationAsOcf: (params: GetValuationAsOcfParams) => Promise<GetValuationAsOcfResult>;
+  };
+  vestingStart: {
+    getVestingStartAsOcf: (params: GetVestingStartAsOcfParams) => Promise<GetVestingStartAsOcfResult>;
+  };
+  vestingEvent: {
+    getVestingEventAsOcf: (params: GetVestingEventAsOcfParams) => Promise<GetVestingEventAsOcfResult>;
+  };
+  vestingAcceleration: {
+    getVestingAccelerationAsOcf: (
+      params: GetVestingAccelerationAsOcfParams
+    ) => Promise<GetVestingAccelerationAsOcfResult>;
   };
   document: {
     getDocumentAsOcf: (params: GetDocumentAsOcfParams) => Promise<GetDocumentAsOcfResult>;
