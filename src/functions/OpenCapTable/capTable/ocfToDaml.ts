@@ -34,6 +34,10 @@ import { vestingTermsDataToDaml } from '../vestingTerms/createVestingTerms';
 import { warrantCancellationDataToDaml } from '../warrantCancellation/createWarrantCancellation';
 import { warrantIssuanceDataToDaml } from '../warrantIssuance/createWarrantIssuance';
 
+// Import stakeholder event converters from entity folders
+import { stakeholderRelationshipChangeEventDataToDaml } from '../stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
+import { stakeholderStatusChangeEventDataToDaml } from '../stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
+
 // Import shared conversion utilities for types that don't have dedicated converters yet
 import {
   cleanComments,
@@ -549,6 +553,12 @@ export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTyp
       return equityCompensationRetractionDataToDaml(data as OcfDataTypeFor<'equityCompensationRetraction'>);
     case 'equityCompensationTransfer':
       return equityCompensationTransferDataToDaml(data as OcfDataTypeFor<'equityCompensationTransfer'>);
+
+    // Stakeholder change events
+    case 'stakeholderRelationshipChangeEvent':
+      return stakeholderRelationshipChangeEventDataToDaml(data as OcfDataTypeFor<'stakeholderRelationshipChangeEvent'>);
+    case 'stakeholderStatusChangeEvent':
+      return stakeholderStatusChangeEventDataToDaml(data as OcfDataTypeFor<'stakeholderStatusChangeEvent'>);
 
     default: {
       const exhaustiveCheck: never = type;

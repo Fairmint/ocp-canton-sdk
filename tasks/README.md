@@ -24,9 +24,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)** — Open
   (Medium) OCF stock class adjustment types (4 types)
 
-- **[Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)** — Open (Low) Remaining OCF
-  types (9 types)
-
 ### Integration Testing
 
 - **[OCF Integration Test Data](./2026/01/ai/2026.01.21-ocf-integration-test-data.md)** — Open
@@ -84,6 +81,9 @@ This directory contains task documentation for the OCP Canton SDK project.
   configurable limits and pagination support
 
 ## Completed Tasks
+
+- **[Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)** — Complete (2026-01-21)
+  Remaining OCF types (stakeholder events) with unit tests
 
 - **[Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)** — Complete
   (2026-01-21) Batch API infrastructure - all phases complete, cleanup in separate task

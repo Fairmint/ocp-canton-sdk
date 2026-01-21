@@ -1903,3 +1903,68 @@ export interface OcfFinancing {
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
+
+// ===== Stakeholder Change Event Types =====
+
+/**
+ * Type - Stakeholder Relationship Type The type of relationship a stakeholder has with the issuer OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StakeholderRelationshipType.schema.json
+ */
+export type StakeholderRelationshipType =
+  | 'EMPLOYEE'
+  | 'ADVISOR'
+  | 'INVESTOR'
+  | 'FOUNDER'
+  | 'BOARD_MEMBER'
+  | 'OFFICER'
+  | 'OTHER';
+
+/**
+ * Type - Stakeholder Status The current status of a stakeholder's engagement with the issuer OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StakeholderStatus.schema.json
+ */
+export type StakeholderStatus =
+  | 'ACTIVE'
+  | 'LEAVE_OF_ABSENCE'
+  | 'TERMINATION_VOLUNTARY_OTHER'
+  | 'TERMINATION_VOLUNTARY_GOOD_CAUSE'
+  | 'TERMINATION_VOLUNTARY_RETIREMENT'
+  | 'TERMINATION_INVOLUNTARY_OTHER'
+  | 'TERMINATION_INVOLUNTARY_DEATH'
+  | 'TERMINATION_INVOLUNTARY_DISABILITY'
+  | 'TERMINATION_INVOLUNTARY_WITH_CAUSE';
+
+/**
+ * Object - Stakeholder Relationship Change Event Object describing a change in a stakeholder's relationship with the
+ * issuer OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/events/StakeholderRelationshipChangeEvent.schema.json
+ */
+export interface OcfStakeholderRelationshipChangeEvent {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the event occurred */
+  date: string;
+  /** Identifier for the stakeholder whose relationship is changing */
+  stakeholder_id: string;
+  /** New relationship type(s) for the stakeholder */
+  new_relationships: StakeholderRelationshipType[];
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Stakeholder Status Change Event Object describing a change in a stakeholder's status with the issuer OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/events/StakeholderStatusChangeEvent.schema.json
+ */
+export interface OcfStakeholderStatusChangeEvent {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the event occurred */
+  date: string;
+  /** Identifier for the stakeholder whose status is changing */
+  stakeholder_id: string;
+  /** New status for the stakeholder */
+  new_status: StakeholderStatus;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}

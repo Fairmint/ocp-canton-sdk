@@ -24,6 +24,8 @@ import {
   getIssuerAsOcf,
   getIssuerAuthorizedSharesAdjustmentEventAsOcf,
   getStakeholderAsOcf,
+  getStakeholderRelationshipChangeEventAsOcf,
+  getStakeholderStatusChangeEventAsOcf,
   getStockCancellationEventAsOcf,
   getStockClassAsOcf,
   getStockClassAuthorizedSharesAdjustmentEventAsOcf,
@@ -75,6 +77,10 @@ import {
   type GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult,
   type GetStakeholderAsOcfParams,
   type GetStakeholderAsOcfResult,
+  type GetStakeholderRelationshipChangeEventAsOcfParams,
+  type GetStakeholderRelationshipChangeEventAsOcfResult,
+  type GetStakeholderStatusChangeEventAsOcfParams,
+  type GetStakeholderStatusChangeEventAsOcfResult,
   type GetStockCancellationEventAsOcfParams,
   type GetStockCancellationEventAsOcfResult,
   type GetStockClassAsOcfParams,
@@ -391,6 +397,14 @@ export class OcpClient {
       stakeholder: {
         getStakeholderAsOcf: async (params: GetStakeholderAsOcfParams) => getStakeholderAsOcf(client, params),
       },
+      stakeholderRelationshipChangeEvent: {
+        getStakeholderRelationshipChangeEventAsOcf: async (params: GetStakeholderRelationshipChangeEventAsOcfParams) =>
+          getStakeholderRelationshipChangeEventAsOcf(client, params),
+      },
+      stakeholderStatusChangeEvent: {
+        getStakeholderStatusChangeEventAsOcf: async (params: GetStakeholderStatusChangeEventAsOcfParams) =>
+          getStakeholderStatusChangeEventAsOcf(client, params),
+      },
       stockLegendTemplate: {
         getStockLegendTemplateAsOcf: async (params: GetStockLegendTemplateAsOcfParams) =>
           getStockLegendTemplateAsOcf(client, params),
@@ -575,6 +589,16 @@ interface OpenCapTableMethods {
   };
   stakeholder: {
     getStakeholderAsOcf: (params: GetStakeholderAsOcfParams) => Promise<GetStakeholderAsOcfResult>;
+  };
+  stakeholderRelationshipChangeEvent: {
+    getStakeholderRelationshipChangeEventAsOcf: (
+      params: GetStakeholderRelationshipChangeEventAsOcfParams
+    ) => Promise<GetStakeholderRelationshipChangeEventAsOcfResult>;
+  };
+  stakeholderStatusChangeEvent: {
+    getStakeholderStatusChangeEventAsOcf: (
+      params: GetStakeholderStatusChangeEventAsOcfParams
+    ) => Promise<GetStakeholderStatusChangeEventAsOcfResult>;
   };
   stockLegendTemplate: {
     getStockLegendTemplateAsOcf: (
