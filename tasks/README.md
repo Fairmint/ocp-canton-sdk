@@ -13,7 +13,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 | [Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)           | Open        | High     | OCF exercise & conversion types (3 types)                          |
 | [Valuation & Vesting Types](./2026/01/ai/2026.01.20-ocf-valuation-vesting-types.md)               | Open        | High     | OCF valuation & vesting types (4 types)                            |
 | [Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)                          | Open        | Medium   | OCF security transfer types (3 types)                              |
-| [Acceptance Types](./2026/01/ai/2026.01.20-ocf-acceptance-types.md)                               | Open        | Medium   | OCF acceptance types (4 types)                                     |
 | [Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)                 | Open        | Medium   | OCF stock class adjustment types (4 types)                         |
 | [Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)                                 | Open        | Low      | Remaining OCF types (9 types)                                      |
 
@@ -33,6 +32,7 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 | Task                                                                                                  | Completed  | Description                                                            |
 | ----------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------- |
+| [Acceptance Types](./2026/01/ai/2026.01.20-ocf-acceptance-types.md)                                   | 2026-01-21 | OCF acceptance types with converters and tests (4 types)               |
 | [Property-Based Testing](./2026/01/ai/2026.01.16-property-based-testing.md)                           | 2026-01-20 | Property tests using fast-check for type conversion invariants         |
 | [Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)         | 2026-01-20 | API ergonomics, type safety, testing improvements - all phases done    |
 | [Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)                           | 2026-01-20 | Implement OcpValidationError, OcpContractError for better DX           |
