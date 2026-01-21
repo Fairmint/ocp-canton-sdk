@@ -4,72 +4,59 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 ## Open Tasks
 
-### High Priority
+### Milestone 2: OCP SDK Implementation
 
-- **[OCP SDK Implementation & Testing](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)**
-  — In Progress Add SDK support for all OCF object types, establish testing strategy
+- **[Milestone 2: OCP SDK Implementation](./2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)** — In Progress
+  Parent milestone - SDK support for all OCF types, testing strategy
 
 - **[Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)** — In Progress
-  SDK redesign to use batch UpdateCapTable choice (Phase 1-3 done)
+  Batch API infrastructure (Phase 1-2 done, Phase 3 split)
 
-### Medium Priority
+- **[Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)** — Open (High)
+  OCF exercise & conversion types (3 types)
 
-- **[Remaining OCF Object Types](./2026/01/ai/2026.01.13-remaining-ocf-types.md)** — Open Implement
-  SDK support for 27 remaining OCF types from DAML spec
+- **[Valuation & Vesting Types](./2026/01/ai/2026.01.20-ocf-valuation-vesting-types.md)** — Open (High)
+  OCF valuation & vesting types (4 types)
 
-- **[OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)** —
-  Partially Complete Simplify OcpClient class, cleanup require() (context caching done)
+- **[Security Transfer Types](./2026/01/ai/2026.01.20-ocf-transfer-types.md)** — Open (Medium)
+  OCF security transfer types (3 types)
 
-- **[Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)** —
-  Partially Complete Extract and centralize duplicated entity conversion code
+- **[Acceptance Types](./2026/01/ai/2026.01.20-ocf-acceptance-types.md)** — Open (Medium)
+  OCF acceptance types (4 types)
 
-- **[Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)** —
-  Open Add correlation IDs, logging hooks, and trace propagation
+- **[Stock Class Adjustments](./2026/01/ai/2026.01.20-ocf-stock-class-adjustments.md)** — Open (Medium)
+  OCF stock class adjustment types (4 types)
 
-- **[Command Tracking & Retry Logic](./2026/01/ai/2026.01.16-command-tracking-retry-logic.md)** —
-  Open Command deduplication, retry with exponential backoff
+- **[Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)** — Open (Low)
+  Remaining OCF types (9 types)
 
-- **[Environment Configuration Patterns](./2026/01/ai/2026.01.16-environment-configuration-patterns.md)**
-  — Open Environment presets for LocalNet/DevNet, configuration validation
+### SDK Refactoring & Improvements
 
-### Low Priority
+- **[OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)** — Partially Complete
+  Simplify OcpClient class, cleanup require() (context caching done)
 
-- **[Property-Based Testing](./2026/01/ai/2026.01.16-property-based-testing.md)** — Open Add
-  fast-check property tests for type conversion invariants
+- **[Consolidate Entity Converters](./2026/01/ai/2026.01.16-consolidate-entity-converters.md)** — Partially Complete
+  Extract and centralize duplicated entity conversion code
+
+- **[Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)** — Open
+  Add correlation IDs, logging hooks, and trace propagation
+
+- **[Command Tracking & Retry Logic](./2026/01/ai/2026.01.16-command-tracking-retry-logic.md)** — Open
+  Command deduplication, retry with exponential backoff
+
+- **[Environment Configuration Patterns](./2026/01/ai/2026.01.16-environment-configuration-patterns.md)** — Open
+  Environment presets for LocalNet/DevNet, configuration validation
 
 - **[Legacy Function Deprecation](./2026/01/ai/2026.01.16-legacy-function-deprecation.md)** — Open
   Deprecate per-entity functions replaced by batch API
 
-- **[CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)** — Partially
-  Complete Add CouponMinter helper functions (TPS helper done, full ops future)
-
-## Completed Tasks
-
-- **[Library Refactoring and Testing](./2026/01/ai/2026.01.02-library-refactoring-and-testing.md)**
-  — 2026-01-20 API ergonomics, type safety, testing improvements - all phases done
-
-- **[Structured Error Types](./2026/01/ai/2026.01.16-structured-error-types.md)** — 2026-01-20
-  Implement OcpValidationError, OcpContractError for better DX
-
-- **[Type Guards for OCF Objects](./2026/01/ai/2026.01.16-type-guards-for-ocf-objects.md)** —
-  2026-01-20 Runtime type guards and validation utilities for OCF objects
-
-- **[PersonalAirdrop AmuletRules Override](./2026/01/2026.01.14-personalairdrop-amulet-rules-override.md)**
-  — 2026-01-16 Support new `amuletRulesCidOverride` parameter (no SDK changes needed)
-
-- **[Canton 3.4 Upgrade](./2025/12/2025.12.31-canton-3.4-upgrade.md)** — 2026-01-16 Update SDK for
-  Canton 3.4 compatibility
-
-- **[Comprehensive Integration Tests](./2025/12/2025.12.30-comprehensive-integration-tests.md)** —
-  2026-01-12 Expanded integration test coverage with dynamic contract deployment
-
-- **[Remaining Integration Tests](./2026/01/ai/2026.01.08-remaining-integration-tests.md)** —
-  2026-01-13 13 delete tests enabled; 8 remaining blocked by infrastructure
+- **[CouponMinter SDK Support](./2026/01/ai/2026.01.13-couponminter-sdk-support.md)** — Partially Complete
+  Add CouponMinter helper functions (TPS helper done, full ops future)
 
 ## Related ADRs
 
-- **[ADR-001: Batch Cap Table Updates](../adr/001-batch-cap-table-updates.md)** — Proposed Redesign
-  SDK to use batch UpdateCapTable
+- **[ADR-001: Batch Cap Table Updates](../adr/001-batch-cap-table-updates.md)** — Proposed
+  Redesign SDK to use batch UpdateCapTable
 
 ---
 
