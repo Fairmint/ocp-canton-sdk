@@ -30,6 +30,11 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)** — Open (Low) Remaining OCF
   types (9 types)
 
+### Integration Testing
+
+- **[OCF Integration Test Data](./2026/01/ai/2026.01.21-ocf-integration-test-data.md)** — Open
+  Source anonymized prod data for integration tests; round-trip validation for all OCF types
+
 ### SDK Refactoring & Improvements
 
 - **[OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)** —
