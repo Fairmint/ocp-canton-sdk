@@ -1,11 +1,6 @@
 import { OcpValidationError } from '../../../errors';
 import type { OcfConvertibleTransfer } from '../../../types';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  monetaryToDaml,
-  optionalString,
-} from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
 
 export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record<string, unknown> {
   if (!d.id) {

@@ -11,10 +11,12 @@ import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
 // Import existing converters
 import { convertibleCancellationDataToDaml } from '../convertibleCancellation/createConvertibleCancellation';
 import { convertibleIssuanceDataToDaml } from '../convertibleIssuance/createConvertibleIssuance';
+import { convertibleTransferDataToDaml } from '../convertibleTransfer/convertibleTransferDataToDaml';
 import { documentDataToDaml } from '../document/createDocument';
 import { equityCompensationCancellationDataToDaml } from '../equityCompensationCancellation/createEquityCompensationCancellation';
 import { equityCompensationExerciseDataToDaml } from '../equityCompensationExercise/createEquityCompensationExercise';
 import { equityCompensationIssuanceDataToDaml } from '../equityCompensationIssuance/createEquityCompensationIssuance';
+import { equityCompensationTransferDataToDaml } from '../equityCompensationTransfer/equityCompensationTransferDataToDaml';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
 import { stockCancellationDataToDaml } from '../stockCancellation/createStockCancellation';
@@ -30,8 +32,6 @@ import { vestingTermsDataToDaml } from '../vestingTerms/createVestingTerms';
 import { warrantCancellationDataToDaml } from '../warrantCancellation/createWarrantCancellation';
 import { warrantIssuanceDataToDaml } from '../warrantIssuance/createWarrantIssuance';
 import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDataToDaml';
-import { convertibleTransferDataToDaml } from '../convertibleTransfer/convertibleTransferDataToDaml';
-import { equityCompensationTransferDataToDaml } from '../equityCompensationTransfer/equityCompensationTransferDataToDaml';
 
 // Import stakeholder event converters from entity folders
 import { stakeholderRelationshipChangeEventDataToDaml } from '../stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
