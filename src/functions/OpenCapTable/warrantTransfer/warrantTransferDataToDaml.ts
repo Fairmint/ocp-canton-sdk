@@ -9,6 +9,10 @@ export function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string,
       receivedValue: d.id,
     });
   }
+  // Validate required array field
+  if (d.resulting_security_ids.length === 0) {
+    throw new Error('resulting_security_ids must contain at least one element');
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),

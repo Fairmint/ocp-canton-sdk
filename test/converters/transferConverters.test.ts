@@ -1,7 +1,7 @@
 /**
  * Unit tests for Transfer Type converters.
  *
- * Tests both OCF→DAML and DAML→OCF conversions for:
+ * Tests OCF→DAML conversions for:
  * - StockTransfer
  * - ConvertibleTransfer
  * - EquityCompensationTransfer
@@ -126,6 +126,20 @@ describe('Transfer Type Converters', () => {
 
         expect(() => convertToDaml('convertibleTransfer', input)).toThrow('convertibleTransfer.id');
       });
+
+      it('throws error when resulting_security_ids is empty', () => {
+        const input: OcfConvertibleTransfer = {
+          id: 'ct-error-1',
+          date: '2025-08-10',
+          security_id: 'conv-sec-001',
+          amount: { amount: '50000', currency: 'USD' },
+          resulting_security_ids: [], // Empty array should throw
+        };
+
+        expect(() => convertToDaml('convertibleTransfer', input)).toThrow(
+          'resulting_security_ids must contain at least one'
+        );
+      });
     });
 
     describe('equityCompensationTransfer', () => {
@@ -178,6 +192,20 @@ describe('Transfer Type Converters', () => {
 
         expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow('equityCompensationTransfer.id');
       });
+
+      it('throws error when resulting_security_ids is empty', () => {
+        const input: OcfEquityCompensationTransfer = {
+          id: 'ect-error-1',
+          date: '2025-08-15',
+          security_id: 'eq-sec-001',
+          quantity: '10000',
+          resulting_security_ids: [], // Empty array should throw
+        };
+
+        expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow(
+          'resulting_security_ids must contain at least one'
+        );
+      });
     });
 
     describe('warrantTransfer', () => {
@@ -229,6 +257,20 @@ describe('Transfer Type Converters', () => {
         } as OcfWarrantTransfer;
 
         expect(() => convertToDaml('warrantTransfer', input)).toThrow('warrantTransfer.id');
+      });
+
+      it('throws error when resulting_security_ids is empty', () => {
+        const input: OcfWarrantTransfer = {
+          id: 'wt-error-1',
+          date: '2025-08-20',
+          security_id: 'warrant-sec-001',
+          quantity: '2500',
+          resulting_security_ids: [], // Empty array should throw
+        };
+
+        expect(() => convertToDaml('warrantTransfer', input)).toThrow(
+          'resulting_security_ids must contain at least one'
+        );
       });
     });
   });

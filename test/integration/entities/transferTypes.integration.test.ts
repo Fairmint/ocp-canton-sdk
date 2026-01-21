@@ -114,6 +114,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     expect(ocfResult.event.object_type).toBe('TX_STOCK_TRANSFER');
     expect(ocfResult.event.id).toBe(transferData.id);
     expect(ocfResult.event.security_id).toBe(transferData.security_id);
+    expect(ocfResult.event.quantity).toBe(transferData.quantity);
     expect(ocfResult.event.resulting_security_ids).toEqual(transferData.resulting_security_ids);
     expect(ocfResult.event.balance_security_id).toBe(transferData.balance_security_id);
 
@@ -170,7 +171,8 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     expect(ocfResult.event.object_type).toBe('TX_CONVERTIBLE_TRANSFER');
     expect(ocfResult.event.id).toBe(transferData.id);
     expect(ocfResult.event.security_id).toBe(transferData.security_id);
-    expect(ocfResult.event.amount.currency).toBe('USD');
+    expect(ocfResult.event.amount.amount).toBe(transferData.amount.amount);
+    expect(ocfResult.event.amount.currency).toBe(transferData.amount.currency);
     expect(ocfResult.event.resulting_security_ids).toEqual(transferData.resulting_security_ids);
 
     await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
@@ -226,6 +228,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     expect(ocfResult.event.object_type).toBe('TX_EQUITY_COMPENSATION_TRANSFER');
     expect(ocfResult.event.id).toBe(transferData.id);
     expect(ocfResult.event.security_id).toBe(transferData.security_id);
+    expect(ocfResult.event.quantity).toBe(transferData.quantity);
     expect(ocfResult.event.resulting_security_ids).toEqual(transferData.resulting_security_ids);
     expect(ocfResult.event.balance_security_id).toBe(transferData.balance_security_id);
 
@@ -281,6 +284,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     expect(ocfResult.event.object_type).toBe('TX_WARRANT_TRANSFER');
     expect(ocfResult.event.id).toBe(transferData.id);
     expect(ocfResult.event.security_id).toBe(transferData.security_id);
+    expect(ocfResult.event.quantity).toBe(transferData.quantity);
     expect(ocfResult.event.resulting_security_ids).toEqual(transferData.resulting_security_ids);
 
     await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
