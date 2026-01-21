@@ -11,10 +11,12 @@ import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
 // Import existing converters from entity folders
 import { convertibleCancellationDataToDaml } from '../convertibleCancellation/createConvertibleCancellation';
 import { convertibleIssuanceDataToDaml } from '../convertibleIssuance/createConvertibleIssuance';
+import { convertibleTransferDataToDaml } from '../convertibleTransfer/convertibleTransferDataToDaml';
 import { documentDataToDaml } from '../document/createDocument';
 import { equityCompensationCancellationDataToDaml } from '../equityCompensationCancellation/createEquityCompensationCancellation';
 import { equityCompensationExerciseDataToDaml } from '../equityCompensationExercise/createEquityCompensationExercise';
 import { equityCompensationIssuanceDataToDaml } from '../equityCompensationIssuance/createEquityCompensationIssuance';
+import { equityCompensationTransferDataToDaml } from '../equityCompensationTransfer/equityCompensationTransferDataToDaml';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
 import { stockCancellationDataToDaml } from '../stockCancellation/createStockCancellation';
@@ -33,6 +35,7 @@ import { stockTransferDataToDaml } from '../stockTransfer/createStockTransfer';
 import { vestingTermsDataToDaml } from '../vestingTerms/createVestingTerms';
 import { warrantCancellationDataToDaml } from '../warrantCancellation/createWarrantCancellation';
 import { warrantIssuanceDataToDaml } from '../warrantIssuance/createWarrantIssuance';
+import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDataToDaml';
 
 // Import stakeholder event converters from entity folders
 import { stakeholderRelationshipChangeEventDataToDaml } from '../stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
@@ -51,12 +54,10 @@ import type {
   OcfConvertibleAcceptance,
   OcfConvertibleConversion,
   OcfConvertibleRetraction,
-  OcfConvertibleTransfer,
   OcfEquityCompensationAcceptance,
   OcfEquityCompensationRelease,
   OcfEquityCompensationRepricing,
   OcfEquityCompensationRetraction,
-  OcfEquityCompensationTransfer,
   OcfStockAcceptance,
   OcfStockConversion,
   OcfStockPlanReturnToPool,
@@ -68,7 +69,6 @@ import type {
   OcfWarrantAcceptance,
   OcfWarrantExercise,
   OcfWarrantRetraction,
-  OcfWarrantTransfer,
   ValuationType,
 } from '../../../types';
 
@@ -271,25 +271,6 @@ function warrantRetractionDataToDaml(d: OcfWarrantRetraction): Record<string, un
   };
 }
 
-function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('warrantTransfer.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    quantity: numberToString(d.quantity),
-    resulting_security_ids: d.resulting_security_ids,
-    balance_security_id: optionalString(d.balance_security_id),
-    consideration_text: optionalString(d.consideration_text),
-    comments: cleanComments(d.comments),
-  };
-}
-
 // Convertible converters
 function convertibleAcceptanceDataToDaml(d: OcfConvertibleAcceptance): Record<string, unknown> {
   if (!d.id) {
@@ -336,25 +317,6 @@ function convertibleRetractionDataToDaml(d: OcfConvertibleRetraction): Record<st
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     reason_text: d.reason_text,
-    comments: cleanComments(d.comments),
-  };
-}
-
-function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('convertibleTransfer.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    amount: monetaryToDaml(d.amount),
-    resulting_security_ids: d.resulting_security_ids,
-    balance_security_id: optionalString(d.balance_security_id),
-    consideration_text: optionalString(d.consideration_text),
     comments: cleanComments(d.comments),
   };
 }
@@ -423,25 +385,6 @@ function equityCompensationRetractionDataToDaml(d: OcfEquityCompensationRetracti
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     reason_text: d.reason_text,
-    comments: cleanComments(d.comments),
-  };
-}
-
-function equityCompensationTransferDataToDaml(d: OcfEquityCompensationTransfer): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('equityCompensationTransfer.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    quantity: numberToString(d.quantity),
-    resulting_security_ids: d.resulting_security_ids,
-    balance_security_id: optionalString(d.balance_security_id),
-    consideration_text: optionalString(d.consideration_text),
     comments: cleanComments(d.comments),
   };
 }

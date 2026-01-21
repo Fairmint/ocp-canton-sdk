@@ -17,10 +17,12 @@ import {
   getConvertibleCancellationEventAsOcf,
   getConvertibleConversionEventAsOcf,
   getConvertibleIssuanceAsOcf,
+  getConvertibleTransferAsOcf,
   getDocumentAsOcf,
   getEquityCompensationCancellationEventAsOcf,
   getEquityCompensationExerciseEventAsOcf,
   getEquityCompensationIssuanceEventAsOcf,
+  getEquityCompensationTransferAsOcf,
   getIssuerAsOcf,
   getIssuerAuthorizedSharesAdjustmentEventAsOcf,
   getStakeholderAsOcf,
@@ -48,6 +50,7 @@ import {
   getWarrantCancellationEventAsOcf,
   getWarrantExerciseEventAsOcf,
   getWarrantIssuanceAsOcf,
+  getWarrantTransferAsOcf,
   updateCompanyValuationReport,
   withdrawAuthorization,
   type AuthorizeIssuerParams,
@@ -63,6 +66,8 @@ import {
   type GetConvertibleConversionEventAsOcfResult,
   type GetConvertibleIssuanceAsOcfParams,
   type GetConvertibleIssuanceAsOcfResult,
+  type GetConvertibleTransferAsOcfParams,
+  type GetConvertibleTransferAsOcfResult,
   type GetDocumentAsOcfParams,
   type GetDocumentAsOcfResult,
   type GetEquityCompensationCancellationEventAsOcfParams,
@@ -71,6 +76,8 @@ import {
   type GetEquityCompensationExerciseEventAsOcfResult,
   type GetEquityCompensationIssuanceEventAsOcfParams,
   type GetEquityCompensationIssuanceEventAsOcfResult,
+  type GetEquityCompensationTransferAsOcfParams,
+  type GetEquityCompensationTransferAsOcfResult,
   type GetIssuerAsOcfParams,
   type GetIssuerAsOcfResult,
   type GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams,
@@ -125,6 +132,8 @@ import {
   type GetWarrantExerciseEventAsOcfResult,
   type GetWarrantIssuanceAsOcfParams,
   type GetWarrantIssuanceAsOcfResult,
+  type GetWarrantTransferAsOcfParams,
+  type GetWarrantTransferAsOcfResult,
   type UpdateCompanyValuationParams,
   type UpdateCompanyValuationResult,
   type WithdrawAuthorizationParams,
@@ -463,6 +472,18 @@ export class OcpClient {
       stockTransfer: {
         getStockTransferAsOcf: async (params: GetStockTransferAsOcfParams) => getStockTransferAsOcf(client, params),
       },
+      convertibleTransfer: {
+        getConvertibleTransferAsOcf: async (params: GetConvertibleTransferAsOcfParams) =>
+          getConvertibleTransferAsOcf(client, params),
+      },
+      equityCompensationTransfer: {
+        getEquityCompensationTransferAsOcf: async (params: GetEquityCompensationTransferAsOcfParams) =>
+          getEquityCompensationTransferAsOcf(client, params),
+      },
+      warrantTransfer: {
+        getWarrantTransferAsOcf: async (params: GetWarrantTransferAsOcfParams) =>
+          getWarrantTransferAsOcf(client, params),
+      },
       issuerAuthorizedSharesAdjustment: {
         getIssuerAuthorizedSharesAdjustmentEventAsOcf: async (
           params: GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams
@@ -666,6 +687,19 @@ interface OpenCapTableMethods {
   };
   stockTransfer: {
     getStockTransferAsOcf: (params: GetStockTransferAsOcfParams) => Promise<GetStockTransferAsOcfResult>;
+  };
+  convertibleTransfer: {
+    getConvertibleTransferAsOcf: (
+      params: GetConvertibleTransferAsOcfParams
+    ) => Promise<GetConvertibleTransferAsOcfResult>;
+  };
+  equityCompensationTransfer: {
+    getEquityCompensationTransferAsOcf: (
+      params: GetEquityCompensationTransferAsOcfParams
+    ) => Promise<GetEquityCompensationTransferAsOcfResult>;
+  };
+  warrantTransfer: {
+    getWarrantTransferAsOcf: (params: GetWarrantTransferAsOcfParams) => Promise<GetWarrantTransferAsOcfResult>;
   };
   issuerAuthorizedSharesAdjustment: {
     getIssuerAuthorizedSharesAdjustmentEventAsOcf: (
