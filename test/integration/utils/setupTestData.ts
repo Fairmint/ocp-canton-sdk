@@ -22,6 +22,9 @@ import type {
   OcfStockLegendTemplate,
   OcfStockPlan,
   OcfValuation,
+  OcfVestingAcceleration,
+  OcfVestingEvent,
+  OcfVestingStart,
   OcfVestingTerms,
   OcfWarrantExercise,
 } from '../../../src/types/native';
@@ -152,6 +155,52 @@ export function createTestValuationData(overrides: Partial<OcfValuation> & { sto
     price_per_share: { amount: '1.50', currency: 'USD' },
     provider: 'Test Valuation Provider',
     board_approval_date: generateDateString(-35),
+    ...rest,
+  };
+}
+
+/** Create test vesting start data with optional overrides. */
+export function createTestVestingStartData(
+  overrides: Partial<OcfVestingStart> & { security_id: string; vesting_condition_id: string }
+): OcfVestingStart {
+  const id = overrides.id ?? generateTestId('vesting-start');
+  const { security_id, vesting_condition_id, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id,
+    vesting_condition_id,
+    ...rest,
+  };
+}
+
+/** Create test vesting event data with optional overrides. */
+export function createTestVestingEventData(
+  overrides: Partial<OcfVestingEvent> & { security_id: string; vesting_condition_id: string }
+): OcfVestingEvent {
+  const id = overrides.id ?? generateTestId('vesting-event');
+  const { security_id, vesting_condition_id, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id,
+    vesting_condition_id,
+    ...rest,
+  };
+}
+
+/** Create test vesting acceleration data with optional overrides. */
+export function createTestVestingAccelerationData(
+  overrides: Partial<OcfVestingAcceleration> & { security_id: string }
+): OcfVestingAcceleration {
+  const id = overrides.id ?? generateTestId('vesting-acceleration');
+  const { security_id, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id,
+    quantity: '10000',
+    reason_text: 'Company acquisition - single-trigger acceleration',
     ...rest,
   };
 }
