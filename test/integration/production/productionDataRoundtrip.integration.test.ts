@@ -8,7 +8,7 @@
  *
  * Tests use:
  * - Production fixtures (26 types): Anonymized real-world data from Fairmint database
- * - Synthetic fixtures (22 types): Realistic generated data for types without production examples
+ * - Synthetic fixtures (23 types): Realistic generated data for types without production examples
  *
  * Run with:
  * ```bash
@@ -77,6 +77,74 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
   // -------------------------------------------------------------------------
 
   describe('Core Objects', () => {
+    test('Issuer round-trips correctly', async () => {
+      const ctx = getContext();
+
+      const issuerSetup = await setupTestIssuer(ctx.ocp, {
+        systemOperatorParty: ctx.systemOperatorParty,
+        ocpFactoryContractId: ctx.ocpFactoryContractId,
+        issuerParty: ctx.issuerParty,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+      });
+
+      // The issuer is created as part of setup - read it back
+      const readBack = await ctx.ocp.OpenCapTable.issuer.getIssuerAsOcf({
+        contractId: issuerSetup.issuerContractId,
+      });
+
+      // Validate OCF schema
+      await validateOcfObject(readBack.issuer as unknown as Record<string, unknown>);
+      expect(readBack.issuer.object_type).toBe('ISSUER');
+    });
+
+    test('Stock Class round-trips correctly', async () => {
+      const ctx = getContext();
+
+      const issuerSetup = await setupTestIssuer(ctx.ocp, {
+        systemOperatorParty: ctx.systemOperatorParty,
+        ocpFactoryContractId: ctx.ocpFactoryContractId,
+        issuerParty: ctx.issuerParty,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('stockClass', 'common');
+      const prepared = prepareFixture(fixture, 'stock-class');
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: issuerSetup.issuerContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+        actAs: [ctx.issuerParty],
+      });
+
+      const result = await batch.create('stockClass', prepared).execute();
+      expect(result.createdCids).toHaveLength(1);
+    });
+
+    test('Valuation round-trips correctly', async () => {
+      const ctx = getContext();
+
+      const issuerSetup = await setupTestIssuer(ctx.ocp, {
+        systemOperatorParty: ctx.systemOperatorParty,
+        ocpFactoryContractId: ctx.ocpFactoryContractId,
+        issuerParty: ctx.issuerParty,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('valuation', '409a');
+      const prepared = prepareFixture(fixture, 'valuation');
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: issuerSetup.issuerContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+        actAs: [ctx.issuerParty],
+      });
+
+      const result = await batch.create('valuation', prepared).execute();
+      expect(result.createdCids).toHaveLength(1);
+    });
+
     test('Stakeholder (individual) round-trips correctly', async () => {
       const ctx = getContext();
 
@@ -276,6 +344,30 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
   // -------------------------------------------------------------------------
 
   describe('Stock Transactions', () => {
+    test('Stock Issuance round-trips correctly', async () => {
+      const ctx = getContext();
+
+      const issuerSetup = await setupTestIssuer(ctx.ocp, {
+        systemOperatorParty: ctx.systemOperatorParty,
+        ocpFactoryContractId: ctx.ocpFactoryContractId,
+        issuerParty: ctx.issuerParty,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('stockIssuance', 'founders-stock');
+      const prepared = prepareFixture(fixture, 'stock-issuance');
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: issuerSetup.issuerContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+        actAs: [ctx.issuerParty],
+      });
+
+      const result = await batch.create('stockIssuance', prepared).execute();
+      expect(result.createdCids).toHaveLength(1);
+    });
+
     test('Stock Cancellation round-trips correctly', async () => {
       const ctx = getContext();
 
@@ -354,6 +446,30 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
   // -------------------------------------------------------------------------
 
   describe('Convertible Transactions', () => {
+    test('Convertible Issuance round-trips correctly', async () => {
+      const ctx = getContext();
+
+      const issuerSetup = await setupTestIssuer(ctx.ocp, {
+        systemOperatorParty: ctx.systemOperatorParty,
+        ocpFactoryContractId: ctx.ocpFactoryContractId,
+        issuerParty: ctx.issuerParty,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleIssuance', 'safe-post-money');
+      const prepared = prepareFixture(fixture, 'convertible-issuance');
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: issuerSetup.issuerContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+        actAs: [ctx.issuerParty],
+      });
+
+      const result = await batch.create('convertibleIssuance', prepared).execute();
+      expect(result.createdCids).toHaveLength(1);
+    });
+
     test('Convertible Cancellation round-trips correctly', async () => {
       const ctx = getContext();
 
@@ -432,6 +548,30 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
   // -------------------------------------------------------------------------
 
   describe('Equity Compensation Transactions', () => {
+    test('Equity Compensation Issuance round-trips correctly', async () => {
+      const ctx = getContext();
+
+      const issuerSetup = await setupTestIssuer(ctx.ocp, {
+        systemOperatorParty: ctx.systemOperatorParty,
+        ocpFactoryContractId: ctx.ocpFactoryContractId,
+        issuerParty: ctx.issuerParty,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso');
+      const prepared = prepareFixture(fixture, 'equity-compensation-issuance');
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: issuerSetup.issuerContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+        actAs: [ctx.issuerParty],
+      });
+
+      const result = await batch.create('equityCompensationIssuance', prepared).execute();
+      expect(result.createdCids).toHaveLength(1);
+    });
+
     test('Equity Compensation Cancellation round-trips correctly', async () => {
       const ctx = getContext();
 
@@ -555,6 +695,36 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const result = await batch.create('stockPlanPoolAdjustment', prepared).execute();
+      expect(result.createdCids).toHaveLength(1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Transaction Types - Warrant
+  // -------------------------------------------------------------------------
+
+  describe('Warrant Transactions', () => {
+    test('Warrant Issuance round-trips correctly', async () => {
+      const ctx = getContext();
+
+      const issuerSetup = await setupTestIssuer(ctx.ocp, {
+        systemOperatorParty: ctx.systemOperatorParty,
+        ocpFactoryContractId: ctx.ocpFactoryContractId,
+        issuerParty: ctx.issuerParty,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('warrantIssuance');
+      const prepared = prepareFixture(fixture, 'warrant-issuance');
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: issuerSetup.issuerContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+        actAs: [ctx.issuerParty],
+      });
+
+      const result = await batch.create('warrantIssuance', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1127,6 +1297,32 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const result = await batch.create('stockPlanReturnToPool', prepared).execute();
+      expect(result.createdCids).toHaveLength(1);
+    });
+  });
+
+  describe('Synthetic Fixtures - Corporate Actions', () => {
+    test('Stock Class Conversion Ratio Adjustment round-trips correctly (synthetic)', async () => {
+      const ctx = getContext();
+
+      const issuerSetup = await setupTestIssuer(ctx.ocp, {
+        systemOperatorParty: ctx.systemOperatorParty,
+        ocpFactoryContractId: ctx.ocpFactoryContractId,
+        issuerParty: ctx.issuerParty,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockClassConversionRatioAdjustment');
+      const prepared = prepareFixture(fixture, 'stock-class-conv-ratio-adj');
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: issuerSetup.issuerContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+        actAs: [ctx.issuerParty],
+      });
+
+      const result = await batch.create('stockClassConversionRatioAdjustment', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });

@@ -11,7 +11,7 @@ functionality.
 Each fixture contains a `_source: "synthetic"` field to indicate it was generated rather than
 derived from real-world data.
 
-## Fixture Coverage (22 types)
+## Fixture Coverage (23 types)
 
 ### Stock Lifecycle
 
