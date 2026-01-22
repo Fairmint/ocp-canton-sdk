@@ -56,9 +56,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[JSDoc Coverage](./2026/01/ai/2026.01.21-jsdoc-coverage.md)** — Open (Low) Add comprehensive
   documentation to public API
 
-- **[Migration Guide](./2026/01/ai/2026.01.21-migration-guide.md)** — Open (Low) Document migration
-  from legacy to batch API
-
 - **[Batch Size Limits](./2026/01/ai/2026.01.21-batch-size-limits.md)** — Open (Low) Add
   configurable limits and pagination support
 
