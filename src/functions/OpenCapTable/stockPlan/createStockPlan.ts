@@ -1,4 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpValidationError } from '../../../errors';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
@@ -27,7 +28,12 @@ type StockPlanDataWithDeprecated = Omit<OcfStockPlan, 'stock_class_ids'> & {
 };
 
 export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData {
-  if (!d.id) throw new Error('stockPlan.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockPlan.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
 
   // Handle deprecated stock_class_id → stock_class_ids
   // Cast to allow for deprecated field and potentially missing stock_class_ids (when only deprecated field is provided)

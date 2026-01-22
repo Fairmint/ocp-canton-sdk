@@ -1,10 +1,11 @@
 /**
  * Unit tests for StockPlan type converters.
  *
- * Tests both OCF → DAML conversions for:
+ * Tests OCF → DAML conversion for:
  * - StockPlan (including deprecated stock_class_id field handling)
  */
 
+import { OcpValidationError } from '../../src/errors';
 import { stockPlanDataToDaml } from '../../src/functions/OpenCapTable/stockPlan/createStockPlan';
 import type { OcfStockPlan } from '../../src/types';
 
@@ -61,7 +62,7 @@ describe('StockPlan Converters', () => {
       expect(damlData.initial_shares_reserved).toBe('500000');
     });
 
-    test('throws error when id is missing', () => {
+    test('throws OcpValidationError when id is missing', () => {
       const ocfData = {
         id: '',
         plan_name: 'Test Plan',
@@ -69,11 +70,12 @@ describe('StockPlan Converters', () => {
         stock_class_ids: ['sc-001'],
       } as OcfStockPlan;
 
-      expect(() => stockPlanDataToDaml(ocfData)).toThrow('stockPlan.id is required');
+      expect(() => stockPlanDataToDaml(ocfData)).toThrow(OcpValidationError);
+      expect(() => stockPlanDataToDaml(ocfData)).toThrow("'stockPlan.id'");
     });
 
     describe('deprecated stock_class_id field handling', () => {
-      test('uses stock_class_ids when both fields are present (stock_class_ids takes precedence)', () => {
+      test('uses stock_class_ids when both fields are present (when stock_class_ids has values)', () => {
         const ocfDataWithBoth = {
           id: 'sp-deprecated-001',
           plan_name: 'Test Plan',
