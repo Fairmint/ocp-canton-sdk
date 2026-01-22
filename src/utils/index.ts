@@ -1,3 +1,4 @@
+export * from './deprecatedFieldNormalization';
 export * from './enumConversions';
 export * from './ocfComparison';
 export * from './ocfHelpers';
