@@ -1,0 +1,8 @@
+{
+  "_source": "synthetic",
+  "id": "test-warrant-acceptance-001",
+  "object_type": "TX_WARRANT_ACCEPTANCE",
+  "date": "2025-01-05",
+  "security_id": "test-security-warrant-accept-001",
+  "comments": ["Investor acceptance of warrant terms issued as part of Series A financing"]
+}

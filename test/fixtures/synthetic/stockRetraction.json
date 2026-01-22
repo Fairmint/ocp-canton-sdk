@@ -1,0 +1,9 @@
+{
+  "_source": "synthetic",
+  "id": "test-stock-retraction-001",
+  "object_type": "TX_STOCK_RETRACTION",
+  "date": "2025-03-01",
+  "security_id": "test-security-retract-001",
+  "reason_text": "Stock certificate issued in error due to administrative mistake. Voiding original issuance.",
+  "comments": ["Retraction authorized by board resolution dated 2025-02-28"]
+}

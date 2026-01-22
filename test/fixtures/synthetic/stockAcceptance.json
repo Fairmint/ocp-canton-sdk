@@ -1,0 +1,8 @@
+{
+  "_source": "synthetic",
+  "id": "test-stock-acceptance-001",
+  "object_type": "TX_STOCK_ACCEPTANCE",
+  "date": "2025-02-15",
+  "security_id": "test-security-restricted-001",
+  "comments": ["Employee acceptance of restricted stock award per employment agreement"]
+}

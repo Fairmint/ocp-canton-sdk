@@ -1,0 +1,14 @@
+{
+  "_source": "synthetic",
+  "id": "test-equity-comp-repricing-001",
+  "object_type": "TX_EQUITY_COMPENSATION_REPRICING",
+  "date": "2025-01-15",
+  "security_id": "test-security-option-reprice-001",
+  "resulting_security_ids": ["test-security-option-repriced-001"],
+  "comments": [
+    "Underwater option repricing approved by Board and Compensation Committee",
+    "Original exercise price: $25.00",
+    "New exercise price: $10.00 (current FMV per 409A valuation)",
+    "All other terms unchanged"
+  ]
+}

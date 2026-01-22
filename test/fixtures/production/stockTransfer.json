@@ -1,0 +1,12 @@
+{
+  "id": "test-stock-transfer-001",
+  "object_type": "TX_STOCK_TRANSFER",
+  "date": "2025-03-15",
+  "security_id": "test-security-transfer-source-001",
+  "custom_id": "TR-001",
+  "quantity": "50000",
+  "balance_security_id": "test-security-transfer-balance-001",
+  "resulting_security_ids": ["test-security-transfer-result-001", "test-security-transfer-result-002"],
+  "consideration_text": "Gift transfer to family member",
+  "comments": []
+}

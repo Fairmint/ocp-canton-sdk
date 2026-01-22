@@ -1,0 +1,14 @@
+{
+  "_source": "synthetic",
+  "id": "test-stakeholder-status-change-001",
+  "object_type": "TX_STAKEHOLDER_STATUS_CHANGE_EVENT",
+  "date": "2025-04-15",
+  "stakeholder_id": "test-stakeholder-individual-001",
+  "new_status": "INACTIVE",
+  "reason_text": "Voluntary resignation effective April 15, 2025",
+  "comments": [
+    "Final employment date: April 15, 2025",
+    "Unvested equity cancelled per plan terms",
+    "90-day post-termination exercise window for vested options"
+  ]
+}

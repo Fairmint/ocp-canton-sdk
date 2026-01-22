@@ -1,0 +1,9 @@
+{
+  "_source": "synthetic",
+  "id": "test-equity-comp-retraction-001",
+  "object_type": "TX_EQUITY_COMPENSATION_RETRACTION",
+  "date": "2025-02-28",
+  "security_id": "test-security-option-retract-001",
+  "reason_text": "Option grant voided due to incorrect vesting schedule in original grant documents",
+  "comments": ["Grant will be reissued with corrected terms"]
+}

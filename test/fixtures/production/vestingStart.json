@@ -1,0 +1,8 @@
+{
+  "id": "test-vesting-start-001",
+  "object_type": "TX_VESTING_START",
+  "date": "2024-07-01",
+  "security_id": "test-security-option-iso-001",
+  "vesting_condition_id": "vesting-start",
+  "comments": []
+}

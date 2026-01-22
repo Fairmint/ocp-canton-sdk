@@ -1,0 +1,12 @@
+{
+  "_source": "synthetic",
+  "id": "test-vesting-event-001",
+  "object_type": "TX_VESTING_EVENT",
+  "date": "2025-07-01",
+  "security_id": "test-security-milestone-vest-001",
+  "vesting_condition_id": "milestone-revenue-target",
+  "comments": [
+    "Milestone achievement: Company achieved $10M ARR target",
+    "50% of milestone-based options vested upon achievement"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "test-stakeholder-individual-001",
+  "object_type": "STAKEHOLDER",
+  "stakeholder_type": "INDIVIDUAL",
+  "name": {
+    "legal_name": "Jane Test Smith",
+    "first_name": "Jane",
+    "last_name": "Smith"
+  },
+  "issuer_assigned_id": "EMP-001",
+  "current_relationships": ["EMPLOYEE"],
+  "contact_info": {
+    "emails": [
+      {
+        "email_type": "PERSONAL",
+        "email_address": "jane.smith@example.com"
+      }
+    ],
+    "phone_numbers": [
+      {
+        "phone_type": "MOBILE",
+        "phone_number": "+1-555-123-4567"
+      }
+    ]
+  },
+  "addresses": [
+    {
+      "address_type": "CONTACT",
+      "country": "US",
+      "country_subdivision": "CA"
+    }
+  ]
+}

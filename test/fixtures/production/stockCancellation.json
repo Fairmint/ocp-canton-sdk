@@ -1,0 +1,9 @@
+{
+  "id": "test-stock-cancellation-001",
+  "object_type": "TX_STOCK_CANCELLATION",
+  "date": "2025-02-01",
+  "security_id": "test-security-cancel-001",
+  "quantity": "25000",
+  "reason_text": "Termination of employment - unvested shares cancelled",
+  "comments": []
+}

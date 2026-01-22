@@ -1,0 +1,55 @@
+{
+  "id": "test-vesting-terms-001",
+  "object_type": "VESTING_TERMS",
+  "name": "4-Year Vesting with 1-Year Cliff",
+  "description": "Standard 4-year vesting schedule with 1-year cliff. 25% vests after 12 months, then monthly vesting for remaining 36 months.",
+  "allocation_type": "CUMULATIVE_ROUNDING",
+  "vesting_conditions": [
+    {
+      "id": "vesting-start",
+      "quantity": "0",
+      "trigger": {
+        "type": "VESTING_START_DATE"
+      },
+      "next_condition_ids": ["cliff"]
+    },
+    {
+      "id": "cliff",
+      "description": "25% vests at 12-month cliff",
+      "portion": {
+        "numerator": "12",
+        "denominator": "48"
+      },
+      "trigger": {
+        "type": "VESTING_SCHEDULE_RELATIVE",
+        "period": {
+          "type": "MONTHS",
+          "length": 12,
+          "occurrences": 1,
+          "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+        },
+        "relative_to_condition_id": "vesting-start"
+      },
+      "next_condition_ids": ["monthly-thereafter"]
+    },
+    {
+      "id": "monthly-thereafter",
+      "description": "1/48th vests each month after cliff",
+      "portion": {
+        "numerator": "1",
+        "denominator": "48"
+      },
+      "trigger": {
+        "type": "VESTING_SCHEDULE_RELATIVE",
+        "period": {
+          "type": "MONTHS",
+          "length": 1,
+          "occurrences": 36,
+          "day_of_month": "VESTING_START_DAY_OR_LAST_DAY_OF_MONTH"
+        },
+        "relative_to_condition_id": "cliff"
+      },
+      "next_condition_ids": []
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "id": "test-convertible-note-001",
+  "object_type": "TX_CONVERTIBLE_ISSUANCE",
+  "date": "2024-03-01",
+  "security_id": "test-security-note-001",
+  "custom_id": "CN-001",
+  "stakeholder_id": "test-stakeholder-institution-001",
+  "convertible_type": "NOTE",
+  "seniority": 1,
+  "investment_amount": {
+    "amount": "250000",
+    "currency": "USD"
+  },
+  "conversion_triggers": [
+    {
+      "type": "AUTOMATIC_ON_DATE",
+      "trigger_id": "maturity-trigger",
+      "trigger_date": "2025-03-01",
+      "nickname": "Maturity Date Conversion",
+      "trigger_description": "The note converts on the maturity date",
+      "conversion_right": {
+        "type": "CONVERTIBLE_CONVERSION_RIGHT",
+        "converts_to_future_round": true,
+        "conversion_mechanism": {
+          "type": "CONVERTIBLE_NOTE_CONVERSION",
+          "conversion_discount": "0.20",
+          "interest_rates": [
+            {
+              "rate": "0.08",
+              "accrual_start_date": "2024-03-01"
+            }
+          ],
+          "interest_payout": "DEFERRED",
+          "interest_accrual_period": "MONTHLY",
+          "compounding_type": "COMPOUNDING",
+          "day_count_convention": "ACTUAL_365"
+        }
+      }
+    }
+  ],
+  "security_law_exemptions": [
+    {
+      "description": "Regulation D 506(b)",
+      "jurisdiction": "US"
+    }
+  ],
+  "comments": []
+}

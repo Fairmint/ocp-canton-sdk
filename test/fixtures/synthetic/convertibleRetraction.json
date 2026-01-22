@@ -1,0 +1,9 @@
+{
+  "_source": "synthetic",
+  "id": "test-convertible-retraction-001",
+  "object_type": "TX_CONVERTIBLE_RETRACTION",
+  "date": "2025-02-20",
+  "security_id": "test-security-safe-retract-001",
+  "reason_text": "SAFE voided due to failed compliance verification",
+  "comments": ["Investor failed to provide required accreditation documentation within 30-day window"]
+}

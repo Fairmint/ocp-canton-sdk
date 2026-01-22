@@ -1,0 +1,28 @@
+{
+  "id": "test-stock-issuance-founders-001",
+  "object_type": "TX_STOCK_ISSUANCE",
+  "date": "2024-01-15",
+  "security_id": "test-security-founders-001",
+  "custom_id": "CS-001",
+  "stakeholder_id": "test-stakeholder-individual-001",
+  "stock_class_id": "test-stock-class-common-001",
+  "quantity": "5000000",
+  "share_price": {
+    "amount": "0.0001",
+    "currency": "USD"
+  },
+  "cost_basis": {
+    "amount": "500",
+    "currency": "USD"
+  },
+  "issuance_type": "FOUNDERS_STOCK",
+  "stock_legend_ids": ["test-legend-001"],
+  "consideration_text": "Cash payment of $500.00",
+  "security_law_exemptions": [
+    {
+      "description": "Securities Act of 1933, Section 4(a)(2)",
+      "jurisdiction": "US"
+    }
+  ],
+  "comments": []
+}

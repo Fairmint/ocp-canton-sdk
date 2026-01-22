@@ -1,0 +1,14 @@
+{
+  "_source": "synthetic",
+  "id": "test-stock-plan-return-001",
+  "object_type": "TX_STOCK_PLAN_RETURN_TO_POOL",
+  "date": "2025-04-20",
+  "stock_plan_id": "test-stock-plan-001",
+  "quantity": "25000",
+  "reason_text": "Forfeited unvested shares returned to plan pool upon employee termination",
+  "comments": [
+    "Employee termination date: April 15, 2025",
+    "Unvested option shares: 25,000",
+    "Shares available for future grants"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "test-stock-repurchase-001",
+  "object_type": "TX_STOCK_REPURCHASE",
+  "date": "2024-12-15",
+  "security_id": "test-security-repurchase-001",
+  "quantity": "10000",
+  "price": {
+    "amount": "1.25",
+    "currency": "USD"
+  },
+  "consideration_text": "Company repurchase of vested shares at fair market value",
+  "comments": []
+}

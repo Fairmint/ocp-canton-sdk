@@ -1,0 +1,9 @@
+{
+  "_source": "synthetic",
+  "id": "test-warrant-retraction-001",
+  "object_type": "TX_WARRANT_RETRACTION",
+  "date": "2025-02-10",
+  "security_id": "test-security-warrant-retract-001",
+  "reason_text": "Warrant voided due to incorrect terms in original issuance agreement",
+  "comments": ["Warrant will be reissued with corrected exercise price and expiration date"]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "test-stock-class-split-001",
+  "object_type": "TX_STOCK_CLASS_SPLIT",
+  "date": "2024-06-15",
+  "stock_class_id": "test-stock-class-common-001",
+  "split_ratio": {
+    "numerator": "10",
+    "denominator": "1"
+  },
+  "board_approval_date": "2024-06-01",
+  "stockholder_approval_date": "2024-06-10",
+  "comments": [
+    "10:1 forward stock split of Common Stock",
+    "All outstanding shares, options, and convertibles multiplied by 10",
+    "Share prices inversely scaled to maintain market capitalization"
+  ]
+}

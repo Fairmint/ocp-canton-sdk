@@ -1,0 +1,22 @@
+{
+  "id": "test-stakeholder-institution-001",
+  "object_type": "STAKEHOLDER",
+  "stakeholder_type": "INSTITUTION",
+  "name": {
+    "legal_name": "Venture Capital Partners, L.P."
+  },
+  "current_relationships": ["INVESTOR"],
+  "primary_contact": {
+    "name": {
+      "legal_name": "John Test Investor",
+      "first_name": "John",
+      "last_name": "Investor"
+    },
+    "emails": [
+      {
+        "email_type": "BUSINESS",
+        "email_address": "john@vcpartners.example.com"
+      }
+    ]
+  }
+}

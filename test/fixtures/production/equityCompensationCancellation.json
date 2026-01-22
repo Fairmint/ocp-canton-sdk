@@ -1,0 +1,9 @@
+{
+  "id": "test-equity-comp-cancellation-001",
+  "object_type": "TX_EQUITY_COMPENSATION_CANCELLATION",
+  "date": "2025-01-15",
+  "security_id": "test-security-option-cancel-001",
+  "quantity": "15000",
+  "reason_text": "Termination of employment - unvested options cancelled",
+  "comments": []
+}

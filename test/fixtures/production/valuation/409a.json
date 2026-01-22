@@ -1,0 +1,14 @@
+{
+  "id": "test-valuation-001",
+  "object_type": "VALUATION",
+  "stock_class_id": "test-stock-class-common-001",
+  "valuation_type": "409A",
+  "effective_date": "2025-01-15",
+  "price_per_share": {
+    "amount": "2.50",
+    "currency": "USD"
+  },
+  "provider": "Independent Valuation Services LLC",
+  "board_approval_date": "2025-01-20",
+  "comments": ["Fair market value of common stock determined based on independent 409A valuation."]
+}

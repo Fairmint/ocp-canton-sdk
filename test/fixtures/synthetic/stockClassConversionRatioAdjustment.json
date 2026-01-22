@@ -1,0 +1,21 @@
+{
+  "_source": "synthetic",
+  "id": "test-stock-class-conv-ratio-adj-001",
+  "object_type": "TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT",
+  "date": "2025-06-15",
+  "stock_class_id": "test-stock-class-preferred-001",
+  "new_ratio_conversion_mechanism": {
+    "type": "RATIO_CONVERSION",
+    "ratio": {
+      "numerator": "11",
+      "denominator": "10"
+    },
+    "rounding_type": "FLOOR"
+  },
+  "board_approval_date": "2025-06-01",
+  "comments": [
+    "Conversion ratio adjusted following 10:1 stock split of common stock",
+    "Original conversion ratio: 1:1",
+    "New conversion ratio: 1.1:1"
+  ]
+}

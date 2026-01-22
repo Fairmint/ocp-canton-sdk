@@ -1,0 +1,20 @@
+{
+  "id": "test-stock-class-common-001",
+  "object_type": "STOCK_CLASS",
+  "name": "Common Stock",
+  "class_type": "COMMON",
+  "default_id_prefix": "CS-",
+  "initial_shares_authorized": "20000000",
+  "seniority": "1",
+  "votes_per_share": "1",
+  "price_per_share": {
+    "amount": "0.00001",
+    "currency": "USD"
+  },
+  "par_value": {
+    "amount": "0.00001",
+    "currency": "USD"
+  },
+  "conversion_rights": [],
+  "comments": ["The corporation is authorized to issue only one class of common stock."]
+}
