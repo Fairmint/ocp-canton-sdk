@@ -80,10 +80,10 @@ This directory contains task documentation for the OCP Canton SDK project.
   OCF acceptance types with converters and tests (4 types)
 
 - **[Remaining Types](./2026/01/ai/2026.01.20-ocf-remaining-types.md)** — Complete (2026-01-21)
-  Remaining OCF types (stakeholder events) with unit tests
+  Remaining OCF types (stakeholder events) with unit tests - PR #188
 
 - **[Valuation & Vesting Types](./2026/01/ai/2026.01.20-ocf-valuation-vesting-types.md)** — Complete
-  (2026-01-21) OCF valuation & vesting types (4 types)
+  (2026-01-21) OCF valuation & vesting types (4 types) - PR #187
 
 - **[Batch Cap Table Updates](./2026/01/ai/2026.01.12-batch-cap-table-updates.md)** — Complete
   (2026-01-21) Batch API infrastructure - all phases complete, cleanup in separate task
@@ -117,6 +117,9 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 - **[OCP Protocol Review](./2026/01/ai/2026.01.21-ocp-protocol-review.md)** — Complete (2026-01-21)
   Comprehensive review of SDK architecture with improvement recommendations
+
+- **[Centralize Converters](./2026/01/ai/2026.01.21-centralize-converters.md)** — Cancelled
+  (2026-01-21) Superseded - conflicts with per-entity folder architecture in llms.txt
 
 ## Related ADRs
 

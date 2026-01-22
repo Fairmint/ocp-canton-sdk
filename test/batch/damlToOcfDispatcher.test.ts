@@ -242,11 +242,12 @@ describe('damlToOcf dispatcher', () => {
     });
 
     describe('transfer types', () => {
-      it('converts stockTransfer', () => {
+      it('converts stockTransfer with quantity', () => {
         const damlData = {
           id: 'xfer-1',
           date: '2025-03-15T00:00:00Z',
           security_id: 'sec-1',
+          quantity: '100',
           resulting_security_ids: ['sec-2'],
           balance_security_id: 'sec-3',
           consideration_text: 'Sale to investor',
@@ -256,15 +257,17 @@ describe('damlToOcf dispatcher', () => {
         const result = convertToOcf('stockTransfer', damlData);
 
         expect(result.id).toBe('xfer-1');
+        expect(result.quantity).toBe('100');
         expect(result.resulting_security_ids).toEqual(['sec-2']);
-        expect((result as Record<string, unknown>).balance_security_id).toBe('sec-3');
+        expect((result as unknown as Record<string, unknown>).balance_security_id).toBe('sec-3');
       });
 
-      it('converts convertibleTransfer using shared pattern', () => {
+      it('converts convertibleTransfer with amount', () => {
         const damlData = {
           id: 'conv-xfer-1',
           date: '2025-03-15T00:00:00Z',
           security_id: 'conv-sec-1',
+          amount: { amount: '5000.00', currency: 'USD' },
           resulting_security_ids: ['conv-sec-2'],
           comments: [],
         };
@@ -272,6 +275,7 @@ describe('damlToOcf dispatcher', () => {
         const result = convertToOcf('convertibleTransfer', damlData);
 
         expect(result.id).toBe('conv-xfer-1');
+        expect(result.amount).toEqual({ amount: '5000', currency: 'USD' });
         expect(result.resulting_security_ids).toEqual(['conv-sec-2']);
       });
     });
@@ -292,7 +296,7 @@ describe('damlToOcf dispatcher', () => {
 
         expect(result.id).toBe('cancel-1');
         expect(result.quantity).toBe('500');
-        expect((result as Record<string, unknown>).reason_text).toBe('Cancelled by issuer');
+        expect((result as unknown as Record<string, unknown>).reason_text).toBe('Cancelled by issuer');
       });
     });
 
