@@ -67,6 +67,17 @@ function compareOcfData(source: Record<string, unknown>, readBack: Record<string
   expect(result.equal).toBe(true);
 }
 
+/**
+ * Extract the contract ID string from an OcfContractId.
+ *
+ * OcfContractId is a tagged union where each variant has a `value` property containing the actual ContractId.
+ */
+function extractContractIdString(cid: { value: unknown }): string {
+  // OcfContractId is a tagged union like { tag: "CidStakeholder", value: ContractId<Stakeholder> }
+  // ContractId<T> is just a string in the JSON representation
+  return cid.value as string;
+}
+
 // =============================================================================
 // PRODUCTION FIXTURES - Tests using real anonymized data (26 types)
 // =============================================================================
@@ -173,7 +184,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       // Read back as OCF
       const readBack = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
-        contractId: result.createdCids[0],
+        contractId: extractContractIdString(result.createdCids[0]),
       });
 
       // Validate OCF schema
@@ -212,7 +223,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
-        contractId: result.createdCids[0],
+        contractId: extractContractIdString(result.createdCids[0]),
       });
 
       await validateOcfObject(readBack.stakeholder as unknown as Record<string, unknown>);
@@ -242,7 +253,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stockLegendTemplate.getStockLegendTemplateAsOcf({
-        contractId: result.createdCids[0],
+        contractId: extractContractIdString(result.createdCids[0]),
       });
 
       await validateOcfObject(readBack.stockLegendTemplate as unknown as Record<string, unknown>);
@@ -272,7 +283,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.document.getDocumentAsOcf({
-        contractId: result.createdCids[0],
+        contractId: extractContractIdString(result.createdCids[0]),
       });
 
       await validateOcfObject(readBack.document as unknown as Record<string, unknown>);
@@ -302,7 +313,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.vestingTerms.getVestingTermsAsOcf({
-        contractId: result.createdCids[0],
+        contractId: extractContractIdString(result.createdCids[0]),
       });
 
       await validateOcfObject(readBack.vestingTerms as unknown as Record<string, unknown>);
@@ -332,7 +343,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stockPlan.getStockPlanAsOcf({
-        contractId: result.createdCids[0],
+        contractId: extractContractIdString(result.createdCids[0]),
       });
 
       await validateOcfObject(readBack.stockPlan as unknown as Record<string, unknown>);
