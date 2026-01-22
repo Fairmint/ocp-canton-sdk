@@ -60,6 +60,7 @@ import type {
   OcfEquityCompensationRelease,
   OcfEquityCompensationRepricing,
   OcfEquityCompensationRetraction,
+  OcfPlanSecurityIssuance,
   OcfStockConversion,
   OcfStockPlanReturnToPool,
   OcfStockRetraction,
@@ -330,6 +331,59 @@ function equityCompensationRetractionDataToDaml(d: OcfEquityCompensationRetracti
 }
 
 /**
+ * Map PlanSecurity type to EquityCompensation type for DAML.
+ * PlanSecurity types are aliases that map to EquityCompensation DAML contracts.
+ */
+const PLAN_SECURITY_TO_COMPENSATION_TYPE: Record<OcfPlanSecurityIssuance['plan_security_type'], string> = {
+  OPTION: 'OcfCompensationTypeOption',
+  RSU: 'OcfCompensationTypeRSU',
+  OTHER: 'OcfCompensationTypeOption', // Default to Option for 'OTHER' type
+};
+
+/**
+ * Convert PlanSecurityIssuance to DAML format.
+ * Maps plan_security_type to compensation_type for the underlying EquityCompensation contract.
+ */
+function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Record<string, unknown> {
+  if (!d.id) {
+    throw new OcpValidationError('planSecurityIssuance.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
+
+  // Map plan_security_type to compensation_type
+  const compensationType = PLAN_SECURITY_TO_COMPENSATION_TYPE[d.plan_security_type];
+
+  return {
+    id: d.id,
+    security_id: d.security_id,
+    custom_id: d.custom_id,
+    stakeholder_id: d.stakeholder_id,
+    date: dateStringToDAMLTime(d.date),
+    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
+    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    consideration_text: optionalString(d.consideration_text),
+    security_law_exemptions: (d.security_law_exemptions ?? []).map((e) => ({
+      description: e.description,
+      jurisdiction: e.jurisdiction,
+    })),
+    stock_plan_id: optionalString(d.stock_plan_id),
+    stock_class_id: optionalString(d.stock_class_id),
+    vesting_terms_id: optionalString(d.vesting_terms_id),
+    compensation_type: compensationType,
+    quantity: numberToString(d.quantity),
+    exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
+    base_price: null, // PlanSecurity doesn't have base_price
+    early_exercisable: null, // PlanSecurity doesn't have early_exercisable
+    vestings: [], // PlanSecurity doesn't have inline vestings
+    expiration_date: null, // PlanSecurity doesn't have expiration_date
+    termination_exercise_windows: [], // PlanSecurity doesn't have termination_exercise_windows
+    comments: cleanComments(d.comments),
+  };
+}
+
+/**
  * Convert native OCF data to DAML format based on entity type.
  *
  * @param type - The OCF entity type
@@ -436,6 +490,24 @@ export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTyp
       return equityCompensationRetractionDataToDaml(data as OcfDataTypeFor<'equityCompensationRetraction'>);
     case 'equityCompensationTransfer':
       return equityCompensationTransferDataToDaml(data as OcfDataTypeFor<'equityCompensationTransfer'>);
+
+    // PlanSecurity aliases - delegate to EquityCompensation converters
+    case 'planSecurityIssuance':
+      return planSecurityIssuanceDataToDaml(data as OcfDataTypeFor<'planSecurityIssuance'>);
+    case 'planSecurityExercise':
+      return equityCompensationExerciseDataToDaml(data as unknown as OcfDataTypeFor<'equityCompensationExercise'>);
+    case 'planSecurityCancellation':
+      return equityCompensationCancellationDataToDaml(
+        data as unknown as OcfDataTypeFor<'equityCompensationCancellation'>
+      );
+    case 'planSecurityAcceptance':
+      return equityCompensationAcceptanceDataToDaml(data as unknown as OcfDataTypeFor<'equityCompensationAcceptance'>);
+    case 'planSecurityRelease':
+      return equityCompensationReleaseDataToDaml(data as unknown as OcfDataTypeFor<'equityCompensationRelease'>);
+    case 'planSecurityRetraction':
+      return equityCompensationRetractionDataToDaml(data as unknown as OcfDataTypeFor<'equityCompensationRetraction'>);
+    case 'planSecurityTransfer':
+      return equityCompensationTransferDataToDaml(data as unknown as OcfDataTypeFor<'equityCompensationTransfer'>);
 
     // Stakeholder change events
     case 'stakeholderRelationshipChangeEvent':
