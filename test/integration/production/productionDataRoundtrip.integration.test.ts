@@ -708,6 +708,35 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       const result = await batch.create('stockPlanPoolAdjustment', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
     });
+
+    /**
+     * SKIPPED: StockClassSplit uses OcfRatio which has nested Numeric fields.
+     * The DAML JSON API v2 has encoding issues with nested Numeric fields.
+     * See llms.txt "DAML JSON API v2 Nested Numeric Encoding" for details.
+     */
+    test.skip('Stock Class Split round-trips correctly', async () => {
+      const ctx = getContext();
+
+      const issuerSetup = await setupTestIssuer(ctx.ocp, {
+        systemOperatorParty: ctx.systemOperatorParty,
+        ocpFactoryContractId: ctx.ocpFactoryContractId,
+        issuerParty: ctx.issuerParty,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('stockClassSplit');
+      const prepared = prepareFixture(fixture, 'stock-class-split');
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: issuerSetup.issuerContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+        actAs: [ctx.issuerParty],
+      });
+
+      const result = await batch.create('stockClassSplit', prepared).execute();
+      expect(result.createdCids).toHaveLength(1);
+    });
   });
 
   // -------------------------------------------------------------------------
