@@ -3,6 +3,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
 import { damlStakeholderStatusToNative } from '../../../utils/enumConversions';
 
@@ -47,10 +48,16 @@ export async function getStakeholderStatusChangeEventAsOcf(
   const res = await client.getEventsByContractId({ contractId: params.contractId });
 
   if (!res.created) {
-    throw new Error('Missing created event');
+    throw new OcpContractError('Missing created event', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
   if (!res.created.createdEvent.createArgument) {
-    throw new Error('Missing createArgument');
+    throw new OcpContractError('Missing createArgument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   const contract = res.created.createdEvent.createArgument as DamlStakeholderStatusChangeEventContract;
@@ -58,7 +65,10 @@ export async function getStakeholderStatusChangeEventAsOcf(
 
   const convertedStatus = damlStakeholderStatusToNative(data.new_status);
   if (!convertedStatus) {
-    throw new Error(`Unknown DAML stakeholder status: ${data.new_status}`);
+    throw new OcpParseError(`Unknown DAML stakeholder status: ${data.new_status}`, {
+      source: 'stakeholderStatusChange.new_status',
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    });
   }
 
   const event: OcfStakeholderStatusChangeEvent = {

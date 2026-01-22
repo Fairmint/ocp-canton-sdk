@@ -162,6 +162,7 @@ import {
 } from './functions/CouponMinter';
 import { CapTableBatch } from './functions/OpenCapTable/capTable';
 import type { CommandWithDisclosedContracts } from './types';
+import { OcpValidationError, OcpErrorCodes } from './errors';
 
 /**
  * Context for OCP operations that can be cached and reused.
@@ -259,33 +260,45 @@ export class OcpContextManager implements OcpContext {
 
   /**
    * Get the FeaturedAppRight or throw if not set.
-   * @throws Error if FeaturedAppRight has not been set
+   * @throws OcpValidationError if FeaturedAppRight has not been set
    */
   requireFeaturedAppRight(): DisclosedContract {
     if (!this._featuredAppRight) {
-      throw new Error('FeaturedAppRight not set. Call context.setFeaturedAppRight() first.');
+      throw new OcpValidationError(
+        'context.featuredAppRight',
+        'FeaturedAppRight not set. Call context.setFeaturedAppRight() first.',
+        { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+      );
     }
     return this._featuredAppRight;
   }
 
   /**
    * Get the issuer party or throw if not set.
-   * @throws Error if issuer party has not been set
+   * @throws OcpValidationError if issuer party has not been set
    */
   requireIssuerParty(): string {
     if (!this._issuerParty) {
-      throw new Error('Issuer party not set. Call context.setIssuerParty() first.');
+      throw new OcpValidationError(
+        'context.issuerParty',
+        'Issuer party not set. Call context.setIssuerParty() first.',
+        { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+      );
     }
     return this._issuerParty;
   }
 
   /**
    * Get the cap table contract ID or throw if not set.
-   * @throws Error if cap table contract ID has not been set
+   * @throws OcpValidationError if cap table contract ID has not been set
    */
   requireCapTableContractId(): string {
     if (!this._capTableContractId) {
-      throw new Error('Cap table contract ID not set. Call context.setCapTableContractId() first.');
+      throw new OcpValidationError(
+        'context.capTableContractId',
+        'Cap table contract ID not set. Call context.setCapTableContractId() first.',
+        { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+      );
     }
     return this._capTableContractId;
   }

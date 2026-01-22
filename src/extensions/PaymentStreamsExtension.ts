@@ -69,6 +69,7 @@ import {
   type PaymentContextWithDisclosedContracts,
 } from '../functions/PaymentStreams/utils/paymentContext';
 import type { CommandWithDisclosedContracts } from '../types';
+import { OcpContractError, OcpValidationError, OcpErrorCodes } from '../errors';
 
 /** PaymentStreams extension interface */
 export interface PaymentStreamsMethods {
@@ -165,16 +166,20 @@ export function createPaymentStreamsExtension(): PaymentStreamsMethods {
           | undefined;
 
         if (!networkData) {
-          throw new Error(
+          throw new OcpValidationError(
+            'network',
             `Factory contract data not found for network "${network}". ` +
-              'Please run the factory deployment script for this network first.'
+              'Please run the factory deployment script for this network first.',
+            { code: OcpErrorCodes.INVALID_FORMAT, receivedValue: network }
           );
         }
 
         if (!networkData.disclosedContract) {
-          throw new Error(
+          throw new OcpValidationError(
+            'network.disclosedContract',
             `Disclosed contract data not found for network "${network}". ` +
-              'The factory contract data may be outdated. Please re-run the factory deployment script.'
+              'The factory contract data may be outdated. Please re-run the factory deployment script.',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
           );
         }
 
@@ -193,7 +198,10 @@ export function createPaymentStreamsExtension(): PaymentStreamsMethods {
         const createdEvent = proposalEventsResponse.created?.createdEvent;
 
         if (!createdEvent || !proposalEventsResponse.created) {
-          throw new Error(`ProposedPaymentStream contract ${proposedPaymentStreamContractId} not found`);
+          throw new OcpContractError(`ProposedPaymentStream contract not found`, {
+            contractId: proposedPaymentStreamContractId,
+            code: OcpErrorCodes.CONTRACT_NOT_FOUND,
+          });
         }
 
         return [

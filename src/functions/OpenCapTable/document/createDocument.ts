@@ -1,3 +1,4 @@
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfDocument, OcfObjectReference } from '../../../types';
 import { cleanComments, optionalString } from '../../../utils/typeConversions';
 
@@ -118,15 +119,30 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
     default: {
       // This should never happen if all cases are handled
       const exhaustiveCheck: never = t;
-      throw new Error(`Unsupported object reference type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unsupported object reference type: ${exhaustiveCheck as string}`, {
+        source: 'objectReference.object_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
 
 export function documentDataToDaml(d: OcfDocument): Record<string, unknown> {
-  if (!d.id) throw new Error('document.id is required');
-  if (!d.md5) throw new Error('document.md5 is required');
-  if (!d.path && !d.uri) throw new Error('document requires path or uri');
+  if (!d.id) {
+    throw new OcpValidationError('document.id', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
+  if (!d.md5) {
+    throw new OcpValidationError('document.md5', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
+  if (!d.path && !d.uri) {
+    throw new OcpValidationError('document.path', 'Document requires path or uri', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
   return {
     id: d.id,
     path: optionalString(d.path),

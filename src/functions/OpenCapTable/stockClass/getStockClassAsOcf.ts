@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ConversionMechanism, ConversionTrigger, StockClassConversionRight } from '../../../types/native';
 import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
@@ -330,7 +331,10 @@ export async function getStockClassAsOcf(
   });
 
   if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new Error('Invalid contract events response: missing created event or create argument');
+    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   const { createArgument } = eventsResponse.created.createdEvent;
@@ -349,7 +353,10 @@ export async function getStockClassAsOcf(
   }
 
   if (!hasStockClassData(createArgument)) {
-    throw new Error('Stock class data not found in contract create argument');
+    throw new OcpParseError('Stock class data not found in contract create argument', {
+      source: 'StockClass.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
   }
 
   const stockClassData = createArgument.stock_class_data;

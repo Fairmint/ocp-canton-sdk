@@ -3,6 +3,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
 import {
   damlStakeholderRelationshipToNative,
@@ -50,10 +51,16 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
   const res = await client.getEventsByContractId({ contractId: params.contractId });
 
   if (!res.created) {
-    throw new Error('Missing created event');
+    throw new OcpContractError('Missing created event', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
   if (!res.created.createdEvent.createArgument) {
-    throw new Error('Missing createArgument');
+    throw new OcpContractError('Missing createArgument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   const contract = res.created.createdEvent.createArgument as DamlStakeholderRelationshipChangeEventContract;

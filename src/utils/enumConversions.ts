@@ -27,6 +27,7 @@ import type {
   StakeholderType,
   StockClassType,
 } from '../types/native';
+import { OcpErrorCodes, OcpParseError } from '../errors';
 
 // ===== Email Type Conversions =====
 
@@ -47,7 +48,10 @@ export function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Typ
       return 'OcfEmailTypeOther';
     default: {
       const exhaustiveCheck: never = emailType;
-      throw new Error(`Unknown email type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown email type: ${exhaustiveCheck as string}`, {
+        source: 'emailType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -69,7 +73,10 @@ export function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfE
       return 'OTHER';
     default: {
       const exhaustiveCheck: never = damlType;
-      throw new Error(`Unknown DAML email type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown DAML email type: ${exhaustiveCheck as string}`, {
+        source: 'damlEmailType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -95,7 +102,10 @@ export function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Typ
       return 'OcfPhoneOther';
     default: {
       const exhaustiveCheck: never = phoneType;
-      throw new Error(`Unknown phone type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown phone type: ${exhaustiveCheck as string}`, {
+        source: 'phoneType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -119,7 +129,10 @@ export function damlPhoneTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfP
       return 'OTHER';
     default: {
       const exhaustiveCheck: never = damlType;
-      throw new Error(`Unknown DAML phone type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown DAML phone type: ${exhaustiveCheck as string}`, {
+        source: 'damlPhoneType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -143,7 +156,10 @@ export function stakeholderTypeToDaml(
       return 'OcfStakeholderTypeInstitution';
     default: {
       const exhaustiveCheck: never = stakeholderType;
-      throw new Error(`Unknown stakeholder type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown stakeholder type: ${exhaustiveCheck as string}`, {
+        source: 'stakeholderType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -165,7 +181,10 @@ export function damlStakeholderTypeToNative(
       return 'INSTITUTION';
     default: {
       const exhaustiveCheck: never = damlType;
-      throw new Error(`Unknown DAML stakeholder type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown DAML stakeholder type: ${exhaustiveCheck as string}`, {
+        source: 'damlStakeholderType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -189,7 +208,10 @@ export function stockClassTypeToDaml(
       return 'OcfStockClassTypeCommon';
     default: {
       const exhaustiveCheck: never = stockClassType;
-      throw new Error(`Unknown stock class type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown stock class type: ${exhaustiveCheck as string}`, {
+        source: 'stockClassType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -208,7 +230,10 @@ export function damlStockClassTypeToNative(damlType: string): StockClassType {
     case 'OcfStockClassTypeCommon':
       return 'COMMON';
     default:
-      throw new Error(`Unknown DAML stock class type: ${damlType}`);
+      throw new OcpParseError(`Unknown DAML stock class type: ${damlType}`, {
+        source: 'damlStockClassType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
   }
 }
 
@@ -290,7 +315,10 @@ export function damlStakeholderRelationshipToNative(
     default: {
       // Exhaustive check - should never reach here
       const exhaustiveCheck: never = damlType;
-      throw new Error(`Unknown DAML stakeholder relationship type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown DAML stakeholder relationship type: ${exhaustiveCheck as string}`, {
+        source: 'damlStakeholderRelationshipType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -331,7 +359,10 @@ export function stakeholderStatusToDaml(status: StakeholderStatus): DamlStakehol
       return 'OcfStakeholderStatusTerminationInvoluntaryWithCause';
     default: {
       const exhaustiveCheck: never = status;
-      throw new Error(`Unknown stakeholder status: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown stakeholder status: ${exhaustiveCheck as string}`, {
+        source: 'stakeholderStatus',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
