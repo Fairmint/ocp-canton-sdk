@@ -329,7 +329,9 @@ export function stripInternalFields<T extends Record<string, unknown>>(
       result[key] = stripInternalFields(value as Record<string, unknown>, fieldsToRemove);
     } else if (Array.isArray(value)) {
       result[key] = value.map((item) =>
-        item && typeof item === 'object' ? stripInternalFields(item as Record<string, unknown>, fieldsToRemove) : item
+        item && typeof item === 'object' && !Array.isArray(item)
+          ? stripInternalFields(item as Record<string, unknown>, fieldsToRemove)
+          : item
       );
     } else {
       result[key] = value;
