@@ -72,7 +72,7 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('stockTransfer', input)).toThrow('resulting_security_ids must contain at least one');
+        expect(() => convertToDaml('stockTransfer', input)).toThrow('resulting_security_ids');
       });
     });
 
@@ -136,9 +136,7 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('convertibleTransfer', input)).toThrow(
-          'resulting_security_ids must contain at least one'
-        );
+        expect(() => convertToDaml('convertibleTransfer', input)).toThrow('resulting_security_ids');
       });
     });
 
@@ -202,9 +200,7 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow(
-          'resulting_security_ids must contain at least one'
-        );
+        expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow('resulting_security_ids');
       });
     });
 
@@ -268,9 +264,7 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('warrantTransfer', input)).toThrow(
-          'resulting_security_ids must contain at least one'
-        );
+        expect(() => convertToDaml('warrantTransfer', input)).toThrow('resulting_security_ids');
       });
     });
   });

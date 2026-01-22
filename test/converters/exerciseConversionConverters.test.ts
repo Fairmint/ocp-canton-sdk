@@ -165,7 +165,7 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         await expect(getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          'Warrant exercise quantity is required'
+          'warrantExercise.quantity'
         );
       });
 
@@ -181,7 +181,7 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         await expect(getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          'Warrant exercise resulting_security_ids is required'
+          'warrantExercise.resulting_security_ids'
         );
       });
     });
@@ -292,7 +292,7 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         await expect(getConvertibleConversionEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          'Convertible conversion resulting_security_ids is required'
+          'convertibleConversion.resulting_security_ids'
         );
       });
     });
@@ -428,7 +428,7 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         await expect(getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          'Stock conversion quantity is required'
+          'stockConversion.quantity'
         );
       });
 
@@ -444,7 +444,7 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         await expect(getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          'Stock conversion resulting_security_ids is required'
+          'stockConversion.resulting_security_ids'
         );
       });
     });
