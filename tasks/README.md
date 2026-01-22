@@ -59,10 +59,10 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Migration Guide](./2026/01/ai/2026.01.21-migration-guide.md)** — Open (Low) Document migration
   from legacy to batch API
 
-- **[Batch Size Limits](./2026/01/ai/2026.01.21-batch-size-limits.md)** — Open (Low) Add
-  configurable limits and pagination support
-
 ## Completed Tasks
+
+- **[Batch Size Limits](./2026/01/ai/2026.01.21-batch-size-limits.md)** — Closed (2026-01-22) Won't
+  do - batch size limits are best handled at the client/application level
 
 - **[Add damlToOcf Dispatcher](./2026/01/ai/2026.01.21-daml-to-ocf-dispatcher.md)** — Complete
   (2026-01-21) Generic `getEntityAsOcf<T>()` function to DRY up read operations
