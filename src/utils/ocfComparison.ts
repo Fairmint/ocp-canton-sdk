@@ -320,6 +320,17 @@ export function stripInternalFields<T extends Record<string, unknown>>(
 ): Partial<T> {
   const toRemove = new Set(fieldsToRemove ?? [...DEFAULT_INTERNAL_FIELDS, ...DEFAULT_DEPRECATED_FIELDS]);
 
+  // Helper to process array items (handles nested arrays recursively)
+  const processArrayItem = (item: unknown): unknown => {
+    if (!item || typeof item !== 'object') {
+      return item;
+    }
+    if (Array.isArray(item)) {
+      return item.map(processArrayItem);
+    }
+    return stripInternalFields(item as Record<string, unknown>, fieldsToRemove);
+  };
+
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(obj)) {
@@ -328,11 +339,7 @@ export function stripInternalFields<T extends Record<string, unknown>>(
     if (value && typeof value === 'object' && !Array.isArray(value)) {
       result[key] = stripInternalFields(value as Record<string, unknown>, fieldsToRemove);
     } else if (Array.isArray(value)) {
-      result[key] = value.map((item) =>
-        item && typeof item === 'object' && !Array.isArray(item)
-          ? stripInternalFields(item as Record<string, unknown>, fieldsToRemove)
-          : item
-      );
+      result[key] = value.map(processArrayItem);
     } else {
       result[key] = value;
     }
