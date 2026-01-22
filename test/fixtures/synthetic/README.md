@@ -63,13 +63,12 @@ derived from real-world data.
 
 ## Usage
 
-Load fixtures the same way as production fixtures:
+Load fixtures using the synthetic fixture loader:
 
 ```typescript
-import { loadProductionFixture } from '../../utils/productionFixtures';
+import { loadSyntheticFixture } from '../../utils/productionFixtures';
 
-// Synthetic fixtures are in the 'synthetic/' subdirectory
-const fixture = loadProductionFixture('synthetic/stockAcceptance.json');
+const fixture = loadSyntheticFixture('stockAcceptance');
 ```
 
 ## Contributing Real Data

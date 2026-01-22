@@ -71,5 +71,9 @@ Load fixtures in tests using the fixture loader utility:
 ```typescript
 import { loadProductionFixture } from '../../utils/productionFixtures';
 
-const issuer = loadProductionFixture('issuer/with-full-details.json');
+// Load with type and variant
+const issuer = loadProductionFixture('issuer', 'with-full-details');
+
+// Load single-file fixtures (no variant)
+const transfer = loadProductionFixture('stockTransfer');
 ```
