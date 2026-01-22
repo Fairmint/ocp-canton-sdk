@@ -11,6 +11,7 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import paymentStreamsFactoryConfig from '@fairmint/open-captable-protocol-daml-js/paymentStreams-factory-contract-id.json';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../errors';
 import {
   buildActivePaymentStreamChangePartyCommand,
   buildArchiveInactivePaymentStreamCommand,
@@ -69,7 +70,6 @@ import {
   type PaymentContextWithDisclosedContracts,
 } from '../functions/PaymentStreams/utils/paymentContext';
 import type { CommandWithDisclosedContracts } from '../types';
-import { OcpContractError, OcpValidationError, OcpErrorCodes } from '../errors';
 
 /** PaymentStreams extension interface */
 export interface PaymentStreamsMethods {

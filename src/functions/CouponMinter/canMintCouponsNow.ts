@@ -69,11 +69,15 @@ export function canMintCouponsNow(payload: CouponMinterPayload, now?: Date): Can
   // Parse maxTps
   const maxTps = parseFloat(payload.maxTps);
   if (isNaN(maxTps) || maxTps <= 0) {
-    throw new OcpValidationError('payload.maxTps', `Invalid maxTps value: "${payload.maxTps}". Expected a positive number.`, {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'positive number',
-      receivedValue: payload.maxTps,
-    });
+    throw new OcpValidationError(
+      'payload.maxTps',
+      `Invalid maxTps value: "${payload.maxTps}". Expected a positive number.`,
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'positive number',
+        receivedValue: payload.maxTps,
+      }
+    );
   }
 
   const { time: lastMintTime, count: lastMintCount } = payload.lastMint;

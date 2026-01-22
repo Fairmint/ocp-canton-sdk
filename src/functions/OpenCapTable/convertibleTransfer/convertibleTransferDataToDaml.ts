@@ -11,11 +11,10 @@ export function convertibleTransferDataToDaml(d: OcfConvertibleTransfer): Record
   }
   // Validate required array field
   if (d.resulting_security_ids.length === 0) {
-    throw new OcpValidationError(
-      'convertibleTransfer.resulting_security_ids',
-      'Must contain at least one element',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: d.resulting_security_ids }
-    );
+    throw new OcpValidationError('convertibleTransfer.resulting_security_ids', 'Must contain at least one element', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.resulting_security_ids,
+    });
   }
   return {
     id: d.id,

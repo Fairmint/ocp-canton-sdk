@@ -23,11 +23,10 @@ export function getFactoryContractId(network: Network): FactoryContractInfo {
   const config = paymentStreamsFactoryConfig[network] as FactoryContractInfo | undefined;
 
   if (!config) {
-    throw new OcpValidationError(
-      'network',
-      `PaymentStream factory contract ID not found for network: ${network}`,
-      { code: OcpErrorCodes.INVALID_FORMAT, receivedValue: network }
-    );
+    throw new OcpValidationError('network', `PaymentStream factory contract ID not found for network: ${network}`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: network,
+    });
   }
 
   return config;

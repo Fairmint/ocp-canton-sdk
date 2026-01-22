@@ -381,9 +381,13 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
   const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
   if (typeof t !== 'object' || !t.trigger_id) {
-    throw new OcpValidationError('conversionTrigger.trigger_id', 'trigger_id is required for each convertible conversion trigger', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
+    throw new OcpValidationError(
+      'conversionTrigger.trigger_id',
+      'trigger_id is required for each convertible conversion trigger',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      }
+    );
   }
   const { trigger_id } = t;
   const nickname = typeof t === 'object' && t.nickname ? t.nickname : null;

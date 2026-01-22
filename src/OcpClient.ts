@@ -2,6 +2,7 @@ import type { ClientConfig, ValidatorApiClient } from '@fairmint/canton-node-sdk
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
+import { OcpErrorCodes, OcpValidationError } from './errors';
 import {
   createCantonPaymentsExtension,
   createPaymentStreamsExtension,
@@ -162,7 +163,6 @@ import {
 } from './functions/CouponMinter';
 import { CapTableBatch } from './functions/OpenCapTable/capTable';
 import type { CommandWithDisclosedContracts } from './types';
-import { OcpValidationError, OcpErrorCodes } from './errors';
 
 /**
  * Context for OCP operations that can be cached and reused.

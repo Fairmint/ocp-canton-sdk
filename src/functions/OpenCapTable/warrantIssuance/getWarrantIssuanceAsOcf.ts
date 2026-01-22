@@ -141,20 +141,28 @@ export async function getWarrantIssuanceAsOcf(
       });
     }
     if (typeof m.amount !== 'string' && typeof m.amount !== 'number') {
-      throw new OcpValidationError('monetary.amount', `Monetary amount must be string or number, got ${typeof m.amount}`, {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string | number',
-        receivedValue: m.amount,
-      });
+      throw new OcpValidationError(
+        'monetary.amount',
+        `Monetary amount must be string or number, got ${typeof m.amount}`,
+        {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'string | number',
+          receivedValue: m.amount,
+        }
+      );
     }
 
     // Validate currency exists and is string
     if (typeof m.currency !== 'string' || !m.currency) {
-      throw new OcpValidationError('monetary.currency', 'Monetary currency is required and must be a non-empty string', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        expectedType: 'string',
-        receivedValue: m.currency,
-      });
+      throw new OcpValidationError(
+        'monetary.currency',
+        'Monetary currency is required and must be a non-empty string',
+        {
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          expectedType: 'string',
+          receivedValue: m.currency,
+        }
+      );
     }
 
     const amount = normalizeNumericString(typeof m.amount === 'number' ? m.amount.toString() : m.amount);

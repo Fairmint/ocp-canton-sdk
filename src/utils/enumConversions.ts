@@ -19,6 +19,7 @@
  */
 
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError } from '../errors';
 import type {
   EmailType,
   PhoneType,
@@ -27,7 +28,6 @@ import type {
   StakeholderType,
   StockClassType,
 } from '../types/native';
-import { OcpErrorCodes, OcpParseError } from '../errors';
 
 // ===== Email Type Conversions =====
 

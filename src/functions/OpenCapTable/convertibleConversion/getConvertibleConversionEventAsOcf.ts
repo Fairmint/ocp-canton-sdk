@@ -42,10 +42,14 @@ export async function getConvertibleConversionEventAsOcf(
 
   // Validate resulting_security_ids
   if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
-    throw new OcpValidationError('convertibleConversion.resulting_security_ids', 'Required field must be a non-empty array', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.resulting_security_ids,
-    });
+    throw new OcpValidationError(
+      'convertibleConversion.resulting_security_ids',
+      'Required field must be a non-empty array',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        receivedValue: d.resulting_security_ids,
+      }
+    );
   }
 
   const event: OcfConvertibleConversionEvent = {

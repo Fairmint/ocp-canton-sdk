@@ -15,6 +15,7 @@
  *   ```
  */
 
+import { OcpValidationError } from '../errors';
 import type {
   OcfConvertibleCancellation,
   OcfConvertibleIssuance,
@@ -36,7 +37,6 @@ import type {
   OcfWarrantCancellation,
   OcfWarrantIssuance,
 } from '../types/native';
-import { OcpValidationError } from '../errors';
 
 // ===== Primitive Type Guards =====
 

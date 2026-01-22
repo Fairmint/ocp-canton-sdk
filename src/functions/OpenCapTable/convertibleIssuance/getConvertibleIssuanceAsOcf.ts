@@ -402,19 +402,27 @@ export async function getConvertibleIssuanceAsOcf(
                     });
                   }
                   if (typeof irObj.rate !== 'string' && typeof irObj.rate !== 'number') {
-                    throw new OcpValidationError('interest_rate.rate', `Must be string or number, got ${typeof irObj.rate}`, {
-                      code: OcpErrorCodes.INVALID_TYPE,
-                      expectedType: 'string | number',
-                      receivedValue: irObj.rate,
-                    });
+                    throw new OcpValidationError(
+                      'interest_rate.rate',
+                      `Must be string or number, got ${typeof irObj.rate}`,
+                      {
+                        code: OcpErrorCodes.INVALID_TYPE,
+                        expectedType: 'string | number',
+                        receivedValue: irObj.rate,
+                      }
+                    );
                   }
                   // Validate accrual_start_date
                   if (typeof irObj.accrual_start_date !== 'string' || !irObj.accrual_start_date) {
-                    throw new OcpValidationError('interest_rate.accrual_start_date', 'Required field must be a non-empty string', {
-                      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-                      expectedType: 'string',
-                      receivedValue: irObj.accrual_start_date,
-                    });
+                    throw new OcpValidationError(
+                      'interest_rate.accrual_start_date',
+                      'Required field must be a non-empty string',
+                      {
+                        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+                        expectedType: 'string',
+                        receivedValue: irObj.accrual_start_date,
+                      }
+                    );
                   }
                   return {
                     rate: normalizeNumericString(typeof irObj.rate === 'number' ? irObj.rate.toString() : irObj.rate),
@@ -610,18 +618,26 @@ export async function getConvertibleIssuanceAsOcf(
     !investmentAmount ||
     (typeof investmentAmount.amount !== 'string' && typeof investmentAmount.amount !== 'number')
   ) {
-    throw new OcpValidationError('convertibleIssuance.investment_amount.amount', 'Required field must be string or number', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string | number',
-      receivedValue: investmentAmount?.amount,
-    });
+    throw new OcpValidationError(
+      'convertibleIssuance.investment_amount.amount',
+      'Required field must be string or number',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string | number',
+        receivedValue: investmentAmount?.amount,
+      }
+    );
   }
   if (typeof investmentAmount.currency !== 'string' || !investmentAmount.currency) {
-    throw new OcpValidationError('convertibleIssuance.investment_amount.currency', 'Required field must be a non-empty string', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
-      receivedValue: investmentAmount.currency,
-    });
+    throw new OcpValidationError(
+      'convertibleIssuance.investment_amount.currency',
+      'Required field must be a non-empty string',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string',
+        receivedValue: investmentAmount.currency,
+      }
+    );
   }
 
   // Convert to string after validation

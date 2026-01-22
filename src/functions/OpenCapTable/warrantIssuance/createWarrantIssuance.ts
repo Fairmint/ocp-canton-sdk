@@ -208,9 +208,13 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
   const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
   if (typeof t !== 'object' || !t.trigger_id) {
-    throw new OcpValidationError('warrantTrigger.trigger_id', 'trigger_id is required for each warrant exercise trigger', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
+    throw new OcpValidationError(
+      'warrantTrigger.trigger_id',
+      'trigger_id is required for each warrant exercise trigger',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      }
+    );
   }
   const { trigger_id } = t;
   const nickname = typeof t.nickname === 'string' ? t.nickname : null;

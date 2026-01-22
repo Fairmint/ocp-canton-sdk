@@ -51,11 +51,15 @@ export async function getEquityCompensationExerciseEventAsOcf(
     });
   }
   if (typeof d.quantity !== 'string' && typeof d.quantity !== 'number') {
-    throw new OcpValidationError('equityCompensationExercise.quantity', `Must be string or number, got ${typeof d.quantity}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string | number',
-      receivedValue: d.quantity,
-    });
+    throw new OcpValidationError(
+      'equityCompensationExercise.quantity',
+      `Must be string or number, got ${typeof d.quantity}`,
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string | number',
+        receivedValue: d.quantity,
+      }
+    );
   }
 
   const ocf: OcfEquityCompensationExerciseOutput = {
