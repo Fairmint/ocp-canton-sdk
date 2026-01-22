@@ -3,6 +3,7 @@
 import type { ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { getCurrentMiningRoundContext } from '@fairmint/canton-node-sdk/build/src/utils/mining/mining-rounds';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 
 export interface PaymentContext {
   amuletRulesCid: string;
@@ -126,7 +127,10 @@ export async function buildPaymentContextWithAmulets(
   const amuletsResponse = await validatorClient.getAmulets();
 
   if (amuletsResponse.amulets.length === 0) {
-    throw new Error(`Payer ${payerParty} has no Amulet contracts`);
+    throw new OcpValidationError('payerParty.amulets', `Payer ${payerParty} has no Amulet contracts`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: payerParty,
+    });
   }
 
   // Map amulets with their effective amounts
@@ -158,8 +162,10 @@ export async function buildPaymentContextWithAmulets(
 
   // Check if we have sufficient funds
   if (accumulatedAmount < requestedAmountNum) {
-    throw new Error(
-      `Insufficient funds: Payer ${payerParty} has ${accumulatedAmount.toFixed(2)} CC available but needs ${requestedAmountNum.toFixed(2)} CC (missing ${(requestedAmountNum - accumulatedAmount).toFixed(2)} CC)`
+    throw new OcpValidationError(
+      'payerParty.balance',
+      `Insufficient funds: Payer ${payerParty} has ${accumulatedAmount.toFixed(2)} CC available but needs ${requestedAmountNum.toFixed(2)} CC (missing ${(requestedAmountNum - accumulatedAmount).toFixed(2)} CC)`,
+      { code: OcpErrorCodes.INVALID_FORMAT, receivedValue: accumulatedAmount }
     );
   }
 

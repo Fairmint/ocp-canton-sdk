@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { AllocationType, VestingCondition, VestingConditionPortion } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -21,7 +22,10 @@ function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.Oc
       return 'FRACTIONAL';
     default: {
       const _exhaustiveCheck: never = t;
-      throw new Error(`Unknown DAML allocation type: ${String(t)}`);
+      throw new OcpParseError(`Unknown DAML allocation type: ${String(t)}`, {
+        source: 'vestingTerms.allocation_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -74,9 +78,16 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
   if (p.tag === 'OcfVestingPeriodDays') {
     const v = p.value ?? {};
     const occRaw = v.occurrences;
-    if (occRaw === undefined || occRaw === null) throw new Error('Missing vesting period occurrences');
+    if (occRaw === undefined || occRaw === null)
+      throw new OcpValidationError('vestingPeriod.occurrences', 'Missing vesting period occurrences', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
     const occ = Number(occRaw);
-    if (!Number.isFinite(occ) || occ < 1) throw new Error('Invalid vesting period occurrences');
+    if (!Number.isFinite(occ) || occ < 1)
+      throw new OcpValidationError('vestingPeriod.occurrences', 'Invalid vesting period occurrences', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: occRaw,
+      });
     return {
       tag: 'DAYS',
       length: Number(v.length_),
@@ -89,15 +100,28 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
   if (p.tag === 'OcfVestingPeriodMonths') {
     const v = p.value ?? {};
     const occRaw = v.occurrences;
-    if (occRaw === undefined || occRaw === null) throw new Error('Missing vesting period occurrences');
+    if (occRaw === undefined || occRaw === null)
+      throw new OcpValidationError('vestingPeriod.occurrences', 'Missing vesting period occurrences', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
     const occ = Number(occRaw);
-    if (!Number.isFinite(occ) || occ < 1) throw new Error('Invalid vesting period occurrences');
+    if (!Number.isFinite(occ) || occ < 1)
+      throw new OcpValidationError('vestingPeriod.occurrences', 'Invalid vesting period occurrences', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: occRaw,
+      });
     if (v.day_of_month === undefined || v.day_of_month === null) {
-      throw new Error('Missing vesting period day_of_month for MONTHS');
+      throw new OcpValidationError('vestingPeriod.day_of_month', 'Missing vesting period day_of_month for MONTHS', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
     }
     const dayOfMonth = v.day_of_month;
     if (typeof dayOfMonth !== 'string') {
-      throw new Error('day_of_month must be a string');
+      throw new OcpValidationError('vestingPeriod.day_of_month', 'day_of_month must be a string', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string',
+        receivedValue: dayOfMonth,
+      });
     }
     return {
       tag: 'MONTHS',
@@ -109,7 +133,10 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
         : {}),
     };
   }
-  throw new Error('Unknown DAML vesting period');
+  throw new OcpParseError('Unknown DAML vesting period', {
+    source: 'vestingPeriod.tag',
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+  });
 }
 
 function damlVestingTriggerToNative(
@@ -127,13 +154,20 @@ function damlVestingTriggerToNative(
 
   if (tag === 'OcfVestingScheduleAbsoluteTrigger') {
     const value = typeof t === 'string' ? undefined : t.value;
-    if (!value || typeof value !== 'string') throw new Error('Missing value for OcfVestingScheduleAbsoluteTrigger');
+    if (!value || typeof value !== 'string')
+      throw new OcpValidationError('vestingTrigger.value', 'Missing value for OcfVestingScheduleAbsoluteTrigger', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        receivedValue: value,
+      });
     return { type: 'VESTING_SCHEDULE_ABSOLUTE', date: damlTimeToDateString(value) };
   }
 
   if (tag === 'OcfVestingScheduleRelativeTrigger') {
     const value = typeof t === 'string' ? undefined : t.value;
-    if (!value) throw new Error('Missing value for OcfVestingScheduleRelativeTrigger');
+    if (!value)
+      throw new OcpValidationError('vestingTrigger.value', 'Missing value for OcfVestingScheduleRelativeTrigger', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
     const periodValue = (value as { period?: unknown }).period;
     if (
       !periodValue ||
@@ -141,7 +175,10 @@ function damlVestingTriggerToNative(
       !('tag' in periodValue) ||
       typeof (periodValue as { tag: unknown }).tag !== 'string'
     ) {
-      throw new Error('Invalid period in OcfVestingScheduleRelativeTrigger');
+      throw new OcpValidationError('vestingTrigger.period', 'Invalid period in OcfVestingScheduleRelativeTrigger', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        receivedValue: periodValue,
+      });
     }
     const p = damlVestingPeriodToNative(periodValue as { tag: string; value?: Record<string, unknown> });
     if (p.tag === 'MONTHS') {
@@ -169,7 +206,10 @@ function damlVestingTriggerToNative(
     };
   }
 
-  throw new Error('Unknown DAML vesting trigger');
+  throw new OcpParseError('Unknown DAML vesting trigger', {
+    source: 'vestingTrigger.tag',
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+  });
 }
 
 function damlVestingConditionPortionToNative(
@@ -256,7 +296,10 @@ export async function getVestingTermsAsOcf(
 ): Promise<GetVestingTermsAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new Error('Invalid contract events response: missing created event or create argument');
+    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
   const { createArgument } = eventsResponse.created.createdEvent;
 
@@ -272,7 +315,10 @@ export async function getVestingTermsAsOcf(
     );
   }
   if (!hasData(createArgument)) {
-    throw new Error('Vesting terms data not found in contract create argument');
+    throw new OcpParseError('Vesting terms data not found in contract create argument', {
+      source: 'VestingTerms.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
   }
 
   const native = damlVestingTermsDataToNative(createArgument.vesting_terms_data);

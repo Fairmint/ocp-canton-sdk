@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
 type ConversionTriggerType =
@@ -104,9 +105,17 @@ export async function getWarrantIssuanceAsOcf(
 ): Promise<GetWarrantIssuanceAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   const created = res.created?.createdEvent;
-  if (!created?.createArgument) throw new Error('Missing createArgument for WarrantIssuance');
+  if (!created?.createArgument)
+    throw new OcpContractError('Missing createArgument for WarrantIssuance', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   const arg = created.createArgument as Record<string, unknown>;
-  if (!('issuance_data' in arg)) throw new Error('Unexpected createArgument for WarrantIssuance');
+  if (!('issuance_data' in arg))
+    throw new OcpParseError('Unexpected createArgument for WarrantIssuance', {
+      source: 'WarrantIssuance.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
   const d = arg.issuance_data as Record<string, unknown>;
 
   const mapTagToType = (tag: string): ConversionTriggerType => {
@@ -125,15 +134,27 @@ export async function getWarrantIssuanceAsOcf(
 
     // Validate amount exists and is string or number
     if (m.amount === undefined || m.amount === null) {
-      throw new Error('Monetary amount is required but was undefined or null');
+      throw new OcpValidationError('monetary.amount', 'Monetary amount is required but was undefined or null', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string | number',
+        receivedValue: m.amount,
+      });
     }
     if (typeof m.amount !== 'string' && typeof m.amount !== 'number') {
-      throw new Error(`Monetary amount must be string or number, got ${typeof m.amount}`);
+      throw new OcpValidationError('monetary.amount', `Monetary amount must be string or number, got ${typeof m.amount}`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string | number',
+        receivedValue: m.amount,
+      });
     }
 
     // Validate currency exists and is string
     if (typeof m.currency !== 'string' || !m.currency) {
-      throw new Error('Monetary currency is required and must be a non-empty string');
+      throw new OcpValidationError('monetary.currency', 'Monetary currency is required and must be a non-empty string', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string',
+        receivedValue: m.currency,
+      });
     }
 
     const amount = normalizeNumericString(typeof m.amount === 'number' ? m.amount.toString() : m.amount);
@@ -142,7 +163,11 @@ export async function getWarrantIssuanceAsOcf(
 
   const mapWarrantMechanism = (m: unknown): WarrantConversionMechanism => {
     if (!m || typeof m !== 'object') {
-      throw new Error('Invalid warrant mechanism: expected object');
+      throw new OcpValidationError('warrantMechanism', 'Invalid warrant mechanism: expected object', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'object',
+        receivedValue: m,
+      });
     }
     const mObj = m as Record<string, unknown>;
     const tag = typeof mObj.tag === 'string' ? mObj.tag : typeof m === 'string' ? m : '';
@@ -158,8 +183,14 @@ export async function getWarrantIssuanceAsOcf(
               ? value.converts_to_percent.toString()
               : (() => {
                   if (typeof value.converts_to_percent !== 'string') {
-                    throw new Error(
-                      `converts_to_percent must be string or number, got ${typeof value.converts_to_percent}`
+                    throw new OcpValidationError(
+                      'warrantMechanism.converts_to_percent',
+                      `converts_to_percent must be string or number, got ${typeof value.converts_to_percent}`,
+                      {
+                        code: OcpErrorCodes.INVALID_TYPE,
+                        expectedType: 'string | number',
+                        receivedValue: value.converts_to_percent,
+                      }
                     );
                   }
                   return value.converts_to_percent;
@@ -180,8 +211,14 @@ export async function getWarrantIssuanceAsOcf(
               ? value.converts_to_quantity.toString()
               : (() => {
                   if (typeof value.converts_to_quantity !== 'string') {
-                    throw new Error(
-                      `converts_to_quantity must be string or number, got ${typeof value.converts_to_quantity}`
+                    throw new OcpValidationError(
+                      'warrantMechanism.converts_to_quantity',
+                      `converts_to_quantity must be string or number, got ${typeof value.converts_to_quantity}`,
+                      {
+                        code: OcpErrorCodes.INVALID_TYPE,
+                        expectedType: 'string | number',
+                        receivedValue: value.converts_to_quantity,
+                      }
                     );
                   }
                   return value.converts_to_quantity;
@@ -191,7 +228,11 @@ export async function getWarrantIssuanceAsOcf(
       case 'OcfWarrantMechanismValuationBased': {
         const valuationAmount = mapMonetary(value.valuation_amount as Record<string, unknown>);
         if (typeof value.valuation_type !== 'string' || !value.valuation_type) {
-          throw new Error('Warrant valuation_type is required and must be a non-empty string');
+          throw new OcpValidationError(
+            'warrantMechanism.valuation_type',
+            'Warrant valuation_type is required and must be a non-empty string',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, expectedType: 'string', receivedValue: value.valuation_type }
+          );
         }
         return {
           type: 'VALUATION_BASED_CONVERSION',
@@ -208,7 +249,11 @@ export async function getWarrantIssuanceAsOcf(
       case 'OcfWarrantMechanismSharePriceBased': {
         const discountAmount = mapMonetary(value.discount_amount as Record<string, unknown>);
         if (typeof value.description !== 'string' || !value.description) {
-          throw new Error('Warrant share price mechanism description is required and must be a non-empty string');
+          throw new OcpValidationError(
+            'warrantMechanism.description',
+            'Warrant share price mechanism description is required and must be a non-empty string',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, expectedType: 'string', receivedValue: value.description }
+          );
         }
         return {
           type: 'SHARE_PRICE_BASED_CONVERSION',
@@ -230,21 +275,36 @@ export async function getWarrantIssuanceAsOcf(
       }
       case 'OcfWarrantMechanismCustom':
         if (typeof value.custom_conversion_description !== 'string' || !value.custom_conversion_description) {
-          throw new Error('Warrant custom conversion description is required and must be a non-empty string');
+          throw new OcpValidationError(
+            'warrantMechanism.custom_conversion_description',
+            'Warrant custom conversion description is required and must be a non-empty string',
+            {
+              code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+              expectedType: 'string',
+              receivedValue: value.custom_conversion_description,
+            }
+          );
         }
         return {
           type: 'CUSTOM_CONVERSION',
           custom_conversion_description: value.custom_conversion_description,
         } as WarrantCustomMechanism;
       default:
-        throw new Error(`Unknown warrant mechanism: ${tag}`);
+        throw new OcpParseError(`Unknown warrant mechanism: ${tag}`, {
+          source: 'warrantMechanism.tag',
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        });
     }
   };
 
   const mapAnyRightToWarrantRight = (r: unknown): WarrantConversionRight => {
     // r is expected to be variant { tag: 'OcfRightWarrant', value: {...} }
     if (!r || typeof r !== 'object' || !('value' in r)) {
-      throw new Error('Invalid warrant right: expected object with value property');
+      throw new OcpValidationError('warrantRight', 'Invalid warrant right: expected object with value property', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'object with value property',
+        receivedValue: r,
+      });
     }
     const rObj = r as { value: unknown };
     const value = typeof rObj.value === 'object' && rObj.value ? (rObj.value as Record<string, unknown>) : {};
@@ -318,11 +378,16 @@ export async function getWarrantIssuanceAsOcf(
 
   const purchase_price_obj = d.purchase_price as Record<string, unknown> | null | undefined;
   if (!purchase_price_obj) {
-    throw new Error('Missing required purchase_price');
+    throw new OcpValidationError('warrantIssuance.purchase_price', 'Missing required purchase_price', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
   const purchase_price = mapMonetary(purchase_price_obj);
   if (!purchase_price) {
-    throw new Error('Invalid purchase_price');
+    throw new OcpValidationError('warrantIssuance.purchase_price', 'Invalid purchase_price', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: purchase_price_obj,
+    });
   }
 
   const comments = Array.isArray(d.comments) && d.comments.length > 0 ? (d.comments as string[]) : undefined;

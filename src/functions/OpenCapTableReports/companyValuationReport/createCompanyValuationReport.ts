@@ -4,6 +4,7 @@ import type { Command, DisclosedContract } from '@fairmint/canton-node-sdk/build
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js/lib';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/reports-factory-contract-id.json';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts } from '../../../types';
 import { extractUpdateId } from '../../../utils/typeConversions';
 
@@ -43,7 +44,11 @@ export async function createCompanyValuationReport(
     Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId
   );
   if (!created) {
-    throw new Error('Expected CreatedTreeEvent not found');
+    throw new OcpContractError('Expected CreatedTreeEvent not found', {
+      templateId: Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId,
+      choice: 'CreateCompanyValuationReport',
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   return {
@@ -62,7 +67,10 @@ export function buildCreateCompanyValuationReportCommand(
     | (typeof factoryContractIdData)[keyof typeof factoryContractIdData]
     | undefined;
   if (!networkData) {
-    throw new Error(`Unsupported network: ${network}`);
+    throw new OcpValidationError('network', `Unsupported network: ${network}`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: network,
+    });
   }
 
   const choiceArguments: Fairmint.OpenCapTableReports.ReportsFactory.CreateCompanyValuationReport = {

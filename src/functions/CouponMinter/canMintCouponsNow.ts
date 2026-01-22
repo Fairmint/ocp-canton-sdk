@@ -5,6 +5,8 @@
  * unnecessary transaction failures.
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../errors';
+
 /** Result of checking if minting is allowed. */
 export type CanMintResult = { canMint: true } | { canMint: false; waitMs: number };
 
@@ -67,7 +69,11 @@ export function canMintCouponsNow(payload: CouponMinterPayload, now?: Date): Can
   // Parse maxTps
   const maxTps = parseFloat(payload.maxTps);
   if (isNaN(maxTps) || maxTps <= 0) {
-    throw new Error(`Invalid maxTps value: "${payload.maxTps}". Expected a positive number.`);
+    throw new OcpValidationError('payload.maxTps', `Invalid maxTps value: "${payload.maxTps}". Expected a positive number.`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'positive number',
+      receivedValue: payload.maxTps,
+    });
   }
 
   const { time: lastMintTime, count: lastMintCount } = payload.lastMint;
@@ -84,7 +90,11 @@ export function canMintCouponsNow(payload: CouponMinterPayload, now?: Date): Can
   // Parse the DAML timestamp
   const lastMintDate = new Date(lastMintTime);
   if (isNaN(lastMintDate.getTime())) {
-    throw new Error(`Invalid lastMint.time format: "${lastMintTime}". Expected ISO 8601 timestamp.`);
+    throw new OcpValidationError(
+      'payload.lastMint.time',
+      `Invalid lastMint.time format: "${lastMintTime}". Expected ISO 8601 timestamp.`,
+      { code: OcpErrorCodes.INVALID_FORMAT, expectedType: 'ISO 8601 timestamp', receivedValue: lastMintTime }
+    );
   }
 
   // Calculate elapsed time in microseconds

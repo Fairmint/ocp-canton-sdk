@@ -1,4 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { Monetary } from '../../../types';
 import {
   cleanComments,
@@ -73,7 +74,10 @@ function triggerTypeToDamlEnum(t: ConversionTriggerTypeInput): Fairmint.OpenCapT
       return 'OcfTriggerTypeTypeAutomaticOnCondition';
     default: {
       const exhaustiveCheck: never = t;
-      throw new Error(`Unknown convertible trigger type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown convertible trigger type: ${exhaustiveCheck as string}`, {
+        source: 'conversionTrigger.type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -85,13 +89,19 @@ function mechanismInputToDamlEnum(
     const s = safeString(v).toUpperCase();
     if (s === 'ACTUAL_365') return 'OcfDayCountActual365';
     if (s === '30_360') return 'OcfDayCount30_360';
-    throw new Error(`Unknown day_count_convention: ${safeString(v)}`);
+    throw new OcpParseError(`Unknown day_count_convention: ${safeString(v)}`, {
+      source: 'conversion_mechanism.day_count_convention',
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    });
   };
   const payoutToDaml = (v: unknown): Fairmint.OpenCapTable.Types.OcfInterestPayoutType => {
     const s = safeString(v).toUpperCase();
     if (s === 'DEFERRED') return 'OcfInterestPayoutDeferred';
     if (s === 'CASH') return 'OcfInterestPayoutCash';
-    throw new Error(`Unknown interest_payout: ${safeString(v)}`);
+    throw new OcpParseError(`Unknown interest_payout: ${safeString(v)}`, {
+      source: 'conversion_mechanism.interest_payout',
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    });
   };
   if (m && typeof m === 'object') {
     const typeStr = String(m.type ?? '').toUpperCase();
@@ -179,7 +189,10 @@ function mechanismInputToDamlEnum(
             case 'ANNUAL':
               return 'OcfAccrualAnnual';
             default:
-              throw new Error(`Unknown interest_accrual_period: ${safeString(v)}`);
+              throw new OcpParseError(`Unknown interest_accrual_period: ${safeString(v)}`, {
+                source: 'conversion_mechanism.interest_accrual_period',
+                code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+              });
           }
         };
         const compoundingToDaml = (v: unknown): string => {
@@ -189,15 +202,42 @@ function mechanismInputToDamlEnum(
           const u = s.toUpperCase();
           if (u === 'SIMPLE') return 'OcfSimple';
           if (u === 'COMPOUNDING') return 'OcfCompounding';
-          throw new Error(`Unknown compounding_type: ${safeString(v)}`);
+          throw new OcpParseError(`Unknown compounding_type: ${safeString(v)}`, {
+            source: 'conversion_mechanism.compounding_type',
+            code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+          });
         };
-        if (!Array.isArray(anyM.interest_rates)) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires interest_rates');
-        if (!anyM.day_count_convention) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires day_count_convention');
-        if (!anyM.interest_payout) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires interest_payout');
+        if (!Array.isArray(anyM.interest_rates))
+          throw new OcpValidationError(
+            'conversion_mechanism.interest_rates',
+            'CONVERTIBLE_NOTE_CONVERSION requires interest_rates',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+          );
+        if (!anyM.day_count_convention)
+          throw new OcpValidationError(
+            'conversion_mechanism.day_count_convention',
+            'CONVERTIBLE_NOTE_CONVERSION requires day_count_convention',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+          );
+        if (!anyM.interest_payout)
+          throw new OcpValidationError(
+            'conversion_mechanism.interest_payout',
+            'CONVERTIBLE_NOTE_CONVERSION requires interest_payout',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+          );
         if (!anyM.interest_accrual_period) {
-          throw new Error('CONVERTIBLE_NOTE_CONVERSION requires interest_accrual_period');
+          throw new OcpValidationError(
+            'conversion_mechanism.interest_accrual_period',
+            'CONVERTIBLE_NOTE_CONVERSION requires interest_accrual_period',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+          );
         }
-        if (!anyM.compounding_type) throw new Error('CONVERTIBLE_NOTE_CONVERSION requires compounding_type');
+        if (!anyM.compounding_type)
+          throw new OcpValidationError(
+            'conversion_mechanism.compounding_type',
+            'CONVERTIBLE_NOTE_CONVERSION requires compounding_type',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+          );
         return {
           tag: 'OcfConvMechNote',
           value: {
@@ -220,7 +260,11 @@ function mechanismInputToDamlEnum(
       case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION': {
         const anyM = m as Record<string, unknown>;
         if (anyM.converts_to_percent === undefined) {
-          throw new Error('FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION requires converts_to_percent');
+          throw new OcpValidationError(
+            'conversion_mechanism.converts_to_percent',
+            'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION requires converts_to_percent',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+          );
         }
         return {
           tag: 'OcfConvMechPercentCapitalization',
@@ -234,7 +278,11 @@ function mechanismInputToDamlEnum(
       case 'FIXED_AMOUNT_CONVERSION': {
         const anyM = m as Record<string, unknown>;
         if (anyM.converts_to_quantity === undefined) {
-          throw new Error('FIXED_AMOUNT_CONVERSION requires converts_to_quantity');
+          throw new OcpValidationError(
+            'conversion_mechanism.converts_to_quantity',
+            'FIXED_AMOUNT_CONVERSION requires converts_to_quantity',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+          );
         }
         return {
           tag: 'OcfConvMechFixedAmount',
@@ -245,7 +293,12 @@ function mechanismInputToDamlEnum(
       }
       case 'VALUATION_BASED_CONVERSION': {
         const anyM = m as Record<string, unknown>;
-        if (!anyM.valuation_type) throw new Error('VALUATION_BASED_CONVERSION requires valuation_type');
+        if (!anyM.valuation_type)
+          throw new OcpValidationError(
+            'conversion_mechanism.valuation_type',
+            'VALUATION_BASED_CONVERSION requires valuation_type',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+          );
         return {
           tag: 'OcfConvMechValuationBased',
           value: {
@@ -259,7 +312,11 @@ function mechanismInputToDamlEnum(
       case 'SHARE_PRICE_BASED_CONVERSION': {
         const anyM = m as Record<string, unknown>;
         if (!anyM.description || typeof anyM.description !== 'string') {
-          throw new Error('SHARE_PRICE_BASED_CONVERSION requires description');
+          throw new OcpValidationError(
+            'conversion_mechanism.description',
+            'SHARE_PRICE_BASED_CONVERSION requires description',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+          );
         }
         return {
           tag: 'OcfConvMechSharePriceBased',
@@ -279,19 +336,31 @@ function mechanismInputToDamlEnum(
           (anyM.custom_conversion_description as string) ||
           (anyM.custom_description as string) ||
           (anyM.description as string);
-        if (!desc) throw new Error('CUSTOM_CONVERSION requires custom_conversion_description');
+        if (!desc)
+          throw new OcpValidationError(
+            'conversion_mechanism.custom_conversion_description',
+            'CUSTOM_CONVERSION requires custom_conversion_description',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+          );
         return {
           tag: 'OcfConvMechCustom',
           value: { custom_conversion_description: desc },
         } as Fairmint.OpenCapTable.Types.OcfConvertibleConversionMechanism;
       }
       default: {
-        throw new Error(`Unknown conversion mechanism: ${typeStr}`);
+        throw new OcpParseError(`Unknown conversion mechanism: ${typeStr}`, {
+          source: 'conversion_mechanism.type',
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        });
       }
     }
   }
   // No mechanism provided -> error (strict)
-  throw new Error('conversion_right.conversion_mechanism is required');
+  throw new OcpValidationError(
+    'conversion_right.conversion_mechanism',
+    'conversion_right.conversion_mechanism is required',
+    { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+  );
 }
 
 function buildConvertibleRight(input: ConversionTriggerInput | undefined) {
@@ -312,7 +381,9 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
   const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
   if (typeof t !== 'object' || !t.trigger_id) {
-    throw new Error('trigger_id is required for each convertible conversion trigger');
+    throw new OcpValidationError('conversionTrigger.trigger_id', 'trigger_id is required for each convertible conversion trigger', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
   const { trigger_id } = t;
   const nickname = typeof t === 'object' && t.nickname ? t.nickname : null;

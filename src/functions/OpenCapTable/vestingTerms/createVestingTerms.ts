@@ -1,4 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { AllocationType, OcfVestingTerms, VestingCondition, VestingConditionPortion } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 
@@ -20,7 +21,10 @@ function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.Vest
       return 'OcfAllocationFractional';
     default: {
       const exhaustiveCheck: never = t;
-      throw new Error(`Unknown allocation type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown allocation type: ${exhaustiveCheck as string}`, {
+        source: 'vestingTerms.allocation_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -116,7 +120,10 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.OCF.VestingTerms.Oc
   }
   if (type === 'VESTING_SCHEDULE_ABSOLUTE') {
     const date: string | undefined = 'date' in t ? (t.date ?? t.at) : undefined;
-    if (!date) throw new Error('Vesting absolute trigger requires date');
+    if (!date)
+      throw new OcpValidationError('vestingTrigger.date', 'Vesting absolute trigger requires date', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
     return {
       tag: 'OcfVestingScheduleAbsoluteTrigger',
       value: dateStringToDAMLTime(date),
@@ -130,12 +137,21 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.OCF.VestingTerms.Oc
     const cliffVal = p?.cliff_installment;
     const lengthNum = Number(lengthVal);
     if (occurrencesVal === undefined || occurrencesVal === null) {
-      throw new Error('Missing vesting relative period occurrences');
+      throw new OcpValidationError('vestingPeriod.occurrences', 'Missing vesting relative period occurrences', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
     }
     const occurrencesNum = Number(occurrencesVal);
-    if (!Number.isFinite(lengthNum) || lengthNum <= 0) throw new Error('Invalid vesting relative period length');
+    if (!Number.isFinite(lengthNum) || lengthNum <= 0)
+      throw new OcpValidationError('vestingPeriod.length', 'Invalid vesting relative period length', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: lengthVal,
+      });
     if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1) {
-      throw new Error('Invalid vesting relative period occurrences');
+      throw new OcpValidationError('vestingPeriod.occurrences', 'Invalid vesting relative period occurrences', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: occurrencesVal,
+      });
     }
     let period:
       | {
@@ -162,7 +178,11 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.OCF.VestingTerms.Oc
       };
     } else {
       if (p?.day_of_month === undefined || p?.day_of_month === null) {
-        throw new Error('Missing vesting relative period day_of_month for MONTHS');
+        throw new OcpValidationError(
+          'vestingPeriod.day_of_month',
+          'Missing vesting relative period day_of_month for MONTHS',
+          { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+        );
       }
       period = {
         tag: 'OcfVestingPeriodMonths',
@@ -183,7 +203,10 @@ function vestingTriggerToDaml(t: any): Fairmint.OpenCapTable.OCF.VestingTerms.Oc
     } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
   }
 
-  throw new Error('Unknown vesting trigger');
+  throw new OcpParseError('Unknown vesting trigger', {
+    source: 'vestingTrigger.type',
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+  });
 }
 
 function vestingConditionPortionToDaml(
@@ -213,7 +236,10 @@ function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.OCF.
 }
 
 export function vestingTermsDataToDaml(d: OcfVestingTerms): Record<string, unknown> {
-  if (!d.id) throw new Error('vestingTerms.id is required');
+  if (!d.id)
+    throw new OcpValidationError('vestingTerms.id', 'vestingTerms.id is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
 
   const damlData: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData = {
     id: d.id,

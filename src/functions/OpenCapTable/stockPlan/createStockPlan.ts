@@ -1,5 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
@@ -17,7 +17,10 @@ function cancellationBehaviorToDaml(
     case 'DEFINED_PER_PLAN_SECURITY':
       return 'OcfPlanCancelDefinedPerPlanSecurity';
     default:
-      throw new Error('Unknown cancellation behavior');
+      throw new OcpParseError('Unknown cancellation behavior', {
+        source: 'stockPlan.default_cancellation_behavior',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
   }
 }
 

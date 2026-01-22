@@ -1,4 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { Monetary } from '../../../types';
 import {
   cleanComments,
@@ -81,7 +82,10 @@ function triggerTypeToDamlEnum(t: WarrantTriggerTypeInput): Fairmint.OpenCapTabl
       return 'OcfTriggerTypeTypeAutomaticOnCondition';
     default: {
       const exhaustiveCheck: never = t;
-      throw new Error(`Unknown warrant trigger type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown warrant trigger type: ${exhaustiveCheck as string}`, {
+        source: 'warrantTrigger.type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -90,7 +94,11 @@ function warrantMechanismToDamlVariant(
   m?: WarrantConversionMechanismInput
 ): Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism {
   if (!m) {
-    throw new Error('conversion_right.conversion_mechanism is required for warrant issuance');
+    throw new OcpValidationError(
+      'conversion_right.conversion_mechanism',
+      'conversion_right.conversion_mechanism is required for warrant issuance',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
   }
   switch (m.type) {
     case 'CUSTOM_CONVERSION':
@@ -188,7 +196,10 @@ function quantitySourceToDamlEnum(
       return 'OcfQuantityInstrumentMin';
     default: {
       const _exhaustiveCheck: never = qs;
-      throw new Error(`Unknown quantity_source: ${String(qs)}`);
+      throw new OcpParseError(`Unknown quantity_source: ${String(qs)}`, {
+        source: 'warrantIssuance.quantity_source',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -197,7 +208,9 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
   const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
   if (typeof t !== 'object' || !t.trigger_id) {
-    throw new Error('trigger_id is required for each warrant exercise trigger');
+    throw new OcpValidationError('warrantTrigger.trigger_id', 'trigger_id is required for each warrant exercise trigger', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
   const { trigger_id } = t;
   const nickname = typeof t.nickname === 'string' ? t.nickname : null;

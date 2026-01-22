@@ -23,11 +23,13 @@ function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Type
       return 'OcfCompensationTypeCSAR';
     case 'SSAR':
       return 'OcfCompensationTypeSSAR';
-    default:
-      throw new OcpParseError(`Unknown compensation type: ${t}`, {
+    default: {
+      const exhaustiveCheck: never = t;
+      throw new OcpParseError(`Unknown compensation type: ${exhaustiveCheck as string}`, {
         source: 'equityCompensationIssuance.compensation_type',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
+    }
   }
 }
 

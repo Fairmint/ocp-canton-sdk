@@ -5,7 +5,7 @@
  * batch UpdateCapTable API.
  */
 
-import { OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
 
 // Import existing converters from entity folders
@@ -445,7 +445,10 @@ export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTyp
 
     default: {
       const exhaustiveCheck: never = type;
-      throw new Error(`Unsupported entity type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unsupported entity type: ${exhaustiveCheck as string}`, {
+        source: 'entityType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }

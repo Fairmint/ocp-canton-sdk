@@ -2,6 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import { extractUpdateId } from '../../../utils/typeConversions';
 
 export interface UpdateCompanyValuationParams {
@@ -41,12 +42,18 @@ export async function updateCompanyValuationReport(
 
   const createdEvent = eventsResponse.created?.createdEvent;
   if (!createdEvent?.createArgument) {
-    throw new Error('Invalid contract events response: missing created event or create argument');
+    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
+      contractId: params.companyValuationReportContractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   const { createArgument } = createdEvent;
   if (!hasSystemOperator(createArgument)) {
-    throw new Error('System operator not found in contract create argument');
+    throw new OcpParseError('System operator not found in contract create argument', {
+      source: 'CompanyValuationReport.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
   }
   const systemOperator = createArgument.system_operator;
 
@@ -76,7 +83,11 @@ export async function updateCompanyValuationReport(
     Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId
   );
   if (!created) {
-    throw new Error('Expected CreatedTreeEvent not found');
+    throw new OcpContractError('Expected CreatedTreeEvent not found', {
+      templateId: Fairmint.OpenCapTableReports.CompanyValuationReport.CompanyValuationReport.templateId,
+      choice: 'SetCompanyValuation',
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   return {
