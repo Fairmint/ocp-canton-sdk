@@ -53,10 +53,13 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[JSDoc Coverage](./2026/01/ai/2026.01.21-jsdoc-coverage.md)** — Open (Low) Add comprehensive
   documentation to public API
 
-- **[Batch Size Limits](./2026/01/ai/2026.01.21-batch-size-limits.md)** — Open (Low) Add
-  configurable limits and pagination support
+- **[Migration Guide](./2026/01/ai/2026.01.21-migration-guide.md)** — Open (Low) Document migration
+  from legacy to batch API
 
 ## Completed Tasks
+
+- **[Batch Size Limits](./2026/01/ai/2026.01.21-batch-size-limits.md)** — Closed (2026-01-22) Won't
+  do - batch size limits are best handled at the client/application level
 
 - **[Round-trip Tests](./2026/01/ai/2026.01.21-round-trip-tests.md)** — Complete (2026-01-22)
   Property-based and round-trip tests for converters - core requirements already implemented
