@@ -33,9 +33,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Input Validation Layer](./2026/01/ai/2026.01.21-input-validation-layer.md)** — Open (Medium)
   Comprehensive validation before DAML conversion
 
-- **[Round-trip Tests](./2026/01/ai/2026.01.21-round-trip-tests.md)** — Open (Medium) Property-based
-  and round-trip tests for converters
-
 ### SDK Improvements — Longer-term
 
 - **[Observability & Tracing Support](./2026/01/ai/2026.01.16-observability-tracing-support.md)** —
@@ -53,9 +50,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[JSDoc Coverage](./2026/01/ai/2026.01.21-jsdoc-coverage.md)** — Open (Low) Add comprehensive
   documentation to public API
 
-- **[Migration Guide](./2026/01/ai/2026.01.21-migration-guide.md)** — Open (Low) Document migration
-  from legacy to batch API
-
 - **[Batch Size Limits](./2026/01/ai/2026.01.21-batch-size-limits.md)** — Open (Low) Add
   configurable limits and pagination support
 
@@ -63,6 +57,9 @@ This directory contains task documentation for the OCP Canton SDK project.
 
 - **[OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)** —
   Complete (2026-01-22) Context caching, extension pattern for modules, unit tests
+
+- **[Round-trip Tests](./2026/01/ai/2026.01.21-round-trip-tests.md)** — Complete (2026-01-22)
+  Property-based and round-trip tests for converters - core requirements already implemented
 
 - **[Add damlToOcf Dispatcher](./2026/01/ai/2026.01.21-daml-to-ocf-dispatcher.md)** — Complete
   (2026-01-21) Generic `getEntityAsOcf<T>()` function to DRY up read operations
