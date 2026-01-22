@@ -25,6 +25,7 @@ export const OcpErrorCodes = {
   INVALID_RESPONSE: 'INVALID_RESPONSE',
   SCHEMA_MISMATCH: 'SCHEMA_MISMATCH',
   UNKNOWN_ENUM_VALUE: 'UNKNOWN_ENUM_VALUE',
+  UNKNOWN_ENTITY_TYPE: 'UNKNOWN_ENTITY_TYPE',
 } as const;
 
 export type OcpErrorCode = (typeof OcpErrorCodes)[keyof typeof OcpErrorCodes];

@@ -19,8 +19,8 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[API Consistency Refactor](./2026/01/ai/2026.01.21-api-consistency-refactor.md)** — Open (High)
   Unify API patterns, document when to use batch vs direct methods
 
-- **[Add damlToOcf Dispatcher](./2026/01/ai/2026.01.21-daml-to-ocf-dispatcher.md)** — Open (High)
-  Generic `getEntityAsOcf<T>()` function to DRY up read operations
+- **[Centralize Converters](./2026/01/ai/2026.01.21-centralize-converters.md)** — Open (High) Create
+  `src/converters/` with bidirectional OCF↔DAML conversions
 
 - **[Standardize Error Usage](./2026/01/ai/2026.01.21-standardize-error-usage.md)** — Open (Medium)
   Replace `new Error()` with appropriate OCP error types throughout codebase
@@ -63,6 +63,9 @@ This directory contains task documentation for the OCP Canton SDK project.
   configurable limits and pagination support
 
 ## Completed Tasks
+
+- **[Add damlToOcf Dispatcher](./2026/01/ai/2026.01.21-daml-to-ocf-dispatcher.md)** — Complete
+  (2026-01-21) Generic `getEntityAsOcf<T>()` function to DRY up read operations
 
 - **[Exercise & Conversion Types](./2026/01/ai/2026.01.20-ocf-exercise-conversion-types.md)** —
   Complete (2026-01-21) OCF exercise & conversion types (3 types) - PR #185
