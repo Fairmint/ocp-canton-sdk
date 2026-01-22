@@ -2,19 +2,9 @@
 
 > High-level TypeScript SDK for Open Cap Table Protocol contracts on Canton.
 
-## Skills
+## Shared Conventions
 
-For reusable [Agent Skills](https://agentskills.io), see [github.com/HardlyDifficult/ai](https://github.com/HardlyDifficult/ai).
-
-## Living Document
-
-**This file is a living document.** Update it automatically when:
-- A best practice or pattern is established during AI conversations
-- An important architectural or coding decision is made
-- The user communicates a preference that applies beyond the current task
-- **Creating a PR**: Before creating a PR, review the completed task for any generalizable learnings or best practices that should be added to this file. This ensures AI improves with every task.
-
-Keep content concise but comprehensive. Avoid verbosity—capture the essence.
+See [canton/llms.txt](https://github.com/fairmint/canton/blob/main/llms.txt#shared-conventions-all-fairmint-repos) for PR workflow, git workflow, dependencies, non-negotiables, and Linear integration.
 
 ## Quick Commands
 
@@ -24,64 +14,6 @@ npm run lint && npx tsc --noEmit && npm test   # Full validation
 npm run test:integration                        # LocalNet integration tests
 npm run docs                                    # Generate TypeDoc
 ```
-
-## Pre-Push Requirements (CRITICAL)
-
-**⚠️ ALWAYS run before committing/pushing ANY changes:**
-
-```bash
-npm run fix        # Auto-fixes ESLint and Prettier issues (MUST run before commit)
-npm run typecheck  # TypeScript type checking
-```
-
-**Both commands MUST pass with zero errors and zero warnings before pushing.**
-
-### What These Commands Do
-
-- `npm run fix` runs:
-  - ESLint with `--fix` (auto-fixes code style issues)
-  - Prettier (auto-formats code)
-  - **Fails if any warnings remain** (max-warnings=0)
-
-- `npm run typecheck` runs:
-  - TypeScript compiler in check mode
-  - Catches type errors the IDE may miss
-
-### If `npm run fix` Reports Warnings
-
-Some issues can't be auto-fixed. Common manual fixes:
-- **Unused imports/variables**: Remove them or prefix with `_` if intentionally unused
-- **Template literal type issues**: Use `String(value)` instead of direct interpolation of `unknown` types
-- **Any/unknown types**: Add proper type annotations or type guards
-
-### CI Enforcement
-
-- CI runs both checks on every PR
-- PRs with lint errors, warnings, or type errors **will fail**
-- Always verify locally before pushing to avoid CI failures
-
-**Git workflow:** Avoid force pushing (`git push --force`). If you need to update a PR branch:
-1. Merge from main: `git fetch origin main && git merge origin/main`
-2. Resolve conflicts if any
-3. Push normally: `git push`
-
-This preserves commit history and makes PR review easier.
-
-### After Creating a PR
-
-1. **Open the PR to the files/changes page:**
-   ```bash
-   open <PR_URL>/files    # Review your changes
-   ```
-
-2. **Monitor CI status** and automatically investigate/fix any failures:
-   ```bash
-   gh pr checks <PR_NUMBER>              # Check all CI checks
-   gh run view <RUN_ID> --log-failed     # View failed job logs
-   gh run view --job=<JOB_ID>            # View specific job details
-   ```
-
-3. **If CI fails:** Investigate the failure, fix the issue, and push the fix. Repeat until CI passes.
 
 ## Architecture
 
@@ -622,48 +554,6 @@ npm publish               # Publishes to NPM (requires NPM_TOKEN)
 
 The publish workflow requires:
 - `NPM_TOKEN` secret configured in GitHub repository settings
-
-## Linear Integration
-
-When working on Linear issues, use the Linear GraphQL API (available via `LINEAR_API_KEY` environment variable):
-
-### Fetch Issue
-
-```bash
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "query { issue(id: \"ENG-XXX\") { id identifier title description state { id name } } }"}'
-```
-
-### Update Issue Status
-
-```bash
-# Get workflow states for the team first
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "query { workflowStates { nodes { id name team { key } } } }"}'
-
-# Update issue status (use state ID from above)
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "mutation { issueUpdate(id: \"<issue-uuid>\", input: { stateId: \"<state-uuid>\" }) { success } }"}'
-```
-
-### Auto-close via PR
-
-Include `fixes ENG-XXX` in the PR description to auto-close the Linear issue when the PR merges.
-
-### Common ENG Team States
-
-| State | Purpose |
-|-------|---------|
-| Todo | Not started |
-| In Progress | Currently being worked on |
-| In Review | PR submitted, awaiting review |
-| Done | Completed |
 
 ## Related Repos
 
