@@ -23,6 +23,13 @@ import type {
   OcfEquityCompensationRetraction,
   OcfEquityCompensationTransfer,
   OcfIssuerAuthorizedSharesAdjustment,
+  OcfPlanSecurityAcceptance,
+  OcfPlanSecurityCancellation,
+  OcfPlanSecurityExercise,
+  OcfPlanSecurityIssuance,
+  OcfPlanSecurityRelease,
+  OcfPlanSecurityRetraction,
+  OcfPlanSecurityTransfer,
   OcfStakeholder,
   OcfStakeholderRelationshipChangeEvent,
   OcfStakeholderStatusChangeEvent,
@@ -62,7 +69,13 @@ export type OcfEditData = Fairmint.OpenCapTable.CapTable.OcfEditData;
 export type OcfDeleteData = Fairmint.OpenCapTable.CapTable.OcfDeleteData;
 export type UpdateCapTableResult = Fairmint.OpenCapTable.CapTable.UpdateCapTableResult;
 
-/** All supported OCF entity types for batch operations. Maps to the OcfCreateData/OcfEditData/OcfDeleteData union tags. */
+/**
+ * All supported OCF entity types for batch operations.
+ * Maps to the OcfCreateData/OcfEditData/OcfDeleteData union tags.
+ *
+ * Note: `planSecurity*` types are aliases for their `equityCompensation*` equivalents.
+ * The SDK accepts both type families and normalizes PlanSecurity to EquityCompensation internally.
+ */
 export type OcfEntityType =
   | 'convertibleAcceptance'
   | 'convertibleCancellation'
@@ -80,6 +93,14 @@ export type OcfEntityType =
   | 'equityCompensationRetraction'
   | 'equityCompensationTransfer'
   | 'issuerAuthorizedSharesAdjustment'
+  // PlanSecurity types are aliases for EquityCompensation types
+  | 'planSecurityAcceptance'
+  | 'planSecurityCancellation'
+  | 'planSecurityExercise'
+  | 'planSecurityIssuance'
+  | 'planSecurityRelease'
+  | 'planSecurityRetraction'
+  | 'planSecurityTransfer'
   | 'stakeholder'
   | 'stakeholderRelationshipChangeEvent'
   | 'stakeholderStatusChangeEvent'
@@ -112,7 +133,12 @@ export type OcfEntityType =
   | 'warrantRetraction'
   | 'warrantTransfer';
 
-/** Type mapping from entity type string to native OCF data type. */
+/**
+ * Type mapping from entity type string to native OCF data type.
+ *
+ * Note: PlanSecurity types map to their equivalent OCF PlanSecurity interfaces,
+ * which are compatible with the EquityCompensation types they alias.
+ */
 export interface OcfEntityDataMap {
   convertibleAcceptance: OcfConvertibleAcceptance;
   convertibleCancellation: OcfConvertibleCancellation;
@@ -130,6 +156,14 @@ export interface OcfEntityDataMap {
   equityCompensationRetraction: OcfEquityCompensationRetraction;
   equityCompensationTransfer: OcfEquityCompensationTransfer;
   issuerAuthorizedSharesAdjustment: OcfIssuerAuthorizedSharesAdjustment;
+  // PlanSecurity types - these are aliases for EquityCompensation types
+  planSecurityAcceptance: OcfPlanSecurityAcceptance;
+  planSecurityCancellation: OcfPlanSecurityCancellation;
+  planSecurityExercise: OcfPlanSecurityExercise;
+  planSecurityIssuance: OcfPlanSecurityIssuance;
+  planSecurityRelease: OcfPlanSecurityRelease;
+  planSecurityRetraction: OcfPlanSecurityRetraction;
+  planSecurityTransfer: OcfPlanSecurityTransfer;
   stakeholder: OcfStakeholder;
   stakeholderRelationshipChangeEvent: OcfStakeholderRelationshipChangeEvent;
   stakeholderStatusChangeEvent: OcfStakeholderStatusChangeEvent;
@@ -166,7 +200,12 @@ export interface OcfEntityDataMap {
 /** Helper type to get the native OCF data type for a given entity type. */
 export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
 
-/** Mapping from entity type to DAML tag names. */
+/**
+ * Mapping from entity type to DAML tag names.
+ *
+ * Note: PlanSecurity types use the same DAML tags as their EquityCompensation equivalents
+ * since the underlying DAML contracts are the same.
+ */
 export const ENTITY_TAG_MAP: Record<OcfEntityType, { create: string; edit: string; delete: string }> = {
   convertibleAcceptance: {
     create: 'OcfCreateConvertibleAcceptance',
@@ -247,6 +286,42 @@ export const ENTITY_TAG_MAP: Record<OcfEntityType, { create: string; edit: strin
     create: 'OcfCreateIssuerAuthorizedSharesAdjustment',
     edit: 'OcfEditIssuerAuthorizedSharesAdjustment',
     delete: 'OcfDeleteIssuerAuthorizedSharesAdjustment',
+  },
+  // PlanSecurity aliases - use EquityCompensation DAML tags
+  planSecurityAcceptance: {
+    create: 'OcfCreateEquityCompensationAcceptance',
+    edit: 'OcfEditEquityCompensationAcceptance',
+    delete: 'OcfDeleteEquityCompensationAcceptance',
+  },
+  planSecurityCancellation: {
+    create: 'OcfCreateEquityCompensationCancellation',
+    edit: 'OcfEditEquityCompensationCancellation',
+    delete: 'OcfDeleteEquityCompensationCancellation',
+  },
+  planSecurityExercise: {
+    create: 'OcfCreateEquityCompensationExercise',
+    edit: 'OcfEditEquityCompensationExercise',
+    delete: 'OcfDeleteEquityCompensationExercise',
+  },
+  planSecurityIssuance: {
+    create: 'OcfCreateEquityCompensationIssuance',
+    edit: 'OcfEditEquityCompensationIssuance',
+    delete: 'OcfDeleteEquityCompensationIssuance',
+  },
+  planSecurityRelease: {
+    create: 'OcfCreateEquityCompensationRelease',
+    edit: 'OcfEditEquityCompensationRelease',
+    delete: 'OcfDeleteEquityCompensationRelease',
+  },
+  planSecurityRetraction: {
+    create: 'OcfCreateEquityCompensationRetraction',
+    edit: 'OcfEditEquityCompensationRetraction',
+    delete: 'OcfDeleteEquityCompensationRetraction',
+  },
+  planSecurityTransfer: {
+    create: 'OcfCreateEquityCompensationTransfer',
+    edit: 'OcfEditEquityCompensationTransfer',
+    delete: 'OcfDeleteEquityCompensationTransfer',
   },
   stakeholder: {
     create: 'OcfCreateStakeholder',

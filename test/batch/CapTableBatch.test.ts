@@ -297,9 +297,10 @@ describe('ENTITY_TAG_MAP', () => {
     });
   });
 
-  it('should have all 47 entity types', () => {
+  it('should have all 54 entity types (including 7 PlanSecurity aliases)', () => {
     // The DAML contract supports 47 entity types (excluding Issuer which is handled separately)
-    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(47);
+    // Plus 7 PlanSecurity alias types that map to EquityCompensation types
+    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(54);
   });
 
   it('should have correct tags for stakeholder event types', () => {

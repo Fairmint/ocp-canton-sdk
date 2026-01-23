@@ -35,6 +35,9 @@ import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } fr
 /**
  * Maps entity types to the field name containing the entity data in the DAML contract.
  * For example, 'stakeholder' contracts have data in 'stakeholder_data' field.
+ *
+ * Note: PlanSecurity types use the same data fields as EquityCompensation since they
+ * share the same underlying DAML contracts.
  */
 export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
   convertibleAcceptance: 'acceptance_data',
@@ -53,6 +56,14 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
   equityCompensationRetraction: 'retraction_data',
   equityCompensationTransfer: 'transfer_data',
   issuerAuthorizedSharesAdjustment: 'adjustment_data',
+  // PlanSecurity aliases - use EquityCompensation data field names
+  planSecurityAcceptance: 'acceptance_data',
+  planSecurityCancellation: 'cancellation_data',
+  planSecurityExercise: 'exercise_data',
+  planSecurityIssuance: 'issuance_data',
+  planSecurityRelease: 'release_data',
+  planSecurityRetraction: 'retraction_data',
+  planSecurityTransfer: 'transfer_data',
   stakeholder: 'stakeholder_data',
   stakeholderRelationshipChangeEvent: 'relationship_change_data',
   stakeholderStatusChangeEvent: 'status_change_data',
@@ -300,6 +311,8 @@ function stakeholderStatusChangeEventToNative(d: Record<string, unknown>): Recor
  * Note: Some entity types (issuer, stockClass, stockIssuance, etc.) have complex converters
  * that are inlined in their get*AsOcf functions. These will be migrated over time.
  * For now, this dispatcher handles the simpler entity types with existing converters.
+ *
+ * PlanSecurity types are aliases that delegate to EquityCompensation converters.
  */
 export type SupportedOcfReadType =
   | 'convertibleAcceptance'
@@ -313,6 +326,12 @@ export type SupportedOcfReadType =
   | 'equityCompensationRepricing'
   | 'equityCompensationRetraction'
   | 'equityCompensationTransfer'
+  // PlanSecurity aliases
+  | 'planSecurityAcceptance'
+  | 'planSecurityCancellation'
+  | 'planSecurityRelease'
+  | 'planSecurityRetraction'
+  | 'planSecurityTransfer'
   | 'stakeholderRelationshipChangeEvent'
   | 'stakeholderStatusChangeEvent'
   | 'stockAcceptance'
@@ -462,6 +481,20 @@ export function convertToOcf<T extends SupportedOcfReadType>(
       return stakeholderRelationshipChangeEventToNative(damlData) as unknown as OcfDataTypeFor<T>;
     case 'stakeholderStatusChangeEvent':
       return stakeholderStatusChangeEventToNative(damlData) as unknown as OcfDataTypeFor<T>;
+
+    // PlanSecurity aliases - delegate to EquityCompensation converters
+    case 'planSecurityAcceptance':
+      return damlEquityCompensationAcceptanceToNative(
+        damlData as unknown as Parameters<typeof damlEquityCompensationAcceptanceToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'planSecurityCancellation':
+      return quantityCancellationDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+    case 'planSecurityRelease':
+      return equityCompensationReleaseDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+    case 'planSecurityRetraction':
+      return equityCompensationRetractionDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+    case 'planSecurityTransfer':
+      return quantityTransferDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
 
     default: {
       throw new OcpParseError(`Unsupported entity type for convertToOcf: ${type}`, {
