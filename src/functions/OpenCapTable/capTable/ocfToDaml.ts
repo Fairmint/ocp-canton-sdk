@@ -366,7 +366,18 @@ function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Record<stri
   }
 
   // Map plan_security_type to compensation_type
+  // Validate that the result is defined (catches undefined/invalid plan_security_type at runtime)
   const compensationType = PLAN_SECURITY_TO_COMPENSATION_TYPE[d.plan_security_type];
+  if (!compensationType) {
+    throw new OcpValidationError(
+      'planSecurityIssuance.plan_security_type',
+      "plan_security_type is required and must be 'OPTION' or 'RSU'.",
+      {
+        expectedType: "'OPTION' | 'RSU'",
+        receivedValue: d.plan_security_type,
+      }
+    );
+  }
 
   return {
     id: d.id,
@@ -398,7 +409,9 @@ function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Record<stri
 
 /**
  * Convert PlanSecurityExercise to DAML format.
- * Includes balance_security_id for partial exercises (unlike EquityCompensationExercise).
+ * Note: balance_security_id is intentionally omitted because the underlying DAML
+ * EquityCompensationExercise contract does not support this field. PlanSecurityExercise
+ * maps to OcfCreateEquityCompensationExercise which matches the EquityCompensationExercise schema.
  */
 function planSecurityExerciseDataToDaml(d: OcfPlanSecurityExercise): Record<string, unknown> {
   if (!d.id) {
@@ -414,7 +427,6 @@ function planSecurityExerciseDataToDaml(d: OcfPlanSecurityExercise): Record<stri
     quantity: numberToString(d.quantity),
     consideration_text: optionalString(d.consideration_text),
     resulting_security_ids: d.resulting_security_ids,
-    balance_security_id: optionalString(d.balance_security_id),
     comments: cleanComments(d.comments),
   };
 }
