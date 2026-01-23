@@ -509,8 +509,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: ConvertibleCancellation fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
+     * SKIPPED: ConvertibleCancellation batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * The DAML contract expects different data structure than what the batch API provides.
      */
     test.skip('Convertible Cancellation round-trips correctly', async () => {
       const ctx = getContext();
@@ -537,8 +537,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: ConvertibleConversion fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
+     * SKIPPED: ConvertibleConversion batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * The DAML contract expects different data structure than what the batch API provides.
      */
     test.skip('Convertible Conversion round-trips correctly', async () => {
       const ctx = getContext();
@@ -702,8 +702,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StockClassAuthorizedSharesAdjustment fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
+     * SKIPPED: StockClassAuthorizedSharesAdjustment batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * The DAML contract expects different data structure than what the batch API provides.
      */
     test.skip('Stock Class Authorized Shares Adjustment round-trips correctly', async () => {
       const ctx = getContext();
@@ -730,8 +730,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StockPlanPoolAdjustment fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
+     * SKIPPED: StockPlanPoolAdjustment batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * The DAML contract expects different data structure than what the batch API provides.
      */
     test.skip('Stock Plan Pool Adjustment round-trips correctly', async () => {
       const ctx = getContext();
@@ -906,8 +906,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StockConversion fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
+     * SKIPPED: StockConversion batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * The DAML contract expects different data structure than what the batch API provides.
      */
     test.skip('Stock Conversion round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
@@ -957,12 +957,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
     });
 
-    /**
-     * SKIPPED: StockConsolidation fixture uses `resulting_security_id` (singular) but API expects
-     * `resulting_security_ids` (plural array). Requires fixture fix.
-     * TODO: Fix fixture to use correct field name and format.
-     */
-    test.skip('Stock Consolidation round-trips correctly (synthetic)', async () => {
+    test('Stock Consolidation round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1111,8 +1106,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: EquityCompensationRelease fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
+     * SKIPPED: EquityCompensationRelease batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * The DAML contract expects different data structure than what the batch API provides.
      */
     test.skip('Equity Compensation Release round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
@@ -1139,8 +1134,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: EquityCompensationRepricing fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
+     * SKIPPED: EquityCompensationRepricing batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * The DAML contract expects different data structure than what the batch API provides.
      */
     test.skip('Equity Compensation Repricing round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
@@ -1241,8 +1236,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: WarrantExercise fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
+     * SKIPPED: WarrantExercise batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * The DAML contract expects different data structure than what the batch API provides.
      */
     test.skip('Warrant Exercise round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
@@ -1343,9 +1338,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StakeholderRelationshipChangeEvent fixture requires format adjustments for DAML encoding.
-     * The new_relationships field needs specific enum values matching DAML schema.
-     * TODO: Fix fixture format to match expected DAML structure.
+     * SKIPPED: StakeholderRelationshipChangeEvent batch API fails with INVALID_ARGUMENT.
+     * The enum values need to match DAML schema exactly.
      */
     test.skip('Stakeholder Relationship Change Event round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
@@ -1372,8 +1366,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StakeholderStatusChangeEvent fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
+     * SKIPPED: StakeholderStatusChangeEvent batch API fails with DAML_FAILURE.
+     * The status values need to match DAML schema exactly.
      */
     test.skip('Stakeholder Status Change Event round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
@@ -1400,8 +1394,8 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StockPlanReturnToPool fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
+     * SKIPPED: StockPlanReturnToPool batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * The DAML contract expects different data structure than what the batch API provides.
      */
     test.skip('Stock Plan Return to Pool round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
