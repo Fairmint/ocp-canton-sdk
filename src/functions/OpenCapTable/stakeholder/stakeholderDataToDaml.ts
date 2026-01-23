@@ -10,14 +10,20 @@ import {
 } from '../../../utils/enumConversions';
 import { addressToDaml, cleanComments, optionalString } from '../../../utils/typeConversions';
 
-function emailToDaml(email: { email_type: EmailType; email_address: string }): Fairmint.OpenCapTable.Types.OcfEmail {
+function emailToDaml(email: {
+  email_type: EmailType;
+  email_address: string;
+}): Fairmint.OpenCapTable.Types.Contact.OcfEmail {
   return {
     email_type: emailTypeToDaml(email.email_type),
     email_address: email.email_address,
   };
 }
 
-function phoneToDaml(phone: { phone_type: PhoneType; phone_number: string }): Fairmint.OpenCapTable.Types.OcfPhone {
+function phoneToDaml(phone: {
+  phone_type: PhoneType;
+  phone_number: string;
+}): Fairmint.OpenCapTable.Types.Contact.OcfPhone {
   return {
     phone_type: phoneTypeToDaml(phone.phone_type),
     phone_number: phone.phone_number,

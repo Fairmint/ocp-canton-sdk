@@ -9,7 +9,7 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 
-function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.OcfCompensationType {
+function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
   switch (t) {
     case 'OPTION_NSO':
       return 'OcfCompensationTypeOptionNSO';
@@ -35,7 +35,7 @@ function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Type
 
 const terminationWindowReasonMap: Record<
   TerminationWindow['reason'],
-  Fairmint.OpenCapTable.Types.OcfTerminationWindowType
+  Fairmint.OpenCapTable.Types.Vesting.OcfTerminationWindowType
 > = {
   VOLUNTARY_OTHER: 'OcfTermVoluntaryOther',
   VOLUNTARY_GOOD_CAUSE: 'OcfTermVoluntaryGoodCause',
@@ -48,7 +48,7 @@ const terminationWindowReasonMap: Record<
 
 const terminationWindowPeriodTypeMap: Record<
   TerminationWindow['period_type'],
-  Fairmint.OpenCapTable.Types.OcfPeriodType
+  Fairmint.OpenCapTable.Types.Vesting.OcfPeriodType
 > = {
   DAYS: 'OcfPeriodDays',
   MONTHS: 'OcfPeriodMonths',

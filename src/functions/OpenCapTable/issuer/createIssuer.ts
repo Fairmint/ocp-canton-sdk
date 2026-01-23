@@ -8,7 +8,7 @@ import type { CommandWithDisclosedContracts, OcfIssuer } from '../../../types';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
 import { addressToDaml, cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 
-function emailToDaml(email: OcfIssuer['email']): Fairmint.OpenCapTable.Types.OcfEmail | null {
+function emailToDaml(email: OcfIssuer['email']): Fairmint.OpenCapTable.Types.Contact.OcfEmail | null {
   if (!email) return null;
   return {
     email_type: emailTypeToDaml(email.email_type),
@@ -16,7 +16,7 @@ function emailToDaml(email: OcfIssuer['email']): Fairmint.OpenCapTable.Types.Ocf
   };
 }
 
-function phoneToDaml(phone: OcfIssuer['phone']): Fairmint.OpenCapTable.Types.OcfPhone | null {
+function phoneToDaml(phone: OcfIssuer['phone']): Fairmint.OpenCapTable.Types.Contact.OcfPhone | null {
   if (!phone) return null;
   return {
     phone_type: phoneTypeToDaml(phone.phone_type),

@@ -11,14 +11,14 @@ import {
 } from '../../../utils/enumConversions';
 import { damlAddressToNative } from '../../../utils/typeConversions';
 
-function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.OcfEmail): Email {
+function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): Email {
   return {
     email_type: damlEmailTypeToNative(damlEmail.email_type),
     email_address: damlEmail.email_address,
   };
 }
 
-function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): Phone {
+function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.Contact.OcfPhone): Phone {
   return {
     phone_type: damlPhoneTypeToNative(phone.phone_type),
     phone_number: phone.phone_number,
@@ -63,7 +63,7 @@ function damlStakeholderDataToNative(
   };
   const relationships: string[] = Array.isArray(dAny.current_relationships)
     ? (dAny.current_relationships as string[]).map((r) =>
-        damlStakeholderRelationshipToNative(r as Fairmint.OpenCapTable.Types.OcfStakeholderRelationshipType)
+        damlStakeholderRelationshipToNative(r as Fairmint.OpenCapTable.Types.Stakeholder.OcfStakeholderRelationshipType)
       )
     : [];
   const dataWithId = dAny as { id?: string };

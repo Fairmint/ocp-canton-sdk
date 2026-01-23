@@ -38,7 +38,7 @@ import type {
  * @returns DAML email type enum value
  * @throws Error if emailType is not a valid value
  */
-export function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.OcfEmailType {
+export function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Types.Contact.OcfEmailType {
   switch (emailType) {
     case 'PERSONAL':
       return 'OcfEmailTypePersonal';
@@ -63,7 +63,7 @@ export function emailTypeToDaml(emailType: EmailType): Fairmint.OpenCapTable.Typ
  * @returns Native email type
  * @throws Error if damlType is not a valid value
  */
-export function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfEmailType): EmailType {
+export function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.Contact.OcfEmailType): EmailType {
   switch (damlType) {
     case 'OcfEmailTypePersonal':
       return 'PERSONAL';
@@ -90,7 +90,7 @@ export function damlEmailTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfE
  * @returns DAML phone type enum value
  * @throws Error if phoneType is not a valid value
  */
-export function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.OcfPhoneType {
+export function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Types.Contact.OcfPhoneType {
   switch (phoneType) {
     case 'HOME':
       return 'OcfPhoneHome';
@@ -117,7 +117,7 @@ export function phoneTypeToDaml(phoneType: PhoneType): Fairmint.OpenCapTable.Typ
  * @returns Native phone type
  * @throws Error if damlType is not a valid value
  */
-export function damlPhoneTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfPhoneType): PhoneType {
+export function damlPhoneTypeToNative(damlType: Fairmint.OpenCapTable.Types.Contact.OcfPhoneType): PhoneType {
   switch (damlType) {
     case 'OcfPhoneHome':
       return 'HOME';
@@ -242,7 +242,7 @@ export function damlStockClassTypeToNative(damlType: string): StockClassType {
 /**
  * DAML stakeholder relationship type enum values.
  */
-export type DamlStakeholderRelationshipType = Fairmint.OpenCapTable.Types.OcfStakeholderRelationshipType;
+export type DamlStakeholderRelationshipType = Fairmint.OpenCapTable.Types.Stakeholder.OcfStakeholderRelationshipType;
 
 /**
  * Convert a native OCF stakeholder relationship string to DAML enum.

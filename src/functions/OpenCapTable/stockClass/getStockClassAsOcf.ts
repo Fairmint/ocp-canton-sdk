@@ -104,7 +104,7 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.OCF.StockCla
               'value' in cv
             ) {
               out.conversion_price = damlMonetaryToNative(
-                (cv as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value
+                (cv as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
               );
             }
             const rsp = (right as unknown as Record<string, unknown>).reference_share_price;
@@ -116,7 +116,7 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.OCF.StockCla
               'value' in rsp
             ) {
               out.reference_share_price = damlMonetaryToNative(
-                (rsp as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value
+                (rsp as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
               );
             }
             const rvps = (right as unknown as Record<string, unknown>).reference_valuation_price_per_share;
@@ -128,7 +128,7 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.OCF.StockCla
               'value' in rvps
             ) {
               out.reference_valuation_price_per_share = damlMonetaryToNative(
-                (rvps as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value
+                (rvps as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
               );
             }
             const poc = (right as unknown as Record<string, unknown>).percent_of_capitalization;
@@ -160,7 +160,7 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.OCF.StockCla
               'value' in vc
             ) {
               out.valuation_cap = damlMonetaryToNative(
-                (vc as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value
+                (vc as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
               );
             }
             const fps = (right as unknown as Record<string, unknown>).floor_price_per_share;
@@ -172,7 +172,7 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.OCF.StockCla
               'value' in fps
             ) {
               out.floor_price_per_share = damlMonetaryToNative(
-                (fps as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value
+                (fps as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
               );
             }
             const cps = (right as unknown as Record<string, unknown>).ceiling_price_per_share;
@@ -184,7 +184,7 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.OCF.StockCla
               'value' in cps
             ) {
               out.ceiling_price_per_share = damlMonetaryToNative(
-                (cps as { value: Fairmint.OpenCapTable.Types.OcfMonetary }).value
+                (cps as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
               );
             }
             const cd = (right as unknown as Record<string, unknown>).custom_description;

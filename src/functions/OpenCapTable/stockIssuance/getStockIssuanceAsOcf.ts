@@ -10,11 +10,11 @@ import type {
 } from '../../../types/native';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
-function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.OcfSecurityExemption): SecurityExemption {
+function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.Stock.OcfSecurityExemption): SecurityExemption {
   return { description: e.description, jurisdiction: e.jurisdiction };
 }
 
-function damlShareNumberRangeToNative(r: Fairmint.OpenCapTable.Types.OcfShareNumberRange): ShareNumberRange {
+function damlShareNumberRangeToNative(r: Fairmint.OpenCapTable.Types.Stock.OcfShareNumberRange): ShareNumberRange {
   return {
     starting_share_number: r.starting_share_number,
     ending_share_number: r.ending_share_number,
@@ -51,16 +51,16 @@ function damlStockIssuanceDataToNative(
     }),
     ...(d.consideration_text && { consideration_text: d.consideration_text }),
     security_law_exemptions: (Array.isArray((anyD as { security_law_exemptions?: unknown }).security_law_exemptions)
-      ? (anyD as { security_law_exemptions: Fairmint.OpenCapTable.Types.OcfSecurityExemption[] })
+      ? (anyD as { security_law_exemptions: Fairmint.OpenCapTable.Types.Stock.OcfSecurityExemption[] })
           .security_law_exemptions
       : []
     ).map(damlSecurityExemptionToNative),
     stock_class_id: d.stock_class_id,
     ...(d.stock_plan_id && { stock_plan_id: d.stock_plan_id }),
     share_numbers_issued: Array.isArray((anyD as { share_numbers_issued?: unknown }).share_numbers_issued)
-      ? (anyD as { share_numbers_issued: Fairmint.OpenCapTable.Types.OcfShareNumberRange[] }).share_numbers_issued.map(
-          damlShareNumberRangeToNative
-        )
+      ? (
+          anyD as { share_numbers_issued: Fairmint.OpenCapTable.Types.Stock.OcfShareNumberRange[] }
+        ).share_numbers_issued.map(damlShareNumberRangeToNative)
       : [],
     share_price: damlMonetaryToNative(d.share_price),
     quantity: normalizeNumericString(d.quantity),

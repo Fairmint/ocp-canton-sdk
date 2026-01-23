@@ -66,7 +66,9 @@ function normalizeTriggerType(t: WarrantTriggerTypeInput): WarrantTriggerTypeInp
   return t;
 }
 
-function triggerTypeToDamlEnum(t: WarrantTriggerTypeInput): Fairmint.OpenCapTable.Types.OcfConversionTriggerType {
+function triggerTypeToDamlEnum(
+  t: WarrantTriggerTypeInput
+): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTriggerType {
   switch (t) {
     case 'AUTOMATIC_ON_DATE':
       return 'OcfTriggerTypeTypeAutomaticOnDate';
@@ -92,7 +94,7 @@ function triggerTypeToDamlEnum(t: WarrantTriggerTypeInput): Fairmint.OpenCapTabl
 
 function warrantMechanismToDamlVariant(
   m?: WarrantConversionMechanismInput
-): Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism {
+): Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism {
   if (!m) {
     throw new OcpValidationError(
       'conversion_right.conversion_mechanism',
@@ -105,7 +107,7 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismCustom',
         value: { custom_conversion_description: m.custom_conversion_description },
-      } as Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism;
+      } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
     case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
@@ -113,16 +115,16 @@ function warrantMechanismToDamlVariant(
           converts_to_percent: numberToString(m.converts_to_percent),
           capitalization_definition: optionalString(m.capitalization_definition),
           capitalization_definition_rules: (m.capitalization_definition_rules ??
-            null) as Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules | null,
+            null) as Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules | null,
         },
-      } as Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism;
+      } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
     case 'FIXED_AMOUNT_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismFixedAmount',
         value: {
           converts_to_quantity: numberToString(m.converts_to_quantity),
         },
-      } as Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism;
+      } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
     case 'VALUATION_BASED_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismValuationBased',
@@ -131,9 +133,9 @@ function warrantMechanismToDamlVariant(
           valuation_amount: m.valuation_amount ? monetaryToDaml(m.valuation_amount) : null,
           capitalization_definition: optionalString(m.capitalization_definition),
           capitalization_definition_rules: (m.capitalization_definition_rules ??
-            null) as Fairmint.OpenCapTable.Types.OcfCapitalizationDefinitionRules | null,
+            null) as Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules | null,
         },
-      } as Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism;
+      } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
     case 'SHARE_PRICE_BASED_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismSharePriceBased',
@@ -146,13 +148,13 @@ function warrantMechanismToDamlVariant(
               : null,
           discount_amount: m.discount_amount ? monetaryToDaml(m.discount_amount) : null,
         },
-      } as Fairmint.OpenCapTable.Types.OcfWarrantConversionMechanism;
+      } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
   }
 }
 
 function buildWarrantRight(
   input: WarrantExerciseTriggerInput | undefined
-): Fairmint.OpenCapTable.Types.OcfAnyConversionRight {
+): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   const details = typeof input === 'object' && 'conversion_right' in input ? input.conversion_right : undefined;
   const mechanism = warrantMechanismToDamlVariant(details?.conversion_mechanism);
   const converts_to_future_round =
@@ -166,7 +168,7 @@ function buildWarrantRight(
       converts_to_future_round,
       converts_to_stock_class_id,
     },
-  } as Fairmint.OpenCapTable.Types.OcfAnyConversionRight;
+  } as Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight;
 }
 
 function quantitySourceToDamlEnum(
@@ -179,7 +181,7 @@ function quantitySourceToDamlEnum(
     | 'INSTRUMENT_MIN'
     | null
     | undefined
-): Fairmint.OpenCapTable.Types.OcfQuantitySourceType | null {
+): Fairmint.OpenCapTable.Types.Stock.OcfQuantitySourceType | null {
   if (qs === undefined || qs === null) return null;
   switch (qs) {
     case 'HUMAN_ESTIMATED':

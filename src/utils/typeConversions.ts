@@ -124,14 +124,14 @@ export function safeString(value: unknown): string {
 
 // ===== Monetary Value Conversions =====
 
-export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.OcfMonetary {
+export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.Monetary.OcfMonetary {
   return {
     amount: typeof monetary.amount === 'number' ? monetary.amount.toString() : monetary.amount,
     currency: monetary.currency,
   };
 }
 
-export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.OcfMonetary): Monetary {
+export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary): Monetary {
   return {
     amount: normalizeNumericString(damlMonetary.amount),
     currency: damlMonetary.currency,
@@ -140,7 +140,7 @@ export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.O
 
 // ===== Address Conversions =====
 
-function addressTypeToDaml(addressType: AddressType): Fairmint.OpenCapTable.Types.OcfAddressType {
+function addressTypeToDaml(addressType: AddressType): Fairmint.OpenCapTable.Types.Monetary.OcfAddressType {
   switch (addressType) {
     case 'LEGAL':
       return 'OcfAddressTypeLegal';
@@ -158,7 +158,7 @@ function addressTypeToDaml(addressType: AddressType): Fairmint.OpenCapTable.Type
   }
 }
 
-function damlAddressTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfAddressType): AddressType {
+function damlAddressTypeToNative(damlType: Fairmint.OpenCapTable.Types.Monetary.OcfAddressType): AddressType {
   switch (damlType) {
     case 'OcfAddressTypeLegal':
       return 'LEGAL';
@@ -176,7 +176,7 @@ function damlAddressTypeToNative(damlType: Fairmint.OpenCapTable.Types.OcfAddres
   }
 }
 
-export function addressToDaml(address: Address): Fairmint.OpenCapTable.Types.OcfAddress {
+export function addressToDaml(address: Address): Fairmint.OpenCapTable.Types.Monetary.OcfAddress {
   return {
     address_type: addressTypeToDaml(address.address_type),
     street_suite: optionalString(address.street_suite),
@@ -187,7 +187,7 @@ export function addressToDaml(address: Address): Fairmint.OpenCapTable.Types.Ocf
   };
 }
 
-export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.OcfAddress): Address {
+export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Monetary.OcfAddress): Address {
   return {
     address_type: damlAddressTypeToNative(damlAddress.address_type),
     country: damlAddress.country,

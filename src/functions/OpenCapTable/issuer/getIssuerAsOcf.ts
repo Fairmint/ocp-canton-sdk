@@ -5,14 +5,14 @@ import type { OcfIssuer as OcfIssuerInput } from '../../../types/native';
 import { damlEmailTypeToNative, damlPhoneTypeToNative } from '../../../utils/enumConversions';
 import { damlAddressToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
-function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.OcfEmail): OcfIssuerInput['email'] {
+function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): OcfIssuerInput['email'] {
   return {
     email_type: damlEmailTypeToNative(damlEmail.email_type),
     email_address: damlEmail.email_address,
   };
 }
 
-function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.OcfPhone): OcfIssuerInput['phone'] {
+function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.Contact.OcfPhone): OcfIssuerInput['phone'] {
   return {
     phone_type: damlPhoneTypeToNative(phone.phone_type),
     phone_number: phone.phone_number,
