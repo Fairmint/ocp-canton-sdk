@@ -3,8 +3,12 @@
   "id": "test-stock-consolidation-001",
   "object_type": "TX_STOCK_CONSOLIDATION",
   "date": "2025-05-01",
-  "security_id": "test-security-consolidated-001",
-  "resulting_security_id": "test-security-consolidated-result-001",
+  "security_ids": [
+    "test-security-consolidated-001",
+    "test-security-consolidated-002",
+    "test-security-consolidated-003"
+  ],
+  "resulting_security_ids": ["test-security-consolidated-result-001"],
   "reason_text": "Consolidation of multiple stock certificates into single certificate",
   "comments": ["Consolidating certificates CS-001, CS-002, and CS-003", "Total shares: 150,000"]
 }

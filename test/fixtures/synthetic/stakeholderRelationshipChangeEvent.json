@@ -4,7 +4,7 @@
   "object_type": "TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT",
   "date": "2025-03-01",
   "stakeholder_id": "test-stakeholder-individual-001",
-  "new_relationships": ["CONSULTANT", "ADVISOR"],
+  "new_relationships": ["ADVISOR", "OTHER"],
   "comments": [
     "Transition from full-time employee to consulting role",
     "Option exercise window extended per separation agreement"
