@@ -89,7 +89,14 @@ describe('Exercise and Conversion Type Converters', () => {
         };
 
         expect(() => convertToDaml('warrantExercise', invalidData)).toThrow(OcpValidationError);
-        expect(() => convertToDaml('warrantExercise', invalidData)).toThrow("'warrantExercise.id'");
+        try {
+          convertToDaml('warrantExercise', invalidData);
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('warrantExercise.id');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
     });
 
@@ -250,7 +257,14 @@ describe('Exercise and Conversion Type Converters', () => {
         };
 
         expect(() => convertToDaml('convertibleConversion', invalidData)).toThrow(OcpValidationError);
-        expect(() => convertToDaml('convertibleConversion', invalidData)).toThrow("'convertibleConversion.id'");
+        try {
+          convertToDaml('convertibleConversion', invalidData);
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('convertibleConversion.id');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
     });
 
@@ -379,7 +393,14 @@ describe('Exercise and Conversion Type Converters', () => {
         };
 
         expect(() => convertToDaml('stockConversion', invalidData)).toThrow(OcpValidationError);
-        expect(() => convertToDaml('stockConversion', invalidData)).toThrow("'stockConversion.id'");
+        try {
+          convertToDaml('stockConversion', invalidData);
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('stockConversion.id');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
     });
 

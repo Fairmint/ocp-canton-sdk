@@ -125,7 +125,7 @@ describe('Transfer Type Converters', () => {
         expect(result.consideration_text).toBeNull();
       });
 
-      it('throws error when id is missing', () => {
+      it('throws OcpValidationError when id is missing', () => {
         const input = {
           date: '2025-08-10',
           security_id: 'conv-sec-001',
@@ -133,7 +133,15 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: ['conv-result-001'],
         } as OcfConvertibleTransfer;
 
-        expect(() => convertToDaml('convertibleTransfer', input)).toThrow('convertibleTransfer.id');
+        expect(() => convertToDaml('convertibleTransfer', input)).toThrow(OcpValidationError);
+        try {
+          convertToDaml('convertibleTransfer', input);
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('convertibleTransfer.id');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
 
       it('throws OcpValidationError when resulting_security_ids is empty', () => {
@@ -197,7 +205,7 @@ describe('Transfer Type Converters', () => {
         expect(result.consideration_text).toBeNull();
       });
 
-      it('throws error when id is missing', () => {
+      it('throws OcpValidationError when id is missing', () => {
         const input = {
           date: '2025-08-15',
           security_id: 'eq-sec-001',
@@ -205,7 +213,15 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: ['eq-result-001'],
         } as OcfEquityCompensationTransfer;
 
-        expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow('equityCompensationTransfer.id');
+        expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow(OcpValidationError);
+        try {
+          convertToDaml('equityCompensationTransfer', input);
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('equityCompensationTransfer.id');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
 
       it('throws OcpValidationError when resulting_security_ids is empty', () => {
@@ -269,7 +285,7 @@ describe('Transfer Type Converters', () => {
         expect(result.consideration_text).toBeNull();
       });
 
-      it('throws error when id is missing', () => {
+      it('throws OcpValidationError when id is missing', () => {
         const input = {
           date: '2025-08-20',
           security_id: 'warrant-sec-001',
@@ -277,7 +293,15 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: ['warrant-result-001'],
         } as OcfWarrantTransfer;
 
-        expect(() => convertToDaml('warrantTransfer', input)).toThrow('warrantTransfer.id');
+        expect(() => convertToDaml('warrantTransfer', input)).toThrow(OcpValidationError);
+        try {
+          convertToDaml('warrantTransfer', input);
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('warrantTransfer.id');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
 
       it('throws OcpValidationError when resulting_security_ids is empty', () => {

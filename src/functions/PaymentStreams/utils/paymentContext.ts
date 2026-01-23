@@ -129,7 +129,7 @@ export async function buildPaymentContextWithAmulets(
   if (amuletsResponse.amulets.length === 0) {
     throw new OcpValidationError('payerParty.amulets', `Payer ${payerParty} has no Amulet contracts`, {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: amuletsResponse.amulets.length,
+      receivedValue: amuletsResponse.amulets,
     });
   }
 
