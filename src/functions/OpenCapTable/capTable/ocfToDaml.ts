@@ -334,11 +334,11 @@ function equityCompensationRetractionDataToDaml(d: OcfEquityCompensationRetracti
 /**
  * Map PlanSecurity type to EquityCompensation type for DAML.
  * PlanSecurity types are aliases that map to EquityCompensation DAML contracts.
+ * Note: 'OTHER' is not included because DAML has no equivalent type - it must be handled explicitly.
  */
-const PLAN_SECURITY_TO_COMPENSATION_TYPE: Record<OcfPlanSecurityIssuance['plan_security_type'], string> = {
+const PLAN_SECURITY_TO_COMPENSATION_TYPE: Record<'OPTION' | 'RSU', string> = {
   OPTION: 'OcfCompensationTypeOption',
   RSU: 'OcfCompensationTypeRSU',
-  OTHER: 'OcfCompensationTypeOption', // Default to Option for 'OTHER' type
 };
 
 /**
@@ -351,6 +351,18 @@ function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Record<stri
       expectedType: 'string',
       receivedValue: d.id,
     });
+  }
+
+  // Validate plan_security_type - 'OTHER' is not supported because DAML has no equivalent type
+  if (d.plan_security_type === 'OTHER') {
+    throw new OcpValidationError(
+      'planSecurityIssuance.plan_security_type',
+      "plan_security_type 'OTHER' is not supported. DAML only supports 'OPTION' and 'RSU' types. Use EquityCompensationIssuance with a specific compensation_type instead.",
+      {
+        expectedType: "'OPTION' | 'RSU'",
+        receivedValue: d.plan_security_type,
+      }
+    );
   }
 
   // Map plan_security_type to compensation_type
