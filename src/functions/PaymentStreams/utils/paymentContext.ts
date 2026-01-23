@@ -165,7 +165,7 @@ export async function buildPaymentContextWithAmulets(
     throw new OcpValidationError(
       'payerParty.balance',
       `Insufficient funds: Payer ${payerParty} has ${accumulatedAmount.toFixed(2)} CC available but needs ${requestedAmountNum.toFixed(2)} CC (missing ${(requestedAmountNum - accumulatedAmount).toFixed(2)} CC)`,
-      { code: OcpErrorCodes.INVALID_FORMAT, receivedValue: accumulatedAmount }
+      { code: OcpErrorCodes.OUT_OF_RANGE, receivedValue: accumulatedAmount }
     );
   }
 
