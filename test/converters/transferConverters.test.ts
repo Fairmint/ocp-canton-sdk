@@ -8,6 +8,7 @@
  * - WarrantTransfer
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import type {
   OcfConvertibleTransfer,
@@ -63,7 +64,7 @@ describe('Transfer Type Converters', () => {
         expect(result.comments).toEqual([]);
       });
 
-      it('throws error when resulting_security_ids is empty', () => {
+      it('throws OcpValidationError when resulting_security_ids is empty', () => {
         const input: OcfStockTransfer = {
           id: 'st-error-1',
           date: '2025-08-05',
@@ -72,7 +73,15 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('stockTransfer', input)).toThrow('resulting_security_ids');
+        expect(() => convertToDaml('stockTransfer', input)).toThrow(OcpValidationError);
+        try {
+          convertToDaml('stockTransfer', input);
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('stockTransfer.resulting_security_ids');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
     });
 
@@ -127,7 +136,7 @@ describe('Transfer Type Converters', () => {
         expect(() => convertToDaml('convertibleTransfer', input)).toThrow('convertibleTransfer.id');
       });
 
-      it('throws error when resulting_security_ids is empty', () => {
+      it('throws OcpValidationError when resulting_security_ids is empty', () => {
         const input: OcfConvertibleTransfer = {
           id: 'ct-error-1',
           date: '2025-08-10',
@@ -136,7 +145,15 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('convertibleTransfer', input)).toThrow('resulting_security_ids');
+        expect(() => convertToDaml('convertibleTransfer', input)).toThrow(OcpValidationError);
+        try {
+          convertToDaml('convertibleTransfer', input);
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('convertibleTransfer.resulting_security_ids');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
     });
 
@@ -191,7 +208,7 @@ describe('Transfer Type Converters', () => {
         expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow('equityCompensationTransfer.id');
       });
 
-      it('throws error when resulting_security_ids is empty', () => {
+      it('throws OcpValidationError when resulting_security_ids is empty', () => {
         const input: OcfEquityCompensationTransfer = {
           id: 'ect-error-1',
           date: '2025-08-15',
@@ -200,7 +217,15 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow('resulting_security_ids');
+        expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow(OcpValidationError);
+        try {
+          convertToDaml('equityCompensationTransfer', input);
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('equityCompensationTransfer.resulting_security_ids');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
     });
 
@@ -255,7 +280,7 @@ describe('Transfer Type Converters', () => {
         expect(() => convertToDaml('warrantTransfer', input)).toThrow('warrantTransfer.id');
       });
 
-      it('throws error when resulting_security_ids is empty', () => {
+      it('throws OcpValidationError when resulting_security_ids is empty', () => {
         const input: OcfWarrantTransfer = {
           id: 'wt-error-1',
           date: '2025-08-20',
@@ -264,7 +289,15 @@ describe('Transfer Type Converters', () => {
           resulting_security_ids: [], // Empty array should throw
         };
 
-        expect(() => convertToDaml('warrantTransfer', input)).toThrow('resulting_security_ids');
+        expect(() => convertToDaml('warrantTransfer', input)).toThrow(OcpValidationError);
+        try {
+          convertToDaml('warrantTransfer', input);
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('warrantTransfer.resulting_security_ids');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
     });
   });

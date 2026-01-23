@@ -8,7 +8,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { getConvertibleConversionEventAsOcf } from '../../src/functions/OpenCapTable/convertibleConversion';
 import { getStockConversionEventAsOcf } from '../../src/functions/OpenCapTable/stockConversion';
@@ -154,7 +154,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toBeUndefined();
       });
 
-      test('throws error when quantity is missing', async () => {
+      test('throws OcpValidationError when quantity is missing', async () => {
         const mockClient = createMockClient({
           exercise_data: {
             id: 'we-004',
@@ -165,11 +165,19 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         await expect(getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          'warrantExercise.quantity'
+          OcpValidationError
         );
+        try {
+          await getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' });
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('warrantExercise.quantity');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
 
-      test('throws error when resulting_security_ids is empty', async () => {
+      test('throws OcpValidationError when resulting_security_ids is empty', async () => {
         const mockClient = createMockClient({
           exercise_data: {
             id: 'we-005',
@@ -181,8 +189,16 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         await expect(getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          'warrantExercise.resulting_security_ids'
+          OcpValidationError
         );
+        try {
+          await getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' });
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('warrantExercise.resulting_security_ids');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
     });
   });
@@ -281,7 +297,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toBeUndefined();
       });
 
-      test('throws error when resulting_security_ids is empty', async () => {
+      test('throws OcpValidationError when resulting_security_ids is empty', async () => {
         const mockClient = createMockClient({
           conversion_data: {
             id: 'cc-003',
@@ -292,8 +308,16 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         await expect(getConvertibleConversionEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          'convertibleConversion.resulting_security_ids'
+          OcpValidationError
         );
+        try {
+          await getConvertibleConversionEventAsOcf(mockClient, { contractId: 'test-contract' });
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('convertibleConversion.resulting_security_ids');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
     });
   });
@@ -417,7 +441,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toBeUndefined();
       });
 
-      test('throws error when quantity is missing', async () => {
+      test('throws OcpValidationError when quantity is missing', async () => {
         const mockClient = createMockClient({
           conversion_data: {
             id: 'sc-004',
@@ -428,11 +452,19 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         await expect(getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          'stockConversion.quantity'
+          OcpValidationError
         );
+        try {
+          await getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' });
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('stockConversion.quantity');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
 
-      test('throws error when resulting_security_ids is empty', async () => {
+      test('throws OcpValidationError when resulting_security_ids is empty', async () => {
         const mockClient = createMockClient({
           conversion_data: {
             id: 'sc-005',
@@ -444,8 +476,16 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         await expect(getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          'stockConversion.resulting_security_ids'
+          OcpValidationError
         );
+        try {
+          await getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' });
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          const validationError = error as OcpValidationError;
+          expect(validationError.fieldPath).toBe('stockConversion.resulting_security_ids');
+          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+        }
       });
     });
   });

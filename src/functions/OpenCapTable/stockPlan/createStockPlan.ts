@@ -16,11 +16,13 @@ function cancellationBehaviorToDaml(
       return 'OcfPlanCancelHoldAsCapitalStock';
     case 'DEFINED_PER_PLAN_SECURITY':
       return 'OcfPlanCancelDefinedPerPlanSecurity';
-    default:
-      throw new OcpParseError('Unknown cancellation behavior', {
+    default: {
+      const exhaustiveCheck: never = b;
+      throw new OcpParseError(`Unknown cancellation behavior: ${String(exhaustiveCheck)}`, {
         source: 'stockPlan.default_cancellation_behavior',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
+    }
   }
 }
 

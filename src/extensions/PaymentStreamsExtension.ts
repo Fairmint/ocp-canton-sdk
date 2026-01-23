@@ -198,7 +198,7 @@ export function createPaymentStreamsExtension(): PaymentStreamsMethods {
         const createdEvent = proposalEventsResponse.created?.createdEvent;
 
         if (!createdEvent || !proposalEventsResponse.created) {
-          throw new OcpContractError(`ProposedPaymentStream contract not found`, {
+          throw new OcpContractError(`ProposedPaymentStream contract not found: ${proposedPaymentStreamContractId}`, {
             contractId: proposedPaymentStreamContractId,
             code: OcpErrorCodes.CONTRACT_NOT_FOUND,
           });
