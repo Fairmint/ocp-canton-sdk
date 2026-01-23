@@ -60,6 +60,7 @@ import type {
   OcfEquityCompensationRelease,
   OcfEquityCompensationRepricing,
   OcfEquityCompensationRetraction,
+  OcfPlanSecurityExercise,
   OcfPlanSecurityIssuance,
   OcfStockConversion,
   OcfStockPlanReturnToPool,
@@ -384,6 +385,29 @@ function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Record<stri
 }
 
 /**
+ * Convert PlanSecurityExercise to DAML format.
+ * Includes balance_security_id for partial exercises (unlike EquityCompensationExercise).
+ */
+function planSecurityExerciseDataToDaml(d: OcfPlanSecurityExercise): Record<string, unknown> {
+  if (!d.id) {
+    throw new OcpValidationError('planSecurityExercise.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
+  return {
+    id: d.id,
+    security_id: d.security_id,
+    date: dateStringToDAMLTime(d.date),
+    quantity: numberToString(d.quantity),
+    consideration_text: optionalString(d.consideration_text),
+    resulting_security_ids: d.resulting_security_ids,
+    balance_security_id: optionalString(d.balance_security_id),
+    comments: cleanComments(d.comments),
+  };
+}
+
+/**
  * Convert native OCF data to DAML format based on entity type.
  *
  * @param type - The OCF entity type
@@ -491,11 +515,11 @@ export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTyp
     case 'equityCompensationTransfer':
       return equityCompensationTransferDataToDaml(data as OcfDataTypeFor<'equityCompensationTransfer'>);
 
-    // PlanSecurity aliases - delegate to EquityCompensation converters
+    // PlanSecurity aliases - delegate to EquityCompensation converters (or dedicated converters where needed)
     case 'planSecurityIssuance':
       return planSecurityIssuanceDataToDaml(data as OcfDataTypeFor<'planSecurityIssuance'>);
     case 'planSecurityExercise':
-      return equityCompensationExerciseDataToDaml(data as unknown as OcfDataTypeFor<'equityCompensationExercise'>);
+      return planSecurityExerciseDataToDaml(data as OcfDataTypeFor<'planSecurityExercise'>);
     case 'planSecurityCancellation':
       return equityCompensationCancellationDataToDaml(
         data as unknown as OcfDataTypeFor<'equityCompensationCancellation'>
