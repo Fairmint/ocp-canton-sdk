@@ -1,0 +1,11 @@
+{
+  "_source": "synthetic",
+  "id": "test-stock-reissuance-001",
+  "object_type": "TX_STOCK_REISSUANCE",
+  "date": "2025-04-15",
+  "security_id": "test-security-lost-cert-001",
+  "resulting_security_ids": ["test-security-replacement-001"],
+  "reason_text": "Replacement of lost stock certificate per affidavit and indemnity bond",
+  "split_transaction_id": null,
+  "comments": ["Original certificate #CS-1234 reported lost", "Indemnity bond posted with transfer agent"]
+}

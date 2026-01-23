@@ -1,0 +1,13 @@
+{
+  "id": "test-convertible-transfer-001",
+  "object_type": "TX_CONVERTIBLE_TRANSFER",
+  "date": "2025-01-20",
+  "security_id": "test-security-safe-transfer-001",
+  "amount": {
+    "amount": "100000",
+    "currency": "USD"
+  },
+  "resulting_security_ids": ["test-security-safe-transfer-result-001"],
+  "consideration_text": "Assignment of SAFE to new investor per assignment agreement",
+  "comments": ["Assignor: Original Investor LLC", "Assignee: New Investor Partners"]
+}

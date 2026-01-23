@@ -1,0 +1,14 @@
+{
+  "_source": "synthetic",
+  "id": "test-equity-comp-transfer-001",
+  "object_type": "TX_EQUITY_COMPENSATION_TRANSFER",
+  "date": "2025-03-15",
+  "security_id": "test-security-option-transfer-001",
+  "quantity": "25000",
+  "resulting_security_ids": ["test-security-option-transferred-001"],
+  "consideration_text": "Transfer to family trust per estate planning",
+  "comments": [
+    "ISO to NSO conversion triggered by transfer to non-qualified recipient",
+    "Transfer to Smith Family Trust"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "test-stock-class-preferred-001",
+  "object_type": "STOCK_CLASS",
+  "name": "Series Seed Preferred",
+  "class_type": "PREFERRED",
+  "default_id_prefix": "SS-",
+  "initial_shares_authorized": "5000000",
+  "seniority": "2",
+  "votes_per_share": "1",
+  "price_per_share": {
+    "amount": "1.00",
+    "currency": "USD"
+  },
+  "par_value": {
+    "amount": "0.00001",
+    "currency": "USD"
+  },
+  "liquidation_preference_multiple": "1",
+  "participation_cap_multiple": "1",
+  "conversion_rights": []
+}

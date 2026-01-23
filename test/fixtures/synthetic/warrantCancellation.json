@@ -1,0 +1,10 @@
+{
+  "_source": "synthetic",
+  "id": "test-warrant-cancellation-001",
+  "object_type": "TX_WARRANT_CANCELLATION",
+  "date": "2025-10-01",
+  "security_id": "test-security-warrant-cancel-001",
+  "quantity": "100000",
+  "reason_text": "Warrant expired unexercised on expiration date",
+  "comments": ["Original warrant expiration date: 2025-10-01", "No exercise notice received prior to expiration"]
+}

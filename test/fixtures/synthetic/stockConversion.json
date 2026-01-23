@@ -1,0 +1,12 @@
+{
+  "_source": "synthetic",
+  "id": "test-stock-conversion-001",
+  "object_type": "TX_STOCK_CONVERSION",
+  "date": "2025-06-01",
+  "security_id": "test-security-preferred-convert-001",
+  "quantity": "500000",
+  "resulting_security_ids": ["test-security-common-converted-001"],
+  "reason_text": "Automatic conversion of Series Seed Preferred to Common upon IPO",
+  "stock_class_id": "test-stock-class-common-001",
+  "comments": ["Conversion ratio: 1:1 per Certificate of Incorporation"]
+}

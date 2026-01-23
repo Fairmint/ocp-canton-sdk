@@ -1,0 +1,10 @@
+{
+  "id": "test-equity-comp-exercise-001",
+  "object_type": "TX_EQUITY_COMPENSATION_EXERCISE",
+  "date": "2025-03-01",
+  "security_id": "test-security-option-iso-001",
+  "quantity": "10000",
+  "consideration_text": "Cash exercise at $1.00 per share",
+  "resulting_security_ids": ["test-security-exercised-shares-001"],
+  "comments": []
+}

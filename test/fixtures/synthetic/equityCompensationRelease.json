@@ -1,0 +1,15 @@
+{
+  "_source": "synthetic",
+  "id": "test-equity-comp-release-001",
+  "object_type": "TX_EQUITY_COMPENSATION_RELEASE",
+  "date": "2025-04-01",
+  "security_id": "test-security-rsu-release-001",
+  "quantity": "2500",
+  "resulting_security_ids": ["test-security-released-shares-001"],
+  "consideration_text": "RSU settlement upon vesting",
+  "release_price": {
+    "amount": "15.00",
+    "currency": "USD"
+  },
+  "comments": ["Quarterly RSU vest - Q1 2025", "Net shares after tax withholding"]
+}

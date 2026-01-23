@@ -1,0 +1,29 @@
+{
+  "id": "test-issuer-001",
+  "object_type": "ISSUER",
+  "legal_name": "Test Corporation Ltd.",
+  "dba": "Test Labs",
+  "formation_date": "2023-11-06",
+  "country_of_formation": "US",
+  "country_subdivision_of_formation": "DE",
+  "initial_shares_authorized": "1000000",
+  "tax_ids": [
+    {
+      "tax_id": "12-3456789",
+      "country": "US"
+    }
+  ],
+  "email": {
+    "email_type": "BUSINESS",
+    "email_address": "contact@testcorp.example.com"
+  },
+  "address": {
+    "city": "Wilmington",
+    "country": "US",
+    "postal_code": "19801",
+    "address_type": "LEGAL",
+    "street_suite": "123 Corporate Boulevard",
+    "country_subdivision": "DE"
+  },
+  "comments": []
+}

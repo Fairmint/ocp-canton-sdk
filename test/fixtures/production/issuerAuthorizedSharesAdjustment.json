@@ -1,0 +1,10 @@
+{
+  "id": "test-issuer-shares-adj-001",
+  "object_type": "TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT",
+  "date": "2024-12-01",
+  "issuer_id": "test-issuer-001",
+  "new_shares_authorized": "50000000",
+  "board_approval_date": "2024-11-15",
+  "stockholder_approval_date": "2024-11-30",
+  "comments": ["Increase authorized shares to accommodate Series A financing"]
+}

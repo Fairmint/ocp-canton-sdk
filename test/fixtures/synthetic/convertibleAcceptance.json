@@ -1,0 +1,8 @@
+{
+  "_source": "synthetic",
+  "id": "test-convertible-acceptance-001",
+  "object_type": "TX_CONVERTIBLE_ACCEPTANCE",
+  "date": "2025-01-10",
+  "security_id": "test-security-safe-accept-001",
+  "comments": ["Investor acceptance of SAFE terms and conditions"]
+}

@@ -1,0 +1,11 @@
+{
+  "_source": "synthetic",
+  "id": "test-warrant-transfer-001",
+  "object_type": "TX_WARRANT_TRANSFER",
+  "date": "2025-04-10",
+  "security_id": "test-security-warrant-transfer-001",
+  "quantity": "50000",
+  "resulting_security_ids": ["test-security-warrant-transferred-001"],
+  "consideration_text": "Transfer to affiliated fund per fund restructuring",
+  "comments": ["Transfer from Fund I LP to Fund I-A LP", "Same beneficial ownership maintained"]
+}

@@ -1,0 +1,53 @@
+{
+  "id": "test-convertible-safe-001",
+  "object_type": "TX_CONVERTIBLE_ISSUANCE",
+  "date": "2024-06-15",
+  "security_id": "test-security-safe-001",
+  "custom_id": "SAFE-001",
+  "stakeholder_id": "test-stakeholder-institution-001",
+  "convertible_type": "SAFE",
+  "seniority": 1,
+  "investment_amount": {
+    "amount": "500000",
+    "currency": "USD"
+  },
+  "conversion_triggers": [
+    {
+      "type": "AUTOMATIC_ON_CONDITION",
+      "trigger_id": "equity-financing-trigger",
+      "nickname": "Equity Financing",
+      "trigger_condition": "SAFE converts upon equity financing of at least $1,000,000",
+      "trigger_description": "Conversion at Next Equity Financing",
+      "conversion_right": {
+        "type": "CONVERTIBLE_CONVERSION_RIGHT",
+        "converts_to_future_round": true,
+        "conversion_mechanism": {
+          "type": "SAFE_CONVERSION",
+          "conversion_timing": "POST_MONEY",
+          "conversion_mfn": false,
+          "conversion_valuation_cap": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "capitalization_definition_rules": {
+            "include_outstanding_shares": true,
+            "include_outstanding_options": true,
+            "include_outstanding_unissued_options": true,
+            "include_this_security": true,
+            "include_other_converting_securities": true,
+            "include_new_money": false,
+            "include_additional_option_pool_topup": false,
+            "include_option_pool_topup_for_promised_options": true
+          }
+        }
+      }
+    }
+  ],
+  "security_law_exemptions": [
+    {
+      "description": "Regulation D 506(b)",
+      "jurisdiction": "US"
+    }
+  ],
+  "comments": []
+}

@@ -1,0 +1,12 @@
+{
+  "id": "test-convertible-cancellation-001",
+  "object_type": "TX_CONVERTIBLE_CANCELLATION",
+  "date": "2024-09-15",
+  "security_id": "test-security-safe-cancel-001",
+  "amount": {
+    "amount": "50000",
+    "currency": "USD"
+  },
+  "reason_text": "Mutual agreement to cancel investment and return funds",
+  "comments": []
+}

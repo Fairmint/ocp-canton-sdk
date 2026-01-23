@@ -1,0 +1,7 @@
+{
+  "id": "test-issuer-002",
+  "object_type": "ISSUER",
+  "legal_name": "Simple Startup Inc.",
+  "formation_date": "2022-01-15",
+  "country_of_formation": "US"
+}

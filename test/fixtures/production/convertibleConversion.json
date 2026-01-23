@@ -1,0 +1,10 @@
+{
+  "id": "test-convertible-conversion-001",
+  "object_type": "TX_CONVERTIBLE_CONVERSION",
+  "date": "2025-06-01",
+  "security_id": "test-security-safe-convert-001",
+  "trigger_id": "equity-financing-trigger",
+  "reason_text": "Automatic conversion upon Series Seed equity financing",
+  "resulting_security_ids": ["test-security-preferred-001"],
+  "comments": ["SAFE conversion to Series Seed Preferred Stock"]
+}

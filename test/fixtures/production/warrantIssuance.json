@@ -1,0 +1,18 @@
+{
+  "id": "test-warrant-issuance-001",
+  "object_type": "TX_WARRANT_ISSUANCE",
+  "date": "2024-10-01",
+  "security_id": "test-security-warrant-001",
+  "custom_id": "W-001",
+  "stakeholder_id": "test-stakeholder-institution-001",
+  "quantity": "100000",
+  "quantity_source": "UNSPECIFIED",
+  "purchase_price": {
+    "amount": "10000",
+    "currency": "USD"
+  },
+  "warrant_expiration_date": "2029-10-01",
+  "exercise_triggers": [],
+  "security_law_exemptions": [],
+  "comments": []
+}

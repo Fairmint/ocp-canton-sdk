@@ -1,0 +1,14 @@
+{
+  "_source": "synthetic",
+  "id": "test-vesting-acceleration-001",
+  "object_type": "TX_VESTING_ACCELERATION",
+  "date": "2025-08-01",
+  "security_id": "test-security-accel-001",
+  "quantity": "100000",
+  "reason_text": "Single-trigger acceleration upon change of control",
+  "comments": [
+    "100% acceleration of unvested equity per employment agreement Section 5.2",
+    "Triggered by acquisition of Company by Acquirer Inc.",
+    "Accelerated vesting effective immediately prior to closing"
+  ]
+}

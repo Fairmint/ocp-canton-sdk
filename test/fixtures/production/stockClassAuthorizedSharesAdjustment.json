@@ -1,0 +1,10 @@
+{
+  "id": "test-stock-class-shares-adj-001",
+  "object_type": "TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT",
+  "date": "2024-11-15",
+  "stock_class_id": "test-stock-class-common-001",
+  "new_shares_authorized": "30000000",
+  "board_approval_date": "2024-11-01",
+  "stockholder_approval_date": "2024-11-10",
+  "comments": []
+}
