@@ -36,9 +36,7 @@ describe('PlanSecurity Type Converters', () => {
           board_approval_date: '2025-01-10',
           stockholder_approval_date: '2025-01-12',
           consideration_text: 'For services rendered',
-          security_law_exemptions: [
-            { description: 'Rule 701', jurisdiction: 'US' },
-          ],
+          security_law_exemptions: [{ description: 'Rule 701', jurisdiction: 'US' }],
           comments: ['Initial grant'],
         };
 
@@ -71,9 +69,7 @@ describe('PlanSecurity Type Converters', () => {
         });
 
         // Security law exemptions are mapped correctly
-        expect(result.security_law_exemptions).toEqual([
-          { description: 'Rule 701', jurisdiction: 'US' },
-        ]);
+        expect(result.security_law_exemptions).toEqual([{ description: 'Rule 701', jurisdiction: 'US' }]);
 
         // Fields that PlanSecurity doesn't have should be null/empty
         expect(result.base_price).toBeNull();
@@ -168,7 +164,7 @@ describe('PlanSecurity Type Converters', () => {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
           expect(validationError.fieldPath).toBe('planSecurityIssuance.plan_security_type');
-          expect(validationError.message).toContain("plan_security_type is required");
+          expect(validationError.message).toContain('plan_security_type is required');
         }
       });
 
