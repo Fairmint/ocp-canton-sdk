@@ -1,4 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
 import {
   cleanComments,
@@ -22,8 +23,13 @@ function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Type
       return 'OcfCompensationTypeCSAR';
     case 'SSAR':
       return 'OcfCompensationTypeSSAR';
-    default:
-      throw new Error('Unknown compensation type');
+    default: {
+      const exhaustiveCheck: never = t;
+      throw new OcpParseError(`Unknown compensation type: ${exhaustiveCheck as string}`, {
+        source: 'equityCompensationIssuance.compensation_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
   }
 }
 

@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type {
   Monetary,
   OcfStockIssuance,
@@ -112,14 +113,20 @@ export async function getStockIssuanceAsOcf(
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   const created = res.created?.createdEvent;
   if (!created?.createArgument) {
-    throw new Error('Missing createArgument for StockIssuance');
+    throw new OcpContractError('Missing createArgument for StockIssuance', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
   const arg = created.createArgument as Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance;
   const argWithData = arg as unknown as {
     issuance_data?: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData;
   };
   if (!argWithData.issuance_data) {
-    throw new Error('Missing issuance_data in StockIssuance');
+    throw new OcpParseError('Missing issuance_data in StockIssuance', {
+      source: 'StockIssuance.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
   }
   const native = damlStockIssuanceDataToNative(argWithData.issuance_data);
   const { share_numbers_issued, vestings, comments, issuance_type, ...rest } = native;

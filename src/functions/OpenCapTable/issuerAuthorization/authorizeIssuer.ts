@@ -4,6 +4,7 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { extractUpdateId } from '../../../utils/typeConversions';
 
 export interface AuthorizeIssuerParams {
@@ -34,7 +35,10 @@ export async function authorizeIssuer(
     | (typeof factoryContractIdData)[keyof typeof factoryContractIdData]
     | undefined;
   if (!networkData) {
-    throw new Error(`Unsupported network: ${network}`);
+    throw new OcpValidationError('network', `Unsupported network: ${network}`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: network,
+    });
   }
 
   // Create the choice arguments for AuthorizeIssuer
@@ -61,7 +65,11 @@ export async function authorizeIssuer(
     Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId
   );
   if (!created) {
-    throw new Error('Expected CreatedTreeEvent not found');
+    throw new OcpContractError('Expected CreatedTreeEvent not found for IssuerAuthorization', {
+      templateId: Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId,
+      choice: 'AuthorizeIssuer',
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   const issuerAuthorizationContractId = created.CreatedTreeEvent.value.contractId;
@@ -70,8 +78,12 @@ export async function authorizeIssuer(
   });
 
   if (!issuerAuthorizationContractEvents.created?.createdEvent.createdEventBlob) {
-    throw new Error(
-      'Invalid issuer authorization contract events response: missing created event or created event blob'
+    throw new OcpContractError(
+      'Invalid issuer authorization contract events response: missing created event or created event blob',
+      {
+        contractId: issuerAuthorizationContractId,
+        code: OcpErrorCodes.RESULT_NOT_FOUND,
+      }
     );
   }
 

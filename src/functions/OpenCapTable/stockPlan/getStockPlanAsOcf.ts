@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { StockPlanCancellationBehavior } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -76,12 +77,18 @@ export async function getStockPlanAsOcf(
 ): Promise<GetStockPlanAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new Error('Invalid contract events response: missing created event or create argument');
+    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
   if (!('plan_data' in createArgument)) {
-    throw new Error('plan_data not found in contract create argument');
+    throw new OcpParseError('plan_data not found in contract create argument', {
+      source: 'StockPlan.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
   }
 
   const native = damlStockPlanDataToNative(

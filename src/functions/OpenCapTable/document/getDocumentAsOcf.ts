@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfDocument, OcfObjectReference } from '../../../types/native';
 
 function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType): OcfObjectReference['object_type'] {
@@ -118,7 +119,10 @@ function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType)
       return 'TX_VESTING_EVENT';
     default: {
       const exhaustiveCheck: never = t;
-      throw new Error(`Unknown DAML object reference type: ${exhaustiveCheck as string}`);
+      throw new OcpParseError(`Unknown DAML object reference type: ${exhaustiveCheck as string}`, {
+        source: 'objectReference.object_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
@@ -155,7 +159,10 @@ export async function getDocumentAsOcf(
 ): Promise<GetDocumentAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new Error('No createArgument found for contract');
+    throw new OcpContractError('No createArgument found for contract', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   const { createArgument } = eventsResponse.created.createdEvent;
@@ -168,7 +175,10 @@ export async function getDocumentAsOcf(
   }
 
   if (!hasDocumentData(createArgument)) {
-    throw new Error('Unexpected createArgument shape for Document');
+    throw new OcpParseError('Unexpected createArgument shape for Document', {
+      source: 'Document.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
   }
 
   const native = damlDocumentDataToNative(createArgument.document_data);

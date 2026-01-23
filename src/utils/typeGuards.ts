@@ -15,6 +15,7 @@
  *   ```
  */
 
+import { OcpValidationError } from '../errors';
 import type {
   OcfConvertibleCancellation,
   OcfConvertibleIssuance,
@@ -485,18 +486,27 @@ export function detectOcfObjectType(value: unknown): DetectedOcfType {
  */
 export function assertOcfIssuer(value: unknown, message?: string): asserts value is OcfIssuer {
   if (!isOcfIssuer(value)) {
-    throw new Error(message ?? 'Expected OcfIssuer object');
+    throw new OcpValidationError('issuer', message ?? 'Expected OcfIssuer object', {
+      expectedType: 'OcfIssuer',
+      receivedValue: value,
+    });
   }
 }
 
 export function assertOcfStakeholder(value: unknown, message?: string): asserts value is OcfStakeholder {
   if (!isOcfStakeholder(value)) {
-    throw new Error(message ?? 'Expected OcfStakeholder object');
+    throw new OcpValidationError('stakeholder', message ?? 'Expected OcfStakeholder object', {
+      expectedType: 'OcfStakeholder',
+      receivedValue: value,
+    });
   }
 }
 
 export function assertOcfStockClass(value: unknown, message?: string): asserts value is OcfStockClass {
   if (!isOcfStockClass(value)) {
-    throw new Error(message ?? 'Expected OcfStockClass object');
+    throw new OcpValidationError('stockClass', message ?? 'Expected OcfStockClass object', {
+      expectedType: 'OcfStockClass',
+      receivedValue: value,
+    });
   }
 }

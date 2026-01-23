@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
 interface OcfEquityCompensationExerciseOutput {
@@ -32,7 +33,10 @@ export async function getEquityCompensationExerciseEventAsOcf(
 ): Promise<GetEquityCompensationExerciseEventAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new Error('Invalid contract events response: missing created event or create argument');
+    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
@@ -42,10 +46,20 @@ export async function getEquityCompensationExerciseEventAsOcf(
 
   // Validate quantity
   if (d.quantity === undefined || d.quantity === null) {
-    throw new Error('Equity compensation exercise quantity is required');
+    throw new OcpValidationError('equityCompensationExercise.quantity', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
   if (typeof d.quantity !== 'string' && typeof d.quantity !== 'number') {
-    throw new Error(`Exercise quantity must be string or number, got ${typeof d.quantity}`);
+    throw new OcpValidationError(
+      'equityCompensationExercise.quantity',
+      `Must be string or number, got ${typeof d.quantity}`,
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string | number',
+        receivedValue: d.quantity,
+      }
+    );
   }
 
   const ocf: OcfEquityCompensationExerciseOutput = {

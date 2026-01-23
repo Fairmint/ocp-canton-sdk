@@ -11,6 +11,7 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import paymentStreamsFactoryConfig from '@fairmint/open-captable-protocol-daml-js/paymentStreams-factory-contract-id.json';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../errors';
 import {
   buildActivePaymentStreamChangePartyCommand,
   buildArchiveInactivePaymentStreamCommand,
@@ -165,16 +166,20 @@ export function createPaymentStreamsExtension(): PaymentStreamsMethods {
           | undefined;
 
         if (!networkData) {
-          throw new Error(
+          throw new OcpValidationError(
+            'network',
             `Factory contract data not found for network "${network}". ` +
-              'Please run the factory deployment script for this network first.'
+              'Please run the factory deployment script for this network first.',
+            { code: OcpErrorCodes.INVALID_FORMAT, receivedValue: network }
           );
         }
 
         if (!networkData.disclosedContract) {
-          throw new Error(
+          throw new OcpValidationError(
+            'network.disclosedContract',
             `Disclosed contract data not found for network "${network}". ` +
-              'The factory contract data may be outdated. Please re-run the factory deployment script.'
+              'The factory contract data may be outdated. Please re-run the factory deployment script.',
+            { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
           );
         }
 
@@ -193,7 +198,10 @@ export function createPaymentStreamsExtension(): PaymentStreamsMethods {
         const createdEvent = proposalEventsResponse.created?.createdEvent;
 
         if (!createdEvent || !proposalEventsResponse.created) {
-          throw new Error(`ProposedPaymentStream contract ${proposedPaymentStreamContractId} not found`);
+          throw new OcpContractError(`ProposedPaymentStream contract not found: ${proposedPaymentStreamContractId}`, {
+            contractId: proposedPaymentStreamContractId,
+            code: OcpErrorCodes.CONTRACT_NOT_FOUND,
+          });
         }
 
         return [

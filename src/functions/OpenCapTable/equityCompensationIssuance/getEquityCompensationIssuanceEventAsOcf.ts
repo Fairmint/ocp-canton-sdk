@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { Vesting } from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -44,7 +45,12 @@ export async function getEquityCompensationIssuanceEventAsOcf(
   params: GetEquityCompensationIssuanceEventAsOcfParams
 ): Promise<GetEquityCompensationIssuanceEventAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!res.created?.createdEvent.createArgument) throw new Error('Missing createArgument');
+  if (!res.created?.createdEvent.createArgument) {
+    throw new OcpContractError('Missing createArgument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
+  }
   const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
   const d = (arg.issuance_data ?? arg) as Record<string, unknown>;
 
@@ -77,15 +83,25 @@ export async function getEquityCompensationIssuanceEventAsOcf(
 
     // Validate amount exists and is string or number
     if (p.amount === undefined || p.amount === null) {
-      throw new Error('Monetary amount is required but was undefined or null');
+      throw new OcpValidationError('monetary.amount', 'Required field is missing', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
     }
     if (typeof p.amount !== 'string' && typeof p.amount !== 'number') {
-      throw new Error(`Monetary amount must be string or number, got ${typeof p.amount}`);
+      throw new OcpValidationError('monetary.amount', `Must be string or number, got ${typeof p.amount}`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string | number',
+        receivedValue: p.amount,
+      });
     }
 
     // Validate currency exists and is string
     if (typeof p.currency !== 'string' || !p.currency) {
-      throw new Error('Monetary currency is required and must be a non-empty string');
+      throw new OcpValidationError('monetary.currency', 'Required field must be a non-empty string', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string',
+        receivedValue: p.currency,
+      });
     }
 
     const amount = normalizeNumericString(typeof p.amount === 'number' ? p.amount.toString() : p.amount);
@@ -100,7 +116,11 @@ export async function getEquityCompensationIssuanceEventAsOcf(
       ? ((d.vestings as Array<{ date: string; amount?: unknown }>).map((v) => {
           // Validate vesting amount
           if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
-            throw new Error(`Vesting amount must be string or number, got ${typeof v.amount}`);
+            throw new OcpValidationError('vesting.amount', `Must be string or number, got ${typeof v.amount}`, {
+              code: OcpErrorCodes.INVALID_TYPE,
+              expectedType: 'string | number',
+              receivedValue: v.amount,
+            });
           }
           // Convert to string after validation
           const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
@@ -126,10 +146,20 @@ export async function getEquityCompensationIssuanceEventAsOcf(
 
   // Validate required quantity field
   if (d.quantity === undefined || d.quantity === null) {
-    throw new Error('Equity compensation issuance quantity is required');
+    throw new OcpValidationError('equityCompensationIssuance.quantity', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
   if (typeof d.quantity !== 'string' && typeof d.quantity !== 'number') {
-    throw new Error(`Equity compensation quantity must be string or number, got ${typeof d.quantity}`);
+    throw new OcpValidationError(
+      'equityCompensationIssuance.quantity',
+      `Must be string or number, got ${typeof d.quantity}`,
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string | number',
+        receivedValue: d.quantity,
+      }
+    );
   }
 
   const event: OcfEquityCompensationIssuanceEvent = {

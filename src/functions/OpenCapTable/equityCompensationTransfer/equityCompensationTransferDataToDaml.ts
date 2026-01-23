@@ -1,4 +1,4 @@
-import { OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfEquityCompensationTransfer } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
 
@@ -11,7 +11,11 @@ export function equityCompensationTransferDataToDaml(d: OcfEquityCompensationTra
   }
   // Validate required array field
   if (d.resulting_security_ids.length === 0) {
-    throw new Error('resulting_security_ids must contain at least one element');
+    throw new OcpValidationError(
+      'equityCompensationTransfer.resulting_security_ids',
+      'Must contain at least one element',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: d.resulting_security_ids }
+    );
   }
   return {
     id: d.id,

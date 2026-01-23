@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockConversion } from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -31,7 +32,10 @@ export async function getStockConversionEventAsOcf(
 ): Promise<GetStockConversionEventAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new Error('Invalid contract events response: missing created event or create argument');
+    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
@@ -41,15 +45,24 @@ export async function getStockConversionEventAsOcf(
 
   // Validate quantity
   if (d.quantity === undefined || d.quantity === null) {
-    throw new Error('Stock conversion quantity is required');
+    throw new OcpValidationError('stockConversion.quantity', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
   if (typeof d.quantity !== 'string' && typeof d.quantity !== 'number') {
-    throw new Error(`Stock conversion quantity must be string or number, got ${typeof d.quantity}`);
+    throw new OcpValidationError('stockConversion.quantity', `Must be string or number, got ${typeof d.quantity}`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string | number',
+      receivedValue: d.quantity,
+    });
   }
 
   // Validate resulting_security_ids
   if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
-    throw new Error('Stock conversion resulting_security_ids is required');
+    throw new OcpValidationError('stockConversion.resulting_security_ids', 'Required field must be a non-empty array', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.resulting_security_ids,
+    });
   }
 
   const event: OcfStockConversionEvent = {

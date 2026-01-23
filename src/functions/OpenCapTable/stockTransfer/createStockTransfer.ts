@@ -1,10 +1,15 @@
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockTransfer } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
 
 export function stockTransferDataToDaml(d: OcfStockTransfer): Record<string, unknown> {
   // Validate required array field
   if (d.resulting_security_ids.length === 0) {
-    throw new Error('resulting_security_ids must contain at least one element');
+    throw new OcpValidationError(
+      'stockTransfer.resulting_security_ids',
+      'resulting_security_ids must contain at least one element',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: d.resulting_security_ids }
+    );
   }
   return {
     id: d.id,

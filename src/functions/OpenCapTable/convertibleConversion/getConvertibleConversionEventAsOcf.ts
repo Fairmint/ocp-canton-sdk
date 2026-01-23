@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfConvertibleConversion } from '../../../types/native';
 
 /**
@@ -28,7 +29,10 @@ export async function getConvertibleConversionEventAsOcf(
 ): Promise<GetConvertibleConversionEventAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new Error('Invalid contract events response: missing created event or create argument');
+    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
@@ -38,7 +42,14 @@ export async function getConvertibleConversionEventAsOcf(
 
   // Validate resulting_security_ids
   if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
-    throw new Error('Convertible conversion resulting_security_ids is required');
+    throw new OcpValidationError(
+      'convertibleConversion.resulting_security_ids',
+      'Required field must be a non-empty array',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        receivedValue: d.resulting_security_ids,
+      }
+    );
   }
 
   const event: OcfConvertibleConversionEvent = {

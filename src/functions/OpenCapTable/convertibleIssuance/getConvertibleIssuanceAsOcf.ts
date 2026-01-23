@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import { normalizeNumericString, safeString } from '../../../utils/typeConversions';
 
 interface CapitalizationDefinitionRules {
@@ -138,12 +139,18 @@ export async function getConvertibleIssuanceAsOcf(
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   const created = res.created?.createdEvent;
   if (!created?.createArgument) {
-    throw new Error('Missing createArgument for ConvertibleIssuance');
+    throw new OcpContractError('Missing createArgument for ConvertibleIssuance', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   const arg = created.createArgument;
   if (typeof arg !== 'object' || !('issuance_data' in arg)) {
-    throw new Error('Unexpected createArgument for ConvertibleIssuance');
+    throw new OcpParseError('Unexpected createArgument for ConvertibleIssuance', {
+      source: 'ConvertibleIssuance.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
   }
   const d = (arg as { issuance_data: Record<string, unknown> }).issuance_data;
 
@@ -177,15 +184,25 @@ export async function getConvertibleIssuanceAsOcf(
 
         // Validate amount exists and is string or number
         if (monObj.amount === undefined || monObj.amount === null) {
-          throw new Error('Monetary amount is required but was undefined or null');
+          throw new OcpValidationError('monetary.amount', 'Required field is missing', {
+            code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          });
         }
         if (typeof monObj.amount !== 'string' && typeof monObj.amount !== 'number') {
-          throw new Error(`Monetary amount must be string or number, got ${typeof monObj.amount}`);
+          throw new OcpValidationError('monetary.amount', `Must be string or number, got ${typeof monObj.amount}`, {
+            code: OcpErrorCodes.INVALID_TYPE,
+            expectedType: 'string | number',
+            receivedValue: monObj.amount,
+          });
         }
 
         // Validate currency exists and is string
         if (typeof monObj.currency !== 'string' || !monObj.currency) {
-          throw new Error('Monetary currency is required and must be a non-empty string');
+          throw new OcpValidationError('monetary.currency', 'Required field must be a non-empty string', {
+            code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+            expectedType: 'string',
+            receivedValue: monObj.currency,
+          });
         }
 
         const amount = normalizeNumericString(
@@ -204,14 +221,19 @@ export async function getConvertibleIssuanceAsOcf(
       };
 
       if (typeof m === 'string') {
-        throw new Error(`conversion_mechanism missing variant value (got tag '${m}')`);
+        throw new OcpParseError(`conversion_mechanism missing variant value (got tag '${m}')`, {
+          source: 'conversionRight.conversion_mechanism',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+        });
       }
 
       if (m && typeof m === 'object') {
         const tag = (m as Record<string, unknown>).tag as string | undefined;
         const value = (m as Record<string, unknown>).value as Record<string, unknown> | undefined;
         if (!tag || !value) {
-          throw new Error('Conversion mechanism tag and value are required');
+          throw new OcpValidationError('conversion_mechanism', 'Tag and value are required', {
+            code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          });
         }
         switch (tag) {
           case 'OcfConvMechSAFE': {
@@ -265,8 +287,14 @@ export async function getConvertibleIssuanceAsOcf(
                   ? value.converts_to_percent.toString()
                   : (() => {
                       if (typeof value.converts_to_percent !== 'string') {
-                        throw new Error(
-                          `converts_to_percent must be string or number, got ${typeof value.converts_to_percent}`
+                        throw new OcpValidationError(
+                          'conversion_mechanism.converts_to_percent',
+                          `Must be string or number, got ${typeof value.converts_to_percent}`,
+                          {
+                            code: OcpErrorCodes.INVALID_TYPE,
+                            expectedType: 'string | number',
+                            receivedValue: value.converts_to_percent,
+                          }
                         );
                       }
                       return value.converts_to_percent;
@@ -289,8 +317,14 @@ export async function getConvertibleIssuanceAsOcf(
                   ? value.converts_to_quantity.toString()
                   : (() => {
                       if (typeof value.converts_to_quantity !== 'string') {
-                        throw new Error(
-                          `converts_to_quantity must be string or number, got ${typeof value.converts_to_quantity}`
+                        throw new OcpValidationError(
+                          'conversion_mechanism.converts_to_quantity',
+                          `Must be string or number, got ${typeof value.converts_to_quantity}`,
+                          {
+                            code: OcpErrorCodes.INVALID_TYPE,
+                            expectedType: 'string | number',
+                            receivedValue: value.converts_to_quantity,
+                          }
                         );
                       }
                       return value.converts_to_quantity;
@@ -333,8 +367,14 @@ export async function getConvertibleIssuanceAsOcf(
                         : typeof value.discount_percentage === 'string'
                           ? value.discount_percentage
                           : (() => {
-                              throw new Error(
-                                `discount_percentage must be string or number, got ${typeof value.discount_percentage}`
+                              throw new OcpValidationError(
+                                'conversion_mechanism.discount_percentage',
+                                `Must be string or number, got ${typeof value.discount_percentage}`,
+                                {
+                                  code: OcpErrorCodes.INVALID_TYPE,
+                                  expectedType: 'string | number',
+                                  receivedValue: value.discount_percentage,
+                                }
                               );
                             })()
                     ),
@@ -357,14 +397,32 @@ export async function getConvertibleIssuanceAsOcf(
                   const irObj = ir as Record<string, unknown>;
                   // Validate interest rate
                   if (irObj.rate === undefined || irObj.rate === null) {
-                    throw new Error('Interest rate is required');
+                    throw new OcpValidationError('interest_rate.rate', 'Required field is missing', {
+                      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+                    });
                   }
                   if (typeof irObj.rate !== 'string' && typeof irObj.rate !== 'number') {
-                    throw new Error(`Interest rate must be string or number, got ${typeof irObj.rate}`);
+                    throw new OcpValidationError(
+                      'interest_rate.rate',
+                      `Must be string or number, got ${typeof irObj.rate}`,
+                      {
+                        code: OcpErrorCodes.INVALID_TYPE,
+                        expectedType: 'string | number',
+                        receivedValue: irObj.rate,
+                      }
+                    );
                   }
                   // Validate accrual_start_date
                   if (typeof irObj.accrual_start_date !== 'string' || !irObj.accrual_start_date) {
-                    throw new Error('Interest rate accrual_start_date is required and must be a non-empty string');
+                    throw new OcpValidationError(
+                      'interest_rate.accrual_start_date',
+                      'Required field must be a non-empty string',
+                      {
+                        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+                        expectedType: 'string',
+                        receivedValue: irObj.accrual_start_date,
+                      }
+                    );
                   }
                   return {
                     rate: normalizeNumericString(typeof irObj.rate === 'number' ? irObj.rate.toString() : irObj.rate),
@@ -391,7 +449,10 @@ export async function getConvertibleIssuanceAsOcf(
               if (!s) return undefined;
               if (s === 'OcfSimple') return 'SIMPLE';
               if (s === 'OcfCompounding') return 'COMPOUNDING';
-              throw new Error(`Unknown compounding_type: ${safeString(v)}`);
+              throw new OcpParseError(`Unknown compounding_type: ${safeString(v)}`, {
+                source: 'conversion_mechanism.compounding_type',
+                code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+              });
             };
             const mech: NoteConversionMechanism = {
               type: 'CONVERTIBLE_NOTE_CONVERSION',
@@ -453,7 +514,11 @@ export async function getConvertibleIssuanceAsOcf(
           }
           case 'OcfConvMechCustom': {
             if (!value.custom_conversion_description) {
-              throw new Error('CUSTOM_CONVERSION missing custom_conversion_description');
+              throw new OcpValidationError(
+                'conversion_mechanism.custom_conversion_description',
+                'Required for CUSTOM_CONVERSION',
+                { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+              );
             }
             const mech: CustomConversionMechanism = {
               type: 'CUSTOM_CONVERSION',
@@ -462,11 +527,17 @@ export async function getConvertibleIssuanceAsOcf(
             return mech;
           }
           default:
-            throw new Error(`Unknown convertible conversion mechanism tag: ${String(tag)}`);
+            throw new OcpParseError(`Unknown convertible conversion mechanism tag: ${String(tag)}`, {
+              source: 'conversion_mechanism.tag',
+              code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+            });
         }
       }
 
-      throw new Error('Unknown conversion_mechanism shape');
+      throw new OcpParseError('Unknown conversion_mechanism shape', {
+        source: 'conversionRight.conversion_mechanism',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      });
     };
 
     return ts.map((raw, idx) => {
@@ -521,7 +592,9 @@ export async function getConvertibleIssuanceAsOcf(
         };
       }
       if (!conversion_right) {
-        throw new Error('Missing conversion_right for convertible trigger');
+        throw new OcpValidationError('conversionTrigger.conversion_right', 'Required field is missing', {
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        });
       }
 
       const trigger: ConversionTrigger = {
@@ -545,10 +618,26 @@ export async function getConvertibleIssuanceAsOcf(
     !investmentAmount ||
     (typeof investmentAmount.amount !== 'string' && typeof investmentAmount.amount !== 'number')
   ) {
-    throw new Error('investment_amount.amount is required and must be string or number');
+    throw new OcpValidationError(
+      'convertibleIssuance.investment_amount.amount',
+      'Required field must be string or number',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string | number',
+        receivedValue: investmentAmount?.amount,
+      }
+    );
   }
   if (typeof investmentAmount.currency !== 'string' || !investmentAmount.currency) {
-    throw new Error('investment_amount.currency is required and must be a non-empty string');
+    throw new OcpValidationError(
+      'convertibleIssuance.investment_amount.currency',
+      'Required field must be a non-empty string',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string',
+        receivedValue: investmentAmount.currency,
+      }
+    );
   }
 
   // Convert to string after validation

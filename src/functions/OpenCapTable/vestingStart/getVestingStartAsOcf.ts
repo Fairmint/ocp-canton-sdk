@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfVestingStart } from '../../../types/native';
 import { damlVestingStartToNative, type DamlVestingStartData } from './damlToOcf';
 
@@ -26,7 +27,10 @@ export async function getVestingStartAsOcf(
 ): Promise<GetVestingStartAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new Error('No createArgument found for contract');
+    throw new OcpContractError('No createArgument found for contract', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   const { createArgument } = eventsResponse.created.createdEvent;
@@ -42,7 +46,10 @@ export async function getVestingStartAsOcf(
   }
 
   if (!hasVestingStartData(createArgument)) {
-    throw new Error('Unexpected createArgument shape for VestingStart');
+    throw new OcpParseError('Unexpected createArgument shape for VestingStart', {
+      source: 'VestingStart.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
   }
 
   const native = damlVestingStartToNative(createArgument.vesting_start_data);

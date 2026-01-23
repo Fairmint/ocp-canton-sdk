@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfValuation } from '../../../types/native';
 import { damlValuationToNative, type DamlValuationData } from './damlToOcf';
 
@@ -26,7 +27,10 @@ export async function getValuationAsOcf(
 ): Promise<GetValuationAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new Error('No createArgument found for contract');
+    throw new OcpContractError('No createArgument found for contract', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   const { createArgument } = eventsResponse.created.createdEvent;
@@ -39,7 +43,10 @@ export async function getValuationAsOcf(
   }
 
   if (!hasValuationData(createArgument)) {
-    throw new Error('Unexpected createArgument shape for Valuation');
+    throw new OcpParseError('Unexpected createArgument shape for Valuation', {
+      source: 'Valuation.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
   }
 
   const native = damlValuationToNative(createArgument.valuation_data);
