@@ -508,11 +508,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
     });
 
-    /**
-     * SKIPPED: ConvertibleCancellation fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
-     */
-    test.skip('Convertible Cancellation round-trips correctly', async () => {
+    test('Convertible Cancellation round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -536,11 +532,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
     });
 
-    /**
-     * SKIPPED: ConvertibleConversion fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
-     */
-    test.skip('Convertible Conversion round-trips correctly', async () => {
+    test('Convertible Conversion round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -701,11 +693,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
     });
 
-    /**
-     * SKIPPED: StockClassAuthorizedSharesAdjustment fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
-     */
-    test.skip('Stock Class Authorized Shares Adjustment round-trips correctly', async () => {
+    test('Stock Class Authorized Shares Adjustment round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -729,11 +717,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
     });
 
-    /**
-     * SKIPPED: StockPlanPoolAdjustment fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
-     */
-    test.skip('Stock Plan Pool Adjustment round-trips correctly', async () => {
+    test('Stock Plan Pool Adjustment round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1101,11 +1085,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
     });
 
-    /**
-     * SKIPPED: EquityCompensationRelease fixture requires format adjustments for DAML encoding.
-     * TODO: Fix fixture format to match expected DAML structure.
-     */
-    test.skip('Equity Compensation Release round-trips correctly (synthetic)', async () => {
+    test('Equity Compensation Release round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
