@@ -587,6 +587,80 @@ Tasks are tracked in [Linear](https://linear.app/fairmint) under the **Eng** tea
 
 See [canton/llms.txt](https://github.com/fairmint/canton/blob/main/llms.txt#linear-integration) for the full Linear workflow documentation.
 
+### Linear API (for AI Agents)
+
+When working in CI/cloud environments, the `LINEAR_API_KEY` environment variable is available for programmatic Linear access. **Always check for this first** when tasks involve Linear issue management.
+
+**Check for Linear API access:**
+
+```bash
+# Check if LINEAR_API_KEY is available
+if [ -n "$LINEAR_API_KEY" ]; then
+  echo "Linear API available"
+fi
+```
+
+**Create a subtask via Linear API:**
+
+```bash
+# Create a subtask under a parent issue
+curl -X POST https://api.linear.app/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -d '{
+    "query": "mutation CreateIssue($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier url } } }",
+    "variables": {
+      "input": {
+        "teamId": "TEAM_ID",
+        "title": "Subtask title",
+        "description": "Subtask description",
+        "parentId": "PARENT_ISSUE_ID"
+      }
+    }
+  }'
+```
+
+**Get team ID and issue IDs:**
+
+```bash
+# Get teams (to find teamId)
+curl -X POST https://api.linear.app/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -d '{"query": "{ teams { nodes { id name } } }"}'
+
+# Get issue by identifier (e.g., ENG-450)
+curl -X POST https://api.linear.app/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -d '{"query": "{ issue(id: \"ENG-450\") { id title } }"}'
+```
+
+**Update issue status/description:**
+
+```bash
+# Update an issue
+curl -X POST https://api.linear.app/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $LINEAR_API_KEY" \
+  -d '{
+    "query": "mutation UpdateIssue($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success } }",
+    "variables": {
+      "id": "ISSUE_ID",
+      "input": {
+        "description": "Updated description"
+      }
+    }
+  }'
+```
+
+**AI Agent checklist for Linear tasks:**
+
+1. **Always check** `$LINEAR_API_KEY` before attempting Linear operations
+2. **Use the API** to create subtasks, update issues, and add comments
+3. **Include issue identifiers** (e.g., `ENG-450`) in commit messages for automatic linking
+4. **Create subtasks** for distinct work items rather than documenting in markdown files
+
 ## Docs
 
 - End-user docs: [ocp.canton.fairmint.com](https://ocp.canton.fairmint.com/)
