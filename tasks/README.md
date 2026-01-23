@@ -30,9 +30,6 @@ This directory contains task documentation for the OCP Canton SDK project.
 - **[Converter File Organization Pattern](./2026/01/ai/2026.01.21-converter-file-organization.md)**
   — Open (High) Enforce per-entity folder organization for converters, not centralized files
 
-- **[OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)** —
-  Partially Complete Simplify OcpClient class, cleanup require() (context caching done)
-
 - **[Input Validation Layer](./2026/01/ai/2026.01.21-input-validation-layer.md)** — Open (Medium)
   Comprehensive validation before DAML conversion
 
@@ -57,6 +54,9 @@ This directory contains task documentation for the OCP Canton SDK project.
   from legacy to batch API
 
 ## Completed Tasks
+
+- **[OcpClient API Simplification](./2026/01/ai/2026.01.16-ocp-client-api-simplification.md)** —
+  Complete (2026-01-22) Context caching, extension pattern for modules, unit tests
 
 - **[Batch Size Limits](./2026/01/ai/2026.01.21-batch-size-limits.md)** — Closed (2026-01-22) Won't
   do - batch size limits are best handled at the client/application level
