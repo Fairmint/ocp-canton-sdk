@@ -36,14 +36,15 @@ export const DEFAULT_DEPRECATED_FIELDS = [
  */
 export interface OcfComparisonOptions {
   /**
-   * Fields to ignore during comparison. Defaults to DEFAULT_INTERNAL_FIELDS.
-   * Set to empty array to compare all fields.
+   * Fields to ignore during comparison. Defaults to empty array (compare all fields).
+   * Use DEFAULT_INTERNAL_FIELDS to ignore internal database/SDK fields.
    */
   ignoredFields?: readonly string[];
 
   /**
    * Deprecated fields that may differ between source and destination.
-   * Defaults to DEFAULT_DEPRECATED_FIELDS.
+   * Defaults to empty array (compare all fields).
+   * Use DEFAULT_DEPRECATED_FIELDS to ignore deprecated OCF fields.
    */
   deprecatedFields?: readonly string[];
 
@@ -198,8 +199,8 @@ export function ocfDeepEqual(a: unknown, b: unknown, options?: OcfComparisonOpti
  * ```
  */
 export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOptions): OcfComparisonResult {
-  const ignoredFields = new Set(options?.ignoredFields ?? DEFAULT_INTERNAL_FIELDS);
-  const deprecatedFields = new Set(options?.deprecatedFields ?? DEFAULT_DEPRECATED_FIELDS);
+  const ignoredFields = new Set(options?.ignoredFields ?? []);
+  const deprecatedFields = new Set(options?.deprecatedFields ?? []);
   const allIgnored = new Set([...ignoredFields, ...deprecatedFields]);
   const reportDifferences = options?.reportDifferences ?? false;
 
