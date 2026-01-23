@@ -2,21 +2,7 @@
  * Fluent batch builder for cap table updates.
  *
  * Provides a type-safe API for building batch UpdateCapTable commands that support atomic creates, edits, and deletes
- * of multiple OCF entities.
- *
- * @example
- *   ```typescript
- *   const result = await ocp.capTable
- *     .update({
- *       capTableContractId,
- *       featuredAppRightContractDetails,
- *     })
- *     .create('stakeholder', stakeholderData)
- *     .create('stockClass', stockClassData)
- *     .edit('stakeholder', updatedStakeholderData)
- *     .delete('document', documentId)
- *     .execute();
- *   ```;
+ * of multiple OCF entities. Chain .create(), .edit(), and .delete() calls, then call .execute() to submit.
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
@@ -25,6 +11,7 @@ import type {
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts } from '../../../types';
 import {
   ENTITY_TAG_MAP,
@@ -71,16 +58,7 @@ export class CapTableBatch {
   /**
    * Add a create operation to the batch.
    *
-   * @example
-   *   ```typescript
-   *   batch.create('stakeholder', {
-   *     id: 'sh-123',
-   *     name: { legal_name: 'John Doe' },
-   *     stakeholder_type: 'INDIVIDUAL',
-   *   });
-   *   ```;
-   *
-   * @param type - The OCF entity type to create
+   * @param type - The OCF entity type to create (e.g., 'stakeholder', 'stockClass')
    * @param data - The native OCF data for the entity
    * @returns This for chaining
    */
@@ -93,15 +71,6 @@ export class CapTableBatch {
 
   /**
    * Add an edit operation to the batch.
-   *
-   * @example
-   *   ```typescript
-   *   batch.edit('stakeholder', {
-   *     id: 'sh-123',
-   *     name: { legal_name: 'Jane Doe' },
-   *     stakeholder_type: 'INDIVIDUAL',
-   *   });
-   *   ```;
    *
    * @param type - The OCF entity type to edit
    * @param data - The updated native OCF data (must include the entity's id)
@@ -116,11 +85,6 @@ export class CapTableBatch {
 
   /**
    * Add a delete operation to the batch.
-   *
-   * @example
-   *   ```typescript
-   *   batch.delete('document', 'doc-123');
-   *   ```;
    *
    * @param type - The OCF entity type to delete
    * @param id - The OCF object ID to delete
@@ -149,7 +113,13 @@ export class CapTableBatch {
    */
   build(): CommandWithDisclosedContracts {
     if (this.isEmpty) {
-      throw new Error('Cannot build empty batch - add at least one create, edit, or delete operation');
+      throw new OcpValidationError(
+        'batch',
+        'Cannot build empty batch - add at least one create, edit, or delete operation',
+        {
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        }
+      );
     }
 
     // Use the templateId from capTableContractDetails when provided (from actual ledger),
@@ -186,11 +156,18 @@ export class CapTableBatch {
    * Build and execute the batch update.
    *
    * @returns The result containing the updated cap table contract ID and affected entity IDs
-   * @throws Error if no client was provided or if the batch is empty
+   * @throws OcpValidationError if no client was provided or if the batch is empty
+   * @throws OcpContractError if the UpdateCapTable result is not found in the transaction tree
    */
   async execute(): Promise<UpdateCapTableResult> {
     if (!this.client) {
-      throw new Error('Cannot execute batch without a client - use build() instead and submit manually');
+      throw new OcpValidationError(
+        'client',
+        'Cannot execute batch without a client - use build() instead and submit manually',
+        {
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        }
+      );
     }
 
     const { command, disclosedContracts } = this.build();
@@ -223,7 +200,11 @@ export class CapTableBatch {
       }
     }
 
-    throw new Error('UpdateCapTable result not found in transaction tree');
+    throw new OcpContractError('UpdateCapTable result not found in transaction tree', {
+      contractId: this.params.capTableContractId,
+      choice: 'UpdateCapTable',
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   /** Clear all operations from the batch. */

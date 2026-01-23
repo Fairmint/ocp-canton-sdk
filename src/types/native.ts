@@ -1653,6 +1653,10 @@ export interface OcfStockReissuance {
   security_id: string;
   /** Array of identifiers for new securities resulting from the reissuance */
   resulting_security_ids: string[];
+  /** Reason for the reissuance */
+  reason_text?: string;
+  /** Reference to a related split transaction */
+  split_transaction_id?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1670,6 +1674,8 @@ export interface OcfStockConsolidation {
   security_ids: string[];
   /** Array of identifiers for new securities resulting from the consolidation */
   resulting_security_ids: string[];
+  /** Reason for the consolidation */
+  reason_text?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1894,6 +1900,71 @@ export interface OcfFinancing {
   post_money_valuation?: Monetary;
   /** Identifier for the stock class created or used in this financing */
   stock_class_id?: string;
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+// ===== Stakeholder Change Event Types =====
+
+/**
+ * Type - Stakeholder Relationship Type The type of relationship a stakeholder has with the issuer OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StakeholderRelationshipType.schema.json
+ */
+export type StakeholderRelationshipType =
+  | 'EMPLOYEE'
+  | 'ADVISOR'
+  | 'INVESTOR'
+  | 'FOUNDER'
+  | 'BOARD_MEMBER'
+  | 'OFFICER'
+  | 'OTHER';
+
+/**
+ * Type - Stakeholder Status The current status of a stakeholder's engagement with the issuer OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StakeholderStatus.schema.json
+ */
+export type StakeholderStatus =
+  | 'ACTIVE'
+  | 'LEAVE_OF_ABSENCE'
+  | 'TERMINATION_VOLUNTARY_OTHER'
+  | 'TERMINATION_VOLUNTARY_GOOD_CAUSE'
+  | 'TERMINATION_VOLUNTARY_RETIREMENT'
+  | 'TERMINATION_INVOLUNTARY_OTHER'
+  | 'TERMINATION_INVOLUNTARY_DEATH'
+  | 'TERMINATION_INVOLUNTARY_DISABILITY'
+  | 'TERMINATION_INVOLUNTARY_WITH_CAUSE';
+
+/**
+ * Object - Stakeholder Relationship Change Event Object describing a change in a stakeholder's relationship with the
+ * issuer OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/events/StakeholderRelationshipChangeEvent.schema.json
+ */
+export interface OcfStakeholderRelationshipChangeEvent {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the event occurred */
+  date: string;
+  /** Identifier for the stakeholder whose relationship is changing */
+  stakeholder_id: string;
+  /** New relationship type(s) for the stakeholder */
+  new_relationships: StakeholderRelationshipType[];
+  /** Unstructured text comments related to and stored for the object */
+  comments?: string[];
+}
+
+/**
+ * Object - Stakeholder Status Change Event Object describing a change in a stakeholder's status with the issuer OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/events/StakeholderStatusChangeEvent.schema.json
+ */
+export interface OcfStakeholderStatusChangeEvent {
+  /** Identifier for the object */
+  id: string;
+  /** Date on which the event occurred */
+  date: string;
+  /** Identifier for the stakeholder whose status is changing */
+  stakeholder_id: string;
+  /** New status for the stakeholder */
+  new_status: StakeholderStatus;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

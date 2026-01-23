@@ -20,6 +20,8 @@ import {
   createTestDocumentData,
   createTestStakeholderData,
   createTestStockLegendTemplateData,
+  createTestStockPlanData,
+  createTestVestingTermsData,
   generateTestId,
   setupTestIssuer,
   setupTestStakeholder,
@@ -235,5 +237,178 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
     // Verify all operations succeeded
     expect(result.createdCids).toHaveLength(1);
     expect(result.editedCids).toHaveLength(1);
+  });
+
+  /**
+   * Test: Create stock plan via batch API.
+   *
+   * Stock plans are used to manage equity compensation programs like option pools, RSU pools, etc.
+   *
+   * Note: stock_class_ids is required but we use a placeholder since actual stockClass creation has numeric encoding
+   * issues.
+   */
+  test('creates stock plan entity', async () => {
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+    });
+
+    // Create a stock plan (uses placeholder stock class ID)
+    const stockClassId = generateTestId('stock-class-placeholder');
+    const stockPlanData = createTestStockPlanData({
+      id: generateTestId('stock-plan'),
+      plan_name: '2024 Equity Incentive Plan',
+      initial_shares_reserved: '5000000',
+      stock_class_ids: [stockClassId],
+      default_cancellation_behavior: 'RETURN_TO_POOL',
+    });
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: issuerSetup.issuerContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    const result = await batch.create('stockPlan', stockPlanData).execute();
+
+    expect(result.createdCids).toHaveLength(1);
+    expect(result.updatedCapTableCid).toBeTruthy();
+  });
+
+  /**
+   * Test: Create vesting terms via batch API.
+   *
+   * Vesting terms define how securities vest over time.
+   */
+  test('creates vesting terms entity', async () => {
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+    });
+
+    const vestingTermsData = createTestVestingTermsData({
+      id: generateTestId('vesting-terms'),
+      name: 'Standard 4-Year Vesting',
+    });
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: issuerSetup.issuerContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    const result = await batch.create('vestingTerms', vestingTermsData).execute();
+
+    expect(result.createdCids).toHaveLength(1);
+    expect(result.updatedCapTableCid).toBeTruthy();
+  });
+
+  /**
+   * Test: Empty batch throws error.
+   *
+   * Attempting to execute an empty batch should fail with a clear error message.
+   */
+  test('throws error when executing empty batch', async () => {
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+    });
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: issuerSetup.issuerContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    // Should throw when executing empty batch
+    await expect(batch.execute()).rejects.toThrow('Cannot build empty batch');
+  });
+
+  /**
+   * Test: Batch with missing required field throws error.
+   *
+   * Creating an entity with a missing required field should result in an error.
+   */
+  test('throws error when creating stakeholder without id', async () => {
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+    });
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: issuerSetup.issuerContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    // Create stakeholder data without an id
+    const invalidStakeholderData = {
+      id: '', // Empty ID should fail validation
+      name: { legal_name: 'Test' },
+      stakeholder_type: 'INDIVIDUAL' as const,
+    };
+
+    // Should throw during create() due to validation (validation happens synchronously)
+    // The error message now uses structured error format with field path
+    expect(() => batch.create('stakeholder', invalidStakeholderData)).toThrow("'stakeholder.id'");
+  });
+
+  /**
+   * Test: Large batch with many entities.
+   *
+   * Tests that the batch API can handle a larger number of entities in a single transaction.
+   */
+  test('handles batch with many entities', async () => {
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+    });
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: issuerSetup.issuerContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    // Add 10 stakeholders to the batch
+    for (let i = 0; i < 10; i++) {
+      batch.create(
+        'stakeholder',
+        createTestStakeholderData({
+          id: generateTestId(`batch-member-${i}`),
+          name: { legal_name: `Batch Member ${i}` },
+        })
+      );
+    }
+
+    const result = await batch.execute();
+
+    expect(result.createdCids).toHaveLength(10);
+    expect(result.updatedCapTableCid).toBeTruthy();
   });
 });

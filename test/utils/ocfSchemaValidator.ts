@@ -18,6 +18,9 @@ const SCHEMA_MAP: Record<string, string> = {
   TX_CONVERTIBLE_CANCELLATION: 'objects/transactions/cancellation/ConvertibleCancellation.schema.json',
   TX_EQUITY_COMPENSATION_CANCELLATION: 'objects/transactions/cancellation/EquityCompensationCancellation.schema.json',
   TX_STOCK_TRANSFER: 'objects/transactions/transfer/StockTransfer.schema.json',
+  TX_CONVERTIBLE_TRANSFER: 'objects/transactions/transfer/ConvertibleTransfer.schema.json',
+  TX_EQUITY_COMPENSATION_TRANSFER: 'objects/transactions/transfer/EquityCompensationTransfer.schema.json',
+  TX_WARRANT_TRANSFER: 'objects/transactions/transfer/WarrantTransfer.schema.json',
   TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT:
     'objects/transactions/adjustment/IssuerAuthorizedSharesAdjustment.schema.json',
   TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT:
@@ -187,15 +190,6 @@ export function getOcfValidator(): OcfSchemaValidator {
  * Check if OCF schema validation is available.
  *
  * Returns false if the OCF submodule is not initialized.
- *
- * @example
- *   ```typescript
- *   if (!isOcfValidationAvailable()) {
- *     console.warn('OCF validation skipped - submodule not initialized');
- *     return;
- *   }
- *   await validateOcfObject(data);
- *   ```;
  */
 export function isOcfValidationAvailable(): boolean {
   return getOcfValidator().isAvailable();
@@ -203,11 +197,6 @@ export function isOcfValidationAvailable(): boolean {
 
 /**
  * Validate an OCF object against its schema.
- *
- * @example
- *   ```typescript
- *   await validateOcfObject({ object_type: 'ISSUER', ... });
- *   ```;
  *
  * @throws Error if validation fails or if OCF schemas are not available (unless OCP_SKIP_OCF_VALIDATION=true is set)
  */

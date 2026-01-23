@@ -1,23 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import type {
-  ConversionMechanism,
-  ConversionTrigger,
-  StockClassConversionRight,
-  StockClassType,
-} from '../../../types/native';
+import type { ConversionMechanism, ConversionTrigger, StockClassConversionRight } from '../../../types/native';
+import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
-
-function damlStockClassTypeToNative(damlType: string): StockClassType {
-  switch (damlType) {
-    case 'OcfStockClassTypePreferred':
-      return 'PREFERRED';
-    case 'OcfStockClassTypeCommon':
-      return 'COMMON';
-    default:
-      throw new Error(`Unknown DAML stock class type: ${damlType}`);
-  }
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData): any {
@@ -329,25 +314,6 @@ export interface GetStockClassAsOcfResult {
  *
  * This function fetches the stock class contract data from the ledger and transforms it into the Open Cap Table
  * Coalition (OCF) format according to the official schema.
- *
- * @example
- *   ```typescript
- *   const result = await getStockClassAsOcf(client, {
- *     contractId: "1234567890abcdef"
- *   });
- *
- *   console.log(result.stockClass);
- *   // {
- *   //   object_type: "STOCK_CLASS",
- *   //   name: "Series A Preferred",
- *   //   class_type: "PREFERRED",
- *   //   default_id_prefix: "SA-",
- *   //   initial_shares_authorized: "1000000",
- *   //   votes_per_share: "1",
- *   //   seniority: "1",
- *   //   // ... other fields
- *   // }
- *   ```;
  *
  * @param client - The ledger JSON API client
  * @param params - Parameters for retrieving the stock class

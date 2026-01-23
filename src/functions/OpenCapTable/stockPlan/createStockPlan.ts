@@ -1,5 +1,10 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpValidationError } from '../../../errors';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types';
+import {
+  normalizeDeprecatedStockPlanFields,
+  type StockPlanDataWithDeprecatedField,
+} from '../../../utils/deprecatedFieldNormalization';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 function cancellationBehaviorToDaml(
@@ -21,7 +26,20 @@ function cancellationBehaviorToDaml(
 }
 
 export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData {
-  if (!d.id) throw new Error('stockPlan.id is required');
+  if (!d.id) {
+    throw new OcpValidationError('stockPlan.id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.id,
+    });
+  }
+
+  // Normalize deprecated stock_class_id → stock_class_ids using centralized helper
+  // Cast to allow for deprecated field which may be present in older OCF data
+  const { stock_class_ids } = normalizeDeprecatedStockPlanFields(
+    d as StockPlanDataWithDeprecatedField,
+    'stockPlan.create'
+  );
+
   return {
     id: d.id,
     plan_name: d.plan_name,
@@ -30,7 +48,7 @@ export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.
     initial_shares_reserved:
       typeof d.initial_shares_reserved === 'number' ? d.initial_shares_reserved.toString() : d.initial_shares_reserved,
     default_cancellation_behavior: cancellationBehaviorToDaml(d.default_cancellation_behavior),
-    stock_class_ids: d.stock_class_ids,
+    stock_class_ids,
     comments: cleanComments(d.comments),
   };
 }
