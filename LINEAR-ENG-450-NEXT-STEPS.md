@@ -52,17 +52,17 @@ blocks the batch API for several entity types:
 
 **Blocked Entity Types:**
 
-| Entity Type                           | Affected Fields                                           |
-| ------------------------------------- | --------------------------------------------------------- |
-| `stockClass`                          | `price_per_share`, `par_value`                            |
-| `stockIssuance`                       | `share_price`, `cost_basis`                               |
-| `valuation`                           | `price_per_share`                                         |
-| `convertibleIssuance`                 | `investment_amount`, `conversion_valuation_cap`           |
-| `equityCompensationIssuance`          | `exercise_price`                                          |
-| `warrantIssuance`                     | `exercise_price`, `purchase_price`                        |
-| `stockClassSplit`                     | `OcfRatio` (nested `numerator`/`denominator`)             |
-| `stockClassConversionRatioAdjustment` | `OcfRatioConversionMechanism`                             |
-| `vestingTerms`                        | `vesting_conditions` with `portions`                      |
+| Entity Type                           | Affected Fields                                 |
+| ------------------------------------- | ----------------------------------------------- |
+| `stockClass`                          | `price_per_share`, `par_value`                  |
+| `stockIssuance`                       | `share_price`, `cost_basis`                     |
+| `valuation`                           | `price_per_share`                               |
+| `convertibleIssuance`                 | `investment_amount`, `conversion_valuation_cap` |
+| `equityCompensationIssuance`          | `exercise_price`                                |
+| `warrantIssuance`                     | `exercise_price`, `purchase_price`              |
+| `stockClassSplit`                     | `OcfRatio` (nested `numerator`/`denominator`)   |
+| `stockClassConversionRatioAdjustment` | `OcfRatioConversionMechanism`                   |
+| `vestingTerms`                        | `vesting_conditions` with `portions`            |
 
 **Impact**: 15+ integration tests are skipped with `test.skip()`
 
