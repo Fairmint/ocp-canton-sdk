@@ -32,6 +32,16 @@ describe('normalizeSingularToArray', () => {
       ).toEqual([]);
     });
 
+    test('returns empty array when singular value is empty string', () => {
+      // Empty strings should be treated as invalid/missing values (matching original truthy-check behavior)
+      expect(
+        normalizeSingularToArray({
+          singularValue: '',
+          arrayValue: undefined,
+        })
+      ).toEqual([]);
+    });
+
     test('wraps singular value in array when array is undefined', () => {
       expect(
         normalizeSingularToArray({
@@ -218,6 +228,16 @@ describe('normalizeDeprecatedStockPlanFields', () => {
     test('returns empty array when stock_class_ids is empty and no deprecated field', () => {
       const result = normalizeDeprecatedStockPlanFields({
         stock_class_ids: [],
+      });
+
+      expect(result.stock_class_ids).toEqual([]);
+      expect(result.usedDeprecatedField).toBe(false);
+    });
+
+    test('returns empty array when deprecated stock_class_id is empty string', () => {
+      // Empty strings should be treated as invalid/missing values (matching original truthy-check behavior)
+      const result = normalizeDeprecatedStockPlanFields({
+        stock_class_id: '',
       });
 
       expect(result.stock_class_ids).toEqual([]);

@@ -134,7 +134,8 @@ export function normalizeSingularToArray<T>(params: SingularToArrayParams<T>): T
   }
 
   // If singular value exists, convert to array and emit warning
-  if (singularValue !== undefined && singularValue !== null) {
+  // Also exclude empty strings to match original truthy-check behavior
+  if (singularValue !== undefined && singularValue !== null && singularValue !== '') {
     if (deprecatedFieldName && replacementFieldName) {
       emitDeprecationWarning({
         deprecatedField: deprecatedFieldName,
@@ -203,7 +204,9 @@ export function normalizeDeprecatedStockPlanFields(
   data: StockPlanDataWithDeprecatedField,
   context?: string
 ): NormalizedStockPlanFields {
-  const hasDeprecatedField = data.stock_class_id !== undefined && data.stock_class_id !== null;
+  // Also exclude empty strings to match original truthy-check behavior
+  const hasDeprecatedField =
+    data.stock_class_id !== undefined && data.stock_class_id !== null && data.stock_class_id !== '';
   const hasCurrentField = Array.isArray(data.stock_class_ids) && data.stock_class_ids.length > 0;
 
   // Only count as using deprecated field if deprecated is present and current is not
@@ -256,8 +259,8 @@ export interface DeprecatedFieldUsageResult {
 export function checkStockPlanDeprecatedFieldUsage(data: StockPlanDataWithDeprecatedField): DeprecatedFieldUsageResult {
   const deprecatedFieldsUsed: string[] = [];
 
-  // Check for deprecated stock_class_id field
-  if (data.stock_class_id !== undefined && data.stock_class_id !== null) {
+  // Check for deprecated stock_class_id field (exclude empty strings to match original truthy-check behavior)
+  if (data.stock_class_id !== undefined && data.stock_class_id !== null && data.stock_class_id !== '') {
     deprecatedFieldsUsed.push('stock_class_id');
   }
 
@@ -339,7 +342,8 @@ export function checkDeprecatedFields(objectType: string, data: Record<string, u
 
   for (const mapping of mappings) {
     const value = data[mapping.deprecatedField];
-    if (value !== undefined && value !== null) {
+    // Also exclude empty strings to match original truthy-check behavior
+    if (value !== undefined && value !== null && value !== '') {
       deprecatedFieldsUsed.push(mapping.deprecatedField);
     }
   }
