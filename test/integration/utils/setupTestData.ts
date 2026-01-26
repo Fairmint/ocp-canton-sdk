@@ -12,6 +12,7 @@ import type { OcpClient } from '../../../src/OcpClient';
 import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
 import type {
   OcfConvertibleConversion,
+  OcfConvertibleIssuance,
   OcfConvertibleRetraction,
   OcfConvertibleTransfer,
   OcfDocument,
@@ -38,6 +39,7 @@ import type {
   OcfVestingStart,
   OcfVestingTerms,
   OcfWarrantExercise,
+  OcfWarrantIssuance,
   OcfWarrantRetraction,
   OcfWarrantTransfer,
 } from '../../../src/types/native';
@@ -832,5 +834,487 @@ export function createTestWarrantTransferData(
     quantity: rest.quantity ?? '2500',
     resulting_security_ids: rest.resulting_security_ids ?? [generateTestId('result-security')],
     ...rest,
+  };
+}
+
+// ===== Security Setup Helpers =====
+// These helpers create the full prerequisite chain needed before creating transactions
+// that reference a security_id (e.g., StockCancellation needs a StockIssuance to exist first)
+
+/** Result from setting up a stock security. */
+export interface StockSecuritySetup {
+  /** The security_id that can be used in subsequent stock transactions */
+  securityId: string;
+  /** The contract ID of the created StockIssuance */
+  stockIssuanceContractId: string;
+  /** The stakeholder_id used for the issuance */
+  stakeholderId: string;
+  /** The stock_class_id used for the issuance */
+  stockClassId: string;
+  /** The updated CapTable contract ID (for subsequent batch operations) */
+  capTableContractId: string;
+}
+
+/** Result from setting up a warrant security. */
+export interface WarrantSecuritySetup {
+  /** The security_id that can be used in subsequent warrant transactions */
+  securityId: string;
+  /** The contract ID of the created WarrantIssuance */
+  warrantIssuanceContractId: string;
+  /** The stakeholder_id used for the issuance */
+  stakeholderId: string;
+  /** The updated CapTable contract ID (for subsequent batch operations) */
+  capTableContractId: string;
+}
+
+/** Result from setting up an equity compensation security. */
+export interface EquityCompensationSecuritySetup {
+  /** The security_id that can be used in subsequent equity compensation transactions */
+  securityId: string;
+  /** The contract ID of the created EquityCompensationIssuance */
+  equityCompensationIssuanceContractId: string;
+  /** The stakeholder_id used for the issuance */
+  stakeholderId: string;
+  /** The stock_class_id used (equity comp can reference a stock class directly) */
+  stockClassId: string;
+  /** The updated CapTable contract ID (for subsequent batch operations) */
+  capTableContractId: string;
+}
+
+/** Result from setting up a convertible security. */
+export interface ConvertibleSecuritySetup {
+  /** The security_id that can be used in subsequent convertible transactions */
+  securityId: string;
+  /** The contract ID of the created ConvertibleIssuance */
+  convertibleIssuanceContractId: string;
+  /** The stakeholder_id used for the issuance */
+  stakeholderId: string;
+  /** The updated CapTable contract ID (for subsequent batch operations) */
+  capTableContractId: string;
+}
+
+/** Create test warrant issuance data with optional overrides. */
+export function createTestWarrantIssuanceData(
+  overrides: Partial<OcfWarrantIssuance> & { stakeholder_id: string }
+): OcfWarrantIssuance {
+  const id = overrides.id ?? generateTestId('warrant-issuance');
+  const securityId = overrides.security_id ?? generateTestId('warrant-security');
+  const { stakeholder_id, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id: securityId,
+    custom_id: `W-${securityId.substring(0, 8)}`,
+    stakeholder_id,
+    quantity: '10000',
+    purchase_price: { amount: '1000', currency: 'USD' },
+    warrant_expiration_date: generateDateString(365 * 5), // 5 years from now
+    exercise_triggers: [],
+    security_law_exemptions: [],
+    ...rest,
+  };
+}
+
+/** Create test convertible issuance data with optional overrides. */
+export function createTestConvertibleIssuanceData(
+  overrides: Partial<OcfConvertibleIssuance> & { stakeholder_id: string }
+): OcfConvertibleIssuance {
+  const id = overrides.id ?? generateTestId('convertible-issuance');
+  const securityId = overrides.security_id ?? generateTestId('convertible-security');
+  const { stakeholder_id, ...rest } = overrides;
+  return {
+    id,
+    date: generateDateString(0),
+    security_id: securityId,
+    custom_id: `CONV-${securityId.substring(0, 8)}`,
+    stakeholder_id,
+    investment_amount: { amount: '100000', currency: 'USD' },
+    convertible_type: 'NOTE',
+    security_law_exemptions: [],
+    conversion_triggers: [],
+    seniority: 1,
+    ...rest,
+  };
+}
+
+/** Helper to extract a contract ID from a createdCids array by type tag. */
+function extractCreatedCid(createdCids: Array<Record<string, string>>, tagPrefix: string): string {
+  for (const cid of createdCids) {
+    for (const [key, value] of Object.entries(cid)) {
+      if (key.startsWith(tagPrefix)) {
+        return value;
+      }
+    }
+  }
+  return '';
+}
+
+/**
+ * Set up a complete stock security chain (stakeholder, stock class, issuance).
+ * Required before creating stock transactions (StockCancellation, StockTransfer, etc.)
+ * that reference a security_id.
+ */
+export async function setupStockSecurity(
+  ocp: OcpClient,
+  options: {
+    issuerContractId: string;
+    issuerParty: string;
+    featuredAppRightContractDetails: DisclosedContract;
+    capTableContractDetails?: DisclosedContract;
+    /** Optional: provide specific security_id to use */
+    securityId?: string;
+    /** Optional: reuse existing stakeholder_id */
+    stakeholderId?: string;
+    /** Optional: reuse existing stock_class_id */
+    stockClassId?: string;
+  }
+): Promise<StockSecuritySetup> {
+  const securityId = options.securityId ?? generateTestId('stock-security');
+  let capTableContractId = options.issuerContractId;
+  let { capTableContractDetails } = options;
+
+  // Step 1: Create stakeholder if not provided
+  let { stakeholderId } = options;
+  if (!stakeholderId) {
+    const stakeholderData = createTestStakeholderData();
+    stakeholderId = stakeholderData.id;
+
+    const batch1 = ocp.OpenCapTable.capTable.update({
+      capTableContractId,
+      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+      capTableContractDetails,
+      actAs: [options.issuerParty],
+    });
+    const result1 = await batch1.create('stakeholder', stakeholderData).execute();
+    capTableContractId = result1.updatedCapTableCid;
+
+    // Get updated cap table contract details
+    const events1 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    if (events1.created?.createdEvent) {
+      capTableContractDetails = {
+        templateId: events1.created.createdEvent.templateId,
+        contractId: capTableContractId,
+        createdEventBlob: events1.created.createdEvent.createdEventBlob,
+        synchronizerId: capTableContractDetails?.synchronizerId ?? '',
+      };
+    }
+  }
+
+  // Step 2: Create stock class if not provided
+  let { stockClassId } = options;
+  if (!stockClassId) {
+    const stockClassData = createTestStockClassData();
+    stockClassId = stockClassData.id;
+
+    const batch2 = ocp.OpenCapTable.capTable.update({
+      capTableContractId,
+      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+      capTableContractDetails,
+      actAs: [options.issuerParty],
+    });
+    const result2 = await batch2.create('stockClass', stockClassData).execute();
+    capTableContractId = result2.updatedCapTableCid;
+
+    // Get updated cap table contract details
+    const events2 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    if (events2.created?.createdEvent) {
+      capTableContractDetails = {
+        templateId: events2.created.createdEvent.templateId,
+        contractId: capTableContractId,
+        createdEventBlob: events2.created.createdEvent.createdEventBlob,
+        synchronizerId: capTableContractDetails?.synchronizerId ?? '',
+      };
+    }
+  }
+
+  // Step 3: Create stock issuance with the security_id
+  const stockIssuanceData = createTestStockIssuanceData({
+    stakeholder_id: stakeholderId,
+    stock_class_id: stockClassId,
+    security_id: securityId,
+  });
+
+  const batch3 = ocp.OpenCapTable.capTable.update({
+    capTableContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails,
+    actAs: [options.issuerParty],
+  });
+  const result3 = await batch3.create('stockIssuance', stockIssuanceData).execute();
+
+  // Extract the stock issuance contract ID from the result
+  const stockIssuanceContractId = extractCreatedCid(
+    result3.createdCids as unknown as Array<Record<string, string>>,
+    'CidStockIssuance'
+  );
+
+  return {
+    securityId,
+    stockIssuanceContractId,
+    stakeholderId,
+    stockClassId,
+    capTableContractId: result3.updatedCapTableCid,
+  };
+}
+
+/**
+ * Set up a complete warrant security chain (stakeholder, warrant issuance).
+ * Required before creating warrant transactions (WarrantCancellation, WarrantTransfer, etc.)
+ */
+export async function setupWarrantSecurity(
+  ocp: OcpClient,
+  options: {
+    issuerContractId: string;
+    issuerParty: string;
+    featuredAppRightContractDetails: DisclosedContract;
+    capTableContractDetails?: DisclosedContract;
+    /** Optional: provide specific security_id to use */
+    securityId?: string;
+    /** Optional: reuse existing stakeholder_id */
+    stakeholderId?: string;
+  }
+): Promise<WarrantSecuritySetup> {
+  const securityId = options.securityId ?? generateTestId('warrant-security');
+  let capTableContractId = options.issuerContractId;
+  let { capTableContractDetails } = options;
+
+  // Step 1: Create stakeholder if not provided
+  let { stakeholderId } = options;
+  if (!stakeholderId) {
+    const stakeholderData = createTestStakeholderData();
+    stakeholderId = stakeholderData.id;
+
+    const batch1 = ocp.OpenCapTable.capTable.update({
+      capTableContractId,
+      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+      capTableContractDetails,
+      actAs: [options.issuerParty],
+    });
+    const result1 = await batch1.create('stakeholder', stakeholderData).execute();
+    capTableContractId = result1.updatedCapTableCid;
+
+    // Get updated cap table contract details
+    const events1 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    if (events1.created?.createdEvent) {
+      capTableContractDetails = {
+        templateId: events1.created.createdEvent.templateId,
+        contractId: capTableContractId,
+        createdEventBlob: events1.created.createdEvent.createdEventBlob,
+        synchronizerId: capTableContractDetails?.synchronizerId ?? '',
+      };
+    }
+  }
+
+  // Step 2: Create warrant issuance with the security_id
+  const warrantIssuanceData = createTestWarrantIssuanceData({
+    stakeholder_id: stakeholderId,
+    security_id: securityId,
+  });
+
+  const batch2 = ocp.OpenCapTable.capTable.update({
+    capTableContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails,
+    actAs: [options.issuerParty],
+  });
+  const result2 = await batch2.create('warrantIssuance', warrantIssuanceData).execute();
+
+  // Extract the warrant issuance contract ID from the result
+  const warrantIssuanceContractId = extractCreatedCid(
+    result2.createdCids as unknown as Array<Record<string, string>>,
+    'CidWarrantIssuance'
+  );
+
+  return {
+    securityId,
+    warrantIssuanceContractId,
+    stakeholderId,
+    capTableContractId: result2.updatedCapTableCid,
+  };
+}
+
+/**
+ * Set up a complete equity compensation security chain (stakeholder, stock class, equity compensation issuance).
+ * Required before creating equity compensation transactions.
+ */
+export async function setupEquityCompensationSecurity(
+  ocp: OcpClient,
+  options: {
+    issuerContractId: string;
+    issuerParty: string;
+    featuredAppRightContractDetails: DisclosedContract;
+    capTableContractDetails?: DisclosedContract;
+    /** Optional: provide specific security_id to use */
+    securityId?: string;
+    /** Optional: reuse existing stakeholder_id */
+    stakeholderId?: string;
+    /** Optional: reuse existing stock_class_id */
+    stockClassId?: string;
+  }
+): Promise<EquityCompensationSecuritySetup> {
+  const securityId = options.securityId ?? generateTestId('eq-comp-security');
+  let capTableContractId = options.issuerContractId;
+  let { capTableContractDetails } = options;
+
+  // Step 1: Create stakeholder if not provided
+  let { stakeholderId } = options;
+  if (!stakeholderId) {
+    const stakeholderData = createTestStakeholderData();
+    stakeholderId = stakeholderData.id;
+
+    const batch1 = ocp.OpenCapTable.capTable.update({
+      capTableContractId,
+      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+      capTableContractDetails,
+      actAs: [options.issuerParty],
+    });
+    const result1 = await batch1.create('stakeholder', stakeholderData).execute();
+    capTableContractId = result1.updatedCapTableCid;
+
+    // Get updated cap table contract details
+    const events1 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    if (events1.created?.createdEvent) {
+      capTableContractDetails = {
+        templateId: events1.created.createdEvent.templateId,
+        contractId: capTableContractId,
+        createdEventBlob: events1.created.createdEvent.createdEventBlob,
+        synchronizerId: capTableContractDetails?.synchronizerId ?? '',
+      };
+    }
+  }
+
+  // Step 2: Create stock class if not provided (equity compensation needs a stock class)
+  let { stockClassId } = options;
+  if (!stockClassId) {
+    const stockClassData = createTestStockClassData();
+    stockClassId = stockClassData.id;
+
+    const batch2 = ocp.OpenCapTable.capTable.update({
+      capTableContractId,
+      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+      capTableContractDetails,
+      actAs: [options.issuerParty],
+    });
+    const result2 = await batch2.create('stockClass', stockClassData).execute();
+    capTableContractId = result2.updatedCapTableCid;
+
+    // Get updated cap table contract details
+    const events2 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    if (events2.created?.createdEvent) {
+      capTableContractDetails = {
+        templateId: events2.created.createdEvent.templateId,
+        contractId: capTableContractId,
+        createdEventBlob: events2.created.createdEvent.createdEventBlob,
+        synchronizerId: capTableContractDetails?.synchronizerId ?? '',
+      };
+    }
+  }
+
+  // Step 3: Create equity compensation issuance with the security_id
+  const eqCompIssuanceData = createTestEquityCompensationIssuanceData({
+    stakeholder_id: stakeholderId,
+    stock_class_id: stockClassId,
+    security_id: securityId,
+  });
+
+  const batch3 = ocp.OpenCapTable.capTable.update({
+    capTableContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails,
+    actAs: [options.issuerParty],
+  });
+  const result3 = await batch3.create('equityCompensationIssuance', eqCompIssuanceData).execute();
+
+  // Extract the equity compensation issuance contract ID from the result
+  const equityCompensationIssuanceContractId = extractCreatedCid(
+    result3.createdCids as unknown as Array<Record<string, string>>,
+    'CidEquityCompensationIssuance'
+  );
+
+  return {
+    securityId,
+    equityCompensationIssuanceContractId,
+    stakeholderId,
+    stockClassId,
+    capTableContractId: result3.updatedCapTableCid,
+  };
+}
+
+/**
+ * Set up a complete convertible security chain (stakeholder, convertible issuance).
+ * Required before creating convertible transactions.
+ *
+ * Note: ConvertibleIssuance has nested Numeric fields which may cause issues with
+ * the DAML JSON API v2. Use with caution.
+ */
+export async function setupConvertibleSecurity(
+  ocp: OcpClient,
+  options: {
+    issuerContractId: string;
+    issuerParty: string;
+    featuredAppRightContractDetails: DisclosedContract;
+    capTableContractDetails?: DisclosedContract;
+    /** Optional: provide specific security_id to use */
+    securityId?: string;
+    /** Optional: reuse existing stakeholder_id */
+    stakeholderId?: string;
+  }
+): Promise<ConvertibleSecuritySetup> {
+  const securityId = options.securityId ?? generateTestId('convertible-security');
+  let capTableContractId = options.issuerContractId;
+  let { capTableContractDetails } = options;
+
+  // Step 1: Create stakeholder if not provided
+  let { stakeholderId } = options;
+  if (!stakeholderId) {
+    const stakeholderData = createTestStakeholderData();
+    stakeholderId = stakeholderData.id;
+
+    const batch1 = ocp.OpenCapTable.capTable.update({
+      capTableContractId,
+      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+      capTableContractDetails,
+      actAs: [options.issuerParty],
+    });
+    const result1 = await batch1.create('stakeholder', stakeholderData).execute();
+    capTableContractId = result1.updatedCapTableCid;
+
+    // Get updated cap table contract details
+    const events1 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    if (events1.created?.createdEvent) {
+      capTableContractDetails = {
+        templateId: events1.created.createdEvent.templateId,
+        contractId: capTableContractId,
+        createdEventBlob: events1.created.createdEvent.createdEventBlob,
+        synchronizerId: capTableContractDetails?.synchronizerId ?? '',
+      };
+    }
+  }
+
+  // Step 2: Create convertible issuance with the security_id
+  const convertibleIssuanceData = createTestConvertibleIssuanceData({
+    stakeholder_id: stakeholderId,
+    security_id: securityId,
+  });
+
+  const batch2 = ocp.OpenCapTable.capTable.update({
+    capTableContractId,
+    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
+    capTableContractDetails,
+    actAs: [options.issuerParty],
+  });
+  const result2 = await batch2.create('convertibleIssuance', convertibleIssuanceData).execute();
+
+  // Extract the convertible issuance contract ID from the result
+  const convertibleIssuanceContractId = extractCreatedCid(
+    result2.createdCids as unknown as Array<Record<string, string>>,
+    'CidConvertibleIssuance'
+  );
+
+  return {
+    securityId,
+    convertibleIssuanceContractId,
+    stakeholderId,
+    capTableContractId: result2.updatedCapTableCid,
   };
 }
