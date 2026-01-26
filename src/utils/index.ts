@@ -5,6 +5,7 @@ export * from './ocfComparison';
 export * from './ocfHelpers';
 export * from './ocfMetadata';
 export * from './planSecurityAliases';
+export * from './replicationHelpers';
 export * from './transactionHelpers';
 export * from './typeConversions';
 export * from './typeGuards';
