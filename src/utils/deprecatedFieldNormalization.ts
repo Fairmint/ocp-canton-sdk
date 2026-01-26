@@ -1558,8 +1558,13 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
         const hasCurrent = currentValue !== undefined && currentValue !== null && currentValue !== '';
 
         if (!hasCurrent) {
+          // value_mapped requires string values; skip non-string types
+          if (typeof deprecatedValue !== 'string') {
+            warnings.push(`Expected string value for '${mapping.deprecatedField}', got ${typeof deprecatedValue}`);
+            break;
+          }
           const valueMap = mapping.valueMap ?? {};
-          const mappedValue = valueMap[deprecatedValue as string] ?? deprecatedValue;
+          const mappedValue = valueMap[deprecatedValue] ?? deprecatedValue;
 
           result = {
             ...result,
