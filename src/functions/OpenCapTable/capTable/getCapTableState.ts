@@ -2,7 +2,7 @@
  * Query Canton for the current state of a CapTable contract.
  *
  * Provides a snapshot of all OCF entities currently on-chain for an issuer,
- * enabling stateless replication by comparing against database state.
+ * enabling stateless replication by comparing against a source of truth.
  *
  * @module getCapTableState
  */
