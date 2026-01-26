@@ -1,11 +1,16 @@
 /** Unit tests for deprecated OCF field normalization utilities. */
 
 import {
+  areOcfObjectsEquivalent,
   assertNoDeprecatedFields,
   checkDeprecatedFields,
   checkDeprecatedFieldsBatch,
   checkDeprecatedFieldsForType,
+  checkEquityCompensationIssuanceDeprecatedFieldUsage,
+  checkStakeholderDeprecatedFieldUsage,
   checkStockPlanDeprecatedFieldUsage,
+  compareOcfObjects,
+  convertOptionGrantTypeToCompensationType,
   createDeprecatedFieldsValidator,
   deprecationWarningConfig,
   emitDeprecationWarning,
@@ -15,12 +20,20 @@ import {
   getFieldDeprecation,
   getRegisteredObjectTypes,
   hasDeprecationsForEntityType,
+  migrateEquityCompensationIssuanceFields,
+  migrateEquityCompensationIssuanceFieldsBatch,
+  migrateStakeholderFields,
+  migrateStakeholderFieldsBatch,
   migrateStockPlanFields,
   migrateStockPlanFieldsBatch,
+  normalizeDeprecatedEquityCompensationIssuanceFields,
   normalizeDeprecatedOcfFields,
+  normalizeDeprecatedStakeholderFields,
   normalizeDeprecatedStockPlanFields,
+  normalizeOcfObject,
   normalizeSingularToArray,
   OCF_DEPRECATED_FIELDS,
+  OPTION_GRANT_TYPE_TO_COMPENSATION_TYPE,
   registerDeprecatedFieldMapping,
   registerEntityTypeMapping,
   validateDeprecatedFields,
@@ -1013,11 +1026,13 @@ describe('normalizeDeprecatedOcfFields', () => {
 describe('hasDeprecationsForEntityType', () => {
   test('returns true for entity types with registered deprecations', () => {
     expect(hasDeprecationsForEntityType('stockPlan')).toBe(true);
+    expect(hasDeprecationsForEntityType('stakeholder')).toBe(true);
+    expect(hasDeprecationsForEntityType('equityCompensationIssuance')).toBe(true);
   });
 
   test('returns false for entity types without registered deprecations', () => {
-    expect(hasDeprecationsForEntityType('stakeholder')).toBe(false);
     expect(hasDeprecationsForEntityType('unknownType')).toBe(false);
+    expect(hasDeprecationsForEntityType('stockClass')).toBe(false);
   });
 });
 
@@ -1028,5 +1043,267 @@ describe('registerEntityTypeMapping', () => {
 
     // Should now recognize the entity type
     expect(hasDeprecationsForEntityType('testEntity')).toBe(true);
+  });
+});
+
+// ===== Stakeholder Deprecation Tests =====
+
+describe('normalizeDeprecatedStakeholderFields', () => {
+  test('normalizes deprecated current_relationship to current_relationships array', () => {
+    const result = normalizeDeprecatedStakeholderFields({ current_relationship: 'FOUNDER' });
+    expect(result.current_relationships).toEqual(['FOUNDER']);
+    expect(result.usedDeprecatedField).toBe(true);
+  });
+
+  test('returns current_relationships as-is when present', () => {
+    const result = normalizeDeprecatedStakeholderFields({ current_relationships: ['FOUNDER', 'BOARD_MEMBER'] });
+    expect(result.current_relationships).toEqual(['FOUNDER', 'BOARD_MEMBER']);
+    expect(result.usedDeprecatedField).toBe(false);
+  });
+
+  test('prefers current_relationships over deprecated current_relationship', () => {
+    const result = normalizeDeprecatedStakeholderFields({
+      current_relationship: 'DEPRECATED',
+      current_relationships: ['EMPLOYEE'],
+    });
+    expect(result.current_relationships).toEqual(['EMPLOYEE']);
+    expect(result.usedDeprecatedField).toBe(false);
+  });
+});
+
+describe('checkStakeholderDeprecatedFieldUsage', () => {
+  test('detects deprecated current_relationship usage', () => {
+    const result = checkStakeholderDeprecatedFieldUsage({ current_relationship: 'FOUNDER' });
+    expect(result.hasDeprecatedFields).toBe(true);
+    expect(result.deprecatedFieldsUsed).toEqual(['current_relationship']);
+  });
+});
+
+describe('migrateStakeholderFields', () => {
+  test('migrates deprecated current_relationship to current_relationships', () => {
+    const result = migrateStakeholderFields({ id: 'sh-1', current_relationship: 'FOUNDER' });
+    expect(result.data.current_relationships).toEqual(['FOUNDER']);
+    expect(result.data).not.toHaveProperty('current_relationship');
+    expect(result.migrated).toBe(true);
+  });
+});
+
+describe('migrateStakeholderFieldsBatch', () => {
+  test('migrates multiple items', () => {
+    const stakeholders = [
+      { id: 'sh-1', current_relationship: 'FOUNDER' },
+      { id: 'sh-2', current_relationships: ['EMPLOYEE'] },
+      { id: 'sh-3', current_relationship: 'ADVISOR' },
+    ];
+    const result = migrateStakeholderFieldsBatch(stakeholders);
+    expect(result.totalProcessed).toBe(3);
+    expect(result.itemsMigrated).toBe(2);
+    expect(result.migratedFieldsSummary).toEqual({ current_relationship: 2 });
+    expect(result.items[0].migrated).toBe(true);
+    expect(result.items[1].migrated).toBe(false);
+    expect(result.items[2].migrated).toBe(true);
+  });
+
+  test('tracks items with warnings when both fields present', () => {
+    const stakeholders = [{ id: 'sh-1', current_relationship: 'DEPRECATED', current_relationships: ['CURRENT'] }];
+    const result = migrateStakeholderFieldsBatch(stakeholders);
+    expect(result.itemsWithWarnings).toBe(1);
+    expect(result.items[0].warnings.length).toBe(1);
+  });
+});
+
+// ===== Equity Compensation Issuance Deprecation Tests =====
+
+describe('OPTION_GRANT_TYPE_TO_COMPENSATION_TYPE', () => {
+  test('contains correct value mappings', () => {
+    expect(OPTION_GRANT_TYPE_TO_COMPENSATION_TYPE).toEqual({ NSO: 'OPTION_NSO', ISO: 'OPTION_ISO', INTL: 'OPTION' });
+  });
+});
+
+describe('convertOptionGrantTypeToCompensationType', () => {
+  test('converts NSO to OPTION_NSO', () => {
+    expect(convertOptionGrantTypeToCompensationType('NSO')).toBe('OPTION_NSO');
+  });
+
+  test('converts ISO to OPTION_ISO', () => {
+    expect(convertOptionGrantTypeToCompensationType('ISO')).toBe('OPTION_ISO');
+  });
+
+  test('converts INTL to OPTION', () => {
+    expect(convertOptionGrantTypeToCompensationType('INTL')).toBe('OPTION');
+  });
+
+  test('returns original value if no mapping exists', () => {
+    expect(convertOptionGrantTypeToCompensationType('RSU')).toBe('RSU');
+  });
+});
+
+describe('normalizeDeprecatedEquityCompensationIssuanceFields', () => {
+  test('converts deprecated option_grant_type NSO to compensation_type OPTION_NSO', () => {
+    const result = normalizeDeprecatedEquityCompensationIssuanceFields({ option_grant_type: 'NSO' });
+    expect(result.compensation_type).toBe('OPTION_NSO');
+    expect(result.usedDeprecatedField).toBe(true);
+  });
+
+  test('returns compensation_type as-is when present', () => {
+    const result = normalizeDeprecatedEquityCompensationIssuanceFields({ compensation_type: 'RSU' });
+    expect(result.compensation_type).toBe('RSU');
+    expect(result.usedDeprecatedField).toBe(false);
+  });
+
+  test('prefers compensation_type over deprecated option_grant_type', () => {
+    const result = normalizeDeprecatedEquityCompensationIssuanceFields({
+      option_grant_type: 'NSO',
+      compensation_type: 'RSU',
+    });
+    expect(result.compensation_type).toBe('RSU');
+    expect(result.usedDeprecatedField).toBe(false);
+  });
+});
+
+describe('checkEquityCompensationIssuanceDeprecatedFieldUsage', () => {
+  test('detects deprecated option_grant_type usage', () => {
+    const result = checkEquityCompensationIssuanceDeprecatedFieldUsage({ option_grant_type: 'NSO' });
+    expect(result.hasDeprecatedFields).toBe(true);
+    expect(result.deprecatedFieldsUsed).toEqual(['option_grant_type']);
+  });
+});
+
+describe('migrateEquityCompensationIssuanceFields', () => {
+  test('migrates deprecated option_grant_type to compensation_type with value conversion', () => {
+    const result = migrateEquityCompensationIssuanceFields({ id: 'eci-1', option_grant_type: 'NSO' });
+    expect(result.data.compensation_type).toBe('OPTION_NSO');
+    expect(result.data).not.toHaveProperty('option_grant_type');
+    expect(result.migrated).toBe(true);
+  });
+});
+
+describe('migrateEquityCompensationIssuanceFieldsBatch', () => {
+  test('migrates multiple items', () => {
+    const issuances = [
+      { id: 'eci-1', option_grant_type: 'NSO' },
+      { id: 'eci-2', compensation_type: 'RSU' },
+      { id: 'eci-3', option_grant_type: 'ISO' },
+    ];
+    const result = migrateEquityCompensationIssuanceFieldsBatch(issuances);
+    expect(result.totalProcessed).toBe(3);
+    expect(result.itemsMigrated).toBe(2);
+    expect(result.migratedFieldsSummary).toEqual({ option_grant_type: 2 });
+    expect(result.items[0].data.compensation_type).toBe('OPTION_NSO');
+    expect(result.items[2].data.compensation_type).toBe('OPTION_ISO');
+  });
+
+  test('tracks items with warnings when both fields present', () => {
+    const issuances = [{ id: 'eci-1', option_grant_type: 'NSO', compensation_type: 'RSU' }];
+    const result = migrateEquityCompensationIssuanceFieldsBatch(issuances);
+    expect(result.itemsWithWarnings).toBe(1);
+    expect(result.items[0].warnings.length).toBe(1);
+  });
+});
+
+// ===== Unified normalizeOcfObject Tests =====
+
+describe('normalizeOcfObject', () => {
+  test('normalizes TX_PLAN_SECURITY_ISSUANCE to TX_EQUITY_COMPENSATION_ISSUANCE', () => {
+    const result = normalizeOcfObject({ object_type: 'TX_PLAN_SECURITY_ISSUANCE', id: 'test-1' });
+    expect(result.data.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
+    expect(result.normalized).toBe(true);
+  });
+
+  test('normalizes current_relationship for STAKEHOLDER', () => {
+    const result = normalizeOcfObject({ object_type: 'STAKEHOLDER', id: 'sh-1', current_relationship: 'FOUNDER' });
+    expect((result.data as Record<string, unknown>).current_relationships).toEqual(['FOUNDER']);
+    expect(result.data).not.toHaveProperty('current_relationship');
+  });
+
+  test('normalizes option_grant_type for TX_EQUITY_COMPENSATION_ISSUANCE', () => {
+    const result = normalizeOcfObject({
+      object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+      id: 'eci-1',
+      option_grant_type: 'NSO',
+    });
+    expect((result.data as Record<string, unknown>).compensation_type).toBe('OPTION_NSO');
+    expect(result.data).not.toHaveProperty('option_grant_type');
+  });
+
+  test('normalizes both object_type and option_grant_type for TX_PLAN_SECURITY_ISSUANCE', () => {
+    const result = normalizeOcfObject({
+      object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+      id: 'eci-1',
+      option_grant_type: 'ISO',
+    });
+    expect((result.data as Record<string, unknown>).object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
+    expect((result.data as Record<string, unknown>).compensation_type).toBe('OPTION_ISO');
+    expect(result.data).not.toHaveProperty('option_grant_type');
+    expect(result.normalizedFields).toContain('object_type');
+    expect(result.normalizedFields).toContain('option_grant_type');
+  });
+
+  test('returns data unchanged for unknown object types', () => {
+    const data = { object_type: 'UNKNOWN_TYPE', id: 'test-1' };
+    const result = normalizeOcfObject(data);
+    expect(result.normalized).toBe(false);
+    expect(result.data).toEqual(data);
+  });
+});
+
+// ===== OCF Equivalence Comparison Tests =====
+
+describe('areOcfObjectsEquivalent', () => {
+  test('returns true for identical objects', () => {
+    const obj = { object_type: 'STAKEHOLDER', id: 'sh-1', name: 'Test' };
+    expect(areOcfObjectsEquivalent(obj, { ...obj })).toBe(true);
+  });
+
+  test('returns false for different objects', () => {
+    const obj1 = { object_type: 'STAKEHOLDER', id: 'sh-1', name: 'Test1' };
+    const obj2 = { object_type: 'STAKEHOLDER', id: 'sh-1', name: 'Test2' };
+    expect(areOcfObjectsEquivalent(obj1, obj2)).toBe(false);
+  });
+
+  test('treats deprecated current_relationship as equivalent to current_relationships', () => {
+    const dbObject = { object_type: 'STAKEHOLDER', id: 'sh-1', current_relationship: 'FOUNDER' };
+    const chainObject = { object_type: 'STAKEHOLDER', id: 'sh-1', current_relationships: ['FOUNDER'] };
+    expect(areOcfObjectsEquivalent(dbObject, chainObject)).toBe(true);
+  });
+
+  test('treats deprecated option_grant_type as equivalent to compensation_type', () => {
+    const dbObject = { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE', id: 'eci-1', option_grant_type: 'NSO' };
+    const chainObject = {
+      object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+      id: 'eci-1',
+      compensation_type: 'OPTION_NSO',
+    };
+    expect(areOcfObjectsEquivalent(dbObject, chainObject)).toBe(true);
+  });
+
+  test('treats TX_PLAN_SECURITY_ISSUANCE as equivalent to TX_EQUITY_COMPENSATION_ISSUANCE', () => {
+    const dbObject = { object_type: 'TX_PLAN_SECURITY_ISSUANCE', id: 'eci-1', compensation_type: 'OPTION_NSO' };
+    const chainObject = {
+      object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+      id: 'eci-1',
+      compensation_type: 'OPTION_NSO',
+    };
+    expect(areOcfObjectsEquivalent(dbObject, chainObject)).toBe(true);
+  });
+
+  test('skips normalization when normalizeBeforeCompare is false', () => {
+    const dbObject = { object_type: 'STAKEHOLDER', id: 'sh-1', current_relationship: 'FOUNDER' };
+    const chainObject = { object_type: 'STAKEHOLDER', id: 'sh-1', current_relationships: ['FOUNDER'] };
+    expect(areOcfObjectsEquivalent(dbObject, chainObject, { normalizeBeforeCompare: false })).toBe(false);
+  });
+});
+
+describe('compareOcfObjects', () => {
+  test('returns detailed comparison result', () => {
+    const dbObject = { object_type: 'STAKEHOLDER', id: 'sh-1', current_relationship: 'FOUNDER' };
+    const chainObject = { object_type: 'STAKEHOLDER', id: 'sh-1', current_relationships: ['FOUNDER'] };
+
+    const result = compareOcfObjects(dbObject, chainObject);
+
+    expect(result.equivalent).toBe(true);
+    expect(result.normalizationA.wasNormalized).toBe(true);
+    expect(result.normalizationA.normalizedFields).toContain('current_relationship');
+    expect(result.normalizationB.wasNormalized).toBe(false);
   });
 });
