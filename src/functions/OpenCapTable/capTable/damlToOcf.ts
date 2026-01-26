@@ -3,25 +3,39 @@
  *
  * This module provides a unified interface for converting DAML contract data to native OCF format.
  * It mirrors the `ocfToDaml.ts` dispatcher for writes, providing a symmetric API for reads.
+ *
+ * IMPORTANT: This file is a DISPATCHER ONLY. All converter implementations should be in their
+ * respective entity folders (e.g., stockRetraction/damlToOcf.ts).
+ * See llms.txt "Entity Folder Organization (CRITICAL)" for details.
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
 
-// Import existing converters from entity folders
+// Import converters from entity folders
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
+import { damlConvertibleConversionToNative } from '../convertibleConversion/damlToOcf';
+import { damlConvertibleRetractionToNative } from '../convertibleRetraction/damlToOcf';
 import { damlEquityCompensationAcceptanceToNative } from '../equityCompensationAcceptance/equityCompensationAcceptanceDataToDaml';
+import { damlEquityCompensationReleaseToNative } from '../equityCompensationRelease/damlToOcf';
+import { damlEquityCompensationRepricingToNative } from '../equityCompensationRepricing/damlToOcf';
+import { damlEquityCompensationRetractionToNative } from '../equityCompensationRetraction/damlToOcf';
 import { damlStockAcceptanceToNative } from '../stockAcceptance/stockAcceptanceDataToDaml';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
 import { damlStockClassSplitToNative } from '../stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../stockConsolidation/damlToStockConsolidation';
+import { damlStockConversionToNative } from '../stockConversion/damlToOcf';
+import { damlStockPlanReturnToPoolToNative } from '../stockPlanReturnToPool/damlToOcf';
 import { damlStockReissuanceToNative } from '../stockReissuance/damlToStockReissuance';
+import { damlStockRetractionToNative } from '../stockRetraction/damlToOcf';
 import { damlValuationToNative } from '../valuation/damlToOcf';
 import { damlVestingAccelerationToNative } from '../vestingAcceleration/damlToOcf';
 import { damlVestingEventToNative } from '../vestingEvent/damlToOcf';
 import { damlVestingStartToNative } from '../vestingStart/damlToOcf';
 import { damlWarrantAcceptanceToNative } from '../warrantAcceptance/warrantAcceptanceDataToDaml';
+import { damlWarrantExerciseToNative } from '../warrantExercise/damlToOcf';
+import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 
 // Import shared utilities
 import {
@@ -97,122 +111,13 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
   warrantTransfer: 'transfer_data',
 };
 
-// ===== Simple inline converters for types without dedicated files =====
-// These follow the same pattern as ocfToDaml.ts
+// ===== Shared inline converters for types that share common patterns =====
+// These are kept inline because they handle multiple entity types with the same structure
 
-function stockRetractionDataToNative(d: Record<string, unknown>): Record<string, unknown> {
-  return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    reason_text: d.reason_text as string,
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
-function stockConversionDataToNative(d: Record<string, unknown>): Record<string, unknown> {
-  return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    quantity: normalizeNumericString(d.quantity as string),
-    resulting_security_ids: d.resulting_security_ids as string[],
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
-function stockPlanReturnToPoolDataToNative(d: Record<string, unknown>): Record<string, unknown> {
-  return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    stock_plan_id: d.stock_plan_id as string,
-    quantity: normalizeNumericString(d.quantity as string),
-    reason_text: d.reason_text as string,
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
-function warrantExerciseDataToNative(d: Record<string, unknown>): Record<string, unknown> {
-  return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    quantity: normalizeNumericString(d.quantity as string),
-    resulting_security_ids: d.resulting_security_ids as string[],
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
-function warrantRetractionDataToNative(d: Record<string, unknown>): Record<string, unknown> {
-  return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    reason_text: d.reason_text as string,
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
-function convertibleConversionDataToNative(d: Record<string, unknown>): Record<string, unknown> {
-  return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    resulting_security_ids: d.resulting_security_ids as string[],
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(d.trigger_id ? { trigger_id: d.trigger_id } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
-function convertibleRetractionDataToNative(d: Record<string, unknown>): Record<string, unknown> {
-  return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    reason_text: d.reason_text as string,
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
-function equityCompensationReleaseDataToNative(d: Record<string, unknown>): Record<string, unknown> {
-  return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    quantity: normalizeNumericString(d.quantity as string),
-    resulting_security_ids: d.resulting_security_ids as string[],
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(d.settlement_date ? { settlement_date: damlTimeToDateString(d.settlement_date as string) } : {}),
-    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
-function equityCompensationRepricingDataToNative(d: Record<string, unknown>): Record<string, unknown> {
-  return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    resulting_security_ids: d.resulting_security_ids as string[],
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
-function equityCompensationRetractionDataToNative(d: Record<string, unknown>): Record<string, unknown> {
-  return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    reason_text: d.reason_text as string,
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
-// Transfer converter for stock/warrant/equity compensation (quantity-based)
+/**
+ * Transfer converter for stock/warrant/equity compensation (quantity-based).
+ * Used by: stockTransfer, warrantTransfer, equityCompensationTransfer, planSecurityTransfer
+ */
 function quantityTransferDataToNative(d: Record<string, unknown>): Record<string, unknown> {
   return {
     id: d.id as string,
@@ -226,7 +131,10 @@ function quantityTransferDataToNative(d: Record<string, unknown>): Record<string
   };
 }
 
-// Transfer converter for convertibles (amount-based)
+/**
+ * Transfer converter for convertibles (amount-based).
+ * Used by: convertibleTransfer
+ */
 function convertibleTransferDataToNative(d: Record<string, unknown>): Record<string, unknown> {
   return {
     id: d.id as string,
@@ -240,7 +148,10 @@ function convertibleTransferDataToNative(d: Record<string, unknown>): Record<str
   };
 }
 
-// Cancellation converter for stock/warrant/equity compensation (quantity-based)
+/**
+ * Cancellation converter for stock/warrant/equity compensation (quantity-based).
+ * Used by: stockCancellation, warrantCancellation, equityCompensationCancellation, planSecurityCancellation
+ */
 function quantityCancellationDataToNative(d: Record<string, unknown>): Record<string, unknown> {
   return {
     id: d.id as string,
@@ -253,7 +164,10 @@ function quantityCancellationDataToNative(d: Record<string, unknown>): Record<st
   };
 }
 
-// Cancellation converter for convertibles (no quantity field)
+/**
+ * Cancellation converter for convertibles (no quantity field).
+ * Used by: convertibleCancellation
+ */
 function convertibleCancellationDataToNative(d: Record<string, unknown>): Record<string, unknown> {
   return {
     id: d.id as string,
@@ -265,7 +179,10 @@ function convertibleCancellationDataToNative(d: Record<string, unknown>): Record
   };
 }
 
-// Repurchase converter
+/**
+ * Repurchase converter.
+ * Used by: stockRepurchase
+ */
 function stockRepurchaseDataToNative(d: Record<string, unknown>): Record<string, unknown> {
   return {
     id: d.id as string,
@@ -281,7 +198,10 @@ function stockRepurchaseDataToNative(d: Record<string, unknown>): Record<string,
   };
 }
 
-// Stakeholder events converters
+/**
+ * Stakeholder relationship change event converter.
+ * Used by: stakeholderRelationshipChangeEvent
+ */
 function stakeholderRelationshipChangeEventToNative(d: Record<string, unknown>): Record<string, unknown> {
   const newRelationships = d.new_relationships as string[];
   return {
@@ -295,6 +215,10 @@ function stakeholderRelationshipChangeEventToNative(d: Record<string, unknown>):
   };
 }
 
+/**
+ * Stakeholder status change event converter.
+ * Used by: stakeholderStatusChangeEvent
+ */
 function stakeholderStatusChangeEventToNative(d: Record<string, unknown>): Record<string, unknown> {
   return {
     id: d.id as string,
@@ -380,7 +304,7 @@ export function convertToOcf<T extends SupportedOcfReadType>(
   const data = damlData as unknown;
 
   switch (type) {
-    // Acceptance types (with existing converters)
+    // Acceptance types (with converters from entity folders)
     case 'stockAcceptance':
       return damlStockAcceptanceToNative(
         data as Parameters<typeof damlStockAcceptanceToNative>[0]
@@ -398,7 +322,7 @@ export function convertToOcf<T extends SupportedOcfReadType>(
         data as Parameters<typeof damlWarrantAcceptanceToNative>[0]
       ) as OcfDataTypeFor<T>;
 
-    // Stock class adjustments (with existing converters)
+    // Stock class adjustments (with converters from entity folders)
     case 'stockClassConversionRatioAdjustment':
       return damlStockClassConversionRatioAdjustmentToNative(
         data as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0]
@@ -412,7 +336,7 @@ export function convertToOcf<T extends SupportedOcfReadType>(
         data as Parameters<typeof damlStockConsolidationToNative>[0]
       ) as OcfDataTypeFor<T>;
 
-    // Valuation and vesting (with existing converters)
+    // Valuation and vesting (with converters from entity folders)
     case 'valuation':
       return damlValuationToNative(data as Parameters<typeof damlValuationToNative>[0]) as OcfDataTypeFor<T>;
     case 'vestingAcceleration':
@@ -424,35 +348,53 @@ export function convertToOcf<T extends SupportedOcfReadType>(
     case 'vestingStart':
       return damlVestingStartToNative(data as Parameters<typeof damlVestingStartToNative>[0]) as OcfDataTypeFor<T>;
 
-    // Reissuance (with existing converter)
+    // Types with converters imported from entity folders
+    case 'stockRetraction':
+      return damlStockRetractionToNative(
+        data as Parameters<typeof damlStockRetractionToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'stockConversion':
+      return damlStockConversionToNative(
+        data as Parameters<typeof damlStockConversionToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'stockPlanReturnToPool':
+      return damlStockPlanReturnToPoolToNative(
+        data as Parameters<typeof damlStockPlanReturnToPoolToNative>[0]
+      ) as OcfDataTypeFor<T>;
     case 'stockReissuance':
       return damlStockReissuanceToNative(
         data as Parameters<typeof damlStockReissuanceToNative>[0]
       ) as OcfDataTypeFor<T>;
-
-    // Types with inline converters
-    case 'stockRetraction':
-      return stockRetractionDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
-    case 'stockConversion':
-      return stockConversionDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
-    case 'stockPlanReturnToPool':
-      return stockPlanReturnToPoolDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
     case 'warrantExercise':
-      return warrantExerciseDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return damlWarrantExerciseToNative(
+        data as Parameters<typeof damlWarrantExerciseToNative>[0]
+      ) as OcfDataTypeFor<T>;
     case 'warrantRetraction':
-      return warrantRetractionDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return damlWarrantRetractionToNative(
+        data as Parameters<typeof damlWarrantRetractionToNative>[0]
+      ) as OcfDataTypeFor<T>;
     case 'convertibleConversion':
-      return convertibleConversionDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return damlConvertibleConversionToNative(
+        data as Parameters<typeof damlConvertibleConversionToNative>[0]
+      ) as OcfDataTypeFor<T>;
     case 'convertibleRetraction':
-      return convertibleRetractionDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return damlConvertibleRetractionToNative(
+        data as Parameters<typeof damlConvertibleRetractionToNative>[0]
+      ) as OcfDataTypeFor<T>;
     case 'equityCompensationRelease':
-      return equityCompensationReleaseDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return damlEquityCompensationReleaseToNative(
+        data as Parameters<typeof damlEquityCompensationReleaseToNative>[0]
+      ) as OcfDataTypeFor<T>;
     case 'equityCompensationRepricing':
-      return equityCompensationRepricingDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return damlEquityCompensationRepricingToNative(
+        data as Parameters<typeof damlEquityCompensationRepricingToNative>[0]
+      ) as OcfDataTypeFor<T>;
     case 'equityCompensationRetraction':
-      return equityCompensationRetractionDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return damlEquityCompensationRetractionToNative(
+        data as Parameters<typeof damlEquityCompensationRetractionToNative>[0]
+      ) as OcfDataTypeFor<T>;
 
-    // Transfer types - quantity-based
+    // Transfer types - quantity-based (shared converter)
     case 'stockTransfer':
     case 'equityCompensationTransfer':
     case 'warrantTransfer':
@@ -462,7 +404,7 @@ export function convertToOcf<T extends SupportedOcfReadType>(
     case 'convertibleTransfer':
       return convertibleTransferDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
 
-    // Cancellation types - quantity-based
+    // Cancellation types - quantity-based (shared converter)
     case 'stockCancellation':
     case 'equityCompensationCancellation':
     case 'warrantCancellation':
@@ -490,9 +432,13 @@ export function convertToOcf<T extends SupportedOcfReadType>(
     case 'planSecurityCancellation':
       return quantityCancellationDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
     case 'planSecurityRelease':
-      return equityCompensationReleaseDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return damlEquityCompensationReleaseToNative(
+        damlData as unknown as Parameters<typeof damlEquityCompensationReleaseToNative>[0]
+      ) as OcfDataTypeFor<T>;
     case 'planSecurityRetraction':
-      return equityCompensationRetractionDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return damlEquityCompensationRetractionToNative(
+        damlData as unknown as Parameters<typeof damlEquityCompensationRetractionToNative>[0]
+      ) as OcfDataTypeFor<T>;
     case 'planSecurityTransfer':
       return quantityTransferDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
 
