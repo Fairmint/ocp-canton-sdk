@@ -2,8 +2,8 @@
  * Replication helpers for cap table synchronization.
  *
  * Provides utilities for:
- * - Mapping database types to SDK entity types
- * - Computing replication diffs between DB and Canton state
+ * - Mapping categorized OCF types to SDK entity types
+ * - Computing replication diffs between source and Canton state
  * - Human-readable labels for display
  *
  * @module replicationHelpers
@@ -14,12 +14,12 @@ import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTab
 import { normalizeEntityType } from './planSecurityAliases';
 
 // ============================================================================
-// DB Type Mapping
+// Categorized Type Mapping
 // ============================================================================
 
 /**
- * Direct database type to OcfEntityType mappings.
- * These types are stored directly in the `type` column.
+ * Direct category type to OcfEntityType mappings.
+ * These types use the category directly as the type identifier.
  */
 const DIRECT_TYPE_MAP: Record<string, OcfEntityType> = {
   STAKEHOLDER: 'stakeholder',
@@ -29,7 +29,7 @@ const DIRECT_TYPE_MAP: Record<string, OcfEntityType> = {
 
 /**
  * OBJECT subtype to OcfEntityType mappings.
- * These are stored with type='OBJECT' and the actual type in subtype.
+ * These use category='OBJECT' with the actual type in the subtype field.
  */
 const OBJECT_SUBTYPE_MAP: Record<string, OcfEntityType> = {
   DOCUMENT: 'document',
@@ -40,8 +40,8 @@ const OBJECT_SUBTYPE_MAP: Record<string, OcfEntityType> = {
 
 /**
  * TRANSACTION subtype to OcfEntityType mappings.
- * These are stored with type='TRANSACTION' and the actual type in subtype.
- * DB uses TX_ prefix with UPPER_SNAKE_CASE, SDK uses camelCase.
+ * These use category='TRANSACTION' with the actual type in the subtype field.
+ * Subtypes use TX_ prefix with UPPER_SNAKE_CASE, SDK uses camelCase.
  */
 const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
   // Stock Transactions (9 types)
@@ -112,42 +112,47 @@ const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
 };
 
 /**
- * Map database type/subtype to OcfEntityType.
+ * Map categorized OCF type/subtype to OcfEntityType.
  *
- * The database schema uses:
- * - Direct types: STAKEHOLDER, STOCK_CLASS, STOCK_PLAN stored in `type` column
- * - Object subtypes: type='OBJECT', actual type in `subtype` column
- * - Transaction subtypes: type='TRANSACTION', actual type in `subtype` column (TX_ prefix)
+ * OCF data may be organized into categories:
+ * - Direct types: STAKEHOLDER, STOCK_CLASS, STOCK_PLAN as the category
+ * - Object subtypes: category='OBJECT', actual type in subtype
+ * - Transaction subtypes: category='TRANSACTION', actual type in subtype (TX_ prefix)
  *
- * @param dbType - The database OCF type (STAKEHOLDER, OBJECT, TRANSACTION, etc.)
- * @param dbSubtype - The database subtype for OBJECT and TRANSACTION types
+ * @param categoryType - The OCF category (STAKEHOLDER, OBJECT, TRANSACTION, etc.)
+ * @param subtype - The subtype for OBJECT and TRANSACTION categories
  * @returns The corresponding OcfEntityType, or null if not supported
  *
  * @example
  * ```typescript
- * mapDbTypeToEntityType('STAKEHOLDER', null); // 'stakeholder'
- * mapDbTypeToEntityType('OBJECT', 'DOCUMENT'); // 'document'
- * mapDbTypeToEntityType('TRANSACTION', 'TX_STOCK_ISSUANCE'); // 'stockIssuance'
+ * mapCategorizedTypeToEntityType('STAKEHOLDER', null); // 'stakeholder'
+ * mapCategorizedTypeToEntityType('OBJECT', 'DOCUMENT'); // 'document'
+ * mapCategorizedTypeToEntityType('TRANSACTION', 'TX_STOCK_ISSUANCE'); // 'stockIssuance'
  * ```
  */
-export function mapDbTypeToEntityType(dbType: string, dbSubtype: string | null): OcfEntityType | null {
+export function mapCategorizedTypeToEntityType(categoryType: string, subtype: string | null): OcfEntityType | null {
   // Direct mappings
-  if (dbType in DIRECT_TYPE_MAP) {
-    return DIRECT_TYPE_MAP[dbType];
+  if (categoryType in DIRECT_TYPE_MAP) {
+    return DIRECT_TYPE_MAP[categoryType];
   }
 
   // Object subtypes
-  if (dbType === 'OBJECT' && dbSubtype) {
-    return OBJECT_SUBTYPE_MAP[dbSubtype] ?? null;
+  if (categoryType === 'OBJECT' && subtype) {
+    return OBJECT_SUBTYPE_MAP[subtype] ?? null;
   }
 
   // Transaction subtypes
-  if (dbType === 'TRANSACTION' && dbSubtype) {
-    return TRANSACTION_SUBTYPE_MAP[dbSubtype] ?? null;
+  if (categoryType === 'TRANSACTION' && subtype) {
+    return TRANSACTION_SUBTYPE_MAP[subtype] ?? null;
   }
 
   return null;
 }
+
+/**
+ * @deprecated Use `mapCategorizedTypeToEntityType` instead. This alias will be removed in a future version.
+ */
+export const mapDbTypeToEntityType = mapCategorizedTypeToEntityType;
 
 // ============================================================================
 // Human-Readable Labels
@@ -263,7 +268,7 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
 // ============================================================================
 
 /**
- * A single item to be synced from DB to Canton.
+ * A single item to be synced to Canton.
  */
 export interface ReplicationItem {
   /** OCF object ID */
@@ -277,14 +282,14 @@ export interface ReplicationItem {
 }
 
 /**
- * Result of comparing DB state (desired) to Canton state (actual).
+ * Result of comparing source state (desired) to Canton state (actual).
  */
 export interface ReplicationDiff {
-  /** Items in DB but not in Canton - need to be created */
+  /** Items in source but not in Canton - need to be created */
   creates: ReplicationItem[];
   /** Items in both - may need to be edited */
   edits: ReplicationItem[];
-  /** Items in Canton but not in DB - may need to be deleted */
+  /** Items in Canton but not in source - may need to be deleted */
   deletes: ReplicationItem[];
   /** Total number of operations */
   total: number;
@@ -295,7 +300,7 @@ export interface ReplicationDiff {
  */
 export interface ComputeReplicationDiffOptions {
   /**
-   * Whether to include delete operations for items in Canton but not in DB.
+   * Whether to include delete operations for items in Canton but not in source.
    * Default: false (safer - doesn't delete data)
    */
   syncDeletes?: boolean;
@@ -310,30 +315,30 @@ export interface ComputeReplicationDiffOptions {
 }
 
 /**
- * Compute what needs to be synced from DB to Canton.
+ * Compute what needs to be synced to Canton.
  *
- * Compares a list of DB items (desired state) against Canton state (actual state)
+ * Compares a list of source items (desired state) against Canton state (actual state)
  * and returns operations needed to synchronize them.
  *
- * @param dbItems - OCF items from database (desired state)
+ * @param sourceItems - OCF items from any source (desired state)
  * @param cantonState - Current Canton state from getCapTableState()
  * @param options - Sync options
  * @returns Replication diff with creates, edits, and deletes
  *
  * @example
  * ```typescript
- * const dbItems = [
+ * const sourceItems = [
  *   { ocfId: 'stakeholder-1', entityType: 'stakeholder', data: {...} },
  *   { ocfId: 'stock-class-1', entityType: 'stockClass', data: {...} },
  * ];
  * const cantonState = await getCapTableState(client, issuerPartyId);
- * const diff = computeReplicationDiff(dbItems, cantonState, { syncDeletes: true });
- * // diff.creates = items in DB but not Canton
- * // diff.deletes = items in Canton but not DB
+ * const diff = computeReplicationDiff(sourceItems, cantonState, { syncDeletes: true });
+ * // diff.creates = items in source but not Canton
+ * // diff.deletes = items in Canton but not source
  * ```
  */
 export function computeReplicationDiff(
-  dbItems: Array<{ ocfId: string; entityType: OcfEntityType; data: unknown }>,
+  sourceItems: Array<{ ocfId: string; entityType: OcfEntityType; data: unknown }>,
   cantonState: CapTableState,
   options: ComputeReplicationDiffOptions = {}
 ): ReplicationDiff {
@@ -343,14 +348,14 @@ export function computeReplicationDiff(
   const edits: ReplicationItem[] = [];
   const deletes: ReplicationItem[] = [];
 
-  // Track DB items by type for delete detection
-  const dbIdsByType = new Map<OcfEntityType, Set<string>>();
+  // Track source items by type for delete detection
+  const sourceIdsByType = new Map<OcfEntityType, Set<string>>();
 
   // Track seen items to prevent duplicate create/edit operations
   const seenItems = new Set<string>();
 
-  // Process each DB item
-  for (const item of dbItems) {
+  // Process each source item
+  for (const item of sourceItems) {
     // Skip duplicate items (same ocfId + entityType)
     const itemKey = `${item.entityType}:${item.ocfId}`;
     if (seenItems.has(itemKey)) {
@@ -363,10 +368,10 @@ export function computeReplicationDiff(
     const normalizedType = normalizeEntityType(item.entityType) as OcfEntityType;
 
     // Track for delete detection (using normalized type to match Canton's storage)
-    let typeIds = dbIdsByType.get(normalizedType);
+    let typeIds = sourceIdsByType.get(normalizedType);
     if (!typeIds) {
       typeIds = new Set();
-      dbIdsByType.set(normalizedType, typeIds);
+      sourceIdsByType.set(normalizedType, typeIds);
     }
     typeIds.add(item.ocfId);
 
@@ -375,7 +380,7 @@ export function computeReplicationDiff(
     const existsInCanton = cantonIds.has(item.ocfId);
 
     if (!existsInCanton) {
-      // Item in DB but not Canton → CREATE
+      // Item in source but not Canton → CREATE
       creates.push({
         ocfId: item.ocfId,
         entityType: item.entityType,
@@ -394,13 +399,13 @@ export function computeReplicationDiff(
     // If not alwaysEdit and exists in Canton, skip (already synced)
   }
 
-  // Detect deletes (in Canton but not in DB)
+  // Detect deletes (in Canton but not in source)
   if (syncDeletes) {
     for (const [entityType, cantonIds] of cantonState.entities) {
-      const dbIds = dbIdsByType.get(entityType) ?? new Set();
+      const sourceIds = sourceIdsByType.get(entityType) ?? new Set();
       for (const cantonId of cantonIds) {
-        if (!dbIds.has(cantonId)) {
-          // Item in Canton but not DB → DELETE
+        if (!sourceIds.has(cantonId)) {
+          // Item in Canton but not source → DELETE
           deletes.push({
             ocfId: cantonId,
             entityType,
