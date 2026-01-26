@@ -25,6 +25,7 @@ import {
   validateOptionalString,
   validateRequiredArray,
   validateRequiredDate,
+  validateRequiredMonetary,
   validateRequiredNumeric,
   validateRequiredObject,
   validateRequiredString,
@@ -143,13 +144,10 @@ export function validateTaxId(value: unknown, fieldPath: string): void {
 
 /**
  * Validate a Monetary object (entity-specific version).
- * Use validateRequiredMonetary from validation.ts for general monetary validation.
+ * Delegates to validateRequiredMonetary from validation.ts.
  */
 export function validateMonetaryObject(value: unknown, fieldPath: string): void {
-  validateRequiredObject(value, fieldPath);
-  const monetary = value;
-  validateRequiredNumeric(monetary.amount, `${fieldPath}.amount`);
-  validateRequiredString(monetary.currency, `${fieldPath}.currency`);
+  validateRequiredMonetary(value, fieldPath);
 }
 
 /**
