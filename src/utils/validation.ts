@@ -6,7 +6,7 @@
  *
  * @example
  *   ```typescript
- *   import { validateRequiredString, validateRequiredNumeric, ValidationError } from './validation';
+ *   import { validateRequiredString, validateRequiredNumeric, OcpValidationError } from './validation';
  *
  *   function createStakeholder(params: CreateStakeholderParams) {
  *     validateRequiredString(params.data.id, 'stakeholder.id');
@@ -16,28 +16,16 @@
  *   ```
  */
 
-/**
- * Custom error class for validation failures.
- * Includes the field path for easier debugging.
- */
-export class ValidationError extends Error {
-  /** The field path that failed validation (e.g., "stakeholder.name.legal_name") */
-  public readonly fieldPath: string;
-  /** The expected type or format */
-  public readonly expected: string;
-  /** The actual value received (stringified for display) */
-  public readonly received: string;
+import { OcpErrorCodes, OcpValidationError } from '../errors';
 
-  constructor(fieldPath: string, expected: string, received: unknown) {
-    const receivedStr = received === undefined ? 'undefined' : received === null ? 'null' : JSON.stringify(received);
-    const message = `Validation failed for '${fieldPath}': expected ${expected}, received ${receivedStr}`;
-    super(message);
-    this.name = 'ValidationError';
-    this.fieldPath = fieldPath;
-    this.expected = expected;
-    this.received = receivedStr;
-  }
-}
+// Re-export OcpValidationError for convenience
+export { OcpValidationError };
+
+/**
+ * @deprecated Use OcpValidationError directly from '@open-captable-protocol/canton' errors
+ * This alias exists for backward compatibility
+ */
+export const ValidationError = OcpValidationError;
 
 // ===== String Validation =====
 
@@ -46,14 +34,22 @@ export class ValidationError extends Error {
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages (e.g., "stakeholder.id")
- * @throws {ValidationError} if the value is not a non-empty string
+ * @throws {OcpValidationError} if the value is not a non-empty string
  */
 export function validateRequiredString(value: unknown, fieldPath: string): asserts value is string {
   if (typeof value !== 'string') {
-    throw new ValidationError(fieldPath, 'non-empty string', value);
+    throw new OcpValidationError(fieldPath, 'Required field must be a non-empty string', {
+      expectedType: 'non-empty string',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
   }
   if (value.length === 0) {
-    throw new ValidationError(fieldPath, 'non-empty string', '""');
+    throw new OcpValidationError(fieldPath, 'Required field cannot be empty', {
+      expectedType: 'non-empty string',
+      receivedValue: value,
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
 }
 
@@ -64,14 +60,18 @@ export function validateRequiredString(value: unknown, fieldPath: string): asser
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
  * @returns The string value or null
- * @throws {ValidationError} if the value is not a string, undefined, or null
+ * @throws {OcpValidationError} if the value is not a string, undefined, or null
  */
 export function validateOptionalString(value: unknown, fieldPath: string): string | null {
   if (value === undefined || value === null) {
     return null;
   }
   if (typeof value !== 'string') {
-    throw new ValidationError(fieldPath, 'string, undefined, or null', value);
+    throw new OcpValidationError(fieldPath, 'Optional field must be a string if provided', {
+      expectedType: 'string, undefined, or null',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
   }
   return value.length > 0 ? value : null;
 }
@@ -83,26 +83,42 @@ export function validateOptionalString(value: unknown, fieldPath: string): strin
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {ValidationError} if the value is not a valid numeric
+ * @throws {OcpValidationError} if the value is not a valid numeric
  */
 export function validateRequiredNumeric(value: unknown, fieldPath: string): asserts value is string | number {
   if (typeof value === 'number') {
     if (Number.isNaN(value)) {
-      throw new ValidationError(fieldPath, 'valid number', 'NaN');
+      throw new OcpValidationError(fieldPath, 'Numeric field cannot be NaN', {
+        expectedType: 'valid number',
+        receivedValue: value,
+        code: OcpErrorCodes.INVALID_TYPE,
+      });
     }
     return;
   }
   if (typeof value === 'string') {
     if (value.length === 0) {
-      throw new ValidationError(fieldPath, 'non-empty numeric string', '""');
+      throw new OcpValidationError(fieldPath, 'Numeric string cannot be empty', {
+        expectedType: 'non-empty numeric string',
+        receivedValue: value,
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
     }
     const num = Number(value);
     if (Number.isNaN(num)) {
-      throw new ValidationError(fieldPath, 'valid numeric string', value);
+      throw new OcpValidationError(fieldPath, 'String must represent a valid number', {
+        expectedType: 'valid numeric string',
+        receivedValue: value,
+        code: OcpErrorCodes.INVALID_FORMAT,
+      });
     }
     return;
   }
-  throw new ValidationError(fieldPath, 'number or numeric string', value);
+  throw new OcpValidationError(fieldPath, 'Field must be a number or numeric string', {
+    expectedType: 'number or numeric string',
+    receivedValue: value,
+    code: OcpErrorCodes.INVALID_TYPE,
+  });
 }
 
 /**
@@ -128,12 +144,16 @@ export function validateOptionalNumeric(value: unknown, fieldPath: string): stri
  * @param fieldPath - Dot-notation path for error messages
  * @param min - Minimum allowed value
  * @param max - Maximum allowed value
- * @throws {ValidationError} if the value is outside the range
+ * @throws {OcpValidationError} if the value is outside the range
  */
 export function validateNumericRange(value: number | string, fieldPath: string, min: number, max: number): void {
   const num = typeof value === 'string' ? Number(value) : value;
   if (num < min || num > max) {
-    throw new ValidationError(fieldPath, `number between ${min} and ${max}`, num);
+    throw new OcpValidationError(fieldPath, `Value must be between ${min} and ${max}`, {
+      expectedType: `number between ${min} and ${max}`,
+      receivedValue: num,
+      code: OcpErrorCodes.OUT_OF_RANGE,
+    });
   }
 }
 
@@ -142,12 +162,16 @@ export function validateNumericRange(value: number | string, fieldPath: string, 
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {ValidationError} if the value is not positive
+ * @throws {OcpValidationError} if the value is not positive
  */
 export function validatePositiveNumeric(value: number | string, fieldPath: string): void {
   const num = typeof value === 'string' ? Number(value) : value;
   if (num <= 0) {
-    throw new ValidationError(fieldPath, 'positive number (> 0)', num);
+    throw new OcpValidationError(fieldPath, 'Value must be positive (> 0)', {
+      expectedType: 'positive number (> 0)',
+      receivedValue: num,
+      code: OcpErrorCodes.OUT_OF_RANGE,
+    });
   }
 }
 
@@ -156,12 +180,16 @@ export function validatePositiveNumeric(value: number | string, fieldPath: strin
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {ValidationError} if the value is negative
+ * @throws {OcpValidationError} if the value is negative
  */
 export function validateNonNegativeNumeric(value: number | string, fieldPath: string): void {
   const num = typeof value === 'string' ? Number(value) : value;
   if (num < 0) {
-    throw new ValidationError(fieldPath, 'non-negative number (>= 0)', num);
+    throw new OcpValidationError(fieldPath, 'Value must be non-negative (>= 0)', {
+      expectedType: 'non-negative number (>= 0)',
+      receivedValue: num,
+      code: OcpErrorCodes.OUT_OF_RANGE,
+    });
   }
 }
 
@@ -172,19 +200,31 @@ export function validateNonNegativeNumeric(value: number | string, fieldPath: st
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {ValidationError} if the value is not a valid ISO date string
+ * @throws {OcpValidationError} if the value is not a valid ISO date string
  */
 export function validateRequiredDate(value: unknown, fieldPath: string): asserts value is string {
   if (typeof value !== 'string') {
-    throw new ValidationError(fieldPath, 'ISO date string (YYYY-MM-DD)', value);
+    throw new OcpValidationError(fieldPath, 'Date must be an ISO date string (YYYY-MM-DD)', {
+      expectedType: 'ISO date string (YYYY-MM-DD)',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
   }
   const match = /^\d{4}-\d{2}-\d{2}$/.exec(value);
   if (!match) {
-    throw new ValidationError(fieldPath, 'ISO date string (YYYY-MM-DD)', value);
+    throw new OcpValidationError(fieldPath, 'Date must be in ISO format (YYYY-MM-DD)', {
+      expectedType: 'ISO date string (YYYY-MM-DD)',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
   }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    throw new ValidationError(fieldPath, 'valid date', value);
+    throw new OcpValidationError(fieldPath, 'Date string does not represent a valid date', {
+      expectedType: 'valid date',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
   }
 }
 
@@ -211,7 +251,7 @@ export function validateOptionalDate(value: unknown, fieldPath: string): string 
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
  * @param allowedValues - Array of allowed values
- * @throws {ValidationError} if the value is not in the allowed list
+ * @throws {OcpValidationError} if the value is not in the allowed list
  */
 export function validateEnum<T extends string>(
   value: unknown,
@@ -219,10 +259,18 @@ export function validateEnum<T extends string>(
   allowedValues: readonly T[]
 ): asserts value is T {
   if (typeof value !== 'string') {
-    throw new ValidationError(fieldPath, `one of: ${allowedValues.join(', ')}`, value);
+    throw new OcpValidationError(fieldPath, `Value must be one of: ${allowedValues.join(', ')}`, {
+      expectedType: `one of: ${allowedValues.join(', ')}`,
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
   }
   if (!allowedValues.includes(value as T)) {
-    throw new ValidationError(fieldPath, `one of: ${allowedValues.join(', ')}`, value);
+    throw new OcpValidationError(fieldPath, `Value must be one of: ${allowedValues.join(', ')}`, {
+      expectedType: `one of: ${allowedValues.join(', ')}`,
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
   }
 }
 
@@ -253,14 +301,22 @@ export function validateOptionalEnum<T extends string>(
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {ValidationError} if the value is not a non-empty array
+ * @throws {OcpValidationError} if the value is not a non-empty array
  */
 export function validateRequiredArray<T>(value: unknown, fieldPath: string): asserts value is T[] {
   if (!Array.isArray(value)) {
-    throw new ValidationError(fieldPath, 'non-empty array', value);
+    throw new OcpValidationError(fieldPath, 'Value must be a non-empty array', {
+      expectedType: 'non-empty array',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
   }
   if (value.length === 0) {
-    throw new ValidationError(fieldPath, 'non-empty array', '[]');
+    throw new OcpValidationError(fieldPath, 'Array cannot be empty', {
+      expectedType: 'non-empty array',
+      receivedValue: value,
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
 }
 
@@ -276,7 +332,11 @@ export function validateOptionalArray<T>(value: unknown, fieldPath: string): T[]
     return null;
   }
   if (!Array.isArray(value)) {
-    throw new ValidationError(fieldPath, 'array, undefined, or null', value);
+    throw new OcpValidationError(fieldPath, 'Value must be an array if provided', {
+      expectedType: 'array, undefined, or null',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
   }
   return value.length > 0 ? value : null;
 }
@@ -288,11 +348,15 @@ export function validateOptionalArray<T>(value: unknown, fieldPath: string): T[]
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {ValidationError} if the value is not a non-null object
+ * @throws {OcpValidationError} if the value is not a non-null object
  */
 export function validateRequiredObject(value: unknown, fieldPath: string): asserts value is Record<string, unknown> {
   if (typeof value !== 'object' || value === null) {
-    throw new ValidationError(fieldPath, 'non-null object', value);
+    throw new OcpValidationError(fieldPath, 'Value must be a non-null object', {
+      expectedType: 'non-null object',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
   }
 }
 
@@ -326,7 +390,7 @@ export interface ValidatedMonetary {
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {ValidationError} if the value is not a valid Monetary object
+ * @throws {OcpValidationError} if the value is not a valid Monetary object
  */
 export function validateRequiredMonetary(value: unknown, fieldPath: string): asserts value is ValidatedMonetary {
   validateRequiredObject(value, fieldPath);
@@ -362,14 +426,18 @@ export function validateOptionalMonetary(value: unknown, fieldPath: string): Val
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {ValidationError} if the value is not a valid contract ID
+ * @throws {OcpValidationError} if the value is not a valid contract ID
  */
 export function validateContractId(value: unknown, fieldPath: string): asserts value is string {
   validateRequiredString(value, fieldPath);
   // Contract IDs should be non-empty strings; the exact format is flexible
   // but they should not contain whitespace
   if (/\s/.test(value)) {
-    throw new ValidationError(fieldPath, 'contract ID without whitespace', value);
+    throw new OcpValidationError(fieldPath, 'Contract ID cannot contain whitespace', {
+      expectedType: 'contract ID without whitespace',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
   }
 }
 
@@ -381,13 +449,17 @@ export function validateContractId(value: unknown, fieldPath: string): asserts v
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {ValidationError} if the value is not a valid party ID
+ * @throws {OcpValidationError} if the value is not a valid party ID
  */
 export function validatePartyId(value: unknown, fieldPath: string): asserts value is string {
   validateRequiredString(value, fieldPath);
   // Basic validation - party IDs should not contain whitespace
   if (/\s/.test(value)) {
-    throw new ValidationError(fieldPath, 'party ID without whitespace', value);
+    throw new OcpValidationError(fieldPath, 'Party ID cannot contain whitespace', {
+      expectedType: 'party ID without whitespace',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
   }
 }
 

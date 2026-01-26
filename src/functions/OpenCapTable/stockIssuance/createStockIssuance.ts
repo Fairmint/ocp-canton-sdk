@@ -1,5 +1,6 @@
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfStockIssuance, StockIssuanceType } from '../../../types';
+import { validateStockIssuanceData } from '../../../utils/entityValidators';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -24,36 +25,8 @@ function getIssuanceType(t: StockIssuanceType | undefined): string | null {
 }
 
 export function stockIssuanceDataToDaml(d: OcfStockIssuance): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('stockIssuance.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
-  if (!d.security_id) {
-    throw new OcpValidationError('stockIssuance.security_id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.security_id,
-    });
-  }
-  if (!d.custom_id) {
-    throw new OcpValidationError('stockIssuance.custom_id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.custom_id,
-    });
-  }
-  if (!d.stakeholder_id) {
-    throw new OcpValidationError('stockIssuance.stakeholder_id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.stakeholder_id,
-    });
-  }
-  if (!d.stock_class_id) {
-    throw new OcpValidationError('stockIssuance.stock_class_id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.stock_class_id,
-    });
-  }
+  // Validate input data using the entity validator
+  validateStockIssuanceData(d, 'stockIssuance');
 
   return {
     id: d.id,

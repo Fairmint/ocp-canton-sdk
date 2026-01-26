@@ -1,5 +1,6 @@
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfDocument, OcfObjectReference } from '../../../types';
+import { validateDocumentData } from '../../../utils/entityValidators';
 import { cleanComments, optionalString } from '../../../utils/typeConversions';
 
 function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
@@ -128,21 +129,9 @@ function objectTypeToDaml(t: OcfObjectReference['object_type']): string {
 }
 
 export function documentDataToDaml(d: OcfDocument): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('document.id', 'Required field is missing', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
-  }
-  if (!d.md5) {
-    throw new OcpValidationError('document.md5', 'Required field is missing', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
-  }
-  if (!d.path && !d.uri) {
-    throw new OcpValidationError('document.path', 'Document requires path or uri', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
-  }
+  // Validate input data using the entity validator
+  validateDocumentData(d, 'document');
+
   return {
     id: d.id,
     path: optionalString(d.path),
