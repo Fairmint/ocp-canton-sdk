@@ -21,7 +21,9 @@ import {
   getRegisteredObjectTypes,
   hasDeprecationsForEntityType,
   migrateEquityCompensationIssuanceFields,
+  migrateEquityCompensationIssuanceFieldsBatch,
   migrateStakeholderFields,
+  migrateStakeholderFieldsBatch,
   migrateStockPlanFields,
   migrateStockPlanFieldsBatch,
   normalizeDeprecatedEquityCompensationIssuanceFields,
@@ -1086,6 +1088,30 @@ describe('migrateStakeholderFields', () => {
   });
 });
 
+describe('migrateStakeholderFieldsBatch', () => {
+  test('migrates multiple items', () => {
+    const stakeholders = [
+      { id: 'sh-1', current_relationship: 'FOUNDER' },
+      { id: 'sh-2', current_relationships: ['EMPLOYEE'] },
+      { id: 'sh-3', current_relationship: 'ADVISOR' },
+    ];
+    const result = migrateStakeholderFieldsBatch(stakeholders);
+    expect(result.totalProcessed).toBe(3);
+    expect(result.itemsMigrated).toBe(2);
+    expect(result.migratedFieldsSummary).toEqual({ current_relationship: 2 });
+    expect(result.items[0].migrated).toBe(true);
+    expect(result.items[1].migrated).toBe(false);
+    expect(result.items[2].migrated).toBe(true);
+  });
+
+  test('tracks items with warnings when both fields present', () => {
+    const stakeholders = [{ id: 'sh-1', current_relationship: 'DEPRECATED', current_relationships: ['CURRENT'] }];
+    const result = migrateStakeholderFieldsBatch(stakeholders);
+    expect(result.itemsWithWarnings).toBe(1);
+    expect(result.items[0].warnings.length).toBe(1);
+  });
+});
+
 // ===== Equity Compensation Issuance Deprecation Tests =====
 
 describe('OPTION_GRANT_TYPE_TO_COMPENSATION_TYPE', () => {
@@ -1124,6 +1150,15 @@ describe('normalizeDeprecatedEquityCompensationIssuanceFields', () => {
     expect(result.compensation_type).toBe('RSU');
     expect(result.usedDeprecatedField).toBe(false);
   });
+
+  test('prefers compensation_type over deprecated option_grant_type', () => {
+    const result = normalizeDeprecatedEquityCompensationIssuanceFields({
+      option_grant_type: 'NSO',
+      compensation_type: 'RSU',
+    });
+    expect(result.compensation_type).toBe('RSU');
+    expect(result.usedDeprecatedField).toBe(false);
+  });
 });
 
 describe('checkEquityCompensationIssuanceDeprecatedFieldUsage', () => {
@@ -1140,6 +1175,29 @@ describe('migrateEquityCompensationIssuanceFields', () => {
     expect(result.data.compensation_type).toBe('OPTION_NSO');
     expect(result.data).not.toHaveProperty('option_grant_type');
     expect(result.migrated).toBe(true);
+  });
+});
+
+describe('migrateEquityCompensationIssuanceFieldsBatch', () => {
+  test('migrates multiple items', () => {
+    const issuances = [
+      { id: 'eci-1', option_grant_type: 'NSO' },
+      { id: 'eci-2', compensation_type: 'RSU' },
+      { id: 'eci-3', option_grant_type: 'ISO' },
+    ];
+    const result = migrateEquityCompensationIssuanceFieldsBatch(issuances);
+    expect(result.totalProcessed).toBe(3);
+    expect(result.itemsMigrated).toBe(2);
+    expect(result.migratedFieldsSummary).toEqual({ option_grant_type: 2 });
+    expect(result.items[0].data.compensation_type).toBe('OPTION_NSO');
+    expect(result.items[2].data.compensation_type).toBe('OPTION_ISO');
+  });
+
+  test('tracks items with warnings when both fields present', () => {
+    const issuances = [{ id: 'eci-1', option_grant_type: 'NSO', compensation_type: 'RSU' }];
+    const result = migrateEquityCompensationIssuanceFieldsBatch(issuances);
+    expect(result.itemsWithWarnings).toBe(1);
+    expect(result.items[0].warnings.length).toBe(1);
   });
 });
 
@@ -1166,6 +1224,15 @@ describe('normalizeOcfObject', () => {
     });
     expect((result.data as Record<string, unknown>).compensation_type).toBe('OPTION_NSO');
     expect(result.data).not.toHaveProperty('option_grant_type');
+  });
+
+  test('normalizes both object_type and option_grant_type for TX_PLAN_SECURITY_ISSUANCE', () => {
+    const result = normalizeOcfObject({ object_type: 'TX_PLAN_SECURITY_ISSUANCE', id: 'eci-1', option_grant_type: 'ISO' });
+    expect((result.data as Record<string, unknown>).object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
+    expect((result.data as Record<string, unknown>).compensation_type).toBe('OPTION_ISO');
+    expect(result.data).not.toHaveProperty('option_grant_type');
+    expect(result.normalizedFields).toContain('object_type');
+    expect(result.normalizedFields).toContain('option_grant_type');
   });
 
   test('returns data unchanged for unknown object types', () => {

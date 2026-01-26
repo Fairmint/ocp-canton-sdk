@@ -261,7 +261,50 @@ export interface NormalizedStakeholderFields {
 }
 
 /**
- * Normalize deprecated stakeholder fields.
+ * Normalize deprecated stakeholder relationship fields to their canonical form.
+ *
+ * This helper accepts stakeholder data that may use the legacy singular
+ * `current_relationship` field or the newer array-based `current_relationships`
+ * field and returns a normalized representation plus metadata about deprecation use.
+ *
+ * Behavior:
+ * - If only `current_relationship` is provided, it is converted to a single-element
+ *   `current_relationships` array and `usedDeprecatedField` is set to `true`.
+ * - If `current_relationships` is provided and non-empty, it is used as-is and
+ *   `usedDeprecatedField` is set to `false`, even if `current_relationship` is
+ *   also present.
+ * - If neither field is provided, `current_relationships` will be an empty array
+ *   and `usedDeprecatedField` will be `false`.
+ *
+ * The input object is not mutated.
+ *
+ * @param data - Stakeholder data that may contain either the deprecated
+ *   `current_relationship` field, the newer `current_relationships` field, or both.
+ * @param context - Optional human-readable context used when emitting deprecation
+ *   warnings. Defaults to `"Stakeholder"` when not provided.
+ * @returns Normalized stakeholder relationship fields, including
+ *   `current_relationships` (always an array) and a `usedDeprecatedField` flag
+ *   indicating whether only the deprecated field was relied upon.
+ *
+ * @example
+ * ```typescript
+ * const normalized = normalizeDeprecatedStakeholderFields({
+ *   current_relationship: 'EMPLOYEE',
+ * });
+ * normalized.current_relationships; // ['EMPLOYEE']
+ * normalized.usedDeprecatedField;   // true
+ * ```
+ *
+ * @example
+ * ```typescript
+ * const normalized = normalizeDeprecatedStakeholderFields({
+ *   current_relationship: 'ADVISOR',
+ *   current_relationships: ['FOUNDER', 'DIRECTOR'],
+ * });
+ * // The array field takes precedence when both are present.
+ * normalized.current_relationships; // ['FOUNDER', 'DIRECTOR']
+ * normalized.usedDeprecatedField;   // false
+ * ```
  */
 export function normalizeDeprecatedStakeholderFields(
   data: StakeholderDataWithDeprecatedField,
@@ -398,7 +441,52 @@ export function convertOptionGrantTypeToCompensationType(optionGrantType: string
 }
 
 /**
- * Normalize deprecated equity compensation issuance fields.
+ * Normalize deprecated equity compensation issuance fields to their canonical form.
+ *
+ * This helper converts the legacy `option_grant_type` field to the current
+ * `compensation_type` field, applying value mappings as needed:
+ * - `NSO` → `OPTION_NSO`
+ * - `ISO` → `OPTION_ISO`
+ * - `INTL` → `OPTION`
+ * - Unknown values are passed through unchanged
+ *
+ * Behavior:
+ * - If only `option_grant_type` is provided, it is converted to `compensation_type`
+ *   with the appropriate value mapping and `usedDeprecatedField` is set to `true`.
+ * - If `compensation_type` is provided and non-empty, it is used as-is and
+ *   `usedDeprecatedField` is set to `false`, even if `option_grant_type` is
+ *   also present.
+ * - If neither field is provided, `compensation_type` will be `null`.
+ *
+ * The input object is not mutated.
+ *
+ * @param data - Equity compensation issuance data that may contain either the deprecated
+ *   `option_grant_type` field, the newer `compensation_type` field, or both.
+ * @param context - Optional human-readable context used when emitting deprecation
+ *   warnings. Defaults to `"EquityCompensationIssuance"` when not provided.
+ * @returns Normalized fields including `compensation_type`, a `usedDeprecatedField` flag,
+ *   and optionally the `originalDeprecatedValue` if conversion occurred.
+ *
+ * @example
+ * ```typescript
+ * const normalized = normalizeDeprecatedEquityCompensationIssuanceFields({
+ *   option_grant_type: 'NSO',
+ * });
+ * normalized.compensation_type;      // 'OPTION_NSO'
+ * normalized.usedDeprecatedField;    // true
+ * normalized.originalDeprecatedValue; // 'NSO'
+ * ```
+ *
+ * @example
+ * ```typescript
+ * const normalized = normalizeDeprecatedEquityCompensationIssuanceFields({
+ *   option_grant_type: 'ISO',
+ *   compensation_type: 'RSU',
+ * });
+ * // The current field takes precedence when both are present.
+ * normalized.compensation_type;   // 'RSU'
+ * normalized.usedDeprecatedField; // false
+ * ```
  */
 export function normalizeDeprecatedEquityCompensationIssuanceFields(
   data: EquityCompensationIssuanceDataWithDeprecatedField,
@@ -416,9 +504,10 @@ export function normalizeDeprecatedEquityCompensationIssuanceFields(
 
   if (hasCurrentField) {
     compensation_type = data.compensation_type ?? null;
-  } else if (hasDeprecatedField) {
-    originalDeprecatedValue = data.option_grant_type ?? undefined;
-    compensation_type = convertOptionGrantTypeToCompensationType(data.option_grant_type as string);
+  } else if (hasDeprecatedField && data.option_grant_type) {
+    // Re-check in condition to narrow type for TypeScript
+    originalDeprecatedValue = data.option_grant_type;
+    compensation_type = convertOptionGrantTypeToCompensationType(data.option_grant_type);
     emitDeprecationWarning({
       deprecatedField: 'option_grant_type',
       replacementField: 'compensation_type',
@@ -1646,8 +1735,13 @@ export function normalizeOcfObject<T extends Record<string, unknown>>(
         const currentValue = result[mapping.replacementField];
         const hasCurrent = currentValue !== undefined && currentValue !== null && currentValue !== '';
         if (!hasCurrent) {
+          // value_mapped requires string values; skip non-string types
+          if (typeof deprecatedValue !== 'string') {
+            warnings.push(`Expected string value for '${mapping.deprecatedField}', got ${typeof deprecatedValue}`);
+            break;
+          }
           const valueMap = mapping.valueMap ?? {};
-          const mappedValue = valueMap[deprecatedValue as string] ?? deprecatedValue;
+          const mappedValue = valueMap[deprecatedValue] ?? deprecatedValue;
           result = { ...result, [mapping.replacementField]: mappedValue };
           normalizedFields.push(mapping.deprecatedField);
           if (emitWarnings) {
@@ -1695,6 +1789,9 @@ export function normalizeOcfObject<T extends Record<string, unknown>>(
   }
 
   // Step 4: Remove deprecated fields from the result
+  // Note: The `as T` assertion is intentional - TypeScript cannot track field removal through
+  // computed property spread. The result type may differ from T (deprecated fields removed),
+  // but this is the expected behavior and callers handle it via Record<string, unknown>.
   for (const mapping of mappings) {
     if (normalizedFields.includes(mapping.deprecatedField) && mapping.deprecatedField !== 'object_type') {
       const { [mapping.deprecatedField]: _removed, ...rest } = result;
