@@ -98,6 +98,16 @@ const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
   // Stakeholder Events (2 types)
   TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'stakeholderRelationshipChangeEvent',
   TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'stakeholderStatusChangeEvent',
+
+  // Plan Security (7 types) - aliases for Equity Compensation in legacy OCF
+  // These map to equityCompensation* types in Canton (planSecurity is an alias)
+  TX_PLAN_SECURITY_ISSUANCE: 'planSecurityIssuance',
+  TX_PLAN_SECURITY_CANCELLATION: 'planSecurityCancellation',
+  TX_PLAN_SECURITY_TRANSFER: 'planSecurityTransfer',
+  TX_PLAN_SECURITY_ACCEPTANCE: 'planSecurityAcceptance',
+  TX_PLAN_SECURITY_EXERCISE: 'planSecurityExercise',
+  TX_PLAN_SECURITY_RELEASE: 'planSecurityRelease',
+  TX_PLAN_SECURITY_RETRACTION: 'planSecurityRetraction',
 };
 
 /**

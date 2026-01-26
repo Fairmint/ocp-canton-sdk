@@ -16,6 +16,10 @@ import type { OcfEntityType } from './batchTypes';
  *
  * Each field in the CapTable DAML contract is a Map from OCF ID (Text) to ContractId.
  * This mapping allows extraction of entity inventories from the contract payload.
+ *
+ * Note: planSecurity* types (7 total) are intentionally omitted from this mapping.
+ * They are aliases for equityCompensation* types and are stored under equity_compensation_*
+ * fields in Canton. The SDK normalizes planSecurity → equityCompensation during upload.
  */
 export const FIELD_TO_ENTITY_TYPE: Record<string, OcfEntityType> = {
   // Core Objects (7 types)
@@ -112,6 +116,11 @@ export interface CapTableState {
  *
  * Uses getActiveContracts filtered by party to efficiently retrieve only
  * the CapTable contract for the specified issuer.
+ *
+ * Note: In the standard deployment model, each issuer party has exactly one
+ * active CapTable contract. If multiple CapTable contracts exist for the same
+ * party (which would indicate a configuration issue), this function returns
+ * the first one found. The system design ensures this is a 1:1 relationship.
  *
  * @param client - LedgerJsonApiClient instance
  * @param issuerPartyId - Party ID of the issuer
