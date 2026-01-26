@@ -8,6 +8,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
 import type { OcfEntityType } from './batchTypes';
 
@@ -140,11 +141,10 @@ export async function getCapTableState(
   issuerPartyId: string
 ): Promise<CapTableState | null> {
   // Query for CapTable contract by party
-  // The CapTable template ID follows the pattern: PackageId:Module:Template
+  // Use the DAML-JS package's templateId for compatibility with deployed packages.
   const contracts = await client.getActiveContracts({
     parties: [issuerPartyId],
-    // Filter to CapTable template - will match the deployed OpenCapTable package
-    templateIds: ['#open-captable:Fairmint.OpenCapTable.CapTable:CapTable'],
+    templateIds: [Fairmint.OpenCapTable.CapTable.CapTable.templateId],
   });
 
   if (contracts.length === 0) {
