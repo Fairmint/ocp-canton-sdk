@@ -19,6 +19,9 @@
  *   ```
  */
 
+import { normalizeOcfData as normalizePlanSecurityObjectType } from './planSecurityAliases';
+import { ocfDeepEqual, DEFAULT_INTERNAL_FIELDS, DEFAULT_DEPRECATED_FIELDS, type OcfComparisonOptions } from './ocfComparison';
+
 // ===== Deprecation Warning Configuration =====
 
 /**
@@ -230,6 +233,255 @@ export function normalizeDeprecatedStockPlanFields(
   };
 }
 
+// ===== Stakeholder Specific Helpers =====
+
+/**
+ * Input type that may contain deprecated current_relationship field.
+ */
+export interface StakeholderDataWithDeprecatedField {
+  /** The current array field for stakeholder relationships */
+  current_relationships?: string[] | null;
+  /** @deprecated Use current_relationships instead. */
+  current_relationship?: string | null;
+}
+
+/**
+ * Result of normalizing deprecated stakeholder fields.
+ */
+export interface NormalizedStakeholderFields {
+  /** Normalized array of stakeholder relationships */
+  current_relationships: string[];
+  /** Whether a deprecated field was used */
+  usedDeprecatedField: boolean;
+}
+
+/**
+ * Normalize deprecated stakeholder fields.
+ */
+export function normalizeDeprecatedStakeholderFields(
+  data: StakeholderDataWithDeprecatedField,
+  context?: string
+): NormalizedStakeholderFields {
+  const hasDeprecatedField =
+    data.current_relationship !== undefined && data.current_relationship !== null && data.current_relationship !== '';
+  const hasCurrentField = Array.isArray(data.current_relationships) && data.current_relationships.length > 0;
+  const usedDeprecatedField = hasDeprecatedField && !hasCurrentField;
+
+  const singularValue = data.current_relationship ?? undefined;
+  const arrayValue = data.current_relationships ?? undefined;
+
+  const current_relationships = normalizeSingularToArray({
+    singularValue,
+    arrayValue,
+    deprecatedFieldName: 'current_relationship',
+    replacementFieldName: 'current_relationships',
+    context: context ?? 'Stakeholder',
+  });
+
+  return { current_relationships, usedDeprecatedField };
+}
+
+/**
+ * Check stakeholder data for deprecated field usage without modifying the data.
+ */
+export function checkStakeholderDeprecatedFieldUsage(
+  data: StakeholderDataWithDeprecatedField
+): DeprecatedFieldUsageResult {
+  const deprecatedFieldsUsed: string[] = [];
+  if (data.current_relationship !== undefined && data.current_relationship !== null && data.current_relationship !== '') {
+    deprecatedFieldsUsed.push('current_relationship');
+  }
+  return { hasDeprecatedFields: deprecatedFieldsUsed.length > 0, deprecatedFieldsUsed };
+}
+
+/**
+ * Migrate deprecated stakeholder fields to their current equivalents.
+ */
+export function migrateStakeholderFields<T extends StakeholderDataWithDeprecatedField>(
+  data: T
+): MigrationResult<Omit<T, 'current_relationship'> & { current_relationships: string[] }> {
+  const warnings: string[] = [];
+  const migratedFields: string[] = [];
+
+  const hasDeprecatedField =
+    data.current_relationship !== undefined && data.current_relationship !== null && data.current_relationship !== '';
+  const hasCurrentField = Array.isArray(data.current_relationships) && data.current_relationships.length > 0;
+
+  if (hasDeprecatedField && hasCurrentField) {
+    warnings.push(`Both 'current_relationship' (deprecated) and 'current_relationships' are present. Using 'current_relationships' value.`);
+  }
+
+  const { current_relationships, usedDeprecatedField } = normalizeDeprecatedStakeholderFields(data);
+  if (usedDeprecatedField) migratedFields.push('current_relationship');
+
+  const { current_relationship: _removed, ...rest } = data;
+
+  return {
+    data: { ...rest, current_relationships } as Omit<T, 'current_relationship'> & { current_relationships: string[] },
+    migrated: migratedFields.length > 0,
+    migratedFields,
+    warnings,
+  };
+}
+
+/**
+ * Migrate deprecated fields in multiple stakeholder objects.
+ */
+export function migrateStakeholderFieldsBatch<T extends StakeholderDataWithDeprecatedField>(
+  items: T[]
+): BatchMigrationResult<Omit<T, 'current_relationship'> & { current_relationships: string[] }> {
+  const migratedFieldsSummary: Record<string, number> = {};
+  let itemsMigrated = 0;
+  let itemsWithWarnings = 0;
+
+  const migratedItems = items.map((item) => {
+    const result = migrateStakeholderFields(item);
+    if (result.migrated) {
+      itemsMigrated++;
+      for (const field of result.migratedFields) {
+        migratedFieldsSummary[field] = (migratedFieldsSummary[field] ?? 0) + 1;
+      }
+    }
+    if (result.warnings.length > 0) itemsWithWarnings++;
+    return result;
+  });
+
+  return { items: migratedItems, totalProcessed: items.length, itemsMigrated, itemsWithWarnings, migratedFieldsSummary };
+}
+
+// ===== Equity Compensation Issuance Specific Helpers =====
+
+/**
+ * Input type that may contain deprecated option_grant_type field.
+ */
+export interface EquityCompensationIssuanceDataWithDeprecatedField {
+  /** The current compensation type field */
+  compensation_type?: string | null;
+  /** @deprecated Use compensation_type instead. */
+  option_grant_type?: string | null;
+}
+
+/**
+ * Result of normalizing deprecated equity compensation issuance fields.
+ */
+export interface NormalizedEquityCompensationIssuanceFields {
+  /** Normalized compensation type */
+  compensation_type: string | null;
+  /** Whether a deprecated field was used */
+  usedDeprecatedField: boolean;
+  /** The original deprecated value (if any) */
+  originalDeprecatedValue?: string;
+}
+
+/**
+ * Convert deprecated option_grant_type value to current compensation_type value.
+ */
+export function convertOptionGrantTypeToCompensationType(optionGrantType: string): string {
+  return OPTION_GRANT_TYPE_TO_COMPENSATION_TYPE[optionGrantType] ?? optionGrantType;
+}
+
+/**
+ * Normalize deprecated equity compensation issuance fields.
+ */
+export function normalizeDeprecatedEquityCompensationIssuanceFields(
+  data: EquityCompensationIssuanceDataWithDeprecatedField,
+  context?: string
+): NormalizedEquityCompensationIssuanceFields {
+  const hasDeprecatedField =
+    data.option_grant_type !== undefined && data.option_grant_type !== null && data.option_grant_type !== '';
+  const hasCurrentField =
+    data.compensation_type !== undefined && data.compensation_type !== null && data.compensation_type !== '';
+
+  const usedDeprecatedField = hasDeprecatedField && !hasCurrentField;
+
+  let compensation_type: string | null = null;
+  let originalDeprecatedValue: string | undefined;
+
+  if (hasCurrentField) {
+    compensation_type = data.compensation_type ?? null;
+  } else if (hasDeprecatedField) {
+    originalDeprecatedValue = data.option_grant_type ?? undefined;
+    compensation_type = convertOptionGrantTypeToCompensationType(data.option_grant_type as string);
+    emitDeprecationWarning({
+      deprecatedField: 'option_grant_type',
+      replacementField: 'compensation_type',
+      deprecatedValue: data.option_grant_type,
+      context: context ?? 'EquityCompensationIssuance',
+    });
+  }
+
+  return { compensation_type, usedDeprecatedField, originalDeprecatedValue };
+}
+
+/**
+ * Check equity compensation issuance data for deprecated field usage.
+ */
+export function checkEquityCompensationIssuanceDeprecatedFieldUsage(
+  data: EquityCompensationIssuanceDataWithDeprecatedField
+): DeprecatedFieldUsageResult {
+  const deprecatedFieldsUsed: string[] = [];
+  if (data.option_grant_type !== undefined && data.option_grant_type !== null && data.option_grant_type !== '') {
+    deprecatedFieldsUsed.push('option_grant_type');
+  }
+  return { hasDeprecatedFields: deprecatedFieldsUsed.length > 0, deprecatedFieldsUsed };
+}
+
+/**
+ * Migrate deprecated equity compensation issuance fields.
+ */
+export function migrateEquityCompensationIssuanceFields<T extends EquityCompensationIssuanceDataWithDeprecatedField>(
+  data: T
+): MigrationResult<Omit<T, 'option_grant_type'> & { compensation_type: string | null }> {
+  const warnings: string[] = [];
+  const migratedFields: string[] = [];
+
+  const hasDeprecatedField =
+    data.option_grant_type !== undefined && data.option_grant_type !== null && data.option_grant_type !== '';
+  const hasCurrentField =
+    data.compensation_type !== undefined && data.compensation_type !== null && data.compensation_type !== '';
+
+  if (hasDeprecatedField && hasCurrentField) {
+    warnings.push(`Both 'option_grant_type' (deprecated) and 'compensation_type' are present. Using 'compensation_type' value.`);
+  }
+
+  const { compensation_type, usedDeprecatedField } = normalizeDeprecatedEquityCompensationIssuanceFields(data);
+  if (usedDeprecatedField) migratedFields.push('option_grant_type');
+
+  const { option_grant_type: _removed, ...rest } = data;
+
+  return {
+    data: { ...rest, compensation_type } as Omit<T, 'option_grant_type'> & { compensation_type: string | null },
+    migrated: migratedFields.length > 0,
+    migratedFields,
+    warnings,
+  };
+}
+
+/**
+ * Migrate deprecated fields in multiple equity compensation issuance objects.
+ */
+export function migrateEquityCompensationIssuanceFieldsBatch<T extends EquityCompensationIssuanceDataWithDeprecatedField>(
+  items: T[]
+): BatchMigrationResult<Omit<T, 'option_grant_type'> & { compensation_type: string | null }> {
+  const migratedFieldsSummary: Record<string, number> = {};
+  let itemsMigrated = 0;
+  let itemsWithWarnings = 0;
+
+  const migratedItems = items.map((item) => {
+    const result = migrateEquityCompensationIssuanceFields(item);
+    if (result.migrated) {
+      itemsMigrated++;
+      for (const field of result.migratedFields) {
+        migratedFieldsSummary[field] = (migratedFieldsSummary[field] ?? 0) + 1;
+      }
+    }
+    if (result.warnings.length > 0) itemsWithWarnings++;
+    return result;
+  });
+
+  return { items: migratedItems, totalProcessed: items.length, itemsMigrated, itemsWithWarnings, migratedFieldsSummary };
+}
+
 // ===== Verification Helpers =====
 
 /**
@@ -280,9 +532,20 @@ export interface DeprecatedFieldMapping {
   deprecatedField: string;
   /** The replacement field name */
   replacementField: string;
-  /** The type of deprecation (singular_to_array, renamed, etc.) */
-  deprecationType: 'singular_to_array' | 'renamed' | 'removed';
+  /** The type of deprecation (singular_to_array, renamed, value_mapped, removed) */
+  deprecationType: 'singular_to_array' | 'renamed' | 'value_mapped' | 'removed';
+  /** Value mapping for 'value_mapped' deprecation type */
+  valueMap?: Record<string, string>;
 }
+
+/**
+ * Value mapping for option_grant_type -> compensation_type conversion.
+ */
+export const OPTION_GRANT_TYPE_TO_COMPENSATION_TYPE: Record<string, string> = {
+  NSO: 'OPTION_NSO',
+  ISO: 'OPTION_ISO',
+  INTL: 'OPTION',
+};
 
 /**
  * Known OCF deprecated field mappings.
@@ -294,6 +557,21 @@ export const OCF_DEPRECATED_FIELDS: Record<string, DeprecatedFieldMapping[]> = {
       deprecatedField: 'stock_class_id',
       replacementField: 'stock_class_ids',
       deprecationType: 'singular_to_array',
+    },
+  ],
+  Stakeholder: [
+    {
+      deprecatedField: 'current_relationship',
+      replacementField: 'current_relationships',
+      deprecationType: 'singular_to_array',
+    },
+  ],
+  EquityCompensationIssuance: [
+    {
+      deprecatedField: 'option_grant_type',
+      replacementField: 'compensation_type',
+      deprecationType: 'value_mapped',
+      valueMap: OPTION_GRANT_TYPE_TO_COMPENSATION_TYPE,
     },
   ],
 };
@@ -1017,6 +1295,8 @@ export function getAllDeprecatedFieldMappings(): Record<string, DeprecatedFieldM
  */
 const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = {
   stockPlan: 'StockPlan',
+  stakeholder: 'Stakeholder',
+  equityCompensationIssuance: 'EquityCompensationIssuance',
   // Add more mappings as deprecations are discovered for other types
 };
 
@@ -1159,6 +1439,37 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
         break;
       }
 
+      case 'value_mapped': {
+        const currentValue = data[mapping.replacementField];
+        const hasCurrent = currentValue !== undefined && currentValue !== null && currentValue !== '';
+
+        if (!hasCurrent) {
+          const valueMap = mapping.valueMap ?? {};
+          const mappedValue = valueMap[deprecatedValue as string] ?? deprecatedValue;
+
+          result = {
+            ...result,
+            [mapping.replacementField]: mappedValue,
+          };
+          normalizedFields.push(mapping.deprecatedField);
+
+          if (emitWarnings) {
+            emitDeprecationWarning({
+              deprecatedField: mapping.deprecatedField,
+              replacementField: mapping.replacementField,
+              deprecatedValue,
+              context: context ?? `${entityType}.create`,
+            });
+          }
+        } else {
+          warnings.push(
+            `Both '${mapping.deprecatedField}' (deprecated) and '${mapping.replacementField}' are present. ` +
+              `Using '${mapping.replacementField}' value.`
+          );
+        }
+        break;
+      }
+
       case 'removed': {
         // Field is removed, just warn
         warnings.push(
@@ -1211,3 +1522,217 @@ export function hasDeprecationsForEntityType(entityType: string): boolean {
 export function registerEntityTypeMapping(entityType: string, objectType: string): void {
   ENTITY_TYPE_TO_OBJECT_TYPE[entityType] = objectType;
 }
+
+// ===== Unified OCF Object Normalization =====
+
+/**
+ * Map from OCF object_type to the object type name used in deprecation registry.
+ */
+const OBJECT_TYPE_TO_REGISTRY_TYPE: Record<string, string> = {
+  STOCK_PLAN: 'StockPlan',
+  STAKEHOLDER: 'Stakeholder',
+  TX_EQUITY_COMPENSATION_ISSUANCE: 'EquityCompensationIssuance',
+  TX_PLAN_SECURITY_ISSUANCE: 'EquityCompensationIssuance',
+};
+
+/**
+ * Options for normalizeOcfObject.
+ */
+export interface NormalizeOcfObjectOptions {
+  /** Whether to emit deprecation warnings (default: true) */
+  emitWarnings?: boolean;
+  /** Context for deprecation warnings */
+  context?: string;
+}
+
+/**
+ * Normalize an OCF object by applying all deprecation normalizations.
+ *
+ * This function auto-detects the object type from the `object_type` field and applies:
+ * 1. PlanSecurity -> EquityCompensation object_type normalization
+ * 2. Deprecated field normalizations (singular->array, value mappings, etc.)
+ */
+export function normalizeOcfObject<T extends Record<string, unknown>>(
+  data: T,
+  options: NormalizeOcfObjectOptions = {}
+): NormalizedOcfDataResult<T> {
+  const { emitWarnings = true, context } = options;
+
+  const normalizedFields: string[] = [];
+  const warnings: string[] = [];
+
+  // Step 1: Normalize PlanSecurity object_type to EquityCompensation
+  let result = normalizePlanSecurityObjectType(data);
+  const originalObjectType = data.object_type;
+  const normalizedObjectType = result.object_type;
+
+  if (originalObjectType !== normalizedObjectType && typeof originalObjectType === 'string') {
+    normalizedFields.push('object_type');
+    if (emitWarnings) {
+      emitDeprecationWarning({
+        deprecatedField: 'object_type',
+        replacementField: 'object_type',
+        deprecatedValue: originalObjectType,
+        context: context ?? 'normalizeOcfObject',
+      });
+    }
+  }
+
+  // Step 2: Determine the registry type from object_type
+  const objectType = typeof normalizedObjectType === 'string' ? normalizedObjectType : undefined;
+  const registryType = objectType ? OBJECT_TYPE_TO_REGISTRY_TYPE[objectType] : undefined;
+
+  if (!registryType) {
+    return { data: result, normalized: normalizedFields.length > 0, normalizedFields, warnings };
+  }
+
+  // Step 3: Apply deprecated field normalizations
+  const mappings = getDeprecatedFieldMappings(registryType);
+
+  for (const mapping of mappings) {
+    const deprecatedValue = result[mapping.deprecatedField];
+    const hasDeprecated = deprecatedValue !== undefined && deprecatedValue !== null && deprecatedValue !== '';
+
+    if (!hasDeprecated) continue;
+
+    switch (mapping.deprecationType) {
+      case 'singular_to_array': {
+        const currentValue = result[mapping.replacementField];
+        const hasCurrentArray = Array.isArray(currentValue) && currentValue.length > 0;
+        if (!hasCurrentArray) {
+          result = { ...result, [mapping.replacementField]: [deprecatedValue] };
+          normalizedFields.push(mapping.deprecatedField);
+          if (emitWarnings) {
+            emitDeprecationWarning({ deprecatedField: mapping.deprecatedField, replacementField: mapping.replacementField, deprecatedValue, context: context ?? registryType });
+          }
+        } else {
+          warnings.push(`Both '${mapping.deprecatedField}' (deprecated) and '${mapping.replacementField}' are present. Using '${mapping.replacementField}' value.`);
+        }
+        break;
+      }
+      case 'value_mapped': {
+        const currentValue = result[mapping.replacementField];
+        const hasCurrent = currentValue !== undefined && currentValue !== null && currentValue !== '';
+        if (!hasCurrent) {
+          const valueMap = mapping.valueMap ?? {};
+          const mappedValue = valueMap[deprecatedValue as string] ?? deprecatedValue;
+          result = { ...result, [mapping.replacementField]: mappedValue };
+          normalizedFields.push(mapping.deprecatedField);
+          if (emitWarnings) {
+            emitDeprecationWarning({ deprecatedField: mapping.deprecatedField, replacementField: mapping.replacementField, deprecatedValue, context: context ?? registryType });
+          }
+        } else {
+          warnings.push(`Both '${mapping.deprecatedField}' (deprecated) and '${mapping.replacementField}' are present. Using '${mapping.replacementField}' value.`);
+        }
+        break;
+      }
+      case 'renamed': {
+        const currentValue = result[mapping.replacementField];
+        const hasCurrent = currentValue !== undefined && currentValue !== null;
+        if (!hasCurrent) {
+          result = { ...result, [mapping.replacementField]: deprecatedValue };
+          normalizedFields.push(mapping.deprecatedField);
+          if (emitWarnings) {
+            emitDeprecationWarning({ deprecatedField: mapping.deprecatedField, replacementField: mapping.replacementField, deprecatedValue, context: context ?? registryType });
+          }
+        } else {
+          warnings.push(`Both '${mapping.deprecatedField}' (deprecated) and '${mapping.replacementField}' are present. Using '${mapping.replacementField}' value.`);
+        }
+        break;
+      }
+      case 'removed': {
+        warnings.push(`Field '${mapping.deprecatedField}' is deprecated and will be ignored.`);
+        normalizedFields.push(mapping.deprecatedField);
+        break;
+      }
+    }
+  }
+
+  // Step 4: Remove deprecated fields from the result
+  for (const mapping of mappings) {
+    if (normalizedFields.includes(mapping.deprecatedField) && mapping.deprecatedField !== 'object_type') {
+      const { [mapping.deprecatedField]: _removed, ...rest } = result;
+      result = rest as T;
+    }
+  }
+
+  return { data: result, normalized: normalizedFields.length > 0, normalizedFields, warnings };
+}
+
+// ===== OCF Equivalence Comparison =====
+
+/**
+ * Options for areOcfObjectsEquivalent comparison.
+ */
+export interface OcfEquivalenceOptions extends OcfComparisonOptions {
+  /** Whether to normalize objects before comparison (default: true) */
+  normalizeBeforeCompare?: boolean;
+  /** Whether to emit deprecation warnings during normalization (default: false) */
+  emitNormalizationWarnings?: boolean;
+}
+
+/**
+ * Result of OCF equivalence comparison.
+ */
+export interface OcfEquivalenceResult {
+  /** Whether the objects are equivalent after normalization */
+  equivalent: boolean;
+  /** Normalization details for the first object */
+  normalizationA: { wasNormalized: boolean; normalizedFields: string[]; warnings: string[] };
+  /** Normalization details for the second object */
+  normalizationB: { wasNormalized: boolean; normalizedFields: string[]; warnings: string[] };
+}
+
+/**
+ * Compare two OCF objects for semantic equivalence after normalizing deprecated fields.
+ */
+export function areOcfObjectsEquivalent(
+  dbObject: Record<string, unknown>,
+  chainObject: Record<string, unknown>,
+  options: OcfEquivalenceOptions = {}
+): boolean {
+  const result = compareOcfObjects(dbObject, chainObject, options);
+  return result.equivalent;
+}
+
+/**
+ * Compare two OCF objects with detailed results.
+ */
+export function compareOcfObjects(
+  dbObject: Record<string, unknown>,
+  chainObject: Record<string, unknown>,
+  options: OcfEquivalenceOptions = {}
+): OcfEquivalenceResult {
+  const {
+    normalizeBeforeCompare = true,
+    emitNormalizationWarnings = false,
+    ignoredFields = [...DEFAULT_INTERNAL_FIELDS],
+    deprecatedFields = [...DEFAULT_DEPRECATED_FIELDS],
+  } = options;
+
+  let normalizedA: Record<string, unknown> = dbObject;
+  let normalizedB: Record<string, unknown> = chainObject;
+  let normResultA = { normalized: false, normalizedFields: [] as string[], warnings: [] as string[] };
+  let normResultB = { normalized: false, normalizedFields: [] as string[], warnings: [] as string[] };
+
+  if (normalizeBeforeCompare) {
+    const resultA = normalizeOcfObject(dbObject, { emitWarnings: emitNormalizationWarnings });
+    normalizedA = resultA.data;
+    normResultA = { normalized: resultA.normalized, normalizedFields: resultA.normalizedFields, warnings: resultA.warnings };
+
+    const resultB = normalizeOcfObject(chainObject, { emitWarnings: emitNormalizationWarnings });
+    normalizedB = resultB.data;
+    normResultB = { normalized: resultB.normalized, normalizedFields: resultB.normalizedFields, warnings: resultB.warnings };
+  }
+
+  const equivalent = ocfDeepEqual(normalizedA, normalizedB, { ignoredFields, deprecatedFields });
+
+  return {
+    equivalent,
+    normalizationA: { wasNormalized: normResultA.normalized, normalizedFields: normResultA.normalizedFields, warnings: normResultA.warnings },
+    normalizationB: { wasNormalized: normResultB.normalized, normalizedFields: normResultB.normalizedFields, warnings: normResultB.warnings },
+  };
+}
+
+// Re-export comparison utilities for convenience
+export { DEFAULT_INTERNAL_FIELDS, DEFAULT_DEPRECATED_FIELDS };
