@@ -1004,7 +1004,7 @@ export function getAllDeprecatedFieldMappings(): Record<string, DeprecatedFieldM
   // Return a deep copy to prevent external modification
   const result: Record<string, DeprecatedFieldMapping[]> = {};
   for (const [key, value] of Object.entries(OCF_DEPRECATED_FIELDS)) {
-    result[key] = [...value];
+    result[key] = value.map((m) => ({ ...m }));
   }
   return result;
 }
