@@ -175,13 +175,10 @@ export function validateName(value: unknown, fieldPath: string): void {
 }
 
 /**
- * Validate a ContactInfo object.
+ * Validate the phone and email arrays in a contact info object.
+ * This is a helper function used by both validateContactInfo and validateContactInfoWithoutName.
  */
-export function validateContactInfo(value: unknown, fieldPath: string): void {
-  validateRequiredObject(value, fieldPath);
-  const contact = value;
-  validateName(contact.name, `${fieldPath}.name`);
-
+function validateContactArrays(contact: Record<string, unknown>, fieldPath: string): void {
   // Validate optional phone_numbers array
   if (contact.phone_numbers !== undefined && contact.phone_numbers !== null) {
     if (!Array.isArray(contact.phone_numbers)) {
@@ -212,39 +209,22 @@ export function validateContactInfo(value: unknown, fieldPath: string): void {
 }
 
 /**
+ * Validate a ContactInfo object.
+ */
+export function validateContactInfo(value: unknown, fieldPath: string): void {
+  validateRequiredObject(value, fieldPath);
+  const contact = value;
+  validateName(contact.name, `${fieldPath}.name`);
+  validateContactArrays(contact, fieldPath);
+}
+
+/**
  * Validate a ContactInfoWithoutName object.
  */
 export function validateContactInfoWithoutName(value: unknown, fieldPath: string): void {
   validateRequiredObject(value, fieldPath);
   const contact = value;
-
-  // Validate optional phone_numbers array
-  if (contact.phone_numbers !== undefined && contact.phone_numbers !== null) {
-    if (!Array.isArray(contact.phone_numbers)) {
-      throw new OcpValidationError(`${fieldPath}.phone_numbers`, 'Must be an array if provided', {
-        expectedType: 'array',
-        receivedValue: contact.phone_numbers,
-        code: OcpErrorCodes.INVALID_TYPE,
-      });
-    }
-    for (let i = 0; i < contact.phone_numbers.length; i++) {
-      validatePhone(contact.phone_numbers[i], `${fieldPath}.phone_numbers[${i}]`);
-    }
-  }
-
-  // Validate optional emails array
-  if (contact.emails !== undefined && contact.emails !== null) {
-    if (!Array.isArray(contact.emails)) {
-      throw new OcpValidationError(`${fieldPath}.emails`, 'Must be an array if provided', {
-        expectedType: 'array',
-        receivedValue: contact.emails,
-        code: OcpErrorCodes.INVALID_TYPE,
-      });
-    }
-    for (let i = 0; i < contact.emails.length; i++) {
-      validateEmail(contact.emails[i], `${fieldPath}.emails[${i}]`);
-    }
-  }
+  validateContactArrays(contact, fieldPath);
 }
 
 // ===== Entity Validators =====
@@ -332,7 +312,6 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
 
   // Required fields
   validateRequiredString(value.id, `${fieldPath}.id`);
-  validateRequiredObject(value.name, `${fieldPath}.name`);
   validateName(value.name, `${fieldPath}.name`);
   validateEnum(value.stakeholder_type, `${fieldPath}.stakeholder_type`, STAKEHOLDER_TYPES);
 
