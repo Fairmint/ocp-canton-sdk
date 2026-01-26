@@ -1060,7 +1060,10 @@ describe('normalizeDeprecatedStakeholderFields', () => {
   });
 
   test('prefers current_relationships over deprecated current_relationship', () => {
-    const result = normalizeDeprecatedStakeholderFields({ current_relationship: 'DEPRECATED', current_relationships: ['EMPLOYEE'] });
+    const result = normalizeDeprecatedStakeholderFields({
+      current_relationship: 'DEPRECATED',
+      current_relationships: ['EMPLOYEE'],
+    });
     expect(result.current_relationships).toEqual(['EMPLOYEE']);
     expect(result.usedDeprecatedField).toBe(false);
   });
@@ -1156,7 +1159,11 @@ describe('normalizeOcfObject', () => {
   });
 
   test('normalizes option_grant_type for TX_EQUITY_COMPENSATION_ISSUANCE', () => {
-    const result = normalizeOcfObject({ object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE', id: 'eci-1', option_grant_type: 'NSO' });
+    const result = normalizeOcfObject({
+      object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+      id: 'eci-1',
+      option_grant_type: 'NSO',
+    });
     expect((result.data as Record<string, unknown>).compensation_type).toBe('OPTION_NSO');
     expect(result.data).not.toHaveProperty('option_grant_type');
   });
@@ -1191,13 +1198,21 @@ describe('areOcfObjectsEquivalent', () => {
 
   test('treats deprecated option_grant_type as equivalent to compensation_type', () => {
     const dbObject = { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE', id: 'eci-1', option_grant_type: 'NSO' };
-    const chainObject = { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE', id: 'eci-1', compensation_type: 'OPTION_NSO' };
+    const chainObject = {
+      object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+      id: 'eci-1',
+      compensation_type: 'OPTION_NSO',
+    };
     expect(areOcfObjectsEquivalent(dbObject, chainObject)).toBe(true);
   });
 
   test('treats TX_PLAN_SECURITY_ISSUANCE as equivalent to TX_EQUITY_COMPENSATION_ISSUANCE', () => {
     const dbObject = { object_type: 'TX_PLAN_SECURITY_ISSUANCE', id: 'eci-1', compensation_type: 'OPTION_NSO' };
-    const chainObject = { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE', id: 'eci-1', compensation_type: 'OPTION_NSO' };
+    const chainObject = {
+      object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+      id: 'eci-1',
+      compensation_type: 'OPTION_NSO',
+    };
     expect(areOcfObjectsEquivalent(dbObject, chainObject)).toBe(true);
   });
 
