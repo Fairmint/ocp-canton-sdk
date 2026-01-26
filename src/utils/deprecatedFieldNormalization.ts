@@ -1754,6 +1754,7 @@ export function compareOcfObjects(
     emitNormalizationWarnings = false,
     ignoredFields = [...DEFAULT_INTERNAL_FIELDS],
     deprecatedFields = [...DEFAULT_DEPRECATED_FIELDS],
+    reportDifferences,
   } = options;
 
   let normalizedA: Record<string, unknown> = dbObject;
@@ -1779,7 +1780,7 @@ export function compareOcfObjects(
     };
   }
 
-  const equivalent = ocfDeepEqual(normalizedA, normalizedB, { ignoredFields, deprecatedFields });
+  const equivalent = ocfDeepEqual(normalizedA, normalizedB, { ignoredFields, deprecatedFields, reportDifferences });
 
   return {
     equivalent,
