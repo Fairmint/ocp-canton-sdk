@@ -1172,9 +1172,9 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
   }
 
   // Remove deprecated fields from the result to keep data clean
-  // (They've been migrated to their replacements)
+  // (They've been migrated to their replacements, or removed entirely for 'removed' type)
   for (const mapping of mappings) {
-    if (normalizedFields.includes(mapping.deprecatedField) && mapping.deprecationType !== 'removed') {
+    if (normalizedFields.includes(mapping.deprecatedField)) {
       const { [mapping.deprecatedField]: _removed, ...rest } = result;
       result = rest as T;
     }

@@ -449,7 +449,17 @@ function planSecurityExerciseDataToDaml(d: OcfPlanSecurityExercise): Record<stri
 export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTypeFor<T>): Record<string, unknown> {
   // Automatically normalize deprecated fields before conversion
   // This makes the SDK transparent to end-users who may use deprecated OCF fields
-  const { data: normalizedData } = normalizeDeprecatedOcfFields(type, data as unknown as Record<string, unknown>);
+  const { data: normalizedData, warnings } = normalizeDeprecatedOcfFields(
+    type,
+    data as unknown as Record<string, unknown>
+  );
+
+  // Emit any warnings (e.g., when both deprecated and current fields are present)
+  for (const warning of warnings) {
+    // eslint-disable-next-line no-console -- Intentional warning to help developers understand deprecated field handling
+    console.warn(`[OCF Deprecation] ${warning}`);
+  }
+
   const d = normalizedData as unknown as OcfDataTypeFor<T>;
 
   switch (type) {
