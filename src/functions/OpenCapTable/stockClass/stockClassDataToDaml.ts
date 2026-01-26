@@ -1,16 +1,13 @@
-import { OcpValidationError } from '../../../errors';
 import type { OcfStockClass } from '../../../types';
+import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import { cleanComments, dateStringToDAMLTime, monetaryToDaml } from '../../../utils/typeConversions';
 
 export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<string, unknown> {
+  // Validate input data using the entity validator
+  validateStockClassData(stockClassData, 'stockClass');
+
   const d = stockClassData;
-  if (!d.id) {
-    throw new OcpValidationError('stockClass.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
   return {
     id: d.id,
     name: d.name,

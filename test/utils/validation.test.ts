@@ -1,6 +1,7 @@
 /**
  * Tests for validation utilities.
  */
+import { OcpValidationError } from '../../src/errors';
 import {
   ValidationError,
   createValidator,
@@ -26,26 +27,34 @@ import {
   validateRequiredString,
 } from '../../src/utils/validation';
 
-describe('ValidationError', () => {
-  it('creates error with field path, expected, and received', () => {
-    const error = new ValidationError('stakeholder.id', 'non-empty string', '');
-    expect(error.message).toBe('Validation failed for \'stakeholder.id\': expected non-empty string, received ""');
+describe('ValidationError alias', () => {
+  it('ValidationError is aliased to OcpValidationError', () => {
+    expect(ValidationError).toBe(OcpValidationError);
+  });
+
+  it('creates error with field path and message', () => {
+    const error = new OcpValidationError('stakeholder.id', 'Required field is missing', {
+      expectedType: 'non-empty string',
+      receivedValue: '',
+    });
+    expect(error.message).toContain('stakeholder.id');
     expect(error.fieldPath).toBe('stakeholder.id');
-    expect(error.expected).toBe('non-empty string');
-    expect(error.received).toBe('""');
+    expect(error.expectedType).toBe('non-empty string');
+    expect(error.receivedValue).toBe('');
   });
 
-  it('handles null and undefined values', () => {
-    const nullError = new ValidationError('field', 'string', null);
-    expect(nullError.received).toBe('null');
+  it('handles null and undefined receivedValue', () => {
+    const nullError = new OcpValidationError('field', 'Missing value', {
+      expectedType: 'string',
+      receivedValue: null,
+    });
+    expect(nullError.receivedValue).toBe(null);
 
-    const undefinedError = new ValidationError('field', 'string', undefined);
-    expect(undefinedError.received).toBe('undefined');
-  });
-
-  it('stringifies complex values', () => {
-    const error = new ValidationError('field', 'string', { key: 'value' });
-    expect(error.received).toBe('{"key":"value"}');
+    const undefinedError = new OcpValidationError('field', 'Missing value', {
+      expectedType: 'string',
+      receivedValue: undefined,
+    });
+    expect(undefinedError.receivedValue).toBe(undefined);
   });
 });
 
@@ -57,13 +66,13 @@ describe('String Validators', () => {
     });
 
     it('throws for empty strings', () => {
-      expect(() => validateRequiredString('', 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredString('', 'field')).toThrow(OcpValidationError);
     });
 
     it('throws for non-strings', () => {
-      expect(() => validateRequiredString(null, 'field')).toThrow(ValidationError);
-      expect(() => validateRequiredString(undefined, 'field')).toThrow(ValidationError);
-      expect(() => validateRequiredString(123, 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredString(null, 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredString(undefined, 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredString(123, 'field')).toThrow(OcpValidationError);
     });
   });
 
@@ -82,7 +91,7 @@ describe('String Validators', () => {
     });
 
     it('throws for non-strings (except null/undefined)', () => {
-      expect(() => validateOptionalString(123, 'field')).toThrow(ValidationError);
+      expect(() => validateOptionalString(123, 'field')).toThrow(OcpValidationError);
     });
   });
 });
@@ -102,17 +111,17 @@ describe('Numeric Validators', () => {
     });
 
     it('throws for NaN', () => {
-      expect(() => validateRequiredNumeric(NaN, 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredNumeric(NaN, 'field')).toThrow(OcpValidationError);
     });
 
     it('throws for non-numeric strings', () => {
-      expect(() => validateRequiredNumeric('', 'field')).toThrow(ValidationError);
-      expect(() => validateRequiredNumeric('hello', 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredNumeric('', 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredNumeric('hello', 'field')).toThrow(OcpValidationError);
     });
 
     it('throws for non-numeric types', () => {
-      expect(() => validateRequiredNumeric(null, 'field')).toThrow(ValidationError);
-      expect(() => validateRequiredNumeric(undefined, 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredNumeric(null, 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredNumeric(undefined, 'field')).toThrow(OcpValidationError);
     });
   });
 
@@ -139,8 +148,8 @@ describe('Numeric Validators', () => {
     });
 
     it('throws for values outside range', () => {
-      expect(() => validateNumericRange(-1, 'field', 0, 10)).toThrow(ValidationError);
-      expect(() => validateNumericRange(11, 'field', 0, 10)).toThrow(ValidationError);
+      expect(() => validateNumericRange(-1, 'field', 0, 10)).toThrow(OcpValidationError);
+      expect(() => validateNumericRange(11, 'field', 0, 10)).toThrow(OcpValidationError);
     });
 
     it('works with string values', () => {
@@ -155,11 +164,11 @@ describe('Numeric Validators', () => {
     });
 
     it('throws for zero', () => {
-      expect(() => validatePositiveNumeric(0, 'field')).toThrow(ValidationError);
+      expect(() => validatePositiveNumeric(0, 'field')).toThrow(OcpValidationError);
     });
 
     it('throws for negative values', () => {
-      expect(() => validatePositiveNumeric(-1, 'field')).toThrow(ValidationError);
+      expect(() => validatePositiveNumeric(-1, 'field')).toThrow(OcpValidationError);
     });
   });
 
@@ -170,7 +179,7 @@ describe('Numeric Validators', () => {
     });
 
     it('throws for negative values', () => {
-      expect(() => validateNonNegativeNumeric(-1, 'field')).toThrow(ValidationError);
+      expect(() => validateNonNegativeNumeric(-1, 'field')).toThrow(OcpValidationError);
     });
   });
 });
@@ -183,21 +192,21 @@ describe('Date Validators', () => {
     });
 
     it('throws for invalid format', () => {
-      expect(() => validateRequiredDate('01-15-2024', 'field')).toThrow(ValidationError);
-      expect(() => validateRequiredDate('2024/01/15', 'field')).toThrow(ValidationError);
-      expect(() => validateRequiredDate('2024-1-15', 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredDate('01-15-2024', 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredDate('2024/01/15', 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredDate('2024-1-15', 'field')).toThrow(OcpValidationError);
     });
 
     it('throws for dates with invalid month', () => {
-      expect(() => validateRequiredDate('2024-13-01', 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredDate('2024-13-01', 'field')).toThrow(OcpValidationError);
     });
 
     // Note: JavaScript Date is permissive with day overflow (2024-02-30 becomes 2024-03-01)
     // So we only test clearly invalid month values
 
     it('throws for non-strings', () => {
-      expect(() => validateRequiredDate(null, 'field')).toThrow(ValidationError);
-      expect(() => validateRequiredDate(123, 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredDate(null, 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredDate(123, 'field')).toThrow(OcpValidationError);
     });
   });
 
@@ -223,11 +232,11 @@ describe('Enum Validators', () => {
     });
 
     it('throws for non-allowed values', () => {
-      expect(() => validateEnum('OTHER', 'field', allowedValues)).toThrow(ValidationError);
+      expect(() => validateEnum('OTHER', 'field', allowedValues)).toThrow(OcpValidationError);
     });
 
     it('throws for non-strings', () => {
-      expect(() => validateEnum(123, 'field', allowedValues)).toThrow(ValidationError);
+      expect(() => validateEnum(123, 'field', allowedValues)).toThrow(OcpValidationError);
     });
   });
 
@@ -251,12 +260,12 @@ describe('Array Validators', () => {
     });
 
     it('throws for empty arrays', () => {
-      expect(() => validateRequiredArray([], 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredArray([], 'field')).toThrow(OcpValidationError);
     });
 
     it('throws for non-arrays', () => {
-      expect(() => validateRequiredArray(null, 'field')).toThrow(ValidationError);
-      expect(() => validateRequiredArray('array', 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredArray(null, 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredArray('array', 'field')).toThrow(OcpValidationError);
     });
   });
 
@@ -284,12 +293,12 @@ describe('Object Validators', () => {
     });
 
     it('throws for null', () => {
-      expect(() => validateRequiredObject(null, 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredObject(null, 'field')).toThrow(OcpValidationError);
     });
 
     it('throws for non-objects', () => {
-      expect(() => validateRequiredObject('string', 'field')).toThrow(ValidationError);
-      expect(() => validateRequiredObject(123, 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredObject('string', 'field')).toThrow(OcpValidationError);
+      expect(() => validateRequiredObject(123, 'field')).toThrow(OcpValidationError);
     });
   });
 
@@ -313,11 +322,11 @@ describe('Monetary Validators', () => {
     });
 
     it('throws when amount is missing', () => {
-      expect(() => validateRequiredMonetary({ currency: 'USD' }, 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredMonetary({ currency: 'USD' }, 'field')).toThrow(OcpValidationError);
     });
 
     it('throws when currency is missing', () => {
-      expect(() => validateRequiredMonetary({ amount: '100' }, 'field')).toThrow(ValidationError);
+      expect(() => validateRequiredMonetary({ amount: '100' }, 'field')).toThrow(OcpValidationError);
     });
   });
 
@@ -348,11 +357,11 @@ describe('Contract and Party Validators', () => {
     });
 
     it('throws for empty strings', () => {
-      expect(() => validateContractId('', 'field')).toThrow(ValidationError);
+      expect(() => validateContractId('', 'field')).toThrow(OcpValidationError);
     });
 
     it('throws for strings with whitespace', () => {
-      expect(() => validateContractId('contract id', 'field')).toThrow(ValidationError);
+      expect(() => validateContractId('contract id', 'field')).toThrow(OcpValidationError);
     });
   });
 
@@ -363,11 +372,11 @@ describe('Contract and Party Validators', () => {
     });
 
     it('throws for empty strings', () => {
-      expect(() => validatePartyId('', 'field')).toThrow(ValidationError);
+      expect(() => validatePartyId('', 'field')).toThrow(OcpValidationError);
     });
 
     it('throws for strings with whitespace', () => {
-      expect(() => validatePartyId('party id', 'field')).toThrow(ValidationError);
+      expect(() => validatePartyId('party id', 'field')).toThrow(OcpValidationError);
     });
   });
 });
@@ -406,7 +415,7 @@ describe('Composite Validators', () => {
     });
 
     it('throws for non-objects', () => {
-      expect(() => validateTestType(null, 'obj')).toThrow(ValidationError);
+      expect(() => validateTestType(null, 'obj')).toThrow(OcpValidationError);
     });
   });
 });
