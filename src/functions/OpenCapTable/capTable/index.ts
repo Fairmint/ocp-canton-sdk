@@ -16,3 +16,6 @@ export {
   type GetEntityAsOcfResult,
   type SupportedOcfReadType,
 } from './damlToOcf';
+
+// CapTable state reader (for replication)
+export { FIELD_TO_ENTITY_TYPE, getCapTableState, type CapTableState } from './getCapTableState';
