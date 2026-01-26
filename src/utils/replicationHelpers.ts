@@ -11,6 +11,7 @@
 
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
+import { normalizeEntityType } from './planSecurityAliases';
 
 // ============================================================================
 // DB Type Mapping
@@ -345,18 +346,32 @@ export function computeReplicationDiff(
   // Track DB items by type for delete detection
   const dbIdsByType = new Map<OcfEntityType, Set<string>>();
 
+  // Track seen items to prevent duplicate create/edit operations
+  const seenItems = new Set<string>();
+
   // Process each DB item
   for (const item of dbItems) {
-    // Track for delete detection
-    let typeIds = dbIdsByType.get(item.entityType);
+    // Skip duplicate items (same ocfId + entityType)
+    const itemKey = `${item.entityType}:${item.ocfId}`;
+    if (seenItems.has(itemKey)) {
+      continue;
+    }
+    seenItems.add(itemKey);
+
+    // Normalize planSecurity types to equityCompensation for Canton lookup
+    // Canton stores planSecurity items under equity_compensation_* fields
+    const normalizedType = normalizeEntityType(item.entityType) as OcfEntityType;
+
+    // Track for delete detection (using normalized type to match Canton's storage)
+    let typeIds = dbIdsByType.get(normalizedType);
     if (!typeIds) {
       typeIds = new Set();
-      dbIdsByType.set(item.entityType, typeIds);
+      dbIdsByType.set(normalizedType, typeIds);
     }
     typeIds.add(item.ocfId);
 
-    // Check if exists in Canton
-    const cantonIds = cantonState.entities.get(item.entityType) ?? new Set();
+    // Check if exists in Canton (using normalized type)
+    const cantonIds = cantonState.entities.get(normalizedType) ?? new Set();
     const existsInCanton = cantonIds.has(item.ocfId);
 
     if (!existsInCanton) {
