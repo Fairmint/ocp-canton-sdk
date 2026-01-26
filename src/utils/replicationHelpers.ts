@@ -236,12 +236,12 @@ const ENTITY_TYPE_LABELS: Record<OcfEntityType, [string, string]> = {
  *
  * @example
  * ```typescript
- * getOcfTypeLabel('stockClass', 1); // "1 Stock Class"
- * getOcfTypeLabel('stockClass', 3); // "3 Stock Classes"
- * getOcfTypeLabel('stakeholder', 0); // "0 Stakeholders"
+ * getEntityTypeLabel('stockClass', 1); // "1 Stock Class"
+ * getEntityTypeLabel('stockClass', 3); // "3 Stock Classes"
+ * getEntityTypeLabel('stakeholder', 0); // "0 Stakeholders"
  * ```
  */
-export function getOcfTypeLabel(type: OcfEntityType, count: number): string {
+export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
   const labels = ENTITY_TYPE_LABELS[type];
   const [singular, plural] = labels;
   return `${count} ${count === 1 ? singular : plural}`;
