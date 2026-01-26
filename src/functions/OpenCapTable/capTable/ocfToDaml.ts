@@ -54,6 +54,9 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 
+// Import automatic deprecated field normalization
+import { normalizeDeprecatedOcfFields } from '../../../utils/deprecatedFieldNormalization';
+
 import type {
   OcfConvertibleConversion,
   OcfConvertibleRetraction,
@@ -434,134 +437,140 @@ function planSecurityExerciseDataToDaml(d: OcfPlanSecurityExercise): Record<stri
 /**
  * Convert native OCF data to DAML format based on entity type.
  *
+ * This function automatically normalizes deprecated OCF fields before conversion,
+ * making deprecated field handling transparent to end-users. For example,
+ * a StockPlan with `stock_class_id` (deprecated) will automatically be
+ * converted to use `stock_class_ids` (current).
+ *
  * @param type - The OCF entity type
- * @param data - The native OCF data object
- * @returns The DAML-formatted data object
+ * @param data - The native OCF data object (may contain deprecated fields)
+ * @returns The DAML-formatted data object with normalized fields
  */
 export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTypeFor<T>): Record<string, unknown> {
+  // Automatically normalize deprecated fields before conversion
+  // This makes the SDK transparent to end-users who may use deprecated OCF fields
+  const { data: normalizedData } = normalizeDeprecatedOcfFields(type, data as unknown as Record<string, unknown>);
+  const d = normalizedData as unknown as OcfDataTypeFor<T>;
+
   switch (type) {
     case 'stakeholder':
-      return stakeholderDataToDaml(data as OcfDataTypeFor<'stakeholder'>);
+      return stakeholderDataToDaml(d as OcfDataTypeFor<'stakeholder'>);
     case 'stockClass':
-      return stockClassDataToDaml(data as OcfDataTypeFor<'stockClass'>);
+      return stockClassDataToDaml(d as OcfDataTypeFor<'stockClass'>);
     case 'stockIssuance':
-      return stockIssuanceDataToDaml(data as OcfDataTypeFor<'stockIssuance'>);
+      return stockIssuanceDataToDaml(d as OcfDataTypeFor<'stockIssuance'>);
     case 'vestingTerms':
-      return vestingTermsDataToDaml(data as OcfDataTypeFor<'vestingTerms'>);
+      return vestingTermsDataToDaml(d as OcfDataTypeFor<'vestingTerms'>);
     case 'document':
-      return documentDataToDaml(data as OcfDataTypeFor<'document'>);
+      return documentDataToDaml(d as OcfDataTypeFor<'document'>);
     case 'stockLegendTemplate':
-      return stockLegendTemplateDataToDaml(data as OcfDataTypeFor<'stockLegendTemplate'>);
+      return stockLegendTemplateDataToDaml(d as OcfDataTypeFor<'stockLegendTemplate'>);
     case 'stockPlan':
-      return stockPlanDataToDaml(data as OcfDataTypeFor<'stockPlan'>);
+      return stockPlanDataToDaml(d as OcfDataTypeFor<'stockPlan'>);
     case 'equityCompensationIssuance':
-      return equityCompensationIssuanceDataToDaml(data as OcfDataTypeFor<'equityCompensationIssuance'>);
+      return equityCompensationIssuanceDataToDaml(d as OcfDataTypeFor<'equityCompensationIssuance'>);
     case 'convertibleIssuance':
       // The converter expects a specific input type, cast through unknown
-      return convertibleIssuanceDataToDaml(data as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]);
+      return convertibleIssuanceDataToDaml(d as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]);
     case 'warrantIssuance':
       // The converter expects a specific input type, cast through unknown
-      return warrantIssuanceDataToDaml(data as unknown as Parameters<typeof warrantIssuanceDataToDaml>[0]);
+      return warrantIssuanceDataToDaml(d as unknown as Parameters<typeof warrantIssuanceDataToDaml>[0]);
     case 'stockCancellation':
-      return stockCancellationDataToDaml(data as OcfDataTypeFor<'stockCancellation'>);
+      return stockCancellationDataToDaml(d as OcfDataTypeFor<'stockCancellation'>);
     case 'equityCompensationExercise':
-      return equityCompensationExerciseDataToDaml(data as OcfDataTypeFor<'equityCompensationExercise'>);
+      return equityCompensationExerciseDataToDaml(d as OcfDataTypeFor<'equityCompensationExercise'>);
     case 'stockTransfer':
-      return stockTransferDataToDaml(data as OcfDataTypeFor<'stockTransfer'>);
+      return stockTransferDataToDaml(d as OcfDataTypeFor<'stockTransfer'>);
     case 'stockRepurchase':
-      return stockRepurchaseDataToDaml(data as OcfDataTypeFor<'stockRepurchase'>);
+      return stockRepurchaseDataToDaml(d as OcfDataTypeFor<'stockRepurchase'>);
     case 'issuerAuthorizedSharesAdjustment':
-      return issuerAuthorizedSharesAdjustmentDataToDaml(data as OcfDataTypeFor<'issuerAuthorizedSharesAdjustment'>);
+      return issuerAuthorizedSharesAdjustmentDataToDaml(d as OcfDataTypeFor<'issuerAuthorizedSharesAdjustment'>);
     case 'stockClassAuthorizedSharesAdjustment':
       return stockClassAuthorizedSharesAdjustmentDataToDaml(
-        data as OcfDataTypeFor<'stockClassAuthorizedSharesAdjustment'>
+        d as OcfDataTypeFor<'stockClassAuthorizedSharesAdjustment'>
       );
     case 'stockPlanPoolAdjustment':
-      return stockPlanPoolAdjustmentDataToDaml(data as OcfDataTypeFor<'stockPlanPoolAdjustment'>);
+      return stockPlanPoolAdjustmentDataToDaml(d as OcfDataTypeFor<'stockPlanPoolAdjustment'>);
     case 'equityCompensationCancellation':
-      return equityCompensationCancellationDataToDaml(data as OcfDataTypeFor<'equityCompensationCancellation'>);
+      return equityCompensationCancellationDataToDaml(d as OcfDataTypeFor<'equityCompensationCancellation'>);
     case 'convertibleCancellation':
-      return convertibleCancellationDataToDaml(data as OcfDataTypeFor<'convertibleCancellation'>);
+      return convertibleCancellationDataToDaml(d as OcfDataTypeFor<'convertibleCancellation'>);
     case 'warrantCancellation':
-      return warrantCancellationDataToDaml(data as OcfDataTypeFor<'warrantCancellation'>);
+      return warrantCancellationDataToDaml(d as OcfDataTypeFor<'warrantCancellation'>);
 
     // Types with inline converters
     case 'stockAcceptance':
-      return stockAcceptanceDataToDaml(data as OcfDataTypeFor<'stockAcceptance'>);
+      return stockAcceptanceDataToDaml(d as OcfDataTypeFor<'stockAcceptance'>);
     case 'stockRetraction':
-      return stockRetractionDataToDaml(data as OcfDataTypeFor<'stockRetraction'>);
+      return stockRetractionDataToDaml(d as OcfDataTypeFor<'stockRetraction'>);
     case 'stockConversion':
-      return stockConversionDataToDaml(data as OcfDataTypeFor<'stockConversion'>);
+      return stockConversionDataToDaml(d as OcfDataTypeFor<'stockConversion'>);
     case 'stockReissuance':
-      return stockReissuanceDataToDaml(data as OcfDataTypeFor<'stockReissuance'>);
+      return stockReissuanceDataToDaml(d as OcfDataTypeFor<'stockReissuance'>);
     case 'stockConsolidation':
-      return stockConsolidationDataToDaml(data as OcfDataTypeFor<'stockConsolidation'>);
+      return stockConsolidationDataToDaml(d as OcfDataTypeFor<'stockConsolidation'>);
     case 'stockClassSplit':
-      return stockClassSplitDataToDaml(data as OcfDataTypeFor<'stockClassSplit'>);
+      return stockClassSplitDataToDaml(d as OcfDataTypeFor<'stockClassSplit'>);
     case 'stockClassConversionRatioAdjustment':
-      return stockClassConversionRatioAdjustmentDataToDaml(
-        data as OcfDataTypeFor<'stockClassConversionRatioAdjustment'>
-      );
+      return stockClassConversionRatioAdjustmentDataToDaml(d as OcfDataTypeFor<'stockClassConversionRatioAdjustment'>);
     case 'stockPlanReturnToPool':
-      return stockPlanReturnToPoolDataToDaml(data as OcfDataTypeFor<'stockPlanReturnToPool'>);
+      return stockPlanReturnToPoolDataToDaml(d as OcfDataTypeFor<'stockPlanReturnToPool'>);
     case 'valuation':
-      return valuationDataToDaml(data as OcfDataTypeFor<'valuation'>);
+      return valuationDataToDaml(d as OcfDataTypeFor<'valuation'>);
     case 'vestingStart':
-      return vestingStartDataToDaml(data as OcfDataTypeFor<'vestingStart'>);
+      return vestingStartDataToDaml(d as OcfDataTypeFor<'vestingStart'>);
     case 'vestingEvent':
-      return vestingEventDataToDaml(data as OcfDataTypeFor<'vestingEvent'>);
+      return vestingEventDataToDaml(d as OcfDataTypeFor<'vestingEvent'>);
     case 'vestingAcceleration':
-      return vestingAccelerationDataToDaml(data as OcfDataTypeFor<'vestingAcceleration'>);
+      return vestingAccelerationDataToDaml(d as OcfDataTypeFor<'vestingAcceleration'>);
     case 'warrantAcceptance':
-      return warrantAcceptanceDataToDaml(data as OcfDataTypeFor<'warrantAcceptance'>);
+      return warrantAcceptanceDataToDaml(d as OcfDataTypeFor<'warrantAcceptance'>);
     case 'warrantExercise':
-      return warrantExerciseDataToDaml(data as OcfDataTypeFor<'warrantExercise'>);
+      return warrantExerciseDataToDaml(d as OcfDataTypeFor<'warrantExercise'>);
     case 'warrantRetraction':
-      return warrantRetractionDataToDaml(data as OcfDataTypeFor<'warrantRetraction'>);
+      return warrantRetractionDataToDaml(d as OcfDataTypeFor<'warrantRetraction'>);
     case 'warrantTransfer':
-      return warrantTransferDataToDaml(data as OcfDataTypeFor<'warrantTransfer'>);
+      return warrantTransferDataToDaml(d as OcfDataTypeFor<'warrantTransfer'>);
     case 'convertibleAcceptance':
-      return convertibleAcceptanceDataToDaml(data as OcfDataTypeFor<'convertibleAcceptance'>);
+      return convertibleAcceptanceDataToDaml(d as OcfDataTypeFor<'convertibleAcceptance'>);
     case 'convertibleConversion':
-      return convertibleConversionDataToDaml(data as OcfDataTypeFor<'convertibleConversion'>);
+      return convertibleConversionDataToDaml(d as OcfDataTypeFor<'convertibleConversion'>);
     case 'convertibleRetraction':
-      return convertibleRetractionDataToDaml(data as OcfDataTypeFor<'convertibleRetraction'>);
+      return convertibleRetractionDataToDaml(d as OcfDataTypeFor<'convertibleRetraction'>);
     case 'convertibleTransfer':
-      return convertibleTransferDataToDaml(data as OcfDataTypeFor<'convertibleTransfer'>);
+      return convertibleTransferDataToDaml(d as OcfDataTypeFor<'convertibleTransfer'>);
     case 'equityCompensationAcceptance':
-      return equityCompensationAcceptanceDataToDaml(data as OcfDataTypeFor<'equityCompensationAcceptance'>);
+      return equityCompensationAcceptanceDataToDaml(d as OcfDataTypeFor<'equityCompensationAcceptance'>);
     case 'equityCompensationRelease':
-      return equityCompensationReleaseDataToDaml(data as OcfDataTypeFor<'equityCompensationRelease'>);
+      return equityCompensationReleaseDataToDaml(d as OcfDataTypeFor<'equityCompensationRelease'>);
     case 'equityCompensationRepricing':
-      return equityCompensationRepricingDataToDaml(data as OcfDataTypeFor<'equityCompensationRepricing'>);
+      return equityCompensationRepricingDataToDaml(d as OcfDataTypeFor<'equityCompensationRepricing'>);
     case 'equityCompensationRetraction':
-      return equityCompensationRetractionDataToDaml(data as OcfDataTypeFor<'equityCompensationRetraction'>);
+      return equityCompensationRetractionDataToDaml(d as OcfDataTypeFor<'equityCompensationRetraction'>);
     case 'equityCompensationTransfer':
-      return equityCompensationTransferDataToDaml(data as OcfDataTypeFor<'equityCompensationTransfer'>);
+      return equityCompensationTransferDataToDaml(d as OcfDataTypeFor<'equityCompensationTransfer'>);
 
     // PlanSecurity aliases - delegate to EquityCompensation converters (or dedicated converters where needed)
     case 'planSecurityIssuance':
-      return planSecurityIssuanceDataToDaml(data as OcfDataTypeFor<'planSecurityIssuance'>);
+      return planSecurityIssuanceDataToDaml(d as OcfDataTypeFor<'planSecurityIssuance'>);
     case 'planSecurityExercise':
-      return planSecurityExerciseDataToDaml(data as OcfDataTypeFor<'planSecurityExercise'>);
+      return planSecurityExerciseDataToDaml(d as OcfDataTypeFor<'planSecurityExercise'>);
     case 'planSecurityCancellation':
-      return equityCompensationCancellationDataToDaml(
-        data as unknown as OcfDataTypeFor<'equityCompensationCancellation'>
-      );
+      return equityCompensationCancellationDataToDaml(d as unknown as OcfDataTypeFor<'equityCompensationCancellation'>);
     case 'planSecurityAcceptance':
-      return equityCompensationAcceptanceDataToDaml(data as unknown as OcfDataTypeFor<'equityCompensationAcceptance'>);
+      return equityCompensationAcceptanceDataToDaml(d as unknown as OcfDataTypeFor<'equityCompensationAcceptance'>);
     case 'planSecurityRelease':
-      return equityCompensationReleaseDataToDaml(data as unknown as OcfDataTypeFor<'equityCompensationRelease'>);
+      return equityCompensationReleaseDataToDaml(d as unknown as OcfDataTypeFor<'equityCompensationRelease'>);
     case 'planSecurityRetraction':
-      return equityCompensationRetractionDataToDaml(data as unknown as OcfDataTypeFor<'equityCompensationRetraction'>);
+      return equityCompensationRetractionDataToDaml(d as unknown as OcfDataTypeFor<'equityCompensationRetraction'>);
     case 'planSecurityTransfer':
-      return equityCompensationTransferDataToDaml(data as unknown as OcfDataTypeFor<'equityCompensationTransfer'>);
+      return equityCompensationTransferDataToDaml(d as unknown as OcfDataTypeFor<'equityCompensationTransfer'>);
 
     // Stakeholder change events
     case 'stakeholderRelationshipChangeEvent':
-      return stakeholderRelationshipChangeEventDataToDaml(data as OcfDataTypeFor<'stakeholderRelationshipChangeEvent'>);
+      return stakeholderRelationshipChangeEventDataToDaml(d as OcfDataTypeFor<'stakeholderRelationshipChangeEvent'>);
     case 'stakeholderStatusChangeEvent':
-      return stakeholderStatusChangeEventDataToDaml(data as OcfDataTypeFor<'stakeholderStatusChangeEvent'>);
+      return stakeholderStatusChangeEventDataToDaml(d as OcfDataTypeFor<'stakeholderStatusChangeEvent'>);
 
     default: {
       const exhaustiveCheck: never = type;

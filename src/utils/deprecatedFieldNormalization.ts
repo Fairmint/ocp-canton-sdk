@@ -1008,3 +1008,206 @@ export function getAllDeprecatedFieldMappings(): Record<string, DeprecatedFieldM
   }
   return result;
 }
+
+// ===== Automatic Normalization for SDK Integration =====
+
+/**
+ * Map from OcfEntityType (used in batch API) to the object type name used in deprecation registry.
+ * This allows the SDK to automatically look up deprecations based on entity type.
+ */
+const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = {
+  stockPlan: 'StockPlan',
+  // Add more mappings as deprecations are discovered for other types
+};
+
+/**
+ * Result of automatic OCF data normalization.
+ */
+export interface NormalizedOcfDataResult<T> {
+  /** The normalized data with deprecated fields converted */
+  data: T;
+  /** Whether any normalization was performed */
+  normalized: boolean;
+  /** List of deprecated fields that were normalized */
+  normalizedFields: string[];
+  /** Warnings generated during normalization */
+  warnings: string[];
+}
+
+/**
+ * Automatically normalize deprecated fields in OCF data based on entity type.
+ *
+ * This function is designed to be called by the SDK internally when processing
+ * OCF data, making deprecated field handling transparent to end-users.
+ *
+ * @param entityType - The OCF entity type (e.g., 'stockPlan')
+ * @param data - The OCF data that may contain deprecated fields
+ * @param options - Optional configuration
+ * @returns The normalized data with deprecated fields converted to current format
+ *
+ * @example
+ *   ```typescript
+ *   // SDK automatically normalizes deprecated fields
+ *   const result = normalizeDeprecatedOcfFields('stockPlan', {
+ *     id: 'plan-1',
+ *     stock_class_id: 'sc-1', // deprecated, automatically converted
+ *     plan_name: 'Equity Plan',
+ *   });
+ *   // result.data.stock_class_ids === ['sc-1']
+ *   ```
+ */
+export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
+  entityType: string,
+  data: T,
+  options: { emitWarnings?: boolean; context?: string } = {}
+): NormalizedOcfDataResult<T> {
+  const { emitWarnings = true, context } = options;
+
+  // Look up the object type for this entity type
+  const objectType = ENTITY_TYPE_TO_OBJECT_TYPE[entityType];
+
+  // If no deprecation mappings exist for this type, return data unchanged
+  if (!objectType) {
+    return {
+      data,
+      normalized: false,
+      normalizedFields: [],
+      warnings: [],
+    };
+  }
+
+  const mappings = getDeprecatedFieldMappings(objectType);
+  if (mappings.length === 0) {
+    return {
+      data,
+      normalized: false,
+      normalizedFields: [],
+      warnings: [],
+    };
+  }
+
+  // Apply normalizations based on deprecation type
+  const normalizedFields: string[] = [];
+  const warnings: string[] = [];
+  let result: T = { ...data };
+
+  for (const mapping of mappings) {
+    const deprecatedValue = data[mapping.deprecatedField];
+    const hasDeprecated = deprecatedValue !== undefined && deprecatedValue !== null && deprecatedValue !== '';
+
+    if (!hasDeprecated) {
+      continue;
+    }
+
+    switch (mapping.deprecationType) {
+      case 'singular_to_array': {
+        const currentValue = data[mapping.replacementField];
+        const hasCurrentArray = Array.isArray(currentValue) && currentValue.length > 0;
+
+        if (!hasCurrentArray) {
+          // Convert singular to array
+          result = {
+            ...result,
+            [mapping.replacementField]: [deprecatedValue],
+          };
+          normalizedFields.push(mapping.deprecatedField);
+
+          if (emitWarnings) {
+            emitDeprecationWarning({
+              deprecatedField: mapping.deprecatedField,
+              replacementField: mapping.replacementField,
+              deprecatedValue,
+              context: context ?? `${entityType}.create`,
+            });
+          }
+        } else {
+          // Both present - current takes precedence, emit warning
+          warnings.push(
+            `Both '${mapping.deprecatedField}' (deprecated) and '${mapping.replacementField}' are present. ` +
+              `Using '${mapping.replacementField}' value.`
+          );
+        }
+        break;
+      }
+
+      case 'renamed': {
+        const currentValue = data[mapping.replacementField];
+        const hasCurrent = currentValue !== undefined && currentValue !== null;
+
+        if (!hasCurrent) {
+          // Copy deprecated value to new field
+          result = {
+            ...result,
+            [mapping.replacementField]: deprecatedValue,
+          };
+          normalizedFields.push(mapping.deprecatedField);
+
+          if (emitWarnings) {
+            emitDeprecationWarning({
+              deprecatedField: mapping.deprecatedField,
+              replacementField: mapping.replacementField,
+              deprecatedValue,
+              context: context ?? `${entityType}.create`,
+            });
+          }
+        } else {
+          warnings.push(
+            `Both '${mapping.deprecatedField}' (deprecated) and '${mapping.replacementField}' are present. ` +
+              `Using '${mapping.replacementField}' value.`
+          );
+        }
+        break;
+      }
+
+      case 'removed': {
+        // Field is removed, just warn
+        warnings.push(
+          `Field '${mapping.deprecatedField}' is deprecated and will be ignored. ` +
+            `It has been removed in the current schema.`
+        );
+        normalizedFields.push(mapping.deprecatedField);
+        break;
+      }
+    }
+  }
+
+  // Remove deprecated fields from the result to keep data clean
+  // (They've been migrated to their replacements)
+  for (const mapping of mappings) {
+    if (normalizedFields.includes(mapping.deprecatedField) && mapping.deprecationType !== 'removed') {
+      const { [mapping.deprecatedField]: _removed, ...rest } = result;
+      result = rest as T;
+    }
+  }
+
+  return {
+    data: result,
+    normalized: normalizedFields.length > 0,
+    normalizedFields,
+    warnings,
+  };
+}
+
+/**
+ * Check if an entity type has registered deprecations.
+ *
+ * @param entityType - The OCF entity type (e.g., 'stockPlan')
+ * @returns true if the entity type has deprecation mappings
+ */
+export function hasDeprecationsForEntityType(entityType: string): boolean {
+  const objectType = ENTITY_TYPE_TO_OBJECT_TYPE[entityType];
+  if (!objectType) {
+    return false;
+  }
+  return getDeprecatedFieldMappings(objectType).length > 0;
+}
+
+/**
+ * Register a mapping from entity type to object type for automatic normalization.
+ *
+ * @param entityType - The OcfEntityType used in batch API (e.g., 'stockPlan')
+ * @param objectType - The object type name used in deprecation registry (e.g., 'StockPlan')
+ */
+export function registerEntityTypeMapping(entityType: string, objectType: string): void {
+  ENTITY_TYPE_TO_OBJECT_TYPE[entityType] = objectType;
+}

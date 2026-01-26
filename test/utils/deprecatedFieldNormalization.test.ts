@@ -14,12 +14,15 @@ import {
   getDeprecatedFieldMappings,
   getFieldDeprecation,
   getRegisteredObjectTypes,
+  hasDeprecationsForEntityType,
   migrateStockPlanFields,
   migrateStockPlanFieldsBatch,
+  normalizeDeprecatedOcfFields,
   normalizeDeprecatedStockPlanFields,
   normalizeSingularToArray,
   OCF_DEPRECATED_FIELDS,
   registerDeprecatedFieldMapping,
+  registerEntityTypeMapping,
   validateDeprecatedFields,
   type DeprecationDetails,
 } from '../../src/utils/deprecatedFieldNormalization';
@@ -899,5 +902,131 @@ describe('getAllDeprecatedFieldMappings', () => {
 
     const originalMappings = getDeprecatedFieldMappings('StockPlan');
     expect(originalMappings.find((m) => m.deprecatedField === 'test')).toBeUndefined();
+  });
+});
+
+// ===== Automatic Normalization Tests =====
+
+describe('normalizeDeprecatedOcfFields', () => {
+  let warningHandler: jest.Mock;
+  let originalEnabled: boolean;
+  let originalHandler: ((message: string, details: DeprecationDetails) => void) | undefined;
+
+  beforeEach(() => {
+    originalEnabled = deprecationWarningConfig.enabled;
+    originalHandler = deprecationWarningConfig.handler;
+    warningHandler = jest.fn();
+    deprecationWarningConfig.enabled = true;
+    deprecationWarningConfig.handler = warningHandler;
+  });
+
+  afterEach(() => {
+    deprecationWarningConfig.enabled = originalEnabled;
+    deprecationWarningConfig.handler = originalHandler;
+  });
+
+  describe('stockPlan normalization', () => {
+    test('automatically converts deprecated stock_class_id to stock_class_ids', () => {
+      const result = normalizeDeprecatedOcfFields('stockPlan', {
+        id: 'plan-1',
+        stock_class_id: 'sc-1',
+        plan_name: 'Equity Plan',
+      });
+
+      expect(result.normalized).toBe(true);
+      expect(result.normalizedFields).toEqual(['stock_class_id']);
+      expect((result.data as Record<string, unknown>).stock_class_ids).toEqual(['sc-1']);
+      expect((result.data as Record<string, unknown>).stock_class_id).toBeUndefined();
+    });
+
+    test('preserves stock_class_ids when already present', () => {
+      const result = normalizeDeprecatedOcfFields('stockPlan', {
+        id: 'plan-1',
+        stock_class_ids: ['sc-1', 'sc-2'],
+        plan_name: 'Equity Plan',
+      });
+
+      expect(result.normalized).toBe(false);
+      expect((result.data as Record<string, unknown>).stock_class_ids).toEqual(['sc-1', 'sc-2']);
+    });
+
+    test('warns and uses current field when both are present', () => {
+      const result = normalizeDeprecatedOcfFields('stockPlan', {
+        id: 'plan-1',
+        stock_class_id: 'deprecated-sc',
+        stock_class_ids: ['current-sc'],
+        plan_name: 'Equity Plan',
+      });
+
+      expect(result.normalized).toBe(false);
+      expect(result.warnings.length).toBe(1);
+      expect(result.warnings[0]).toContain('Both');
+      expect((result.data as Record<string, unknown>).stock_class_ids).toEqual(['current-sc']);
+    });
+
+    test('emits deprecation warning when converting deprecated field', () => {
+      normalizeDeprecatedOcfFields('stockPlan', {
+        id: 'plan-1',
+        stock_class_id: 'sc-1',
+      });
+
+      expect(warningHandler).toHaveBeenCalledWith(
+        expect.stringContaining("Field 'stock_class_id' is deprecated"),
+        expect.anything()
+      );
+    });
+
+    test('can suppress warnings when emitWarnings is false', () => {
+      normalizeDeprecatedOcfFields(
+        'stockPlan',
+        {
+          id: 'plan-1',
+          stock_class_id: 'sc-1',
+        },
+        { emitWarnings: false }
+      );
+
+      expect(warningHandler).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('unknown entity types', () => {
+    test('returns data unchanged for unknown entity types', () => {
+      const data = { id: 'test', some_field: 'value' };
+      const result = normalizeDeprecatedOcfFields('unknownType', data);
+
+      expect(result.normalized).toBe(false);
+      expect(result.data).toEqual(data);
+      expect(result.normalizedFields).toEqual([]);
+    });
+
+    test('returns data unchanged for entity types without deprecations', () => {
+      const data = { id: 'test', name: 'Test Stakeholder' };
+      const result = normalizeDeprecatedOcfFields('stakeholder', data);
+
+      expect(result.normalized).toBe(false);
+      expect(result.data).toEqual(data);
+    });
+  });
+});
+
+describe('hasDeprecationsForEntityType', () => {
+  test('returns true for entity types with registered deprecations', () => {
+    expect(hasDeprecationsForEntityType('stockPlan')).toBe(true);
+  });
+
+  test('returns false for entity types without registered deprecations', () => {
+    expect(hasDeprecationsForEntityType('stakeholder')).toBe(false);
+    expect(hasDeprecationsForEntityType('unknownType')).toBe(false);
+  });
+});
+
+describe('registerEntityTypeMapping', () => {
+  test('registers new entity type to object type mapping', () => {
+    // Register a new mapping
+    registerEntityTypeMapping('testEntity', 'StockPlan');
+
+    // Should now recognize the entity type
+    expect(hasDeprecationsForEntityType('testEntity')).toBe(true);
   });
 });
