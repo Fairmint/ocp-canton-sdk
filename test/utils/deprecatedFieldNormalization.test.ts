@@ -1,14 +1,26 @@
 /** Unit tests for deprecated OCF field normalization utilities. */
 
 import {
+  assertNoDeprecatedFields,
   checkDeprecatedFields,
+  checkDeprecatedFieldsBatch,
+  checkDeprecatedFieldsForType,
   checkStockPlanDeprecatedFieldUsage,
+  createDeprecatedFieldsValidator,
   deprecationWarningConfig,
   emitDeprecationWarning,
+  generateDeprecationReport,
+  getAllDeprecatedFieldMappings,
   getDeprecatedFieldMappings,
   getFieldDeprecation,
+  getRegisteredObjectTypes,
+  migrateStockPlanFields,
+  migrateStockPlanFieldsBatch,
   normalizeDeprecatedStockPlanFields,
   normalizeSingularToArray,
+  OCF_DEPRECATED_FIELDS,
+  registerDeprecatedFieldMapping,
+  validateDeprecatedFields,
   type DeprecationDetails,
 } from '../../src/utils/deprecatedFieldNormalization';
 
@@ -472,5 +484,420 @@ describe('emitDeprecationWarning', () => {
     });
 
     expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Context: TestContext'));
+  });
+});
+
+// ===== Batch Verification Tests =====
+
+describe('checkDeprecatedFieldsBatch', () => {
+  test('returns aggregated results for multiple items', () => {
+    const items = [
+      { objectType: 'StockPlan', data: { stock_class_id: 'sc-1', plan_name: 'Plan A' }, id: 'plan-1' },
+      { objectType: 'StockPlan', data: { stock_class_ids: ['sc-2'], plan_name: 'Plan B' }, id: 'plan-2' },
+      { objectType: 'StockPlan', data: { stock_class_id: 'sc-3', plan_name: 'Plan C' }, id: 'plan-3' },
+    ];
+
+    const result = checkDeprecatedFieldsBatch(items);
+
+    expect(result.totalChecked).toBe(3);
+    expect(result.objectsWithDeprecatedFields).toBe(2);
+    expect(result.objectsWithoutDeprecatedFields).toBe(1);
+    expect(result.hasDeprecatedFields).toBe(true);
+    expect(result.deprecatedFieldSummary).toEqual({ stock_class_id: 2 });
+    expect(result.objectTypeSummary.StockPlan).toEqual({ total: 3, withDeprecated: 2 });
+  });
+
+  test('handles empty items array', () => {
+    const result = checkDeprecatedFieldsBatch([]);
+
+    expect(result.totalChecked).toBe(0);
+    expect(result.objectsWithDeprecatedFields).toBe(0);
+    expect(result.hasDeprecatedFields).toBe(false);
+    expect(result.itemsWithDeprecatedFields).toEqual([]);
+  });
+
+  test('uses index-based id when id not provided', () => {
+    const items = [{ objectType: 'StockPlan', data: { stock_class_id: 'sc-1' } }];
+
+    const result = checkDeprecatedFieldsBatch(items);
+
+    expect(result.itemsWithDeprecatedFields[0].itemId).toBe('index:0');
+  });
+
+  test('handles multiple object types', () => {
+    const items = [
+      { objectType: 'StockPlan', data: { stock_class_id: 'sc-1' }, id: 'plan-1' },
+      { objectType: 'OtherType', data: { some_field: 'value' }, id: 'other-1' },
+    ];
+
+    const result = checkDeprecatedFieldsBatch(items);
+
+    expect(result.objectTypeSummary.StockPlan).toEqual({ total: 1, withDeprecated: 1 });
+    expect(result.objectTypeSummary.OtherType).toEqual({ total: 1, withDeprecated: 0 });
+  });
+});
+
+describe('checkDeprecatedFieldsForType', () => {
+  test('checks all items as the same object type', () => {
+    const stockPlans = [
+      { id: 'plan-1', stock_class_id: 'sc-1', plan_name: 'Plan A' },
+      { id: 'plan-2', stock_class_ids: ['sc-2'], plan_name: 'Plan B' },
+    ];
+
+    const result = checkDeprecatedFieldsForType('StockPlan', stockPlans);
+
+    expect(result.totalChecked).toBe(2);
+    expect(result.objectsWithDeprecatedFields).toBe(1);
+    expect(result.objectTypeSummary.StockPlan).toEqual({ total: 2, withDeprecated: 1 });
+  });
+
+  test('uses item id when available', () => {
+    const stockPlans = [{ id: 'plan-1', stock_class_id: 'sc-1' }];
+
+    const result = checkDeprecatedFieldsForType('StockPlan', stockPlans);
+
+    expect(result.itemsWithDeprecatedFields[0].itemId).toBe('plan-1');
+  });
+
+  test('falls back to index when id not available', () => {
+    const stockPlans = [{ stock_class_id: 'sc-1' }];
+
+    const result = checkDeprecatedFieldsForType('StockPlan', stockPlans);
+
+    expect(result.itemsWithDeprecatedFields[0].itemId).toBe('index:0');
+  });
+});
+
+// ===== Data Migration Tests =====
+
+describe('migrateStockPlanFields', () => {
+  test('migrates deprecated stock_class_id to stock_class_ids', () => {
+    const result = migrateStockPlanFields({
+      id: 'plan-1',
+      stock_class_id: 'sc-1',
+      plan_name: 'Equity Plan',
+    });
+
+    expect(result.data.stock_class_ids).toEqual(['sc-1']);
+    expect(result.data).not.toHaveProperty('stock_class_id');
+    expect(result.migrated).toBe(true);
+    expect(result.migratedFields).toEqual(['stock_class_id']);
+    expect(result.warnings).toEqual([]);
+  });
+
+  test('preserves stock_class_ids when already using current format', () => {
+    const result = migrateStockPlanFields({
+      id: 'plan-1',
+      stock_class_ids: ['sc-1', 'sc-2'],
+      plan_name: 'Equity Plan',
+    });
+
+    expect(result.data.stock_class_ids).toEqual(['sc-1', 'sc-2']);
+    expect(result.migrated).toBe(false);
+    expect(result.migratedFields).toEqual([]);
+  });
+
+  test('warns when both deprecated and current fields are present', () => {
+    const result = migrateStockPlanFields({
+      id: 'plan-1',
+      stock_class_id: 'sc-deprecated',
+      stock_class_ids: ['sc-current'],
+      plan_name: 'Equity Plan',
+    });
+
+    expect(result.data.stock_class_ids).toEqual(['sc-current']);
+    expect(result.migrated).toBe(false);
+    expect(result.warnings.length).toBe(1);
+    expect(result.warnings[0]).toContain('Both');
+  });
+
+  test('handles empty data', () => {
+    const result = migrateStockPlanFields({});
+
+    expect(result.data.stock_class_ids).toEqual([]);
+    expect(result.migrated).toBe(false);
+    expect(result.migratedFields).toEqual([]);
+  });
+});
+
+describe('migrateStockPlanFieldsBatch', () => {
+  test('migrates multiple items', () => {
+    const plans = [
+      { id: 'plan-1', stock_class_id: 'sc-1' },
+      { id: 'plan-2', stock_class_ids: ['sc-2'] },
+      { id: 'plan-3', stock_class_id: 'sc-3' },
+    ];
+
+    const result = migrateStockPlanFieldsBatch(plans);
+
+    expect(result.totalProcessed).toBe(3);
+    expect(result.itemsMigrated).toBe(2);
+    expect(result.migratedFieldsSummary).toEqual({ stock_class_id: 2 });
+    expect(result.items[0].migrated).toBe(true);
+    expect(result.items[1].migrated).toBe(false);
+    expect(result.items[2].migrated).toBe(true);
+  });
+
+  test('tracks items with warnings', () => {
+    const plans = [
+      { id: 'plan-1', stock_class_id: 'sc-1', stock_class_ids: ['sc-2'] }, // Has warning
+      { id: 'plan-2', stock_class_ids: ['sc-3'] }, // No warning
+    ];
+
+    const result = migrateStockPlanFieldsBatch(plans);
+
+    expect(result.itemsWithWarnings).toBe(1);
+  });
+
+  test('handles empty array', () => {
+    const result = migrateStockPlanFieldsBatch([]);
+
+    expect(result.totalProcessed).toBe(0);
+    expect(result.itemsMigrated).toBe(0);
+    expect(result.items).toEqual([]);
+  });
+});
+
+// ===== Deprecation Report Tests =====
+
+describe('generateDeprecationReport', () => {
+  test('generates comprehensive report from batch results', () => {
+    const items = [
+      { objectType: 'StockPlan', data: { stock_class_id: 'sc-1' }, id: 'plan-1' },
+      { objectType: 'StockPlan', data: { stock_class_ids: ['sc-2'] }, id: 'plan-2' },
+    ];
+    const batchResult = checkDeprecatedFieldsBatch(items);
+
+    const report = generateDeprecationReport(batchResult);
+
+    expect(report.summary.totalObjects).toBe(2);
+    expect(report.summary.objectsWithDeprecatedFields).toBe(1);
+    expect(report.summary.deprecationPercentage).toBe(50);
+    expect(report.summary.totalDeprecatedFieldUsages).toBe(1);
+    expect(report.byObjectType.StockPlan).toBeDefined();
+    expect(report.byObjectType.StockPlan.total).toBe(2);
+    expect(report.byObjectType.StockPlan.withDeprecatedFields).toBe(1);
+    expect(report.byField.stock_class_id).toBeDefined();
+    expect(report.byField.stock_class_id.totalUsages).toBe(1);
+    expect(report.byField.stock_class_id.replacementField).toBe('stock_class_ids');
+    expect(report.generatedAt).toBeDefined();
+  });
+
+  test('includes affected items when requested', () => {
+    const items = [{ objectType: 'StockPlan', data: { stock_class_id: 'sc-1' }, id: 'plan-1' }];
+    const batchResult = checkDeprecatedFieldsBatch(items);
+
+    const report = generateDeprecationReport(batchResult, { includeAffectedItems: true });
+
+    expect(report.affectedItems).toBeDefined();
+    expect(report.affectedItems?.length).toBe(1);
+    expect(report.affectedItems?.[0].itemId).toBe('plan-1');
+  });
+
+  test('limits affected items to maxAffectedItems', () => {
+    const items = Array.from({ length: 200 }, (_, i) => ({
+      objectType: 'StockPlan',
+      data: { stock_class_id: `sc-${i}` },
+      id: `plan-${i}`,
+    }));
+    const batchResult = checkDeprecatedFieldsBatch(items);
+
+    const report = generateDeprecationReport(batchResult, {
+      includeAffectedItems: true,
+      maxAffectedItems: 50,
+    });
+
+    expect(report.affectedItems?.length).toBe(50);
+  });
+
+  test('handles empty batch result', () => {
+    const batchResult = checkDeprecatedFieldsBatch([]);
+
+    const report = generateDeprecationReport(batchResult);
+
+    expect(report.summary.totalObjects).toBe(0);
+    expect(report.summary.deprecationPercentage).toBe(0);
+    expect(Object.keys(report.byObjectType)).toEqual([]);
+    expect(Object.keys(report.byField)).toEqual([]);
+  });
+});
+
+// ===== Validation Pipeline Tests =====
+
+describe('validateDeprecatedFields', () => {
+  test('returns warnings by default for deprecated field usage', () => {
+    const result = validateDeprecatedFields('StockPlan', { stock_class_id: 'sc-1' });
+
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings.length).toBe(1);
+    expect(result.warnings[0]).toContain("Field 'stock_class_id' is deprecated");
+  });
+
+  test('returns errors when treatAsError is true', () => {
+    const result = validateDeprecatedFields('StockPlan', { stock_class_id: 'sc-1' }, { treatAsError: true });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBe(1);
+    expect(result.warnings).toEqual([]);
+  });
+
+  test('ignores specified fields', () => {
+    const result = validateDeprecatedFields(
+      'StockPlan',
+      { stock_class_id: 'sc-1' },
+      { ignoreFields: ['stock_class_id'] }
+    );
+
+    expect(result.valid).toBe(true);
+    expect(result.warnings).toEqual([]);
+    expect(result.checkResult.deprecatedFieldsUsed).toEqual([]);
+  });
+
+  test('uses custom error message prefix', () => {
+    const result = validateDeprecatedFields(
+      'StockPlan',
+      { stock_class_id: 'sc-1' },
+      { errorMessagePrefix: 'Stock Plan Validation' }
+    );
+
+    expect(result.warnings[0]).toContain('Stock Plan Validation:');
+  });
+
+  test('returns valid for objects without deprecated fields', () => {
+    const result = validateDeprecatedFields('StockPlan', { stock_class_ids: ['sc-1'] });
+
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+});
+
+describe('createDeprecatedFieldsValidator', () => {
+  test('creates reusable validator function', () => {
+    const validator = createDeprecatedFieldsValidator('StockPlan');
+
+    const result1 = validator({ stock_class_id: 'sc-1' });
+    const result2 = validator({ stock_class_ids: ['sc-2'] });
+
+    expect(result1.warnings.length).toBe(1);
+    expect(result2.warnings.length).toBe(0);
+  });
+
+  test('respects options passed during creation', () => {
+    const validator = createDeprecatedFieldsValidator('StockPlan', { treatAsError: true });
+
+    const result = validator({ stock_class_id: 'sc-1' });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBe(1);
+  });
+});
+
+describe('assertNoDeprecatedFields', () => {
+  test('throws error when deprecated fields are detected', () => {
+    expect(() => {
+      assertNoDeprecatedFields('StockPlan', { stock_class_id: 'sc-1' });
+    }).toThrow('Deprecated field usage detected');
+  });
+
+  test('does not throw when no deprecated fields are present', () => {
+    expect(() => {
+      assertNoDeprecatedFields('StockPlan', { stock_class_ids: ['sc-1'] });
+    }).not.toThrow();
+  });
+
+  test('respects ignoreFields option', () => {
+    expect(() => {
+      assertNoDeprecatedFields('StockPlan', { stock_class_id: 'sc-1' }, { ignoreFields: ['stock_class_id'] });
+    }).not.toThrow();
+  });
+});
+
+// ===== Registry Management Tests =====
+
+describe('registerDeprecatedFieldMapping', () => {
+  // Store original mappings to restore after tests
+  let originalMappings: Record<string, unknown[]>;
+
+  beforeEach(() => {
+    // Save current state
+    originalMappings = JSON.parse(JSON.stringify(OCF_DEPRECATED_FIELDS));
+  });
+
+  afterEach(() => {
+    // Restore original state
+    for (const key of Object.keys(OCF_DEPRECATED_FIELDS)) {
+      delete OCF_DEPRECATED_FIELDS[key];
+    }
+    for (const [key, value] of Object.entries(originalMappings)) {
+      OCF_DEPRECATED_FIELDS[key] = value as (typeof OCF_DEPRECATED_FIELDS)[string];
+    }
+  });
+
+  test('registers new mapping for new object type', () => {
+    registerDeprecatedFieldMapping('NewType', {
+      deprecatedField: 'old_field',
+      replacementField: 'new_field',
+      deprecationType: 'renamed',
+    });
+
+    const mappings = getDeprecatedFieldMappings('NewType');
+    expect(mappings.length).toBe(1);
+    expect(mappings[0].deprecatedField).toBe('old_field');
+  });
+
+  test('registers new mapping for existing object type', () => {
+    const originalLength = getDeprecatedFieldMappings('StockPlan').length;
+
+    registerDeprecatedFieldMapping('StockPlan', {
+      deprecatedField: 'another_old_field',
+      replacementField: 'another_new_field',
+      deprecationType: 'renamed',
+    });
+
+    const mappings = getDeprecatedFieldMappings('StockPlan');
+    expect(mappings.length).toBe(originalLength + 1);
+  });
+
+  test('does not duplicate existing mapping', () => {
+    const originalLength = getDeprecatedFieldMappings('StockPlan').length;
+
+    registerDeprecatedFieldMapping('StockPlan', {
+      deprecatedField: 'stock_class_id', // Already exists
+      replacementField: 'stock_class_ids',
+      deprecationType: 'singular_to_array',
+    });
+
+    const mappings = getDeprecatedFieldMappings('StockPlan');
+    expect(mappings.length).toBe(originalLength);
+  });
+});
+
+describe('getRegisteredObjectTypes', () => {
+  test('returns array of object types with registered mappings', () => {
+    const types = getRegisteredObjectTypes();
+
+    expect(types).toContain('StockPlan');
+    expect(Array.isArray(types)).toBe(true);
+  });
+});
+
+describe('getAllDeprecatedFieldMappings', () => {
+  test('returns copy of all mappings', () => {
+    const allMappings = getAllDeprecatedFieldMappings();
+
+    expect(allMappings.StockPlan).toBeDefined();
+    expect(allMappings.StockPlan.length).toBeGreaterThan(0);
+
+    // Verify it's a copy by modifying and checking original
+    allMappings.StockPlan.push({
+      deprecatedField: 'test',
+      replacementField: 'test2',
+      deprecationType: 'renamed',
+    });
+
+    const originalMappings = getDeprecatedFieldMappings('StockPlan');
+    expect(originalMappings.find((m) => m.deprecatedField === 'test')).toBeUndefined();
   });
 });
