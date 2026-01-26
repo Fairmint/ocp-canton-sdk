@@ -6,6 +6,7 @@
  */
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { validateValuationData } from '../../../utils/entityValidators';
 import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
 
 // Import existing converters from entity folders
@@ -136,12 +137,8 @@ function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): Record<st
 }
 
 function valuationDataToDaml(d: OcfValuation): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('valuation.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
+  // Validate input data using the entity validator
+  validateValuationData(d, 'valuation');
 
   const damlValuationType = VALUATION_TYPE_MAP[d.valuation_type];
 
