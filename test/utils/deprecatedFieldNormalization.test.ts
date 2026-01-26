@@ -1227,7 +1227,11 @@ describe('normalizeOcfObject', () => {
   });
 
   test('normalizes both object_type and option_grant_type for TX_PLAN_SECURITY_ISSUANCE', () => {
-    const result = normalizeOcfObject({ object_type: 'TX_PLAN_SECURITY_ISSUANCE', id: 'eci-1', option_grant_type: 'ISO' });
+    const result = normalizeOcfObject({
+      object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+      id: 'eci-1',
+      option_grant_type: 'ISO',
+    });
     expect((result.data as Record<string, unknown>).object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
     expect((result.data as Record<string, unknown>).compensation_type).toBe('OPTION_ISO');
     expect(result.data).not.toHaveProperty('option_grant_type');
