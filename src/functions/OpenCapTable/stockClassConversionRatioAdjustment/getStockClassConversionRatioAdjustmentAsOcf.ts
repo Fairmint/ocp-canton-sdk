@@ -13,10 +13,10 @@ export interface OcfStockClassConversionRatioAdjustmentEvent {
   comments?: string[];
 }
 
-export interface GetStockClassConversionRatioAdjustmentEventAsOcfParams {
+export interface GetStockClassConversionRatioAdjustmentAsOcfParams {
   contractId: string;
 }
-export interface GetStockClassConversionRatioAdjustmentEventAsOcfResult {
+export interface GetStockClassConversionRatioAdjustmentAsOcfResult {
   event: OcfStockClassConversionRatioAdjustmentEvent;
   contractId: string;
 }
@@ -25,10 +25,10 @@ export interface GetStockClassConversionRatioAdjustmentEventAsOcfResult {
 type StockClassConversionRatioAdjustmentCreateArgument =
   Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment;
 
-export async function getStockClassConversionRatioAdjustmentEventAsOcf(
+export async function getStockClassConversionRatioAdjustmentAsOcf(
   client: LedgerJsonApiClient,
-  params: GetStockClassConversionRatioAdjustmentEventAsOcfParams
-): Promise<GetStockClassConversionRatioAdjustmentEventAsOcfResult> {
+  params: GetStockClassConversionRatioAdjustmentAsOcfParams
+): Promise<GetStockClassConversionRatioAdjustmentAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created?.createdEvent.createArgument) {
     throw new OcpContractError('Missing createArgument', {

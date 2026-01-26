@@ -13,10 +13,10 @@ export interface OcfStockClassSplitEvent {
   comments?: string[];
 }
 
-export interface GetStockClassSplitEventAsOcfParams {
+export interface GetStockClassSplitAsOcfParams {
   contractId: string;
 }
-export interface GetStockClassSplitEventAsOcfResult {
+export interface GetStockClassSplitAsOcfResult {
   event: OcfStockClassSplitEvent;
   contractId: string;
 }
@@ -24,10 +24,10 @@ export interface GetStockClassSplitEventAsOcfResult {
 /** Type alias for DAML StockClassSplit contract createArgument */
 type StockClassSplitCreateArgument = Fairmint.OpenCapTable.OCF.StockClassSplit.StockClassSplit;
 
-export async function getStockClassSplitEventAsOcf(
+export async function getStockClassSplitAsOcf(
   client: LedgerJsonApiClient,
-  params: GetStockClassSplitEventAsOcfParams
-): Promise<GetStockClassSplitEventAsOcfResult> {
+  params: GetStockClassSplitAsOcfParams
+): Promise<GetStockClassSplitAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created?.createdEvent.createArgument) {
     throw new OcpContractError('Missing createArgument', {

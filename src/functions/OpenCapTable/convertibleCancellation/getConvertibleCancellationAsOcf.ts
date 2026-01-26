@@ -19,11 +19,11 @@ export interface OcfConvertibleCancellationEvent {
   comments?: string[];
 }
 
-export interface GetConvertibleCancellationEventAsOcfParams {
+export interface GetConvertibleCancellationAsOcfParams {
   contractId: string;
 }
 
-export interface GetConvertibleCancellationEventAsOcfResult {
+export interface GetConvertibleCancellationAsOcfResult {
   event: OcfConvertibleCancellationEvent;
   contractId: string;
 }
@@ -38,10 +38,10 @@ type ConvertibleCancellationCreateArgument = Fairmint.OpenCapTable.OCF.Convertib
  * @param params - Parameters containing the contract ID
  * @returns The convertible cancellation event in OCF format
  */
-export async function getConvertibleCancellationEventAsOcf(
+export async function getConvertibleCancellationAsOcf(
   client: LedgerJsonApiClient,
-  params: GetConvertibleCancellationEventAsOcfParams
-): Promise<GetConvertibleCancellationEventAsOcfResult> {
+  params: GetConvertibleCancellationAsOcfParams
+): Promise<GetConvertibleCancellationAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created) {
     throw new OcpContractError('Missing created event', {

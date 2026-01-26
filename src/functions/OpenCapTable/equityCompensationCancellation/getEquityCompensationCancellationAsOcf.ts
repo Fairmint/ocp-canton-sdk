@@ -18,11 +18,11 @@ export interface OcfEquityCompensationCancellationEvent {
   comments?: string[];
 }
 
-export interface GetEquityCompensationCancellationEventAsOcfParams {
+export interface GetEquityCompensationCancellationAsOcfParams {
   contractId: string;
 }
 
-export interface GetEquityCompensationCancellationEventAsOcfResult {
+export interface GetEquityCompensationCancellationAsOcfResult {
   event: OcfEquityCompensationCancellationEvent;
   contractId: string;
 }
@@ -38,10 +38,10 @@ type EquityCompensationCancellationCreateArgument =
  * @param params - Parameters containing the contract ID
  * @returns The equity compensation cancellation event in OCF format
  */
-export async function getEquityCompensationCancellationEventAsOcf(
+export async function getEquityCompensationCancellationAsOcf(
   client: LedgerJsonApiClient,
-  params: GetEquityCompensationCancellationEventAsOcfParams
-): Promise<GetEquityCompensationCancellationEventAsOcfResult> {
+  params: GetEquityCompensationCancellationAsOcfParams
+): Promise<GetEquityCompensationCancellationAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created) {
     throw new OcpContractError('Missing created event', {

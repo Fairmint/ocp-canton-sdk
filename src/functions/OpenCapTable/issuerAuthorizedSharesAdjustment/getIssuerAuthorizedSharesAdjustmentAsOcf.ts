@@ -13,18 +13,18 @@ export interface OcfIssuerAuthorizedSharesAdjustmentEvent {
   comments?: string[];
 }
 
-export interface GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams {
+export interface GetIssuerAuthorizedSharesAdjustmentAsOcfParams {
   contractId: string;
 }
-export interface GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult {
+export interface GetIssuerAuthorizedSharesAdjustmentAsOcfResult {
   event: OcfIssuerAuthorizedSharesAdjustmentEvent;
   contractId: string;
 }
 
-export async function getIssuerAuthorizedSharesAdjustmentEventAsOcf(
+export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
   client: LedgerJsonApiClient,
-  params: GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams
-): Promise<GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult> {
+  params: GetIssuerAuthorizedSharesAdjustmentAsOcfParams
+): Promise<GetIssuerAuthorizedSharesAdjustmentAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created?.createdEvent.createArgument)
     throw new OcpContractError('Missing createArgument', {

@@ -1,1 +1,1 @@
-export * from './getStockCancellationEventAsOcf';
+export * from './getStockCancellationAsOcf';

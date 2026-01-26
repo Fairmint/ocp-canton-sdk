@@ -32,18 +32,18 @@ export interface OcfEquityCompensationIssuanceEvent {
   vestings?: Vesting[];
 }
 
-export interface GetEquityCompensationIssuanceEventAsOcfParams {
+export interface GetEquityCompensationIssuanceAsOcfParams {
   contractId: string;
 }
-export interface GetEquityCompensationIssuanceEventAsOcfResult {
+export interface GetEquityCompensationIssuanceAsOcfResult {
   event: OcfEquityCompensationIssuanceEvent;
   contractId: string;
 }
 
-export async function getEquityCompensationIssuanceEventAsOcf(
+export async function getEquityCompensationIssuanceAsOcf(
   client: LedgerJsonApiClient,
-  params: GetEquityCompensationIssuanceEventAsOcfParams
-): Promise<GetEquityCompensationIssuanceEventAsOcfResult> {
+  params: GetEquityCompensationIssuanceAsOcfParams
+): Promise<GetEquityCompensationIssuanceAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created?.createdEvent.createArgument) {
     throw new OcpContractError('Missing createArgument', {

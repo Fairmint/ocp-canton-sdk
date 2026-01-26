@@ -1,3 +1,3 @@
 export * from './damlToStockConsolidation';
-export * from './getStockConsolidationEventAsOcf';
+export * from './getStockConsolidationAsOcf';
 export * from './stockConsolidationDataToDaml';

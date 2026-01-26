@@ -12,10 +12,10 @@ export interface OcfStockConsolidationEvent {
   comments?: string[];
 }
 
-export interface GetStockConsolidationEventAsOcfParams {
+export interface GetStockConsolidationAsOcfParams {
   contractId: string;
 }
-export interface GetStockConsolidationEventAsOcfResult {
+export interface GetStockConsolidationAsOcfResult {
   event: OcfStockConsolidationEvent;
   contractId: string;
 }
@@ -23,10 +23,10 @@ export interface GetStockConsolidationEventAsOcfResult {
 /** Type alias for DAML StockConsolidation contract createArgument */
 type StockConsolidationCreateArgument = Fairmint.OpenCapTable.OCF.StockConsolidation.StockConsolidation;
 
-export async function getStockConsolidationEventAsOcf(
+export async function getStockConsolidationAsOcf(
   client: LedgerJsonApiClient,
-  params: GetStockConsolidationEventAsOcfParams
-): Promise<GetStockConsolidationEventAsOcfResult> {
+  params: GetStockConsolidationAsOcfParams
+): Promise<GetStockConsolidationAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created?.createdEvent.createArgument) {
     throw new OcpContractError('Missing createArgument', {

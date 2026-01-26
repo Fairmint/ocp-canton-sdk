@@ -13,10 +13,10 @@ export interface OcfStockReissuanceEvent {
   comments?: string[];
 }
 
-export interface GetStockReissuanceEventAsOcfParams {
+export interface GetStockReissuanceAsOcfParams {
   contractId: string;
 }
-export interface GetStockReissuanceEventAsOcfResult {
+export interface GetStockReissuanceAsOcfResult {
   event: OcfStockReissuanceEvent;
   contractId: string;
 }
@@ -24,10 +24,10 @@ export interface GetStockReissuanceEventAsOcfResult {
 /** Type alias for DAML StockReissuance contract createArgument */
 type StockReissuanceCreateArgument = Fairmint.OpenCapTable.OCF.StockReissuance.StockReissuance;
 
-export async function getStockReissuanceEventAsOcf(
+export async function getStockReissuanceAsOcf(
   client: LedgerJsonApiClient,
-  params: GetStockReissuanceEventAsOcfParams
-): Promise<GetStockReissuanceEventAsOcfResult> {
+  params: GetStockReissuanceAsOcfParams
+): Promise<GetStockReissuanceAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created?.createdEvent.createArgument) {
     throw new OcpContractError('Missing createArgument', {

@@ -1,1 +1,1 @@
-export * from './getWarrantCancellationEventAsOcf';
+export * from './getWarrantCancellationAsOcf';

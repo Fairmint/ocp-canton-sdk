@@ -16,34 +16,34 @@ import {
   buildCreateIssuerCommand,
   createCompanyValuationReport,
   getConvertibleAcceptanceAsOcf,
-  getConvertibleCancellationEventAsOcf,
-  getConvertibleConversionEventAsOcf,
+  getConvertibleCancellationAsOcf,
+  getConvertibleConversionAsOcf,
   getConvertibleIssuanceAsOcf,
   getConvertibleTransferAsOcf,
   getDocumentAsOcf,
   getEquityCompensationAcceptanceAsOcf,
-  getEquityCompensationCancellationEventAsOcf,
-  getEquityCompensationExerciseEventAsOcf,
-  getEquityCompensationIssuanceEventAsOcf,
+  getEquityCompensationCancellationAsOcf,
+  getEquityCompensationExerciseAsOcf,
+  getEquityCompensationIssuanceAsOcf,
   getEquityCompensationTransferAsOcf,
   getIssuerAsOcf,
-  getIssuerAuthorizedSharesAdjustmentEventAsOcf,
+  getIssuerAuthorizedSharesAdjustmentAsOcf,
   getStakeholderAsOcf,
   getStakeholderRelationshipChangeEventAsOcf,
   getStakeholderStatusChangeEventAsOcf,
   getStockAcceptanceAsOcf,
-  getStockCancellationEventAsOcf,
+  getStockCancellationAsOcf,
   getStockClassAsOcf,
-  getStockClassAuthorizedSharesAdjustmentEventAsOcf,
-  getStockClassConversionRatioAdjustmentEventAsOcf,
-  getStockClassSplitEventAsOcf,
-  getStockConsolidationEventAsOcf,
-  getStockConversionEventAsOcf,
+  getStockClassAuthorizedSharesAdjustmentAsOcf,
+  getStockClassConversionRatioAdjustmentAsOcf,
+  getStockClassSplitAsOcf,
+  getStockConsolidationAsOcf,
+  getStockConversionAsOcf,
   getStockIssuanceAsOcf,
   getStockLegendTemplateAsOcf,
   getStockPlanAsOcf,
-  getStockPlanPoolAdjustmentEventAsOcf,
-  getStockReissuanceEventAsOcf,
+  getStockPlanPoolAdjustmentAsOcf,
+  getStockReissuanceAsOcf,
   getStockRepurchaseAsOcf,
   getStockTransferAsOcf,
   getValuationAsOcf,
@@ -52,8 +52,8 @@ import {
   getVestingStartAsOcf,
   getVestingTermsAsOcf,
   getWarrantAcceptanceAsOcf,
-  getWarrantCancellationEventAsOcf,
-  getWarrantExerciseEventAsOcf,
+  getWarrantCancellationAsOcf,
+  getWarrantExerciseAsOcf,
   getWarrantIssuanceAsOcf,
   getWarrantTransferAsOcf,
   updateCompanyValuationReport,
@@ -67,10 +67,10 @@ import {
   type CreateIssuerParams,
   type GetConvertibleAcceptanceAsOcfParams,
   type GetConvertibleAcceptanceAsOcfResult,
-  type GetConvertibleCancellationEventAsOcfParams,
-  type GetConvertibleCancellationEventAsOcfResult,
-  type GetConvertibleConversionEventAsOcfParams,
-  type GetConvertibleConversionEventAsOcfResult,
+  type GetConvertibleCancellationAsOcfParams,
+  type GetConvertibleCancellationAsOcfResult,
+  type GetConvertibleConversionAsOcfParams,
+  type GetConvertibleConversionAsOcfResult,
   type GetConvertibleIssuanceAsOcfParams,
   type GetConvertibleIssuanceAsOcfResult,
   type GetConvertibleTransferAsOcfParams,
@@ -79,18 +79,18 @@ import {
   type GetDocumentAsOcfResult,
   type GetEquityCompensationAcceptanceAsOcfParams,
   type GetEquityCompensationAcceptanceAsOcfResult,
-  type GetEquityCompensationCancellationEventAsOcfParams,
-  type GetEquityCompensationCancellationEventAsOcfResult,
-  type GetEquityCompensationExerciseEventAsOcfParams,
-  type GetEquityCompensationExerciseEventAsOcfResult,
-  type GetEquityCompensationIssuanceEventAsOcfParams,
-  type GetEquityCompensationIssuanceEventAsOcfResult,
+  type GetEquityCompensationCancellationAsOcfParams,
+  type GetEquityCompensationCancellationAsOcfResult,
+  type GetEquityCompensationExerciseAsOcfParams,
+  type GetEquityCompensationExerciseAsOcfResult,
+  type GetEquityCompensationIssuanceAsOcfParams,
+  type GetEquityCompensationIssuanceAsOcfResult,
   type GetEquityCompensationTransferAsOcfParams,
   type GetEquityCompensationTransferAsOcfResult,
   type GetIssuerAsOcfParams,
   type GetIssuerAsOcfResult,
-  type GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams,
-  type GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult,
+  type GetIssuerAuthorizedSharesAdjustmentAsOcfParams,
+  type GetIssuerAuthorizedSharesAdjustmentAsOcfResult,
   type GetStakeholderAsOcfParams,
   type GetStakeholderAsOcfResult,
   type GetStakeholderRelationshipChangeEventAsOcfParams,
@@ -99,30 +99,30 @@ import {
   type GetStakeholderStatusChangeEventAsOcfResult,
   type GetStockAcceptanceAsOcfParams,
   type GetStockAcceptanceAsOcfResult,
-  type GetStockCancellationEventAsOcfParams,
-  type GetStockCancellationEventAsOcfResult,
+  type GetStockCancellationAsOcfParams,
+  type GetStockCancellationAsOcfResult,
   type GetStockClassAsOcfParams,
   type GetStockClassAsOcfResult,
-  type GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams,
-  type GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult,
-  type GetStockClassConversionRatioAdjustmentEventAsOcfParams,
-  type GetStockClassConversionRatioAdjustmentEventAsOcfResult,
-  type GetStockClassSplitEventAsOcfParams,
-  type GetStockClassSplitEventAsOcfResult,
-  type GetStockConsolidationEventAsOcfParams,
-  type GetStockConsolidationEventAsOcfResult,
-  type GetStockConversionEventAsOcfParams,
-  type GetStockConversionEventAsOcfResult,
+  type GetStockClassAuthorizedSharesAdjustmentAsOcfParams,
+  type GetStockClassAuthorizedSharesAdjustmentAsOcfResult,
+  type GetStockClassConversionRatioAdjustmentAsOcfParams,
+  type GetStockClassConversionRatioAdjustmentAsOcfResult,
+  type GetStockClassSplitAsOcfParams,
+  type GetStockClassSplitAsOcfResult,
+  type GetStockConsolidationAsOcfParams,
+  type GetStockConsolidationAsOcfResult,
+  type GetStockConversionAsOcfParams,
+  type GetStockConversionAsOcfResult,
   type GetStockIssuanceAsOcfParams,
   type GetStockIssuanceAsOcfResult,
   type GetStockLegendTemplateAsOcfParams,
   type GetStockLegendTemplateAsOcfResult,
   type GetStockPlanAsOcfParams,
   type GetStockPlanAsOcfResult,
-  type GetStockPlanPoolAdjustmentEventAsOcfParams,
-  type GetStockPlanPoolAdjustmentEventAsOcfResult,
-  type GetStockReissuanceEventAsOcfParams,
-  type GetStockReissuanceEventAsOcfResult,
+  type GetStockPlanPoolAdjustmentAsOcfParams,
+  type GetStockPlanPoolAdjustmentAsOcfResult,
+  type GetStockReissuanceAsOcfParams,
+  type GetStockReissuanceAsOcfResult,
   type GetStockRepurchaseAsOcfParams,
   type GetStockRepurchaseAsOcfResult,
   type GetStockTransferAsOcfParams,
@@ -139,10 +139,10 @@ import {
   type GetVestingTermsAsOcfResult,
   type GetWarrantAcceptanceAsOcfParams,
   type GetWarrantAcceptanceAsOcfResult,
-  type GetWarrantCancellationEventAsOcfParams,
-  type GetWarrantCancellationEventAsOcfResult,
-  type GetWarrantExerciseEventAsOcfParams,
-  type GetWarrantExerciseEventAsOcfResult,
+  type GetWarrantCancellationAsOcfParams,
+  type GetWarrantCancellationAsOcfResult,
+  type GetWarrantExerciseAsOcfParams,
+  type GetWarrantExerciseAsOcfResult,
   type GetWarrantIssuanceAsOcfParams,
   type GetWarrantIssuanceAsOcfResult,
   type GetWarrantTransferAsOcfParams,
@@ -450,49 +450,48 @@ export class OcpClient {
         getStockPlanAsOcf: async (params: GetStockPlanAsOcfParams) => getStockPlanAsOcf(client, params),
       },
       equityCompensationIssuance: {
-        getEquityCompensationIssuanceEventAsOcf: async (params: GetEquityCompensationIssuanceEventAsOcfParams) =>
-          getEquityCompensationIssuanceEventAsOcf(client, params),
+        getEquityCompensationIssuanceAsOcf: async (params: GetEquityCompensationIssuanceAsOcfParams) =>
+          getEquityCompensationIssuanceAsOcf(client, params),
       },
       equityCompensationExercise: {
-        getEquityCompensationExerciseEventAsOcf: async (params: GetEquityCompensationExerciseEventAsOcfParams) =>
-          getEquityCompensationExerciseEventAsOcf(client, params),
+        getEquityCompensationExerciseAsOcf: async (params: GetEquityCompensationExerciseAsOcfParams) =>
+          getEquityCompensationExerciseAsOcf(client, params),
       },
       warrantIssuance: {
         getWarrantIssuanceAsOcf: async (params: GetWarrantIssuanceAsOcfParams) =>
           getWarrantIssuanceAsOcf(client, params),
       },
       warrantExercise: {
-        getWarrantExerciseEventAsOcf: async (params: GetWarrantExerciseEventAsOcfParams) =>
-          getWarrantExerciseEventAsOcf(client, params),
+        getWarrantExerciseAsOcf: async (params: GetWarrantExerciseAsOcfParams) =>
+          getWarrantExerciseAsOcf(client, params),
       },
       convertibleIssuance: {
         getConvertibleIssuanceAsOcf: async (params: GetConvertibleIssuanceAsOcfParams) =>
           getConvertibleIssuanceAsOcf(client, params),
       },
       convertibleConversion: {
-        getConvertibleConversionEventAsOcf: async (params: GetConvertibleConversionEventAsOcfParams) =>
-          getConvertibleConversionEventAsOcf(client, params),
+        getConvertibleConversionAsOcf: async (params: GetConvertibleConversionAsOcfParams) =>
+          getConvertibleConversionAsOcf(client, params),
       },
       stockCancellation: {
-        getStockCancellationEventAsOcf: async (params: GetStockCancellationEventAsOcfParams) =>
-          getStockCancellationEventAsOcf(client, params),
+        getStockCancellationAsOcf: async (params: GetStockCancellationAsOcfParams) =>
+          getStockCancellationAsOcf(client, params),
       },
       stockConversion: {
-        getStockConversionEventAsOcf: async (params: GetStockConversionEventAsOcfParams) =>
-          getStockConversionEventAsOcf(client, params),
+        getStockConversionAsOcf: async (params: GetStockConversionAsOcfParams) =>
+          getStockConversionAsOcf(client, params),
       },
       warrantCancellation: {
-        getWarrantCancellationEventAsOcf: async (params: GetWarrantCancellationEventAsOcfParams) =>
-          getWarrantCancellationEventAsOcf(client, params),
+        getWarrantCancellationAsOcf: async (params: GetWarrantCancellationAsOcfParams) =>
+          getWarrantCancellationAsOcf(client, params),
       },
       convertibleCancellation: {
-        getConvertibleCancellationEventAsOcf: async (params: GetConvertibleCancellationEventAsOcfParams) =>
-          getConvertibleCancellationEventAsOcf(client, params),
+        getConvertibleCancellationAsOcf: async (params: GetConvertibleCancellationAsOcfParams) =>
+          getConvertibleCancellationAsOcf(client, params),
       },
       equityCompensationCancellation: {
-        getEquityCompensationCancellationEventAsOcf: async (
-          params: GetEquityCompensationCancellationEventAsOcfParams
-        ) => getEquityCompensationCancellationEventAsOcf(client, params),
+        getEquityCompensationCancellationAsOcf: async (params: GetEquityCompensationCancellationAsOcfParams) =>
+          getEquityCompensationCancellationAsOcf(client, params),
       },
       stockTransfer: {
         getStockTransferAsOcf: async (params: GetStockTransferAsOcfParams) => getStockTransferAsOcf(client, params),
@@ -510,35 +509,34 @@ export class OcpClient {
           getWarrantTransferAsOcf(client, params),
       },
       issuerAuthorizedSharesAdjustment: {
-        getIssuerAuthorizedSharesAdjustmentEventAsOcf: async (
-          params: GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams
-        ) => getIssuerAuthorizedSharesAdjustmentEventAsOcf(client, params),
+        getIssuerAuthorizedSharesAdjustmentAsOcf: async (params: GetIssuerAuthorizedSharesAdjustmentAsOcfParams) =>
+          getIssuerAuthorizedSharesAdjustmentAsOcf(client, params),
       },
       stockClassAuthorizedSharesAdjustment: {
-        getStockClassAuthorizedSharesAdjustmentEventAsOcf: async (
-          params: GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams
-        ) => getStockClassAuthorizedSharesAdjustmentEventAsOcf(client, params),
+        getStockClassAuthorizedSharesAdjustmentAsOcf: async (
+          params: GetStockClassAuthorizedSharesAdjustmentAsOcfParams
+        ) => getStockClassAuthorizedSharesAdjustmentAsOcf(client, params),
       },
       stockClassConversionRatioAdjustment: {
-        getStockClassConversionRatioAdjustmentEventAsOcf: async (
-          params: GetStockClassConversionRatioAdjustmentEventAsOcfParams
-        ) => getStockClassConversionRatioAdjustmentEventAsOcf(client, params),
+        getStockClassConversionRatioAdjustmentAsOcf: async (
+          params: GetStockClassConversionRatioAdjustmentAsOcfParams
+        ) => getStockClassConversionRatioAdjustmentAsOcf(client, params),
       },
       stockClassSplit: {
-        getStockClassSplitEventAsOcf: async (params: GetStockClassSplitEventAsOcfParams) =>
-          getStockClassSplitEventAsOcf(client, params),
+        getStockClassSplitAsOcf: async (params: GetStockClassSplitAsOcfParams) =>
+          getStockClassSplitAsOcf(client, params),
       },
       stockConsolidation: {
-        getStockConsolidationEventAsOcf: async (params: GetStockConsolidationEventAsOcfParams) =>
-          getStockConsolidationEventAsOcf(client, params),
+        getStockConsolidationAsOcf: async (params: GetStockConsolidationAsOcfParams) =>
+          getStockConsolidationAsOcf(client, params),
       },
       stockReissuance: {
-        getStockReissuanceEventAsOcf: async (params: GetStockReissuanceEventAsOcfParams) =>
-          getStockReissuanceEventAsOcf(client, params),
+        getStockReissuanceAsOcf: async (params: GetStockReissuanceAsOcfParams) =>
+          getStockReissuanceAsOcf(client, params),
       },
       stockPlanPoolAdjustment: {
-        getStockPlanPoolAdjustmentEventAsOcf: async (params: GetStockPlanPoolAdjustmentEventAsOcfParams) =>
-          getStockPlanPoolAdjustmentEventAsOcf(client, params),
+        getStockPlanPoolAdjustmentAsOcf: async (params: GetStockPlanPoolAdjustmentAsOcfParams) =>
+          getStockPlanPoolAdjustmentAsOcf(client, params),
       },
       document: {
         getDocumentAsOcf: async (params: GetDocumentAsOcfParams) => getDocumentAsOcf(client, params),
@@ -674,22 +672,20 @@ interface OpenCapTableMethods {
     getStockPlanAsOcf: (params: GetStockPlanAsOcfParams) => Promise<GetStockPlanAsOcfResult>;
   };
   equityCompensationIssuance: {
-    getEquityCompensationIssuanceEventAsOcf: (
-      params: GetEquityCompensationIssuanceEventAsOcfParams
-    ) => Promise<GetEquityCompensationIssuanceEventAsOcfResult>;
+    getEquityCompensationIssuanceAsOcf: (
+      params: GetEquityCompensationIssuanceAsOcfParams
+    ) => Promise<GetEquityCompensationIssuanceAsOcfResult>;
   };
   equityCompensationExercise: {
-    getEquityCompensationExerciseEventAsOcf: (
-      params: GetEquityCompensationExerciseEventAsOcfParams
-    ) => Promise<GetEquityCompensationExerciseEventAsOcfResult>;
+    getEquityCompensationExerciseAsOcf: (
+      params: GetEquityCompensationExerciseAsOcfParams
+    ) => Promise<GetEquityCompensationExerciseAsOcfResult>;
   };
   warrantIssuance: {
     getWarrantIssuanceAsOcf: (params: GetWarrantIssuanceAsOcfParams) => Promise<GetWarrantIssuanceAsOcfResult>;
   };
   warrantExercise: {
-    getWarrantExerciseEventAsOcf: (
-      params: GetWarrantExerciseEventAsOcfParams
-    ) => Promise<GetWarrantExerciseEventAsOcfResult>;
+    getWarrantExerciseAsOcf: (params: GetWarrantExerciseAsOcfParams) => Promise<GetWarrantExerciseAsOcfResult>;
   };
   convertibleIssuance: {
     getConvertibleIssuanceAsOcf: (
@@ -697,34 +693,30 @@ interface OpenCapTableMethods {
     ) => Promise<GetConvertibleIssuanceAsOcfResult>;
   };
   convertibleConversion: {
-    getConvertibleConversionEventAsOcf: (
-      params: GetConvertibleConversionEventAsOcfParams
-    ) => Promise<GetConvertibleConversionEventAsOcfResult>;
+    getConvertibleConversionAsOcf: (
+      params: GetConvertibleConversionAsOcfParams
+    ) => Promise<GetConvertibleConversionAsOcfResult>;
   };
   stockCancellation: {
-    getStockCancellationEventAsOcf: (
-      params: GetStockCancellationEventAsOcfParams
-    ) => Promise<GetStockCancellationEventAsOcfResult>;
+    getStockCancellationAsOcf: (params: GetStockCancellationAsOcfParams) => Promise<GetStockCancellationAsOcfResult>;
   };
   stockConversion: {
-    getStockConversionEventAsOcf: (
-      params: GetStockConversionEventAsOcfParams
-    ) => Promise<GetStockConversionEventAsOcfResult>;
+    getStockConversionAsOcf: (params: GetStockConversionAsOcfParams) => Promise<GetStockConversionAsOcfResult>;
   };
   warrantCancellation: {
-    getWarrantCancellationEventAsOcf: (
-      params: GetWarrantCancellationEventAsOcfParams
-    ) => Promise<GetWarrantCancellationEventAsOcfResult>;
+    getWarrantCancellationAsOcf: (
+      params: GetWarrantCancellationAsOcfParams
+    ) => Promise<GetWarrantCancellationAsOcfResult>;
   };
   convertibleCancellation: {
-    getConvertibleCancellationEventAsOcf: (
-      params: GetConvertibleCancellationEventAsOcfParams
-    ) => Promise<GetConvertibleCancellationEventAsOcfResult>;
+    getConvertibleCancellationAsOcf: (
+      params: GetConvertibleCancellationAsOcfParams
+    ) => Promise<GetConvertibleCancellationAsOcfResult>;
   };
   equityCompensationCancellation: {
-    getEquityCompensationCancellationEventAsOcf: (
-      params: GetEquityCompensationCancellationEventAsOcfParams
-    ) => Promise<GetEquityCompensationCancellationEventAsOcfResult>;
+    getEquityCompensationCancellationAsOcf: (
+      params: GetEquityCompensationCancellationAsOcfParams
+    ) => Promise<GetEquityCompensationCancellationAsOcfResult>;
   };
   stockTransfer: {
     getStockTransferAsOcf: (params: GetStockTransferAsOcfParams) => Promise<GetStockTransferAsOcfResult>;
@@ -743,39 +735,33 @@ interface OpenCapTableMethods {
     getWarrantTransferAsOcf: (params: GetWarrantTransferAsOcfParams) => Promise<GetWarrantTransferAsOcfResult>;
   };
   issuerAuthorizedSharesAdjustment: {
-    getIssuerAuthorizedSharesAdjustmentEventAsOcf: (
-      params: GetIssuerAuthorizedSharesAdjustmentEventAsOcfParams
-    ) => Promise<GetIssuerAuthorizedSharesAdjustmentEventAsOcfResult>;
+    getIssuerAuthorizedSharesAdjustmentAsOcf: (
+      params: GetIssuerAuthorizedSharesAdjustmentAsOcfParams
+    ) => Promise<GetIssuerAuthorizedSharesAdjustmentAsOcfResult>;
   };
   stockClassAuthorizedSharesAdjustment: {
-    getStockClassAuthorizedSharesAdjustmentEventAsOcf: (
-      params: GetStockClassAuthorizedSharesAdjustmentEventAsOcfParams
-    ) => Promise<GetStockClassAuthorizedSharesAdjustmentEventAsOcfResult>;
+    getStockClassAuthorizedSharesAdjustmentAsOcf: (
+      params: GetStockClassAuthorizedSharesAdjustmentAsOcfParams
+    ) => Promise<GetStockClassAuthorizedSharesAdjustmentAsOcfResult>;
   };
   stockClassConversionRatioAdjustment: {
-    getStockClassConversionRatioAdjustmentEventAsOcf: (
-      params: GetStockClassConversionRatioAdjustmentEventAsOcfParams
-    ) => Promise<GetStockClassConversionRatioAdjustmentEventAsOcfResult>;
+    getStockClassConversionRatioAdjustmentAsOcf: (
+      params: GetStockClassConversionRatioAdjustmentAsOcfParams
+    ) => Promise<GetStockClassConversionRatioAdjustmentAsOcfResult>;
   };
   stockClassSplit: {
-    getStockClassSplitEventAsOcf: (
-      params: GetStockClassSplitEventAsOcfParams
-    ) => Promise<GetStockClassSplitEventAsOcfResult>;
+    getStockClassSplitAsOcf: (params: GetStockClassSplitAsOcfParams) => Promise<GetStockClassSplitAsOcfResult>;
   };
   stockConsolidation: {
-    getStockConsolidationEventAsOcf: (
-      params: GetStockConsolidationEventAsOcfParams
-    ) => Promise<GetStockConsolidationEventAsOcfResult>;
+    getStockConsolidationAsOcf: (params: GetStockConsolidationAsOcfParams) => Promise<GetStockConsolidationAsOcfResult>;
   };
   stockReissuance: {
-    getStockReissuanceEventAsOcf: (
-      params: GetStockReissuanceEventAsOcfParams
-    ) => Promise<GetStockReissuanceEventAsOcfResult>;
+    getStockReissuanceAsOcf: (params: GetStockReissuanceAsOcfParams) => Promise<GetStockReissuanceAsOcfResult>;
   };
   stockPlanPoolAdjustment: {
-    getStockPlanPoolAdjustmentEventAsOcf: (
-      params: GetStockPlanPoolAdjustmentEventAsOcfParams
-    ) => Promise<GetStockPlanPoolAdjustmentEventAsOcfResult>;
+    getStockPlanPoolAdjustmentAsOcf: (
+      params: GetStockPlanPoolAdjustmentAsOcfParams
+    ) => Promise<GetStockPlanPoolAdjustmentAsOcfResult>;
   };
   stockIssuance: {
     getStockIssuanceAsOcf: (params: GetStockIssuanceAsOcfParams) => Promise<GetStockIssuanceAsOcfResult>;

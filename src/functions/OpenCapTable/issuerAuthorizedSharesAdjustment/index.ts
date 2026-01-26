@@ -1,1 +1,1 @@
-export * from './getIssuerAuthorizedSharesAdjustmentEventAsOcf';
+export * from './getIssuerAuthorizedSharesAdjustmentAsOcf';

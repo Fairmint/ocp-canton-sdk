@@ -3,12 +3,8 @@ import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
-/**
- * OCF Warrant Cancellation Event with object_type discriminator OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/cancellation/WarrantCancellation.schema.json
- */
-export interface OcfWarrantCancellationEvent {
-  object_type: 'TX_WARRANT_CANCELLATION';
+export interface OcfStockCancellationEvent {
+  object_type: 'TX_STOCK_CANCELLATION';
   id: string;
   date: string;
   security_id: string;
@@ -18,29 +14,21 @@ export interface OcfWarrantCancellationEvent {
   comments?: string[];
 }
 
-export interface GetWarrantCancellationEventAsOcfParams {
+export interface GetStockCancellationAsOcfParams {
+  contractId: string;
+}
+export interface GetStockCancellationAsOcfResult {
+  event: OcfStockCancellationEvent;
   contractId: string;
 }
 
-export interface GetWarrantCancellationEventAsOcfResult {
-  event: OcfWarrantCancellationEvent;
-  contractId: string;
-}
+/** Type alias for DAML StockCancellation contract createArgument */
+type StockCancellationCreateArgument = Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation;
 
-/** Type alias for DAML WarrantCancellation contract createArgument */
-type WarrantCancellationCreateArgument = Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellation;
-
-/**
- * Get a warrant cancellation contract and convert it to OCF format.
- *
- * @param client - The LedgerJsonApiClient instance
- * @param params - Parameters containing the contract ID
- * @returns The warrant cancellation event in OCF format
- */
-export async function getWarrantCancellationEventAsOcf(
+export async function getStockCancellationAsOcf(
   client: LedgerJsonApiClient,
-  params: GetWarrantCancellationEventAsOcfParams
-): Promise<GetWarrantCancellationEventAsOcfResult> {
+  params: GetStockCancellationAsOcfParams
+): Promise<GetStockCancellationAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created) {
     throw new OcpContractError('Missing created event', {
@@ -54,15 +42,15 @@ export async function getWarrantCancellationEventAsOcf(
       code: OcpErrorCodes.RESULT_NOT_FOUND,
     });
   }
-  const contract = res.created.createdEvent.createArgument as WarrantCancellationCreateArgument;
+  const contract = res.created.createdEvent.createArgument as StockCancellationCreateArgument;
   const data = contract.cancellation_data;
 
   // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)
   const quantity = data.quantity as string | number;
   const quantityStr = typeof quantity === 'number' ? quantity.toString() : quantity;
 
-  const event: OcfWarrantCancellationEvent = {
-    object_type: 'TX_WARRANT_CANCELLATION',
+  const event: OcfStockCancellationEvent = {
+    object_type: 'TX_STOCK_CANCELLATION',
     id: data.id,
     date: data.date.split('T')[0],
     security_id: data.security_id,
