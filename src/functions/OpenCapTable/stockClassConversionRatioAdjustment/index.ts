@@ -1,3 +1,3 @@
 export * from './damlToStockClassConversionRatioAdjustment';
-export * from './getStockClassConversionRatioAdjustmentEventAsOcf';
+export * from './getStockClassConversionRatioAdjustmentAsOcf';
 export * from './stockClassConversionRatioAdjustmentDataToDaml';

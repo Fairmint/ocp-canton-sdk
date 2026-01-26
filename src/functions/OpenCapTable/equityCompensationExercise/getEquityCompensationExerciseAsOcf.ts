@@ -14,11 +14,11 @@ interface OcfEquityCompensationExerciseOutput {
   comments?: string[];
 }
 
-export interface GetEquityCompensationExerciseEventAsOcfParams {
+export interface GetEquityCompensationExerciseAsOcfParams {
   contractId: string; // ContractId of PlanSecurityExerciseEvent
 }
 
-export interface GetEquityCompensationExerciseEventAsOcfResult {
+export interface GetEquityCompensationExerciseAsOcfResult {
   event: OcfEquityCompensationExerciseOutput;
   contractId: string;
 }
@@ -27,10 +27,10 @@ export interface GetEquityCompensationExerciseEventAsOcfResult {
  * Read a PlanSecurityExerciseEvent and return a generic OCF EquityCompensationExercise object. Schema:
  * https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/exercise/EquityCompensationExercise.schema.json
  */
-export async function getEquityCompensationExerciseEventAsOcf(
+export async function getEquityCompensationExerciseAsOcf(
   client: LedgerJsonApiClient,
-  params: GetEquityCompensationExerciseEventAsOcfParams
-): Promise<GetEquityCompensationExerciseEventAsOcfResult> {
+  params: GetEquityCompensationExerciseAsOcfParams
+): Promise<GetEquityCompensationExerciseAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {

@@ -13,11 +13,11 @@ export interface OcfStockConversionEvent extends Omit<OcfStockConversion, 'quant
   quantity: string;
 }
 
-export interface GetStockConversionEventAsOcfParams {
+export interface GetStockConversionAsOcfParams {
   contractId: string;
 }
 
-export interface GetStockConversionEventAsOcfResult {
+export interface GetStockConversionAsOcfResult {
   event: OcfStockConversionEvent;
   contractId: string;
 }
@@ -26,10 +26,10 @@ export interface GetStockConversionEventAsOcfResult {
  * Read a StockConversion contract and return a generic OCF StockConversion object. Schema:
  * https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/conversion/StockConversion.schema.json
  */
-export async function getStockConversionEventAsOcf(
+export async function getStockConversionAsOcf(
   client: LedgerJsonApiClient,
-  params: GetStockConversionEventAsOcfParams
-): Promise<GetStockConversionEventAsOcfResult> {
+  params: GetStockConversionAsOcfParams
+): Promise<GetStockConversionAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {

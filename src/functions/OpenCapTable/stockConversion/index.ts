@@ -1,1 +1,1 @@
-export * from './getStockConversionEventAsOcf';
+export * from './getStockConversionAsOcf';

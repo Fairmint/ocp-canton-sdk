@@ -1,1 +1,1 @@
-export * from './getWarrantExerciseEventAsOcf';
+export * from './getWarrantExerciseAsOcf';

@@ -1,1 +1,1 @@
-export * from './getEquityCompensationExerciseEventAsOcf';
+export * from './getEquityCompensationExerciseAsOcf';

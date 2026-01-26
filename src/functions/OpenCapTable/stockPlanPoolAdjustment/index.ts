@@ -1,1 +1,1 @@
-export * from './getStockPlanPoolAdjustmentEventAsOcf';
+export * from './getStockPlanPoolAdjustmentAsOcf';

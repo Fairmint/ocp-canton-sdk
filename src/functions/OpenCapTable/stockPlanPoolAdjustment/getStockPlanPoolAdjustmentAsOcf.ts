@@ -14,10 +14,10 @@ export interface OcfStockPlanPoolAdjustmentEvent {
   comments?: string[];
 }
 
-export interface GetStockPlanPoolAdjustmentEventAsOcfParams {
+export interface GetStockPlanPoolAdjustmentAsOcfParams {
   contractId: string;
 }
-export interface GetStockPlanPoolAdjustmentEventAsOcfResult {
+export interface GetStockPlanPoolAdjustmentAsOcfResult {
   event: OcfStockPlanPoolAdjustmentEvent;
   contractId: string;
 }
@@ -25,10 +25,10 @@ export interface GetStockPlanPoolAdjustmentEventAsOcfResult {
 /** Type alias for DAML StockPlanPoolAdjustment contract createArgument */
 type StockPlanPoolAdjustmentCreateArgument = Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment;
 
-export async function getStockPlanPoolAdjustmentEventAsOcf(
+export async function getStockPlanPoolAdjustmentAsOcf(
   client: LedgerJsonApiClient,
-  params: GetStockPlanPoolAdjustmentEventAsOcfParams
-): Promise<GetStockPlanPoolAdjustmentEventAsOcfResult> {
+  params: GetStockPlanPoolAdjustmentAsOcfParams
+): Promise<GetStockPlanPoolAdjustmentAsOcfResult> {
   const res = await client.getEventsByContractId({ contractId: params.contractId });
   if (!res.created?.createdEvent.createArgument) {
     throw new OcpContractError('Missing createArgument', {

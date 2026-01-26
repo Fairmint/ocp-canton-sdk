@@ -1,1 +1,1 @@
-export * from './getConvertibleConversionEventAsOcf';
+export * from './getConvertibleConversionAsOcf';

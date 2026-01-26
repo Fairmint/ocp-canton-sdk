@@ -10,11 +10,11 @@ export interface OcfConvertibleConversionEvent extends OcfConvertibleConversion 
   object_type: 'TX_CONVERTIBLE_CONVERSION';
 }
 
-export interface GetConvertibleConversionEventAsOcfParams {
+export interface GetConvertibleConversionAsOcfParams {
   contractId: string;
 }
 
-export interface GetConvertibleConversionEventAsOcfResult {
+export interface GetConvertibleConversionAsOcfResult {
   event: OcfConvertibleConversionEvent;
   contractId: string;
 }
@@ -23,10 +23,10 @@ export interface GetConvertibleConversionEventAsOcfResult {
  * Read a ConvertibleConversion contract and return a generic OCF ConvertibleConversion object. Schema:
  * https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/conversion/ConvertibleConversion.schema.json
  */
-export async function getConvertibleConversionEventAsOcf(
+export async function getConvertibleConversionAsOcf(
   client: LedgerJsonApiClient,
-  params: GetConvertibleConversionEventAsOcfParams
-): Promise<GetConvertibleConversionEventAsOcfResult> {
+  params: GetConvertibleConversionAsOcfParams
+): Promise<GetConvertibleConversionAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {

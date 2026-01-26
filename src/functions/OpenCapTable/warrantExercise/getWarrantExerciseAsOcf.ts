@@ -13,11 +13,11 @@ export interface OcfWarrantExerciseEvent extends Omit<OcfWarrantExercise, 'quant
   quantity: string;
 }
 
-export interface GetWarrantExerciseEventAsOcfParams {
+export interface GetWarrantExerciseAsOcfParams {
   contractId: string;
 }
 
-export interface GetWarrantExerciseEventAsOcfResult {
+export interface GetWarrantExerciseAsOcfResult {
   event: OcfWarrantExerciseEvent;
   contractId: string;
 }
@@ -26,10 +26,10 @@ export interface GetWarrantExerciseEventAsOcfResult {
  * Read a WarrantExercise contract and return a generic OCF WarrantExercise object. Schema:
  * https://schema.opencaptablecoalition.com/v/1.2.0/objects/transactions/exercise/WarrantExercise.schema.json
  */
-export async function getWarrantExerciseEventAsOcf(
+export async function getWarrantExerciseAsOcf(
   client: LedgerJsonApiClient,
-  params: GetWarrantExerciseEventAsOcfParams
-): Promise<GetWarrantExerciseEventAsOcfResult> {
+  params: GetWarrantExerciseAsOcfParams
+): Promise<GetWarrantExerciseAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {

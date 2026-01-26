@@ -10,9 +10,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
-import { getConvertibleConversionEventAsOcf } from '../../src/functions/OpenCapTable/convertibleConversion';
-import { getStockConversionEventAsOcf } from '../../src/functions/OpenCapTable/stockConversion';
-import { getWarrantExerciseEventAsOcf } from '../../src/functions/OpenCapTable/warrantExercise';
+import { getConvertibleConversionAsOcf } from '../../src/functions/OpenCapTable/convertibleConversion';
+import { getStockConversionAsOcf } from '../../src/functions/OpenCapTable/stockConversion';
+import { getWarrantExerciseAsOcf } from '../../src/functions/OpenCapTable/warrantExercise';
 import type { OcfConvertibleConversion, OcfStockConversion, OcfWarrantExercise } from '../../src/types/native';
 
 // Mock client factory for DAML → OCF converter tests
@@ -100,7 +100,7 @@ describe('Exercise and Conversion Type Converters', () => {
       });
     });
 
-    describe('DAML → OCF (getWarrantExerciseEventAsOcf)', () => {
+    describe('DAML → OCF (getWarrantExerciseAsOcf)', () => {
       test('converts valid DAML warrant exercise event', async () => {
         const mockClient = createMockClient({
           exercise_data: {
@@ -115,7 +115,7 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        const result = await getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' });
+        const result = await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
 
         expect(result.event.object_type).toBe('TX_WARRANT_EXERCISE');
         expect(result.event.id).toBe('we-001');
@@ -139,7 +139,7 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        const result = await getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' });
+        const result = await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
         expect(result.event.quantity).toBe('5000');
       });
 
@@ -154,7 +154,7 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        const result = await getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' });
+        const result = await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
 
         expect(result.event.balance_security_id).toBeUndefined();
         expect(result.event.consideration_text).toBeUndefined();
@@ -171,11 +171,11 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
+        await expect(getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
           OcpValidationError
         );
         try {
-          await getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' });
+          await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -195,11 +195,11 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
+        await expect(getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
           OcpValidationError
         );
         try {
-          await getWarrantExerciseEventAsOcf(mockClient, { contractId: 'test-contract' });
+          await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -268,7 +268,7 @@ describe('Exercise and Conversion Type Converters', () => {
       });
     });
 
-    describe('DAML → OCF (getConvertibleConversionEventAsOcf)', () => {
+    describe('DAML → OCF (getConvertibleConversionAsOcf)', () => {
       test('converts valid DAML convertible conversion event', async () => {
         const mockClient = createMockClient({
           conversion_data: {
@@ -282,7 +282,7 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        const result = await getConvertibleConversionEventAsOcf(mockClient, { contractId: 'test-contract' });
+        const result = await getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' });
 
         expect(result.event.object_type).toBe('TX_CONVERTIBLE_CONVERSION');
         expect(result.event.id).toBe('cc-001');
@@ -304,7 +304,7 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        const result = await getConvertibleConversionEventAsOcf(mockClient, { contractId: 'test-contract' });
+        const result = await getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' });
 
         expect(result.event.balance_security_id).toBeUndefined();
         expect(result.event.trigger_id).toBeUndefined();
@@ -321,11 +321,11 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getConvertibleConversionEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
+        await expect(getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
           OcpValidationError
         );
         try {
-          await getConvertibleConversionEventAsOcf(mockClient, { contractId: 'test-contract' });
+          await getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' });
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -404,7 +404,7 @@ describe('Exercise and Conversion Type Converters', () => {
       });
     });
 
-    describe('DAML → OCF (getStockConversionEventAsOcf)', () => {
+    describe('DAML → OCF (getStockConversionAsOcf)', () => {
       test('converts valid DAML stock conversion event', async () => {
         const mockClient = createMockClient({
           conversion_data: {
@@ -418,7 +418,7 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        const result = await getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' });
+        const result = await getStockConversionAsOcf(mockClient, { contractId: 'test-contract' });
 
         expect(result.event.object_type).toBe('TX_STOCK_CONVERSION');
         expect(result.event.id).toBe('sc-001');
@@ -441,7 +441,7 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        const result = await getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' });
+        const result = await getStockConversionAsOcf(mockClient, { contractId: 'test-contract' });
         expect(result.event.quantity).toBe('10000');
       });
 
@@ -456,7 +456,7 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        const result = await getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' });
+        const result = await getStockConversionAsOcf(mockClient, { contractId: 'test-contract' });
 
         expect(result.event.balance_security_id).toBeUndefined();
         expect(result.event.comments).toBeUndefined();
@@ -472,11 +472,11 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
+        await expect(getStockConversionAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
           OcpValidationError
         );
         try {
-          await getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' });
+          await getStockConversionAsOcf(mockClient, { contractId: 'test-contract' });
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
@@ -496,11 +496,11 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
+        await expect(getStockConversionAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
           OcpValidationError
         );
         try {
-          await getStockConversionEventAsOcf(mockClient, { contractId: 'test-contract' });
+          await getStockConversionAsOcf(mockClient, { contractId: 'test-contract' });
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;

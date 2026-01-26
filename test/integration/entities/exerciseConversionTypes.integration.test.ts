@@ -109,7 +109,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     expect(result.createdCids).toHaveLength(1);
 
     // Read back as OCF
-    const ocfResult = await ctx.ocp.OpenCapTable.warrantExercise.getWarrantExerciseEventAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.warrantExercise.getWarrantExerciseAsOcf({
       contractId: extractContractIdString(result.createdCids[0]),
     });
 
@@ -159,7 +159,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     expect(result.createdCids).toHaveLength(1);
 
     // Read back as OCF
-    const ocfResult = await ctx.ocp.OpenCapTable.convertibleConversion.getConvertibleConversionEventAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.convertibleConversion.getConvertibleConversionAsOcf({
       contractId: extractContractIdString(result.createdCids[0]),
     });
 
@@ -211,7 +211,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     expect(result.createdCids).toHaveLength(1);
 
     // Read back as OCF
-    const ocfResult = await ctx.ocp.OpenCapTable.stockConversion.getStockConversionEventAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.stockConversion.getStockConversionAsOcf({
       contractId: extractContractIdString(result.createdCids[0]),
     });
 
@@ -232,13 +232,13 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     // Verify methods exist on OcpClient
     expect(ctx.ocp.OpenCapTable.warrantExercise).toBeDefined();
-    expect(typeof ctx.ocp.OpenCapTable.warrantExercise.getWarrantExerciseEventAsOcf).toBe('function');
+    expect(typeof ctx.ocp.OpenCapTable.warrantExercise.getWarrantExerciseAsOcf).toBe('function');
 
     expect(ctx.ocp.OpenCapTable.convertibleConversion).toBeDefined();
-    expect(typeof ctx.ocp.OpenCapTable.convertibleConversion.getConvertibleConversionEventAsOcf).toBe('function');
+    expect(typeof ctx.ocp.OpenCapTable.convertibleConversion.getConvertibleConversionAsOcf).toBe('function');
 
     expect(ctx.ocp.OpenCapTable.stockConversion).toBeDefined();
-    expect(typeof ctx.ocp.OpenCapTable.stockConversion.getStockConversionEventAsOcf).toBe('function');
+    expect(typeof ctx.ocp.OpenCapTable.stockConversion.getStockConversionAsOcf).toBe('function');
   });
 
   /**

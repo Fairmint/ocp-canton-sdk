@@ -1,1 +1,1 @@
-export * from './getConvertibleCancellationEventAsOcf';
+export * from './getConvertibleCancellationAsOcf';

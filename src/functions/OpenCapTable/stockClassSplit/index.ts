@@ -1,3 +1,3 @@
 export * from './damlToStockClassSplit';
-export * from './getStockClassSplitEventAsOcf';
+export * from './getStockClassSplitAsOcf';
 export * from './stockClassSplitDataToDaml';

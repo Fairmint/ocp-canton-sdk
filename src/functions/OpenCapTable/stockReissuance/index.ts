@@ -1,3 +1,3 @@
 export * from './damlToStockReissuance';
-export * from './getStockReissuanceEventAsOcf';
+export * from './getStockReissuanceAsOcf';
 export * from './stockReissuanceDataToDaml';
