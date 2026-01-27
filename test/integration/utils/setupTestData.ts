@@ -931,7 +931,21 @@ export function createTestConvertibleIssuanceData(
     investment_amount: { amount: '100000', currency: 'USD' },
     convertible_type: 'NOTE',
     security_law_exemptions: [],
-    conversion_triggers: [],
+    // V30 DAML requires at least one conversion trigger (not null d.conversion_triggers)
+    conversion_triggers: [
+      {
+        type: 'ELECTIVE_AT_WILL',
+        trigger_id: `trigger-${id.substring(0, 8)}`,
+        conversion_right: {
+          type: 'CONVERTIBLE_CONVERSION_RIGHT',
+          conversion_mechanism: {
+            type: 'SAFE_CONVERSION',
+            conversion_mfn: false,
+          },
+          converts_to_future_round: true,
+        },
+      },
+    ],
     seniority: 1,
     ...rest,
   };
