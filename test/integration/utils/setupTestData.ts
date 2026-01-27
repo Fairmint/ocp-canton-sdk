@@ -56,7 +56,6 @@ export interface TestIssuerSetup {
   /** The issuer authorization contract details (needed for subsequent operations) */
   issuerAuthorizationContractDetails: DisclosedContract;
   /** The featured app right contract details */
-  featuredAppRightContractDetails: DisclosedContract;
   /** The CapTable contract details (needed for disclosed contracts when exercising choices) */
   capTableContractDetails: DisclosedContract;
 }
@@ -660,7 +659,6 @@ export async function setupTestIssuer(
   ocp: OcpClient,
   options: {
     issuerParty: string;
-    featuredAppRightContractDetails: DisclosedContract;
     capTableContractDetails?: DisclosedContract;
     issuerData?: Partial<OcfIssuer>;
     issuerAuthorizationContractDetails?: DisclosedContract;
@@ -668,14 +666,12 @@ export async function setupTestIssuer(
     ocpFactoryContractId?: string;
   }
 ): Promise<TestIssuerSetup> {
-  const { featuredAppRightContractDetails } = options;
 
   const issuerAuthorizationContractDetails = await getOrCreateIssuerAuthorization(ocp, options);
   const issuerData = createTestIssuerData(options.issuerData);
 
   const createIssuerCmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({
     issuerAuthorizationContractDetails,
-    featuredAppRightContractDetails,
     issuerParty: options.issuerParty,
     issuerData,
   });
@@ -719,7 +715,6 @@ export async function setupTestIssuer(
     issuerOcfContractId,
     issuerData,
     issuerAuthorizationContractDetails,
-    featuredAppRightContractDetails,
     capTableContractDetails,
   };
 }
@@ -730,7 +725,6 @@ export async function setupTestStakeholder(
   options: {
     issuerContractId: string;
     issuerParty: string;
-    featuredAppRightContractDetails: DisclosedContract;
     capTableContractDetails?: DisclosedContract;
     stakeholderData?: Partial<OcfStakeholder>;
   }
@@ -740,7 +734,6 @@ export async function setupTestStakeholder(
   const cmd = buildUpdateCapTableCommand(
     {
       capTableContractId: options.issuerContractId,
-      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
       capTableContractDetails: options.capTableContractDetails,
     },
     { creates: [{ type: 'stakeholder', data: stakeholderData }] }
@@ -973,7 +966,6 @@ export async function setupStockSecurity(
   options: {
     issuerContractId: string;
     issuerParty: string;
-    featuredAppRightContractDetails: DisclosedContract;
     capTableContractDetails?: DisclosedContract;
     /** Optional: provide specific security_id to use */
     securityId?: string;
@@ -995,7 +987,6 @@ export async function setupStockSecurity(
 
     const batch1 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
       capTableContractDetails,
       actAs: [options.issuerParty],
     });
@@ -1022,7 +1013,6 @@ export async function setupStockSecurity(
 
     const batch2 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
       capTableContractDetails,
       actAs: [options.issuerParty],
     });
@@ -1050,7 +1040,6 @@ export async function setupStockSecurity(
 
   const batch3 = ocp.OpenCapTable.capTable.update({
     capTableContractId,
-    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
     capTableContractDetails,
     actAs: [options.issuerParty],
   });
@@ -1080,7 +1069,6 @@ export async function setupWarrantSecurity(
   options: {
     issuerContractId: string;
     issuerParty: string;
-    featuredAppRightContractDetails: DisclosedContract;
     capTableContractDetails?: DisclosedContract;
     /** Optional: provide specific security_id to use */
     securityId?: string;
@@ -1100,7 +1088,6 @@ export async function setupWarrantSecurity(
 
     const batch1 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
       capTableContractDetails,
       actAs: [options.issuerParty],
     });
@@ -1127,7 +1114,6 @@ export async function setupWarrantSecurity(
 
   const batch2 = ocp.OpenCapTable.capTable.update({
     capTableContractId,
-    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
     capTableContractDetails,
     actAs: [options.issuerParty],
   });
@@ -1156,7 +1142,6 @@ export async function setupEquityCompensationSecurity(
   options: {
     issuerContractId: string;
     issuerParty: string;
-    featuredAppRightContractDetails: DisclosedContract;
     capTableContractDetails?: DisclosedContract;
     /** Optional: provide specific security_id to use */
     securityId?: string;
@@ -1178,7 +1163,6 @@ export async function setupEquityCompensationSecurity(
 
     const batch1 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
       capTableContractDetails,
       actAs: [options.issuerParty],
     });
@@ -1205,7 +1189,6 @@ export async function setupEquityCompensationSecurity(
 
     const batch2 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
       capTableContractDetails,
       actAs: [options.issuerParty],
     });
@@ -1233,7 +1216,6 @@ export async function setupEquityCompensationSecurity(
 
   const batch3 = ocp.OpenCapTable.capTable.update({
     capTableContractId,
-    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
     capTableContractDetails,
     actAs: [options.issuerParty],
   });
@@ -1266,7 +1248,6 @@ export async function setupConvertibleSecurity(
   options: {
     issuerContractId: string;
     issuerParty: string;
-    featuredAppRightContractDetails: DisclosedContract;
     capTableContractDetails?: DisclosedContract;
     /** Optional: provide specific security_id to use */
     securityId?: string;
@@ -1286,7 +1267,6 @@ export async function setupConvertibleSecurity(
 
     const batch1 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      featuredAppRightContractDetails: options.featuredAppRightContractDetails,
       capTableContractDetails,
       actAs: [options.issuerParty],
     });
@@ -1313,7 +1293,6 @@ export async function setupConvertibleSecurity(
 
   const batch2 = ocp.OpenCapTable.capTable.update({
     capTableContractId,
-    featuredAppRightContractDetails: options.featuredAppRightContractDetails,
     capTableContractDetails,
     actAs: [options.issuerParty],
   });

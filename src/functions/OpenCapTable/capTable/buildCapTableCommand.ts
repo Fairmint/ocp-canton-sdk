@@ -1,7 +1,4 @@
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts } from '../../../types';
 
@@ -12,8 +9,8 @@ import type { CommandWithDisclosedContracts } from '../../../types';
 
 export function buildCapTableCommand(params: {
   capTableContractId: string;
-  featuredAppRightContractDetails: DisclosedContract;
-  capTableContractDetails?: DisclosedContract;
+  /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
+  capTableContractDetails?: { templateId: string };
   choice: string;
   choiceArgument: Record<string, unknown>;
 }): CommandWithDisclosedContracts {
@@ -37,19 +34,8 @@ export function buildCapTableCommand(params: {
     },
   };
 
-  const disclosedContracts: DisclosedContract[] = [
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
-    },
-  ];
-
-  // NOTE: We do NOT include the CapTable contract being exercised in disclosed contracts.
+  // No disclosed contracts needed - CapTable choices don't reference external contracts.
   // Canton automatically has visibility into contracts being exercised via ExerciseCommand.
-  // Disclosed contracts are for contracts that are REFERENCED but not directly exercised.
-  // However, we still use capTableContractDetails to get the correct templateId for the command.
 
-  return { command, disclosedContracts };
+  return { command, disclosedContracts: [] };
 }

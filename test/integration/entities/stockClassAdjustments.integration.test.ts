@@ -39,7 +39,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create stock class split event
@@ -48,7 +47,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -84,7 +82,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create conversion ratio adjustment event
@@ -93,7 +90,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -126,7 +122,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock securities (V30 DAML contracts validate security_ids exist)
@@ -134,7 +129,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const stockSecurity1 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -152,7 +146,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const stockSecurity2 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: stockSecurity1.capTableContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: currentCapTableDetails,
     });
 
@@ -169,7 +162,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const stockSecurity3 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: stockSecurity2.capTableContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: currentCapTableDetails,
     });
 
@@ -188,7 +180,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity3.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: finalCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -220,14 +211,12 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -247,7 +236,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -280,7 +268,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock securities (V30 DAML contracts validate security_ids exist)
@@ -288,7 +275,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const stockSecurity1 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -305,7 +291,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const stockSecurity2 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: stockSecurity1.capTableContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: currentCapTableDetails,
     });
 
@@ -322,7 +307,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const stockSecurity3 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: stockSecurity2.capTableContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: currentCapTableDetails,
     });
 
@@ -338,7 +322,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity3.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: finalCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -384,12 +367,10 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });

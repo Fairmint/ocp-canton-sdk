@@ -73,14 +73,12 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -108,7 +106,6 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     const cmd = buildUpdateCapTableCommand(
       {
         capTableContractId: stockSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
       },
       { creates: [{ type: 'stockTransfer', data: transferData }] }
@@ -155,14 +152,12 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite convertible security (V30 DAML contracts validate security_id exists)
     const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -189,7 +184,6 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     const cmd = buildUpdateCapTableCommand(
       {
         capTableContractId: convertibleSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
       },
       { creates: [{ type: 'convertibleTransfer', data: transferData }] }
@@ -232,14 +226,12 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite equity compensation security (V30 DAML contracts validate security_id exists)
     const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -265,7 +257,6 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     const cmd = buildUpdateCapTableCommand(
       {
         capTableContractId: eqCompSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
       },
       { creates: [{ type: 'equityCompensationTransfer', data: transferData }] }
@@ -308,14 +299,12 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite warrant security (V30 DAML contracts validate security_id exists)
     const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -340,7 +329,6 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     const cmd = buildUpdateCapTableCommand(
       {
         capTableContractId: warrantSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
       },
       { creates: [{ type: 'warrantTransfer', data: transferData }] }

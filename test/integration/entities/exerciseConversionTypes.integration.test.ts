@@ -55,7 +55,6 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create stakeholder first
@@ -65,7 +64,6 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     const stakeholderBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -100,7 +98,6 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: newCapTableCid,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: newCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -133,7 +130,6 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // TODO: First need to issue a convertible with:
@@ -150,7 +146,6 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -182,7 +177,6 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // TODO: First need to issue stock with:
@@ -202,7 +196,6 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -254,12 +247,10 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -297,12 +288,10 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -355,7 +344,6 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create stakeholder
@@ -365,7 +353,6 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     const stakeholderBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -395,7 +382,6 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     const issuanceBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: newCapTableCid,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: newCapTableDetails,
       actAs: [ctx.issuerParty],
     });

@@ -1,5 +1,3 @@
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-
 /**
  * Base parameters required for all CapTable operations.
  *
@@ -9,8 +7,6 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 export interface CapTableOperationParams {
   /** The contract ID of the CapTable contract for this issuer */
   capTableContractId: string;
-  /** The disclosed contract details for the FeaturedAppRight */
-  featuredAppRightContractDetails: DisclosedContract;
 }
 
 /**

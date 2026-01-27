@@ -104,14 +104,12 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -134,7 +132,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -155,14 +152,12 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite warrant security (V30 DAML contracts validate security_id exists)
     const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -185,7 +180,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: warrantSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -206,14 +200,12 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite convertible security (V30 DAML contracts validate security_id exists)
     const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -238,7 +230,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: convertibleSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -259,14 +250,12 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite equity compensation security (V30 DAML contracts validate security_id exists)
     const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -289,7 +278,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: eqCompSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -312,7 +300,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite securities for each acceptance type (V30 DAML contracts validate security_id exists)
@@ -322,7 +309,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -341,7 +327,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
       issuerContractId: stockSecurity.capTableContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: currentCapTableDetails,
     });
 
@@ -359,7 +344,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
       issuerContractId: warrantSecurity.capTableContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: currentCapTableDetails,
     });
 
@@ -377,7 +361,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
       issuerContractId: convertibleSecurity.capTableContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: currentCapTableDetails,
     });
 
@@ -410,7 +393,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: eqCompSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: finalCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -438,14 +420,12 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -469,7 +449,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -493,14 +472,12 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -525,7 +502,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     // Create the acceptance first
     const createBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: currentCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -556,7 +532,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const editBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: newCapTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: newCapTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -580,14 +555,12 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -611,7 +584,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     // Create the acceptance first
     const createBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: currentCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -637,7 +609,6 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     // Delete the acceptance
     const deleteBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: newCapTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: newCapTableContractDetails,
       actAs: [ctx.issuerParty],
     });

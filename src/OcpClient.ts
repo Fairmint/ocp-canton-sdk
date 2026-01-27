@@ -584,8 +584,7 @@ export class OcpClient {
       capTable: {
         update: (params: {
           capTableContractId: string;
-          featuredAppRightContractDetails: DisclosedContract;
-          capTableContractDetails?: DisclosedContract;
+          capTableContractDetails?: { templateId: string };
           actAs: string[];
           readAs?: string[];
         }) => new CapTableBatch(params, client),
@@ -809,8 +808,7 @@ interface OpenCapTableMethods {
   capTable: {
     update: (params: {
       capTableContractId: string;
-      featuredAppRightContractDetails: DisclosedContract;
-      capTableContractDetails?: DisclosedContract;
+      capTableContractDetails?: { templateId: string };
       actAs: string[];
       readAs?: string[];
     }) => CapTableBatch;

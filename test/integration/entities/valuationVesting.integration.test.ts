@@ -64,14 +64,12 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -98,7 +96,6 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -121,14 +118,12 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -155,7 +150,6 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -178,14 +172,12 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
     const stockSecurity = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -211,7 +203,6 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
@@ -234,14 +225,12 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create prerequisite stock securities (V30 DAML contracts validate security_ids exist)
     const stockSecurity1 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
@@ -258,7 +247,6 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     const stockSecurity2 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: stockSecurity1.capTableContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: currentCapTableDetails,
     });
 
@@ -274,7 +262,6 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity2.capTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: finalCapTableDetails,
       actAs: [ctx.issuerParty],
     });
