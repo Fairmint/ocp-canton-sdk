@@ -11,8 +11,8 @@
  */
 
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
-import { initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
 import type { OcfStockClass } from '../../src/types/native';
+import { initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
 
 describe('StockClass Converters', () => {
   describe('initialSharesAuthorizedToDaml', () => {
