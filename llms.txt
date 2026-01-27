@@ -524,6 +524,28 @@ LocalNet startup can take 4-5 minutes. Ensure all services are healthy before ru
    
    **Workaround:** For types with flat Numeric fields (e.g., `StockClassAuthorizedSharesAdjustment`), the batch API works. For types with nested Numeric fields, use dedicated create functions if available, or wait for JSON API v2 fix.
 
+### DAML Upgrade Testing Checklist
+
+When upgrading `@fairmint/open-captable-protocol-daml-js`:
+
+1. **Check release notes** for breaking changes in field types, especially:
+   - Simple types changed to union types (e.g., `Decimal` to `OcfInitialSharesAuthorized`)
+   - New required fields or validations
+   - Changes to `security_id` validation requirements
+
+2. **Run full integration tests** (`npm run test:integration`) not just unit tests:
+   - Unit tests use mocks and won't catch DAML contract compatibility issues
+   - Integration tests run against actual DAML contracts via LocalNet
+
+3. **Verify OCF-to-DAML converters** encode types correctly:
+   - Union types must use tagged format: `{ tag: 'VariantName', value: '...' }`
+   - Check files in `src/functions/OpenCapTable/**/` for `*DataToDaml.ts` converters
+   - Compare with working examples (e.g., `createIssuer.ts` for `initial_shares_authorized`)
+
+4. **Test batch API operations** for all entity types that changed:
+   - The batch API (`UpdateCapTable` choice) is more sensitive to encoding issues
+   - Test creates, edits, and deletes for affected entity types
+
 ### Useful Make Targets
 
 ```bash

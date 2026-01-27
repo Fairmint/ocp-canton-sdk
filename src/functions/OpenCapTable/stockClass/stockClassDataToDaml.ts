@@ -1,7 +1,12 @@
 import type { OcfStockClass } from '../../../types';
 import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
-import { cleanComments, dateStringToDAMLTime, monetaryToDaml } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  initialSharesAuthorizedToDaml,
+  monetaryToDaml,
+} from '../../../utils/typeConversions';
 
 export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<string, unknown> {
   // Validate input data using the entity validator
@@ -13,10 +18,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
     name: d.name,
     class_type: stockClassTypeToDaml(d.class_type),
     default_id_prefix: d.default_id_prefix,
-    initial_shares_authorized:
-      typeof d.initial_shares_authorized === 'number'
-        ? d.initial_shares_authorized.toString()
-        : d.initial_shares_authorized,
+    initial_shares_authorized: initialSharesAuthorizedToDaml(d.initial_shares_authorized),
     votes_per_share: typeof d.votes_per_share === 'number' ? d.votes_per_share.toString() : d.votes_per_share,
     seniority: typeof d.seniority === 'number' ? d.seniority.toString() : d.seniority,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
