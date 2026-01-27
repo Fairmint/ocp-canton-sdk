@@ -666,7 +666,6 @@ export async function setupTestIssuer(
     ocpFactoryContractId?: string;
   }
 ): Promise<TestIssuerSetup> {
-
   const issuerAuthorizationContractDetails = await getOrCreateIssuerAuthorization(ocp, options);
   const issuerData = createTestIssuerData(options.issuerData);
 

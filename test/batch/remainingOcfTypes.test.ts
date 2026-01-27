@@ -21,7 +21,6 @@ import type {
   OcfWarrantRetraction,
 } from '../../src/types';
 
-
 describe('Retraction Type Converters', () => {
   describe('stockRetraction', () => {
     it('should convert stock retraction to DAML format', () => {

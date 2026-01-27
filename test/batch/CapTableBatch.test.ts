@@ -3,7 +3,6 @@
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type { OcfStakeholder, OcfStockClass } from '../../src/types';
 
-
 describe('CapTableBatch', () => {
   describe('fluent builder API', () => {
     it('should create an empty batch', () => {
