@@ -138,6 +138,30 @@ export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.M
   };
 }
 
+// ===== Initial Shares Authorized Conversions =====
+
+/**
+ * Convert initial_shares_authorized value to DAML tagged union format.
+ * V30 DAML contracts use OcfInitialSharesAuthorized union type:
+ * - OcfInitialSharesNumeric Decimal - for numeric values
+ * - OcfInitialSharesEnum - for "UNLIMITED" or "NOT_APPLICABLE"
+ */
+export function initialSharesAuthorizedToDaml(value: string | number): {
+  tag: 'OcfInitialSharesNumeric' | 'OcfInitialSharesEnum';
+  value: string;
+} {
+  if (typeof value === 'number' || (typeof value === 'string' && /^\d+(\.\d+)?$/.test(value))) {
+    return {
+      tag: 'OcfInitialSharesNumeric',
+      value: typeof value === 'number' ? value.toString() : value,
+    };
+  }
+  if (value === 'UNLIMITED') {
+    return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
+  }
+  return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
+}
+
 // ===== Address Conversions =====
 
 function addressTypeToDaml(addressType: AddressType): Fairmint.OpenCapTable.Types.Monetary.OcfAddressType {

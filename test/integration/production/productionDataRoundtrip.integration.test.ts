@@ -25,7 +25,14 @@ import {
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
 import { createIntegrationTestSuite } from '../setup';
-import { generateTestId, setupTestIssuer } from '../utils';
+import {
+  generateTestId,
+  setupConvertibleSecurity,
+  setupEquityCompensationSecurity,
+  setupStockSecurity,
+  setupTestIssuer,
+  setupWarrantSecurity,
+} from '../utils';
 
 /**
  * Helper to prepare a fixture for submission to the API.
@@ -410,13 +417,35 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockCancellation');
-      const prepared = prepareFixture(fixture, 'stock-cancel');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a stock security (the DAML contracts now validate that security_id exists)
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('stockCancellation');
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-cancel'),
+        security_id: stockSecurity.securityId, // Use the real security_id from the issuance
+      };
+
+      // Get updated cap table contract details after security setup
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: stockSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: stockSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -434,13 +463,35 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockRepurchase');
-      const prepared = prepareFixture(fixture, 'stock-repurchase');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a stock security (the DAML contracts now validate that security_id exists)
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('stockRepurchase');
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-repurchase'),
+        security_id: stockSecurity.securityId, // Use the real security_id from the issuance
+      };
+
+      // Get updated cap table contract details after security setup
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: stockSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: stockSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -458,13 +509,35 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('stockTransfer');
-      const prepared = prepareFixture(fixture, 'stock-transfer');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a stock security (the DAML contracts now validate that security_id exists)
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('stockTransfer');
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-transfer'),
+        security_id: stockSecurity.securityId, // Use the real security_id from the issuance
+      };
+
+      // Get updated cap table contract details after security setup
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: stockSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: stockSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -574,13 +647,37 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleTransfer');
-      const prepared = prepareFixture(fixture, 'convertible-transfer');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a convertible security (the DAML contracts now validate that security_id exists)
+      const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('convertibleTransfer');
+      const prepared = {
+        ...prepareFixture(fixture, 'convertible-transfer'),
+        security_id: convertibleSecurity.securityId, // Use the real security_id from the issuance
+      };
+
+      // Get updated cap table contract details after security setup
+      const events = await ctx.ocp.client.getEventsByContractId({
+        contractId: convertibleSecurity.capTableContractId,
+      });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: convertibleSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: convertibleSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -633,13 +730,37 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationCancellation');
-      const prepared = prepareFixture(fixture, 'equity-cancel');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create an equity compensation security (the DAML contracts now validate that security_id exists)
+      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationCancellation');
+      const prepared = {
+        ...prepareFixture(fixture, 'equity-cancel'),
+        security_id: eqCompSecurity.securityId, // Use the real security_id from the issuance
+      };
+
+      // Get updated cap table contract details after security setup
+      const events = await ctx.ocp.client.getEventsByContractId({
+        contractId: eqCompSecurity.capTableContractId,
+      });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: eqCompSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: eqCompSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -657,13 +778,37 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationExercise');
-      const prepared = prepareFixture(fixture, 'equity-exercise');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create an equity compensation security (the DAML contracts now validate that security_id exists)
+      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationExercise');
+      const prepared = {
+        ...prepareFixture(fixture, 'equity-exercise'),
+        security_id: eqCompSecurity.securityId, // Use the real security_id from the issuance
+      };
+
+      // Get updated cap table contract details after security setup
+      const events = await ctx.ocp.client.getEventsByContractId({
+        contractId: eqCompSecurity.capTableContractId,
+      });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: eqCompSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: eqCompSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -837,13 +982,35 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadProductionFixture<Record<string, unknown>>('vestingStart');
-      const prepared = prepareFixture(fixture, 'vesting-start');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a stock security (vesting transactions reference any security type)
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadProductionFixture<Record<string, unknown>>('vestingStart');
+      const prepared = {
+        ...prepareFixture(fixture, 'vesting-start'),
+        security_id: stockSecurity.securityId, // Use the real security_id from the issuance
+      };
+
+      // Get updated cap table contract details after security setup
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: stockSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: stockSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -867,13 +1034,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockAcceptance');
-      const prepared = prepareFixture(fixture, 'stock-acceptance');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a stock security
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockAcceptance');
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-acceptance'),
+        security_id: stockSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: stockSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: stockSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -891,13 +1079,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockRetraction');
-      const prepared = prepareFixture(fixture, 'stock-retraction');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a stock security
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockRetraction');
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-retraction'),
+        security_id: stockSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: stockSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: stockSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -943,13 +1152,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockReissuance');
-      const prepared = prepareFixture(fixture, 'stock-reissuance');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a stock security
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockReissuance');
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-reissuance'),
+        security_id: stockSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: stockSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: stockSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -967,13 +1197,35 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockConsolidation');
-      const prepared = prepareFixture(fixture, 'stock-consolidation');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a stock security
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('stockConsolidation');
+      // StockConsolidation uses security_ids (plural array) not security_id
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-consolidation'),
+        security_ids: [stockSecurity.securityId],
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: stockSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: stockSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -993,13 +1245,36 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('convertibleAcceptance');
-      const prepared = prepareFixture(fixture, 'convertible-acceptance');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a convertible security
+      const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('convertibleAcceptance');
+      const prepared = {
+        ...prepareFixture(fixture, 'convertible-acceptance'),
+        security_id: convertibleSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({
+        contractId: convertibleSecurity.capTableContractId,
+      });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: convertibleSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: convertibleSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1017,13 +1292,36 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('convertibleRetraction');
-      const prepared = prepareFixture(fixture, 'convertible-retraction');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a convertible security
+      const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('convertibleRetraction');
+      const prepared = {
+        ...prepareFixture(fixture, 'convertible-retraction'),
+        security_id: convertibleSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({
+        contractId: convertibleSecurity.capTableContractId,
+      });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: convertibleSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: convertibleSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1043,13 +1341,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationAcceptance');
-      const prepared = prepareFixture(fixture, 'equity-acceptance');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create an equity compensation security
+      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationAcceptance');
+      const prepared = {
+        ...prepareFixture(fixture, 'equity-acceptance'),
+        security_id: eqCompSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: eqCompSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: eqCompSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1067,13 +1386,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationTransfer');
-      const prepared = prepareFixture(fixture, 'equity-transfer');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create an equity compensation security
+      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationTransfer');
+      const prepared = {
+        ...prepareFixture(fixture, 'equity-transfer'),
+        security_id: eqCompSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: eqCompSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: eqCompSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1091,13 +1431,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRetraction');
-      const prepared = prepareFixture(fixture, 'equity-retraction');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create an equity compensation security
+      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRetraction');
+      const prepared = {
+        ...prepareFixture(fixture, 'equity-retraction'),
+        security_id: eqCompSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: eqCompSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: eqCompSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1173,13 +1534,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantAcceptance');
-      const prepared = prepareFixture(fixture, 'warrant-acceptance');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a warrant security
+      const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantAcceptance');
+      const prepared = {
+        ...prepareFixture(fixture, 'warrant-acceptance'),
+        security_id: warrantSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: warrantSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: warrantSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1197,13 +1579,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantTransfer');
-      const prepared = prepareFixture(fixture, 'warrant-transfer');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a warrant security
+      const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantTransfer');
+      const prepared = {
+        ...prepareFixture(fixture, 'warrant-transfer'),
+        security_id: warrantSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: warrantSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: warrantSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1221,13 +1624,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantCancellation');
-      const prepared = prepareFixture(fixture, 'warrant-cancellation');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a warrant security
+      const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantCancellation');
+      const prepared = {
+        ...prepareFixture(fixture, 'warrant-cancellation'),
+        security_id: warrantSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: warrantSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: warrantSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1273,13 +1697,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantRetraction');
-      const prepared = prepareFixture(fixture, 'warrant-retraction');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a warrant security
+      const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantRetraction');
+      const prepared = {
+        ...prepareFixture(fixture, 'warrant-retraction'),
+        security_id: warrantSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: warrantSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: warrantSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1299,13 +1744,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('vestingEvent');
-      const prepared = prepareFixture(fixture, 'vesting-event');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a stock security for vesting (any issuance type works)
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('vestingEvent');
+      const prepared = {
+        ...prepareFixture(fixture, 'vesting-event'),
+        security_id: stockSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: stockSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: stockSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1323,13 +1789,34 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
-      const fixture = loadSyntheticFixture<Record<string, unknown>>('vestingAcceleration');
-      const prepared = prepareFixture(fixture, 'vesting-acceleration');
-
-      const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
+      // First, create a stock security for vesting (any issuance type works)
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
         featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
+      const fixture = loadSyntheticFixture<Record<string, unknown>>('vestingAcceleration');
+      const prepared = {
+        ...prepareFixture(fixture, 'vesting-acceleration'),
+        security_id: stockSecurity.securityId,
+      };
+
+      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const updatedCapTableDetails = events.created?.createdEvent
+        ? {
+            templateId: events.created.createdEvent.templateId,
+            contractId: stockSecurity.capTableContractId,
+            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+          }
+        : undefined;
+
+      const batch = ctx.ocp.OpenCapTable.capTable.update({
+        capTableContractId: stockSecurity.capTableContractId,
+        featuredAppRightContractDetails: ctx.featuredAppRight,
+        capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
 

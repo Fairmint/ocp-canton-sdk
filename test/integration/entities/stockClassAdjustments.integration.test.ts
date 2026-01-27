@@ -20,7 +20,7 @@
  */
 
 import { createIntegrationTestSuite } from '../setup';
-import { generateDateString, generateTestId, setupTestIssuer } from '../utils';
+import { generateDateString, generateTestId, setupStockSecurity, setupTestIssuer } from '../utils';
 
 createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
   /**
@@ -129,13 +129,67 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
+    // Create prerequisite stock securities (V30 DAML contracts validate security_ids exist)
+    // Create multiple securities for consolidation
+    const stockSecurity1 = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table details for next security
+    let events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity1.capTableContractId });
+    let currentCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity1.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    const stockSecurity2 = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: stockSecurity1.capTableContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: currentCapTableDetails,
+    });
+
+    events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
+    currentCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity2.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    const stockSecurity3 = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: stockSecurity2.capTableContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: currentCapTableDetails,
+    });
+
+    events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity3.capTableContractId });
+    const finalCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity3.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
     // Create stock consolidation event
     const consolidationId = generateTestId('consolidation');
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
+      capTableContractId: stockSecurity3.capTableContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: finalCapTableDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -143,7 +197,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       .create('stockConsolidation', {
         id: consolidationId,
         date: generateDateString(0),
-        security_ids: ['sec-001', 'sec-002', 'sec-003'],
+        security_ids: [stockSecurity1.securityId, stockSecurity2.securityId, stockSecurity3.securityId],
         resulting_security_ids: ['new-sec-001'],
         comments: ['10-for-1 reverse split consolidation'],
       })
@@ -169,13 +223,32 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
+    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
     // Create stock reissuance event
     const reissuanceId = generateTestId('reissuance');
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
+      capTableContractId: stockSecurity.capTableContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -183,7 +256,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       .create('stockReissuance', {
         id: reissuanceId,
         date: generateDateString(0),
-        security_id: 'sec-cancelled-001',
+        security_id: stockSecurity.securityId,
         resulting_security_ids: ['sec-new-001'],
         comments: ['Reissued after forfeiture period'],
       })
@@ -210,10 +283,63 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
+    // Create prerequisite stock securities (V30 DAML contracts validate security_ids exist)
+    // For consolidation we need at least 2 securities, plus 1 for reissuance
+    const stockSecurity1 = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    let events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity1.capTableContractId });
+    let currentCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity1.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    const stockSecurity2 = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: stockSecurity1.capTableContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: currentCapTableDetails,
+    });
+
+    events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
+    currentCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity2.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    const stockSecurity3 = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: stockSecurity2.capTableContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: currentCapTableDetails,
+    });
+
+    events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity3.capTableContractId });
+    const finalCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity3.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: stockSecurity3.capTableContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: finalCapTableDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -223,14 +349,14 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       .create('stockConsolidation', {
         id: generateTestId('batch-consolidation'),
         date: generateDateString(0),
-        security_ids: ['batch-sec-001', 'batch-sec-002'],
+        security_ids: [stockSecurity1.securityId, stockSecurity2.securityId],
         resulting_security_ids: ['batch-new-sec-001'],
         comments: ['Batch consolidation'],
       })
       .create('stockReissuance', {
         id: generateTestId('batch-reissue'),
         date: generateDateString(0),
-        security_id: 'batch-sec-003',
+        security_id: stockSecurity3.securityId,
         resulting_security_ids: ['batch-new-sec-002'],
         comments: ['Batch reissuance'],
       })

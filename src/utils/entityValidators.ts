@@ -398,7 +398,23 @@ export function validateStockClassData(data: unknown, fieldPath: string): void {
   validateRequiredString(value.name, `${fieldPath}.name`);
   validateEnum(value.class_type, `${fieldPath}.class_type`, STOCK_CLASS_TYPES);
   validateRequiredString(value.default_id_prefix, `${fieldPath}.default_id_prefix`);
-  validateRequiredNumeric(value.initial_shares_authorized, `${fieldPath}.initial_shares_authorized`);
+
+  // initial_shares_authorized can be numeric or special enum values ("UNLIMITED", "NOT_APPLICABLE")
+  if (value.initial_shares_authorized === undefined || value.initial_shares_authorized === null) {
+    throw new OcpValidationError(`${fieldPath}.initial_shares_authorized`, 'Required field is missing', {
+      expectedType: 'number, numeric string, or "UNLIMITED"/"NOT_APPLICABLE"',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
+  const shares = value.initial_shares_authorized;
+  if (typeof shares !== 'number' && typeof shares !== 'string') {
+    throw new OcpValidationError(`${fieldPath}.initial_shares_authorized`, 'Must be a number or string', {
+      expectedType: 'number, numeric string, or "UNLIMITED"/"NOT_APPLICABLE"',
+      receivedValue: shares,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
+  }
+
   validateRequiredNumeric(value.seniority, `${fieldPath}.seniority`);
   validateRequiredNumeric(value.votes_per_share, `${fieldPath}.votes_per_share`);
 
