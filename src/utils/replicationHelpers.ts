@@ -18,6 +18,21 @@ import { normalizeEntityType } from './planSecurityAliases';
 // ============================================================================
 
 /**
+ * Object type mappings shared between DIRECT_TYPE_MAP and OBJECT_SUBTYPE_MAP.
+ * These types can be stored either directly (e.g., type='DOCUMENT') or
+ * categorized (e.g., type='OBJECT', subtype='DOCUMENT').
+ *
+ * IMPORTANT: Add new object types here to ensure both direct and categorized
+ * formats are supported consistently.
+ */
+const OBJECT_TYPES: Record<string, OcfEntityType> = {
+  DOCUMENT: 'document',
+  VESTING_TERMS: 'vestingTerms',
+  STOCK_LEGEND_TEMPLATE: 'stockLegendTemplate',
+  VALUATION: 'valuation',
+};
+
+/**
  * Direct category type to OcfEntityType mappings.
  * These types use the category directly as the type identifier.
  *
@@ -30,10 +45,7 @@ const DIRECT_TYPE_MAP: Record<string, OcfEntityType> = {
   STOCK_CLASS: 'stockClass',
   STOCK_PLAN: 'stockPlan',
   // Object types (some DBs store these directly instead of OBJECT/subtype)
-  DOCUMENT: 'document',
-  VESTING_TERMS: 'vestingTerms',
-  STOCK_LEGEND_TEMPLATE: 'stockLegendTemplate',
-  VALUATION: 'valuation',
+  ...OBJECT_TYPES,
 };
 
 /**
@@ -41,10 +53,7 @@ const DIRECT_TYPE_MAP: Record<string, OcfEntityType> = {
  * These use category='OBJECT' with the actual type in the subtype field.
  */
 const OBJECT_SUBTYPE_MAP: Record<string, OcfEntityType> = {
-  DOCUMENT: 'document',
-  VESTING_TERMS: 'vestingTerms',
-  STOCK_LEGEND_TEMPLATE: 'stockLegendTemplate',
-  VALUATION: 'valuation',
+  ...OBJECT_TYPES,
 };
 
 /**
