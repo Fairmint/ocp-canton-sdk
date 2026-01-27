@@ -20,11 +20,20 @@ import { normalizeEntityType } from './planSecurityAliases';
 /**
  * Direct category type to OcfEntityType mappings.
  * These types use the category directly as the type identifier.
+ *
+ * Note: Some databases store object types directly (DOCUMENT, VESTING_TERMS, etc.)
+ * rather than using the OBJECT category with subtypes. Both formats are supported.
  */
 const DIRECT_TYPE_MAP: Record<string, OcfEntityType> = {
+  // Core entity types
   STAKEHOLDER: 'stakeholder',
   STOCK_CLASS: 'stockClass',
   STOCK_PLAN: 'stockPlan',
+  // Object types (some DBs store these directly instead of OBJECT/subtype)
+  DOCUMENT: 'document',
+  VESTING_TERMS: 'vestingTerms',
+  STOCK_LEGEND_TEMPLATE: 'stockLegendTemplate',
+  VALUATION: 'valuation',
 };
 
 /**
@@ -126,7 +135,8 @@ const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
  * @example
  * ```typescript
  * mapCategorizedTypeToEntityType('STAKEHOLDER', null); // 'stakeholder'
- * mapCategorizedTypeToEntityType('OBJECT', 'DOCUMENT'); // 'document'
+ * mapCategorizedTypeToEntityType('DOCUMENT', null); // 'document' (direct type)
+ * mapCategorizedTypeToEntityType('OBJECT', 'DOCUMENT'); // 'document' (categorized)
  * mapCategorizedTypeToEntityType('TRANSACTION', 'TX_STOCK_ISSUANCE'); // 'stockIssuance'
  * ```
  */
