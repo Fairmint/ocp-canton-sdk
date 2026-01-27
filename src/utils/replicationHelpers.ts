@@ -18,13 +18,34 @@ import { normalizeEntityType } from './planSecurityAliases';
 // ============================================================================
 
 /**
+ * Object type mappings shared between DIRECT_TYPE_MAP and OBJECT_SUBTYPE_MAP.
+ * These types can be stored either directly (e.g., type='DOCUMENT') or
+ * categorized (e.g., type='OBJECT', subtype='DOCUMENT').
+ *
+ * IMPORTANT: Add new object types here to ensure both direct and categorized
+ * formats are supported consistently.
+ */
+const OBJECT_TYPES: Record<string, OcfEntityType> = {
+  DOCUMENT: 'document',
+  VESTING_TERMS: 'vestingTerms',
+  STOCK_LEGEND_TEMPLATE: 'stockLegendTemplate',
+  VALUATION: 'valuation',
+};
+
+/**
  * Direct category type to OcfEntityType mappings.
  * These types use the category directly as the type identifier.
+ *
+ * Note: Some databases store object types directly (DOCUMENT, VESTING_TERMS, etc.)
+ * rather than using the OBJECT category with subtypes. Both formats are supported.
  */
 const DIRECT_TYPE_MAP: Record<string, OcfEntityType> = {
+  // Core entity types
   STAKEHOLDER: 'stakeholder',
   STOCK_CLASS: 'stockClass',
   STOCK_PLAN: 'stockPlan',
+  // Object types (some DBs store these directly instead of OBJECT/subtype)
+  ...OBJECT_TYPES,
 };
 
 /**
@@ -32,10 +53,7 @@ const DIRECT_TYPE_MAP: Record<string, OcfEntityType> = {
  * These use category='OBJECT' with the actual type in the subtype field.
  */
 const OBJECT_SUBTYPE_MAP: Record<string, OcfEntityType> = {
-  DOCUMENT: 'document',
-  VESTING_TERMS: 'vestingTerms',
-  STOCK_LEGEND_TEMPLATE: 'stockLegendTemplate',
-  VALUATION: 'valuation',
+  ...OBJECT_TYPES,
 };
 
 /**
@@ -126,7 +144,8 @@ const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
  * @example
  * ```typescript
  * mapCategorizedTypeToEntityType('STAKEHOLDER', null); // 'stakeholder'
- * mapCategorizedTypeToEntityType('OBJECT', 'DOCUMENT'); // 'document'
+ * mapCategorizedTypeToEntityType('DOCUMENT', null); // 'document' (direct type)
+ * mapCategorizedTypeToEntityType('OBJECT', 'DOCUMENT'); // 'document' (categorized)
  * mapCategorizedTypeToEntityType('TRANSACTION', 'TX_STOCK_ISSUANCE'); // 'stockIssuance'
  * ```
  */
