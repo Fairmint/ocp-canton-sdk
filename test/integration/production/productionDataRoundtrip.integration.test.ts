@@ -102,7 +102,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // The issuer is created as part of setup - read it back
@@ -128,7 +127,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stockClass', 'common');
@@ -136,7 +134,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -157,7 +154,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('valuation', '409a');
@@ -165,7 +161,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -182,7 +177,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // Load and prepare fixture
@@ -192,7 +186,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       // Create via batch API
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -224,7 +217,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stakeholder', 'institution');
@@ -232,7 +224,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -254,7 +245,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stockLegendTemplate', 'rule-144');
@@ -262,7 +252,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -284,7 +273,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('document', 'basic');
@@ -292,7 +280,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -319,7 +306,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('vestingTerms', 'time-based-cliff');
@@ -327,7 +313,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -349,7 +334,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stockPlan', 'basic');
@@ -357,7 +341,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -390,7 +373,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stockIssuance', 'founders-stock');
@@ -398,7 +380,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -414,14 +395,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a stock security (the DAML contracts now validate that security_id exists)
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -444,7 +423,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -460,14 +438,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a stock security (the DAML contracts now validate that security_id exists)
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -490,7 +466,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -506,14 +481,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a stock security (the DAML contracts now validate that security_id exists)
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -536,7 +509,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -564,7 +536,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('convertibleIssuance', 'safe-post-money');
@@ -572,7 +543,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -592,7 +562,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('convertibleCancellation');
@@ -600,7 +569,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -620,7 +588,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('convertibleConversion');
@@ -628,7 +595,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -644,14 +610,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a convertible security (the DAML contracts now validate that security_id exists)
       const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -676,7 +640,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: convertibleSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -703,7 +666,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso');
@@ -711,7 +673,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -727,14 +688,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create an equity compensation security (the DAML contracts now validate that security_id exists)
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -759,7 +718,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: eqCompSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -775,14 +733,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create an equity compensation security (the DAML contracts now validate that security_id exists)
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -807,7 +763,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: eqCompSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -829,7 +784,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('issuerAuthorizedSharesAdjustment');
@@ -837,7 +791,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -857,7 +810,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stockClassAuthorizedSharesAdjustment');
@@ -865,7 +817,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -885,7 +836,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stockPlanPoolAdjustment');
@@ -893,7 +843,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -914,7 +863,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stockClassSplit');
@@ -922,7 +870,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -949,7 +896,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('warrantIssuance');
@@ -957,7 +903,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -979,14 +924,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a stock security (vesting transactions reference any security type)
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1009,7 +952,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1031,14 +973,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a stock security
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1060,7 +1000,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1076,14 +1015,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a stock security
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1105,7 +1042,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1125,7 +1061,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stockConversion');
@@ -1133,7 +1068,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1149,14 +1083,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a stock security
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1178,7 +1110,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1194,14 +1125,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a stock security
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1224,7 +1153,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1242,14 +1170,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a convertible security
       const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1273,7 +1199,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: convertibleSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1289,14 +1214,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a convertible security
       const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1320,7 +1243,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: convertibleSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1338,14 +1260,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create an equity compensation security
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1367,7 +1287,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: eqCompSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1383,14 +1302,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create an equity compensation security
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1412,7 +1329,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: eqCompSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1428,14 +1344,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create an equity compensation security
       const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1457,7 +1371,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: eqCompSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1477,7 +1390,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRelease');
@@ -1485,7 +1397,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1505,7 +1416,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRepricing');
@@ -1513,7 +1423,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1531,14 +1440,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a warrant security
       const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1560,7 +1467,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: warrantSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1576,14 +1482,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a warrant security
       const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1605,7 +1509,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: warrantSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1621,14 +1524,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a warrant security
       const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1650,7 +1551,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: warrantSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1670,7 +1570,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantExercise');
@@ -1678,7 +1577,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1694,14 +1592,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a warrant security
       const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1723,7 +1619,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: warrantSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1741,14 +1636,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a stock security for vesting (any issuance type works)
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1770,7 +1663,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1786,14 +1678,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       // First, create a stock security for vesting (any issuance type works)
       const stockSecurity = await setupStockSecurity(ctx.ocp, {
         issuerContractId: issuerSetup.issuerContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       });
 
@@ -1815,7 +1705,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: updatedCapTableDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1835,7 +1724,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent');
@@ -1843,7 +1731,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1863,7 +1750,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent');
@@ -1871,7 +1757,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1891,7 +1776,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stockPlanReturnToPool');
@@ -1899,7 +1783,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
@@ -1922,7 +1805,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         systemOperatorParty: ctx.systemOperatorParty,
         ocpFactoryContractId: ctx.ocpFactoryContractId,
         issuerParty: ctx.issuerParty,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stockClassConversionRatioAdjustment');
@@ -1930,7 +1812,6 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });

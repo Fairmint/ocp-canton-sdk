@@ -6,10 +6,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
-import type {
-  Command,
-  DisclosedContract,
-} from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts } from '../../../types';
@@ -28,10 +25,8 @@ import { convertToDaml } from './ocfToDaml';
 export interface CapTableBatchParams {
   /** The contract ID of the CapTable to update */
   capTableContractId: string;
-  /** Disclosed contract details for the FeaturedAppRight */
-  featuredAppRightContractDetails: DisclosedContract;
-  /** Optional disclosed contract details for the CapTable (for correct templateId) */
-  capTableContractDetails?: DisclosedContract;
+  /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
+  capTableContractDetails?: { templateId: string };
   /** Party IDs to act as (signatories) */
   actAs: string[];
   /** Optional additional party IDs for read access */
@@ -140,16 +135,8 @@ export class CapTableBatch {
       },
     };
 
-    const disclosedContracts: DisclosedContract[] = [
-      {
-        templateId: this.params.featuredAppRightContractDetails.templateId,
-        contractId: this.params.featuredAppRightContractDetails.contractId,
-        createdEventBlob: this.params.featuredAppRightContractDetails.createdEventBlob,
-        synchronizerId: this.params.featuredAppRightContractDetails.synchronizerId,
-      },
-    ];
-
-    return { command, disclosedContracts };
+    // No disclosed contracts needed - UpdateCapTable doesn't reference external contracts
+    return { command, disclosedContracts: [] };
   }
 
   /**

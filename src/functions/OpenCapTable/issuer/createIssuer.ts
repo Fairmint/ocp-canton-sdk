@@ -2,7 +2,7 @@ import type {
   Command,
   DisclosedContract,
 } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts, OcfIssuer } from '../../../types';
 import { validateIssuerData } from '../../../utils/entityValidators';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
@@ -63,8 +63,6 @@ function issuerDataToDaml(issuerData: OcfIssuer): Fairmint.OpenCapTable.OCF.Issu
 export interface CreateIssuerParams {
   /** Details of the IssuerAuthorization contract for disclosed contracts */
   issuerAuthorizationContractDetails: DisclosedContract;
-  /** Details of the FeaturedAppRight contract for disclosed contracts */
-  featuredAppRightContractDetails: DisclosedContract;
   issuerParty: string;
   /**
    * Issuer data to create
@@ -92,27 +90,25 @@ export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWit
     issuer_data: issuerDataToDaml(params.issuerData),
   };
 
+  // Use the templateId from the ledger (issuerAuthorizationContractDetails) to avoid
+  // INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED when SDK package hash differs from deployed.
   const command: Command = {
     ExerciseCommand: {
-      templateId: Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId,
+      templateId: params.issuerAuthorizationContractDetails.templateId,
       contractId: params.issuerAuthorizationContractDetails.contractId,
       choice: 'CreateCapTable',
       choiceArgument: choiceArguments,
     },
   };
 
+  // Include only the IssuerAuthorization as a disclosed contract.
+  // CreateCapTable choice doesn't reference any other contracts.
   const disclosedContracts: DisclosedContract[] = [
     {
       templateId: params.issuerAuthorizationContractDetails.templateId,
       contractId: params.issuerAuthorizationContractDetails.contractId,
       createdEventBlob: params.issuerAuthorizationContractDetails.createdEventBlob,
       synchronizerId: params.issuerAuthorizationContractDetails.synchronizerId,
-    },
-    {
-      templateId: params.featuredAppRightContractDetails.templateId,
-      contractId: params.featuredAppRightContractDetails.contractId,
-      createdEventBlob: params.featuredAppRightContractDetails.createdEventBlob,
-      synchronizerId: params.featuredAppRightContractDetails.synchronizerId,
     },
   ];
 

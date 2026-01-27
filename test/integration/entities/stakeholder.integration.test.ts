@@ -26,14 +26,12 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Then create a stakeholder
     const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-ocf-test'),
@@ -63,13 +61,11 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('stakeholder-institution'),

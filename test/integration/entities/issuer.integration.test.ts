@@ -25,7 +25,6 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: {
         id: generateTestId('issuer-ocf-test'),
         legal_name: 'Integration Test Corp',
@@ -63,7 +62,6 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
       issuerParty: ctx.issuerParty,
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: originalData,
     });
 

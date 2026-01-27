@@ -21,20 +21,11 @@ import type {
   OcfWarrantRetraction,
 } from '../../src/types';
 
-// Mock disclosed contract
-const mockDisclosedContract = {
-  templateId: 'test-template-id',
-  contractId: 'test-contract-id',
-  createdEventBlob: 'test-blob',
-  synchronizerId: 'test-sync-id',
-};
-
 describe('Retraction Type Converters', () => {
   describe('stockRetraction', () => {
     it('should convert stock retraction to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -78,7 +69,6 @@ describe('Retraction Type Converters', () => {
     it('should convert warrant retraction to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -120,7 +110,6 @@ describe('Retraction Type Converters', () => {
     it('should convert convertible retraction to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -158,7 +147,6 @@ describe('Retraction Type Converters', () => {
     it('should convert equity compensation retraction to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -197,7 +185,6 @@ describe('Equity Compensation Event Converters', () => {
     it('should convert equity compensation release to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -242,7 +229,6 @@ describe('Equity Compensation Event Converters', () => {
     it('should convert equity compensation repricing to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -286,7 +272,6 @@ describe('Stock Plan Event Converters', () => {
     it('should convert stock plan return to pool to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -333,7 +318,6 @@ describe('Stakeholder Change Event Converters', () => {
     it('should convert stakeholder relationship change event to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -366,7 +350,6 @@ describe('Stakeholder Change Event Converters', () => {
     it('should convert all relationship types correctly', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -409,7 +392,6 @@ describe('Stakeholder Change Event Converters', () => {
     it('should convert stakeholder status change event to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -464,7 +446,6 @@ describe('Stakeholder Change Event Converters', () => {
       for (const { input, expected } of statuses) {
         const batch = new CapTableBatch({
           capTableContractId: 'cap-table-123',
-          featuredAppRightContractDetails: mockDisclosedContract,
           actAs: ['party-1'],
         });
 
@@ -503,7 +484,6 @@ describe('Batch operations with remaining types', () => {
   it('should support mixed batch with retraction and event types', () => {
     const batch = new CapTableBatch({
       capTableContractId: 'cap-table-123',
-      featuredAppRightContractDetails: mockDisclosedContract,
       actAs: ['party-1'],
     });
 

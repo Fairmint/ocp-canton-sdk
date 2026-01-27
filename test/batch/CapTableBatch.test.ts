@@ -3,20 +3,11 @@
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type { OcfStakeholder, OcfStockClass } from '../../src/types';
 
-// Mock disclosed contract
-const mockDisclosedContract = {
-  templateId: 'test-template-id',
-  contractId: 'test-contract-id',
-  createdEventBlob: 'test-blob',
-  synchronizerId: 'test-sync-id',
-};
-
 describe('CapTableBatch', () => {
   describe('fluent builder API', () => {
     it('should create an empty batch', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -27,7 +18,6 @@ describe('CapTableBatch', () => {
     it('should add create operations', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -46,7 +36,6 @@ describe('CapTableBatch', () => {
     it('should chain multiple operations', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -78,7 +67,6 @@ describe('CapTableBatch', () => {
     it('should clear all operations', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -100,7 +88,6 @@ describe('CapTableBatch', () => {
     it('should throw error for empty batch', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -110,7 +97,6 @@ describe('CapTableBatch', () => {
     it('should build command with creates', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -143,14 +129,13 @@ describe('CapTableBatch', () => {
       expect(choiceArg.edits).toHaveLength(0);
       expect(choiceArg.deletes).toHaveLength(0);
 
-      expect(disclosedContracts).toHaveLength(1);
-      expect(disclosedContracts[0].contractId).toBe('test-contract-id');
+      // No disclosed contracts needed - CapTable choices don't reference external contracts
+      expect(disclosedContracts).toHaveLength(0);
     });
 
     it('should build command with edits', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -180,7 +165,6 @@ describe('CapTableBatch', () => {
     it('should build command with deletes', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -205,12 +189,8 @@ describe('CapTableBatch', () => {
     it('should use custom templateId when capTableContractDetails provided', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         capTableContractDetails: {
           templateId: 'custom-template-id',
-          contractId: 'cap-table-123',
-          createdEventBlob: 'blob',
-          synchronizerId: 'sync',
         },
         actAs: ['party-1'],
       });
@@ -228,7 +208,6 @@ describe('CapTableBatch', () => {
     it('should throw error when no client provided', async () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
         actAs: ['party-1'],
       });
 
@@ -250,7 +229,6 @@ describe('buildUpdateCapTableCommand', () => {
     const { command, disclosedContracts } = buildUpdateCapTableCommand(
       {
         capTableContractId: 'cap-table-123',
-        featuredAppRightContractDetails: mockDisclosedContract,
       },
       {
         creates: [{ type: 'stakeholder', data: stakeholderData }],
@@ -271,7 +249,8 @@ describe('buildUpdateCapTableCommand', () => {
 
     expect(choiceArg.creates).toHaveLength(1);
     expect(choiceArg.deletes).toHaveLength(1);
-    expect(disclosedContracts).toHaveLength(1);
+    // No disclosed contracts needed - CapTable choices don't reference external contracts
+    expect(disclosedContracts).toHaveLength(0);
   });
 });
 

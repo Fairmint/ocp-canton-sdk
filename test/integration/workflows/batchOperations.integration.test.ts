@@ -58,7 +58,6 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: {
         id: generateTestId('batch-issuer'),
         legal_name: 'Batch Test Corp',
@@ -75,7 +74,6 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     const cmd1 = buildUpdateCapTableCommand(
       {
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       },
       { creates: [{ type: 'stakeholder', data: stakeholder1 }] }
@@ -122,7 +120,6 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: {
         id: generateTestId('batch-seq-issuer'),
         legal_name: 'Batch Sequence Corp',
@@ -139,7 +136,6 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     const stakeholderCmd = buildUpdateCapTableCommand(
       {
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       },
       { creates: [{ type: 'stakeholder', data: stakeholderData }] }
@@ -179,7 +175,6 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     const legendCmd = buildUpdateCapTableCommand(
       {
         capTableContractId: newCapTableContractId!,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: newCapTableContractDetails,
       },
       { creates: [{ type: 'stockLegendTemplate', data: legendData }] }
@@ -226,7 +221,6 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: {
         id: generateTestId('seq-state-issuer'),
         legal_name: 'Sequential State Corp',
@@ -237,7 +231,6 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     const sh1Setup = await setupTestStakeholder(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('seq-sh-1'),
@@ -250,7 +243,6 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     const sh2Setup = await setupTestStakeholder(ctx.ocp, {
       issuerContractId: sh1Setup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: sh1Setup.newCapTableContractDetails,
       stakeholderData: {
         id: generateTestId('seq-sh-2'),
@@ -263,7 +255,6 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     const sh3Setup = await setupTestStakeholder(ctx.ocp, {
       issuerContractId: sh2Setup.newCapTableContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: sh2Setup.newCapTableContractDetails,
       stakeholderData: {
         id: generateTestId('seq-sh-3'),
@@ -308,7 +299,6 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       issuerData: {
         id: generateTestId('txbatch-issuer'),
         legal_name: 'TxBatch Test Corp',
@@ -325,7 +315,6 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     const cmd = buildUpdateCapTableCommand(
       {
         capTableContractId: issuerSetup.issuerContractId,
-        featuredAppRightContractDetails: ctx.featuredAppRight,
         capTableContractDetails: issuerSetup.capTableContractDetails,
       },
       { creates: [{ type: 'stakeholder', data: stakeholderData }] }

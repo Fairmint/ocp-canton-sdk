@@ -43,7 +43,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create batch with multiple entities (stakeholders and documents - no stockClass due to numeric encoding issue)
@@ -60,7 +59,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -84,13 +82,11 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
       issuerContractId: issuerSetup.issuerContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       stakeholderData: {
         id: generateTestId('edit-stakeholder'),
@@ -107,7 +103,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stakeholderSetup.newCapTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -126,7 +121,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     const documentId = generateTestId('delete-document');
@@ -134,7 +128,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
     // Create a document using the batch API first
     const createBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -161,7 +154,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
     // Now delete the document
     const deleteBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: newCapTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: newCapTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -188,7 +180,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     const existingStakeholderId = generateTestId('existing-stakeholder');
@@ -196,7 +187,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
     // Create initial stakeholder
     const setupBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -223,7 +213,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
     // Note: Using stockLegendTemplate instead of stockClass (stockClass has numeric fields that fail)
     const mixedBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: newCapTableContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: newCapTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -254,7 +243,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // Create a stock plan (uses placeholder stock class ID)
@@ -269,7 +257,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -292,7 +279,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     const vestingTermsData = createTestVestingTermsData({
@@ -302,7 +288,6 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -325,12 +310,10 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -351,12 +334,10 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -385,12 +366,10 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });

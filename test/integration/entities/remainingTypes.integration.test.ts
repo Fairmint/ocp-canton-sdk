@@ -37,14 +37,12 @@ createIntegrationTestSuite('Remaining OCF Types via Batch API', (getContext) => 
       systemOperatorParty: ctx.systemOperatorParty,
       ocpFactoryContractId: ctx.ocpFactoryContractId,
       issuerParty: ctx.issuerParty,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
     // First create a stakeholder
     const stakeholderId = generateTestId('stakeholder');
     const createStakeholderBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: issuerSetup.issuerContractId,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
@@ -79,7 +77,6 @@ createIntegrationTestSuite('Remaining OCF Types via Batch API', (getContext) => 
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stakeholderResult.updatedCapTableCid,
-      featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: newCapTableContractDetails,
       actAs: [ctx.issuerParty],
     });
