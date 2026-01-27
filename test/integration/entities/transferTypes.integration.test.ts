@@ -28,7 +28,11 @@ import {
   createTestStockTransferData,
   createTestWarrantTransferData,
   generateTestId,
+  setupConvertibleSecurity,
+  setupEquityCompensationSecurity,
+  setupStockSecurity,
   setupTestIssuer,
+  setupWarrantSecurity,
 } from '../utils';
 
 /** Extract a contract ID from a transaction tree response. */
@@ -72,9 +76,28 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
+    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
     // Create stock transfer data
     const transferData = createTestStockTransferData({
-      security_id: generateTestId('stock-security'),
+      security_id: stockSecurity.securityId,
       quantity: '1000',
       resulting_security_ids: [generateTestId('result-1'), generateTestId('result-2')],
       balance_security_id: generateTestId('balance'),
@@ -84,9 +107,9 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     // Create transfer via batch API
     const cmd = buildUpdateCapTableCommand(
       {
-        capTableContractId: issuerSetup.issuerContractId,
+        capTableContractId: stockSecurity.capTableContractId,
         featuredAppRightContractDetails: ctx.featuredAppRight,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractDetails: updatedCapTableDetails,
       },
       { creates: [{ type: 'stockTransfer', data: transferData }] }
     );
@@ -135,8 +158,29 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
+    // Create prerequisite convertible security (V30 DAML contracts validate security_id exists)
+    const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.client.getEventsByContractId({
+      contractId: convertibleSecurity.capTableContractId,
+    });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: convertibleSecurity.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
     const transferData = createTestConvertibleTransferData({
-      security_id: generateTestId('convertible-security'),
+      security_id: convertibleSecurity.securityId,
       amount: { amount: '75000', currency: 'USD' },
       resulting_security_ids: [generateTestId('conv-result')],
       consideration_text: 'Convertible note transfer',
@@ -144,9 +188,9 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
 
     const cmd = buildUpdateCapTableCommand(
       {
-        capTableContractId: issuerSetup.issuerContractId,
+        capTableContractId: convertibleSecurity.capTableContractId,
         featuredAppRightContractDetails: ctx.featuredAppRight,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractDetails: updatedCapTableDetails,
       },
       { creates: [{ type: 'convertibleTransfer', data: transferData }] }
     );
@@ -191,8 +235,27 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
+    // Create prerequisite equity compensation security (V30 DAML contracts validate security_id exists)
+    const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.client.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: eqCompSecurity.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
     const transferData = createTestEquityCompensationTransferData({
-      security_id: generateTestId('equity-comp-security'),
+      security_id: eqCompSecurity.securityId,
       quantity: '10000',
       resulting_security_ids: [generateTestId('eq-result')],
       balance_security_id: generateTestId('eq-balance'),
@@ -201,9 +264,9 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
 
     const cmd = buildUpdateCapTableCommand(
       {
-        capTableContractId: issuerSetup.issuerContractId,
+        capTableContractId: eqCompSecurity.capTableContractId,
         featuredAppRightContractDetails: ctx.featuredAppRight,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractDetails: updatedCapTableDetails,
       },
       { creates: [{ type: 'equityCompensationTransfer', data: transferData }] }
     );
@@ -248,8 +311,27 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
+    // Create prerequisite warrant security (V30 DAML contracts validate security_id exists)
+    const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: warrantSecurity.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
     const transferData = createTestWarrantTransferData({
-      security_id: generateTestId('warrant-security'),
+      security_id: warrantSecurity.securityId,
       quantity: '5000',
       resulting_security_ids: [generateTestId('warrant-result-1'), generateTestId('warrant-result-2')],
       consideration_text: 'Warrant transfer to new holder',
@@ -257,9 +339,9 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
 
     const cmd = buildUpdateCapTableCommand(
       {
-        capTableContractId: issuerSetup.issuerContractId,
+        capTableContractId: warrantSecurity.capTableContractId,
         featuredAppRightContractDetails: ctx.featuredAppRight,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractDetails: updatedCapTableDetails,
       },
       { creates: [{ type: 'warrantTransfer', data: transferData }] }
     );

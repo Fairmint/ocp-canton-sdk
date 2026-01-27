@@ -25,6 +25,7 @@ import {
   createTestVestingEventData,
   createTestVestingStartData,
   generateTestId,
+  setupStockSecurity,
   setupTestIssuer,
 } from '../utils';
 
@@ -66,22 +67,39 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
-    // Placeholder security and condition IDs (these would reference existing entities)
-    const securityId = generateTestId('equity-security');
+    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
     const vestingConditionId = 'vesting-start'; // Matches condition ID in vesting terms
 
     const vestingStartData = createTestVestingStartData({
       id: generateTestId('vesting-start-tx'),
-      security_id: securityId,
+      security_id: stockSecurity.securityId,
       vesting_condition_id: vestingConditionId,
       date: '2024-01-15',
       comments: ['Employee hire date vesting start'],
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
+      capTableContractId: stockSecurity.capTableContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -106,21 +124,39 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
-    const securityId = generateTestId('equity-security-milestone');
+    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
     const vestingConditionId = 'milestone-ipo'; // Hypothetical milestone condition
 
     const vestingEventData = createTestVestingEventData({
       id: generateTestId('vesting-event-tx'),
-      security_id: securityId,
+      security_id: stockSecurity.securityId,
       vesting_condition_id: vestingConditionId,
       date: '2024-06-15',
       comments: ['IPO milestone achieved'],
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
+      capTableContractId: stockSecurity.capTableContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -145,11 +181,28 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
-    const securityId = generateTestId('equity-security-accel');
+    // Create prerequisite stock security (V30 DAML contracts validate security_id exists)
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    // Get updated cap table contract details
+    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const updatedCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
 
     const vestingAccelerationData = createTestVestingAccelerationData({
       id: generateTestId('vesting-accel-tx'),
-      security_id: securityId,
+      security_id: stockSecurity.securityId,
       quantity: '50000',
       reason_text: 'Single-trigger acceleration upon company acquisition',
       date: '2024-12-01',
@@ -157,9 +210,9 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
+      capTableContractId: stockSecurity.capTableContractId,
       featuredAppRightContractDetails: ctx.featuredAppRight,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractDetails: updatedCapTableDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -184,13 +237,45 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       featuredAppRightContractDetails: ctx.featuredAppRight,
     });
 
-    const securityId1 = generateTestId('security-1');
-    const securityId2 = generateTestId('security-2');
-
-    const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
+    // Create prerequisite stock securities (V30 DAML contracts validate security_ids exist)
+    const stockSecurity1 = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
       featuredAppRightContractDetails: ctx.featuredAppRight,
       capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+
+    let events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity1.capTableContractId });
+    const currentCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity1.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    const stockSecurity2 = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: stockSecurity1.capTableContractId,
+      issuerParty: ctx.issuerParty,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: currentCapTableDetails,
+    });
+
+    events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
+    const finalCapTableDetails = events.created?.createdEvent
+      ? {
+          templateId: events.created.createdEvent.templateId,
+          contractId: stockSecurity2.capTableContractId,
+          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
+        }
+      : undefined;
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: stockSecurity2.capTableContractId,
+      featuredAppRightContractDetails: ctx.featuredAppRight,
+      capTableContractDetails: finalCapTableDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -199,7 +284,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
         'vestingStart',
         createTestVestingStartData({
           id: generateTestId('vs-1'),
-          security_id: securityId1,
+          security_id: stockSecurity1.securityId,
           vesting_condition_id: 'start-condition',
         })
       )
@@ -207,7 +292,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
         'vestingEvent',
         createTestVestingEventData({
           id: generateTestId('ve-1'),
-          security_id: securityId1,
+          security_id: stockSecurity1.securityId,
           vesting_condition_id: 'milestone-condition',
         })
       )
@@ -215,7 +300,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
         'vestingAcceleration',
         createTestVestingAccelerationData({
           id: generateTestId('va-1'),
-          security_id: securityId2,
+          security_id: stockSecurity2.securityId,
           quantity: '25000',
           reason_text: 'Termination without cause - partial acceleration',
         })
