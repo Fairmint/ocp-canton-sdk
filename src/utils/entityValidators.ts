@@ -255,8 +255,9 @@ export function validateIssuerData(data: unknown, fieldPath: string): void {
       code: OcpErrorCodes.INVALID_TYPE,
     });
   }
-  for (let i = 0; i < (value.tax_ids as unknown[]).length; i++) {
-    validateTaxId((value.tax_ids as unknown[])[i], `${fieldPath}.tax_ids[${i}]`);
+  const taxIds = value.tax_ids;
+  for (let i = 0; i < taxIds.length; i++) {
+    validateTaxId(taxIds[i], `${fieldPath}.tax_ids[${i}]`);
   }
 
   // Optional fields
@@ -325,12 +326,9 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
-    for (let i = 0; i < (value.current_relationships as unknown[]).length; i++) {
-      validateEnum(
-        (value.current_relationships as unknown[])[i],
-        `${fieldPath}.current_relationships[${i}]`,
-        STAKEHOLDER_RELATIONSHIPS
-      );
+    const relationships = value.current_relationships;
+    for (let i = 0; i < relationships.length; i++) {
+      validateEnum(relationships[i], `${fieldPath}.current_relationships[${i}]`, STAKEHOLDER_RELATIONSHIPS);
     }
   }
 
@@ -356,8 +354,8 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
-    for (let i = 0; i < (value.addresses as unknown[]).length; i++) {
-      validateAddress((value.addresses as unknown[])[i], `${fieldPath}.addresses[${i}]`);
+    for (let i = 0; i < value.addresses.length; i++) {
+      validateAddress(value.addresses[i], `${fieldPath}.addresses[${i}]`);
     }
   }
 
@@ -370,8 +368,9 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
-    for (let i = 0; i < (value.tax_ids as unknown[]).length; i++) {
-      validateTaxId((value.tax_ids as unknown[])[i], `${fieldPath}.tax_ids[${i}]`);
+    const stakeholderTaxIds = value.tax_ids;
+    for (let i = 0; i < stakeholderTaxIds.length; i++) {
+      validateTaxId(stakeholderTaxIds[i], `${fieldPath}.tax_ids[${i}]`);
     }
   }
 
@@ -442,8 +441,9 @@ export function validateStockClassData(data: unknown, fieldPath: string): void {
       });
     }
     // Each conversion right has complex structure - basic validation
-    for (let i = 0; i < (value.conversion_rights as unknown[]).length; i++) {
-      const right = (value.conversion_rights as unknown[])[i] as Record<string, unknown>;
+    const conversionRights = value.conversion_rights;
+    for (let i = 0; i < conversionRights.length; i++) {
+      const right = conversionRights[i];
       validateRequiredObject(right, `${fieldPath}.conversion_rights[${i}]`);
       validateRequiredString(
         right.converts_to_stock_class_id,
@@ -497,8 +497,9 @@ export function validateStockIssuanceData(data: unknown, fieldPath: string): voi
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
-    for (let i = 0; i < (value.security_law_exemptions as unknown[]).length; i++) {
-      const exemption = (value.security_law_exemptions as unknown[])[i] as Record<string, unknown>;
+    const exemptions = value.security_law_exemptions;
+    for (let i = 0; i < exemptions.length; i++) {
+      const exemption = exemptions[i];
       validateRequiredObject(exemption, `${fieldPath}.security_law_exemptions[${i}]`);
       validateRequiredString(exemption.description, `${fieldPath}.security_law_exemptions[${i}].description`);
       validateRequiredString(exemption.jurisdiction, `${fieldPath}.security_law_exemptions[${i}].jurisdiction`);
@@ -514,8 +515,9 @@ export function validateStockIssuanceData(data: unknown, fieldPath: string): voi
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
-    for (let i = 0; i < (value.share_numbers_issued as unknown[]).length; i++) {
-      const range = (value.share_numbers_issued as unknown[])[i] as Record<string, unknown>;
+    const shareRanges = value.share_numbers_issued;
+    for (let i = 0; i < shareRanges.length; i++) {
+      const range = shareRanges[i];
       validateRequiredObject(range, `${fieldPath}.share_numbers_issued[${i}]`);
       validateRequiredNumeric(
         range.starting_share_number,
@@ -534,8 +536,8 @@ export function validateStockIssuanceData(data: unknown, fieldPath: string): voi
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
-    for (let i = 0; i < (value.vestings as unknown[]).length; i++) {
-      const vesting = (value.vestings as unknown[])[i] as Record<string, unknown>;
+    for (let i = 0; i < value.vestings.length; i++) {
+      const vesting = value.vestings[i];
       validateRequiredObject(vesting, `${fieldPath}.vestings[${i}]`);
       validateRequiredDate(vesting.date, `${fieldPath}.vestings[${i}].date`);
       validateRequiredNumeric(vesting.amount, `${fieldPath}.vestings[${i}].amount`);
@@ -625,8 +627,9 @@ export function validateDocumentData(data: unknown, fieldPath: string): void {
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
-    for (let i = 0; i < (value.related_objects as unknown[]).length; i++) {
-      const ref = (value.related_objects as unknown[])[i] as Record<string, unknown>;
+    const relatedObjects = value.related_objects;
+    for (let i = 0; i < relatedObjects.length; i++) {
+      const ref = relatedObjects[i];
       validateRequiredObject(ref, `${fieldPath}.related_objects[${i}]`);
       validateRequiredString(ref.object_type, `${fieldPath}.related_objects[${i}].object_type`);
       validateRequiredString(ref.object_id, `${fieldPath}.related_objects[${i}].object_id`);

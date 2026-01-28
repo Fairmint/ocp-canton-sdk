@@ -3,6 +3,15 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts } from '../../../types';
 
 /**
+ * Interface for JSON API choice arguments - matches what the SDK's Zod schema accepts.
+ * Values can be primitives, nested records, or arrays containing any of these types.
+ */
+interface JsonRecord {
+  [key: string]: string | number | boolean | null | JsonRecord | JsonValue[];
+}
+type JsonValue = string | number | boolean | null | JsonRecord | JsonValue[];
+
+/**
  * Build a command to exercise a choice on the CapTable contract. This is a generic helper used by all add/edit/delete
  * operations.
  */
@@ -14,9 +23,9 @@ export function buildCapTableCommand(params: {
   choice: string;
   choiceArgument: Record<string, unknown>;
 }): CommandWithDisclosedContracts {
-  // Use explicit any for choiceArgument since the SDK Command type requires a specific shape
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const choiceArg = params.choiceArgument as any;
+  // Cast to JsonRecord which represents valid JSON API choice argument structure
+  // This is safe because all our DAML choice arguments are serializable JSON structures
+  const choiceArg = params.choiceArgument as JsonRecord;
 
   // Use the templateId from capTableContractDetails when provided (from actual ledger),
   // otherwise fall back to the DAML-JS package's hardcoded templateId.

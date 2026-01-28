@@ -1,15 +1,45 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
-import type { ConversionMechanism, ConversionTrigger, StockClassConversionRight } from '../../../types/native';
+import type {
+  ConversionMechanism,
+  ConversionTrigger,
+  Monetary,
+  StockClassConversionRight,
+  StockClassType,
+} from '../../../types/native';
 import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData): any {
-  const dAny = damlData as unknown as Record<string, unknown>;
+/**
+ * Internal type for the intermediate stock class data converted from DAML.
+ * This represents the data structure before it's transformed to the final OCF output.
+ */
+interface StockClassNativeData {
+  id: string;
+  name: string;
+  class_type: StockClassType;
+  default_id_prefix: string;
+  initial_shares_authorized: string;
+  votes_per_share: string;
+  seniority: string;
+  conversion_rights: StockClassConversionRight[];
+  comments: string[];
+  board_approval_date?: string;
+  stockholder_approval_date?: string;
+  par_value?: Monetary;
+  price_per_share?: Monetary;
+  liquidation_preference_multiple?: string;
+  participation_cap_multiple?: string;
+}
+
+function damlStockClassDataToNative(
+  damlData: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData
+): StockClassNativeData {
+  // Access fields via Record type to handle DAML union types that may vary from the SDK definition
+  const damlRecord = damlData as Record<string, unknown>;
   let initialShares = '0';
-  const isa = dAny.initial_shares_authorized;
+  const isa = damlRecord.initial_shares_authorized;
   if (typeof isa === 'string' || typeof isa === 'number') {
     initialShares = normalizeNumericString(String(isa));
   } else if (isa && typeof isa === 'object' && 'tag' in isa) {
@@ -21,7 +51,7 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.OCF.StockCla
     }
   }
 
-  const dataWithId = dAny as { id?: string };
+  const dataWithId = damlRecord as { id?: string };
   return {
     id: typeof dataWithId.id === 'string' ? dataWithId.id : '',
     name: damlData.name || '',
@@ -209,9 +239,7 @@ function damlStockClassDataToNative(damlData: Fairmint.OpenCapTable.OCF.StockCla
     ...(damlData.participation_cap_multiple && {
       participation_cap_multiple: normalizeNumericString(damlData.participation_cap_multiple),
     }),
-    ...(Array.isArray((dAny as { comments?: unknown }).comments)
-      ? { comments: (dAny as { comments: string[] }).comments }
-      : {}),
+    ...(Array.isArray(damlRecord.comments) ? { comments: damlRecord.comments as string[] } : {}),
   };
 }
 
@@ -278,12 +306,7 @@ interface OcfStockClassOutput {
   seniority: string | number;
 
   /** List of stock class conversion rights possible for this stock class */
-  conversion_rights?: Array<{
-    /** The type of conversion right */
-    conversion_mechanism: string;
-    /** Additional conversion right details */
-    [key: string]: unknown;
-  }>;
+  conversion_rights?: StockClassConversionRight[];
 
   /** The liquidation preference per share for this stock class */
   liquidation_preference_multiple?: string | number;
@@ -386,39 +409,21 @@ export async function getStockClassAsOcf(
   } = nativeStockClassData;
 
   // Transform native stock class data to OCF format, adding OCF-specific fields
+  // Note: All numeric values are already normalized to strings by damlStockClassDataToNative
   const ocfStockClassOutput: OcfStockClassOutput = {
     object_type: 'STOCK_CLASS',
     id,
     ...baseStockClassData,
-    comments: Array.isArray(comments) ? comments : [],
-    // Ensure numeric values are strings for OCF compatibility
-    initial_shares_authorized:
-      typeof initial_shares_authorized === 'number' ? initial_shares_authorized.toString() : initial_shares_authorized,
-    votes_per_share: typeof votes_per_share === 'number' ? votes_per_share.toString() : votes_per_share,
-    seniority: typeof seniority === 'number' ? seniority.toString() : seniority,
+    comments,
+    initial_shares_authorized,
+    votes_per_share,
+    seniority,
     // Add optional monetary fields with proper string conversion
     ...(par_value && { par_value: ensureStringAmount(par_value) }),
     ...(price_per_share && { price_per_share: ensureStringAmount(price_per_share) }),
-    ...(liquidation_preference_multiple && {
-      liquidation_preference_multiple:
-        typeof liquidation_preference_multiple === 'number'
-          ? liquidation_preference_multiple.toString()
-          : liquidation_preference_multiple,
-    }),
-    ...(participation_cap_multiple && {
-      participation_cap_multiple:
-        typeof participation_cap_multiple === 'number'
-          ? participation_cap_multiple.toString()
-          : participation_cap_multiple,
-    }),
-    ...(Array.isArray(conversion_rights) && conversion_rights.length > 0
-      ? {
-          conversion_rights: conversion_rights as unknown as Array<{
-            conversion_mechanism: string;
-            [key: string]: unknown;
-          }>,
-        }
-      : {}),
+    ...(liquidation_preference_multiple && { liquidation_preference_multiple }),
+    ...(participation_cap_multiple && { participation_cap_multiple }),
+    ...(conversion_rights.length > 0 ? { conversion_rights } : {}),
   };
 
   return {
