@@ -137,8 +137,7 @@ function vestingTriggerToDaml(t: VestingTriggerInput): Fairmint.OpenCapTable.OCF
     SCHEDULE_RELATIVE: 'VESTING_SCHEDULE_RELATIVE',
   };
   const kindNormalized = typeof t.kind === 'string' ? kindToType[t.kind.toUpperCase()] : undefined;
-  const type: string | undefined =
-    typeof t.type === 'string' ? t.type.toUpperCase() : kindNormalized;
+  const type: string | undefined = typeof t.type === 'string' ? t.type.toUpperCase() : kindNormalized;
 
   if (type === 'VESTING_START_DATE') {
     return {
