@@ -4,11 +4,14 @@
 
 ## Shared Conventions
 
-See [canton/AGENTS.md](https://github.com/fairmint/canton/blob/main/AGENTS.md#shared-conventions-all-fairmint-repos) for PR workflow, git workflow, dependencies, non-negotiables, and Linear integration.
+See
+[canton/AGENTS.md](https://github.com/fairmint/canton/blob/main/AGENTS.md#shared-conventions-all-fairmint-repos)
+for PR workflow, git workflow, dependencies, non-negotiables, and Linear integration.
 
 ## Linear API Access
 
-The `LINEAR_API_KEY` environment variable provides access to the [Linear](https://linear.app/fairmint) GraphQL API for issue tracking.
+The `LINEAR_API_KEY` environment variable provides access to the
+[Linear](https://linear.app/fairmint) GraphQL API for issue tracking.
 
 ```bash
 curl -s -X POST https://api.linear.app/graphql \
@@ -17,7 +20,8 @@ curl -s -X POST https://api.linear.app/graphql \
   -d '{"query": "{ issue(id: \"ENG-XXX\") { title state { name } } }"}'
 ```
 
-See [canton/AGENTS.md](https://github.com/fairmint/canton/blob/main/AGENTS.md#linear-integration) for full workflow documentation.
+See [canton/AGENTS.md](https://github.com/fairmint/canton/blob/main/AGENTS.md#linear-integration)
+for full workflow documentation.
 
 ## Quick Commands
 
@@ -173,22 +177,25 @@ Use utilities from `src/utils/typeConversions.ts`:
 
 ```typescript
 import {
-  numberToString,         // number|string → string (for DAML numerics)
+  numberToString, // number|string → string (for DAML numerics)
   normalizeNumericString, // Normalize and validate numeric strings (throws on invalid input)
-  optionalString,         // empty/undefined → null
-  cleanComments,          // filter comments array
-  dateStringToDAMLTime,   // ISO date → DAML time
-  monetaryToDaml,         // monetary object → DAML format
-  damlMonetaryToNative,   // DAML monetary → native (with validation)
+  optionalString, // empty/undefined → null
+  cleanComments, // filter comments array
+  dateStringToDAMLTime, // ISO date → DAML time
+  monetaryToDaml, // monetary object → DAML format
+  damlMonetaryToNative, // DAML monetary → native (with validation)
 } from '../../utils/typeConversions';
 ```
 
 **Type conversion best practices:**
 
 1. **Validate before converting** - Check for null/undefined before calling conversion functions
-2. **Use `.toString()` not `String()`** - When you've validated a value is not null/undefined, use `.toString()`
-3. **Let validation functions throw** - Functions like `normalizeNumericString()` throw on invalid input
+2. **Use `.toString()` not `String()`** - When you've validated a value is not null/undefined, use
+   `.toString()`
+3. **Let validation functions throw** - Functions like `normalizeNumericString()` throw on invalid
+   input
 4. **Example pattern:**
+
    ```typescript
    // ❌ Bad - creates "undefined" if amount is undefined
    const amount = String(data.amount);
@@ -197,9 +204,7 @@ import {
    if (data.amount === undefined || data.amount === null) {
      throw new Error('amount is required');
    }
-   const amount = typeof data.amount === 'number'
-     ? data.amount.toString()
-     : data.amount;
+   const amount = typeof data.amount === 'number' ? data.amount.toString() : data.amount;
    ```
 
 ## Non-Negotiables
@@ -215,7 +220,8 @@ import {
    - If something fails, it should fail visibly with a clear error message
    - Tests must actually test - if infrastructure is missing, tests should fail, not skip
 4. **No unsafe type coercion** - ALWAYS validate before converting types
-   - **NEVER** use `String(value)` on potentially undefined/null values (creates `"undefined"` or `"null"` strings)
+   - **NEVER** use `String(value)` on potentially undefined/null values (creates `"undefined"` or
+     `"null"` strings)
    - **NEVER** use `Number(value)` on potentially invalid strings (creates `NaN`)
    - **ALWAYS** validate the type first, then convert with explicit error handling
    - Example: ❌ `String(amount)` → ✅ `if (!amount) throw new Error('...'); amount.toString()`
@@ -228,7 +234,8 @@ import {
    - ✅ Correct: `"jsonwebtoken": "9.0.3"`
    - ❌ Wrong: `"jsonwebtoken": "^9.0.3"` or `"~9.0.3"`
    - This applies to ALL dependencies (dependencies, devDependencies, peerDependencies)
-   - When adding packages: `npm install --save-exact <package>` or manually remove `^`/`~` after install
+   - When adding packages: `npm install --save-exact <package>` or manually remove `^`/`~` after
+     install
 10. **DRY code** - Extract duplicated logic into reusable helpers (especially in tests)
 
 ## Improvement Backlog Pattern
@@ -238,11 +245,13 @@ When you discover areas for improvement that are **unrelated to the current task
 1. **Don't fix inline** - Keep PRs focused on the task at hand
 2. **Document as backlog** - Create or update an improvement ideas file in the task directory
 3. **Reference from main task** - Ensure the parent task links to improvement subtasks
-4. **Address before marking complete** - Main tasks should not be closed until improvement items are resolved
+4. **Address before marking complete** - Main tasks should not be closed until improvement items are
+   resolved
 
 **Location:** `canton/tasks/YYYY/MM/{task-name}/sdk-improvement-ideas.md`
 
 **Example items:**
+
 - Dead code (functions referencing non-existent DAML choices)
 - Type inconsistencies across similar functions
 - Missing test coverage
@@ -255,11 +264,11 @@ This ensures improvements aren't lost while keeping PRs focused and reviewable.
 
 ### Test Types
 
-| Test Type | Command | Purpose |
-|-----------|---------|---------|
-| Unit tests | `npm test` | Mock-based tests for conversions, validation |
-| Integration tests | `npm run test:integration` | LocalNet tests validating DAML contracts |
-| Type checking | `npm run typecheck` | TypeScript compilation checks |
+| Test Type         | Command                    | Purpose                                      |
+| ----------------- | -------------------------- | -------------------------------------------- |
+| Unit tests        | `npm test`                 | Mock-based tests for conversions, validation |
+| Integration tests | `npm run test:integration` | LocalNet tests validating DAML contracts     |
+| Type checking     | `npm run typecheck`        | TypeScript compilation checks                |
 
 ### Unit Tests (Mock-based)
 
@@ -280,6 +289,7 @@ test('creates issuer with valid OCF output', async () => {
 ### Integration Tests (LocalNet)
 
 Integration tests run against a real Canton LocalNet environment. They catch issues that mocks miss:
+
 - Invalid DAML command structure
 - Type conversion errors that only surface at runtime
 - Incorrect template IDs or choice names
@@ -295,6 +305,7 @@ npm run test:integration
 **Integration test structure:**
 
 Tests are organized by entity type with shared infrastructure:
+
 - `setup/` - Harness for client init, party discovery, validator API detection
 - `entities/` - One test file per OCF entity type
 - `workflows/` - Multi-entity workflow tests
@@ -311,7 +322,7 @@ import { generateTestId, setupTestIssuer } from '../utils';
 
 createIntegrationTestSuite('Issuer operations', (getContext) => {
   test('creates issuer and reads it back as valid OCF', async () => {
-    const ctx = getContext();  // Throws if LocalNet not available
+    const ctx = getContext(); // Throws if LocalNet not available
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
       issuerParty: ctx.issuerParty,
@@ -329,7 +340,9 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
 });
 ```
 
-**Note:** Tests fail fast if LocalNet is not running. There is no silent skipping - if infrastructure is missing, tests fail with a clear error message. This ensures CI catches missing infrastructure rather than falsely reporting success.
+**Note:** Tests fail fast if LocalNet is not running. There is no silent skipping - if
+infrastructure is missing, tests fail with a clear error message. This ensures CI catches missing
+infrastructure rather than falsely reporting success.
 
 **Adding tests for a new entity type:**
 
@@ -339,6 +352,7 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
 4. Reference `stockClass.integration.test.ts` as the complete example
 
 **Benefits of integration tests:**
+
 - Validates end-to-end OCF compliance
 - Tests actual DAML contract behavior
 - Catches runtime issues before merge
@@ -417,9 +431,12 @@ make clean-all-docker  # Stop and remove all containers/volumes (full reset)
 
 ### Running Integration Tests Against LocalNet
 
-**IMPORTANT: Always run integration tests locally before pushing to verify DAML contract compatibility.**
+**IMPORTANT: Always run integration tests locally before pushing to verify DAML contract
+compatibility.**
 
-Unit tests (`npm run test:ci`) only verify TypeScript logic with mocked clients. Integration tests (`npm run test:integration`) verify actual DAML contract interactions and can fail due to:
+Unit tests (`npm run test:ci`) only verify TypeScript logic with mocked clients. Integration tests
+(`npm run test:integration`) verify actual DAML contract interactions and can fail due to:
+
 - Invalid data that DAML contracts reject (e.g., empty required arrays)
 - Type mismatches between SDK and DAML schemas
 - Missing required fields that TypeScript doesn't enforce
@@ -441,24 +458,26 @@ npm run test:integration
 ```
 
 **Pre-push checklist:**
+
 1. `npm run fix` - Format and lint
 2. `npm run test:ci` - Unit tests
 3. `npm run test:integration` - Integration tests (requires LocalNet)
 
-Note: Integration tests use shared-secret authentication by default. DAR files are auto-discovered from the `@fairmint/open-captable-protocol-daml-js` npm package.
+Note: Integration tests use shared-secret authentication by default. DAR files are auto-discovered
+from the `@fairmint/open-captable-protocol-daml-js` npm package.
 
 ### LocalNet Services and Ports
 
-| Service | Port | Description |
-|---------|------|-------------|
-| App-Provider JSON API | 3975 | Ledger API for app_provider participant |
-| App-Provider Validator | 3903 | Validator API for app_provider |
-| App-User JSON API | 2975 | Ledger API for app_user participant |
-| SV JSON API | 4975 | Ledger API for super validator |
-| Keycloak | 8082 | OAuth2 authentication |
-| Scan API | scan.localhost:4000 | Network-wide contract queries |
-| Swagger UI | 9090 | API documentation |
-| Grafana | 3030 | Observability dashboard |
+| Service                | Port                | Description                             |
+| ---------------------- | ------------------- | --------------------------------------- |
+| App-Provider JSON API  | 3975                | Ledger API for app_provider participant |
+| App-Provider Validator | 3903                | Validator API for app_provider          |
+| App-User JSON API      | 2975                | Ledger API for app_user participant     |
+| SV JSON API            | 4975                | Ledger API for super validator          |
+| Keycloak               | 8082                | OAuth2 authentication                   |
+| Scan API               | scan.localhost:4000 | Network-wide contract queries           |
+| Swagger UI             | 9090                | API documentation                       |
+| Grafana                | 3030                | Observability dashboard                 |
 
 ### OAuth2 Credentials (app-provider)
 
@@ -473,20 +492,25 @@ Client Secret: AL8648b9SfdTFImq7FV56Vd0KHifHBuC
 ### Troubleshooting LocalNet
 
 #### "Cannot connect to Docker daemon"
+
 ```bash
 # Start Docker Desktop, then verify
 docker ps
 ```
 
 #### "HTTP 503" or "Connection refused" during tests
+
 Services aren't ready yet. Wait for all containers to show "healthy":
+
 ```bash
 docker ps --format "table {{.Names}}\t{{.Status}}" | grep -v healthy
 # Should return nothing when ready (all healthy)
 ```
 
 #### "Container keeps restarting"
+
 Reset everything and start fresh:
+
 ```bash
 cd libs/cn-quickstart/quickstart
 make clean-all-docker  # Removes all containers and volumes
@@ -494,35 +518,52 @@ make start
 ```
 
 #### "Port already in use"
+
 Stop existing containers or find conflicting process:
+
 ```bash
 make stop              # Stop LocalNet containers
 lsof -i :3975          # Find what's using JSON API port
 ```
 
 #### "DAR upload failed" or "Package not found"
+
 Canton may have restarted, clearing deployed packages. Tests auto-deploy DARs on startup.
 
 #### Integration tests timeout
+
 LocalNet startup can take 4-5 minutes. Ensure all services are healthy before running tests.
 
 ### Known Limitations
 
-1. **OAuth2 Disclosed Contracts**: In OAuth2 mode, the app_provider can't fetch `createdEventBlob` for contracts it doesn't own (returns 403). This breaks the disclosed contracts mechanism needed for cross-party visibility. **Solution:** Use shared-secret auth mode for full integration test coverage (`make setup` and select shared-secret).
+1. **OAuth2 Disclosed Contracts**: In OAuth2 mode, the app_provider can't fetch `createdEventBlob`
+   for contracts it doesn't own (returns 403). This breaks the disclosed contracts mechanism needed
+   for cross-party visibility. **Solution:** Use shared-secret auth mode for full integration test
+   coverage (`make setup` and select shared-secret).
 
-2. **First-time startup**: The first `make start` takes longer as it builds images and compiles DAML code.
+2. **First-time startup**: The first `make start` takes longer as it builds images and compiles DAML
+   code.
 
-3. **Resource usage**: LocalNet runs ~20+ containers and requires significant RAM (recommend 8GB+ available for Docker).
+3. **Resource usage**: LocalNet runs ~20+ containers and requires significant RAM (recommend 8GB+
+   available for Docker).
 
-4. **State persistence**: Canton restarts (via Docker or health checks) clear all ledger state including deployed DARs, created factories, and contracts. Tests must handle re-deployment.
+4. **State persistence**: Canton restarts (via Docker or health checks) clear all ledger state
+   including deployed DARs, created factories, and contracts. Tests must handle re-deployment.
 
-5. **DAML JSON API v2 Nested Numeric Encoding**: The DAML JSON API v2 has encoding issues with nested objects containing Numeric fields. The API expects Numeric fields as objects but receives strings. This is a general JSON API v2 limitation and currently affects:
-   - **StockClass creation** via batch API (pre-existing limitation; uses `initial_shares_authorized` and other Numeric fields)
-   - **StockClassSplit** via batch API (uses `OcfRatio` with nested `numerator`/`denominator` Numeric fields)
-   - **StockClassConversionRatioAdjustment** via batch API (uses `OcfRatioConversionMechanism` with nested Numeric fields)
+5. **DAML JSON API v2 Nested Numeric Encoding**: The DAML JSON API v2 has encoding issues with
+   nested objects containing Numeric fields. The API expects Numeric fields as objects but receives
+   strings. This is a general JSON API v2 limitation and currently affects:
+   - **StockClass creation** via batch API (pre-existing limitation; uses
+     `initial_shares_authorized` and other Numeric fields)
+   - **StockClassSplit** via batch API (uses `OcfRatio` with nested `numerator`/`denominator`
+     Numeric fields)
+   - **StockClassConversionRatioAdjustment** via batch API (uses `OcfRatioConversionMechanism` with
+     nested Numeric fields)
    - Other batch endpoints that rely on nested Numeric fields may encounter the same issue
-   
-   **Workaround:** For types with flat Numeric fields (e.g., `StockClassAuthorizedSharesAdjustment`), the batch API works. For types with nested Numeric fields, use dedicated create functions if available, or wait for JSON API v2 fix.
+
+   **Workaround:** For types with flat Numeric fields (e.g.,
+   `StockClassAuthorizedSharesAdjustment`), the batch API works. For types with nested Numeric
+   fields, use dedicated create functions if available, or wait for JSON API v2 fix.
 
 ### DAML Upgrade Testing Checklist
 
@@ -558,7 +599,8 @@ make canton-console    # Interactive Canton console
 
 ## NPM Publishing
 
-The package `@open-captable-protocol/canton` is automatically published to NPM when changes are merged to `main`.
+The package `@open-captable-protocol/canton` is automatically published to NPM when changes are
+merged to `main`.
 
 ### How It Works
 
@@ -588,6 +630,7 @@ npm publish               # Publishes to NPM (requires NPM_TOKEN)
 ### CI Requirements
 
 The publish workflow requires:
+
 - `NPM_TOKEN` secret configured in GitHub repository settings
 
 ---
@@ -627,15 +670,15 @@ Keep the visible portion brief and actionable. The collapsed section is for cont
 
 ## Related Repos
 
-| Repo | Purpose | Docs |
-|------|---------|------|
-| `canton` | Trading infrastructure, ADRs | `AGENTS.md` |
-| `canton-explorer` | Next.js explorer UI | `AGENTS.md`, [cantonops.fairmint.com](https://cantonops.fairmint.com/) |
-| `canton-fairmint-sdk` | Shared TypeScript utilities | `AGENTS.md` |
-| `canton-node-sdk` | Low-level Canton client | `AGENTS.md`, [sdk.canton.fairmint.com](https://sdk.canton.fairmint.com/) |
-| `ocp-position-nft` | Soulbound NFT smart contracts | `AGENTS.md` |
-| `open-captable-protocol-daml` | DAML contracts (OCF impl) | `AGENTS.md` |
-| `open-cap-format-ocf` | OCF JSON schemas (submodule) | [GitHub](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF) |
+| Repo                          | Purpose                       | Docs                                                                      |
+| ----------------------------- | ----------------------------- | ------------------------------------------------------------------------- |
+| `canton`                      | Trading infrastructure, ADRs  | `AGENTS.md`                                                               |
+| `canton-explorer`             | Next.js explorer UI           | `AGENTS.md`, [cantonops.fairmint.com](https://cantonops.fairmint.com/)    |
+| `canton-fairmint-sdk`         | Shared TypeScript utilities   | `AGENTS.md`                                                               |
+| `canton-node-sdk`             | Low-level Canton client       | `AGENTS.md`, [sdk.canton.fairmint.com](https://sdk.canton.fairmint.com/)  |
+| `ocp-position-nft`            | Soulbound NFT smart contracts | `AGENTS.md`                                                               |
+| `open-captable-protocol-daml` | DAML contracts (OCF impl)     | `AGENTS.md`                                                               |
+| `open-cap-format-ocf`         | OCF JSON schemas (submodule)  | [GitHub](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF) |
 
 ## Architecture Decision Records (ADRs)
 
@@ -653,13 +696,17 @@ ADRs document significant architectural decisions. They live in the `adr/` direc
 
 ## Tasks
 
-Tasks are tracked in [Linear](https://linear.app/fairmint) under the **Eng** team. Filter by `[ocp-canton-sdk]` in the title to find SDK-specific issues.
+Tasks are tracked in [Linear](https://linear.app/fairmint) under the **Eng** team. Filter by
+`[ocp-canton-sdk]` in the title to find SDK-specific issues.
 
-See [canton/AGENTS.md](https://github.com/fairmint/canton/blob/main/AGENTS.md#linear-integration) for the full Linear workflow documentation.
+See [canton/AGENTS.md](https://github.com/fairmint/canton/blob/main/AGENTS.md#linear-integration)
+for the full Linear workflow documentation.
 
 ### Linear API (for AI Agents)
 
-When working in CI/cloud environments, the `LINEAR_API_KEY` environment variable is available for programmatic Linear access. **Always check for this first** when tasks involve Linear issue management.
+When working in CI/cloud environments, the `LINEAR_API_KEY` environment variable is available for
+programmatic Linear access. **Always check for this first** when tasks involve Linear issue
+management.
 
 **Check for Linear API access:**
 
