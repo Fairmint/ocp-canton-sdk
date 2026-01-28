@@ -74,8 +74,8 @@ export function emitDeprecationWarning(details: DeprecationDetails): void {
   }
 
   const message =
-    `[OCF Deprecation] Field '${details.deprecatedField}' is deprecated. ` +
-    `Use '${details.replacementField}' instead.${details.context ? ` Context: ${details.context}` : ''}`;
+    `[OCF Deprecation] Field '${details.deprecatedField}' is deprecated and was auto-converted to '${details.replacementField}'.` +
+    `${details.context ? ` Context: ${details.context}` : ''}`;
 
   if (deprecationWarningConfig.handler) {
     deprecationWarningConfig.handler(message, details);
