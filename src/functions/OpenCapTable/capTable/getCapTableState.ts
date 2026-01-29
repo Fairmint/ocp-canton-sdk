@@ -154,17 +154,31 @@ export async function getCapTableState(
   // Extract payload from the first matching contract
   const capTableContract = contracts[0];
 
-  // Handle both old and new JSON API response formats
-  interface ContractPayload {
+  // Handle JSON API v2 response format:
+  // { contractEntry: { JsActiveContract: { createdEvent: { contractId, payload, ... } } } }
+  // Also handle legacy formats for backward compatibility
+  interface JsActiveContractResponse {
+    contractEntry?: {
+      JsActiveContract?: {
+        createdEvent?: {
+          contractId?: string;
+          payload?: Record<string, unknown>;
+        };
+      };
+    };
+    // Legacy format fields
     contractId?: string;
     contract_id?: string;
     payload?: Record<string, unknown>;
     contract?: { payload?: Record<string, unknown> };
   }
 
-  const contractData = capTableContract as unknown as ContractPayload;
-  const contractId = contractData.contractId ?? contractData.contract_id ?? '';
-  const payload = contractData.payload ?? contractData.contract?.payload ?? {};
+  const contractData = capTableContract as unknown as JsActiveContractResponse;
+
+  // Extract from JSON API v2 format first, then fall back to legacy formats
+  const createdEvent = contractData.contractEntry?.JsActiveContract?.createdEvent;
+  const contractId = createdEvent?.contractId ?? contractData.contractId ?? contractData.contract_id ?? '';
+  const payload = createdEvent?.payload ?? contractData.payload ?? contractData.contract?.payload ?? {};
 
   // Build entity maps from payload fields
   const entities = new Map<OcfEntityType, Set<string>>();
