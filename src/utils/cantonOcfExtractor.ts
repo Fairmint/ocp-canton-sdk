@@ -16,6 +16,7 @@ import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/da
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import { getConvertibleIssuanceAsOcf } from '../functions/OpenCapTable/convertibleIssuance';
+import { getDocumentAsOcf } from '../functions/OpenCapTable/document';
 import { getEquityCompensationExerciseAsOcf } from '../functions/OpenCapTable/equityCompensationExercise';
 import { getEquityCompensationIssuanceAsOcf } from '../functions/OpenCapTable/equityCompensationIssuance';
 import { getIssuerAsOcf } from '../functions/OpenCapTable/issuer';
@@ -24,8 +25,10 @@ import { getStakeholderAsOcf } from '../functions/OpenCapTable/stakeholder';
 import { getStockClassAsOcf } from '../functions/OpenCapTable/stockClass';
 import { getStockClassAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/stockClassAuthorizedSharesAdjustment';
 import { getStockIssuanceAsOcf } from '../functions/OpenCapTable/stockIssuance';
+import { getStockLegendTemplateAsOcf } from '../functions/OpenCapTable/stockLegendTemplate';
 import { getStockPlanAsOcf } from '../functions/OpenCapTable/stockPlan';
 import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stockPlanPoolAdjustment';
+import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
 
@@ -168,6 +171,9 @@ export interface OcfManifest {
   stakeholders: Array<Record<string, unknown>>;
   transactions: Array<Record<string, unknown>>;
   vestingTerms: Array<Record<string, unknown>>;
+  valuations: Array<Record<string, unknown>>;
+  documents: Array<Record<string, unknown>>;
+  stockLegendTemplates: Array<Record<string, unknown>>;
 }
 
 /**
@@ -218,6 +224,9 @@ export async function extractCantonOcfManifest(
     stakeholders: [],
     transactions: [],
     vestingTerms: [],
+    valuations: [],
+    documents: [],
+    stockLegendTemplates: [],
   };
 
   // Fetch issuer
@@ -272,6 +281,15 @@ export async function extractCantonOcfManifest(
         } else if (entityType === 'stockPlanPoolAdjustment') {
           const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId });
           result.transactions.push(event as unknown as Record<string, unknown>);
+        } else if (entityType === 'valuation') {
+          const { valuation } = await getValuationAsOcf(client, { contractId });
+          result.valuations.push(valuation as unknown as Record<string, unknown>);
+        } else if (entityType === 'document') {
+          const { document } = await getDocumentAsOcf(client, { contractId });
+          result.documents.push(document as unknown as Record<string, unknown>);
+        } else if (entityType === 'stockLegendTemplate') {
+          const { stockLegendTemplate } = await getStockLegendTemplateAsOcf(client, { contractId });
+          result.stockLegendTemplates.push(stockLegendTemplate as unknown as Record<string, unknown>);
         } else if (
           SUPPORTED_READ_TYPES.has(entityType as SupportedOcfReadType) &&
           TRANSACTION_ENTITY_TYPES.has(entityType)
@@ -302,5 +320,8 @@ export function countManifestObjects(manifest: OcfManifest): number {
   count += manifest.stockPlans.length;
   count += manifest.vestingTerms.length;
   count += manifest.transactions.length;
+  count += manifest.valuations.length;
+  count += manifest.documents.length;
+  count += manifest.stockLegendTemplates.length;
   return count;
 }
