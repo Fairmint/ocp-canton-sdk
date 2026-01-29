@@ -10,8 +10,10 @@ import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts } from '../../../types';
+import { extractUpdateId } from '../../../utils/typeConversions';
 import {
   ENTITY_TAG_MAP,
+  type CapTableBatchExecuteResult,
   type OcfCreateData,
   type OcfDataTypeFor,
   type OcfDeleteData,
@@ -142,11 +144,11 @@ export class CapTableBatch {
   /**
    * Build and execute the batch update.
    *
-   * @returns The result containing the updated cap table contract ID and affected entity IDs
+   * @returns The result containing the update ID (transaction ID), updated cap table contract ID, and affected entity IDs
    * @throws OcpValidationError if no client was provided or if the batch is empty
    * @throws OcpContractError if the UpdateCapTable result is not found in the transaction tree
    */
-  async execute(): Promise<UpdateCapTableResult> {
+  async execute(): Promise<CapTableBatchExecuteResult> {
     if (!this.client) {
       throw new OcpValidationError(
         'client',
@@ -170,6 +172,7 @@ export class CapTableBatch {
     // Extract the result from the transaction tree
     const tree = response.transactionTree;
     const { eventsById } = tree;
+    const updateId = extractUpdateId(response);
 
     // Find the exercised event for UpdateCapTable
     // Canton returns ExercisedTreeEvent (not ExercisedEvent) in transaction tree responses
@@ -183,7 +186,10 @@ export class CapTableBatch {
           exerciseResult?: UpdateCapTableResult;
         };
         if (exercised.choice === 'UpdateCapTable' && exercised.exerciseResult) {
-          return exercised.exerciseResult;
+          return {
+            ...exercised.exerciseResult,
+            updateId,
+          };
         }
       }
     }
