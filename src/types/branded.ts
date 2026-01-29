@@ -92,38 +92,46 @@ export type SecurityId = Brand<string, 'SecurityId'>;
 // ===== Type Guard Functions =====
 
 /**
- * Type guard to check if a string is a valid ContractId format.
- * Canton contract IDs are non-empty strings.
+ * Factory function to create type guards for branded string types.
+ * All branded ID types use the same validation: non-empty string check.
+ *
+ * Separate type guard functions are needed for TypeScript's type narrowing
+ * to work correctly with different branded types.
+ *
+ * @internal
+ */
+function createBrandedTypeGuard<T extends string>(): (value: unknown) => value is T {
+  return (value: unknown): value is T => isNonEmptyString(value);
+}
+
+/**
+ * Type guard to check if a value is a valid ContractId.
+ * Validates that the value is a non-empty string.
  *
  * Note: This performs a structural check, not validation against the ledger.
  */
-export function isContractId(value: unknown): value is ContractId {
-  return isNonEmptyString(value);
-}
+export const isContractId = createBrandedTypeGuard<ContractId>();
 
 /**
- * Type guard to check if a string is a valid PartyId format.
- * Party IDs are typically in the format `hint::namespace`.
+ * Type guard to check if a value is a valid PartyId.
+ * Validates that the value is a non-empty string.
  *
  * Note: This performs a structural check, not validation against the ledger.
+ * No format validation (e.g., `hint::namespace`) is performed.
  */
-export function isPartyId(value: unknown): value is PartyId {
-  return isNonEmptyString(value);
-}
+export const isPartyId = createBrandedTypeGuard<PartyId>();
 
 /**
- * Type guard for OcfId.
+ * Type guard to check if a value is a valid OcfId.
+ * Validates that the value is a non-empty string.
  */
-export function isOcfId(value: unknown): value is OcfId {
-  return isNonEmptyString(value);
-}
+export const isOcfId = createBrandedTypeGuard<OcfId>();
 
 /**
- * Type guard for SecurityId.
+ * Type guard to check if a value is a valid SecurityId.
+ * Validates that the value is a non-empty string.
  */
-export function isSecurityId(value: unknown): value is SecurityId {
-  return isNonEmptyString(value);
-}
+export const isSecurityId = createBrandedTypeGuard<SecurityId>();
 
 // ===== Conversion Functions =====
 
