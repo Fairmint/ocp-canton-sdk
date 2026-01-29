@@ -1,3 +1,4 @@
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfStockIssuance, StockIssuanceType } from '../../../types';
 import { validateStockIssuanceData } from '../../../utils/entityValidators';
@@ -9,7 +10,20 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 
-function getIssuanceType(t: StockIssuanceType | undefined): string | null {
+/** DAML type alias for the StockIssuance issuance type enum */
+type DamlStockIssuanceType = Fairmint.OpenCapTable.OCF.StockIssuance.OcfStockIssuanceType;
+
+/** DAML type alias for the StockIssuance OCF data */
+type DamlStockIssuanceOcfData = Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData;
+
+/**
+ * Convert native StockIssuanceType to DAML enum value.
+ *
+ * @param t - Native stock issuance type
+ * @returns DAML enum value or null if not specified
+ * @throws OcpParseError for unknown issuance types
+ */
+function getIssuanceType(t: StockIssuanceType | undefined): DamlStockIssuanceType | null {
   if (!t) return null;
   switch (t) {
     case 'RSA':
@@ -24,7 +38,13 @@ function getIssuanceType(t: StockIssuanceType | undefined): string | null {
   }
 }
 
-export function stockIssuanceDataToDaml(d: OcfStockIssuance): Record<string, unknown> {
+/**
+ * Convert native OcfStockIssuance to DAML StockIssuanceOcfData format.
+ *
+ * @param d - Native stock issuance data
+ * @returns DAML-formatted stock issuance data
+ */
+export function stockIssuanceDataToDaml(d: OcfStockIssuance): DamlStockIssuanceOcfData {
   // Validate input data using the entity validator
   validateStockIssuanceData(d, 'stockIssuance');
 

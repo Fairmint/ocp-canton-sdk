@@ -8,6 +8,16 @@ import {
   monetaryToDaml,
 } from '../../../utils/typeConversions';
 
+/**
+ * Convert native OcfStockClass to DAML StockClassOcfData format.
+ *
+ * Note: Return type is Record<string, unknown> because the conversion_rights
+ * structure in the SDK differs from the current DAML schema, which uses nested
+ * OcfConversionTrigger objects. This is tracked for future alignment.
+ *
+ * @param stockClassData - Native stock class data
+ * @returns DAML-formatted stock class data
+ */
 export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<string, unknown> {
   // Validate input data using the entity validator
   validateStockClassData(stockClassData, 'stockClass');

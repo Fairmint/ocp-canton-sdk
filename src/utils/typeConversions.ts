@@ -140,26 +140,31 @@ export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.M
 
 // ===== Initial Shares Authorized Conversions =====
 
+/** DAML type for OcfInitialSharesAuthorized union */
+type DamlInitialSharesAuthorized = Fairmint.OpenCapTable.Types.Stock.OcfInitialSharesAuthorized;
+
+/** DAML type for OcfAuthorizedShares enum */
+type DamlAuthorizedShares = Fairmint.OpenCapTable.Types.Stock.OcfAuthorizedShares;
+
 /**
  * Convert initial_shares_authorized value to DAML tagged union format.
  * V30 DAML contracts use OcfInitialSharesAuthorized union type:
  * - OcfInitialSharesNumeric Decimal - for numeric values
  * - OcfInitialSharesEnum - for "UNLIMITED" or "NOT_APPLICABLE"
+ *
+ * @param value - Native value (number, numeric string, or "UNLIMITED"/"NOT_APPLICABLE")
+ * @returns DAML-formatted discriminated union
  */
-export function initialSharesAuthorizedToDaml(value: string | number): {
-  tag: 'OcfInitialSharesNumeric' | 'OcfInitialSharesEnum';
-  value: string;
-} {
+export function initialSharesAuthorizedToDaml(value: string | number): DamlInitialSharesAuthorized {
   if (typeof value === 'number' || (typeof value === 'string' && /^\d+(\.\d+)?$/.test(value))) {
     return {
       tag: 'OcfInitialSharesNumeric',
       value: typeof value === 'number' ? value.toString() : value,
     };
   }
-  if (value === 'UNLIMITED') {
-    return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
-  }
-  return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
+  const enumValue: DamlAuthorizedShares =
+    value === 'UNLIMITED' ? 'OcfAuthorizedSharesUnlimited' : 'OcfAuthorizedSharesNotApplicable';
+  return { tag: 'OcfInitialSharesEnum', value: enumValue };
 }
 
 // ===== Address Conversions =====
