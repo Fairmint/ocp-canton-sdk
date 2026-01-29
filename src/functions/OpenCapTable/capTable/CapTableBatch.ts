@@ -161,6 +161,7 @@ export class CapTableBatch {
 
     const response = await this.client.submitAndWaitForTransactionTree({
       commands: [command],
+      commandId: `update-captable-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       actAs: this.params.actAs,
       readAs: this.params.readAs,
       disclosedContracts,
