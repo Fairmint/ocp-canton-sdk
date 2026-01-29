@@ -10,18 +10,7 @@ for PR workflow, git workflow, dependencies, non-negotiables, and Linear integra
 
 ## Linear API Access
 
-The `LINEAR_API_KEY` environment variable provides access to the
-[Linear](https://linear.app/fairmint) GraphQL API for issue tracking.
-
-```bash
-curl -s -X POST https://api.linear.app/graphql \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "{ issue(id: \"ENG-XXX\") { title state { name } } }"}'
-```
-
-See [canton/AGENTS.md](https://github.com/fairmint/canton/blob/main/AGENTS.md#linear-integration)
-for full workflow documentation.
+Use `LINEAR_API_KEY` for programmatic Linear access. See `linear-api` skill for curl examples.
 
 ## Quick Commands
 
@@ -384,77 +373,16 @@ await validateOcfObject({ object_type: 'ISSUER', ... });
 
 ## LocalNet (cn-quickstart)
 
-The SDK includes cn-quickstart as a git submodule for local development and testing.
-
-### Location
-
-```
-libs/cn-quickstart/quickstart/   # cn-quickstart directory
-```
-
-### First-Time Setup
+Git submodule for local Canton Network development and testing.
 
 ```bash
-# Navigate to cn-quickstart
+# Quick start
 cd libs/cn-quickstart/quickstart
+make setup && make start
 
-# Run interactive setup (creates .env.local)
-make setup
-# Choose: OAuth2 mode, set party hint (e.g., "quickstart-dev-1")
-
-# Install DAML SDK (if not already installed)
-make install-daml-sdk
-```
-
-### Starting LocalNet
-
-```bash
-cd libs/cn-quickstart/quickstart
-make start   # Builds and starts all containers
-```
-
-Wait ~4-5 minutes for all services to become healthy. Check status:
-
-```bash
+# Wait for healthy, then run tests
 docker ps --format "table {{.Names}}\t{{.Status}}"
-```
-
-All services should show "healthy" before running tests.
-
-### Stopping LocalNet
-
-```bash
-cd libs/cn-quickstart/quickstart
-make stop              # Stop all containers
-make clean-all-docker  # Stop and remove all containers/volumes (full reset)
-```
-
-### Running Integration Tests Against LocalNet
-
-**IMPORTANT: Always run integration tests locally before pushing to verify DAML contract
-compatibility.**
-
-Unit tests (`npm run test:ci`) only verify TypeScript logic with mocked clients. Integration tests
-(`npm run test:integration`) verify actual DAML contract interactions and can fail due to:
-
-- Invalid data that DAML contracts reject (e.g., empty required arrays)
-- Type mismatches between SDK and DAML schemas
-- Missing required fields that TypeScript doesn't enforce
-
-```bash
-# 1. Start LocalNet with shared-secret mode
-cd libs/cn-quickstart/quickstart
-echo 'AUTH_MODE=shared-secret' >> .env.local
-make clean-all-docker  # Reset to apply new config
-make start
-
-# 2. Wait for services (check all show "healthy")
-docker ps --format "table {{.Names}}\t{{.Status}}"
-
-# 3. Run integration tests
 npm run test:integration
-
-# 4. Fix any failures before pushing
 ```
 
 **Pre-push checklist:**
@@ -463,139 +391,15 @@ npm run test:integration
 2. `npm run test:ci` - Unit tests
 3. `npm run test:integration` - Integration tests (requires LocalNet)
 
-Note: Integration tests use shared-secret authentication by default. DAR files are auto-discovered
-from the `@fairmint/open-captable-protocol-daml-js` npm package.
+For detailed setup, ports, OAuth2 credentials, and troubleshooting, use the `localnet` skill.
 
-### LocalNet Services and Ports
-
-| Service                | Port                | Description                             |
-| ---------------------- | ------------------- | --------------------------------------- |
-| App-Provider JSON API  | 3975                | Ledger API for app_provider participant |
-| App-Provider Validator | 3903                | Validator API for app_provider          |
-| App-User JSON API      | 2975                | Ledger API for app_user participant     |
-| SV JSON API            | 4975                | Ledger API for super validator          |
-| Keycloak               | 8082                | OAuth2 authentication                   |
-| Scan API               | scan.localhost:4000 | Network-wide contract queries           |
-| Swagger UI             | 9090                | API documentation                       |
-| Grafana                | 3030                | Observability dashboard                 |
-
-### OAuth2 Credentials (app-provider)
-
-Default LocalNet OAuth2 credentials (used when OAuth2 mode is configured):
-
-```
-Auth URL: http://localhost:8082/realms/AppProvider/protocol/openid-connect/token
-Client ID: app-provider-validator
-Client Secret: AL8648b9SfdTFImq7FV56Vd0KHifHBuC
-```
-
-### Troubleshooting LocalNet
-
-#### "Cannot connect to Docker daemon"
-
-```bash
-# Start Docker Desktop, then verify
-docker ps
-```
-
-#### "HTTP 503" or "Connection refused" during tests
-
-Services aren't ready yet. Wait for all containers to show "healthy":
-
-```bash
-docker ps --format "table {{.Names}}\t{{.Status}}" | grep -v healthy
-# Should return nothing when ready (all healthy)
-```
-
-#### "Container keeps restarting"
-
-Reset everything and start fresh:
-
-```bash
-cd libs/cn-quickstart/quickstart
-make clean-all-docker  # Removes all containers and volumes
-make start
-```
-
-#### "Port already in use"
-
-Stop existing containers or find conflicting process:
-
-```bash
-make stop              # Stop LocalNet containers
-lsof -i :3975          # Find what's using JSON API port
-```
-
-#### "DAR upload failed" or "Package not found"
-
-Canton may have restarted, clearing deployed packages. Tests auto-deploy DARs on startup.
-
-#### Integration tests timeout
-
-LocalNet startup can take 4-5 minutes. Ensure all services are healthy before running tests.
-
-### Known Limitations
-
-1. **OAuth2 Disclosed Contracts**: In OAuth2 mode, the app_provider can't fetch `createdEventBlob`
-   for contracts it doesn't own (returns 403). This breaks the disclosed contracts mechanism needed
-   for cross-party visibility. **Solution:** Use shared-secret auth mode for full integration test
-   coverage (`make setup` and select shared-secret).
-
-2. **First-time startup**: The first `make start` takes longer as it builds images and compiles DAML
-   code.
-
-3. **Resource usage**: LocalNet runs ~20+ containers and requires significant RAM (recommend 8GB+
-   available for Docker).
-
-4. **State persistence**: Canton restarts (via Docker or health checks) clear all ledger state
-   including deployed DARs, created factories, and contracts. Tests must handle re-deployment.
-
-5. **DAML JSON API v2 Nested Numeric Encoding**: The DAML JSON API v2 has encoding issues with
-   nested objects containing Numeric fields. The API expects Numeric fields as objects but receives
-   strings. This is a general JSON API v2 limitation and currently affects:
-   - **StockClass creation** via batch API (pre-existing limitation; uses
-     `initial_shares_authorized` and other Numeric fields)
-   - **StockClassSplit** via batch API (uses `OcfRatio` with nested `numerator`/`denominator`
-     Numeric fields)
-   - **StockClassConversionRatioAdjustment** via batch API (uses `OcfRatioConversionMechanism` with
-     nested Numeric fields)
-   - Other batch endpoints that rely on nested Numeric fields may encounter the same issue
-
-   **Workaround:** For types with flat Numeric fields (e.g.,
-   `StockClassAuthorizedSharesAdjustment`), the batch API works. For types with nested Numeric
-   fields, use dedicated create functions if available, or wait for JSON API v2 fix.
-
-### DAML Upgrade Testing Checklist
+### DAML Upgrade Testing
 
 When upgrading `@fairmint/open-captable-protocol-daml-js`:
 
-1. **Check release notes** for breaking changes in field types, especially:
-   - Simple types changed to union types (e.g., `Decimal` to `OcfInitialSharesAuthorized`)
-   - New required fields or validations
-   - Changes to `security_id` validation requirements
-
-2. **Run full integration tests** (`npm run test:integration`) not just unit tests:
-   - Unit tests use mocks and won't catch DAML contract compatibility issues
-   - Integration tests run against actual DAML contracts via LocalNet
-
-3. **Verify OCF-to-DAML converters** encode types correctly:
-   - Union types must use tagged format: `{ tag: 'VariantName', value: '...' }`
-   - Check files in `src/functions/OpenCapTable/**/` for `*DataToDaml.ts` converters
-   - Compare with working examples (e.g., `createIssuer.ts` for `initial_shares_authorized`)
-
-4. **Test batch API operations** for all entity types that changed:
-   - The batch API (`UpdateCapTable` choice) is more sensitive to encoding issues
-   - Test creates, edits, and deletes for affected entity types
-
-### Useful Make Targets
-
-```bash
-make status            # Show container status
-make logs              # View all logs
-make tail              # Tail logs in real-time
-make restart           # Stop and start
-make canton-console    # Interactive Canton console
-```
+1. Check release notes for breaking changes in field types
+2. Run `npm run test:integration` (not just unit tests)
+3. Verify OCF-to-DAML converters encode union types correctly
 
 ## NPM Publishing
 
@@ -635,39 +439,6 @@ The publish workflow requires:
 
 ---
 
-## PR Review Format
-
-When writing PR reviews, use this format:
-
-1. **Issues and improvements first** — Call out any problems, bugs, or suggested improvements at the
-   top, outside any collapsed sections. This is the only feedback reviewers need to see immediately.
-   - **Issue**: Something that should be fixed — bugs, security problems, incorrect logic,
-     violations of project standards
-   - **Improvement**: Something that could be better — performance, readability, maintainability,
-     edge cases
-
-2. **Collapse the rest** — Put the full analysis and any positive remarks inside a collapsed
-   `<details>` section:
-
-```markdown
-## Issues
-
-- **[File:Line]** Description of issue or improvement
-
----
-
-<details>
-<summary>Full Analysis</summary>
-
-... detailed analysis, positive remarks, etc. ...
-
-</details>
-```
-
-Keep the visible portion brief and actionable. The collapsed section is for context if needed.
-
----
-
 ## Related Repos
 
 | Repo                          | Purpose                       | Docs                                                                      |
@@ -701,82 +472,6 @@ Tasks are tracked in [Linear](https://linear.app/fairmint) under the **Eng** tea
 
 See [canton/AGENTS.md](https://github.com/fairmint/canton/blob/main/AGENTS.md#linear-integration)
 for the full Linear workflow documentation.
-
-### Linear API (for AI Agents)
-
-When working in CI/cloud environments, the `LINEAR_API_KEY` environment variable is available for
-programmatic Linear access. **Always check for this first** when tasks involve Linear issue
-management.
-
-**Check for Linear API access:**
-
-```bash
-# Check if LINEAR_API_KEY is available
-if [ -n "$LINEAR_API_KEY" ]; then
-  echo "Linear API available"
-fi
-```
-
-**Create a subtask via Linear API:**
-
-```bash
-# Create a subtask under a parent issue
-curl -X POST https://api.linear.app/graphql \
-  -H "Content-Type: application/json" \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -d '{
-    "query": "mutation CreateIssue($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier url } } }",
-    "variables": {
-      "input": {
-        "teamId": "TEAM_ID",
-        "title": "Subtask title",
-        "description": "Subtask description",
-        "parentId": "PARENT_ISSUE_ID"
-      }
-    }
-  }'
-```
-
-**Get team ID and issue IDs:**
-
-```bash
-# Get teams (to find teamId)
-curl -X POST https://api.linear.app/graphql \
-  -H "Content-Type: application/json" \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -d '{"query": "{ teams { nodes { id name } } }"}'
-
-# Get issue by identifier (e.g., ENG-450)
-curl -X POST https://api.linear.app/graphql \
-  -H "Content-Type: application/json" \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -d '{"query": "{ issue(id: \"ENG-450\") { id title } }"}'
-```
-
-**Update issue status/description:**
-
-```bash
-# Update an issue
-curl -X POST https://api.linear.app/graphql \
-  -H "Content-Type: application/json" \
-  -H "Authorization: $LINEAR_API_KEY" \
-  -d '{
-    "query": "mutation UpdateIssue($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success } }",
-    "variables": {
-      "id": "ISSUE_ID",
-      "input": {
-        "description": "Updated description"
-      }
-    }
-  }'
-```
-
-**AI Agent checklist for Linear tasks:**
-
-1. **Always check** `$LINEAR_API_KEY` before attempting Linear operations
-2. **Use the API** to create subtasks, update issues, and add comments
-3. **Include issue identifiers** (e.g., `ENG-450`) in commit messages for automatic linking
-4. **Create subtasks** for distinct work items rather than documenting in markdown files
 
 ## Docs
 
