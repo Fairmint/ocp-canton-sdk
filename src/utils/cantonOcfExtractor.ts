@@ -12,11 +12,19 @@ import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchType
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
+import { getConvertibleIssuanceAsOcf } from '../functions/OpenCapTable/convertibleIssuance';
+import { getEquityCompensationExerciseAsOcf } from '../functions/OpenCapTable/equityCompensationExercise';
+import { getEquityCompensationIssuanceAsOcf } from '../functions/OpenCapTable/equityCompensationIssuance';
 import { getIssuerAsOcf } from '../functions/OpenCapTable/issuer';
+import { getIssuerAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/issuerAuthorizedSharesAdjustment';
 import { getStakeholderAsOcf } from '../functions/OpenCapTable/stakeholder';
 import { getStockClassAsOcf } from '../functions/OpenCapTable/stockClass';
+import { getStockClassAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/stockClassAuthorizedSharesAdjustment';
+import { getStockIssuanceAsOcf } from '../functions/OpenCapTable/stockIssuance';
 import { getStockPlanAsOcf } from '../functions/OpenCapTable/stockPlan';
+import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stockPlanPoolAdjustment';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
+import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
 
 /**
  * Core OCF entity types that have dedicated `get*AsOcf` functions.
@@ -237,6 +245,30 @@ export async function extractCantonOcfManifest(
         } else if (entityType === 'vestingTerms') {
           const { vestingTerms } = await getVestingTermsAsOcf(client, { contractId });
           result.vestingTerms.push(vestingTerms as unknown as Record<string, unknown>);
+        } else if (entityType === 'stockIssuance') {
+          const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId });
+          result.transactions.push(stockIssuance as unknown as Record<string, unknown>);
+        } else if (entityType === 'convertibleIssuance') {
+          const { event } = await getConvertibleIssuanceAsOcf(client, { contractId });
+          result.transactions.push(event as unknown as Record<string, unknown>);
+        } else if (entityType === 'warrantIssuance') {
+          const { event } = await getWarrantIssuanceAsOcf(client, { contractId });
+          result.transactions.push(event as unknown as Record<string, unknown>);
+        } else if (entityType === 'equityCompensationIssuance' || entityType === 'planSecurityIssuance') {
+          const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId });
+          result.transactions.push(event as unknown as Record<string, unknown>);
+        } else if (entityType === 'equityCompensationExercise' || entityType === 'planSecurityExercise') {
+          const { event } = await getEquityCompensationExerciseAsOcf(client, { contractId });
+          result.transactions.push(event as unknown as Record<string, unknown>);
+        } else if (entityType === 'stockClassAuthorizedSharesAdjustment') {
+          const { event } = await getStockClassAuthorizedSharesAdjustmentAsOcf(client, { contractId });
+          result.transactions.push(event as unknown as Record<string, unknown>);
+        } else if (entityType === 'issuerAuthorizedSharesAdjustment') {
+          const { event } = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, { contractId });
+          result.transactions.push(event as unknown as Record<string, unknown>);
+        } else if (entityType === 'stockPlanPoolAdjustment') {
+          const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId });
+          result.transactions.push(event as unknown as Record<string, unknown>);
         } else if (SUPPORTED_READ_TYPES.has(entityType as SupportedOcfReadType)) {
           // Handle transaction types with the generic dispatcher
           const supportedType = entityType as SupportedOcfReadType;
