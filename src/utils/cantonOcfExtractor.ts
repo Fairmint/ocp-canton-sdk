@@ -269,14 +269,14 @@ export async function extractCantonOcfManifest(
         } else if (entityType === 'stockPlanPoolAdjustment') {
           const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId });
           result.transactions.push(event as unknown as Record<string, unknown>);
-        } else if (SUPPORTED_READ_TYPES.has(entityType as SupportedOcfReadType)) {
+        } else if (
+          SUPPORTED_READ_TYPES.has(entityType as SupportedOcfReadType) &&
+          TRANSACTION_ENTITY_TYPES.has(entityType)
+        ) {
           // Handle transaction types with the generic dispatcher
           const supportedType = entityType as SupportedOcfReadType;
           const { data } = await getEntityAsOcf(client, supportedType, contractId);
-          if (TRANSACTION_ENTITY_TYPES.has(entityType)) {
-            result.transactions.push(data as unknown as Record<string, unknown>);
-          }
-          // Other supported types (valuation, etc.) not needed for processCapTable
+          result.transactions.push(data as unknown as Record<string, unknown>);
         }
         // Unsupported types are silently skipped
       } catch (error) {
