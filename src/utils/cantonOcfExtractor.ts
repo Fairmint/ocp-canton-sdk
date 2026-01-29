@@ -2,7 +2,10 @@
  * Extract full OCF data from Canton for verification and comparison.
  *
  * Provides utilities to fetch all OCF objects from Canton and transform them
- * into a format compatible with buildCaptableInput for processing.
+ * into a manifest format for cap table processing.
+ *
+ * The returned manifest structure is compatible with external OCF processing tools
+ * like buildCaptableInput/processCapTable from the fairmint/api repository.
  *
  * @module cantonOcfExtractor
  */
@@ -181,7 +184,7 @@ export interface ExtractCantonOcfOptions {
  * Extract all OCF objects from Canton and return them in manifest format.
  *
  * This function fetches all entities from a CapTable contract and transforms
- * them into a format compatible with buildCaptableInput / processCapTable.
+ * them into an OCF manifest structure suitable for cap table processing.
  *
  * @param client - LedgerJsonApiClient instance
  * @param cantonState - CapTableState from getCapTableState
@@ -273,7 +276,7 @@ export async function extractCantonOcfManifest(
           SUPPORTED_READ_TYPES.has(entityType as SupportedOcfReadType) &&
           TRANSACTION_ENTITY_TYPES.has(entityType)
         ) {
-          // Handle transaction types with the generic dispatcher
+          // Handle remaining transaction types with the generic dispatcher
           const supportedType = entityType as SupportedOcfReadType;
           const { data } = await getEntityAsOcf(client, supportedType, contractId);
           result.transactions.push(data as unknown as Record<string, unknown>);
