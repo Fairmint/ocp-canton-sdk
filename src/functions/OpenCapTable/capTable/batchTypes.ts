@@ -70,6 +70,17 @@ export type OcfDeleteData = Fairmint.OpenCapTable.CapTable.OcfDeleteData;
 export type UpdateCapTableResult = Fairmint.OpenCapTable.CapTable.UpdateCapTableResult;
 
 /**
+ * Result of executing a CapTableBatch.
+ *
+ * Extends the DAML choice result with transaction metadata from the ledger.
+ * This includes all properties from UpdateCapTableResult plus the updateId.
+ */
+export type CapTableBatchExecuteResult = UpdateCapTableResult & {
+  /** The update ID (transaction ID) from the Canton ledger */
+  updateId: string;
+};
+
+/**
  * All supported OCF entity types for batch operations.
  * Maps to the OcfCreateData/OcfEditData/OcfDeleteData union tags.
  *
