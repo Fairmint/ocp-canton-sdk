@@ -10,6 +10,7 @@ import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts } from '../../../types';
+import { extractUpdateId } from '../../../utils/typeConversions';
 import {
   ENTITY_TAG_MAP,
   type CapTableBatchExecuteResult,
@@ -170,7 +171,8 @@ export class CapTableBatch {
 
     // Extract the result from the transaction tree
     const tree = response.transactionTree;
-    const { updateId, eventsById } = tree;
+    const { eventsById } = tree;
+    const updateId = extractUpdateId(response);
 
     // Find the exercised event for UpdateCapTable
     // Canton returns ExercisedTreeEvent (not ExercisedEvent) in transaction tree responses
