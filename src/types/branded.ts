@@ -6,6 +6,11 @@
  * distinct by TypeScript. This prevents accidental mixing of semantically different
  * string values like ContractIds and PartyIds.
  *
+ * NOTE: These types are foundational building blocks for the SDK's public API.
+ * They are exported for use by SDK consumers and will be incrementally adopted
+ * throughout the SDK in future updates. The types provide immediate value for
+ * consumers who want stricter type safety in their applications.
+ *
  * @example
  * ```typescript
  * const contractId: ContractId = '00abc123' as ContractId;
@@ -17,6 +22,8 @@
  * // Can still use string operations
  * console.log(contractId.length); // Works fine
  * ```
+ *
+ * @module
  */
 
 import { isNonEmptyString } from '../utils/typeGuards';

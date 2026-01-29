@@ -34,6 +34,9 @@ export type PkgStockClassOcfData = DamlFairmint.OpenCapTable.OCF.StockClass.Stoc
 /** DAML package type for StockIssuance entity data */
 export type PkgStockIssuanceOcfData = DamlFairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData;
 
+/** DAML enum type for StockIssuance issuance type */
+export type PkgStockIssuanceType = DamlFairmint.OpenCapTable.OCF.StockIssuance.OcfStockIssuanceType;
+
 /** DAML package type for StockTransfer entity data */
 export type PkgStockTransferOcfData = DamlFairmint.OpenCapTable.OCF.StockTransfer.StockTransferOcfData;
 
