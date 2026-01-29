@@ -19,6 +19,8 @@
  * ```
  */
 
+import { isNonEmptyString } from '../utils/typeGuards';
+
 /**
  * Unique symbol for branding types.
  * This symbol is never used at runtime, only for type discrimination.
@@ -96,7 +98,7 @@ export type SecurityId = Brand<string, 'SecurityId'>;
  * Note: This performs a structural check, not validation against the ledger.
  */
 export function isContractId(value: unknown): value is ContractId {
-  return typeof value === 'string' && value.length > 0;
+  return isNonEmptyString(value);
 }
 
 /**
@@ -106,21 +108,21 @@ export function isContractId(value: unknown): value is ContractId {
  * Note: This performs a structural check, not validation against the ledger.
  */
 export function isPartyId(value: unknown): value is PartyId {
-  return typeof value === 'string' && value.length > 0;
+  return isNonEmptyString(value);
 }
 
 /**
  * Type guard for OcfId.
  */
 export function isOcfId(value: unknown): value is OcfId {
-  return typeof value === 'string' && value.length > 0;
+  return isNonEmptyString(value);
 }
 
 /**
  * Type guard for SecurityId.
  */
 export function isSecurityId(value: unknown): value is SecurityId {
-  return typeof value === 'string' && value.length > 0;
+  return isNonEmptyString(value);
 }
 
 // ===== Conversion Functions =====
