@@ -89,14 +89,6 @@ export const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
   'equityCompensationRelease',
   'equityCompensationExercise',
   'equityCompensationRepricing',
-  // Plan Security Transactions (aliases)
-  'planSecurityIssuance',
-  'planSecurityTransfer',
-  'planSecurityCancellation',
-  'planSecurityRetraction',
-  'planSecurityAcceptance',
-  'planSecurityRelease',
-  'planSecurityExercise',
   // Stakeholder Events
   'stakeholderRelationshipChangeEvent',
   'stakeholderStatusChangeEvent',
@@ -153,12 +145,6 @@ export const SUPPORTED_READ_TYPES: Set<SupportedOcfReadType> = new Set<Supported
   // Stakeholder events
   'stakeholderRelationshipChangeEvent',
   'stakeholderStatusChangeEvent',
-  // PlanSecurity aliases
-  'planSecurityAcceptance',
-  'planSecurityCancellation',
-  'planSecurityRelease',
-  'planSecurityRetraction',
-  'planSecurityTransfer',
 ]);
 
 /**
@@ -266,10 +252,10 @@ export async function extractCantonOcfManifest(
         } else if (entityType === 'warrantIssuance') {
           const { event } = await getWarrantIssuanceAsOcf(client, { contractId });
           result.transactions.push(event as unknown as Record<string, unknown>);
-        } else if (entityType === 'equityCompensationIssuance' || entityType === 'planSecurityIssuance') {
+        } else if (entityType === 'equityCompensationIssuance') {
           const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId });
           result.transactions.push(event as unknown as Record<string, unknown>);
-        } else if (entityType === 'equityCompensationExercise' || entityType === 'planSecurityExercise') {
+        } else if (entityType === 'equityCompensationExercise') {
           const { event } = await getEquityCompensationExerciseAsOcf(client, { contractId });
           result.transactions.push(event as unknown as Record<string, unknown>);
         } else if (entityType === 'stockClassAuthorizedSharesAdjustment') {
