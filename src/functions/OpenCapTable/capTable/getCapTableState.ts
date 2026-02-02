@@ -8,9 +8,25 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
 import type { OcfEntityType } from './batchTypes';
+
+/**
+ * Type guard to check if a contract entry is a JsActiveContract with createdEvent.
+ * Based on the pattern from canton-node-sdk's get-amulets-for-transfer.ts.
+ */
+function isJsActiveContractItem(item: JsGetActiveContractsResponseItem): item is JsGetActiveContractsResponseItem & {
+  contractEntry: {
+    JsActiveContract: {
+      createdEvent: { contractId: string; createArgument: Record<string, unknown> };
+    };
+  };
+} {
+  // Check if contractEntry has JsActiveContract (it's a union type: JsActiveContract | JsEmpty | ...)
+  return 'JsActiveContract' in item.contractEntry;
+}
 
 /**
  * Mapping from CapTable contract field names (snake_case) to OcfEntityType (camelCase).
@@ -154,31 +170,25 @@ export async function getCapTableState(
   // Extract payload from the first matching contract
   const capTableContract = contracts[0];
 
-  // Handle JSON API v2 response format:
-  // { contractEntry: { JsActiveContract: { createdEvent: { contractId, payload, ... } } } }
-  // Also handle legacy formats for backward compatibility
-  interface JsActiveContractResponse {
-    contractEntry?: {
-      JsActiveContract?: {
-        createdEvent?: {
-          contractId?: string;
-          payload?: Record<string, unknown>;
-        };
-      };
+  // Extract contract ID and payload using the SDK's response format
+  let contractId: string;
+  let payload: Record<string, unknown>;
+
+  if (isJsActiveContractItem(capTableContract)) {
+    // JSON API v2 format (preferred)
+    const { createdEvent } = capTableContract.contractEntry.JsActiveContract;
+    ({ contractId, createArgument: payload } = createdEvent);
+  } else {
+    // Legacy format fallback for backward compatibility
+    const legacyData = capTableContract as unknown as {
+      contractId?: string;
+      contract_id?: string;
+      payload?: Record<string, unknown>;
+      contract?: { payload?: Record<string, unknown> };
     };
-    // Legacy format fields
-    contractId?: string;
-    contract_id?: string;
-    payload?: Record<string, unknown>;
-    contract?: { payload?: Record<string, unknown> };
+    contractId = legacyData.contractId ?? legacyData.contract_id ?? '';
+    payload = legacyData.payload ?? legacyData.contract?.payload ?? {};
   }
-
-  const contractData = capTableContract as unknown as JsActiveContractResponse;
-
-  // Extract from JSON API v2 format first, then fall back to legacy formats
-  const createdEvent = contractData.contractEntry?.JsActiveContract?.createdEvent;
-  const contractId = createdEvent?.contractId ?? contractData.contractId ?? contractData.contract_id ?? '';
-  const payload = createdEvent?.payload ?? contractData.payload ?? contractData.contract?.payload ?? {};
 
   // Build entity maps from payload fields
   const entities = new Map<OcfEntityType, Set<string>>();
