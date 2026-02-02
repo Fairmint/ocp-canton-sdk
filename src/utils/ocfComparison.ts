@@ -311,16 +311,13 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
 }
 
 /**
- * Strip internal and deprecated fields from an OCF object for cleaner comparison.
- *
- * @param obj - The OCF object to clean
- * @param fieldsToRemove - Fields to remove (defaults to DEFAULT_INTERNAL_FIELDS + DEFAULT_DEPRECATED_FIELDS)
- * @returns A new object with the specified fields removed
- */
-/**
  * Generate detailed diffs between two OCF objects with normalization.
  *
- * This is a convenience wrapper around ocfCompare for cases where you just need the diff strings.
+ * Uses the same normalization logic as ocfCompare (isUndefinedLike, normalizeOcfValue)
+ * but produces simplified human-readable diff strings instead of a structured result.
+ *
+ * Note: Unlike ocfCompare, this function does not support ignoredFields or deprecatedFields options.
+ * Use ocfCompare with reportDifferences: true if you need field filtering.
  *
  * @param a - First object (typically ledger/source data)
  * @param b - Second object (typically database/destination data)
@@ -349,6 +346,37 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
   }
 
   if (typeof a === 'object' && a && b && typeof b === 'object') {
+    // Handle arrays with proper [index] path format
+    if (Array.isArray(a) && Array.isArray(b)) {
+      // Check for length mismatch (filtering undefined-like elements)
+      const filteredA = a.filter((v) => !isUndefinedLike(v));
+      const filteredB = b.filter((v) => !isUndefinedLike(v));
+      if (filteredA.length !== filteredB.length) {
+        diffs.push(`${path || '(root)'}: array length mismatch (${a.length} vs ${b.length})`);
+      }
+
+      // Compare array elements
+      const maxLen = Math.max(a.length, b.length);
+      for (let i = 0; i < maxLen; i++) {
+        const subPath = path ? `${path}[${i}]` : `[${i}]`;
+        const av = a[i];
+        const bv = b[i];
+
+        if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
+        if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
+          diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
+          continue;
+        }
+        if (isUndefinedLike(av) && !isUndefinedLike(bv)) {
+          diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
+          continue;
+        }
+        diffs.push(...diffOcfObjects(av, bv, subPath));
+      }
+      return diffs;
+    }
+
+    // Handle objects
     const objA = a as Record<string, unknown>;
     const objB = b as Record<string, unknown>;
 
