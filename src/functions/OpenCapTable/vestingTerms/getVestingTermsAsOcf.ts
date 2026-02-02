@@ -254,10 +254,31 @@ function damlVestingTermsDataToNative(
   d: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
 ): Omit<OcfVestingTermsOutput, 'object_type'> {
   const dataWithId = d as unknown as { id?: string };
+  
+  // Validate required fields - fail fast if missing
+  if (!dataWithId.id) {
+    throw new OcpValidationError('vestingTerms.id', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: dataWithId.id,
+    });
+  }
+  if (!d.name) {
+    throw new OcpValidationError('vestingTerms.name', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.name,
+    });
+  }
+  if (!d.description) {
+    throw new OcpValidationError('vestingTerms.description', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.description,
+    });
+  }
+  
   return {
-    id: dataWithId.id ?? '',
-    name: d.name || '',
-    description: d.description || '',
+    id: dataWithId.id,
+    name: d.name,
+    description: d.description,
     allocation_type: damlAllocationTypeToNative(d.allocation_type),
     vesting_conditions: d.vesting_conditions.map(damlVestingConditionToNative),
     comments: Array.isArray((d as unknown as { comments?: unknown }).comments)

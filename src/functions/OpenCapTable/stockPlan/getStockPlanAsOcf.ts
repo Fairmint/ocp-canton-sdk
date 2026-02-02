@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { StockPlanCancellationBehavior } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -23,16 +23,37 @@ function damlStockPlanDataToNative(
   d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData
 ): Omit<OcfStockPlanOutput, 'object_type'> {
   const dataWithId = d as unknown as { id?: string };
+  
+  // Validate required fields - fail fast if missing
+  if (!dataWithId.id) {
+    throw new OcpValidationError('stockPlan.id', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: dataWithId.id,
+    });
+  }
+  if (!d.plan_name) {
+    throw new OcpValidationError('stockPlan.plan_name', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.plan_name,
+    });
+  }
+  if (!d.initial_shares_reserved) {
+    throw new OcpValidationError('stockPlan.initial_shares_reserved', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.initial_shares_reserved,
+    });
+  }
+  
   return {
-    id: dataWithId.id ?? '',
-    plan_name: d.plan_name || '',
+    id: dataWithId.id,
+    plan_name: d.plan_name,
     ...(d.board_approval_date && {
       board_approval_date: damlTimeToDateString(d.board_approval_date),
     }),
     ...(d.stockholder_approval_date && {
       stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
     }),
-    initial_shares_reserved: normalizeNumericString(d.initial_shares_reserved || '0'),
+    initial_shares_reserved: normalizeNumericString(d.initial_shares_reserved),
     ...(d.default_cancellation_behavior && {
       default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior),
     }),
