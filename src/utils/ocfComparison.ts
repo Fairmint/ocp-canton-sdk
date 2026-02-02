@@ -317,6 +317,138 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
  * @param fieldsToRemove - Fields to remove (defaults to DEFAULT_INTERNAL_FIELDS + DEFAULT_DEPRECATED_FIELDS)
  * @returns A new object with the specified fields removed
  */
+/**
+ * Generate detailed diffs between two OCF objects with normalization.
+ *
+ * This is a convenience wrapper around ocfCompare for cases where you just need the diff strings.
+ *
+ * @param a - First object (typically ledger/source data)
+ * @param b - Second object (typically database/destination data)
+ * @param path - Current path in the object tree (for recursive calls)
+ * @returns Array of diff descriptions
+ *
+ * @example
+ * ```typescript
+ * const diffs = diffOcfObjects(ledgerData, dbData);
+ * if (diffs.length > 0) {
+ *   console.log('Differences found:', diffs);
+ * }
+ * ```
+ */
+export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
+  const diffs: string[] = [];
+
+  // Consider empty arrays equivalent to undefined
+  if (isUndefinedLike(a) && isUndefinedLike(b)) {
+    return diffs;
+  }
+
+  if (typeof a !== typeof b) {
+    diffs.push(`${path || '(root)'}: type mismatch (${typeof a} vs ${typeof b})`);
+    return diffs;
+  }
+
+  if (typeof a === 'object' && a && b && typeof b === 'object') {
+    const objA = a as Record<string, unknown>;
+    const objB = b as Record<string, unknown>;
+
+    // Get all keys
+    const keysA = Object.keys(objA);
+    const keysB = Object.keys(objB);
+    const keys = Array.from(new Set([...keysA, ...keysB])).sort();
+
+    for (const key of keys) {
+      const subPath = path ? `${path}.${key}` : key;
+      const av = objA[key];
+      const bv = objB[key];
+
+      if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
+      if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
+        diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
+        continue;
+      }
+      if (isUndefinedLike(av) && !isUndefinedLike(bv)) {
+        diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
+        continue;
+      }
+      diffs.push(...diffOcfObjects(av, bv, subPath));
+    }
+    return diffs;
+  }
+
+  // Compare primitive values with normalization
+  const normalizedA = normalizeOcfValue(a);
+  const normalizedB = normalizeOcfValue(b);
+
+  if (normalizedA !== normalizedB) {
+    diffs.push(`${path || '(root)'}: ${JSON.stringify(normalizedA)} != ${JSON.stringify(normalizedB)}`);
+  }
+  return diffs;
+}
+
+/**
+ * Error interface for OCF mismatch errors with diff information.
+ */
+export interface OcfMismatchError extends Error {
+  /** List of differences between the two OCF objects */
+  ocfDiffs: string[];
+  /** The ledger/source OCF data */
+  ledgerOcfJson: unknown;
+  /** The database/destination OCF data */
+  dbOcfJson: unknown;
+}
+
+/**
+ * Type guard to check if an error is an OCF mismatch error.
+ *
+ * @param error - Error to check
+ * @returns True if error is an OcfMismatchError
+ */
+export function isOcfMismatchError(error: unknown): error is OcfMismatchError {
+  return error instanceof Error && 'ocfDiffs' in error && 'ledgerOcfJson' in error && 'dbOcfJson' in error;
+}
+
+/**
+ * Create an enhanced error with OCF diff information.
+ *
+ * @param message - Error message
+ * @param diffs - Array of diff descriptions from diffOcfObjects
+ * @param ledgerData - The ledger/source OCF data
+ * @param dbData - The database/destination OCF data
+ * @returns An OcfMismatchError with the diff information attached
+ *
+ * @example
+ * ```typescript
+ * const diffs = diffOcfObjects(ledgerData, dbData);
+ * if (diffs.length > 0) {
+ *   throw createOcfMismatchError('OCF data mismatch', diffs, ledgerData, dbData);
+ * }
+ * ```
+ */
+export function createOcfMismatchError(
+  message: string,
+  diffs: string[],
+  ledgerData: unknown,
+  dbData: unknown
+): OcfMismatchError {
+  // eslint-disable-next-line no-console
+  console.error('ledgerData', JSON.stringify(ledgerData, null, 2));
+  // eslint-disable-next-line no-console
+  console.error('dbData', JSON.stringify(dbData, null, 2));
+  const error = new Error(message) as OcfMismatchError;
+  error.ocfDiffs = diffs;
+  error.ledgerOcfJson = ledgerData;
+  error.dbOcfJson = dbData;
+  return error;
+}
+
+/**
+ * Strip internal and deprecated fields from an OCF object for cleaner comparison.
+ *
+ * @param obj - The OCF object to clean
+ * @param fieldsToRemove - Fields to remove (defaults to DEFAULT_INTERNAL_FIELDS + DEFAULT_DEPRECATED_FIELDS)
+ * @returns A new object with the specified fields removed
+ */
 export function stripInternalFields<T extends Record<string, unknown>>(
   obj: T,
   fieldsToRemove?: readonly string[]
