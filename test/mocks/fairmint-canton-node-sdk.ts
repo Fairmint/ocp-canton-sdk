@@ -52,7 +52,9 @@ export class LedgerJsonApiClient {
     throw error;
   });
 
-  public getActiveContracts = jest.fn();
+  public getActiveContracts = jest.fn(async () => {
+    return [];
+  });
 
   constructor(config?: ClientConfig) {
     this.config = config;
