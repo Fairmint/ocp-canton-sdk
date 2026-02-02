@@ -8,9 +8,71 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
 import type { OcfEntityType } from './batchTypes';
+
+/**
+ * Type guard to check if a contract entry is a JsActiveContract with complete structure.
+ * Based on the pattern from canton-node-sdk's get-amulets-for-transfer.ts.
+ *
+ * Validates that:
+ * - contractEntry exists and is an object
+ * - JsActiveContract property exists
+ * - createdEvent exists with contractId (string) and createArgument (object)
+ *
+ * Note: We cast to unknown first to perform defensive runtime validation,
+ * as API responses may not match expected types at runtime.
+ */
+function isJsActiveContractItem(item: JsGetActiveContractsResponseItem): item is JsGetActiveContractsResponseItem & {
+  contractEntry: {
+    JsActiveContract: {
+      createdEvent: { contractId: string; createArgument: Record<string, unknown> };
+    };
+  };
+} {
+  // Cast to unknown for defensive runtime validation of API responses
+  const { contractEntry } = item as unknown as { contractEntry?: unknown };
+
+  // Check contractEntry exists and is an object
+  if (!contractEntry || typeof contractEntry !== 'object') {
+    return false;
+  }
+
+  // Check JsActiveContract exists in the union type
+  if (!('JsActiveContract' in contractEntry)) {
+    return false;
+  }
+
+  // Narrow to check nested structure safely
+  const jsActiveContract = (contractEntry as { JsActiveContract?: unknown }).JsActiveContract;
+  if (!jsActiveContract || typeof jsActiveContract !== 'object') {
+    return false;
+  }
+
+  const { createdEvent } = jsActiveContract as { createdEvent?: unknown };
+  if (!createdEvent || typeof createdEvent !== 'object') {
+    return false;
+  }
+
+  const { contractId, createArgument } = createdEvent as {
+    contractId?: unknown;
+    createArgument?: unknown;
+  };
+
+  // Validate contractId is a string
+  if (typeof contractId !== 'string') {
+    return false;
+  }
+
+  // Validate createArgument exists and is an object
+  if (!createArgument || typeof createArgument !== 'object') {
+    return false;
+  }
+
+  return true;
+}
 
 /**
  * Mapping from CapTable contract field names (snake_case) to OcfEntityType (camelCase).
@@ -154,31 +216,25 @@ export async function getCapTableState(
   // Extract payload from the first matching contract
   const capTableContract = contracts[0];
 
-  // Handle JSON API v2 response format:
-  // { contractEntry: { JsActiveContract: { createdEvent: { contractId, payload, ... } } } }
-  // Also handle legacy formats for backward compatibility
-  interface JsActiveContractResponse {
-    contractEntry?: {
-      JsActiveContract?: {
-        createdEvent?: {
-          contractId?: string;
-          payload?: Record<string, unknown>;
-        };
-      };
+  // Extract contract ID and payload using the SDK's response format
+  let contractId: string;
+  let payload: Record<string, unknown>;
+
+  if (isJsActiveContractItem(capTableContract)) {
+    // JSON API v2 format (preferred)
+    const { createdEvent } = capTableContract.contractEntry.JsActiveContract;
+    ({ contractId, createArgument: payload } = createdEvent);
+  } else {
+    // Legacy format fallback for backward compatibility
+    const legacyData = capTableContract as unknown as {
+      contractId?: string;
+      contract_id?: string;
+      payload?: Record<string, unknown>;
+      contract?: { payload?: Record<string, unknown> };
     };
-    // Legacy format fields
-    contractId?: string;
-    contract_id?: string;
-    payload?: Record<string, unknown>;
-    contract?: { payload?: Record<string, unknown> };
+    contractId = legacyData.contractId ?? legacyData.contract_id ?? '';
+    payload = legacyData.payload ?? legacyData.contract?.payload ?? {};
   }
-
-  const contractData = capTableContract as unknown as JsActiveContractResponse;
-
-  // Extract from JSON API v2 format first, then fall back to legacy formats
-  const createdEvent = contractData.contractEntry?.JsActiveContract?.createdEvent;
-  const contractId = createdEvent?.contractId ?? contractData.contractId ?? contractData.contract_id ?? '';
-  const payload = createdEvent?.payload ?? contractData.payload ?? contractData.contract?.payload ?? {};
 
   // Build entity maps from payload fields
   const entities = new Map<OcfEntityType, Set<string>>();

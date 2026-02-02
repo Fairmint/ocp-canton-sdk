@@ -52,6 +52,23 @@ export class LedgerJsonApiClient {
     throw error;
   });
 
+  public getActiveContracts = jest.fn(async () => {
+    // Allow tests to override via helper
+    const override = (this as any).__activeContractsResponseOverride;
+    if (override !== undefined) return Promise.resolve(override);
+
+    // No fixture configured - this is an error (consistent with other mock methods)
+    throw new Error(
+      `No active contracts fixture configured. Use __setActiveContractsResponse() in your test setup ` +
+        `or mock getActiveContracts directly.`
+    );
+  });
+
+  __setActiveContractsResponse(resp: unknown[]) {
+    (this as any).__activeContractsResponseOverride = resp;
+    (this.getActiveContracts as jest.Mock).mockResolvedValue(resp);
+  }
+
   constructor(config?: ClientConfig) {
     this.config = config;
     (LedgerJsonApiClient.__instances as any).push(this);
