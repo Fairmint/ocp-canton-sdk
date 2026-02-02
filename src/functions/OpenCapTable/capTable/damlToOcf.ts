@@ -43,6 +43,7 @@ import {
   type DamlStakeholderRelationshipType,
 } from '../../../utils/enumConversions';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import type { Monetary } from '../../../types/native';
 
 // ===== Data field name mapping for contract extraction =====
 
@@ -111,6 +112,149 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
   warrantTransfer: 'transfer_data',
 };
 
+// ===== DAML Input Type Definitions =====
+// These types represent the expected structure of DAML contract data
+
+/** Base DAML transaction data with common fields */
+interface DamlBaseTransactionData {
+  id: string;
+  date: string;
+  security_id: string;
+  comments?: string[];
+}
+
+/** DAML quantity-based transfer data */
+interface DamlQuantityTransferData extends DamlBaseTransactionData {
+  quantity: string;
+  resulting_security_ids: string[];
+  balance_security_id?: string;
+  consideration_text?: string;
+}
+
+/** DAML convertible transfer data (amount-based) */
+interface DamlConvertibleTransferData extends DamlBaseTransactionData {
+  amount: { amount: string; currency: string };
+  resulting_security_ids: string[];
+  balance_security_id?: string;
+  consideration_text?: string;
+}
+
+/** DAML quantity-based cancellation data */
+interface DamlQuantityCancellationData extends DamlBaseTransactionData {
+  quantity: string;
+  reason_text: string;
+  balance_security_id?: string;
+}
+
+/** DAML convertible cancellation data */
+interface DamlConvertibleCancellationData extends DamlBaseTransactionData {
+  reason_text: string;
+  balance_security_id?: string;
+}
+
+/** DAML stock repurchase data */
+interface DamlStockRepurchaseData extends DamlBaseTransactionData {
+  quantity: string;
+  price?: { amount: string; currency: string };
+  balance_security_id?: string;
+  consideration_text?: string;
+}
+
+/** DAML stakeholder relationship change event data */
+interface DamlStakeholderRelationshipChangeData {
+  id: string;
+  date: string;
+  stakeholder_id: string;
+  new_relationships: string[];
+  comments?: string[];
+}
+
+/** DAML stakeholder status change event data */
+interface DamlStakeholderStatusChangeData {
+  id: string;
+  date: string;
+  stakeholder_id: string;
+  new_status: string;
+  comments?: string[];
+}
+
+// ===== Native Output Type Definitions =====
+
+/** Native quantity-based transfer output */
+interface NativeQuantityTransfer {
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string;
+  resulting_security_ids: string[];
+  balance_security_id?: string;
+  consideration_text?: string;
+  comments?: string[];
+}
+
+/** Native convertible transfer output */
+interface NativeConvertibleTransfer {
+  id: string;
+  date: string;
+  security_id: string;
+  amount: Monetary;
+  resulting_security_ids: string[];
+  balance_security_id?: string;
+  consideration_text?: string;
+  comments?: string[];
+}
+
+/** Native quantity-based cancellation output */
+interface NativeQuantityCancellation {
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string;
+  reason_text: string;
+  balance_security_id?: string;
+  comments?: string[];
+}
+
+/** Native convertible cancellation output */
+interface NativeConvertibleCancellation {
+  id: string;
+  date: string;
+  security_id: string;
+  reason_text: string;
+  balance_security_id?: string;
+  comments?: string[];
+}
+
+/** Native stock repurchase output */
+interface NativeStockRepurchase {
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string;
+  price?: Monetary;
+  balance_security_id?: string;
+  consideration_text?: string;
+  comments?: string[];
+}
+
+/** Native stakeholder relationship change event output */
+interface NativeStakeholderRelationshipChange {
+  id: string;
+  date: string;
+  stakeholder_id: string;
+  new_relationships: string[];
+  comments?: string[];
+}
+
+/** Native stakeholder status change event output */
+interface NativeStakeholderStatusChange {
+  id: string;
+  date: string;
+  stakeholder_id: string;
+  new_status: string;
+  comments?: string[];
+}
+
 // ===== Shared inline converters for types that share common patterns =====
 // These are kept inline because they handle multiple entity types with the same structure
 
@@ -118,13 +262,13 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
  * Transfer converter for stock/warrant/equity compensation (quantity-based).
  * Used by: stockTransfer, warrantTransfer, equityCompensationTransfer, planSecurityTransfer
  */
-function quantityTransferDataToNative(d: Record<string, unknown>): Record<string, unknown> {
+function quantityTransferDataToNative(d: DamlQuantityTransferData): NativeQuantityTransfer {
   return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    quantity: normalizeNumericString(d.quantity as string),
-    resulting_security_ids: d.resulting_security_ids as string[],
+    id: d.id,
+    date: damlTimeToDateString(d.date),
+    security_id: d.security_id,
+    quantity: normalizeNumericString(d.quantity),
+    resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
@@ -135,13 +279,13 @@ function quantityTransferDataToNative(d: Record<string, unknown>): Record<string
  * Transfer converter for convertibles (amount-based).
  * Used by: convertibleTransfer
  */
-function convertibleTransferDataToNative(d: Record<string, unknown>): Record<string, unknown> {
+function convertibleTransferDataToNative(d: DamlConvertibleTransferData): NativeConvertibleTransfer {
   return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    amount: damlMonetaryToNative(d.amount as { amount: string; currency: string }),
-    resulting_security_ids: d.resulting_security_ids as string[],
+    id: d.id,
+    date: damlTimeToDateString(d.date),
+    security_id: d.security_id,
+    amount: damlMonetaryToNative(d.amount),
+    resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
@@ -152,13 +296,13 @@ function convertibleTransferDataToNative(d: Record<string, unknown>): Record<str
  * Cancellation converter for stock/warrant/equity compensation (quantity-based).
  * Used by: stockCancellation, warrantCancellation, equityCompensationCancellation, planSecurityCancellation
  */
-function quantityCancellationDataToNative(d: Record<string, unknown>): Record<string, unknown> {
+function quantityCancellationDataToNative(d: DamlQuantityCancellationData): NativeQuantityCancellation {
   return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    quantity: normalizeNumericString(d.quantity as string),
-    reason_text: d.reason_text as string,
+    id: d.id,
+    date: damlTimeToDateString(d.date),
+    security_id: d.security_id,
+    quantity: normalizeNumericString(d.quantity),
+    reason_text: d.reason_text,
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
@@ -168,12 +312,12 @@ function quantityCancellationDataToNative(d: Record<string, unknown>): Record<st
  * Cancellation converter for convertibles (no quantity field).
  * Used by: convertibleCancellation
  */
-function convertibleCancellationDataToNative(d: Record<string, unknown>): Record<string, unknown> {
+function convertibleCancellationDataToNative(d: DamlConvertibleCancellationData): NativeConvertibleCancellation {
   return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    reason_text: d.reason_text as string,
+    id: d.id,
+    date: damlTimeToDateString(d.date),
+    security_id: d.security_id,
+    reason_text: d.reason_text,
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
@@ -183,15 +327,13 @@ function convertibleCancellationDataToNative(d: Record<string, unknown>): Record
  * Repurchase converter.
  * Used by: stockRepurchase
  */
-function stockRepurchaseDataToNative(d: Record<string, unknown>): Record<string, unknown> {
+function stockRepurchaseDataToNative(d: DamlStockRepurchaseData): NativeStockRepurchase {
   return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    security_id: d.security_id as string,
-    quantity: normalizeNumericString(d.quantity as string),
-    ...(d.price && typeof d.price === 'object'
-      ? { price: damlMonetaryToNative(d.price as { amount: string; currency: string }) }
-      : {}),
+    id: d.id,
+    date: damlTimeToDateString(d.date),
+    security_id: d.security_id,
+    quantity: normalizeNumericString(d.quantity),
+    ...(d.price ? { price: damlMonetaryToNative(d.price) } : {}),
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
@@ -202,13 +344,14 @@ function stockRepurchaseDataToNative(d: Record<string, unknown>): Record<string,
  * Stakeholder relationship change event converter.
  * Used by: stakeholderRelationshipChangeEvent
  */
-function stakeholderRelationshipChangeEventToNative(d: Record<string, unknown>): Record<string, unknown> {
-  const newRelationships = d.new_relationships as string[];
+function stakeholderRelationshipChangeEventToNative(
+  d: DamlStakeholderRelationshipChangeData
+): NativeStakeholderRelationshipChange {
   return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    stakeholder_id: d.stakeholder_id as string,
-    new_relationships: newRelationships.map((rel) =>
+    id: d.id,
+    date: damlTimeToDateString(d.date),
+    stakeholder_id: d.stakeholder_id,
+    new_relationships: d.new_relationships.map((rel) =>
       damlStakeholderRelationshipToNative(rel as DamlStakeholderRelationshipType)
     ),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
@@ -219,12 +362,12 @@ function stakeholderRelationshipChangeEventToNative(d: Record<string, unknown>):
  * Stakeholder status change event converter.
  * Used by: stakeholderStatusChangeEvent
  */
-function stakeholderStatusChangeEventToNative(d: Record<string, unknown>): Record<string, unknown> {
+function stakeholderStatusChangeEventToNative(d: DamlStakeholderStatusChangeData): NativeStakeholderStatusChange {
   return {
-    id: d.id as string,
-    date: damlTimeToDateString(d.date as string),
-    stakeholder_id: d.stakeholder_id as string,
-    new_status: d.new_status as string,
+    id: d.id,
+    date: damlTimeToDateString(d.date),
+    stakeholder_id: d.stakeholder_id,
+    new_status: d.new_status,
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }
@@ -398,39 +541,41 @@ export function convertToOcf<T extends SupportedOcfReadType>(
     case 'stockTransfer':
     case 'equityCompensationTransfer':
     case 'warrantTransfer':
-      return quantityTransferDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return quantityTransferDataToNative(data as DamlQuantityTransferData) as OcfDataTypeFor<T>;
 
     // Transfer types - amount-based (convertibles)
     case 'convertibleTransfer':
-      return convertibleTransferDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return convertibleTransferDataToNative(data as DamlConvertibleTransferData) as OcfDataTypeFor<T>;
 
     // Cancellation types - quantity-based (shared converter)
     case 'stockCancellation':
     case 'equityCompensationCancellation':
     case 'warrantCancellation':
-      return quantityCancellationDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return quantityCancellationDataToNative(data as DamlQuantityCancellationData) as OcfDataTypeFor<T>;
 
     // Cancellation types - no quantity (convertibles)
     case 'convertibleCancellation':
-      return convertibleCancellationDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return convertibleCancellationDataToNative(data as DamlConvertibleCancellationData) as OcfDataTypeFor<T>;
 
     // Repurchase
     case 'stockRepurchase':
-      return stockRepurchaseDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return stockRepurchaseDataToNative(data as DamlStockRepurchaseData) as OcfDataTypeFor<T>;
 
     // Stakeholder events
     case 'stakeholderRelationshipChangeEvent':
-      return stakeholderRelationshipChangeEventToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return stakeholderRelationshipChangeEventToNative(
+        data as DamlStakeholderRelationshipChangeData
+      ) as OcfDataTypeFor<T>;
     case 'stakeholderStatusChangeEvent':
-      return stakeholderStatusChangeEventToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return stakeholderStatusChangeEventToNative(data as DamlStakeholderStatusChangeData) as OcfDataTypeFor<T>;
 
     // PlanSecurity aliases - delegate to EquityCompensation converters
     case 'planSecurityAcceptance':
       return damlEquityCompensationAcceptanceToNative(
-        damlData as unknown as Parameters<typeof damlEquityCompensationAcceptanceToNative>[0]
+        data as Parameters<typeof damlEquityCompensationAcceptanceToNative>[0]
       ) as OcfDataTypeFor<T>;
     case 'planSecurityCancellation':
-      return quantityCancellationDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return quantityCancellationDataToNative(data as DamlQuantityCancellationData) as OcfDataTypeFor<T>;
     case 'planSecurityRelease':
       return damlEquityCompensationReleaseToNative(
         damlData as unknown as Parameters<typeof damlEquityCompensationReleaseToNative>[0]
@@ -440,7 +585,7 @@ export function convertToOcf<T extends SupportedOcfReadType>(
         damlData as unknown as Parameters<typeof damlEquityCompensationRetractionToNative>[0]
       ) as OcfDataTypeFor<T>;
     case 'planSecurityTransfer':
-      return quantityTransferDataToNative(damlData) as unknown as OcfDataTypeFor<T>;
+      return quantityTransferDataToNative(data as DamlQuantityTransferData) as OcfDataTypeFor<T>;
 
     default: {
       throw new OcpParseError(`Unsupported entity type for convertToOcf: ${type}`, {

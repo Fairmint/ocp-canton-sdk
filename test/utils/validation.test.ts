@@ -3,7 +3,6 @@
  */
 import { OcpValidationError } from '../../src/errors';
 import {
-  ValidationError,
   createValidator,
   validateArrayItems,
   validateContractId,
@@ -27,11 +26,7 @@ import {
   validateRequiredString,
 } from '../../src/utils/validation';
 
-describe('ValidationError alias', () => {
-  it('ValidationError is aliased to OcpValidationError', () => {
-    expect(ValidationError).toBe(OcpValidationError);
-  });
-
+describe('OcpValidationError', () => {
   it('creates error with field path and message', () => {
     const error = new OcpValidationError('stakeholder.id', 'Required field is missing', {
       expectedType: 'non-empty string',

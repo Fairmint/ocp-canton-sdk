@@ -54,7 +54,7 @@ export async function getEquityCompensationIssuanceAsOcf(
   const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
   const d = (arg.issuance_data ?? arg) as Record<string, unknown>;
 
-  const compMap: Record<string, OcfEquityCompensationIssuanceEvent['compensation_type']> = {
+  const compMap: Partial<Record<string, OcfEquityCompensationIssuanceEvent['compensation_type']>> = {
     OcfCompensationTypeOptionNSO: 'OPTION_NSO',
     OcfCompensationTypeOptionISO: 'OPTION_ISO',
     OcfCompensationTypeOption: 'OPTION',
