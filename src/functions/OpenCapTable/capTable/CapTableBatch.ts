@@ -215,7 +215,7 @@ export class CapTableBatch {
     }
 
     throw new OcpContractError(
-      `UpdateCapTable result not found in transaction tree [batch: ${batchSummary.creates} creates, ${batchSummary.edits} edits, ${batchSummary.deletes} deletes]`,
+      `UpdateCapTable result not found in transaction tree [batch: ${batchSummary.creates} creates, ${batchSummary.edits} edits, ${batchSummary.deletes} deletes; types: ${batchSummary.entityTypes.join(', ')}]`,
       {
         contractId: this.params.capTableContractId,
         choice: 'UpdateCapTable',
