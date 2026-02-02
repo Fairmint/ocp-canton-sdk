@@ -333,7 +333,7 @@ function stockRepurchaseDataToNative(d: DamlStockRepurchaseData): NativeStockRep
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
-    ...(d.price ? { price: damlMonetaryToNative(d.price) } : {}),
+    ...(d.price && typeof d.price === 'object' ? { price: damlMonetaryToNative(d.price) } : {}),
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
