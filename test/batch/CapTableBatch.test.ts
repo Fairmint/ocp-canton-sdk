@@ -215,6 +215,118 @@ describe('CapTableBatch', () => {
 
       await expect(batch.execute()).rejects.toThrow('Cannot execute batch without a client');
     });
+
+    it('should wrap submitAndWaitForTransactionTree errors with batch context', async () => {
+      const mockClient = {
+        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(new Error('DAML_FAILURE: Invalid contract')),
+      };
+
+      const batch = new CapTableBatch(
+        {
+          capTableContractId: 'cap-table-123',
+          actAs: ['party-1'],
+        },
+        mockClient as never
+      );
+
+      batch.create('stakeholder', {
+        id: 'sh-123',
+        name: { legal_name: 'John Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+      } as OcfStakeholder);
+
+      await expect(batch.execute()).rejects.toThrow(/Batch execution failed: DAML_FAILURE: Invalid contract/);
+      await expect(batch.execute()).rejects.toThrow(/\[batch: 1 creates, 0 edits, 0 deletes; types: Stakeholder\]/);
+    });
+
+    it('should include multiple entity types in error context', async () => {
+      const mockClient = {
+        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(new Error('Network error')),
+      };
+
+      const batch = new CapTableBatch(
+        {
+          capTableContractId: 'cap-table-123',
+          actAs: ['party-1'],
+        },
+        mockClient as never
+      );
+
+      batch
+        .create('stakeholder', {
+          id: 'sh-123',
+          name: { legal_name: 'John Doe' },
+          stakeholder_type: 'INDIVIDUAL',
+        } as OcfStakeholder)
+        .edit('stockClass', {
+          id: 'sc-123',
+          name: 'Common Stock',
+          class_type: 'COMMON',
+          default_id_prefix: 'CS-',
+          initial_shares_authorized: '10000000',
+          votes_per_share: '1',
+          seniority: '1',
+        } as OcfStockClass)
+        .delete('document', 'doc-123');
+
+      await expect(batch.execute()).rejects.toThrow(/\[batch: 1 creates, 1 edits, 1 deletes/);
+    });
+
+    it('should throw RESULT_NOT_FOUND with batch context when UpdateCapTable result missing', async () => {
+      // Mock a transaction tree that doesn't contain the UpdateCapTable exercised event
+      const mockClient = {
+        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
+          transactionTree: {
+            updateId: 'update-123',
+            eventsById: {
+              // Empty or contains other events but not UpdateCapTable
+              'event-1': {
+                CreatedTreeEvent: {
+                  value: { templateId: 'some-template' },
+                },
+              },
+            },
+          },
+        }),
+      };
+
+      const batch = new CapTableBatch(
+        {
+          capTableContractId: 'cap-table-123',
+          actAs: ['party-1'],
+        },
+        mockClient as never
+      );
+
+      batch.delete('stakeholder', 'sh-123');
+
+      await expect(batch.execute()).rejects.toThrow(/UpdateCapTable result not found in transaction tree/);
+      await expect(batch.execute()).rejects.toThrow(/\[batch: 0 creates, 0 edits, 1 deletes; types: Stakeholder\]/);
+    });
+
+    it('should set cause property when wrapping errors', async () => {
+      const originalError = new Error('Original DAML error');
+      const mockClient = {
+        submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(originalError),
+      };
+
+      const batch = new CapTableBatch(
+        {
+          capTableContractId: 'cap-table-123',
+          actAs: ['party-1'],
+        },
+        mockClient as never
+      );
+
+      batch.delete('document', 'doc-123');
+
+      try {
+        await batch.execute();
+        throw new Error('Expected execute to throw');
+      } catch (error) {
+        expect(error).toHaveProperty('cause', originalError);
+      }
+    });
   });
 });
 

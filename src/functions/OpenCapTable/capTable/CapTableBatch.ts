@@ -146,7 +146,7 @@ export class CapTableBatch {
    *
    * @returns The result containing the update ID (transaction ID), updated cap table contract ID, and affected entity IDs
    * @throws OcpValidationError if no client was provided or if the batch is empty
-   * @throws OcpContractError if the UpdateCapTable result is not found in the transaction tree
+   * @throws OcpContractError if the UpdateCapTable result is not found in the transaction tree or if execution fails
    */
   async execute(): Promise<CapTableBatchExecuteResult> {
     if (!this.client) {
@@ -161,13 +161,30 @@ export class CapTableBatch {
 
     const { command, disclosedContracts } = this.build();
 
-    const response = await this.client.submitAndWaitForTransactionTree({
-      commands: [command],
-      commandId: `update-captable-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      actAs: this.params.actAs,
-      readAs: this.params.readAs,
-      disclosedContracts,
-    });
+    // Get batch summary for error context
+    const batchSummary = this.getBatchSummary();
+
+    let response: Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
+    try {
+      response = await this.client.submitAndWaitForTransactionTree({
+        commands: [command],
+        commandId: `update-captable-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        actAs: this.params.actAs,
+        readAs: this.params.readAs,
+        disclosedContracts,
+      });
+    } catch (error) {
+      // Wrap the error with batch context for better debugging
+      const originalMessage = error instanceof Error ? error.message : String(error);
+      const contextMessage = `Batch execution failed: ${originalMessage} ${batchSummary.formatted}`;
+
+      throw new OcpContractError(contextMessage, {
+        contractId: this.params.capTableContractId,
+        choice: 'UpdateCapTable',
+        cause: error instanceof Error ? error : new Error(String(error)),
+        code: OcpErrorCodes.CHOICE_FAILED,
+      });
+    }
 
     // Extract the result from the transaction tree
     const tree = response.transactionTree;
@@ -194,11 +211,51 @@ export class CapTableBatch {
       }
     }
 
-    throw new OcpContractError('UpdateCapTable result not found in transaction tree', {
+    throw new OcpContractError(`UpdateCapTable result not found in transaction tree ${batchSummary.formatted}`, {
       contractId: this.params.capTableContractId,
       choice: 'UpdateCapTable',
       code: OcpErrorCodes.RESULT_NOT_FOUND,
     });
+  }
+
+  /** Get a summary of the batch operations for logging and error messages. */
+  private getBatchSummary(): {
+    creates: number;
+    edits: number;
+    deletes: number;
+    entityTypes: string[];
+    formatted: string;
+  } {
+    // Extract unique entity types from the tags (e.g., "OcfCreateStakeholder" -> "Stakeholder")
+    const extractEntityType = (tag: string): string => {
+      // Tags are like "OcfCreateStakeholder", "OcfEditStockClass", "OcfStakeholderId"
+      const match = tag.match(/Ocf(?:Create|Edit|Delete)?(.+?)(?:Id)?$/);
+      return match?.[1] ?? tag;
+    };
+
+    const entityTypes = new Set<string>();
+    for (const op of this.creates) {
+      entityTypes.add(extractEntityType(op.tag));
+    }
+    for (const op of this.edits) {
+      entityTypes.add(extractEntityType(op.tag));
+    }
+    for (const op of this.deletes) {
+      entityTypes.add(extractEntityType(op.tag));
+    }
+
+    const createsCount = this.creates.length;
+    const editsCount = this.edits.length;
+    const deletesCount = this.deletes.length;
+    const entityTypesArray = Array.from(entityTypes);
+
+    return {
+      creates: createsCount,
+      edits: editsCount,
+      deletes: deletesCount,
+      entityTypes: entityTypesArray,
+      formatted: `[batch: ${createsCount} creates, ${editsCount} edits, ${deletesCount} deletes; types: ${entityTypesArray.join(', ')}]`,
+    };
   }
 
   /** Clear all operations from the batch. */
