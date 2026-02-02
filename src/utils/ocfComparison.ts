@@ -431,10 +431,6 @@ export function createOcfMismatchError(
   ledgerData: unknown,
   dbData: unknown
 ): OcfMismatchError {
-  // eslint-disable-next-line no-console
-  console.error('ledgerData', JSON.stringify(ledgerData, null, 2));
-  // eslint-disable-next-line no-console
-  console.error('dbData', JSON.stringify(dbData, null, 2));
   const error = new Error(message) as OcfMismatchError;
   error.ocfDiffs = diffs;
   error.ledgerOcfJson = ledgerData;
