@@ -65,7 +65,7 @@ function mapDamlDayOfMonthToOcf(day: string): string {
     OcfVestingDay31OrLast: '31_OR_LAST_DAY_OF_MONTH',
     OcfVestingStartDayOrLast: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
   };
-  return table[day] || 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH';
+  return table[day] ?? 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH';
 }
 
 function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unknown> }): {

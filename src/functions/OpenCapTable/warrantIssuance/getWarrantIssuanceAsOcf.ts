@@ -342,11 +342,11 @@ export async function getWarrantIssuanceAsOcf(
               : typeof raw === 'string'
                 ? raw
                 : '';
-        const type: ConversionTriggerType = mapTagToType(String(tag));
+        const type: ConversionTriggerType = mapTagToType(tag);
         const trigger_id: string =
           typeof r.trigger_id === 'string' && r.trigger_id.length
             ? r.trigger_id
-            : `${String(d.id)}-warrant-trigger-${idx + 1}`;
+            : `${typeof d.id === 'string' ? d.id : ''}-warrant-trigger-${idx + 1}`;
         const nickname: string | undefined =
           typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
         const trigger_description: string | undefined =
@@ -400,13 +400,45 @@ export async function getWarrantIssuanceAsOcf(
 
   const comments = Array.isArray(d.comments) && d.comments.length > 0 ? (d.comments as string[]) : undefined;
 
+  // Validate required string fields
+  if (typeof d.id !== 'string' || !d.id) {
+    throw new OcpValidationError('warrantIssuance.id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.id,
+    });
+  }
+  if (typeof d.date !== 'string' || !d.date) {
+    throw new OcpValidationError('warrantIssuance.date', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.date,
+    });
+  }
+  if (typeof d.security_id !== 'string' || !d.security_id) {
+    throw new OcpValidationError('warrantIssuance.security_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.security_id,
+    });
+  }
+  if (typeof d.custom_id !== 'string' || !d.custom_id) {
+    throw new OcpValidationError('warrantIssuance.custom_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.custom_id,
+    });
+  }
+  if (typeof d.stakeholder_id !== 'string' || !d.stakeholder_id) {
+    throw new OcpValidationError('warrantIssuance.stakeholder_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.stakeholder_id,
+    });
+  }
+
   const event: OcfWarrantIssuanceEvent = {
     object_type: 'TX_WARRANT_ISSUANCE',
-    id: String(d.id),
-    date: (d.date as string).split('T')[0],
-    security_id: String(d.security_id),
-    custom_id: String(d.custom_id),
-    stakeholder_id: String(d.stakeholder_id),
+    id: d.id,
+    date: d.date.split('T')[0],
+    security_id: d.security_id,
+    custom_id: d.custom_id,
+    stakeholder_id: d.stakeholder_id,
     ...(d.quantity !== null &&
     d.quantity !== undefined &&
     (typeof d.quantity === 'number' || typeof d.quantity === 'string')

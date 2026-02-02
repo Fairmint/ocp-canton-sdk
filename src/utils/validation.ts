@@ -21,12 +21,6 @@ import { OcpErrorCodes, OcpValidationError } from '../errors';
 // Re-export OcpValidationError for convenience
 export { OcpValidationError };
 
-/**
- * @deprecated Use OcpValidationError directly from '@open-captable-protocol/canton' errors
- * This alias exists for backward compatibility
- */
-export const ValidationError = OcpValidationError;
-
 // ===== String Validation =====
 
 /**

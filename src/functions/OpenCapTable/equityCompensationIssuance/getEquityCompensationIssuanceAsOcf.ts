@@ -135,7 +135,7 @@ export async function getEquityCompensationIssuanceAsOcf(
     Array.isArray(d.termination_exercise_windows) && d.termination_exercise_windows.length > 0
       ? (d.termination_exercise_windows as Array<{ reason: string; period: string | number; period_type: string }>).map(
           (w) => ({
-            reason: twMapReason[w.reason] || 'VOLUNTARY_OTHER',
+            reason: twMapReason[w.reason] ?? 'VOLUNTARY_OTHER',
             period: typeof w.period === 'string' ? Number(w.period) : w.period,
             period_type: twMapPeriodType[w.period_type],
           })
@@ -144,7 +144,43 @@ export async function getEquityCompensationIssuanceAsOcf(
 
   const comments = Array.isArray(d.comments) && d.comments.length > 0 ? (d.comments as string[]) : undefined;
 
-  // Validate required quantity field
+  // Validate required fields
+  if (typeof d.id !== 'string' || !d.id) {
+    throw new OcpValidationError('equityCompensationIssuance.id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.id,
+    });
+  }
+  if (typeof d.date !== 'string' || !d.date) {
+    throw new OcpValidationError('equityCompensationIssuance.date', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.date,
+    });
+  }
+  if (typeof d.security_id !== 'string' || !d.security_id) {
+    throw new OcpValidationError('equityCompensationIssuance.security_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.security_id,
+    });
+  }
+  if (typeof d.custom_id !== 'string' || !d.custom_id) {
+    throw new OcpValidationError('equityCompensationIssuance.custom_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.custom_id,
+    });
+  }
+  if (typeof d.stakeholder_id !== 'string' || !d.stakeholder_id) {
+    throw new OcpValidationError('equityCompensationIssuance.stakeholder_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.stakeholder_id,
+    });
+  }
+  if (typeof d.compensation_type !== 'string' || !d.compensation_type) {
+    throw new OcpValidationError('equityCompensationIssuance.compensation_type', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.compensation_type,
+    });
+  }
   if (d.quantity === undefined || d.quantity === null) {
     throw new OcpValidationError('equityCompensationIssuance.quantity', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -162,14 +198,22 @@ export async function getEquityCompensationIssuanceAsOcf(
     );
   }
 
+  const compensationType = compMap[d.compensation_type];
+  if (!compensationType) {
+    throw new OcpValidationError('equityCompensationIssuance.compensation_type', `Unknown compensation type: ${d.compensation_type}`, {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      receivedValue: d.compensation_type,
+    });
+  }
+
   const event: OcfEquityCompensationIssuanceEvent = {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
-    id: String(d.id),
-    date: (d.date as string).split('T')[0],
-    security_id: String(d.security_id),
-    custom_id: String(d.custom_id),
-    stakeholder_id: String(d.stakeholder_id),
-    compensation_type: compMap[(d.compensation_type as string) || 'OcfCompensationTypeOption'],
+    id: d.id,
+    date: d.date.split('T')[0],
+    security_id: d.security_id,
+    custom_id: d.custom_id,
+    stakeholder_id: d.stakeholder_id,
+    compensation_type: compensationType,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
     expiration_date: d.expiration_date ? (d.expiration_date as string).split('T')[0] : null,
     termination_exercise_windows: termination_exercise_windows ?? [],
