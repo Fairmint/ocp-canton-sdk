@@ -176,10 +176,14 @@ export async function getEquityCompensationIssuanceAsOcf(
     });
   }
   if (typeof d.compensation_type !== 'string' || !d.compensation_type) {
-    throw new OcpValidationError('equityCompensationIssuance.compensation_type', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.compensation_type,
-    });
+    throw new OcpValidationError(
+      'equityCompensationIssuance.compensation_type',
+      'Required field is missing or invalid',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        receivedValue: d.compensation_type,
+      }
+    );
   }
   if (d.quantity === undefined || d.quantity === null) {
     throw new OcpValidationError('equityCompensationIssuance.quantity', 'Required field is missing', {
@@ -200,10 +204,14 @@ export async function getEquityCompensationIssuanceAsOcf(
 
   const compensationType = compMap[d.compensation_type];
   if (!compensationType) {
-    throw new OcpValidationError('equityCompensationIssuance.compensation_type', `Unknown compensation type: ${d.compensation_type}`, {
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      receivedValue: d.compensation_type,
-    });
+    throw new OcpValidationError(
+      'equityCompensationIssuance.compensation_type',
+      `Unknown compensation type: ${d.compensation_type}`,
+      {
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        receivedValue: d.compensation_type,
+      }
+    );
   }
 
   const event: OcfEquityCompensationIssuanceEvent = {

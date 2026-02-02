@@ -38,12 +38,12 @@ import { damlWarrantExerciseToNative } from '../warrantExercise/damlToOcf';
 import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 
 // Import shared utilities
+import type { Monetary } from '../../../types/native';
 import {
   damlStakeholderRelationshipToNative,
   type DamlStakeholderRelationshipType,
 } from '../../../utils/enumConversions';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
-import type { Monetary } from '../../../types/native';
 
 // ===== Data field name mapping for contract extraction =====
 

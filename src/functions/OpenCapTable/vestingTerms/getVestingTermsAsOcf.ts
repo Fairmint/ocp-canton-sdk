@@ -254,7 +254,7 @@ function damlVestingTermsDataToNative(
   d: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
 ): Omit<OcfVestingTermsOutput, 'object_type'> {
   const dataWithId = d as unknown as { id?: string };
-  
+
   // Validate required fields - fail fast if missing
   if (!dataWithId.id) {
     throw new OcpValidationError('vestingTerms.id', 'Required field is missing', {
@@ -274,7 +274,7 @@ function damlVestingTermsDataToNative(
       receivedValue: d.description,
     });
   }
-  
+
   return {
     id: dataWithId.id,
     name: d.name,

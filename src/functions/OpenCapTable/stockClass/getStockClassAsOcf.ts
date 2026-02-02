@@ -39,7 +39,7 @@ function damlStockClassDataToNative(
   // Access fields via Record type to handle DAML union types that may vary from the SDK definition
   const damlRecord = damlData as Record<string, unknown>;
   const dataWithId = damlRecord as { id?: string };
-  
+
   // Validate required fields - fail fast if missing
   if (!dataWithId.id || typeof dataWithId.id !== 'string') {
     throw new OcpValidationError('stockClass.id', 'Required field is missing', {
@@ -71,7 +71,7 @@ function damlStockClassDataToNative(
       receivedValue: damlData.seniority,
     });
   }
-  
+
   // Parse initial_shares_authorized from various formats
   let initialShares: string;
   const isa = damlRecord.initial_shares_authorized;

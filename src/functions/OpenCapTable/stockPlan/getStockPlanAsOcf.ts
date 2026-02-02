@@ -23,7 +23,7 @@ function damlStockPlanDataToNative(
   d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData
 ): Omit<OcfStockPlanOutput, 'object_type'> {
   const dataWithId = d as unknown as { id?: string };
-  
+
   // Validate required fields - fail fast if missing
   if (!dataWithId.id) {
     throw new OcpValidationError('stockPlan.id', 'Required field is missing', {
@@ -43,7 +43,7 @@ function damlStockPlanDataToNative(
       receivedValue: d.initial_shares_reserved,
     });
   }
-  
+
   return {
     id: dataWithId.id,
     plan_name: d.plan_name,

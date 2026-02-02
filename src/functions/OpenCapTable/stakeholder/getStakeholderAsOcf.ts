@@ -33,7 +33,7 @@ function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.OCF.Stakeholder
       receivedValue: damlInfo.name.legal_name,
     });
   }
-  
+
   const name: Name = {
     legal_name: damlInfo.name.legal_name,
     ...(damlInfo.name.first_name ? { first_name: damlInfo.name.first_name } : {}),
