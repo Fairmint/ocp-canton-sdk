@@ -165,18 +165,19 @@ describe('getStakeholderTokenBalance', () => {
       expect(result.balance).toBeNull();
     });
 
-    it('returns null when error code is ENOTFOUND', async () => {
+    it('re-throws ENOTFOUND errors (DNS resolution failures)', async () => {
+      // ENOTFOUND is a DNS resolution error, not a "not found" response.
+      // It indicates network/infrastructure issues (e.g., misconfigured validator URL)
+      // and should NOT be silently treated as "stakeholder has no balance".
       const mockClient = createMockValidatorClient();
-      const error = { code: 'ENOTFOUND' };
+      const error = { code: 'ENOTFOUND', message: 'getaddrinfo ENOTFOUND validator.invalid' };
       mockClient.getExternalPartyBalance.mockRejectedValue(error);
 
       const params: GetStakeholderTokenBalanceParams = {
-        partyId: 'party::nonexistent',
+        partyId: 'party::stakeholder123',
       };
 
-      const result = await getStakeholderTokenBalance(mockClient as any, params);
-
-      expect(result.balance).toBeNull();
+      await expect(getStakeholderTokenBalance(mockClient as any, params)).rejects.toEqual(error);
     });
   });
 

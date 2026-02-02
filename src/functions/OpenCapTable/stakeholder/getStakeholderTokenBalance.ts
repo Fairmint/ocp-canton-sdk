@@ -138,7 +138,10 @@ function isNotFoundError(error: unknown): boolean {
     }
 
     // Check for code property (some APIs use error codes)
-    if (errorObj.code === 'NOT_FOUND' || errorObj.code === 'ENOTFOUND') {
+    // Note: We intentionally do NOT include 'ENOTFOUND' here.
+    // ENOTFOUND is a DNS resolution error (hostname not found), which indicates
+    // a network/infrastructure issue, not that the stakeholder doesn't exist.
+    if (errorObj.code === 'NOT_FOUND') {
       return true;
     }
   }
