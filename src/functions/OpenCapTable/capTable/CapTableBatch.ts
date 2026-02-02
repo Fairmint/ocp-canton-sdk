@@ -176,10 +176,7 @@ export class CapTableBatch {
     } catch (error) {
       // Wrap the error with batch context for better debugging
       const originalMessage = error instanceof Error ? error.message : String(error);
-      const contextMessage =
-        `Batch execution failed: ${originalMessage} ` +
-        `[batch: ${batchSummary.creates} creates, ${batchSummary.edits} edits, ${batchSummary.deletes} deletes; ` +
-        `types: ${batchSummary.entityTypes.join(', ')}]`;
+      const contextMessage = `Batch execution failed: ${originalMessage} ${batchSummary.formatted}`;
 
       throw new OcpContractError(contextMessage, {
         contractId: this.params.capTableContractId,
@@ -214,18 +211,21 @@ export class CapTableBatch {
       }
     }
 
-    throw new OcpContractError(
-      `UpdateCapTable result not found in transaction tree [batch: ${batchSummary.creates} creates, ${batchSummary.edits} edits, ${batchSummary.deletes} deletes; types: ${batchSummary.entityTypes.join(', ')}]`,
-      {
-        contractId: this.params.capTableContractId,
-        choice: 'UpdateCapTable',
-        code: OcpErrorCodes.RESULT_NOT_FOUND,
-      }
-    );
+    throw new OcpContractError(`UpdateCapTable result not found in transaction tree ${batchSummary.formatted}`, {
+      contractId: this.params.capTableContractId,
+      choice: 'UpdateCapTable',
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
   }
 
   /** Get a summary of the batch operations for logging and error messages. */
-  private getBatchSummary(): { creates: number; edits: number; deletes: number; entityTypes: string[] } {
+  private getBatchSummary(): {
+    creates: number;
+    edits: number;
+    deletes: number;
+    entityTypes: string[];
+    formatted: string;
+  } {
     // Extract unique entity types from the tags (e.g., "OcfCreateStakeholder" -> "Stakeholder")
     const extractEntityType = (tag: string): string => {
       // Tags are like "OcfCreateStakeholder", "OcfEditStockClass", "OcfStakeholderId"
@@ -244,11 +244,17 @@ export class CapTableBatch {
       entityTypes.add(extractEntityType(op.tag));
     }
 
+    const createsCount = this.creates.length;
+    const editsCount = this.edits.length;
+    const deletesCount = this.deletes.length;
+    const entityTypesArray = Array.from(entityTypes);
+
     return {
-      creates: this.creates.length,
-      edits: this.edits.length,
-      deletes: this.deletes.length,
-      entityTypes: Array.from(entityTypes),
+      creates: createsCount,
+      edits: editsCount,
+      deletes: deletesCount,
+      entityTypes: entityTypesArray,
+      formatted: `[batch: ${createsCount} creates, ${editsCount} edits, ${deletesCount} deletes; types: ${entityTypesArray.join(', ')}]`,
     };
   }
 
