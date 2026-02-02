@@ -166,5 +166,124 @@ describe('getCapTableState', () => {
       // Empty maps should not be added to entities
       expect(result!.entities.size).toBe(0);
     });
+
+    it('should fall back to legacy format when JsActiveContract structure is incomplete', async () => {
+      // Simulate a malformed v2 response where JsActiveContract exists but
+      // createdEvent is missing - should fall back to legacy extraction
+      const mockMalformedResponse = [
+        {
+          contractEntry: {
+            JsActiveContract: {
+              // Missing createdEvent entirely
+              synchronizerId: 'sync-1',
+            },
+          },
+          // But has legacy fields at top level
+          contractId: 'legacy-cap-table-123',
+          payload: {
+            issuer: 'legacy-issuer-456',
+            stakeholders: {
+              'legacy-stakeholder-1': 'legacy-stakeholder-contract-1',
+            },
+          },
+        },
+      ];
+
+      // Cast to unknown to test runtime fallback behavior with malformed data
+      mockClient.getActiveContracts.mockResolvedValue(mockMalformedResponse as unknown as never);
+
+      const result = await getCapTableState(mockClient, 'issuer::party-123');
+
+      expect(result).not.toBeNull();
+      expect(result!.capTableContractId).toBe('legacy-cap-table-123');
+      expect(result!.issuerContractId).toBe('legacy-issuer-456');
+
+      const stakeholders = result!.entities.get('stakeholder');
+      expect(stakeholders).toBeDefined();
+      expect(stakeholders!.size).toBe(1);
+      expect(stakeholders!.has('legacy-stakeholder-1')).toBe(true);
+    });
+  });
+
+  describe('Legacy response format', () => {
+    it('should extract entities from top-level payload field', async () => {
+      // Legacy format with payload at top level
+      const mockLegacyResponse = [
+        {
+          contractEntry: {
+            // No JsActiveContract - empty or different union variant
+          },
+          contractId: 'legacy-cap-table-789',
+          payload: {
+            issuer: 'legacy-issuer-contract',
+            stakeholders: {
+              'sh-1': 'sh-contract-1',
+              'sh-2': 'sh-contract-2',
+            },
+            stock_classes: {
+              'sc-1': 'sc-contract-1',
+            },
+            stock_issuances: {},
+          },
+        },
+      ];
+
+      // Cast to unknown to test legacy format handling
+      mockClient.getActiveContracts.mockResolvedValue(mockLegacyResponse as unknown as never);
+
+      const result = await getCapTableState(mockClient, 'issuer::party-123');
+
+      expect(result).not.toBeNull();
+      expect(result!.capTableContractId).toBe('legacy-cap-table-789');
+      expect(result!.issuerContractId).toBe('legacy-issuer-contract');
+
+      const stakeholders = result!.entities.get('stakeholder');
+      expect(stakeholders).toBeDefined();
+      expect(stakeholders!.size).toBe(2);
+      expect(stakeholders!.has('sh-1')).toBe(true);
+      expect(stakeholders!.has('sh-2')).toBe(true);
+
+      const stockClasses = result!.entities.get('stockClass');
+      expect(stockClasses).toBeDefined();
+      expect(stockClasses!.size).toBe(1);
+    });
+
+    it('should extract entities from nested contract.payload field', async () => {
+      // Legacy format with nested contract.payload
+      const mockNestedLegacyResponse = [
+        {
+          contractEntry: {},
+          contract_id: 'nested-legacy-cap-table',
+          contract: {
+            payload: {
+              issuer: 'nested-legacy-issuer',
+              stakeholders: {
+                'nested-sh-1': 'nested-sh-contract-1',
+              },
+              stock_plans: {
+                'plan-1': 'plan-contract-1',
+              },
+            },
+          },
+        },
+      ];
+
+      // Cast to unknown to test nested legacy format handling
+      mockClient.getActiveContracts.mockResolvedValue(mockNestedLegacyResponse as unknown as never);
+
+      const result = await getCapTableState(mockClient, 'issuer::party-123');
+
+      expect(result).not.toBeNull();
+      expect(result!.capTableContractId).toBe('nested-legacy-cap-table');
+      expect(result!.issuerContractId).toBe('nested-legacy-issuer');
+
+      const stakeholders = result!.entities.get('stakeholder');
+      expect(stakeholders).toBeDefined();
+      expect(stakeholders!.size).toBe(1);
+
+      const stockPlans = result!.entities.get('stockPlan');
+      expect(stockPlans).toBeDefined();
+      expect(stockPlans!.size).toBe(1);
+    });
   });
 });
