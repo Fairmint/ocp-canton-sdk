@@ -27,8 +27,8 @@ function damlStockPlanDataToNative(
   const dataWithId = damlRecord as { id?: string };
 
   // Validate required fields - fail fast if missing
-  if (!dataWithId.id) {
-    throw new OcpValidationError('stockPlan.id', 'Required field is missing', {
+  if (typeof dataWithId.id !== 'string' || dataWithId.id.length === 0) {
+    throw new OcpValidationError('stockPlan.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: dataWithId.id,
     });
