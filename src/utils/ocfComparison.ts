@@ -311,6 +311,162 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
 }
 
 /**
+ * Generate detailed diffs between two OCF objects with normalization.
+ *
+ * Uses the same normalization logic as ocfCompare (isUndefinedLike, normalizeOcfValue)
+ * but produces simplified human-readable diff strings instead of a structured result.
+ *
+ * Note: Unlike ocfCompare, this function does not support ignoredFields or deprecatedFields options.
+ * Use ocfCompare with reportDifferences: true if you need field filtering.
+ *
+ * @param a - First object (typically ledger/source data)
+ * @param b - Second object (typically database/destination data)
+ * @param path - Current path in the object tree (for recursive calls)
+ * @returns Array of diff descriptions
+ *
+ * @example
+ * ```typescript
+ * const diffs = diffOcfObjects(ledgerData, dbData);
+ * if (diffs.length > 0) {
+ *   console.log('Differences found:', diffs);
+ * }
+ * ```
+ */
+export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
+  const diffs: string[] = [];
+
+  // Consider empty arrays equivalent to undefined
+  if (isUndefinedLike(a) && isUndefinedLike(b)) {
+    return diffs;
+  }
+
+  if (typeof a !== typeof b) {
+    diffs.push(`${path || '(root)'}: type mismatch (${typeof a} vs ${typeof b})`);
+    return diffs;
+  }
+
+  if (typeof a === 'object' && a && b && typeof b === 'object') {
+    // Handle arrays with proper [index] path format
+    if (Array.isArray(a) && Array.isArray(b)) {
+      // Check for length mismatch (filtering undefined-like elements)
+      const filteredA = a.filter((v) => !isUndefinedLike(v));
+      const filteredB = b.filter((v) => !isUndefinedLike(v));
+      if (filteredA.length !== filteredB.length) {
+        diffs.push(`${path || '(root)'}: array length mismatch (${a.length} vs ${b.length})`);
+      }
+
+      // Compare array elements
+      const maxLen = Math.max(a.length, b.length);
+      for (let i = 0; i < maxLen; i++) {
+        const subPath = path ? `${path}[${i}]` : `[${i}]`;
+        const av = a[i];
+        const bv = b[i];
+
+        if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
+        if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
+          diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
+          continue;
+        }
+        if (isUndefinedLike(av) && !isUndefinedLike(bv)) {
+          diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
+          continue;
+        }
+        diffs.push(...diffOcfObjects(av, bv, subPath));
+      }
+      return diffs;
+    }
+
+    // Handle objects
+    const objA = a as Record<string, unknown>;
+    const objB = b as Record<string, unknown>;
+
+    // Get all keys
+    const keysA = Object.keys(objA);
+    const keysB = Object.keys(objB);
+    const keys = Array.from(new Set([...keysA, ...keysB])).sort();
+
+    for (const key of keys) {
+      const subPath = path ? `${path}.${key}` : key;
+      const av = objA[key];
+      const bv = objB[key];
+
+      if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
+      if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
+        diffs.push(`${subPath}: present in ledger only -> ${JSON.stringify(av)}`);
+        continue;
+      }
+      if (isUndefinedLike(av) && !isUndefinedLike(bv)) {
+        diffs.push(`${subPath}: present in DB only -> ${JSON.stringify(bv)}`);
+        continue;
+      }
+      diffs.push(...diffOcfObjects(av, bv, subPath));
+    }
+    return diffs;
+  }
+
+  // Compare primitive values with normalization
+  const normalizedA = normalizeOcfValue(a);
+  const normalizedB = normalizeOcfValue(b);
+
+  if (normalizedA !== normalizedB) {
+    diffs.push(`${path || '(root)'}: ${JSON.stringify(normalizedA)} != ${JSON.stringify(normalizedB)}`);
+  }
+  return diffs;
+}
+
+/**
+ * Error interface for OCF mismatch errors with diff information.
+ */
+export interface OcfMismatchError extends Error {
+  /** List of differences between the two OCF objects */
+  ocfDiffs: string[];
+  /** The ledger/source OCF data */
+  ledgerOcfJson: unknown;
+  /** The database/destination OCF data */
+  dbOcfJson: unknown;
+}
+
+/**
+ * Type guard to check if an error is an OCF mismatch error.
+ *
+ * @param error - Error to check
+ * @returns True if error is an OcfMismatchError
+ */
+export function isOcfMismatchError(error: unknown): error is OcfMismatchError {
+  return error instanceof Error && 'ocfDiffs' in error && 'ledgerOcfJson' in error && 'dbOcfJson' in error;
+}
+
+/**
+ * Create an enhanced error with OCF diff information.
+ *
+ * @param message - Error message
+ * @param diffs - Array of diff descriptions from diffOcfObjects
+ * @param ledgerData - The ledger/source OCF data
+ * @param dbData - The database/destination OCF data
+ * @returns An OcfMismatchError with the diff information attached
+ *
+ * @example
+ * ```typescript
+ * const diffs = diffOcfObjects(ledgerData, dbData);
+ * if (diffs.length > 0) {
+ *   throw createOcfMismatchError('OCF data mismatch', diffs, ledgerData, dbData);
+ * }
+ * ```
+ */
+export function createOcfMismatchError(
+  message: string,
+  diffs: string[],
+  ledgerData: unknown,
+  dbData: unknown
+): OcfMismatchError {
+  const error = new Error(message) as OcfMismatchError;
+  error.ocfDiffs = diffs;
+  error.ledgerOcfJson = ledgerData;
+  error.dbOcfJson = dbData;
+  return error;
+}
+
+/**
  * Strip internal and deprecated fields from an OCF object for cleaner comparison.
  *
  * @param obj - The OCF object to clean
