@@ -22,7 +22,9 @@ function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehav
 function damlStockPlanDataToNative(
   d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData
 ): Omit<OcfStockPlanOutput, 'object_type'> {
-  const dataWithId = d as unknown as { id?: string };
+  // Access fields via Record type to handle DAML types that may vary from the SDK definition
+  const damlRecord = d as Record<string, unknown>;
+  const dataWithId = damlRecord as { id?: string };
 
   // Validate required fields - fail fast if missing
   if (!dataWithId.id) {
@@ -37,10 +39,17 @@ function damlStockPlanDataToNative(
       receivedValue: d.plan_name,
     });
   }
-  if (!d.initial_shares_reserved) {
+  const initialSharesReserved = damlRecord.initial_shares_reserved;
+  if (initialSharesReserved === undefined || initialSharesReserved === null) {
     throw new OcpValidationError('stockPlan.initial_shares_reserved', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.initial_shares_reserved,
+      receivedValue: initialSharesReserved,
+    });
+  }
+  if (typeof initialSharesReserved !== 'string' && typeof initialSharesReserved !== 'number') {
+    throw new OcpValidationError('stockPlan.initial_shares_reserved', 'Invalid initial_shares_reserved format', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: initialSharesReserved,
     });
   }
 
@@ -53,7 +62,7 @@ function damlStockPlanDataToNative(
     ...(d.stockholder_approval_date && {
       stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
     }),
-    initial_shares_reserved: normalizeNumericString(d.initial_shares_reserved),
+    initial_shares_reserved: normalizeNumericString(initialSharesReserved.toString()),
     ...(d.default_cancellation_behavior && {
       default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior),
     }),

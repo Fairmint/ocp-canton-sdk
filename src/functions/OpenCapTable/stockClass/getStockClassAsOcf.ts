@@ -59,23 +59,37 @@ function damlStockClassDataToNative(
       receivedValue: damlData.default_id_prefix,
     });
   }
-  if (!damlData.votes_per_share) {
+  const votesPerShare = damlRecord.votes_per_share;
+  if (votesPerShare === undefined || votesPerShare === null) {
     throw new OcpValidationError('stockClass.votes_per_share', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: damlData.votes_per_share,
+      receivedValue: votesPerShare,
     });
   }
-  if (!damlData.seniority) {
+  if (typeof votesPerShare !== 'string' && typeof votesPerShare !== 'number') {
+    throw new OcpValidationError('stockClass.votes_per_share', 'Invalid votes_per_share format', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: votesPerShare,
+    });
+  }
+  const seniorityValue = damlRecord.seniority;
+  if (seniorityValue === undefined || seniorityValue === null) {
     throw new OcpValidationError('stockClass.seniority', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: damlData.seniority,
+      receivedValue: seniorityValue,
+    });
+  }
+  if (typeof seniorityValue !== 'string' && typeof seniorityValue !== 'number') {
+    throw new OcpValidationError('stockClass.seniority', 'Invalid seniority format', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: seniorityValue,
     });
   }
 
   // Parse initial_shares_authorized from various formats
   let initialShares: string;
   const isa = damlRecord.initial_shares_authorized;
-  if (!isa) {
+  if (isa === undefined || isa === null) {
     throw new OcpValidationError('stockClass.initial_shares_authorized', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: isa,
@@ -108,8 +122,8 @@ function damlStockClassDataToNative(
     class_type: damlStockClassTypeToNative(damlData.class_type),
     default_id_prefix: damlData.default_id_prefix,
     initial_shares_authorized: initialShares,
-    votes_per_share: normalizeNumericString(damlData.votes_per_share),
-    seniority: normalizeNumericString(damlData.seniority),
+    votes_per_share: normalizeNumericString(votesPerShare.toString()),
+    seniority: normalizeNumericString(seniorityValue.toString()),
     conversion_rights: [],
     comments: [],
     ...(damlData.board_approval_date && {
