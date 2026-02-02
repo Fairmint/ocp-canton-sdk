@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type {
   ConversionMechanism,
   ConversionTrigger,
@@ -38,28 +38,92 @@ function damlStockClassDataToNative(
 ): StockClassNativeData {
   // Access fields via Record type to handle DAML union types that may vary from the SDK definition
   const damlRecord = damlData as Record<string, unknown>;
-  let initialShares = '0';
+  const dataWithId = damlRecord as { id?: string };
+
+  // Validate required fields - fail fast if missing
+  if (!dataWithId.id || typeof dataWithId.id !== 'string') {
+    throw new OcpValidationError('stockClass.id', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: dataWithId.id,
+    });
+  }
+  if (!damlData.name) {
+    throw new OcpValidationError('stockClass.name', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: damlData.name,
+    });
+  }
+  if (!damlData.default_id_prefix) {
+    throw new OcpValidationError('stockClass.default_id_prefix', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: damlData.default_id_prefix,
+    });
+  }
+  const votesPerShare = damlRecord.votes_per_share;
+  if (votesPerShare === undefined || votesPerShare === null) {
+    throw new OcpValidationError('stockClass.votes_per_share', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: votesPerShare,
+    });
+  }
+  if (typeof votesPerShare !== 'string' && typeof votesPerShare !== 'number') {
+    throw new OcpValidationError('stockClass.votes_per_share', 'Invalid votes_per_share format', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: votesPerShare,
+    });
+  }
+  const seniorityValue = damlRecord.seniority;
+  if (seniorityValue === undefined || seniorityValue === null) {
+    throw new OcpValidationError('stockClass.seniority', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: seniorityValue,
+    });
+  }
+  if (typeof seniorityValue !== 'string' && typeof seniorityValue !== 'number') {
+    throw new OcpValidationError('stockClass.seniority', 'Invalid seniority format', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: seniorityValue,
+    });
+  }
+
+  // Parse initial_shares_authorized from various formats
+  let initialShares: string;
   const isa = damlRecord.initial_shares_authorized;
+  if (isa === undefined || isa === null) {
+    throw new OcpValidationError('stockClass.initial_shares_authorized', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: isa,
+    });
+  }
   if (typeof isa === 'string' || typeof isa === 'number') {
-    initialShares = normalizeNumericString(String(isa));
-  } else if (isa && typeof isa === 'object' && 'tag' in isa) {
+    initialShares = normalizeNumericString(isa.toString());
+  } else if (typeof isa === 'object' && 'tag' in isa) {
     const tagged = isa as { tag: string; value?: unknown };
     if (tagged.tag === 'OcfInitialSharesNumeric' && typeof tagged.value === 'string') {
       initialShares = normalizeNumericString(tagged.value);
     } else if (tagged.tag === 'OcfInitialSharesEnum' && typeof tagged.value === 'string') {
       initialShares = tagged.value === 'OcfAuthorizedSharesUnlimited' ? 'Unlimited' : 'N/A';
+    } else {
+      throw new OcpValidationError('stockClass.initial_shares_authorized', 'Invalid initial_shares_authorized format', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: isa,
+      });
     }
+  } else {
+    throw new OcpValidationError('stockClass.initial_shares_authorized', 'Invalid initial_shares_authorized format', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: isa,
+    });
   }
 
-  const dataWithId = damlRecord as { id?: string };
   return {
-    id: typeof dataWithId.id === 'string' ? dataWithId.id : '',
-    name: damlData.name || '',
+    id: dataWithId.id,
+    name: damlData.name,
     class_type: damlStockClassTypeToNative(damlData.class_type),
-    default_id_prefix: damlData.default_id_prefix || '',
+    default_id_prefix: damlData.default_id_prefix,
     initial_shares_authorized: initialShares,
-    votes_per_share: normalizeNumericString(damlData.votes_per_share || '0'),
-    seniority: normalizeNumericString(damlData.seniority || '0'),
+    votes_per_share: normalizeNumericString(votesPerShare.toString()),
+    seniority: normalizeNumericString(seniorityValue.toString()),
     conversion_rights: [],
     comments: [],
     ...(damlData.board_approval_date && {

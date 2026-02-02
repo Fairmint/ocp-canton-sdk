@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { StockPlanCancellationBehavior } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -22,17 +22,47 @@ function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehav
 function damlStockPlanDataToNative(
   d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData
 ): Omit<OcfStockPlanOutput, 'object_type'> {
-  const dataWithId = d as unknown as { id?: string };
+  // Access fields via Record type to handle DAML types that may vary from the SDK definition
+  const damlRecord = d as Record<string, unknown>;
+  const dataWithId = damlRecord as { id?: string };
+
+  // Validate required fields - fail fast if missing
+  if (typeof dataWithId.id !== 'string' || dataWithId.id.length === 0) {
+    throw new OcpValidationError('stockPlan.id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: dataWithId.id,
+    });
+  }
+  if (!d.plan_name) {
+    throw new OcpValidationError('stockPlan.plan_name', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.plan_name,
+    });
+  }
+  const initialSharesReserved = damlRecord.initial_shares_reserved;
+  if (initialSharesReserved === undefined || initialSharesReserved === null) {
+    throw new OcpValidationError('stockPlan.initial_shares_reserved', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: initialSharesReserved,
+    });
+  }
+  if (typeof initialSharesReserved !== 'string' && typeof initialSharesReserved !== 'number') {
+    throw new OcpValidationError('stockPlan.initial_shares_reserved', 'Invalid initial_shares_reserved format', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: initialSharesReserved,
+    });
+  }
+
   return {
-    id: dataWithId.id ?? '',
-    plan_name: d.plan_name || '',
+    id: dataWithId.id,
+    plan_name: d.plan_name,
     ...(d.board_approval_date && {
       board_approval_date: damlTimeToDateString(d.board_approval_date),
     }),
     ...(d.stockholder_approval_date && {
       stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
     }),
-    initial_shares_reserved: normalizeNumericString(d.initial_shares_reserved || '0'),
+    initial_shares_reserved: normalizeNumericString(initialSharesReserved.toString()),
     ...(d.default_cancellation_behavior && {
       default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior),
     }),

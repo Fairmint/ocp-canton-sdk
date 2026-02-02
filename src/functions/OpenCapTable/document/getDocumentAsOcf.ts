@@ -131,8 +131,8 @@ function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.Document
   const docWithId = d as unknown as { id?: string };
   return {
     id: docWithId.id ?? '',
-    ...(d.path ? { path: d.path || undefined } : {}),
-    ...(d.uri ? { uri: d.uri || undefined } : {}),
+    ...(d.path ? { path: d.path } : {}),
+    ...(d.uri ? { uri: d.uri } : {}),
     md5: d.md5,
     related_objects: d.related_objects.map((r) => ({
       object_type: objectTypeToNative(r.object_type),

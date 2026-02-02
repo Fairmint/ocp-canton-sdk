@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { ContactInfo, ContactInfoWithoutName, Email, Name, Phone } from '../../../types/native';
 import {
   damlEmailTypeToNative,
@@ -26,8 +26,16 @@ function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.Contact.OcfPhone):
 }
 
 function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfo): ContactInfo {
+  // Validate required field
+  if (!damlInfo.name.legal_name) {
+    throw new OcpValidationError('contactInfo.name.legal_name', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: damlInfo.name.legal_name,
+    });
+  }
+
   const name: Name = {
-    legal_name: damlInfo.name.legal_name || '',
+    legal_name: damlInfo.name.legal_name,
     ...(damlInfo.name.first_name ? { first_name: damlInfo.name.first_name } : {}),
     ...(damlInfo.name.last_name ? { last_name: damlInfo.name.last_name } : {}),
   };
