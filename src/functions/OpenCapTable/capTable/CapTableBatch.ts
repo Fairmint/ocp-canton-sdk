@@ -164,7 +164,7 @@ export class CapTableBatch {
     // Get batch summary for error context
     const batchSummary = this.getBatchSummary();
 
-    let response;
+    let response: Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
     try {
       response = await this.client.submitAndWaitForTransactionTree({
         commands: [command],
