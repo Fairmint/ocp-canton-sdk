@@ -947,7 +947,8 @@ describe('normalizeDeprecatedOcfFields', () => {
       });
 
       expect(result.normalized).toBe(true);
-      expect(result.normalizedFields).toEqual(['stock_class_id']);
+      // Both fields are normalized: stock_class_ids (undefined -> []) and stock_class_id (deprecated -> converted)
+      expect(result.normalizedFields).toContain('stock_class_id');
       expect((result.data as Record<string, unknown>).stock_class_ids).toEqual(['sc-1']);
       expect((result.data as Record<string, unknown>).stock_class_id).toBeUndefined();
     });
@@ -1305,5 +1306,161 @@ describe('compareOcfObjects', () => {
     expect(result.normalizationA.wasNormalized).toBe(true);
     expect(result.normalizationA.normalizedFields).toContain('current_relationship');
     expect(result.normalizationB.wasNormalized).toBe(false);
+  });
+});
+
+// ===== Required Array Field Normalization Tests =====
+
+describe('normalizeDeprecatedOcfFields - required array normalization', () => {
+  describe('stockPlan', () => {
+    test('normalizes null stock_class_ids to empty array', () => {
+      const data = {
+        id: 'plan-1',
+        plan_name: 'Test Plan',
+        stock_class_ids: null,
+        initial_shares_reserved: '1000000',
+      };
+
+      const result = normalizeDeprecatedOcfFields('stockPlan', data as unknown as Record<string, unknown>);
+
+      expect(result.data.stock_class_ids).toEqual([]);
+      expect(result.normalized).toBe(true);
+      expect(result.normalizedFields).toContain('stock_class_ids');
+    });
+
+    test('normalizes undefined stock_class_ids to empty array', () => {
+      const data = {
+        id: 'plan-1',
+        plan_name: 'Test Plan',
+        initial_shares_reserved: '1000000',
+      };
+
+      const result = normalizeDeprecatedOcfFields('stockPlan', data);
+
+      expect((result.data as Record<string, unknown>).stock_class_ids).toEqual([]);
+      expect(result.normalized).toBe(true);
+      expect(result.normalizedFields).toContain('stock_class_ids');
+    });
+
+    test('preserves existing stock_class_ids array', () => {
+      const data = {
+        id: 'plan-1',
+        plan_name: 'Test Plan',
+        stock_class_ids: ['sc-1', 'sc-2'],
+        initial_shares_reserved: '1000000',
+      };
+
+      const result = normalizeDeprecatedOcfFields('stockPlan', data);
+
+      expect(result.data.stock_class_ids).toEqual(['sc-1', 'sc-2']);
+    });
+  });
+
+  describe('convertibleIssuance', () => {
+    test('normalizes null conversion_triggers to empty array', () => {
+      const data = {
+        id: 'ci-1',
+        conversion_triggers: null,
+        security_law_exemptions: null,
+      };
+
+      const result = normalizeDeprecatedOcfFields('convertibleIssuance', data as unknown as Record<string, unknown>);
+
+      expect(result.data.conversion_triggers).toEqual([]);
+      expect(result.data.security_law_exemptions).toEqual([]);
+      expect(result.normalized).toBe(true);
+      expect(result.normalizedFields).toContain('conversion_triggers');
+      expect(result.normalizedFields).toContain('security_law_exemptions');
+    });
+
+    test('normalizes undefined arrays to empty arrays', () => {
+      const data = {
+        id: 'ci-1',
+        // conversion_triggers and security_law_exemptions are undefined
+      };
+
+      const result = normalizeDeprecatedOcfFields('convertibleIssuance', data);
+
+      expect((result.data as Record<string, unknown>).conversion_triggers).toEqual([]);
+      expect((result.data as Record<string, unknown>).security_law_exemptions).toEqual([]);
+    });
+
+    test('preserves existing arrays', () => {
+      const data = {
+        id: 'ci-1',
+        conversion_triggers: [{ type: 'ELECTIVE_AT_WILL', trigger_id: 't-1' }],
+        security_law_exemptions: [{ description: 'Rule 506(b)', jurisdiction: 'US' }],
+      };
+
+      const result = normalizeDeprecatedOcfFields('convertibleIssuance', data);
+
+      expect(result.data.conversion_triggers).toEqual([{ type: 'ELECTIVE_AT_WILL', trigger_id: 't-1' }]);
+      expect(result.data.security_law_exemptions).toEqual([{ description: 'Rule 506(b)', jurisdiction: 'US' }]);
+    });
+  });
+
+  describe('warrantIssuance', () => {
+    test('normalizes null exercise_triggers to empty array', () => {
+      const data = {
+        id: 'wi-1',
+        exercise_triggers: null,
+        security_law_exemptions: null,
+      };
+
+      const result = normalizeDeprecatedOcfFields('warrantIssuance', data as unknown as Record<string, unknown>);
+
+      expect(result.data.exercise_triggers).toEqual([]);
+      expect(result.data.security_law_exemptions).toEqual([]);
+      expect(result.normalized).toBe(true);
+    });
+  });
+
+  describe('stakeholderRelationshipChangeEvent', () => {
+    test('normalizes null new_relationships to empty array', () => {
+      const data = {
+        id: 'srce-1',
+        stakeholder_id: 'sh-1',
+        date: '2024-01-01',
+        new_relationships: null,
+      };
+
+      const result = normalizeDeprecatedOcfFields(
+        'stakeholderRelationshipChangeEvent',
+        data as unknown as Record<string, unknown>
+      );
+
+      expect(result.data.new_relationships).toEqual([]);
+      expect(result.normalized).toBe(true);
+      expect(result.normalizedFields).toContain('new_relationships');
+    });
+
+    test('preserves existing new_relationships array', () => {
+      const data = {
+        id: 'srce-1',
+        stakeholder_id: 'sh-1',
+        date: '2024-01-01',
+        new_relationships: ['EMPLOYEE', 'FOUNDER'],
+      };
+
+      const result = normalizeDeprecatedOcfFields('stakeholderRelationshipChangeEvent', data);
+
+      expect(result.data.new_relationships).toEqual(['EMPLOYEE', 'FOUNDER']);
+      expect(result.normalized).toBe(false);
+    });
+  });
+
+  describe('entity types without required array fields', () => {
+    test('returns data unchanged for unknown entity type', () => {
+      const data = {
+        id: 'unknown-1',
+        someField: 'value',
+      };
+
+      const result = normalizeDeprecatedOcfFields('unknownType', data);
+
+      expect(result.data).toEqual(data);
+      expect(result.normalized).toBe(false);
+      expect(result.normalizedFields).toEqual([]);
+    });
   });
 });

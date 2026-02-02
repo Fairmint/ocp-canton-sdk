@@ -1457,15 +1457,31 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
 ): NormalizedOcfDataResult<T> {
   const { emitWarnings = true, context } = options;
 
-  // Look up the object type for this entity type
+  const normalizedFields: string[] = [];
+  const warnings: string[] = [];
+  let result: T = { ...data };
+
+  // Step 1: Normalize required array fields to empty arrays if null/undefined
+  const requiredArrays = REQUIRED_ARRAY_FIELDS[entityType];
+  if (requiredArrays && requiredArrays.length > 0) {
+    for (const field of requiredArrays) {
+      const value = data[field];
+      if (value === null || value === undefined) {
+        result = { ...result, [field]: [] };
+        normalizedFields.push(field);
+      }
+    }
+  }
+
+  // Step 2: Look up the object type for deprecated field mappings
   const objectType = ENTITY_TYPE_TO_OBJECT_TYPE[entityType];
 
-  // If no deprecation mappings exist for this type, return data unchanged
+  // If no deprecation mappings exist for this type, return with just array normalization
   if (!objectType) {
     return {
-      data,
-      normalized: false,
-      normalizedFields: [],
+      data: result,
+      normalized: normalizedFields.length > 0,
+      normalizedFields,
       warnings: [],
     };
   }
@@ -1473,17 +1489,12 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
   const mappings = getDeprecatedFieldMappings(objectType);
   if (mappings.length === 0) {
     return {
-      data,
-      normalized: false,
-      normalizedFields: [],
+      data: result,
+      normalized: normalizedFields.length > 0,
+      normalizedFields,
       warnings: [],
     };
   }
-
-  // Apply normalizations based on deprecation type
-  const normalizedFields: string[] = [];
-  const warnings: string[] = [];
-  let result: T = { ...data };
 
   for (const mapping of mappings) {
     const deprecatedValue = data[mapping.deprecatedField];
@@ -1901,3 +1912,72 @@ export function compareOcfObjects(
 
 // Re-export comparison utilities for convenience
 export { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS };
+
+// ===== Required Array Field Normalization =====
+
+/**
+ * Configuration for required array fields by entity type.
+ * These fields must be arrays (empty or populated), but raw data might have them as null/undefined.
+ * The SDK normalizes these to empty arrays automatically.
+ */
+export const REQUIRED_ARRAY_FIELDS: Partial<Record<string, string[]>> = {
+  // issuer is handled separately in createIssuer.ts
+  stockPlan: ['stock_class_ids'],
+  convertibleIssuance: ['conversion_triggers', 'security_law_exemptions'],
+  warrantIssuance: ['exercise_triggers', 'security_law_exemptions'],
+  stakeholderRelationshipChangeEvent: ['new_relationships'],
+  // vestingTerms.vesting_conditions requires at least one condition, so we don't auto-normalize to empty
+  // resulting_security_ids must be explicitly provided, not auto-normalized
+};
+
+/**
+ * Normalize required array fields in OCF data.
+ * This ensures array fields that are null/undefined become empty arrays.
+ *
+ * @param entityType - The OCF entity type
+ * @param data - The OCF data that may have null/undefined array fields
+ * @returns The normalized data with array fields as arrays
+ */
+export function normalizeRequiredArrayFields<T extends Record<string, unknown>>(
+  entityType: string,
+  data: T
+): { data: T; normalizedFields: string[] } {
+  const requiredArrays = REQUIRED_ARRAY_FIELDS[entityType];
+
+  if (!requiredArrays || requiredArrays.length === 0) {
+    return { data, normalizedFields: [] };
+  }
+
+  const normalizedFields: string[] = [];
+  let result: T = { ...data };
+
+  for (const field of requiredArrays) {
+    const value = data[field];
+    if (value === null || value === undefined) {
+      result = { ...result, [field]: [] };
+      normalizedFields.push(field);
+    }
+  }
+
+  return { data: result, normalizedFields };
+}
+
+/**
+ * Register required array fields for an entity type.
+ *
+ * @param entityType - The OCF entity type (e.g., 'stockPlan')
+ * @param fields - Array of field names that must be arrays
+ */
+export function registerRequiredArrayFields(entityType: string, fields: string[]): void {
+  REQUIRED_ARRAY_FIELDS[entityType] = fields;
+}
+
+/**
+ * Get required array fields for an entity type.
+ *
+ * @param entityType - The OCF entity type
+ * @returns Array of field names that must be arrays
+ */
+export function getRequiredArrayFields(entityType: string): string[] {
+  return REQUIRED_ARRAY_FIELDS[entityType] ?? [];
+}
