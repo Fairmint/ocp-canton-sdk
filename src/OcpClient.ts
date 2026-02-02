@@ -31,6 +31,7 @@ import {
   getStakeholderAsOcf,
   getStakeholderRelationshipChangeEventAsOcf,
   getStakeholderStatusChangeEventAsOcf,
+  getStakeholderTokenBalance,
   getStockAcceptanceAsOcf,
   getStockCancellationAsOcf,
   getStockClassAsOcf,
@@ -97,6 +98,8 @@ import {
   type GetStakeholderRelationshipChangeEventAsOcfResult,
   type GetStakeholderStatusChangeEventAsOcfParams,
   type GetStakeholderStatusChangeEventAsOcfResult,
+  type GetStakeholderTokenBalanceParams,
+  type GetStakeholderTokenBalanceResult,
   type GetStockAcceptanceAsOcfParams,
   type GetStockAcceptanceAsOcfResult,
   type GetStockCancellationAsOcfParams,
@@ -430,6 +433,10 @@ export class OcpClient {
       },
       stakeholder: {
         getStakeholderAsOcf: async (params: GetStakeholderAsOcfParams) => getStakeholderAsOcf(client, params),
+        getStakeholderTokenBalance: async (
+          validatorClient: ValidatorApiClient,
+          params: GetStakeholderTokenBalanceParams
+        ) => getStakeholderTokenBalance(validatorClient, params),
       },
       stakeholderRelationshipChangeEvent: {
         getStakeholderRelationshipChangeEventAsOcf: async (params: GetStakeholderRelationshipChangeEventAsOcfParams) =>
@@ -648,6 +655,10 @@ interface OpenCapTableMethods {
   };
   stakeholder: {
     getStakeholderAsOcf: (params: GetStakeholderAsOcfParams) => Promise<GetStakeholderAsOcfResult>;
+    getStakeholderTokenBalance: (
+      validatorClient: ValidatorApiClient,
+      params: GetStakeholderTokenBalanceParams
+    ) => Promise<GetStakeholderTokenBalanceResult>;
   };
   stakeholderRelationshipChangeEvent: {
     getStakeholderRelationshipChangeEventAsOcf: (
