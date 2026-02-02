@@ -1,7 +1,7 @@
 /** Unit tests for typeConversions utility functions. */
 
 import { OcpValidationError } from '../../src/errors';
-import { normalizeNumericString } from '../../src/utils/typeConversions';
+import { ensureArray, normalizeNumericString } from '../../src/utils/typeConversions';
 
 describe('normalizeNumericString', () => {
   describe('valid inputs', () => {
@@ -65,6 +65,40 @@ describe('normalizeNumericString', () => {
       expect(() => normalizeNumericString('123 456')).toThrow(OcpValidationError);
       expect(() => normalizeNumericString(' 123')).toThrow(OcpValidationError);
       expect(() => normalizeNumericString('123 ')).toThrow(OcpValidationError);
+    });
+  });
+});
+
+describe('ensureArray', () => {
+  describe('normalizes null/undefined to empty array', () => {
+    test('returns empty array for null', () => {
+      expect(ensureArray(null)).toEqual([]);
+    });
+
+    test('returns empty array for undefined', () => {
+      expect(ensureArray(undefined)).toEqual([]);
+    });
+  });
+
+  describe('preserves existing arrays', () => {
+    test('returns same array for non-empty array', () => {
+      const input = [1, 2, 3];
+      expect(ensureArray(input)).toBe(input);
+    });
+
+    test('returns same array for empty array', () => {
+      const input: number[] = [];
+      expect(ensureArray(input)).toBe(input);
+    });
+
+    test('works with object arrays', () => {
+      const input = [{ country: 'US', tax_id: '12-3456789' }];
+      expect(ensureArray(input)).toBe(input);
+    });
+
+    test('works with string arrays', () => {
+      const input = ['comment 1', 'comment 2'];
+      expect(ensureArray(input)).toBe(input);
     });
   });
 });

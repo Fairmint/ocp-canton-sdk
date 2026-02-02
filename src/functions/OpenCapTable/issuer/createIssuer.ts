@@ -6,7 +6,13 @@ import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts, OcfIssuer } from '../../../types';
 import { validateIssuerData } from '../../../utils/entityValidators';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
-import { addressToDaml, cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import {
+  addressToDaml,
+  cleanComments,
+  dateStringToDAMLTime,
+  ensureArray,
+  optionalString,
+} from '../../../utils/typeConversions';
 
 function emailToDaml(email: OcfIssuer['email']): Fairmint.OpenCapTable.Types.Contact.OcfEmail | null {
   if (!email) return null;
@@ -24,26 +30,52 @@ function phoneToDaml(phone: OcfIssuer['phone']): Fairmint.OpenCapTable.Types.Con
   };
 }
 
-function issuerDataToDaml(issuerData: OcfIssuer): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
+/**
+ * Input type for issuer data that may have missing array fields.
+ * The SDK normalizes these to empty arrays automatically.
+ */
+export type IssuerDataInput = Omit<OcfIssuer, 'tax_ids'> & {
+  /** Tax IDs - normalized to empty array if null/undefined */
+  tax_ids?: OcfIssuer['tax_ids'] | null;
+};
+
+/**
+ * Normalize issuer data by ensuring array fields are arrays (not null/undefined).
+ * This allows the SDK to accept raw OCF data where optional array fields may be missing.
+ *
+ * @param data - Raw issuer data that may have null/undefined array fields
+ * @returns Normalized issuer data with all array fields as arrays
+ */
+export function normalizeIssuerData(data: IssuerDataInput): OcfIssuer {
+  return {
+    ...data,
+    tax_ids: ensureArray(data.tax_ids),
+  };
+}
+
+function issuerDataToDaml(issuerData: IssuerDataInput): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
+  // Normalize input data to ensure array fields are arrays
+  const normalizedData = normalizeIssuerData(issuerData);
+
   // Validate input data using the entity validator
-  validateIssuerData(issuerData, 'issuer');
+  validateIssuerData(normalizedData, 'issuer');
 
   return {
-    id: issuerData.id,
-    legal_name: issuerData.legal_name,
-    country_of_formation: issuerData.country_of_formation,
-    dba: optionalString(issuerData.dba),
-    formation_date: dateStringToDAMLTime(issuerData.formation_date),
-    country_subdivision_of_formation: optionalString(issuerData.country_subdivision_of_formation),
-    country_subdivision_name_of_formation: optionalString(issuerData.country_subdivision_name_of_formation),
-    tax_ids: issuerData.tax_ids,
-    email: issuerData.email ? emailToDaml(issuerData.email) : null,
-    phone: issuerData.phone ? phoneToDaml(issuerData.phone) : null,
-    address: issuerData.address ? addressToDaml(issuerData.address) : null,
+    id: normalizedData.id,
+    legal_name: normalizedData.legal_name,
+    country_of_formation: normalizedData.country_of_formation,
+    dba: optionalString(normalizedData.dba),
+    formation_date: dateStringToDAMLTime(normalizedData.formation_date),
+    country_subdivision_of_formation: optionalString(normalizedData.country_subdivision_of_formation),
+    country_subdivision_name_of_formation: optionalString(normalizedData.country_subdivision_name_of_formation),
+    tax_ids: normalizedData.tax_ids,
+    email: normalizedData.email ? emailToDaml(normalizedData.email) : null,
+    phone: normalizedData.phone ? phoneToDaml(normalizedData.phone) : null,
+    address: normalizedData.address ? addressToDaml(normalizedData.address) : null,
     initial_shares_authorized:
-      issuerData.initial_shares_authorized !== undefined
+      normalizedData.initial_shares_authorized !== undefined
         ? ((): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData['initial_shares_authorized'] => {
-            const v = issuerData.initial_shares_authorized;
+            const v = normalizedData.initial_shares_authorized;
             if (typeof v === 'number' || (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v))) {
               return {
                 tag: 'OcfInitialSharesNumeric',
@@ -56,7 +88,7 @@ function issuerDataToDaml(issuerData: OcfIssuer): Fairmint.OpenCapTable.OCF.Issu
             return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
           })()
         : null,
-    comments: cleanComments(issuerData.comments),
+    comments: cleanComments(normalizedData.comments),
   };
 }
 
@@ -75,14 +107,14 @@ export interface CreateIssuerParams {
    * - Dba (optional): Doing Business As name
    * - Country_subdivision_of_formation (optional): Subdivision code of formation (ISO 3166-2)
    * - Country_subdivision_name_of_formation (optional): Text name of subdivision of formation
-   * - Tax_ids (optional): Issuer tax IDs
+   * - Tax_ids (optional): Issuer tax IDs (normalized to empty array if null/undefined)
    * - Email (optional): Work email
    * - Phone (optional): Phone number in ITU E.123 format
    * - Address (optional): Headquarters address
    * - Initial_shares_authorized (optional): Initial authorized shares (enum or numeric)
    * - Comments (optional): Additional comments
    */
-  issuerData: OcfIssuer;
+  issuerData: IssuerDataInput;
 }
 
 export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWithDisclosedContracts {

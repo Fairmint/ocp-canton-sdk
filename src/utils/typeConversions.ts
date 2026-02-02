@@ -231,6 +231,30 @@ export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Mon
 
 // ===== Data Cleaning Helpers =====
 
+/**
+ * Ensure a value is an array, normalizing null/undefined to an empty array.
+ *
+ * This is useful for OCF fields that should be arrays but may come from raw data
+ * where they are null or undefined. The SDK normalizes these to empty arrays
+ * to satisfy DAML contract requirements.
+ *
+ * @param value - The value to normalize (may be undefined, null, or an array)
+ * @returns The array value, or an empty array if the input was null/undefined
+ *
+ * @example
+ *   ```typescript
+ *   ensureArray([1, 2, 3]); // Returns [1, 2, 3]
+ *   ensureArray(null); // Returns []
+ *   ensureArray(undefined); // Returns []
+ *   ```
+ */
+export function ensureArray<T>(value: T[] | null | undefined): T[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  return [];
+}
+
 /** Remove empty string entries from comments array (mutates in place and returns the object) */
 export function cleanComments(comments?: Array<string | null>): string[] {
   if (Array.isArray(comments)) {
