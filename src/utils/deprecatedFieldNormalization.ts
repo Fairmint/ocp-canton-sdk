@@ -1459,19 +1459,15 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
 
   const normalizedFields: string[] = [];
   const warnings: string[] = [];
-  let result: T = { ...data };
 
   // Step 1: Normalize required array fields to empty arrays if null/undefined
-  const requiredArrays = REQUIRED_ARRAY_FIELDS[entityType];
-  if (requiredArrays && requiredArrays.length > 0) {
-    for (const field of requiredArrays) {
-      const value = data[field];
-      if (value === null || value === undefined) {
-        result = { ...result, [field]: [] };
-        normalizedFields.push(field);
-      }
-    }
-  }
+  // This uses lazy cloning internally - only clones if normalization is needed
+  const arrayNormResult = normalizeRequiredArrayFields(entityType, data);
+  let result: T = arrayNormResult.data;
+  normalizedFields.push(...arrayNormResult.normalizedFields);
+
+  // Track whether we've cloned the result (arrayNormResult.data may be the original or a clone)
+  let hasCloned = arrayNormResult.normalizedFields.length > 0;
 
   // Step 2: Look up the object type for deprecated field mappings
   const objectType = ENTITY_TYPE_TO_OBJECT_TYPE[entityType];
@@ -1496,8 +1492,19 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
     };
   }
 
+  // Helper to ensure we have a mutable clone
+  const ensureCloned = (): void => {
+    if (!hasCloned) {
+      result = { ...result };
+      hasCloned = true;
+    }
+  };
+
+  // Track which deprecated fields we normalized (for removal at the end)
+  const deprecatedFieldsToRemove: string[] = [];
+
   for (const mapping of mappings) {
-    const deprecatedValue = data[mapping.deprecatedField];
+    const deprecatedValue = result[mapping.deprecatedField];
     const hasDeprecated = deprecatedValue !== undefined && deprecatedValue !== null && deprecatedValue !== '';
 
     if (!hasDeprecated) {
@@ -1506,16 +1513,15 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
 
     switch (mapping.deprecationType) {
       case 'singular_to_array': {
-        const currentValue = data[mapping.replacementField];
+        const currentValue = result[mapping.replacementField];
         const hasCurrentArray = Array.isArray(currentValue) && currentValue.length > 0;
 
         if (!hasCurrentArray) {
           // Convert singular to array
-          result = {
-            ...result,
-            [mapping.replacementField]: [deprecatedValue],
-          };
+          ensureCloned();
+          (result as Record<string, unknown>)[mapping.replacementField] = [deprecatedValue];
           normalizedFields.push(mapping.deprecatedField);
+          deprecatedFieldsToRemove.push(mapping.deprecatedField);
 
           if (emitWarnings) {
             emitDeprecationWarning({
@@ -1536,16 +1542,15 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
       }
 
       case 'renamed': {
-        const currentValue = data[mapping.replacementField];
+        const currentValue = result[mapping.replacementField];
         const hasCurrent = currentValue !== undefined && currentValue !== null;
 
         if (!hasCurrent) {
           // Copy deprecated value to new field
-          result = {
-            ...result,
-            [mapping.replacementField]: deprecatedValue,
-          };
+          ensureCloned();
+          (result as Record<string, unknown>)[mapping.replacementField] = deprecatedValue;
           normalizedFields.push(mapping.deprecatedField);
+          deprecatedFieldsToRemove.push(mapping.deprecatedField);
 
           if (emitWarnings) {
             emitDeprecationWarning({
@@ -1565,7 +1570,7 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
       }
 
       case 'value_mapped': {
-        const currentValue = data[mapping.replacementField];
+        const currentValue = result[mapping.replacementField];
         const hasCurrent = currentValue !== undefined && currentValue !== null && currentValue !== '';
 
         if (!hasCurrent) {
@@ -1577,11 +1582,10 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
           const valueMap = mapping.valueMap ?? {};
           const mappedValue = valueMap[deprecatedValue] ?? deprecatedValue;
 
-          result = {
-            ...result,
-            [mapping.replacementField]: mappedValue,
-          };
+          ensureCloned();
+          (result as Record<string, unknown>)[mapping.replacementField] = mappedValue;
           normalizedFields.push(mapping.deprecatedField);
+          deprecatedFieldsToRemove.push(mapping.deprecatedField);
 
           if (emitWarnings) {
             emitDeprecationWarning({
@@ -1607,6 +1611,7 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
             `It has been removed in the current schema.`
         );
         normalizedFields.push(mapping.deprecatedField);
+        deprecatedFieldsToRemove.push(mapping.deprecatedField);
         break;
       }
     }
@@ -1614,10 +1619,10 @@ export function normalizeDeprecatedOcfFields<T extends Record<string, unknown>>(
 
   // Remove deprecated fields from the result to keep data clean
   // (They've been migrated to their replacements, or removed entirely for 'removed' type)
-  for (const mapping of mappings) {
-    if (normalizedFields.includes(mapping.deprecatedField)) {
-      const { [mapping.deprecatedField]: _removed, ...rest } = result;
-      result = rest as T;
+  if (deprecatedFieldsToRemove.length > 0) {
+    ensureCloned();
+    for (const field of deprecatedFieldsToRemove) {
+      delete (result as Record<string, unknown>)[field];
     }
   }
 
@@ -1934,6 +1939,9 @@ export const REQUIRED_ARRAY_FIELDS: Partial<Record<string, string[]>> = {
  * Normalize required array fields in OCF data.
  * This ensures array fields that are null/undefined become empty arrays.
  *
+ * Uses lazy cloning - only creates a copy when modification is actually needed,
+ * and clones once then mutates the clone for efficiency.
+ *
  * @param entityType - The OCF entity type
  * @param data - The OCF data that may have null/undefined array fields
  * @returns The normalized data with array fields as arrays
@@ -1948,18 +1956,27 @@ export function normalizeRequiredArrayFields<T extends Record<string, unknown>>(
     return { data, normalizedFields: [] };
   }
 
-  const normalizedFields: string[] = [];
-  let result: T = { ...data };
-
+  // First pass: identify which fields need normalization
+  const fieldsToNormalize: string[] = [];
   for (const field of requiredArrays) {
     const value = data[field];
     if (value === null || value === undefined) {
-      result = { ...result, [field]: [] };
-      normalizedFields.push(field);
+      fieldsToNormalize.push(field);
     }
   }
 
-  return { data: result, normalizedFields };
+  // If no fields need normalization, return original data (no clone)
+  if (fieldsToNormalize.length === 0) {
+    return { data, normalizedFields: [] };
+  }
+
+  // Clone once, then mutate the clone for all fields
+  const result = { ...data };
+  for (const field of fieldsToNormalize) {
+    (result as Record<string, unknown>)[field] = [];
+  }
+
+  return { data: result, normalizedFields: fieldsToNormalize };
 }
 
 /**
