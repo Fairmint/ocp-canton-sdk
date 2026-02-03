@@ -355,11 +355,12 @@ export function createTestWarrantExerciseData(
   }
 ): OcfWarrantExercise {
   const id = overrides.id ?? generateTestId('warrant-exercise');
-  const { security_id, resulting_security_ids, ...rest } = overrides;
+  const { security_id, resulting_security_ids, trigger_id, ...rest } = overrides;
   return {
     id,
     date: generateDateString(0),
     security_id,
+    trigger_id: trigger_id ?? generateTestId('trigger'),
     quantity: '1000',
     resulting_security_ids,
     ...rest,

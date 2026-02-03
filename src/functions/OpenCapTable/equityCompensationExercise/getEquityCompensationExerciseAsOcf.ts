@@ -8,7 +8,25 @@ import { normalizeNumericString } from '../../../utils/typeConversions';
  * Used by the dispatcher pattern in damlToOcf.ts
  */
 export function damlEquityCompensationExerciseDataToNative(d: Record<string, unknown>): OcfEquityCompensationExercise {
-  // Validate quantity
+  // Validate required fields
+  if (d.id === undefined || d.id === null || typeof d.id !== 'string') {
+    throw new OcpValidationError('equityCompensationExercise.id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.id,
+    });
+  }
+  if (d.date === undefined || d.date === null || typeof d.date !== 'string') {
+    throw new OcpValidationError('equityCompensationExercise.date', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.date,
+    });
+  }
+  if (d.security_id === undefined || d.security_id === null || typeof d.security_id !== 'string') {
+    throw new OcpValidationError('equityCompensationExercise.security_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.security_id,
+    });
+  }
   if (d.quantity === undefined || d.quantity === null) {
     throw new OcpValidationError('equityCompensationExercise.quantity', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -27,9 +45,9 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
   }
 
   return {
-    id: d.id as string,
-    date: (d.date as string).split('T')[0],
-    security_id: d.security_id as string,
+    id: d.id,
+    date: d.date.split('T')[0],
+    security_id: d.security_id,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
     ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),
     resulting_security_ids: Array.isArray(d.resulting_security_ids) ? (d.resulting_security_ids as string[]) : [],

@@ -140,7 +140,7 @@ const typeMap: Record<string, 'NOTE' | 'SAFE' | 'SECURITY'> = {
 
 const convertTriggers = (
   ts: unknown[] | undefined,
-  convertibleType: 'NOTE' | 'SAFE' | 'SECURITY',
+  _convertibleType: 'NOTE' | 'SAFE' | 'SECURITY',
   issuanceId: string
 ): ConversionTrigger[] => {
   if (!Array.isArray(ts)) return [];

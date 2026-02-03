@@ -35,6 +35,7 @@ describe('Exercise and Conversion Type Converters', () => {
         id: 'we-001',
         date: '2024-01-15',
         security_id: 'warrant-sec-001',
+        trigger_id: 'trigger-001',
         quantity: '5000',
         resulting_security_ids: ['stock-sec-001', 'stock-sec-002'],
         balance_security_id: 'warrant-sec-002',
@@ -70,6 +71,7 @@ describe('Exercise and Conversion Type Converters', () => {
           id: 'we-002',
           date: '2024-01-15',
           security_id: 'warrant-sec-003',
+          trigger_id: 'trigger-002',
           quantity: '1000',
           resulting_security_ids: ['stock-sec-003'],
         };
@@ -107,6 +109,7 @@ describe('Exercise and Conversion Type Converters', () => {
             id: 'we-001',
             date: '2024-01-15T00:00:00.000Z',
             security_id: 'warrant-sec-001',
+            trigger_id: 'trigger-001',
             quantity: '5000.0000000000',
             resulting_security_ids: ['stock-sec-001', 'stock-sec-002'],
             balance_security_id: 'warrant-sec-002',
@@ -121,6 +124,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.id).toBe('we-001');
         expect(result.event.date).toBe('2024-01-15');
         expect(result.event.security_id).toBe('warrant-sec-001');
+        expect(result.event.trigger_id).toBe('trigger-001');
         expect(result.event.quantity).toBe('5000');
         expect(result.event.resulting_security_ids).toEqual(['stock-sec-001', 'stock-sec-002']);
         expect(result.event.balance_security_id).toBe('warrant-sec-002');
@@ -134,6 +138,7 @@ describe('Exercise and Conversion Type Converters', () => {
             id: 'we-002',
             date: '2024-01-15T00:00:00.000Z',
             security_id: 'warrant-sec-003',
+            trigger_id: 'trigger-002',
             quantity: 5000,
             resulting_security_ids: ['stock-sec-003'],
           },
@@ -149,6 +154,7 @@ describe('Exercise and Conversion Type Converters', () => {
             id: 'we-003',
             date: '2024-01-15T00:00:00.000Z',
             security_id: 'warrant-sec-004',
+            trigger_id: 'trigger-003',
             quantity: '1000',
             resulting_security_ids: ['stock-sec-004'],
           },
@@ -167,6 +173,7 @@ describe('Exercise and Conversion Type Converters', () => {
             id: 'we-004',
             date: '2024-01-15T00:00:00.000Z',
             security_id: 'warrant-sec-005',
+            trigger_id: 'trigger-004',
             resulting_security_ids: ['stock-sec-005'],
           },
         });
@@ -190,6 +197,7 @@ describe('Exercise and Conversion Type Converters', () => {
             id: 'we-005',
             date: '2024-01-15T00:00:00.000Z',
             security_id: 'warrant-sec-006',
+            trigger_id: 'trigger-005',
             quantity: '1000',
             resulting_security_ids: [],
           },

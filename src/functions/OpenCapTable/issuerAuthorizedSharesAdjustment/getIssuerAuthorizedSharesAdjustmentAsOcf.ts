@@ -28,11 +28,17 @@ export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.issuer_id,
     });
-  if (!d.new_shares_authorized)
+  if (d.new_shares_authorized === undefined || d.new_shares_authorized === null)
     throw new OcpValidationError(
       'issuerAuthorizedSharesAdjustment.new_shares_authorized',
       'Missing new_shares_authorized',
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
+  if (typeof d.new_shares_authorized !== 'string' && typeof d.new_shares_authorized !== 'number')
+    throw new OcpValidationError(
+      'issuerAuthorizedSharesAdjustment.new_shares_authorized',
+      `Must be string or number, got ${typeof d.new_shares_authorized}`,
+      { code: OcpErrorCodes.INVALID_TYPE, expectedType: 'string | number', receivedValue: d.new_shares_authorized }
     );
   if (!d.date || typeof d.date !== 'string')
     throw new OcpValidationError('issuerAuthorizedSharesAdjustment.date', 'Missing or invalid date', {
@@ -45,9 +51,7 @@ export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
     date: d.date.split('T')[0],
     issuer_id: d.issuer_id,
     new_shares_authorized: normalizeNumericString(
-      typeof d.new_shares_authorized === 'number'
-        ? String(d.new_shares_authorized)
-        : (d.new_shares_authorized as string)
+      typeof d.new_shares_authorized === 'number' ? String(d.new_shares_authorized) : d.new_shares_authorized
     ),
     ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
     ...(d.stockholder_approval_date

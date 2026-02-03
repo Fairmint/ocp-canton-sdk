@@ -13,6 +13,7 @@ export interface DamlWarrantExerciseData {
   id: string;
   date: string;
   security_id: string;
+  trigger_id: string;
   quantity: string;
   resulting_security_ids: string[];
   balance_security_id?: string | null;
@@ -31,6 +32,7 @@ export function damlWarrantExerciseToNative(d: DamlWarrantExerciseData): OcfWarr
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,
+    trigger_id: d.trigger_id,
     quantity: normalizeNumericString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id && { balance_security_id: d.balance_security_id }),

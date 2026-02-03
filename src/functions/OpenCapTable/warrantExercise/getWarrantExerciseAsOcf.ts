@@ -65,11 +65,20 @@ export async function getWarrantExerciseAsOcf(
     });
   }
 
+  // Validate trigger_id
+  if (!d.trigger_id || typeof d.trigger_id !== 'string') {
+    throw new OcpValidationError('warrantExercise.trigger_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.trigger_id,
+    });
+  }
+
   const event: OcfWarrantExerciseEvent = {
     object_type: 'TX_WARRANT_EXERCISE',
     id: d.id as string,
     date: (d.date as string).split('T')[0],
     security_id: d.security_id as string,
+    trigger_id: d.trigger_id,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
     resulting_security_ids: d.resulting_security_ids as string[],
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id as string } : {}),
