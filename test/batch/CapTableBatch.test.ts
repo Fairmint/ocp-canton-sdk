@@ -82,6 +82,36 @@ describe('CapTableBatch', () => {
       batch.clear();
       expect(batch.isEmpty).toBe(true);
     });
+
+    it('should throw OcpValidationError when creating issuer via batch', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      const issuerData = {
+        id: 'issuer-123',
+        legal_name: 'Test Corp',
+        formation_date: '2024-01-01',
+        country_of_formation: 'US',
+        tax_ids: [],
+      };
+
+      expect(() => batch.create('issuer', issuerData)).toThrow(
+        'Cannot create issuer via batch - issuer is created with the CapTable via IssuerAuthorization.CreateCapTable'
+      );
+    });
+
+    it('should throw OcpValidationError when deleting issuer via batch', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      expect(() => batch.delete('issuer', 'issuer-123')).toThrow(
+        'Cannot delete issuer - issuer must always exist for the CapTable'
+      );
+    });
   });
 
   describe('build()', () => {
