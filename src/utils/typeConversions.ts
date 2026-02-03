@@ -8,7 +8,7 @@
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
-import type { Address, AddressType, Monetary } from '../types/native';
+import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
 
 // ===== Date and Time Conversion Helpers =====
 
@@ -120,6 +120,25 @@ export function safeString(value: unknown): string {
     }
   }
   return '';
+}
+
+// ===== DAML Enum Conversions =====
+
+/**
+ * Convert a DAML trigger type tag to OCF ConversionTriggerType enum value.
+ * Used by WarrantIssuance and ConvertibleIssuance converters to map DAML variant tags
+ * to the standardized OCF enum values.
+ *
+ * @param tag - The DAML trigger type tag (e.g., 'OcfTriggerTypeTypeAutomaticOnDate')
+ * @returns The corresponding OCF ConversionTriggerType enum value
+ */
+export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
+  if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
+  if (tag === 'OcfTriggerTypeTypeElectiveInRange') return 'ELECTIVE_IN_RANGE';
+  if (tag === 'OcfTriggerTypeTypeElectiveOnCondition') return 'ELECTIVE_ON_CONDITION';
+  if (tag === 'OcfTriggerTypeTypeElectiveAtWill') return 'ELECTIVE_AT_WILL';
+  if (tag === 'OcfTriggerTypeTypeUnspecified') return 'UNSPECIFIED';
+  return 'AUTOMATIC_ON_CONDITION';
 }
 
 // ===== Monetary Value Conversions =====

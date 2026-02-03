@@ -12,7 +12,11 @@ import type {
   WarrantMechanismSharePriceBased,
   WarrantMechanismValuationBased,
 } from '../../../types/native';
-import { damlMonetaryToNativeWithValidation, normalizeNumericString } from '../../../utils/typeConversions';
+import {
+  damlMonetaryToNativeWithValidation,
+  mapDamlTriggerTypeToOcf,
+  normalizeNumericString,
+} from '../../../utils/typeConversions';
 
 export interface GetWarrantIssuanceAsOcfParams {
   contractId: string;
@@ -23,15 +27,6 @@ export interface GetWarrantIssuanceAsOcfResult {
 }
 
 // Helper functions for DAML to OCF conversion
-
-function mapTagToType(tag: string): ConversionTriggerType {
-  if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
-  if (tag === 'OcfTriggerTypeTypeElectiveInRange') return 'ELECTIVE_IN_RANGE';
-  if (tag === 'OcfTriggerTypeTypeElectiveOnCondition') return 'ELECTIVE_ON_CONDITION';
-  if (tag === 'OcfTriggerTypeTypeElectiveAtWill') return 'ELECTIVE_AT_WILL';
-  if (tag === 'OcfTriggerTypeTypeUnspecified') return 'UNSPECIFIED';
-  return 'AUTOMATIC_ON_CONDITION';
-}
 
 function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
   if (!m || typeof m !== 'object') {
@@ -222,7 +217,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
               : typeof raw === 'string'
                 ? raw
                 : '';
-        const type: ConversionTriggerType = mapTagToType(tag);
+        const type: ConversionTriggerType = mapDamlTriggerTypeToOcf(tag);
         const trigger_id: string =
           typeof r.trigger_id === 'string' && r.trigger_id.length
             ? r.trigger_id

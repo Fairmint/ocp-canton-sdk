@@ -1,20 +1,17 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type { OcfConvertibleIssuance } from '../../../types/native';
-import { damlMonetaryToNativeWithValidation, normalizeNumericString, safeString } from '../../../utils/typeConversions';
+import type { ConversionTriggerType, OcfConvertibleIssuance } from '../../../types/native';
+import {
+  damlMonetaryToNativeWithValidation,
+  mapDamlTriggerTypeToOcf,
+  normalizeNumericString,
+  safeString,
+} from '../../../utils/typeConversions';
 
 interface CapitalizationDefinitionRules {
   exclude_external_entities?: boolean;
   include_capital_in_ratio?: boolean;
 }
-
-type ConversionTriggerType =
-  | 'AUTOMATIC_ON_CONDITION'
-  | 'AUTOMATIC_ON_DATE'
-  | 'ELECTIVE_IN_RANGE'
-  | 'ELECTIVE_ON_CONDITION'
-  | 'ELECTIVE_AT_WILL'
-  | 'UNSPECIFIED';
 
 interface CustomConversionMechanism {
   type: 'CUSTOM_CONVERSION';
@@ -140,15 +137,6 @@ const typeMap: Record<string, 'NOTE' | 'SAFE' | 'SECURITY'> = {
 
 const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): ConversionTrigger[] => {
   if (!Array.isArray(ts)) return [];
-
-  const mapTagToType = (tag: string): ConversionTriggerType => {
-    if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
-    if (tag === 'OcfTriggerTypeTypeElectiveInRange') return 'ELECTIVE_IN_RANGE';
-    if (tag === 'OcfTriggerTypeTypeElectiveOnCondition') return 'ELECTIVE_ON_CONDITION';
-    if (tag === 'OcfTriggerTypeTypeElectiveAtWill') return 'ELECTIVE_AT_WILL';
-    if (tag === 'OcfTriggerTypeTypeUnspecified') return 'UNSPECIFIED';
-    return 'AUTOMATIC_ON_CONDITION';
-  };
 
   const mapMechanism = (m: unknown): ConvertibleConversionRight['conversion_mechanism'] => {
     // Handle both string enum and DAML variant { tag, value }
@@ -511,7 +499,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
     const r = (raw ?? {}) as Record<string, unknown>;
     const tag =
       typeof r.type_ === 'string' ? r.type_ : typeof r.tag === 'string' ? r.tag : typeof raw === 'string' ? raw : '';
-    const type: ConversionTriggerType = mapTagToType(String(tag));
+    const type: ConversionTriggerType = mapDamlTriggerTypeToOcf(String(tag));
     const trigger_id: string =
       typeof r.trigger_id === 'string' && r.trigger_id.length ? r.trigger_id : `${issuanceId}-trigger-${idx + 1}`;
     const nickname: string | undefined = typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
