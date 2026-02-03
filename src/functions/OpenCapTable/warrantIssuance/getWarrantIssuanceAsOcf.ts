@@ -18,7 +18,7 @@ export interface GetWarrantIssuanceAsOcfParams {
   contractId: string;
 }
 export interface GetWarrantIssuanceAsOcfResult {
-  warrantIssuance: OcfWarrantIssuance;
+  warrantIssuance: OcfWarrantIssuance & { object_type: 'TX_WARRANT_ISSUANCE' };
   contractId: string;
 }
 
@@ -386,7 +386,12 @@ export async function getWarrantIssuanceAsOcf(
     });
   const d = arg.issuance_data as Record<string, unknown>;
 
-  const warrantIssuance = damlWarrantIssuanceDataToNative(d);
+  const native = damlWarrantIssuanceDataToNative(d);
+
+  const warrantIssuance = {
+    object_type: 'TX_WARRANT_ISSUANCE' as const,
+    ...native,
+  };
 
   return { warrantIssuance, contractId: params.contractId };
 }

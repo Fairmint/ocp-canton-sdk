@@ -4,9 +4,7 @@ import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } fr
 import type { AllocationType, VestingCondition, VestingConditionPortion } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
-export function damlAllocationTypeToNative(
-  t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType
-): AllocationType {
+function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
   switch (t) {
     case 'OcfAllocationCumulativeRounding':
       return 'CUMULATIVE_ROUNDING';
@@ -32,7 +30,7 @@ export function damlAllocationTypeToNative(
   }
 }
 
-export function mapDamlDayOfMonthToOcf(day: string): string {
+function mapDamlDayOfMonthToOcf(day: string): string {
   const table: Record<string, string> = {
     OcfVestingDay01: '01',
     OcfVestingDay02: '02',
@@ -70,7 +68,7 @@ export function mapDamlDayOfMonthToOcf(day: string): string {
   return table[day] ?? 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH';
 }
 
-export function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unknown> }): {
+function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unknown> }): {
   tag: 'DAYS' | 'MONTHS';
   length: number;
   occurrences: number;
@@ -141,7 +139,7 @@ export function damlVestingPeriodToNative(p: { tag: string; value?: Record<strin
   });
 }
 
-export function damlVestingTriggerToNative(
+function damlVestingTriggerToNative(
   t: string | { tag?: string; value?: Record<string, unknown> }
 ): Record<string, unknown> {
   const tag: string | undefined = typeof t === 'string' ? t : t.tag;
@@ -214,7 +212,7 @@ export function damlVestingTriggerToNative(
   });
 }
 
-export function damlVestingConditionPortionToNative(
+function damlVestingConditionPortionToNative(
   p: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion
 ): VestingConditionPortion {
   return {
@@ -224,9 +222,7 @@ export function damlVestingConditionPortionToNative(
   };
 }
 
-export function damlVestingConditionToNative(
-  c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition
-): VestingCondition {
+function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition): VestingCondition {
   const conditionWithId = c as unknown as { id?: string };
   const native: VestingCondition = {
     id: conditionWithId.id ?? '',
