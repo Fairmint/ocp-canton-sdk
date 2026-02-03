@@ -111,7 +111,7 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
   stockConsolidation: 'consolidation_data',
   stockConversion: 'conversion_data',
   stockIssuance: 'issuance_data',
-  stockLegendTemplate: 'stock_legend_template_data',
+  stockLegendTemplate: 'template_data',
   stockPlan: 'stock_plan_data',
   stockPlanPoolAdjustment: 'adjustment_data',
   stockPlanReturnToPool: 'return_data',
