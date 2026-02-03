@@ -1,3 +1,4 @@
 export * from './createStockCancellation';
-export { damlStockCancellationToNative, type DamlStockCancellationData } from './damlToOcf';
+export { damlStockCancellationToNative } from './damlToOcf';
+export type { DamlStockCancellationData } from './damlToOcf';
 export * from './getStockCancellationAsOcf';

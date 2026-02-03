@@ -15,7 +15,7 @@ export interface DamlConvertibleCancellationData {
   security_id: string;
   reason_text: string;
   balance_security_id?: string;
-  comments: string[];
+  comments?: string[];
 }
 
 /**
@@ -31,6 +31,6 @@ export function damlConvertibleCancellationToNative(d: DamlConvertibleCancellati
     security_id: d.security_id,
     reason_text: d.reason_text,
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(d.comments.length > 0 && { comments: d.comments }),
+    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }

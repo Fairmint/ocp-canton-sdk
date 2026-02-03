@@ -1,3 +1,4 @@
 export * from './createWarrantCancellation';
-export { damlWarrantCancellationToNative, type DamlWarrantCancellationData } from './damlToOcf';
+export { damlWarrantCancellationToNative } from './damlToOcf';
+export type { DamlWarrantCancellationData } from './damlToOcf';
 export * from './getWarrantCancellationAsOcf';

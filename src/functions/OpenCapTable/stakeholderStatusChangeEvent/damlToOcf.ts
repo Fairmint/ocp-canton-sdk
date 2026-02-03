@@ -2,7 +2,8 @@
  * DAML to OCF converters for StakeholderStatusChangeEvent entities.
  */
 
-import type { OcfStakeholderStatusChangeEvent, StakeholderStatus } from '../../../types';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import type { OcfStakeholderStatusChangeEvent } from '../../../types';
 import { damlStakeholderStatusToNative } from '../../../utils/enumConversions';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 
@@ -15,7 +16,7 @@ export interface DamlStakeholderStatusChangeData {
   date: string;
   stakeholder_id: string;
   new_status: string;
-  comments: string[];
+  comments?: string[];
 }
 
 /**
@@ -23,16 +24,25 @@ export interface DamlStakeholderStatusChangeData {
  *
  * @param d - The DAML stakeholder status change event data object
  * @returns The native OCF StakeholderStatusChangeEvent object
+ * @throws OcpParseError if the status is unknown
  */
 export function damlStakeholderStatusChangeEventToNative(
   d: DamlStakeholderStatusChangeData
 ): OcfStakeholderStatusChangeEvent {
   const nativeStatus = damlStakeholderStatusToNative(d.new_status);
+
+  if (nativeStatus === undefined) {
+    throw new OcpParseError(`Unknown stakeholder status: ${d.new_status}`, {
+      source: 'stakeholderStatusChangeEvent.new_status',
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    });
+  }
+
   return {
     id: d.id,
     date: damlTimeToDateString(d.date),
     stakeholder_id: d.stakeholder_id,
-    new_status: (nativeStatus ?? d.new_status) as StakeholderStatus,
-    ...(d.comments.length > 0 && { comments: d.comments }),
+    new_status: nativeStatus,
+    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }

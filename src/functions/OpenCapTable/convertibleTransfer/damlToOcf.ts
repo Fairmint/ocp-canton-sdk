@@ -17,7 +17,7 @@ export interface DamlConvertibleTransferData {
   resulting_security_ids: string[];
   balance_security_id?: string;
   consideration_text?: string;
-  comments: string[];
+  comments?: string[];
 }
 
 /**
@@ -35,6 +35,6 @@ export function damlConvertibleTransferToNative(d: DamlConvertibleTransferData):
     resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
-    ...(d.comments.length > 0 && { comments: d.comments }),
+    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }

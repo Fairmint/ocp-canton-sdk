@@ -18,7 +18,7 @@ export interface DamlStakeholderRelationshipChangeData {
   date: string;
   stakeholder_id: string;
   new_relationships: string[];
-  comments: string[];
+  comments?: string[];
 }
 
 /**
@@ -37,6 +37,6 @@ export function damlStakeholderRelationshipChangeEventToNative(
     new_relationships: d.new_relationships.map((rel) =>
       damlStakeholderRelationshipToNative(rel as DamlStakeholderRelationshipType)
     ),
-    ...(d.comments.length > 0 && { comments: d.comments }),
+    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }
