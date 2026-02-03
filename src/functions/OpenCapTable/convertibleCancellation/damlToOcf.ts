@@ -2,6 +2,7 @@
  * DAML to OCF converters for ConvertibleCancellation entities.
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfConvertibleCancellation } from '../../../types';
 import { damlMonetaryToNative, damlTimeToDateString } from '../../../utils/typeConversions';
 
@@ -20,7 +21,7 @@ export interface DamlConvertibleCancellationData {
   id: string;
   date: string;
   security_id: string;
-  amount: DamlMonetary;
+  amount?: DamlMonetary;
   reason_text: string;
   balance_security_id?: string;
   comments?: string[];
@@ -33,10 +34,12 @@ export interface DamlConvertibleCancellationData {
  * @returns The native OCF ConvertibleCancellation object
  */
 export function damlConvertibleCancellationToNative(d: DamlConvertibleCancellationData): OcfConvertibleCancellation {
-  // Validate required amount field (may be missing in legacy data)
   if (!d.amount) {
-    throw new Error('ConvertibleCancellation.amount is required but was not provided');
+    throw new OcpValidationError('convertibleCancellation.amount', 'amount is required for ConvertibleCancellation', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
+
   return {
     id: d.id,
     date: damlTimeToDateString(d.date),
