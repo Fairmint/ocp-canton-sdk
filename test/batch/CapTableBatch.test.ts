@@ -1,5 +1,6 @@
 /** Unit tests for CapTableBatch fluent builder. */
 
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type { OcfStakeholder, OcfStockClass } from '../../src/types';
 
@@ -97,9 +98,16 @@ describe('CapTableBatch', () => {
         tax_ids: [],
       };
 
-      expect(() => batch.create('issuer', issuerData)).toThrow(
-        'Cannot create issuer via batch - issuer is created with the CapTable via IssuerAuthorization.CreateCapTable'
-      );
+      try {
+        batch.create('issuer', issuerData);
+        throw new Error('Expected OcpValidationError to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        const validationError = error as OcpValidationError;
+        expect(validationError.message).toContain('Cannot create issuer via batch');
+        expect(validationError.fieldPath).toBe('type');
+        expect(validationError.code).toBe(OcpErrorCodes.INVALID_TYPE);
+      }
     });
 
     it('should throw OcpValidationError when deleting issuer via batch', () => {
@@ -108,9 +116,16 @@ describe('CapTableBatch', () => {
         actAs: ['party-1'],
       });
 
-      expect(() => batch.delete('issuer', 'issuer-123')).toThrow(
-        'Cannot delete issuer - issuer must always exist for the CapTable'
-      );
+      try {
+        batch.delete('issuer', 'issuer-123');
+        throw new Error('Expected OcpValidationError to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        const validationError = error as OcpValidationError;
+        expect(validationError.message).toContain('Cannot delete issuer');
+        expect(validationError.fieldPath).toBe('type');
+        expect(validationError.code).toBe(OcpErrorCodes.INVALID_TYPE);
+      }
     });
 
     it('should allow editing issuer via batch', () => {
