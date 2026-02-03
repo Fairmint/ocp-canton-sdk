@@ -91,6 +91,11 @@ export class CapTableBatch {
   edit<T extends OcfEntityType>(type: T, data: OcfDataTypeFor<T>): this {
     const damlData = convertToDaml(type, data);
     const tag = ENTITY_TAG_MAP[type].edit;
+    if (!tag) {
+      throw new OcpValidationError('type', `Edit operation not supported for entity type: ${type}`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+      });
+    }
     this.edits.push({ tag, value: damlData } as unknown as OcfEditData);
     return this;
   }
