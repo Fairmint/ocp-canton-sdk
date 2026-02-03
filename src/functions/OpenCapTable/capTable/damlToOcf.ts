@@ -70,6 +70,8 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
   equityCompensationRepricing: 'repricing_data',
   equityCompensationRetraction: 'retraction_data',
   equityCompensationTransfer: 'transfer_data',
+  // Issuer is edit-only (stored as a single reference in CapTable, not a map)
+  issuer: 'issuer_data',
   issuerAuthorizedSharesAdjustment: 'adjustment_data',
   // PlanSecurity aliases - use EquityCompensation data field names
   planSecurityAcceptance: 'acceptance_data',

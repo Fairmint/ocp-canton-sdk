@@ -22,6 +22,7 @@ import type {
   OcfEquityCompensationRepricing,
   OcfEquityCompensationRetraction,
   OcfEquityCompensationTransfer,
+  OcfIssuer,
   OcfIssuerAuthorizedSharesAdjustment,
   OcfPlanSecurityAcceptance,
   OcfPlanSecurityCancellation,
@@ -86,6 +87,9 @@ export type CapTableBatchExecuteResult = UpdateCapTableResult & {
  *
  * Note: `planSecurity*` types are aliases for their `equityCompensation*` equivalents.
  * The SDK accepts both type families and normalizes PlanSecurity to EquityCompensation internally.
+ *
+ * Note: `issuer` is edit-only (no create/delete). Issuers are created with the CapTable
+ * via IssuerAuthorization.CreateCapTable and cannot be deleted.
  */
 export type OcfEntityType =
   | 'convertibleAcceptance'
@@ -103,6 +107,7 @@ export type OcfEntityType =
   | 'equityCompensationRepricing'
   | 'equityCompensationRetraction'
   | 'equityCompensationTransfer'
+  | 'issuer'
   | 'issuerAuthorizedSharesAdjustment'
   // PlanSecurity types are aliases for EquityCompensation types
   | 'planSecurityAcceptance'
@@ -166,6 +171,8 @@ export interface OcfEntityDataMap {
   equityCompensationRepricing: OcfEquityCompensationRepricing;
   equityCompensationRetraction: OcfEquityCompensationRetraction;
   equityCompensationTransfer: OcfEquityCompensationTransfer;
+  /** Issuer is edit-only (no create/delete) - created with CapTable via IssuerAuthorization */
+  issuer: OcfIssuer;
   issuerAuthorizedSharesAdjustment: OcfIssuerAuthorizedSharesAdjustment;
   // PlanSecurity types - these are aliases for EquityCompensation types
   planSecurityAcceptance: OcfPlanSecurityAcceptance;
@@ -217,7 +224,10 @@ export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
  * Note: PlanSecurity types use the same DAML tags as their EquityCompensation equivalents
  * since the underlying DAML contracts are the same.
  */
-export const ENTITY_TAG_MAP: Record<OcfEntityType, { create: string; edit: string; delete: string }> = {
+export const ENTITY_TAG_MAP: Record<
+  OcfEntityType,
+  { create: string | undefined; edit: string | undefined; delete: string | undefined }
+> = {
   convertibleAcceptance: {
     create: 'OcfCreateConvertibleAcceptance',
     edit: 'OcfEditConvertibleAcceptance',
@@ -292,6 +302,12 @@ export const ENTITY_TAG_MAP: Record<OcfEntityType, { create: string; edit: strin
     create: 'OcfCreateEquityCompensationTransfer',
     edit: 'OcfEditEquityCompensationTransfer',
     delete: 'OcfDeleteEquityCompensationTransfer',
+  },
+  // Issuer is edit-only (created with CapTable via IssuerAuthorization, cannot be deleted)
+  issuer: {
+    create: undefined, // Not supported - use IssuerAuthorization.CreateCapTable
+    edit: 'OcfEditIssuer',
+    delete: undefined, // Not supported - issuer cannot be deleted
   },
   issuerAuthorizedSharesAdjustment: {
     create: 'OcfCreateIssuerAuthorizedSharesAdjustment',

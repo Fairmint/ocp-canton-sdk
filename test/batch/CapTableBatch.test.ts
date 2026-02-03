@@ -388,10 +388,11 @@ describe('ENTITY_TAG_MAP', () => {
     });
   });
 
-  it('should have all 54 entity types (including 7 PlanSecurity aliases)', () => {
-    // The DAML contract supports 47 entity types (excluding Issuer which is handled separately)
+  it('should have all 55 entity types (47 base + 7 PlanSecurity aliases + 1 issuer)', () => {
+    // The DAML contract supports 47 entity types in the CapTable maps
     // Plus 7 PlanSecurity alias types that map to EquityCompensation types
-    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(54);
+    // Plus 1 issuer type (edit-only, stored as a single reference not a map)
+    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(55);
   });
 
   it('should have correct tags for stakeholder event types', () => {
@@ -405,6 +406,15 @@ describe('ENTITY_TAG_MAP', () => {
       create: 'OcfCreateStakeholderStatusChangeEvent',
       edit: 'OcfEditStakeholderStatusChangeEvent',
       delete: 'OcfDeleteStakeholderStatusChangeEvent',
+    });
+  });
+
+  it('should have issuer as edit-only entity type (no create/delete)', () => {
+    // Issuer is edit-only: created with CapTable via IssuerAuthorization, cannot be deleted
+    expect(ENTITY_TAG_MAP.issuer).toEqual({
+      create: undefined, // Not supported
+      edit: 'OcfEditIssuer',
+      delete: undefined, // Not supported
     });
   });
 });

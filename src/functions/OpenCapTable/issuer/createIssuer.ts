@@ -53,7 +53,15 @@ export function normalizeIssuerData(data: IssuerDataInput): OcfIssuer {
   };
 }
 
-function issuerDataToDaml(issuerData: IssuerDataInput): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
+/**
+ * Convert native OCF Issuer data to DAML format.
+ *
+ * Used by both createIssuer (via IssuerAuthorization) and batch issuer edits (via UpdateCapTable).
+ *
+ * @param issuerData - Native OCF issuer data
+ * @returns DAML-formatted issuer data
+ */
+export function issuerDataToDaml(issuerData: IssuerDataInput): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
   // Normalize input data to ensure array fields are arrays
   const normalizedData = normalizeIssuerData(issuerData);
 

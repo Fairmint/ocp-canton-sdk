@@ -58,8 +58,18 @@ export class CapTableBatch {
    * @param type - The OCF entity type to create (e.g., 'stakeholder', 'stockClass')
    * @param data - The native OCF data for the entity
    * @returns This for chaining
+   * @throws OcpValidationError if type is 'issuer' (issuer is created with CapTable via IssuerAuthorization)
    */
   create<T extends OcfEntityType>(type: T, data: OcfDataTypeFor<T>): this {
+    // Issuer is edit-only (created with CapTable via IssuerAuthorization.CreateCapTable)
+    if (type === 'issuer') {
+      throw new OcpValidationError(
+        'type',
+        'Cannot create issuer via batch - issuer is created with the CapTable via IssuerAuthorization.CreateCapTable',
+        { code: OcpErrorCodes.INVALID_TYPE }
+      );
+    }
+
     const damlData = convertToDaml(type, data);
     const tag = ENTITY_TAG_MAP[type].create;
     this.creates.push({ tag, value: damlData } as unknown as OcfCreateData);
@@ -86,8 +96,16 @@ export class CapTableBatch {
    * @param type - The OCF entity type to delete
    * @param id - The OCF object ID to delete
    * @returns This for chaining
+   * @throws OcpValidationError if type is 'issuer' (issuer cannot be deleted)
    */
   delete(type: OcfEntityType, id: string): this {
+    // Issuer cannot be deleted - it must always exist for the CapTable
+    if (type === 'issuer') {
+      throw new OcpValidationError('type', 'Cannot delete issuer - issuer must always exist for the CapTable', {
+        code: OcpErrorCodes.INVALID_TYPE,
+      });
+    }
+
     const tag = ENTITY_TAG_MAP[type].delete;
     this.deletes.push({ tag, value: id } as unknown as OcfDeleteData);
     return this;

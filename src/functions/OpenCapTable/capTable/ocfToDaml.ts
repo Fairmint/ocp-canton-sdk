@@ -28,6 +28,7 @@ import { equityCompensationReleaseDataToDaml } from '../equityCompensationReleas
 import { equityCompensationRepricingDataToDaml } from '../equityCompensationRepricing/equityCompensationRepricingDataToDaml';
 import { equityCompensationRetractionDataToDaml } from '../equityCompensationRetraction/equityCompensationRetractionDataToDaml';
 import { equityCompensationTransferDataToDaml } from '../equityCompensationTransfer/equityCompensationTransferDataToDaml';
+import { issuerDataToDaml } from '../issuer/createIssuer';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
 import { planSecurityExerciseDataToDaml } from '../planSecurityExercise/planSecurityExerciseDataToDaml';
 import { planSecurityIssuanceDataToDaml } from '../planSecurityIssuance/planSecurityIssuanceDataToDaml';
@@ -125,6 +126,8 @@ export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTyp
       return stockTransferDataToDaml(d as OcfDataTypeFor<'stockTransfer'>);
     case 'stockRepurchase':
       return stockRepurchaseDataToDaml(d as OcfDataTypeFor<'stockRepurchase'>);
+    case 'issuer':
+      return issuerDataToDaml(d as OcfDataTypeFor<'issuer'>);
     case 'issuerAuthorizedSharesAdjustment':
       return issuerAuthorizedSharesAdjustmentDataToDaml(d as OcfDataTypeFor<'issuerAuthorizedSharesAdjustment'>);
     case 'stockClassAuthorizedSharesAdjustment':
