@@ -3,7 +3,7 @@
  */
 
 import type { OcfWarrantTransfer } from '../../../types';
-import { quantityTransferToNative, type DamlQuantityTransferData } from '../../../utils/typeConversions';
+import { type DamlQuantityTransferData, quantityTransferToNative } from '../../../utils/typeConversions';
 
 /**
  * DAML WarrantTransfer data structure.

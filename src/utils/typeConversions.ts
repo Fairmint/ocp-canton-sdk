@@ -229,107 +229,6 @@ export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Mon
   };
 }
 
-// ===== Shared DAML to OCF Converter Utilities =====
-// These utilities extract common conversion patterns used by multiple entity types.
-
-/**
- * Base DAML transaction data interface with common fields.
- * Used as the base for quantity-based transfers and cancellations.
- */
-export interface DamlBaseTransactionData {
-  id: string;
-  date: string;
-  security_id: string;
-  comments?: string[];
-}
-
-/**
- * DAML quantity-based transfer data.
- * Used by: stockTransfer, warrantTransfer, equityCompensationTransfer, planSecurityTransfer
- */
-export interface DamlQuantityTransferData extends DamlBaseTransactionData {
-  quantity: string;
-  resulting_security_ids: string[];
-  balance_security_id?: string;
-  consideration_text?: string;
-}
-
-/**
- * Native OCF quantity-based transfer output.
- */
-export interface NativeQuantityTransfer {
-  id: string;
-  date: string;
-  security_id: string;
-  quantity: string;
-  resulting_security_ids: string[];
-  balance_security_id?: string;
-  consideration_text?: string;
-  comments?: string[];
-}
-
-/**
- * Convert DAML quantity-based transfer data to native OCF format.
- * Shared utility used by stockTransfer, warrantTransfer, and equityCompensationTransfer converters.
- *
- * @param d - The DAML transfer data object
- * @returns The native OCF transfer object
- */
-export function quantityTransferToNative(d: DamlQuantityTransferData): NativeQuantityTransfer {
-  return {
-    id: d.id,
-    date: damlTimeToDateString(d.date),
-    security_id: d.security_id,
-    quantity: normalizeNumericString(d.quantity),
-    resulting_security_ids: d.resulting_security_ids,
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
-/**
- * DAML quantity-based cancellation data.
- * Used by: stockCancellation, warrantCancellation, equityCompensationCancellation, planSecurityCancellation
- */
-export interface DamlQuantityCancellationData extends DamlBaseTransactionData {
-  quantity: string;
-  reason_text: string;
-  balance_security_id?: string;
-}
-
-/**
- * Native OCF quantity-based cancellation output.
- */
-export interface NativeQuantityCancellation {
-  id: string;
-  date: string;
-  security_id: string;
-  quantity: string;
-  reason_text: string;
-  balance_security_id?: string;
-  comments?: string[];
-}
-
-/**
- * Convert DAML quantity-based cancellation data to native OCF format.
- * Shared utility used by stockCancellation, warrantCancellation, and equityCompensationCancellation converters.
- *
- * @param d - The DAML cancellation data object
- * @returns The native OCF cancellation object
- */
-export function quantityCancellationToNative(d: DamlQuantityCancellationData): NativeQuantityCancellation {
-  return {
-    id: d.id,
-    date: damlTimeToDateString(d.date),
-    security_id: d.security_id,
-    quantity: normalizeNumericString(d.quantity),
-    reason_text: d.reason_text,
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
-}
-
 // ===== Data Cleaning Helpers =====
 
 /**
@@ -364,6 +263,105 @@ export function cleanComments(comments?: Array<string | null>): string[] {
   }
 
   return [];
+}
+
+// ===== Shared DAML-to-Native Transfer/Cancellation Helpers =====
+
+/**
+ * Common DAML data structure for quantity-based transfers (Stock, Warrant, EquityCompensation).
+ * All three share the same field structure for the transfer operation.
+ */
+export interface DamlQuantityTransferData {
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string;
+  resulting_security_ids: string[];
+  balance_security_id?: string;
+  consideration_text?: string;
+  comments?: string[];
+}
+
+/**
+ * Common native output structure for quantity-based transfers.
+ * The entity-specific converters will assert the correct return type.
+ */
+export interface NativeQuantityTransferData {
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string;
+  resulting_security_ids: string[];
+  balance_security_id?: string;
+  consideration_text?: string;
+  comments?: string[];
+}
+
+/**
+ * Convert DAML quantity-based transfer data to native OCF format.
+ * Used by Stock, Warrant, and EquityCompensation transfer converters.
+ *
+ * @param d - The DAML transfer data object
+ * @returns The native transfer object (without object_type)
+ */
+export function quantityTransferToNative(d: DamlQuantityTransferData): NativeQuantityTransferData {
+  return {
+    id: d.id,
+    date: damlTimeToDateString(d.date),
+    security_id: d.security_id,
+    quantity: normalizeNumericString(d.quantity),
+    resulting_security_ids: d.resulting_security_ids,
+    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
+    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
+    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
+  };
+}
+
+/**
+ * Common DAML data structure for quantity-based cancellations (Stock, Warrant, EquityCompensation).
+ * All three share the same field structure for the cancellation operation.
+ */
+export interface DamlQuantityCancellationData {
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string;
+  reason_text: string;
+  balance_security_id?: string;
+  comments?: string[];
+}
+
+/**
+ * Common native output structure for quantity-based cancellations.
+ * The entity-specific converters will assert the correct return type.
+ */
+export interface NativeQuantityCancellationData {
+  id: string;
+  date: string;
+  security_id: string;
+  quantity: string;
+  reason_text: string;
+  balance_security_id?: string;
+  comments?: string[];
+}
+
+/**
+ * Convert DAML quantity-based cancellation data to native OCF format.
+ * Used by Stock, Warrant, and EquityCompensation cancellation converters.
+ *
+ * @param d - The DAML cancellation data object
+ * @returns The native cancellation object (without object_type)
+ */
+export function quantityCancellationToNative(d: DamlQuantityCancellationData): NativeQuantityCancellationData {
+  return {
+    id: d.id,
+    date: damlTimeToDateString(d.date),
+    security_id: d.security_id,
+    quantity: normalizeNumericString(d.quantity),
+    reason_text: d.reason_text,
+    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
+    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
+  };
 }
 
 // ===== Transaction Response Helpers =====

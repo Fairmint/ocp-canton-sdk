@@ -3,7 +3,7 @@
  */
 
 import type { OcfStockCancellation } from '../../../types';
-import { quantityCancellationToNative, type DamlQuantityCancellationData } from '../../../utils/typeConversions';
+import { type DamlQuantityCancellationData, quantityCancellationToNative } from '../../../utils/typeConversions';
 
 /**
  * DAML StockCancellation data structure.
