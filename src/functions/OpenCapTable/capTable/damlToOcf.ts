@@ -209,6 +209,7 @@ export type SupportedOcfReadType =
   // PlanSecurity aliases (delegate to EquityCompensation)
   | 'planSecurityAcceptance'
   | 'planSecurityCancellation'
+  | 'planSecurityExercise'
   | 'planSecurityIssuance'
   | 'planSecurityRelease'
   | 'planSecurityRetraction'
@@ -447,6 +448,10 @@ export function convertToOcf<T extends SupportedOcfReadType>(
     case 'planSecurityCancellation':
       return damlEquityCompensationCancellationToNative(
         data as Parameters<typeof damlEquityCompensationCancellationToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'planSecurityExercise':
+      return damlEquityCompensationExerciseDataToNative(
+        data as Parameters<typeof damlEquityCompensationExerciseDataToNative>[0]
       ) as OcfDataTypeFor<T>;
     case 'planSecurityIssuance':
       return damlEquityCompensationIssuanceDataToNative(

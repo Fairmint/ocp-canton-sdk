@@ -33,6 +33,10 @@ export interface DamlConvertibleCancellationData {
  * @returns The native OCF ConvertibleCancellation object
  */
 export function damlConvertibleCancellationToNative(d: DamlConvertibleCancellationData): OcfConvertibleCancellation {
+  // Validate required amount field (may be missing in legacy data)
+  if (!d.amount) {
+    throw new Error('ConvertibleCancellation.amount is required but was not provided');
+  }
   return {
     id: d.id,
     date: damlTimeToDateString(d.date),
