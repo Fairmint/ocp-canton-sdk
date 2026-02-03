@@ -1,113 +1,86 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
-import type { Vesting } from '../../../types/native';
+import type {
+  CompensationType,
+  OcfEquityCompensationIssuance,
+  PeriodType,
+  TerminationWindowReason,
+  Vesting,
+} from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
-
-export interface OcfEquityCompensationIssuanceEvent {
-  object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE';
-  id: string;
-  date: string;
-  security_id: string;
-  custom_id: string;
-  stakeholder_id: string;
-  compensation_type: 'OPTION_NSO' | 'OPTION_ISO' | 'OPTION' | 'RSU' | 'CSAR' | 'SSAR';
-  quantity: string;
-  exercise_price?: { amount: string; currency: string };
-  base_price?: { amount: string; currency: string };
-  early_exercisable?: boolean;
-  expiration_date: string | null;
-  termination_exercise_windows: Array<{
-    reason: string;
-    period: number;
-    period_type: 'DAYS' | 'MONTHS';
-  }>;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  consideration_text?: string;
-  vesting_terms_id?: string;
-  stock_class_id?: string;
-  stock_plan_id?: string;
-  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-  comments?: string[];
-  vestings?: Vesting[];
-}
 
 export interface GetEquityCompensationIssuanceAsOcfParams {
   contractId: string;
 }
 export interface GetEquityCompensationIssuanceAsOcfResult {
-  event: OcfEquityCompensationIssuanceEvent;
+  event: OcfEquityCompensationIssuance;
   contractId: string;
 }
 
-export async function getEquityCompensationIssuanceAsOcf(
-  client: LedgerJsonApiClient,
-  params: GetEquityCompensationIssuanceAsOcfParams
-): Promise<GetEquityCompensationIssuanceAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!res.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
+// Compensation type DAML→OCF mapping
+const compMap: Partial<Record<string, CompensationType>> = {
+  OcfCompensationTypeOptionNSO: 'OPTION_NSO',
+  OcfCompensationTypeOptionISO: 'OPTION_ISO',
+  OcfCompensationTypeOption: 'OPTION',
+  OcfCompensationTypeRSU: 'RSU',
+  OcfCompensationTypeCSAR: 'CSAR',
+  OcfCompensationTypeSSAR: 'SSAR',
+};
+
+// Termination window reason DAML→OCF mapping
+const twMapReason: Record<string, TerminationWindowReason> = {
+  OcfTermVoluntaryOther: 'VOLUNTARY_OTHER',
+  OcfTermVoluntaryGoodCause: 'VOLUNTARY_GOOD_CAUSE',
+  OcfTermVoluntaryRetirement: 'VOLUNTARY_RETIREMENT',
+  OcfTermInvoluntaryOther: 'INVOLUNTARY_OTHER',
+  OcfTermInvoluntaryDeath: 'INVOLUNTARY_DEATH',
+  OcfTermInvoluntaryDisability: 'INVOLUNTARY_DISABILITY',
+  OcfTermInvoluntaryWithCause: 'INVOLUNTARY_WITH_CAUSE',
+};
+
+// Termination window period type DAML→OCF mapping
+const twMapPeriodType: Record<string, PeriodType> = {
+  OcfPeriodDays: 'DAYS',
+  OcfPeriodMonths: 'MONTHS',
+};
+
+// Helper to map monetary objects
+function mapMonetary(price: unknown): { amount: string; currency: string } | undefined {
+  if (!price || typeof price !== 'object') return undefined;
+  const p = price as Record<string, unknown>;
+
+  // Validate amount exists and is string or number
+  if (p.amount === undefined || p.amount === null) {
+    throw new OcpValidationError('monetary.amount', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
-  const d = (arg.issuance_data ?? arg) as Record<string, unknown>;
+  if (typeof p.amount !== 'string' && typeof p.amount !== 'number') {
+    throw new OcpValidationError('monetary.amount', `Must be string or number, got ${typeof p.amount}`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string | number',
+      receivedValue: p.amount,
+    });
+  }
 
-  const compMap: Partial<Record<string, OcfEquityCompensationIssuanceEvent['compensation_type']>> = {
-    OcfCompensationTypeOptionNSO: 'OPTION_NSO',
-    OcfCompensationTypeOptionISO: 'OPTION_ISO',
-    OcfCompensationTypeOption: 'OPTION',
-    OcfCompensationTypeRSU: 'RSU',
-    OcfCompensationTypeCSAR: 'CSAR',
-    OcfCompensationTypeSSAR: 'SSAR',
-  };
+  // Validate currency exists and is string
+  if (typeof p.currency !== 'string' || !p.currency) {
+    throw new OcpValidationError('monetary.currency', 'Required field must be a non-empty string', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string',
+      receivedValue: p.currency,
+    });
+  }
 
-  const twMapReason: Record<string, string> = {
-    OcfTermVoluntaryOther: 'VOLUNTARY_OTHER',
-    OcfTermVoluntaryGoodCause: 'VOLUNTARY_GOOD_CAUSE',
-    OcfTermVoluntaryRetirement: 'VOLUNTARY_RETIREMENT',
-    OcfTermInvoluntaryOther: 'INVOLUNTARY_OTHER',
-    OcfTermInvoluntaryDeath: 'INVOLUNTARY_DEATH',
-    OcfTermInvoluntaryDisability: 'INVOLUNTARY_DISABILITY',
-    OcfTermInvoluntaryWithCause: 'INVOLUNTARY_WITH_CAUSE',
-  };
-  const twMapPeriodType: Record<string, 'DAYS' | 'MONTHS'> = {
-    OcfPeriodDays: 'DAYS',
-    OcfPeriodMonths: 'MONTHS',
-  };
+  const amount = normalizeNumericString(typeof p.amount === 'number' ? p.amount.toString() : p.amount);
+  return { amount, currency: p.currency };
+}
 
-  const mapMonetary = (price: unknown): { amount: string; currency: string } | undefined => {
-    if (!price || typeof price !== 'object') return undefined;
-    const p = price as Record<string, unknown>;
-
-    // Validate amount exists and is string or number
-    if (p.amount === undefined || p.amount === null) {
-      throw new OcpValidationError('monetary.amount', 'Required field is missing', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      });
-    }
-    if (typeof p.amount !== 'string' && typeof p.amount !== 'number') {
-      throw new OcpValidationError('monetary.amount', `Must be string or number, got ${typeof p.amount}`, {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string | number',
-        receivedValue: p.amount,
-      });
-    }
-
-    // Validate currency exists and is string
-    if (typeof p.currency !== 'string' || !p.currency) {
-      throw new OcpValidationError('monetary.currency', 'Required field must be a non-empty string', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        expectedType: 'string',
-        receivedValue: p.currency,
-      });
-    }
-
-    const amount = normalizeNumericString(typeof p.amount === 'number' ? p.amount.toString() : p.amount);
-    return { amount, currency: p.currency };
-  };
-
+/**
+ * Converts DAML equity compensation issuance data to native OCF format.
+ * Used by both getEquityCompensationIssuanceAsOcf and the damlToOcf dispatcher.
+ */
+export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unknown>): OcfEquityCompensationIssuance {
   const exercise_price = d.exercise_price ? mapMonetary(d.exercise_price) : undefined;
   const base_price = d.base_price ? mapMonetary(d.base_price) : undefined;
 
@@ -214,8 +187,16 @@ export async function getEquityCompensationIssuanceAsOcf(
     );
   }
 
-  const event: OcfEquityCompensationIssuanceEvent = {
-    object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+  // Map security_law_exemptions if present
+  const security_law_exemptions =
+    Array.isArray(d.security_law_exemptions) && d.security_law_exemptions.length > 0
+      ? (d.security_law_exemptions as Array<{ description: string; jurisdiction: string }>).map((ex) => ({
+          description: ex.description,
+          jurisdiction: ex.jurisdiction,
+        }))
+      : undefined;
+
+  return {
     id: d.id,
     date: d.date.split('T')[0],
     security_id: d.security_id,
@@ -223,8 +204,8 @@ export async function getEquityCompensationIssuanceAsOcf(
     stakeholder_id: d.stakeholder_id,
     compensation_type: compensationType,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
-    expiration_date: d.expiration_date ? (d.expiration_date as string).split('T')[0] : null,
-    termination_exercise_windows: termination_exercise_windows ?? [],
+    ...(d.expiration_date ? { expiration_date: (d.expiration_date as string).split('T')[0] } : {}),
+    ...(termination_exercise_windows ? { termination_exercise_windows } : {}),
     ...(exercise_price ? { exercise_price } : {}),
     ...(base_price ? { base_price } : {}),
     ...(d.early_exercisable !== null && d.early_exercisable !== undefined
@@ -240,15 +221,27 @@ export async function getEquityCompensationIssuanceAsOcf(
     ...(typeof d.vesting_terms_id === 'string' && d.vesting_terms_id ? { vesting_terms_id: d.vesting_terms_id } : {}),
     ...(typeof d.stock_class_id === 'string' && d.stock_class_id ? { stock_class_id: d.stock_class_id } : {}),
     ...(typeof d.stock_plan_id === 'string' && d.stock_plan_id ? { stock_plan_id: d.stock_plan_id } : {}),
-    security_law_exemptions: (d.security_law_exemptions as Array<{ description: string; jurisdiction: string }>).map(
-      (ex) => ({
-        description: ex.description,
-        jurisdiction: ex.jurisdiction,
-      })
-    ),
+    ...(security_law_exemptions ? { security_law_exemptions } : {}),
     ...(vestings ? { vestings } : {}),
     ...(comments ? { comments } : {}),
   };
+}
+
+export async function getEquityCompensationIssuanceAsOcf(
+  client: LedgerJsonApiClient,
+  params: GetEquityCompensationIssuanceAsOcfParams
+): Promise<GetEquityCompensationIssuanceAsOcfResult> {
+  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  if (!res.created?.createdEvent.createArgument) {
+    throw new OcpContractError('Missing createArgument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
+  }
+  const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
+  const d = (arg.issuance_data ?? arg) as Record<string, unknown>;
+
+  const event = damlEquityCompensationIssuanceDataToNative(d);
 
   return { event, contractId: params.contractId };
 }

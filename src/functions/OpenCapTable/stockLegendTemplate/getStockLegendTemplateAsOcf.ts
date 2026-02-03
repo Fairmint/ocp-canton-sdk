@@ -6,7 +6,7 @@ import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../er
 type StockLegendTemplateCreateArgument = Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplate;
 type DamlStockLegendTemplateOcfData = Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData;
 
-function damlStockLegendTemplateDataToNative(
+export function damlStockLegendTemplateDataToNative(
   damlData: DamlStockLegendTemplateOcfData
 ): Omit<OcfStockLegendTemplateOutput, 'object_type'> {
   if (!damlData.name) {

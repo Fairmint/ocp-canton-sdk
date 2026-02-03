@@ -32,7 +32,7 @@ function damlStockIssuanceTypeToNative(t: string): StockIssuanceType | undefined
   }
 }
 
-function damlStockIssuanceDataToNative(
+export function damlStockIssuanceDataToNative(
   d: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData
 ): OcfStockIssuance {
   const anyD = d as unknown as Record<string, unknown>;

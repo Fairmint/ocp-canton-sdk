@@ -1,39 +1,23 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
-
-export interface OcfIssuerAuthorizedSharesAdjustmentEvent {
-  object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT';
-  id: string;
-  date: string;
-  issuer_id: string;
-  new_shares_authorized: string;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  comments?: string[];
-}
 
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfParams {
   contractId: string;
 }
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfResult {
-  event: OcfIssuerAuthorizedSharesAdjustmentEvent;
+  event: OcfIssuerAuthorizedSharesAdjustment;
   contractId: string;
 }
 
-export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
-  client: LedgerJsonApiClient,
-  params: GetIssuerAuthorizedSharesAdjustmentAsOcfParams
-): Promise<GetIssuerAuthorizedSharesAdjustmentAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!res.created?.createdEvent.createArgument)
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
-  const d = (arg.adjustment_data ?? arg) as Record<string, unknown>;
-
+/**
+ * Converts DAML IssuerAuthorizedSharesAdjustment data to native OCF format.
+ * Used by damlToOcf dispatcher and getIssuerAuthorizedSharesAdjustmentAsOcf.
+ */
+export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
+  d: Record<string, unknown>
+): OcfIssuerAuthorizedSharesAdjustment {
   if (!d.id || typeof d.id !== 'string')
     throw new OcpValidationError('issuerAuthorizedSharesAdjustment.id', 'Missing or invalid id', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -56,8 +40,7 @@ export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
       receivedValue: d.date,
     });
 
-  const event: OcfIssuerAuthorizedSharesAdjustmentEvent = {
-    object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
+  return {
     id: d.id,
     date: d.date.split('T')[0],
     issuer_id: d.issuer_id,
@@ -72,5 +55,21 @@ export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
       : {}),
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };
+}
+
+export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
+  client: LedgerJsonApiClient,
+  params: GetIssuerAuthorizedSharesAdjustmentAsOcfParams
+): Promise<GetIssuerAuthorizedSharesAdjustmentAsOcfResult> {
+  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  if (!res.created?.createdEvent.createArgument)
+    throw new OcpContractError('Missing createArgument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.RESULT_NOT_FOUND,
+    });
+  const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
+  const d = (arg.adjustment_data ?? arg) as Record<string, unknown>;
+
+  const event = damlIssuerAuthorizedSharesAdjustmentDataToNative(d);
   return { event, contractId: params.contractId };
 }

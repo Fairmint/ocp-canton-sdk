@@ -127,7 +127,7 @@ function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType)
   }
 }
 
-function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData): OcfDocument {
+export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData): OcfDocument {
   const docWithId = d as unknown as { id?: string };
   return {
     id: docWithId.id ?? '',

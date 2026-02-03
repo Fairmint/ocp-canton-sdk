@@ -1,29 +1,46 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { OcfStockPlanPoolAdjustment } from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
-
-export interface OcfStockPlanPoolAdjustmentEvent {
-  object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT';
-  id: string;
-  date: string;
-  stock_plan_id: string;
-  shares_reserved: string;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  comments?: string[];
-}
 
 export interface GetStockPlanPoolAdjustmentAsOcfParams {
   contractId: string;
 }
 export interface GetStockPlanPoolAdjustmentAsOcfResult {
-  event: OcfStockPlanPoolAdjustmentEvent;
+  event: OcfStockPlanPoolAdjustment;
   contractId: string;
 }
 
 /** Type alias for DAML StockPlanPoolAdjustment contract createArgument */
 type StockPlanPoolAdjustmentCreateArgument = Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment;
+
+/** Type alias for DAML StockPlanPoolAdjustment OCF data */
+type StockPlanPoolAdjustmentOcfData = Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustmentOcfData;
+
+/**
+ * Converts DAML StockPlanPoolAdjustment data to native OCF format.
+ * Used by the dispatcher pattern in damlToOcf.ts.
+ */
+export function damlStockPlanPoolAdjustmentDataToNative(
+  data: StockPlanPoolAdjustmentOcfData
+): OcfStockPlanPoolAdjustment {
+  // Convert shares_reserved to string for normalization (DAML Numeric may come as number at runtime)
+  const sharesReserved = data.shares_reserved as string | number;
+  const sharesReservedStr = typeof sharesReserved === 'number' ? sharesReserved.toString() : sharesReserved;
+
+  return {
+    id: data.id,
+    date: data.date.split('T')[0],
+    stock_plan_id: data.stock_plan_id,
+    shares_reserved: normalizeNumericString(sharesReservedStr),
+    ...(data.board_approval_date ? { board_approval_date: data.board_approval_date.split('T')[0] } : {}),
+    ...(data.stockholder_approval_date
+      ? { stockholder_approval_date: data.stockholder_approval_date.split('T')[0] }
+      : {}),
+    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
+  };
+}
 
 export async function getStockPlanPoolAdjustmentAsOcf(
   client: LedgerJsonApiClient,
@@ -37,23 +54,7 @@ export async function getStockPlanPoolAdjustmentAsOcf(
     });
   }
   const contract = res.created.createdEvent.createArgument as StockPlanPoolAdjustmentCreateArgument;
-  const data = contract.adjustment_data;
 
-  // Convert shares_reserved to string for normalization (DAML Numeric may come as number at runtime)
-  const sharesReserved = data.shares_reserved as string | number;
-  const sharesReservedStr = typeof sharesReserved === 'number' ? sharesReserved.toString() : sharesReserved;
-
-  const event: OcfStockPlanPoolAdjustmentEvent = {
-    object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
-    id: data.id,
-    date: data.date.split('T')[0],
-    stock_plan_id: data.stock_plan_id,
-    shares_reserved: normalizeNumericString(sharesReservedStr),
-    ...(data.board_approval_date ? { board_approval_date: data.board_approval_date.split('T')[0] } : {}),
-    ...(data.stockholder_approval_date
-      ? { stockholder_approval_date: data.stockholder_approval_date.split('T')[0] }
-      : {}),
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
+  const event = damlStockPlanPoolAdjustmentDataToNative(contract.adjustment_data);
   return { event, contractId: params.contractId };
 }
