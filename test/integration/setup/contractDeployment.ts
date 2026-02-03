@@ -21,11 +21,13 @@ export interface DeploymentResult {
   packageIds: string[];
 }
 
+/** Current OCP version - only the latest is supported. */
+const OCP_VERSION = 'v31';
+
 /**
  * Find the OCP DAML DAR file path.
  *
  * Looks in common locations relative to the project root.
- * Supports multiple versions (v29, v30, etc.) for forward compatibility.
  */
 function findDarFilePath(): string | null {
   // __dirname is test/integration/setup/, so ../../../ gets to project root
@@ -33,21 +35,22 @@ function findDarFilePath(): string | null {
   const nodeModulesPath = path.join(projectRoot, 'node_modules/@fairmint/open-captable-protocol-daml-js');
   const siblingPath = path.join(projectRoot, '../open-captable-protocol-daml');
 
-  // Supported versions in order of preference (newest first)
-  const versions = ['v30', 'v29'];
+  // From npm package - DAR file included in package
+  const npmPath = path.join(
+    nodeModulesPath,
+    `OpenCapTable-${OCP_VERSION}/.daml/dist/OpenCapTable-${OCP_VERSION}-0.0.1.dar`
+  );
+  if (fs.existsSync(npmPath)) {
+    return npmPath;
+  }
 
-  for (const version of versions) {
-    // From npm package - DAR file included in package
-    const npmPath = path.join(nodeModulesPath, `OpenCapTable-${version}/.daml/dist/OpenCapTable-${version}-0.0.1.dar`);
-    if (fs.existsSync(npmPath)) {
-      return npmPath;
-    }
-
-    // From sibling directory (local development in monorepo)
-    const localPath = path.join(siblingPath, `OpenCapTable-${version}/.daml/dist/OpenCapTable-${version}-0.0.1.dar`);
-    if (fs.existsSync(localPath)) {
-      return localPath;
-    }
+  // From sibling directory (local development in monorepo)
+  const localPath = path.join(
+    siblingPath,
+    `OpenCapTable-${OCP_VERSION}/.daml/dist/OpenCapTable-${OCP_VERSION}-0.0.1.dar`
+  );
+  if (fs.existsSync(localPath)) {
+    return localPath;
   }
 
   return null;

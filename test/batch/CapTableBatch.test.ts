@@ -1,5 +1,6 @@
 /** Unit tests for CapTableBatch fluent builder. */
 
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type { OcfStakeholder, OcfStockClass } from '../../src/types';
 
@@ -81,6 +82,83 @@ describe('CapTableBatch', () => {
 
       batch.clear();
       expect(batch.isEmpty).toBe(true);
+    });
+
+    it('should throw OcpValidationError when creating issuer via batch', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      const issuerData = {
+        id: 'issuer-123',
+        legal_name: 'Test Corp',
+        formation_date: '2024-01-01',
+        country_of_formation: 'US',
+        tax_ids: [],
+      };
+
+      try {
+        batch.create('issuer', issuerData);
+        throw new Error('Expected OcpValidationError to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        const validationError = error as OcpValidationError;
+        expect(validationError.message).toContain('Cannot create issuer via batch');
+        expect(validationError.fieldPath).toBe('type');
+        expect(validationError.code).toBe(OcpErrorCodes.INVALID_TYPE);
+      }
+    });
+
+    it('should throw OcpValidationError when deleting issuer via batch', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      try {
+        batch.delete('issuer', 'issuer-123');
+        throw new Error('Expected OcpValidationError to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        const validationError = error as OcpValidationError;
+        expect(validationError.message).toContain('Cannot delete issuer');
+        expect(validationError.fieldPath).toBe('type');
+        expect(validationError.code).toBe(OcpErrorCodes.INVALID_TYPE);
+      }
+    });
+
+    it('should allow editing issuer via batch', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      const issuerData = {
+        id: 'issuer-123',
+        legal_name: 'Updated Test Corp',
+        formation_date: '2024-01-01',
+        country_of_formation: 'US',
+        tax_ids: [],
+      };
+
+      batch.edit('issuer', issuerData);
+
+      expect(batch.isEmpty).toBe(false);
+      expect(batch.size).toBe(1);
+
+      const { command } = batch.build();
+      expect(command).toHaveProperty('ExerciseCommand');
+      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+
+      const choiceArg = command.ExerciseCommand.choiceArgument as {
+        creates: Array<{ tag: string; value: unknown }>;
+        edits: Array<{ tag: string; value: unknown }>;
+        deletes: Array<{ tag: string; value: unknown }>;
+      };
+
+      expect(choiceArg.edits).toHaveLength(1);
+      expect(choiceArg.edits[0].tag).toBe('OcfEditIssuer');
     });
   });
 
@@ -388,10 +466,11 @@ describe('ENTITY_TAG_MAP', () => {
     });
   });
 
-  it('should have all 54 entity types (including 7 PlanSecurity aliases)', () => {
-    // The DAML contract supports 47 entity types (excluding Issuer which is handled separately)
+  it('should have all 55 entity types (47 base + 7 PlanSecurity aliases + 1 issuer)', () => {
+    // The DAML contract supports 47 entity types in the CapTable maps
     // Plus 7 PlanSecurity alias types that map to EquityCompensation types
-    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(54);
+    // Plus 1 issuer type (edit-only, stored as a single reference not a map)
+    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(55);
   });
 
   it('should have correct tags for stakeholder event types', () => {
@@ -405,6 +484,15 @@ describe('ENTITY_TAG_MAP', () => {
       create: 'OcfCreateStakeholderStatusChangeEvent',
       edit: 'OcfEditStakeholderStatusChangeEvent',
       delete: 'OcfDeleteStakeholderStatusChangeEvent',
+    });
+  });
+
+  it('should have issuer as edit-only entity type (no create/delete)', () => {
+    // Issuer is edit-only: created with CapTable via IssuerAuthorization, cannot be deleted
+    expect(ENTITY_TAG_MAP.issuer).toEqual({
+      create: undefined, // Not supported
+      edit: 'OcfEditIssuer',
+      delete: undefined, // Not supported
     });
   });
 });

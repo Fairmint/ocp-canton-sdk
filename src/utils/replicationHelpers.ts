@@ -181,7 +181,8 @@ export const mapDbTypeToEntityType = mapCategorizedTypeToEntityType;
  * Human-readable labels for each entity type: [singular, plural].
  */
 const ENTITY_TYPE_LABELS: Record<OcfEntityType, [string, string]> = {
-  // Core Objects (7 types)
+  // Core Objects (8 types)
+  issuer: ['Issuer', 'Issuers'], // edit-only, not in CapTable maps
   stakeholder: ['Stakeholder', 'Stakeholders'],
   stockClass: ['Stock Class', 'Stock Classes'],
   stockPlan: ['Stock Plan', 'Stock Plans'],

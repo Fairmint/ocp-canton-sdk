@@ -77,4 +77,42 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
     expect(ocfResult.issuer.country_subdivision_of_formation).toBe(originalData.country_subdivision_of_formation);
     expect(ocfResult.issuer.dba).toBe(originalData.dba);
   });
+
+  test('edits issuer via batch UpdateCapTable', async () => {
+    const ctx = getContext();
+
+    // Create issuer with initial data
+    const originalData = createTestIssuerData({
+      id: generateTestId('issuer-batch-edit'),
+      legal_name: 'Original Corp Name',
+      formation_date: '2023-01-01',
+      country_of_formation: 'US',
+    });
+
+    const testSetup = await setupTestIssuer(ctx.ocp, {
+      issuerParty: ctx.issuerParty,
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerData: originalData,
+    });
+
+    // Edit the issuer using batch API
+    const updatedIssuerData = {
+      ...originalData,
+      legal_name: 'Updated Corp Name',
+      dba: 'New DBA Name',
+    };
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: testSetup.issuerContractId,
+      capTableContractDetails: testSetup.capTableContractDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    const result = await batch.edit('issuer', updatedIssuerData).execute();
+
+    // Verify the edit was successful
+    expect(result.updatedCapTableCid).toBeTruthy();
+    expect(result.editedCids).toHaveLength(1);
+  });
 });
