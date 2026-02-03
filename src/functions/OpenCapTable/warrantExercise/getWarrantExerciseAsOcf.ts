@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { OcfWarrantExercise } from '../../../types/native';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { damlWarrantExerciseToNative } from './damlToOcf';
 
 /**
  * OCF Warrant Exercise Event with object_type discriminator OCF:
@@ -43,47 +43,13 @@ export async function getWarrantExerciseAsOcf(
   const d: Record<string, unknown> =
     (createArgument.exercise_data as Record<string, unknown> | undefined) ?? createArgument;
 
-  // Validate quantity
-  if (d.quantity === undefined || d.quantity === null) {
-    throw new OcpValidationError('warrantExercise.quantity', 'Required field is missing', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
-  }
-  if (typeof d.quantity !== 'string' && typeof d.quantity !== 'number') {
-    throw new OcpValidationError('warrantExercise.quantity', `Must be string or number, got ${typeof d.quantity}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string | number',
-      receivedValue: d.quantity,
-    });
-  }
-
-  // Validate resulting_security_ids
-  if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
-    throw new OcpValidationError('warrantExercise.resulting_security_ids', 'Required field must be a non-empty array', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.resulting_security_ids,
-    });
-  }
-
-  // Validate trigger_id
-  if (!d.trigger_id || typeof d.trigger_id !== 'string') {
-    throw new OcpValidationError('warrantExercise.trigger_id', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.trigger_id,
-    });
-  }
-
+  const native = damlWarrantExerciseToNative(d);
+  // Add object_type to create the full event type
+  // Note: quantity is typed as string | number in OcfWarrantExercise but normalizeNumericString always returns string
   const event: OcfWarrantExerciseEvent = {
     object_type: 'TX_WARRANT_EXERCISE',
-    id: d.id as string,
-    date: (d.date as string).split('T')[0],
-    security_id: d.security_id as string,
-    trigger_id: d.trigger_id,
-    quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
-    resulting_security_ids: d.resulting_security_ids as string[],
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id as string } : {}),
-    ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments as string[] } : {}),
+    ...native,
+    quantity: native.quantity as string,
   };
 
   return { event, contractId: params.contractId };
