@@ -59,7 +59,7 @@ function damlContactInfoWithoutNameToNative(
   } as ContactInfoWithoutName;
 }
 
-function damlStakeholderDataToNative(
+export function damlStakeholderDataToNative(
   damlData: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData
 ): Omit<OcfStakeholderOutput, 'object_type'> {
   const dAny = damlData as unknown as Record<string, unknown>;

@@ -1099,6 +1099,8 @@ export interface OcfConvertibleCancellation {
   date: string;
   /** Identifier for the security being cancelled */
   security_id: string;
+  /** Amount of monetary value cancelled */
+  amount: Monetary;
   /** Identifier for the security that holds the remainder balance (for partial cancellations) */
   balance_security_id?: string;
   /** Reason for the cancellation */
@@ -1433,6 +1435,8 @@ export interface OcfWarrantExercise {
   date: string;
   /** Identifier for the warrant security being exercised */
   security_id: string;
+  /** Identifier for the warrant's exercise trigger that resulted in this exercise */
+  trigger_id: string;
   /** Quantity of warrants being exercised */
   quantity: string | number;
   /** Array of identifiers for new securities resulting from the exercise */

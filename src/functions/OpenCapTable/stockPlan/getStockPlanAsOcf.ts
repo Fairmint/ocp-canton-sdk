@@ -19,7 +19,7 @@ function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehav
   }
 }
 
-function damlStockPlanDataToNative(
+export function damlStockPlanDataToNative(
   d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData
 ): Omit<OcfStockPlanOutput, 'object_type'> {
   // Access fields via Record type to handle DAML types that may vary from the SDK definition

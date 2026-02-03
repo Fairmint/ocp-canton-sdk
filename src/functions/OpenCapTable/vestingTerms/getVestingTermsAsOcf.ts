@@ -250,7 +250,7 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
   return native;
 }
 
-function damlVestingTermsDataToNative(
+export function damlVestingTermsDataToNative(
   d: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
 ): Omit<OcfVestingTermsOutput, 'object_type'> {
   const dataWithId = d as unknown as { id?: string };

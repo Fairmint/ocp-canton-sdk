@@ -1,7 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import type { PkgStockClassAuthorizedSharesAdjustmentOcfData } from '../../../types/daml';
+import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types/native';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface OcfStockClassAuthorizedSharesAdjustmentEvent {
   object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT';
@@ -26,6 +28,31 @@ export interface GetStockClassAuthorizedSharesAdjustmentAsOcfResult {
 type StockClassAuthorizedSharesAdjustmentCreateArgument =
   Fairmint.OpenCapTable.OCF.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment;
 
+/**
+ * Converts DAML StockClassAuthorizedSharesAdjustment data to native OCF format.
+ * Used by both getStockClassAuthorizedSharesAdjustmentAsOcf and the damlToOcf dispatcher.
+ */
+export function damlStockClassAuthorizedSharesAdjustmentDataToNative(
+  data: PkgStockClassAuthorizedSharesAdjustmentOcfData
+): OcfStockClassAuthorizedSharesAdjustment {
+  // Convert new_shares_authorized to string for normalization (DAML Numeric may come as number at runtime)
+  const newSharesAuthorized = data.new_shares_authorized as string | number;
+  const newSharesAuthorizedStr =
+    typeof newSharesAuthorized === 'number' ? newSharesAuthorized.toString() : newSharesAuthorized;
+
+  return {
+    id: data.id,
+    date: damlTimeToDateString(data.date),
+    stock_class_id: data.stock_class_id,
+    new_shares_authorized: normalizeNumericString(newSharesAuthorizedStr),
+    ...(data.board_approval_date ? { board_approval_date: damlTimeToDateString(data.board_approval_date) } : {}),
+    ...(data.stockholder_approval_date
+      ? { stockholder_approval_date: damlTimeToDateString(data.stockholder_approval_date) }
+      : {}),
+    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
+  };
+}
+
 export async function getStockClassAuthorizedSharesAdjustmentAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockClassAuthorizedSharesAdjustmentAsOcfParams
@@ -38,24 +65,16 @@ export async function getStockClassAuthorizedSharesAdjustmentAsOcf(
     });
   }
   const contract = res.created.createdEvent.createArgument as StockClassAuthorizedSharesAdjustmentCreateArgument;
-  const data = contract.adjustment_data;
-
-  // Convert new_shares_authorized to string for normalization (DAML Numeric may come as number at runtime)
-  const newSharesAuthorized = data.new_shares_authorized as string | number;
-  const newSharesAuthorizedStr =
-    typeof newSharesAuthorized === 'number' ? newSharesAuthorized.toString() : newSharesAuthorized;
+  const native = damlStockClassAuthorizedSharesAdjustmentDataToNative(contract.adjustment_data);
 
   const event: OcfStockClassAuthorizedSharesAdjustmentEvent = {
     object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
-    id: data.id,
-    date: data.date.split('T')[0],
-    stock_class_id: data.stock_class_id,
-    new_shares_authorized: normalizeNumericString(newSharesAuthorizedStr),
-    ...(data.board_approval_date ? { board_approval_date: data.board_approval_date.split('T')[0] } : {}),
-    ...(data.stockholder_approval_date
-      ? { stockholder_approval_date: data.stockholder_approval_date.split('T')[0] }
-      : {}),
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
+    ...native,
+    // Ensure new_shares_authorized is string (native type allows string | number)
+    new_shares_authorized:
+      typeof native.new_shares_authorized === 'number'
+        ? native.new_shares_authorized.toString()
+        : native.new_shares_authorized,
   };
   return { event, contractId: params.contractId };
 }

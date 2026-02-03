@@ -250,8 +250,8 @@ export async function extractCantonOcfManifest(
           const { event } = await getConvertibleIssuanceAsOcf(client, { contractId });
           result.transactions.push(event as unknown as Record<string, unknown>);
         } else if (entityType === 'warrantIssuance') {
-          const { event } = await getWarrantIssuanceAsOcf(client, { contractId });
-          result.transactions.push(event as unknown as Record<string, unknown>);
+          const { warrantIssuance } = await getWarrantIssuanceAsOcf(client, { contractId });
+          result.transactions.push(warrantIssuance as unknown as Record<string, unknown>);
         } else if (entityType === 'equityCompensationIssuance') {
           const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId });
           result.transactions.push(event as unknown as Record<string, unknown>);

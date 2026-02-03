@@ -33,7 +33,7 @@ interface StockClassNativeData {
   participation_cap_multiple?: string;
 }
 
-function damlStockClassDataToNative(
+export function damlStockClassDataToNative(
   damlData: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData
 ): StockClassNativeData {
   // Access fields via Record type to handle DAML union types that may vary from the SDK definition

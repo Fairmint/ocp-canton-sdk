@@ -1,24 +1,64 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
-
-export interface OcfIssuerAuthorizedSharesAdjustmentEvent {
-  object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT';
-  id: string;
-  date: string;
-  issuer_id: string;
-  new_shares_authorized: string;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  comments?: string[];
-}
 
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfParams {
   contractId: string;
 }
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfResult {
-  event: OcfIssuerAuthorizedSharesAdjustmentEvent;
+  event: OcfIssuerAuthorizedSharesAdjustment & { object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT' };
   contractId: string;
+}
+
+/**
+ * Converts DAML IssuerAuthorizedSharesAdjustment data to native OCF format.
+ * Used by damlToOcf dispatcher and getIssuerAuthorizedSharesAdjustmentAsOcf.
+ */
+export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
+  d: Record<string, unknown>
+): OcfIssuerAuthorizedSharesAdjustment {
+  if (!d.id || typeof d.id !== 'string')
+    throw new OcpValidationError('issuerAuthorizedSharesAdjustment.id', 'Missing or invalid id', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.id,
+    });
+  if (!d.issuer_id || typeof d.issuer_id !== 'string')
+    throw new OcpValidationError('issuerAuthorizedSharesAdjustment.issuer_id', 'Missing or invalid issuer_id', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.issuer_id,
+    });
+  if (d.new_shares_authorized === undefined || d.new_shares_authorized === null)
+    throw new OcpValidationError(
+      'issuerAuthorizedSharesAdjustment.new_shares_authorized',
+      'Missing new_shares_authorized',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
+  if (typeof d.new_shares_authorized !== 'string' && typeof d.new_shares_authorized !== 'number')
+    throw new OcpValidationError(
+      'issuerAuthorizedSharesAdjustment.new_shares_authorized',
+      `Must be string or number, got ${typeof d.new_shares_authorized}`,
+      { code: OcpErrorCodes.INVALID_TYPE, expectedType: 'string | number', receivedValue: d.new_shares_authorized }
+    );
+  if (!d.date || typeof d.date !== 'string')
+    throw new OcpValidationError('issuerAuthorizedSharesAdjustment.date', 'Missing or invalid date', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.date,
+    });
+
+  return {
+    id: d.id,
+    date: d.date.split('T')[0],
+    issuer_id: d.issuer_id,
+    new_shares_authorized: normalizeNumericString(
+      typeof d.new_shares_authorized === 'number' ? String(d.new_shares_authorized) : d.new_shares_authorized
+    ),
+    ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
+    ...(d.stockholder_approval_date
+      ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }
+      : {}),
+    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
+  };
 }
 
 export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
@@ -34,43 +74,11 @@ export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
   const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
   const d = (arg.adjustment_data ?? arg) as Record<string, unknown>;
 
-  if (!d.id || typeof d.id !== 'string')
-    throw new OcpValidationError('issuerAuthorizedSharesAdjustment.id', 'Missing or invalid id', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.id,
-    });
-  if (!d.issuer_id || typeof d.issuer_id !== 'string')
-    throw new OcpValidationError('issuerAuthorizedSharesAdjustment.issuer_id', 'Missing or invalid issuer_id', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.issuer_id,
-    });
-  if (!d.new_shares_authorized)
-    throw new OcpValidationError(
-      'issuerAuthorizedSharesAdjustment.new_shares_authorized',
-      'Missing new_shares_authorized',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-    );
-  if (!d.date || typeof d.date !== 'string')
-    throw new OcpValidationError('issuerAuthorizedSharesAdjustment.date', 'Missing or invalid date', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.date,
-    });
-
-  const event: OcfIssuerAuthorizedSharesAdjustmentEvent = {
-    object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
-    id: d.id,
-    date: d.date.split('T')[0],
-    issuer_id: d.issuer_id,
-    new_shares_authorized: normalizeNumericString(
-      typeof d.new_shares_authorized === 'number'
-        ? String(d.new_shares_authorized)
-        : (d.new_shares_authorized as string)
-    ),
-    ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
-    ...(d.stockholder_approval_date
-      ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }
-      : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
+  const native = damlIssuerAuthorizedSharesAdjustmentDataToNative(d);
+  // Add object_type to create the full event type
+  const event = {
+    object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT' as const,
+    ...native,
   };
   return { event, contractId: params.contractId };
 }

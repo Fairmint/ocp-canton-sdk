@@ -1,17 +1,59 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { OcfEquityCompensationExercise } from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
-interface OcfEquityCompensationExerciseOutput {
-  object_type: 'TX_EQUITY_COMPENSATION_EXERCISE';
-  id: string;
-  quantity: string | number;
-  security_id: string;
-  date: string;
-  // Optional fields from schema left undefined if not present on DAML event
-  consideration_text?: string;
-  resulting_security_ids?: string[];
-  comments?: string[];
+/**
+ * Converts DAML EquityCompensationExercise data to native OCF format.
+ * Used by the dispatcher pattern in damlToOcf.ts
+ */
+export function damlEquityCompensationExerciseDataToNative(d: Record<string, unknown>): OcfEquityCompensationExercise {
+  // Validate required fields
+  if (d.id === undefined || d.id === null || typeof d.id !== 'string') {
+    throw new OcpValidationError('equityCompensationExercise.id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.id,
+    });
+  }
+  if (d.date === undefined || d.date === null || typeof d.date !== 'string') {
+    throw new OcpValidationError('equityCompensationExercise.date', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.date,
+    });
+  }
+  if (d.security_id === undefined || d.security_id === null || typeof d.security_id !== 'string') {
+    throw new OcpValidationError('equityCompensationExercise.security_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.security_id,
+    });
+  }
+  // Validate quantity
+  if (d.quantity === undefined || d.quantity === null) {
+    throw new OcpValidationError('equityCompensationExercise.quantity', 'Required field is missing', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
+  if (typeof d.quantity !== 'string' && typeof d.quantity !== 'number') {
+    throw new OcpValidationError(
+      'equityCompensationExercise.quantity',
+      `Must be string or number, got ${typeof d.quantity}`,
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string | number',
+        receivedValue: d.quantity,
+      }
+    );
+  }
+
+  return {
+    id: d.id,
+    date: d.date.split('T')[0],
+    security_id: d.security_id,
+    quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
+    ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),
+    resulting_security_ids: Array.isArray(d.resulting_security_ids) ? (d.resulting_security_ids as string[]) : [],
+    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments as string[] } : {}),
+  };
 }
 
 export interface GetEquityCompensationExerciseAsOcfParams {
@@ -19,7 +61,7 @@ export interface GetEquityCompensationExerciseAsOcfParams {
 }
 
 export interface GetEquityCompensationExerciseAsOcfResult {
-  event: OcfEquityCompensationExerciseOutput;
+  event: OcfEquityCompensationExercise & { object_type: 'TX_EQUITY_COMPENSATION_EXERCISE' };
   contractId: string;
 }
 
@@ -44,36 +86,12 @@ export async function getEquityCompensationExerciseAsOcf(
   const d: Record<string, unknown> =
     (createArgument.exercise_data as Record<string, unknown> | undefined) ?? createArgument;
 
-  // Validate quantity
-  if (d.quantity === undefined || d.quantity === null) {
-    throw new OcpValidationError('equityCompensationExercise.quantity', 'Required field is missing', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
-  }
-  if (typeof d.quantity !== 'string' && typeof d.quantity !== 'number') {
-    throw new OcpValidationError(
-      'equityCompensationExercise.quantity',
-      `Must be string or number, got ${typeof d.quantity}`,
-      {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string | number',
-        receivedValue: d.quantity,
-      }
-    );
-  }
-
-  const ocf: OcfEquityCompensationExerciseOutput = {
-    object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
-    id: d.id as string,
-    quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
-    security_id: d.security_id as string,
-    date: (d.date as string).split('T')[0],
-    ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),
-    ...(Array.isArray(d.resulting_security_ids) && d.resulting_security_ids.length
-      ? { resulting_security_ids: d.resulting_security_ids as string[] }
-      : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments as string[] } : {}),
+  const native = damlEquityCompensationExerciseDataToNative(d);
+  // Add object_type to create the full event type
+  const event = {
+    object_type: 'TX_EQUITY_COMPENSATION_EXERCISE' as const,
+    ...native,
   };
 
-  return { event: ocf, contractId: params.contractId };
+  return { event, contractId: params.contractId };
 }

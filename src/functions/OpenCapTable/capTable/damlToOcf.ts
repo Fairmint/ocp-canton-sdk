@@ -17,22 +17,35 @@ import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
 import { damlConvertibleCancellationToNative } from '../convertibleCancellation/damlToOcf';
 import { damlConvertibleConversionToNative } from '../convertibleConversion/damlToOcf';
+import { damlConvertibleIssuanceDataToNative } from '../convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { damlConvertibleRetractionToNative } from '../convertibleRetraction/damlToOcf';
 import { damlConvertibleTransferToNative } from '../convertibleTransfer/damlToOcf';
+import { damlDocumentDataToNative } from '../document/getDocumentAsOcf';
 import { damlEquityCompensationAcceptanceToNative } from '../equityCompensationAcceptance/equityCompensationAcceptanceDataToDaml';
 import { damlEquityCompensationCancellationToNative } from '../equityCompensationCancellation/damlToOcf';
+import { damlEquityCompensationExerciseDataToNative } from '../equityCompensationExercise/getEquityCompensationExerciseAsOcf';
+import { damlEquityCompensationIssuanceDataToNative } from '../equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { damlEquityCompensationReleaseToNative } from '../equityCompensationRelease/damlToOcf';
 import { damlEquityCompensationRepricingToNative } from '../equityCompensationRepricing/damlToOcf';
 import { damlEquityCompensationRetractionToNative } from '../equityCompensationRetraction/damlToOcf';
 import { damlEquityCompensationTransferToNative } from '../equityCompensationTransfer/damlToOcf';
+import { damlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
+import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
+import { damlStakeholderDataToNative } from '../stakeholder/getStakeholderAsOcf';
 import { damlStakeholderRelationshipChangeEventToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
 import { damlStakeholderStatusChangeEventToNative } from '../stakeholderStatusChangeEvent/damlToOcf';
 import { damlStockAcceptanceToNative } from '../stockAcceptance/stockAcceptanceDataToDaml';
 import { damlStockCancellationToNative } from '../stockCancellation/damlToOcf';
+import { damlStockClassDataToNative } from '../stockClass/getStockClassAsOcf';
+import { damlStockClassAuthorizedSharesAdjustmentDataToNative } from '../stockClassAuthorizedSharesAdjustment/getStockClassAuthorizedSharesAdjustmentAsOcf';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
 import { damlStockClassSplitToNative } from '../stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../stockConsolidation/damlToStockConsolidation';
 import { damlStockConversionToNative } from '../stockConversion/damlToOcf';
+import { damlStockIssuanceDataToNative } from '../stockIssuance/getStockIssuanceAsOcf';
+import { damlStockLegendTemplateDataToNative } from '../stockLegendTemplate/getStockLegendTemplateAsOcf';
+import { damlStockPlanDataToNative } from '../stockPlan/getStockPlanAsOcf';
+import { damlStockPlanPoolAdjustmentDataToNative } from '../stockPlanPoolAdjustment/getStockPlanPoolAdjustmentAsOcf';
 import { damlStockPlanReturnToPoolToNative } from '../stockPlanReturnToPool/damlToOcf';
 import { damlStockReissuanceToNative } from '../stockReissuance/damlToStockReissuance';
 import { damlStockRepurchaseToNative } from '../stockRepurchase/damlToOcf';
@@ -42,9 +55,11 @@ import { damlValuationToNative } from '../valuation/damlToOcf';
 import { damlVestingAccelerationToNative } from '../vestingAcceleration/damlToOcf';
 import { damlVestingEventToNative } from '../vestingEvent/damlToOcf';
 import { damlVestingStartToNative } from '../vestingStart/damlToOcf';
+import { damlVestingTermsDataToNative } from '../vestingTerms/getVestingTermsAsOcf';
 import { damlWarrantAcceptanceToNative } from '../warrantAcceptance/warrantAcceptanceDataToDaml';
 import { damlWarrantCancellationToNative } from '../warrantCancellation/damlToOcf';
 import { damlWarrantExerciseToNative } from '../warrantExercise/damlToOcf';
+import { damlWarrantIssuanceDataToNative } from '../warrantIssuance/getWarrantIssuanceAsOcf';
 import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 import { damlWarrantTransferToNative } from '../warrantTransfer/damlToOcf';
 
@@ -96,7 +111,7 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
   stockConsolidation: 'consolidation_data',
   stockConversion: 'conversion_data',
   stockIssuance: 'issuance_data',
-  stockLegendTemplate: 'stock_legend_template_data',
+  stockLegendTemplate: 'template_data',
   stockPlan: 'stock_plan_data',
   stockPlanPoolAdjustment: 'adjustment_data',
   stockPlanReturnToPool: 'return_data',
@@ -124,52 +139,81 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
 /**
  * Supported entity types for the convertToOcf dispatcher.
  *
- * Note: Some entity types (issuer, stockClass, stockIssuance, etc.) have complex converters
- * that are inlined in their get*AsOcf functions. These will be migrated over time.
- * For now, this dispatcher handles the simpler entity types with existing converters.
+ * This dispatcher supports all core OCF entity types. Each converter is imported from its
+ * respective entity folder following the Entity Folder Organization pattern.
  *
  * PlanSecurity types are aliases that delegate to EquityCompensation converters.
  */
 export type SupportedOcfReadType =
+  // Core objects
+  | 'document'
+  | 'issuer'
+  | 'stakeholder'
+  | 'stockClass'
+  | 'stockLegendTemplate'
+  | 'stockPlan'
+  | 'vestingTerms'
+  // Issuance types
+  | 'convertibleIssuance'
+  | 'equityCompensationIssuance'
+  | 'stockIssuance'
+  | 'warrantIssuance'
+  // Acceptance types
   | 'convertibleAcceptance'
-  | 'convertibleCancellation'
-  | 'convertibleConversion'
-  | 'convertibleRetraction'
-  | 'convertibleTransfer'
   | 'equityCompensationAcceptance'
+  | 'stockAcceptance'
+  | 'warrantAcceptance'
+  // Cancellation types
+  | 'convertibleCancellation'
   | 'equityCompensationCancellation'
+  | 'stockCancellation'
+  | 'warrantCancellation'
+  // Transfer types
+  | 'convertibleTransfer'
+  | 'equityCompensationTransfer'
+  | 'stockTransfer'
+  | 'warrantTransfer'
+  // Retraction types
+  | 'convertibleRetraction'
+  | 'equityCompensationRetraction'
+  | 'stockRetraction'
+  | 'warrantRetraction'
+  // Conversion types
+  | 'convertibleConversion'
+  | 'stockConversion'
+  // Exercise types
+  | 'equityCompensationExercise'
+  | 'warrantExercise'
+  // Release and other equity compensation
   | 'equityCompensationRelease'
   | 'equityCompensationRepricing'
-  | 'equityCompensationRetraction'
-  | 'equityCompensationTransfer'
-  // PlanSecurity aliases
-  | 'planSecurityAcceptance'
-  | 'planSecurityCancellation'
-  | 'planSecurityRelease'
-  | 'planSecurityRetraction'
-  | 'planSecurityTransfer'
-  | 'stakeholderRelationshipChangeEvent'
-  | 'stakeholderStatusChangeEvent'
-  | 'stockAcceptance'
-  | 'stockCancellation'
+  // Stock adjustments
+  | 'stockClassAuthorizedSharesAdjustment'
   | 'stockClassConversionRatioAdjustment'
   | 'stockClassSplit'
   | 'stockConsolidation'
-  | 'stockConversion'
+  | 'stockPlanPoolAdjustment'
   | 'stockPlanReturnToPool'
   | 'stockReissuance'
   | 'stockRepurchase'
-  | 'stockRetraction'
-  | 'stockTransfer'
+  // Issuer adjustment
+  | 'issuerAuthorizedSharesAdjustment'
+  // Stakeholder events
+  | 'stakeholderRelationshipChangeEvent'
+  | 'stakeholderStatusChangeEvent'
+  // Valuation and vesting
   | 'valuation'
   | 'vestingAcceleration'
   | 'vestingEvent'
   | 'vestingStart'
-  | 'warrantAcceptance'
-  | 'warrantCancellation'
-  | 'warrantExercise'
-  | 'warrantRetraction'
-  | 'warrantTransfer';
+  // PlanSecurity aliases (delegate to EquityCompensation)
+  | 'planSecurityAcceptance'
+  | 'planSecurityCancellation'
+  | 'planSecurityExercise'
+  | 'planSecurityIssuance'
+  | 'planSecurityRelease'
+  | 'planSecurityRetraction'
+  | 'planSecurityTransfer';
 
 /**
  * Convert DAML entity data to native OCF format based on entity type.
@@ -196,7 +240,47 @@ export function convertToOcf<T extends SupportedOcfReadType>(
   const data = damlData as unknown;
 
   switch (type) {
-    // Acceptance types (with converters from entity folders)
+    // ===== Core objects =====
+    case 'document':
+      return damlDocumentDataToNative(data as Parameters<typeof damlDocumentDataToNative>[0]) as OcfDataTypeFor<T>;
+    case 'issuer':
+      return damlIssuerDataToNative(data as Parameters<typeof damlIssuerDataToNative>[0]) as OcfDataTypeFor<T>;
+    case 'stakeholder':
+      return damlStakeholderDataToNative(
+        data as Parameters<typeof damlStakeholderDataToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'stockClass':
+      return damlStockClassDataToNative(data as Parameters<typeof damlStockClassDataToNative>[0]) as OcfDataTypeFor<T>;
+    case 'stockLegendTemplate':
+      return damlStockLegendTemplateDataToNative(
+        data as Parameters<typeof damlStockLegendTemplateDataToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'stockPlan':
+      return damlStockPlanDataToNative(data as Parameters<typeof damlStockPlanDataToNative>[0]) as OcfDataTypeFor<T>;
+    case 'vestingTerms':
+      return damlVestingTermsDataToNative(
+        data as Parameters<typeof damlVestingTermsDataToNative>[0]
+      ) as OcfDataTypeFor<T>;
+
+    // ===== Issuance types =====
+    case 'convertibleIssuance':
+      return damlConvertibleIssuanceDataToNative(
+        data as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'equityCompensationIssuance':
+      return damlEquityCompensationIssuanceDataToNative(
+        data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'stockIssuance':
+      return damlStockIssuanceDataToNative(
+        data as Parameters<typeof damlStockIssuanceDataToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'warrantIssuance':
+      return damlWarrantIssuanceDataToNative(
+        data as Parameters<typeof damlWarrantIssuanceDataToNative>[0]
+      ) as OcfDataTypeFor<T>;
+
+    // ===== Acceptance types =====
     case 'stockAcceptance':
       return damlStockAcceptanceToNative(
         data as Parameters<typeof damlStockAcceptanceToNative>[0]
@@ -212,6 +296,26 @@ export function convertToOcf<T extends SupportedOcfReadType>(
     case 'warrantAcceptance':
       return damlWarrantAcceptanceToNative(
         data as Parameters<typeof damlWarrantAcceptanceToNative>[0]
+      ) as OcfDataTypeFor<T>;
+
+    // ===== Exercise types =====
+    case 'equityCompensationExercise':
+      return damlEquityCompensationExerciseDataToNative(
+        data as Parameters<typeof damlEquityCompensationExerciseDataToNative>[0]
+      ) as OcfDataTypeFor<T>;
+
+    // ===== Adjustment types =====
+    case 'issuerAuthorizedSharesAdjustment':
+      return damlIssuerAuthorizedSharesAdjustmentDataToNative(
+        data as Parameters<typeof damlIssuerAuthorizedSharesAdjustmentDataToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'stockClassAuthorizedSharesAdjustment':
+      return damlStockClassAuthorizedSharesAdjustmentDataToNative(
+        data as Parameters<typeof damlStockClassAuthorizedSharesAdjustmentDataToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'stockPlanPoolAdjustment':
+      return damlStockPlanPoolAdjustmentDataToNative(
+        data as Parameters<typeof damlStockPlanPoolAdjustmentDataToNative>[0]
       ) as OcfDataTypeFor<T>;
 
     // Stock class adjustments (with converters from entity folders)
@@ -344,6 +448,14 @@ export function convertToOcf<T extends SupportedOcfReadType>(
     case 'planSecurityCancellation':
       return damlEquityCompensationCancellationToNative(
         data as Parameters<typeof damlEquityCompensationCancellationToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'planSecurityExercise':
+      return damlEquityCompensationExerciseDataToNative(
+        data as Parameters<typeof damlEquityCompensationExerciseDataToNative>[0]
+      ) as OcfDataTypeFor<T>;
+    case 'planSecurityIssuance':
+      return damlEquityCompensationIssuanceDataToNative(
+        data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
       ) as OcfDataTypeFor<T>;
     case 'planSecurityRelease':
       return damlEquityCompensationReleaseToNative(

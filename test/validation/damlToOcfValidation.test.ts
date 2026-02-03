@@ -146,8 +146,8 @@ describe('DAML to OCF Validation', () => {
       const client = createMockClient('issuance_data', validWarrantData);
 
       const result = await getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' });
-      expect(result.event.id).toBe('wi-001');
-      expect(result.event.purchase_price.amount).toBe('1');
+      expect(result.warrantIssuance.id).toBe('wi-001');
+      expect(result.warrantIssuance.purchase_price.amount).toBe('1');
     });
   });
 

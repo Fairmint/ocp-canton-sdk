@@ -20,10 +20,17 @@ export function warrantExerciseDataToDaml(d: OcfWarrantExercise): Record<string,
       receivedValue: d.id,
     });
   }
+  if (!d.trigger_id) {
+    throw new OcpValidationError('warrantExercise.trigger_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.trigger_id,
+    });
+  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
+    trigger_id: d.trigger_id,
     quantity: numberToString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,
     balance_security_id: optionalString(d.balance_security_id),

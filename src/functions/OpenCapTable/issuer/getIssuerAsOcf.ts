@@ -19,7 +19,7 @@ function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.Contact.OcfPhone):
   };
 }
 
-function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
+export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
   const normalizeInitialSharesValue = (v: unknown): OcfIssuerInput['initial_shares_authorized'] | undefined => {
     if (typeof v === 'string' || typeof v === 'number') return normalizeNumericString(String(v));
     if (v && typeof v === 'object' && 'tag' in (v as { tag: string })) {

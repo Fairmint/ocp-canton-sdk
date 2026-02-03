@@ -302,6 +302,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
         id: '',
         date: '2024-01-15',
         security_id: 'warrant-sec',
+        trigger_id: 'trigger-001',
         quantity: '1000',
         resulting_security_ids: ['stock-sec'],
       })

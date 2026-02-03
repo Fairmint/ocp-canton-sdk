@@ -8,7 +8,7 @@
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
-import type { Address, AddressType, Monetary } from '../types/native';
+import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
 
 // ===== Date and Time Conversion Helpers =====
 
@@ -122,6 +122,25 @@ export function safeString(value: unknown): string {
   return '';
 }
 
+// ===== DAML Enum Conversions =====
+
+/**
+ * Convert a DAML trigger type tag to OCF ConversionTriggerType enum value.
+ * Used by WarrantIssuance and ConvertibleIssuance converters to map DAML variant tags
+ * to the standardized OCF enum values.
+ *
+ * @param tag - The DAML trigger type tag (e.g., 'OcfTriggerTypeTypeAutomaticOnDate')
+ * @returns The corresponding OCF ConversionTriggerType enum value
+ */
+export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
+  if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
+  if (tag === 'OcfTriggerTypeTypeElectiveInRange') return 'ELECTIVE_IN_RANGE';
+  if (tag === 'OcfTriggerTypeTypeElectiveOnCondition') return 'ELECTIVE_ON_CONDITION';
+  if (tag === 'OcfTriggerTypeTypeElectiveAtWill') return 'ELECTIVE_AT_WILL';
+  if (tag === 'OcfTriggerTypeTypeUnspecified') return 'UNSPECIFIED';
+  return 'AUTOMATIC_ON_CONDITION';
+}
+
 // ===== Monetary Value Conversions =====
 
 export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.Monetary.OcfMonetary {
@@ -136,6 +155,55 @@ export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.M
     amount: normalizeNumericString(damlMonetary.amount),
     currency: damlMonetary.currency,
   };
+}
+
+/**
+ * Convert DAML monetary data to native OCF format with validation.
+ * This function handles untyped data from DAML contract responses and validates
+ * that amount and currency fields are present and correctly typed.
+ *
+ * @param monetary - The raw monetary object (or null/undefined)
+ * @returns The validated native monetary object, or undefined if input is null/undefined
+ * @throws OcpValidationError if amount or currency are invalid
+ */
+export function damlMonetaryToNativeWithValidation(
+  monetary: Record<string, unknown> | null | undefined
+): Monetary | undefined {
+  if (!monetary) return undefined;
+
+  // Validate amount exists and is string or number
+  if (monetary.amount === undefined || monetary.amount === null) {
+    throw new OcpValidationError('monetary.amount', 'Monetary amount is required but was undefined or null', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string | number',
+      receivedValue: monetary.amount,
+    });
+  }
+  if (typeof monetary.amount !== 'string' && typeof monetary.amount !== 'number') {
+    throw new OcpValidationError(
+      'monetary.amount',
+      `Monetary amount must be string or number, got ${typeof monetary.amount}`,
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string | number',
+        receivedValue: monetary.amount,
+      }
+    );
+  }
+
+  // Validate currency exists and is string
+  if (typeof monetary.currency !== 'string' || !monetary.currency) {
+    throw new OcpValidationError('monetary.currency', 'Monetary currency is required and must be a non-empty string', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string',
+      receivedValue: monetary.currency,
+    });
+  }
+
+  const amount = normalizeNumericString(
+    typeof monetary.amount === 'number' ? monetary.amount.toString() : monetary.amount
+  );
+  return { amount, currency: monetary.currency };
 }
 
 // ===== Initial Shares Authorized Conversions =====
