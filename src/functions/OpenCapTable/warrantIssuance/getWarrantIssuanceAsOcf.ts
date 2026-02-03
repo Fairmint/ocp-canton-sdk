@@ -12,7 +12,7 @@ import type {
   WarrantMechanismSharePriceBased,
   WarrantMechanismValuationBased,
 } from '../../../types/native';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { damlMonetaryToNativeWithValidation, normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface GetWarrantIssuanceAsOcfParams {
   contractId: string;
@@ -31,42 +31,6 @@ function mapTagToType(tag: string): ConversionTriggerType {
   if (tag === 'OcfTriggerTypeTypeElectiveAtWill') return 'ELECTIVE_AT_WILL';
   if (tag === 'OcfTriggerTypeTypeUnspecified') return 'UNSPECIFIED';
   return 'AUTOMATIC_ON_CONDITION';
-}
-
-function mapMonetary(m: Record<string, unknown> | null | undefined): { amount: string; currency: string } | undefined {
-  if (!m) return undefined;
-
-  // Validate amount exists and is string or number
-  if (m.amount === undefined || m.amount === null) {
-    throw new OcpValidationError('monetary.amount', 'Monetary amount is required but was undefined or null', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string | number',
-      receivedValue: m.amount,
-    });
-  }
-  if (typeof m.amount !== 'string' && typeof m.amount !== 'number') {
-    throw new OcpValidationError(
-      'monetary.amount',
-      `Monetary amount must be string or number, got ${typeof m.amount}`,
-      {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string | number',
-        receivedValue: m.amount,
-      }
-    );
-  }
-
-  // Validate currency exists and is string
-  if (typeof m.currency !== 'string' || !m.currency) {
-    throw new OcpValidationError('monetary.currency', 'Monetary currency is required and must be a non-empty string', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
-      receivedValue: m.currency,
-    });
-  }
-
-  const amount = normalizeNumericString(typeof m.amount === 'number' ? m.amount.toString() : m.amount);
-  return { amount, currency: m.currency };
 }
 
 function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
@@ -134,7 +98,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
         ),
       } as WarrantMechanismFixedAmount;
     case 'OcfWarrantMechanismValuationBased': {
-      const valuationAmount = mapMonetary(value.valuation_amount as Record<string, unknown>);
+      const valuationAmount = damlMonetaryToNativeWithValidation(value.valuation_amount as Record<string, unknown>);
       if (typeof value.valuation_type !== 'string' || !value.valuation_type) {
         throw new OcpValidationError(
           'warrantMechanism.valuation_type',
@@ -155,7 +119,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
       } as WarrantMechanismValuationBased;
     }
     case 'OcfWarrantMechanismSharePriceBased': {
-      const discountAmount = mapMonetary(value.discount_amount as Record<string, unknown>);
+      const discountAmount = damlMonetaryToNativeWithValidation(value.discount_amount as Record<string, unknown>);
       if (typeof value.description !== 'string' || !value.description) {
         throw new OcpValidationError(
           'warrantMechanism.description',
@@ -287,7 +251,9 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
       })
     : [];
 
-  const exercise_price = d.exercise_price ? mapMonetary(d.exercise_price as Record<string, unknown>) : undefined;
+  const exercise_price = d.exercise_price
+    ? damlMonetaryToNativeWithValidation(d.exercise_price as Record<string, unknown>)
+    : undefined;
 
   const purchase_price_obj = d.purchase_price as Record<string, unknown> | null | undefined;
   if (!purchase_price_obj) {
@@ -295,7 +261,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const purchase_price = mapMonetary(purchase_price_obj);
+  const purchase_price = damlMonetaryToNativeWithValidation(purchase_price_obj);
   if (!purchase_price) {
     throw new OcpValidationError('warrantIssuance.purchase_price', 'Invalid purchase_price', {
       code: OcpErrorCodes.INVALID_FORMAT,

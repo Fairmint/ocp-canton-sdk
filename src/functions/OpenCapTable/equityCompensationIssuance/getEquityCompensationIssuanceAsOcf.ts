@@ -7,7 +7,7 @@ import type {
   TerminationWindowReason,
   Vesting,
 } from '../../../types/native';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { damlMonetaryToNativeWithValidation, normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface GetEquityCompensationIssuanceAsOcfParams {
   contractId: string;
@@ -44,45 +44,15 @@ const twMapPeriodType: Record<string, PeriodType> = {
   OcfPeriodMonths: 'MONTHS',
 };
 
-// Helper to map monetary objects
-function mapMonetary(price: unknown): { amount: string; currency: string } | undefined {
-  if (!price || typeof price !== 'object') return undefined;
-  const p = price as Record<string, unknown>;
-
-  // Validate amount exists and is string or number
-  if (p.amount === undefined || p.amount === null) {
-    throw new OcpValidationError('monetary.amount', 'Required field is missing', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
-  }
-  if (typeof p.amount !== 'string' && typeof p.amount !== 'number') {
-    throw new OcpValidationError('monetary.amount', `Must be string or number, got ${typeof p.amount}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string | number',
-      receivedValue: p.amount,
-    });
-  }
-
-  // Validate currency exists and is string
-  if (typeof p.currency !== 'string' || !p.currency) {
-    throw new OcpValidationError('monetary.currency', 'Required field must be a non-empty string', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
-      receivedValue: p.currency,
-    });
-  }
-
-  const amount = normalizeNumericString(typeof p.amount === 'number' ? p.amount.toString() : p.amount);
-  return { amount, currency: p.currency };
-}
-
 /**
  * Converts DAML equity compensation issuance data to native OCF format.
  * Used by both getEquityCompensationIssuanceAsOcf and the damlToOcf dispatcher.
  */
 export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unknown>): OcfEquityCompensationIssuance {
-  const exercise_price = d.exercise_price ? mapMonetary(d.exercise_price) : undefined;
-  const base_price = d.base_price ? mapMonetary(d.base_price) : undefined;
+  const exercise_price = damlMonetaryToNativeWithValidation(
+    d.exercise_price as Record<string, unknown> | null | undefined
+  );
+  const base_price = damlMonetaryToNativeWithValidation(d.base_price as Record<string, unknown> | null | undefined);
 
   const vestings =
     Array.isArray(d.vestings) && d.vestings.length > 0

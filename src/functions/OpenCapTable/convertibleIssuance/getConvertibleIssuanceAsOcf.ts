@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfConvertibleIssuance } from '../../../types/native';
-import { normalizeNumericString, safeString } from '../../../utils/typeConversions';
+import { damlMonetaryToNativeWithValidation, normalizeNumericString, safeString } from '../../../utils/typeConversions';
 
 interface CapitalizationDefinitionRules {
   exclude_external_entities?: boolean;
@@ -152,41 +152,6 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
 
   const mapMechanism = (m: unknown): ConvertibleConversionRight['conversion_mechanism'] => {
     // Handle both string enum and DAML variant { tag, value }
-    const mapMonetary = (mon: unknown): { amount: string; currency: string } | undefined => {
-      if (!mon || typeof mon !== 'object') return undefined;
-      const monObj = mon as Record<string, unknown>;
-
-      // Validate amount exists and is string or number
-      if (monObj.amount === undefined || monObj.amount === null) {
-        throw new OcpValidationError('monetary.amount', 'Required field is missing', {
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-        });
-      }
-      if (typeof monObj.amount !== 'string' && typeof monObj.amount !== 'number') {
-        throw new OcpValidationError('monetary.amount', `Must be string or number, got ${typeof monObj.amount}`, {
-          code: OcpErrorCodes.INVALID_TYPE,
-          expectedType: 'string | number',
-          receivedValue: monObj.amount,
-        });
-      }
-
-      // Validate currency exists and is string
-      if (typeof monObj.currency !== 'string' || !monObj.currency) {
-        throw new OcpValidationError('monetary.currency', 'Required field must be a non-empty string', {
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-          expectedType: 'string',
-          receivedValue: monObj.currency,
-        });
-      }
-
-      const amount = normalizeNumericString(
-        typeof monObj.amount === 'number' ? monObj.amount.toString() : monObj.amount
-      );
-      return {
-        amount,
-        currency: monObj.currency,
-      };
-    };
     const mapTiming = (t: unknown): 'PRE_MONEY' | 'POST_MONEY' | undefined => {
       const s = safeString(t);
       if (s.endsWith('PreMoney')) return 'PRE_MONEY';
@@ -225,7 +190,9 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
               : {}),
             ...(value.conversion_valuation_cap
               ? {
-                  conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap) ?? {
+                  conversion_valuation_cap: damlMonetaryToNativeWithValidation(
+                    value.conversion_valuation_cap as Record<string, unknown>
+                  ) ?? {
                     amount: '',
                     currency: '',
                   },
@@ -309,7 +276,9 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
             valuation_type: value.valuation_type,
             ...(value.valuation_amount
               ? {
-                  valuation_amount: mapMonetary(value.valuation_amount) ?? {
+                  valuation_amount: damlMonetaryToNativeWithValidation(
+                    value.valuation_amount as Record<string, unknown>
+                  ) ?? {
                     amount: '',
                     currency: '',
                   },
@@ -350,7 +319,9 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
               : {}),
             ...(value.discount_amount
               ? {
-                  discount_amount: mapMonetary(value.discount_amount) ?? {
+                  discount_amount: damlMonetaryToNativeWithValidation(
+                    value.discount_amount as Record<string, unknown>
+                  ) ?? {
                     amount: '',
                     currency: '',
                   },
@@ -452,7 +423,9 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
               : {}),
             ...(value.conversion_valuation_cap
               ? {
-                  conversion_valuation_cap: mapMonetary(value.conversion_valuation_cap) ?? {
+                  conversion_valuation_cap: damlMonetaryToNativeWithValidation(
+                    value.conversion_valuation_cap as Record<string, unknown>
+                  ) ?? {
                     amount: '',
                     currency: '',
                   },
