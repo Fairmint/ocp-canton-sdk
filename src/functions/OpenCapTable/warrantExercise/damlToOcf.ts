@@ -2,6 +2,7 @@
  * DAML to OCF converters for WarrantExercise entities.
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfWarrantExercise } from '../../../types';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -28,6 +29,13 @@ export interface DamlWarrantExerciseData {
  * @returns The native OCF WarrantExercise object
  */
 export function damlWarrantExerciseToNative(d: DamlWarrantExerciseData): OcfWarrantExercise {
+  if (!d.trigger_id || typeof d.trigger_id !== 'string') {
+    throw new OcpValidationError('warrantExercise.trigger_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.trigger_id,
+    });
+  }
+
   return {
     id: d.id,
     date: damlTimeToDateString(d.date),

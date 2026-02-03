@@ -138,11 +138,7 @@ const typeMap: Record<string, 'NOTE' | 'SAFE' | 'SECURITY'> = {
   OcfConvertibleSecurity: 'SECURITY',
 };
 
-const convertTriggers = (
-  ts: unknown[] | undefined,
-  _convertibleType: 'NOTE' | 'SAFE' | 'SECURITY',
-  issuanceId: string
-): ConversionTrigger[] => {
+const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): ConversionTrigger[] => {
   if (!Array.isArray(ts)) return [];
 
   const mapTagToType = (tag: string): ConversionTriggerType => {
@@ -659,11 +655,7 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
       ? { consideration_text: d.consideration_text }
       : {}),
     convertible_type: typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
-    conversion_triggers: convertTriggers(
-      d.conversion_triggers as unknown[],
-      typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
-      d.id
-    ),
+    conversion_triggers: convertTriggers(d.conversion_triggers as unknown[], d.id),
     ...(typeof d.pro_rata === 'number' || typeof d.pro_rata === 'string'
       ? {
           pro_rata: normalizeNumericString(typeof d.pro_rata === 'number' ? d.pro_rata.toString() : d.pro_rata),
