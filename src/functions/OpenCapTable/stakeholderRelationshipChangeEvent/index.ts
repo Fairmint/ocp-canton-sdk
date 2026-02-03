@@ -1,4 +1,8 @@
 export {
+  damlStakeholderRelationshipChangeEventToNative,
+  type DamlStakeholderRelationshipChangeData,
+} from './damlToOcf';
+export {
   getStakeholderRelationshipChangeEventAsOcf,
   type GetStakeholderRelationshipChangeEventAsOcfParams,
   type GetStakeholderRelationshipChangeEventAsOcfResult,
