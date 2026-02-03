@@ -112,6 +112,39 @@ describe('CapTableBatch', () => {
         'Cannot delete issuer - issuer must always exist for the CapTable'
       );
     });
+
+    it('should allow editing issuer via batch', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      const issuerData = {
+        id: 'issuer-123',
+        legal_name: 'Updated Test Corp',
+        formation_date: '2024-01-01',
+        country_of_formation: 'US',
+        tax_ids: [],
+      };
+
+      batch.edit('issuer', issuerData);
+
+      expect(batch.isEmpty).toBe(false);
+      expect(batch.size).toBe(1);
+
+      const { command } = batch.build();
+      expect(command).toHaveProperty('ExerciseCommand');
+      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+
+      const choiceArg = command.ExerciseCommand.choiceArgument as {
+        creates: Array<{ tag: string; value: unknown }>;
+        edits: Array<{ tag: string; value: unknown }>;
+        deletes: Array<{ tag: string; value: unknown }>;
+      };
+
+      expect(choiceArg.edits).toHaveLength(1);
+      expect(choiceArg.edits[0].tag).toBe('OcfEditIssuer');
+    });
   });
 
   describe('build()', () => {
