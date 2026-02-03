@@ -7,7 +7,7 @@ export interface GetIssuerAuthorizedSharesAdjustmentAsOcfParams {
   contractId: string;
 }
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfResult {
-  event: OcfIssuerAuthorizedSharesAdjustment;
+  event: OcfIssuerAuthorizedSharesAdjustment & { object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT' };
   contractId: string;
 }
 
@@ -74,6 +74,11 @@ export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
   const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
   const d = (arg.adjustment_data ?? arg) as Record<string, unknown>;
 
-  const event = damlIssuerAuthorizedSharesAdjustmentDataToNative(d);
+  const native = damlIssuerAuthorizedSharesAdjustmentDataToNative(d);
+  // Add object_type to create the full event type
+  const event = {
+    object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT' as const,
+    ...native,
+  };
   return { event, contractId: params.contractId };
 }

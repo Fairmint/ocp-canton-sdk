@@ -8,7 +8,7 @@ export interface GetStockPlanPoolAdjustmentAsOcfParams {
   contractId: string;
 }
 export interface GetStockPlanPoolAdjustmentAsOcfResult {
-  event: OcfStockPlanPoolAdjustment;
+  event: OcfStockPlanPoolAdjustment & { object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT' };
   contractId: string;
 }
 
@@ -55,6 +55,11 @@ export async function getStockPlanPoolAdjustmentAsOcf(
   }
   const contract = res.created.createdEvent.createArgument as StockPlanPoolAdjustmentCreateArgument;
 
-  const event = damlStockPlanPoolAdjustmentDataToNative(contract.adjustment_data);
+  const native = damlStockPlanPoolAdjustmentDataToNative(contract.adjustment_data);
+  // Add object_type to create the full event type
+  const event = {
+    object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT' as const,
+    ...native,
+  };
   return { event, contractId: params.contractId };
 }

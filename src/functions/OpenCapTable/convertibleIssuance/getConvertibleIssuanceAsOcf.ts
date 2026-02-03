@@ -582,6 +582,26 @@ const convertTriggers = (
 
 /** Convert DAML ConvertibleIssuance data to native OCF format */
 export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>): OcfConvertibleIssuance {
+  // Validate required fields
+  if (typeof d.id !== 'string' || !d.id) {
+    throw new OcpValidationError('convertibleIssuance.id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.id,
+    });
+  }
+  if (typeof d.date !== 'string' || !d.date) {
+    throw new OcpValidationError('convertibleIssuance.date', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.date,
+    });
+  }
+  if (typeof d.security_id !== 'string' || !d.security_id) {
+    throw new OcpValidationError('convertibleIssuance.security_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.security_id,
+    });
+  }
+
   const investmentAmount = d.investment_amount as { amount?: unknown; currency?: unknown } | undefined;
   const comments = d.comments as string[];
 
@@ -620,9 +640,9 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
   // (ConversionTrigger, etc.) have compatible structure but different TypeScript definitions
   // than the native types (ConvertibleConversionTrigger, etc.)
   const issuance = {
-    id: d.id as string,
-    date: (d.date as string).split('T')[0],
-    security_id: d.security_id as string,
+    id: d.id,
+    date: d.date.split('T')[0],
+    security_id: d.security_id,
     custom_id: d.custom_id as string,
     stakeholder_id: d.stakeholder_id as string,
     ...(typeof d.board_approval_date === 'string' && d.board_approval_date.length
@@ -642,7 +662,7 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
     conversion_triggers: convertTriggers(
       d.conversion_triggers as unknown[],
       typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
-      d.id as string
+      d.id
     ),
     ...(typeof d.pro_rata === 'number' || typeof d.pro_rata === 'string'
       ? {

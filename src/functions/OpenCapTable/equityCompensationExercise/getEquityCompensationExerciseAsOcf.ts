@@ -27,6 +27,7 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
       receivedValue: d.security_id,
     });
   }
+  // Validate quantity
   if (d.quantity === undefined || d.quantity === null) {
     throw new OcpValidationError('equityCompensationExercise.quantity', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -60,7 +61,7 @@ export interface GetEquityCompensationExerciseAsOcfParams {
 }
 
 export interface GetEquityCompensationExerciseAsOcfResult {
-  event: OcfEquityCompensationExercise;
+  event: OcfEquityCompensationExercise & { object_type: 'TX_EQUITY_COMPENSATION_EXERCISE' };
   contractId: string;
 }
 
@@ -85,7 +86,12 @@ export async function getEquityCompensationExerciseAsOcf(
   const d: Record<string, unknown> =
     (createArgument.exercise_data as Record<string, unknown> | undefined) ?? createArgument;
 
-  const ocf = damlEquityCompensationExerciseDataToNative(d);
+  const native = damlEquityCompensationExerciseDataToNative(d);
+  // Add object_type to create the full event type
+  const event = {
+    object_type: 'TX_EQUITY_COMPENSATION_EXERCISE' as const,
+    ...native,
+  };
 
-  return { event: ocf, contractId: params.contractId };
+  return { event, contractId: params.contractId };
 }
