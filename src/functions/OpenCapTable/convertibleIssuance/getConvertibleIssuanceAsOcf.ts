@@ -588,7 +588,6 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
   }
 
   const investmentAmount = d.investment_amount as { amount?: unknown; currency?: unknown } | undefined;
-  const comments = Array.isArray(d.comments) ? (d.comments as string[]) : [];
 
   // Validate investment amount
   if (
@@ -655,7 +654,7 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
       description: string;
       jurisdiction: string;
     }>,
-    ...(comments.length ? { comments } : {}),
+    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments as string[] } : {}),
   } as OcfConvertibleIssuance;
 
   return issuance;
