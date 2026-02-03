@@ -13,7 +13,7 @@ export interface GetEquityCompensationIssuanceAsOcfParams {
   contractId: string;
 }
 export interface GetEquityCompensationIssuanceAsOcfResult {
-  event: OcfEquityCompensationIssuance;
+  event: OcfEquityCompensationIssuance & { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE' };
   contractId: string;
 }
 
@@ -241,7 +241,12 @@ export async function getEquityCompensationIssuanceAsOcf(
   const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
   const d = (arg.issuance_data ?? arg) as Record<string, unknown>;
 
-  const event = damlEquityCompensationIssuanceDataToNative(d);
+  const native = damlEquityCompensationIssuanceDataToNative(d);
+  // Add object_type to create the full event type
+  const event = {
+    object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE' as const,
+    ...native,
+  };
 
   return { event, contractId: params.contractId };
 }

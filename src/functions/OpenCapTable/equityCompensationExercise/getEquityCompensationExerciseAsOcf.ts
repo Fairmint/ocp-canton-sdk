@@ -8,6 +8,25 @@ import { normalizeNumericString } from '../../../utils/typeConversions';
  * Used by the dispatcher pattern in damlToOcf.ts
  */
 export function damlEquityCompensationExerciseDataToNative(d: Record<string, unknown>): OcfEquityCompensationExercise {
+  // Validate required fields
+  if (typeof d.id !== 'string' || !d.id) {
+    throw new OcpValidationError('equityCompensationExercise.id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.id,
+    });
+  }
+  if (typeof d.date !== 'string' || !d.date) {
+    throw new OcpValidationError('equityCompensationExercise.date', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.date,
+    });
+  }
+  if (typeof d.security_id !== 'string' || !d.security_id) {
+    throw new OcpValidationError('equityCompensationExercise.security_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.security_id,
+    });
+  }
   // Validate quantity
   if (d.quantity === undefined || d.quantity === null) {
     throw new OcpValidationError('equityCompensationExercise.quantity', 'Required field is missing', {
@@ -27,9 +46,9 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
   }
 
   return {
-    id: d.id as string,
-    date: (d.date as string).split('T')[0],
-    security_id: d.security_id as string,
+    id: d.id,
+    date: d.date.split('T')[0],
+    security_id: d.security_id,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
     ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),
     resulting_security_ids: Array.isArray(d.resulting_security_ids) ? (d.resulting_security_ids as string[]) : [],
@@ -42,7 +61,7 @@ export interface GetEquityCompensationExerciseAsOcfParams {
 }
 
 export interface GetEquityCompensationExerciseAsOcfResult {
-  event: OcfEquityCompensationExercise;
+  event: OcfEquityCompensationExercise & { object_type: 'TX_EQUITY_COMPENSATION_EXERCISE' };
   contractId: string;
 }
 
@@ -67,7 +86,12 @@ export async function getEquityCompensationExerciseAsOcf(
   const d: Record<string, unknown> =
     (createArgument.exercise_data as Record<string, unknown> | undefined) ?? createArgument;
 
-  const ocf = damlEquityCompensationExerciseDataToNative(d);
+  const native = damlEquityCompensationExerciseDataToNative(d);
+  // Add object_type to create the full event type
+  const event = {
+    object_type: 'TX_EQUITY_COMPENSATION_EXERCISE' as const,
+    ...native,
+  };
 
-  return { event: ocf, contractId: params.contractId };
+  return { event, contractId: params.contractId };
 }
