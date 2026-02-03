@@ -190,12 +190,19 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
               : {}),
             ...(value.conversion_valuation_cap
               ? {
-                  conversion_valuation_cap: damlMonetaryToNativeWithValidation(
-                    value.conversion_valuation_cap as Record<string, unknown>
-                  ) ?? {
-                    amount: '',
-                    currency: '',
-                  },
+                  conversion_valuation_cap: (() => {
+                    const monetary = damlMonetaryToNativeWithValidation(
+                      value.conversion_valuation_cap as Record<string, unknown>
+                    );
+                    if (!monetary) {
+                      throw new OcpValidationError(
+                        'convertibleIssuance.conversion_valuation_cap',
+                        'Invalid monetary value for conversion_valuation_cap',
+                        { code: OcpErrorCodes.INVALID_TYPE, receivedValue: value.conversion_valuation_cap }
+                      );
+                    }
+                    return monetary;
+                  })(),
                 }
               : {}),
             ...(value.conversion_timing ? { conversion_timing: mapTiming(value.conversion_timing) } : {}),
@@ -276,12 +283,19 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
             valuation_type: value.valuation_type,
             ...(value.valuation_amount
               ? {
-                  valuation_amount: damlMonetaryToNativeWithValidation(
-                    value.valuation_amount as Record<string, unknown>
-                  ) ?? {
-                    amount: '',
-                    currency: '',
-                  },
+                  valuation_amount: (() => {
+                    const monetary = damlMonetaryToNativeWithValidation(
+                      value.valuation_amount as Record<string, unknown>
+                    );
+                    if (!monetary) {
+                      throw new OcpValidationError(
+                        'convertibleIssuance.valuation_amount',
+                        'Invalid monetary value for valuation_amount',
+                        { code: OcpErrorCodes.INVALID_TYPE, receivedValue: value.valuation_amount }
+                      );
+                    }
+                    return monetary;
+                  })(),
                 }
               : {}),
             ...(value.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
@@ -319,12 +333,19 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
               : {}),
             ...(value.discount_amount
               ? {
-                  discount_amount: damlMonetaryToNativeWithValidation(
-                    value.discount_amount as Record<string, unknown>
-                  ) ?? {
-                    amount: '',
-                    currency: '',
-                  },
+                  discount_amount: (() => {
+                    const monetary = damlMonetaryToNativeWithValidation(
+                      value.discount_amount as Record<string, unknown>
+                    );
+                    if (!monetary) {
+                      throw new OcpValidationError(
+                        'convertibleIssuance.discount_amount',
+                        'Invalid monetary value for discount_amount',
+                        { code: OcpErrorCodes.INVALID_TYPE, receivedValue: value.discount_amount }
+                      );
+                    }
+                    return monetary;
+                  })(),
                 }
               : {}),
           } as SharePriceBasedMechanism;
@@ -423,12 +444,19 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
               : {}),
             ...(value.conversion_valuation_cap
               ? {
-                  conversion_valuation_cap: damlMonetaryToNativeWithValidation(
-                    value.conversion_valuation_cap as Record<string, unknown>
-                  ) ?? {
-                    amount: '',
-                    currency: '',
-                  },
+                  conversion_valuation_cap: (() => {
+                    const monetary = damlMonetaryToNativeWithValidation(
+                      value.conversion_valuation_cap as Record<string, unknown>
+                    );
+                    if (!monetary) {
+                      throw new OcpValidationError(
+                        'convertibleIssuance.conversion_valuation_cap',
+                        'Invalid monetary value for conversion_valuation_cap',
+                        { code: OcpErrorCodes.INVALID_TYPE, receivedValue: value.conversion_valuation_cap }
+                      );
+                    }
+                    return monetary;
+                  })(),
                 }
               : {}),
             ...(value.capitalization_definition ? { capitalization_definition: value.capitalization_definition } : {}),
