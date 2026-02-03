@@ -588,7 +588,7 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
   }
 
   const investmentAmount = d.investment_amount as { amount?: unknown; currency?: unknown } | undefined;
-  const comments = d.comments as string[];
+  const comments = Array.isArray(d.comments) ? (d.comments as string[]) : [];
 
   // Validate investment amount
   if (
