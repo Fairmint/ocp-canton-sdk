@@ -644,6 +644,34 @@ describe('computeReplicationDiff', () => {
         'Inconsistent cantonOcfData: missing OCF data for entityType="stakeholder", ocfId="sh-1"'
       );
     });
+
+    it('throws when source item data is null', () => {
+      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: null }];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stakeholder', new Set(['sh-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([
+        ['stakeholder', new Map([['sh-1', { id: 'sh-1', name: 'Alice' }]])],
+      ]);
+
+      expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
+        'Invalid source item: data is null for entityType="stakeholder", ocfId="sh-1"'
+      );
+    });
+
+    it('throws when source item data is undefined', () => {
+      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: undefined }];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stakeholder', new Set(['sh-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([
+        ['stakeholder', new Map([['sh-1', { id: 'sh-1', name: 'Alice' }]])],
+      ]);
+
+      expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
+        'Invalid source item: data is undefined for entityType="stakeholder", ocfId="sh-1"'
+      );
+    });
   });
 
   describe('delete detection', () => {

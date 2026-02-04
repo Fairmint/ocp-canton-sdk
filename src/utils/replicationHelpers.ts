@@ -529,6 +529,16 @@ export function computeReplicationDiff(
         );
       }
 
+      // Validate that item.data is a valid object before comparison
+      // This prevents crashes in normalizeOcfObject which accesses data.object_type
+      if (item.data === null || item.data === undefined) {
+        throw new Error(
+          `Invalid source item: data is ${item.data === null ? 'null' : 'undefined'} for ` +
+            `entityType="${item.entityType}", ocfId="${item.ocfId}". ` +
+            `Source items must have valid OCF data objects.`
+        );
+      }
+
       // Compare source data with Canton data using semantic OCF equality
       // Uses areOcfObjectsEquivalent which normalizes object_type (e.g., TX_PLAN_SECURITY_* → TX_EQUITY_COMPENSATION_*)
       // before comparison, preventing false positives from alias variants
