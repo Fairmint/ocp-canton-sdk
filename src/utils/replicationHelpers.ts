@@ -12,6 +12,7 @@
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
+import { areOcfObjectsEquivalent } from './deprecatedFieldNormalization';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS } from './ocfComparison';
 import { normalizeEntityType, normalizeObjectType } from './planSecurityAliases';
 
@@ -529,13 +530,11 @@ export function computeReplicationDiff(
         );
       }
 
-      // Validate that item.data is a valid object before comparison
-      // This prevents crashes in normalizeOcfObject which accesses data.object_type
-      if (item.data === null || item.data === undefined) {
+      // Validate item.data is a proper object before comparison (fail-fast)
+      if (typeof item.data !== 'object' || item.data === null || Array.isArray(item.data)) {
         throw new Error(
-          `Invalid source item: data is ${item.data === null ? 'null' : 'undefined'} for ` +
-            `entityType="${item.entityType}", ocfId="${item.ocfId}". ` +
-            `Source items must have valid OCF data objects.`
+          `Invalid source data for entityType="${item.entityType}", ocfId="${item.ocfId}": ` +
+            `expected object, got ${item.data === null ? 'null' : Array.isArray(item.data) ? 'array' : typeof item.data}`
         );
       }
 

@@ -646,30 +646,50 @@ describe('computeReplicationDiff', () => {
     });
 
     it('throws when source item data is null', () => {
-      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: null }];
+      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: null as unknown }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
-      const cantonOcfData: CantonOcfDataMap = new Map([
-        ['stakeholder', new Map([['sh-1', { id: 'sh-1', name: 'Alice' }]])],
-      ]);
+      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', { id: 'sh-1' }]])]]);
 
       expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
-        'Invalid source item: data is null for entityType="stakeholder", ocfId="sh-1"'
+        'Invalid source data for entityType="stakeholder", ocfId="sh-1": expected object, got null'
       );
     });
 
     it('throws when source item data is undefined', () => {
-      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: undefined }];
+      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: undefined as unknown }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
-      const cantonOcfData: CantonOcfDataMap = new Map([
-        ['stakeholder', new Map([['sh-1', { id: 'sh-1', name: 'Alice' }]])],
-      ]);
+      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', { id: 'sh-1' }]])]]);
 
       expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
-        'Invalid source item: data is undefined for entityType="stakeholder", ocfId="sh-1"'
+        'Invalid source data for entityType="stakeholder", ocfId="sh-1": expected object, got undefined'
+      );
+    });
+
+    it('throws when source item data is an array', () => {
+      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: [] as unknown }];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stakeholder', new Set(['sh-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', { id: 'sh-1' }]])]]);
+
+      expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
+        'Invalid source data for entityType="stakeholder", ocfId="sh-1": expected object, got array'
+      );
+    });
+
+    it('throws when source item data is a primitive', () => {
+      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: 'string' as unknown }];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stakeholder', new Set(['sh-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', { id: 'sh-1' }]])]]);
+
+      expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
+        'Invalid source data for entityType="stakeholder", ocfId="sh-1": expected object, got string'
       );
     });
   });
