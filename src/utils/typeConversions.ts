@@ -346,30 +346,6 @@ export function parseDamlMap<K extends string, V>(data: unknown): Array<[K, V]> 
   return [];
 }
 
-/**
- * Parse a DAML Map to a JavaScript Map object.
- *
- * Convenience wrapper around `parseDamlMap` that returns a Map directly.
- *
- * @param data - Raw DAML Map data from JSON API response
- * @returns JavaScript Map with the parsed entries
- */
-export function parseDamlMapToMap<K extends string, V>(data: unknown): Map<K, V> {
-  return new Map(parseDamlMap<K, V>(data));
-}
-
-/**
- * Parse a DAML Map to a plain JavaScript object.
- *
- * Convenience wrapper around `parseDamlMap` that returns an object directly.
- *
- * @param data - Raw DAML Map data from JSON API response
- * @returns Plain object with the parsed entries
- */
-export function parseDamlMapToObject<V>(data: unknown): Record<string, V> {
-  return Object.fromEntries(parseDamlMap<string, V>(data));
-}
-
 // ===== Data Cleaning Helpers =====
 
 /**
