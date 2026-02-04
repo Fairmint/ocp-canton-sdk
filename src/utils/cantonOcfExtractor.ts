@@ -228,17 +228,6 @@ function sortTransactions(transactions: Array<Record<string, unknown>>): Array<R
 }
 
 /**
- * Core OCF entity types that have dedicated `get*AsOcf` functions.
- * These are not included in SupportedOcfReadType but need special handling.
- */
-export const CORE_ENTITY_TYPES: Set<OcfEntityType> = new Set([
-  'stakeholder',
-  'stockClass',
-  'stockPlan',
-  'vestingTerms',
-]);
-
-/**
  * Entity types that are classified as transactions for buildCaptableInput.
  * All entity types except core objects and a few non-transaction types.
  */
