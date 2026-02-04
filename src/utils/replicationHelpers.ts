@@ -13,7 +13,7 @@ import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchType
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
-import { normalizeEntityType } from './planSecurityAliases';
+import { normalizeEntityType, normalizeObjectType } from './planSecurityAliases';
 
 // ============================================================================
 // Categorized Type Mapping
@@ -356,11 +356,15 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
       );
     }
 
-    // Check if the object type is a known transaction type
-    if (!(objectType in TRANSACTION_SUBTYPE_MAP)) {
+    // Normalize TX_PLAN_SECURITY_* to TX_EQUITY_COMPENSATION_* for lookup
+    // Canton can return legacy plan security types that need to be mapped to equity compensation
+    const normalizedObjectType = normalizeObjectType(objectType);
+
+    // Check if the normalized object type is a known transaction type
+    if (!(normalizedObjectType in TRANSACTION_SUBTYPE_MAP)) {
       throw new Error(`Unsupported transaction object_type: ${objectType}`);
     }
-    const entityType = TRANSACTION_SUBTYPE_MAP[objectType];
+    const entityType = TRANSACTION_SUBTYPE_MAP[normalizedObjectType];
     addItem(entityType, tx, `transaction (${objectType})`);
   }
 
