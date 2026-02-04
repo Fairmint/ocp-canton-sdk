@@ -297,6 +297,74 @@ export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Mon
   };
 }
 
+// ===== DAML Map Helpers =====
+
+/**
+ * Parse a DAML Map from JSON API response.
+ *
+ * DAML Maps can be serialized in two formats depending on the JSON API version:
+ * - **Array format (JSON API v2)**: `[[key1, value1], [key2, value2], ...]`
+ * - **Object format**: `{key1: value1, key2: value2, ...}`
+ *
+ * This function normalizes both formats to an array of key-value tuples
+ * that can be used with `new Map(entries)` or `Object.fromEntries(entries)`.
+ *
+ * @param data - Raw DAML Map data from JSON API response (may be array or object)
+ * @returns Array of [key, value] tuples, or empty array if data is null/undefined
+ * @throws OcpParseError if the data format is invalid (non-array, non-object, or malformed entries)
+ *
+ * @example
+ * ```typescript
+ * // JSON API v2 format (array of tuples)
+ * const arrayData = [['id1', 'contract1'], ['id2', 'contract2']];
+ * parseDamlMap(arrayData); // Returns [['id1', 'contract1'], ['id2', 'contract2']]
+ *
+ * // Object format
+ * const objectData = { id1: 'contract1', id2: 'contract2' };
+ * parseDamlMap(objectData); // Returns [['id1', 'contract1'], ['id2', 'contract2']]
+ *
+ * // Converting to Map
+ * const entries = parseDamlMap(data);
+ * const map = new Map(entries);
+ * ```
+ */
+export function parseDamlMap<K extends string, V>(data: unknown): Array<[K, V]> {
+  if (data == null) {
+    return [];
+  }
+
+  if (Array.isArray(data)) {
+    // JSON API v2 format: [[key, value], [key, value], ...]
+    // Validate each entry and throw on malformed data to avoid silent data loss
+    return data.map((entry, index) => {
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        throw new OcpParseError(`parseDamlMap: Invalid entry at index ${index} - expected [key, value] tuple`, {
+          code: OcpErrorCodes.INVALID_FORMAT,
+        });
+      }
+      const [key, value] = entry as [unknown, unknown];
+      if (typeof key !== 'string') {
+        throw new OcpParseError(
+          `parseDamlMap: Invalid key type at index ${index} - expected string, got ${typeof key}`,
+          {
+            code: OcpErrorCodes.INVALID_TYPE,
+          }
+        );
+      }
+      return [key as K, value as V];
+    });
+  }
+
+  if (typeof data === 'object') {
+    // Object format: {key: value, ...}
+    return Object.entries(data) as Array<[K, V]>;
+  }
+
+  throw new OcpParseError(`parseDamlMap: Invalid data format - expected array or object, got ${typeof data}`, {
+    code: OcpErrorCodes.INVALID_TYPE,
+  });
+}
+
 // ===== Data Cleaning Helpers =====
 
 /**

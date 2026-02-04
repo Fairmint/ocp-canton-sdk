@@ -11,6 +11,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
+import { parseDamlMap } from '../../../utils/typeConversions';
 import type { OcfEntityType } from './batchTypes';
 
 /**
@@ -243,14 +244,17 @@ export async function getCapTableState(
   for (const [field, entityType] of Object.entries(FIELD_TO_ENTITY_TYPE)) {
     const fieldData = payload[field];
 
-    if (fieldData && typeof fieldData === 'object') {
-      // DAML Map is serialized as an object with OCF IDs as keys
-      const ocfIdToContractId = fieldData as Record<string, string>;
-      const ocfIds = new Set(Object.keys(ocfIdToContractId));
+    if (fieldData) {
+      // DAML Map can be serialized as either:
+      // - Array format (JSON API v2): [[key, value], [key, value], ...]
+      // - Object format: {key: value, ...}
+      // parseDamlMap handles both formats
+      const entries = parseDamlMap<string, string>(fieldData);
 
-      if (ocfIds.size > 0) {
+      if (entries.length > 0) {
+        const ocfIds = new Set(entries.map(([key]) => key));
         entities.set(entityType, ocfIds);
-        contractIds.set(entityType, new Map(Object.entries(ocfIdToContractId)));
+        contractIds.set(entityType, new Map(entries));
       }
     }
   }

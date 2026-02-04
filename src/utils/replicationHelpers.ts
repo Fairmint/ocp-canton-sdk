@@ -60,8 +60,11 @@ const OBJECT_SUBTYPE_MAP: Record<string, OcfEntityType> = {
  * TRANSACTION subtype to OcfEntityType mappings.
  * These use category='TRANSACTION' with the actual type in the subtype field.
  * Subtypes use TX_ prefix with UPPER_SNAKE_CASE, SDK uses camelCase.
+ *
+ * Exported so that other modules can derive the inverse mapping programmatically
+ * rather than maintaining duplicate data.
  */
-const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
+export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
   // Stock Transactions (9 types)
   TX_STOCK_ISSUANCE: 'stockIssuance',
   TX_STOCK_CANCELLATION: 'stockCancellation',

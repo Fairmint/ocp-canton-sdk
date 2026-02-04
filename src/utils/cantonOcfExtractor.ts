@@ -11,6 +11,8 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpErrorCodes } from '../errors/codes';
+import { OcpValidationError } from '../errors/OcpValidationError';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
@@ -31,23 +33,212 @@ import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stock
 import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
+import { TRANSACTION_SUBTYPE_MAP } from './replicationHelpers';
+
+// ===== Transaction Sorting =====
+// These utilities ensure Canton transactions are sorted consistently with DB data.
+// The cap table engine processes transactions in array order, so sorting is critical.
+// Exported for unit testing - sorting correctness is critical for cap table verification.
 
 /**
- * Core OCF entity types that have dedicated `get*AsOcf` functions.
- * These are not included in SupportedOcfReadType but need special handling.
+ * Safe timestamp helper that can return null.
+ * Used when we need to distinguish "missing" from "zero".
  */
-export const CORE_ENTITY_TYPES: Set<OcfEntityType> = new Set([
-  'stakeholder',
-  'stockClass',
-  'stockPlan',
-  'vestingTerms',
-]);
+export function getTimestampOrNull(input: unknown): number | null {
+  if (input == null) return null;
+  if (typeof input === 'number') {
+    return Number.isNaN(input) ? null : input;
+  }
+  if (typeof input === 'string') {
+    const ms = new Date(input).getTime();
+    return Number.isNaN(ms) ? null : ms;
+  }
+  return null;
+}
+
+/**
+ * Compute intra-day ordering weight for a transaction.
+ *
+ * Lower weights are processed first within the same day.
+ * This ensures domain-correct ordering: issuances before exercises,
+ * acceptances before splits, transfers before conversions, etc.
+ *
+ * Weights are ported from libs/api/service-ocp/utils/transactionSort.js
+ * to ensure parity between DB and Canton data processing.
+ */
+export function txWeight(tx: Record<string, unknown>): number {
+  switch (tx.object_type) {
+    // Administrative adjustments early in the day
+    case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
+    case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
+    case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
+    case 'TX_STOCK_PLAN_RETURN_TO_POOL':
+      return 5;
+
+    // Reissuance must run before child issuances
+    case 'TX_STOCK_REISSUANCE':
+      return 9;
+
+    // Creations first
+    case 'TX_STOCK_ISSUANCE':
+    case 'TX_EQUITY_COMPENSATION_ISSUANCE':
+    case 'TX_PLAN_SECURITY_ISSUANCE': // legacy alias
+    case 'TX_WARRANT_ISSUANCE':
+    case 'TX_CONVERTIBLE_ISSUANCE':
+      return 10;
+
+    // Acceptances after issuances, before splits
+    case 'TX_STOCK_ACCEPTANCE':
+    case 'TX_WARRANT_ACCEPTANCE':
+    case 'TX_EQUITY_COMPENSATION_ACCEPTANCE':
+    case 'TX_PLAN_SECURITY_ACCEPTANCE': // legacy alias
+      return 11;
+
+    // Vesting events
+    case 'TX_VESTING_START':
+      return 12;
+    case 'TX_VESTING_EVENT':
+      return 13;
+    case 'TX_VESTING_ACCELERATION':
+      return 14;
+
+    // Splits after vesting, before transfers
+    case 'TX_STOCK_CLASS_SPLIT':
+      return 15;
+
+    // Retractions after splits, before transfers
+    case 'TX_STOCK_RETRACTION':
+    case 'TX_WARRANT_RETRACTION':
+    case 'TX_CONVERTIBLE_RETRACTION':
+    case 'TX_EQUITY_COMPENSATION_RETRACTION':
+    case 'TX_PLAN_SECURITY_RETRACTION': // legacy alias
+      return 16;
+
+    // Consolidation after retractions, before transfers
+    case 'TX_STOCK_CONSOLIDATION':
+      return 17;
+
+    // Ratio adjustments after consolidation, before transfers
+    case 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT':
+      return 18;
+
+    // Repricing after ratio adjustments, before transfers
+    case 'TX_EQUITY_COMPENSATION_REPRICING':
+      return 19;
+
+    // Transfers - neutral moves
+    case 'TX_STOCK_TRANSFER':
+    case 'TX_WARRANT_TRANSFER':
+    case 'TX_CONVERTIBLE_TRANSFER':
+    case 'TX_EQUITY_COMPENSATION_TRANSFER':
+    case 'TX_PLAN_SECURITY_TRANSFER': // legacy alias
+      return 20;
+
+    // Convertible acceptance requires preceding transfer
+    case 'TX_CONVERTIBLE_ACCEPTANCE':
+      return 22;
+
+    // Releases before exercises
+    case 'TX_EQUITY_COMPENSATION_RELEASE':
+    case 'TX_PLAN_SECURITY_RELEASE': // legacy alias
+      return 25;
+
+    // Exercises that may mint resulting stock
+    case 'TX_EQUITY_COMPENSATION_EXERCISE':
+    case 'TX_PLAN_SECURITY_EXERCISE': // legacy alias
+    case 'TX_WARRANT_EXERCISE':
+      return 30;
+
+    // Conversions after exercises
+    case 'TX_STOCK_CONVERSION':
+    case 'TX_CONVERTIBLE_CONVERSION':
+      return 35;
+
+    // Reductions after issuances
+    case 'TX_STOCK_REPURCHASE':
+    case 'TX_STOCK_CANCELLATION':
+    case 'TX_EQUITY_COMPENSATION_CANCELLATION':
+    case 'TX_PLAN_SECURITY_CANCELLATION': // legacy alias
+    case 'TX_WARRANT_CANCELLATION':
+    case 'TX_CONVERTIBLE_CANCELLATION':
+      return 40;
+
+    // Stakeholder events - process after transactions that might create/modify stakes
+    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT':
+    case 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT':
+      return 45;
+
+    // Unknown types at the end
+    default:
+      return 50;
+  }
+}
+
+/**
+ * Build a composite sort key for deterministic same-day ordering.
+ *
+ * Key structure: day|weight|group|created|id
+ * This ensures:
+ * - Same-day transactions are ordered by domain weight
+ * - Within same weight, grouped by security_id for locality
+ * - Within same group, ordered by created timestamp
+ * - Final tiebreaker by transaction id for determinism
+ *
+ * @throws OcpValidationError if tx.date is missing or invalid - fail fast on malformed records
+ */
+export function buildTransactionSortKey(tx: Record<string, unknown>): string {
+  const dateMs = getTimestampOrNull(tx.date);
+  if (dateMs === null) {
+    const txId = typeof tx.id === 'string' ? tx.id : 'unknown';
+    const txType = typeof tx.object_type === 'string' ? tx.object_type : 'unknown';
+    throw new OcpValidationError(
+      'tx.date',
+      `Transaction has missing or invalid date - id: ${txId}, object_type: ${txType}, date: ${JSON.stringify(tx.date)}`,
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: tx.date }
+    );
+  }
+  const day = new Date(dateMs).toISOString().slice(0, 10);
+  const weight = txWeight(tx).toString().padStart(3, '0');
+  const group = typeof tx.security_id === 'string' ? tx.security_id : '_no_security_';
+
+  const createdMs = getTimestampOrNull(tx.createdAt ?? tx.created_at);
+  const created = createdMs !== null ? new Date(createdMs).toISOString() : '9999-12-31T23:59:59.999Z';
+
+  // Safe string conversion for transaction ID
+  const id = typeof tx.id === 'string' ? tx.id : '';
+
+  return `${day}|${weight}|${group}|${created}|${id}`;
+}
+
+/**
+ * Sort transactions with domain-aware same-day ordering.
+ *
+ * This ensures Canton transactions are sorted consistently with DB data.
+ * The cap table engine processes transactions in array order, so this
+ * sorting is critical for producing identical outputs.
+ *
+ * Uses decorate-sort-undecorate pattern to avoid recomputing sort keys
+ * during comparisons, which is more efficient for large transaction lists.
+ */
+export function sortTransactions(transactions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  // Decorate: precompute sort keys once per transaction
+  const decorated = transactions.map((tx) => ({
+    tx,
+    key: buildTransactionSortKey(tx),
+  }));
+
+  // Sort by precomputed key
+  decorated.sort((a, b) => a.key.localeCompare(b.key));
+
+  // Undecorate: return transactions in sorted order
+  return decorated.map((item) => item.tx);
+}
 
 /**
  * Entity types that are classified as transactions for buildCaptableInput.
  * All entity types except core objects and a few non-transaction types.
  */
-export const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
+const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
   // Stock Transactions
   'stockIssuance',
   'stockTransfer',
@@ -99,10 +290,22 @@ export const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
 ]);
 
 /**
+ * Maps entity types to their OCF object_type values.
+ * Used to ensure transactions fetched via the generic getEntityAsOcf path
+ * have the correct object_type for sorting.
+ *
+ * Derived programmatically from TRANSACTION_SUBTYPE_MAP to avoid maintaining
+ * duplicate inverse mappings that could drift out of sync.
+ */
+const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = Object.fromEntries(
+  Object.entries(TRANSACTION_SUBTYPE_MAP).map(([objectType, entityType]) => [entityType, objectType])
+);
+
+/**
  * Entity types supported by getEntityAsOcf dispatcher.
  * This matches the SupportedOcfReadType from damlToOcf.ts.
  */
-export const SUPPORTED_READ_TYPES: Set<SupportedOcfReadType> = new Set<SupportedOcfReadType>([
+const SUPPORTED_READ_TYPES: Set<SupportedOcfReadType> = new Set<SupportedOcfReadType>([
   // Acceptance types
   'stockAcceptance',
   'convertibleAcceptance',
@@ -283,7 +486,26 @@ export async function extractCantonOcfManifest(
           // Handle remaining transaction types with the generic dispatcher
           const supportedType = entityType as SupportedOcfReadType;
           const { data } = await getEntityAsOcf(client, supportedType, contractId);
-          result.transactions.push(data as unknown as Record<string, unknown>);
+          const txData = data as unknown as Record<string, unknown>;
+
+          // Ensure object_type is present for correct sorting
+          // Generic converters may not include it, so we add it from our mapping
+          const existingObjectType = typeof txData.object_type === 'string' ? txData.object_type : null;
+          const mappedObjectType = ENTITY_TYPE_TO_OBJECT_TYPE[entityType];
+
+          if (!existingObjectType && !mappedObjectType) {
+            throw new OcpValidationError(
+              'object_type',
+              `Missing object_type mapping for transaction entity type: ${entityType}`,
+              { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+            );
+          }
+
+          if (!existingObjectType && mappedObjectType) {
+            txData.object_type = mappedObjectType;
+          }
+
+          result.transactions.push(txData);
         }
         // Unsupported types are silently skipped
       } catch (error) {
@@ -292,6 +514,11 @@ export async function extractCantonOcfManifest(
       }
     }
   }
+
+  // Sort transactions by date with domain-aware same-day ordering
+  // This matches the DB loader behavior (buildCaptableInput uses sortTransactions)
+  // and is critical for consistent cap table processing results
+  result.transactions = sortTransactions(result.transactions);
 
   return result;
 }
