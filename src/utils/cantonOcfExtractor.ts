@@ -37,16 +37,6 @@ import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuan
 // The cap table engine processes transactions in array order, so sorting is critical.
 
 /**
- * Safe timestamp helper - returns milliseconds or defaultValue.
- * Handles Invalid Date by returning defaultValue.
- */
-function getTimestamp(input: unknown, defaultValue: number): number {
-  if (input == null) return defaultValue;
-  const ms = typeof input === 'number' ? input : new Date(input as string).getTime();
-  return Number.isNaN(ms) ? defaultValue : ms;
-}
-
-/**
  * Safe timestamp helper that can return null.
  * Used when we need to distinguish "missing" from "zero".
  */
@@ -183,11 +173,20 @@ function txWeight(tx: Record<string, unknown>): number {
  * - Within same weight, grouped by security_id for locality
  * - Within same group, ordered by created timestamp
  * - Final tiebreaker by transaction id for determinism
+ *
+ * @throws Error if tx.date is missing or invalid - fail fast on malformed records
  */
 function buildTransactionSortKey(tx: Record<string, unknown>): string {
-  const dateMs = getTimestamp(tx.date, 0);
+  const dateMs = getTimestampOrNull(tx.date);
+  if (dateMs === null) {
+    const txId = typeof tx.id === 'string' ? tx.id : 'unknown';
+    const txType = typeof tx.object_type === 'string' ? tx.object_type : 'unknown';
+    throw new Error(
+      `buildTransactionSortKey: Transaction has missing or invalid date - id: ${txId}, object_type: ${txType}, date: ${JSON.stringify(tx.date)}`
+    );
+  }
   const day = new Date(dateMs).toISOString().slice(0, 10);
-  const weight = String(txWeight(tx)).padStart(3, '0');
+  const weight = txWeight(tx).toString().padStart(3, '0');
   const group = typeof tx.security_id === 'string' ? tx.security_id : '_no_security_';
 
   const createdMs = getTimestampOrNull(tx.createdAt ?? tx.created_at);
