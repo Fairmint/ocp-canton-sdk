@@ -11,6 +11,8 @@
 
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
+import type { OcfManifest } from './cantonOcfExtractor';
+import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
 import { normalizeEntityType } from './planSecurityAliases';
 
 // ============================================================================
@@ -120,16 +122,6 @@ export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
   // Stakeholder Events (2 types)
   TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'stakeholderRelationshipChangeEvent',
   TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'stakeholderStatusChangeEvent',
-
-  // Plan Security (7 types) - aliases for Equity Compensation in legacy OCF
-  // These map to equityCompensation* types in Canton (planSecurity is an alias)
-  TX_PLAN_SECURITY_ISSUANCE: 'planSecurityIssuance',
-  TX_PLAN_SECURITY_CANCELLATION: 'planSecurityCancellation',
-  TX_PLAN_SECURITY_TRANSFER: 'planSecurityTransfer',
-  TX_PLAN_SECURITY_ACCEPTANCE: 'planSecurityAcceptance',
-  TX_PLAN_SECURITY_EXERCISE: 'planSecurityExercise',
-  TX_PLAN_SECURITY_RELEASE: 'planSecurityRelease',
-  TX_PLAN_SECURITY_RETRACTION: 'planSecurityRetraction',
 };
 
 /**
@@ -287,6 +279,95 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
 }
 
 // ============================================================================
+// Canton OCF Data Map Builder
+// ============================================================================
+
+/**
+ * Build a CantonOcfDataMap from an OCF manifest.
+ *
+ * Converts the array-based manifest structure into a nested Map structure
+ * that can be used for efficient lookup during replication diff computation.
+ *
+ * @param manifest - OCF manifest from extractCantonOcfManifest
+ * @returns Map of entityType → Map of ocfId → OCF data object
+ * @throws Error if any object is missing a valid 'id' field or has an unsupported object_type
+ *
+ * @example
+ * ```typescript
+ * import { extractCantonOcfManifest } from './cantonOcfExtractor';
+ *
+ * const manifest = await extractCantonOcfManifest(client, cantonState);
+ * const cantonOcfData = buildCantonOcfDataMap(manifest);
+ * const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+ * ```
+ */
+export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
+  const result: CantonOcfDataMap = new Map();
+
+  // Helper to add an item to the map with validation
+  const addItem = (entityType: OcfEntityType, item: Record<string, unknown>, context: string): void => {
+    const { id } = item;
+    if (typeof id !== 'string') {
+      throw new Error(`Invalid ${context}: missing or invalid 'id' field. Got: ${JSON.stringify(id)}`);
+    }
+
+    let typeMap = result.get(entityType);
+    if (!typeMap) {
+      typeMap = new Map();
+      result.set(entityType, typeMap);
+    }
+    typeMap.set(id, item);
+  };
+
+  // Process issuer (special case - single item, not array)
+  if (manifest.issuer) {
+    addItem('issuer', manifest.issuer, 'issuer');
+  }
+
+  // Process core objects
+  for (const stakeholder of manifest.stakeholders) {
+    addItem('stakeholder', stakeholder, 'stakeholder');
+  }
+  for (const stockClass of manifest.stockClasses) {
+    addItem('stockClass', stockClass, 'stockClass');
+  }
+  for (const stockPlan of manifest.stockPlans) {
+    addItem('stockPlan', stockPlan, 'stockPlan');
+  }
+  for (const vestingTerms of manifest.vestingTerms) {
+    addItem('vestingTerms', vestingTerms, 'vestingTerms');
+  }
+  for (const valuation of manifest.valuations) {
+    addItem('valuation', valuation, 'valuation');
+  }
+  for (const document of manifest.documents) {
+    addItem('document', document, 'document');
+  }
+  for (const stockLegendTemplate of manifest.stockLegendTemplates) {
+    addItem('stockLegendTemplate', stockLegendTemplate, 'stockLegendTemplate');
+  }
+
+  // Process transactions - categorize by object_type using existing TRANSACTION_SUBTYPE_MAP
+  for (const tx of manifest.transactions) {
+    const objectType = tx['object_type'];
+    if (typeof objectType !== 'string') {
+      throw new Error(
+        `Invalid transaction: missing or invalid 'object_type' field. Got: ${JSON.stringify(objectType)}`
+      );
+    }
+
+    // Check if the object type is a known transaction type
+    if (!(objectType in TRANSACTION_SUBTYPE_MAP)) {
+      throw new Error(`Unsupported transaction object_type: ${objectType}`);
+    }
+    const entityType = TRANSACTION_SUBTYPE_MAP[objectType];
+    addItem(entityType, tx, `transaction (${objectType})`);
+  }
+
+  return result;
+}
+
+// ============================================================================
 // Replication Diff
 // ============================================================================
 
@@ -319,6 +400,12 @@ export interface ReplicationDiff {
 }
 
 /**
+ * Canton OCF data map for deep comparison.
+ * Maps entityType to a map of ocfId to OCF data object.
+ */
+export type CantonOcfDataMap = Map<OcfEntityType, Map<string, Record<string, unknown>>>;
+
+/**
  * Options for computing the replication diff.
  */
 export interface ComputeReplicationDiffOptions {
@@ -329,12 +416,19 @@ export interface ComputeReplicationDiffOptions {
   syncDeletes?: boolean;
 
   /**
-   * Whether to always include edit operations for items that exist in both.
-   * When true: All existing items are marked as edits (ensures sync)
-   * When false: Only new items are marked as creates (existence check only)
-   * Default: false
+   * Canton OCF data for deep comparison.
+   * When provided, items that exist in both source and Canton are compared using
+   * semantic OCF equality (ocfDeepEqual). Only items with actual data differences
+   * are marked for edit.
+   *
+   * The map should be structured as: Map<OcfEntityType, Map<ocfId, ocfDataObject>>
+   *
+   * This enables propagating database corrections to Canton without blindly updating
+   * all existing items.
+   *
+   * When not provided, only creates are detected (no edits).
    */
-  alwaysEdit?: boolean;
+  cantonOcfData?: CantonOcfDataMap;
 }
 
 /**
@@ -365,7 +459,7 @@ export function computeReplicationDiff(
   cantonState: CapTableState,
   options: ComputeReplicationDiffOptions = {}
 ): ReplicationDiff {
-  const { syncDeletes = false, alwaysEdit = false } = options;
+  const { syncDeletes = false, cantonOcfData } = options;
 
   const creates: ReplicationItem[] = [];
   const edits: ReplicationItem[] = [];
@@ -376,6 +470,12 @@ export function computeReplicationDiff(
 
   // Track seen items to prevent duplicate create/edit operations
   const seenItems = new Set<string>();
+
+  // Comparison options for OCF deep equality
+  const comparisonOptions = {
+    ignoredFields: DEFAULT_INTERNAL_FIELDS,
+    deprecatedFields: DEFAULT_DEPRECATED_FIELDS,
+  };
 
   // Process each source item
   for (const item of sourceItems) {
@@ -410,16 +510,36 @@ export function computeReplicationDiff(
         operation: 'create',
         data: item.data,
       });
-    } else if (alwaysEdit) {
-      // Item in both and alwaysEdit → EDIT
-      edits.push({
-        ocfId: item.ocfId,
-        entityType: item.entityType,
-        operation: 'edit',
-        data: item.data,
-      });
+    } else if (cantonOcfData) {
+      // Deep comparison: compare actual OCF data to detect changes
+      const cantonTypeData = cantonOcfData.get(normalizedType);
+      const cantonItemData = cantonTypeData?.get(item.ocfId);
+
+      if (cantonItemData === undefined) {
+        // cantonOcfData was provided but this item's data wasn't found
+        // This indicates cantonOcfData is incomplete or inconsistent with cantonState.entities
+        throw new Error(
+          `Inconsistent cantonOcfData: missing OCF data for entityType="${normalizedType}", ` +
+            `ocfId="${item.ocfId}" even though the ID exists in cantonState.entities. ` +
+            `Ensure cantonOcfData is built from the same Canton state.`
+        );
+      }
+
+      // Compare source data with Canton data using semantic OCF equality
+      const isEqual = ocfDeepEqual(item.data, cantonItemData, comparisonOptions);
+
+      if (!isEqual) {
+        // Data differs → EDIT
+        edits.push({
+          ocfId: item.ocfId,
+          entityType: item.entityType,
+          operation: 'edit',
+          data: item.data,
+        });
+      }
+      // If equal, skip (data is already in sync)
     }
-    // If not alwaysEdit and exists in Canton, skip (already synced)
+    // If no cantonOcfData provided and item exists in Canton, skip (no edit detection)
   }
 
   // Detect deletes (in Canton but not in source)
