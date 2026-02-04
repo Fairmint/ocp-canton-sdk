@@ -279,6 +279,54 @@ export const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
 ]);
 
 /**
+ * Maps entity types to their OCF object_type values.
+ * Used to ensure transactions fetched via the generic getEntityAsOcf path
+ * have the correct object_type for sorting.
+ */
+export const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = {
+  // Acceptance types
+  stockAcceptance: 'TX_STOCK_ACCEPTANCE',
+  convertibleAcceptance: 'TX_CONVERTIBLE_ACCEPTANCE',
+  equityCompensationAcceptance: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
+  warrantAcceptance: 'TX_WARRANT_ACCEPTANCE',
+  // Stock class adjustments
+  stockClassConversionRatioAdjustment: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+  stockClassSplit: 'TX_STOCK_CLASS_SPLIT',
+  stockConsolidation: 'TX_STOCK_CONSOLIDATION',
+  // Vesting events
+  vestingAcceleration: 'TX_VESTING_ACCELERATION',
+  vestingEvent: 'TX_VESTING_EVENT',
+  vestingStart: 'TX_VESTING_START',
+  // Stock operations
+  stockRetraction: 'TX_STOCK_RETRACTION',
+  stockConversion: 'TX_STOCK_CONVERSION',
+  stockPlanReturnToPool: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+  stockReissuance: 'TX_STOCK_REISSUANCE',
+  stockRepurchase: 'TX_STOCK_REPURCHASE',
+  stockTransfer: 'TX_STOCK_TRANSFER',
+  stockCancellation: 'TX_STOCK_CANCELLATION',
+  // Warrant operations
+  warrantExercise: 'TX_WARRANT_EXERCISE',
+  warrantRetraction: 'TX_WARRANT_RETRACTION',
+  warrantTransfer: 'TX_WARRANT_TRANSFER',
+  warrantCancellation: 'TX_WARRANT_CANCELLATION',
+  // Convertible operations
+  convertibleConversion: 'TX_CONVERTIBLE_CONVERSION',
+  convertibleRetraction: 'TX_CONVERTIBLE_RETRACTION',
+  convertibleTransfer: 'TX_CONVERTIBLE_TRANSFER',
+  convertibleCancellation: 'TX_CONVERTIBLE_CANCELLATION',
+  // Equity compensation
+  equityCompensationRelease: 'TX_EQUITY_COMPENSATION_RELEASE',
+  equityCompensationRepricing: 'TX_EQUITY_COMPENSATION_REPRICING',
+  equityCompensationRetraction: 'TX_EQUITY_COMPENSATION_RETRACTION',
+  equityCompensationTransfer: 'TX_EQUITY_COMPENSATION_TRANSFER',
+  equityCompensationCancellation: 'TX_EQUITY_COMPENSATION_CANCELLATION',
+  // Stakeholder events
+  stakeholderRelationshipChangeEvent: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+  stakeholderStatusChangeEvent: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
+};
+
+/**
  * Entity types supported by getEntityAsOcf dispatcher.
  * This matches the SupportedOcfReadType from damlToOcf.ts.
  */
@@ -463,7 +511,13 @@ export async function extractCantonOcfManifest(
           // Handle remaining transaction types with the generic dispatcher
           const supportedType = entityType as SupportedOcfReadType;
           const { data } = await getEntityAsOcf(client, supportedType, contractId);
-          result.transactions.push(data as unknown as Record<string, unknown>);
+          // Add object_type for correct sorting - generic converters don't include it
+          const objectType = ENTITY_TYPE_TO_OBJECT_TYPE[entityType];
+          const txData = data as unknown as Record<string, unknown>;
+          if (objectType) {
+            txData.object_type = objectType;
+          }
+          result.transactions.push(txData);
         }
         // Unsupported types are silently skipped
       } catch (error) {
