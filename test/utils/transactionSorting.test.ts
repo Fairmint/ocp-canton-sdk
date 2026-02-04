@@ -6,6 +6,7 @@
  * order as DB-loaded transactions by the cap table engine.
  */
 
+import { OcpValidationError } from '../../src/errors/OcpValidationError';
 import {
   buildTransactionSortKey,
   getTimestampOrNull,
@@ -176,29 +177,27 @@ describe('buildTransactionSortKey', () => {
     expect(key).toContain('|2025-03-15T08:00:00.000Z|');
   });
 
-  it('throws error for missing date', () => {
+  it('throws OcpValidationError for missing date', () => {
     const tx = {
       id: 'tx-123',
       object_type: 'TX_STOCK_ISSUANCE',
     };
 
-    expect(() => buildTransactionSortKey(tx)).toThrow(
-      /buildTransactionSortKey: Transaction has missing or invalid date/
-    );
+    expect(() => buildTransactionSortKey(tx)).toThrow(OcpValidationError);
+    expect(() => buildTransactionSortKey(tx)).toThrow(/missing or invalid date/);
     expect(() => buildTransactionSortKey(tx)).toThrow(/id: tx-123/);
     expect(() => buildTransactionSortKey(tx)).toThrow(/object_type: TX_STOCK_ISSUANCE/);
   });
 
-  it('throws error for invalid date', () => {
+  it('throws OcpValidationError for invalid date', () => {
     const tx = {
       id: 'tx-456',
       date: 'not-a-valid-date',
       object_type: 'TX_STOCK_TRANSFER',
     };
 
-    expect(() => buildTransactionSortKey(tx)).toThrow(
-      /buildTransactionSortKey: Transaction has missing or invalid date/
-    );
+    expect(() => buildTransactionSortKey(tx)).toThrow(OcpValidationError);
+    expect(() => buildTransactionSortKey(tx)).toThrow(/missing or invalid date/);
     expect(() => buildTransactionSortKey(tx)).toThrow(/id: tx-456/);
   });
 
@@ -209,6 +208,7 @@ describe('buildTransactionSortKey', () => {
       object_type: 'TX_STOCK_ISSUANCE',
     };
 
+    expect(() => buildTransactionSortKey(tx)).toThrow(OcpValidationError);
     expect(() => buildTransactionSortKey(tx)).toThrow(/"invalid"/);
   });
 });
@@ -247,7 +247,7 @@ describe('sortTransactions', () => {
 
     const sorted = sortTransactions(transactions);
 
-    // adjustment (5) < issuance (10) < transfer (25)
+    // adjustment (5) < issuance (10) < transfer (20)
     expect(sorted.map((tx) => tx.id)).toEqual(['adjustment', 'issuance', 'transfer']);
   });
 

@@ -11,6 +11,8 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OcpErrorCodes } from '../errors/codes';
+import { OcpValidationError } from '../errors/OcpValidationError';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
@@ -44,8 +46,14 @@ import { TRANSACTION_SUBTYPE_MAP } from './replicationHelpers';
  */
 export function getTimestampOrNull(input: unknown): number | null {
   if (input == null) return null;
-  const ms = typeof input === 'number' ? input : new Date(input as string).getTime();
-  return Number.isNaN(ms) ? null : ms;
+  if (typeof input === 'number') {
+    return Number.isNaN(input) ? null : input;
+  }
+  if (typeof input === 'string') {
+    const ms = new Date(input).getTime();
+    return Number.isNaN(ms) ? null : ms;
+  }
+  return null;
 }
 
 /**
@@ -176,15 +184,17 @@ export function txWeight(tx: Record<string, unknown>): number {
  * - Within same group, ordered by created timestamp
  * - Final tiebreaker by transaction id for determinism
  *
- * @throws Error if tx.date is missing or invalid - fail fast on malformed records
+ * @throws OcpValidationError if tx.date is missing or invalid - fail fast on malformed records
  */
 export function buildTransactionSortKey(tx: Record<string, unknown>): string {
   const dateMs = getTimestampOrNull(tx.date);
   if (dateMs === null) {
     const txId = typeof tx.id === 'string' ? tx.id : 'unknown';
     const txType = typeof tx.object_type === 'string' ? tx.object_type : 'unknown';
-    throw new Error(
-      `buildTransactionSortKey: Transaction has missing or invalid date - id: ${txId}, object_type: ${txType}, date: ${JSON.stringify(tx.date)}`
+    throw new OcpValidationError(
+      'tx.date',
+      `Transaction has missing or invalid date - id: ${txId}, object_type: ${txType}, date: ${JSON.stringify(tx.date)}`,
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: tx.date }
     );
   }
   const day = new Date(dateMs).toISOString().slice(0, 10);
@@ -476,12 +486,25 @@ export async function extractCantonOcfManifest(
           // Handle remaining transaction types with the generic dispatcher
           const supportedType = entityType as SupportedOcfReadType;
           const { data } = await getEntityAsOcf(client, supportedType, contractId);
-          // Add object_type for correct sorting - generic converters don't include it
-          const objectType = ENTITY_TYPE_TO_OBJECT_TYPE[entityType];
           const txData = data as unknown as Record<string, unknown>;
-          if (objectType) {
-            txData.object_type = objectType;
+
+          // Ensure object_type is present for correct sorting
+          // Generic converters may not include it, so we add it from our mapping
+          const existingObjectType = typeof txData.object_type === 'string' ? txData.object_type : null;
+          const mappedObjectType = ENTITY_TYPE_TO_OBJECT_TYPE[entityType];
+
+          if (!existingObjectType && !mappedObjectType) {
+            throw new OcpValidationError(
+              'object_type',
+              `Missing object_type mapping for transaction entity type: ${entityType}`,
+              { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+            );
           }
+
+          if (!existingObjectType && mappedObjectType) {
+            txData.object_type = mappedObjectType;
+          }
+
           result.transactions.push(txData);
         }
         // Unsupported types are silently skipped
