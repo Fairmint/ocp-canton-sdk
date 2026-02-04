@@ -32,6 +32,137 @@ import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
 
+// ===== Transaction Sorting =====
+// These utilities ensure Canton transactions are sorted consistently with DB data.
+// The cap table engine processes transactions in array order, so sorting is critical.
+
+/**
+ * Safe timestamp helper - returns milliseconds or defaultValue.
+ * Handles Invalid Date by returning defaultValue.
+ */
+function getTimestamp(input: unknown, defaultValue: number): number {
+  if (input == null) return defaultValue;
+  const ms = typeof input === 'number' ? input : new Date(input as string).getTime();
+  return Number.isNaN(ms) ? defaultValue : ms;
+}
+
+/**
+ * Safe timestamp helper that can return null.
+ * Used when we need to distinguish "missing" from "zero".
+ */
+function getTimestampOrNull(input: unknown): number | null {
+  if (input == null) return null;
+  const ms = typeof input === 'number' ? input : new Date(input as string).getTime();
+  return Number.isNaN(ms) ? null : ms;
+}
+
+/**
+ * Compute intra-day ordering weight for a transaction.
+ *
+ * Lower weights are processed first within the same day.
+ * This ensures domain-correct ordering: issuances before exercises,
+ * acceptances before splits, transfers before conversions, etc.
+ */
+function txWeight(tx: Record<string, unknown>): number {
+  switch (tx.object_type) {
+    case 'TX_VESTING_START':
+      return 12;
+    case 'TX_VESTING_EVENT':
+      return 13;
+    case 'TX_VESTING_ACCELERATION':
+      return 14;
+    case 'TX_STOCK_REISSUANCE':
+      return 9;
+    case 'TX_STOCK_ISSUANCE':
+    case 'TX_EQUITY_COMPENSATION_ISSUANCE':
+    case 'TX_WARRANT_ISSUANCE':
+    case 'TX_CONVERTIBLE_ISSUANCE':
+      return 10; // creations first
+    case 'TX_STOCK_ACCEPTANCE':
+    case 'TX_WARRANT_ACCEPTANCE':
+    case 'TX_EQUITY_COMPENSATION_ACCEPTANCE':
+    case 'TX_PLAN_SECURITY_ACCEPTANCE':
+      return 11;
+    case 'TX_STOCK_CLASS_SPLIT':
+      return 15;
+    case 'TX_STOCK_RETRACTION':
+      return 16;
+    case 'TX_STOCK_CONSOLIDATION':
+      return 17;
+    case 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT':
+      return 18;
+    case 'TX_EQUITY_COMPENSATION_REPRICING':
+      return 19;
+    case 'TX_STOCK_TRANSFER':
+    case 'TX_WARRANT_TRANSFER':
+    case 'TX_CONVERTIBLE_TRANSFER':
+    case 'TX_EQUITY_COMPENSATION_TRANSFER':
+    case 'TX_PLAN_SECURITY_TRANSFER':
+      return 20;
+    case 'TX_CONVERTIBLE_ACCEPTANCE':
+      return 22;
+    case 'TX_EQUITY_COMPENSATION_EXERCISE':
+    case 'TX_WARRANT_EXERCISE':
+      return 30;
+    case 'TX_CONVERTIBLE_CONVERSION':
+      return 35;
+    case 'TX_STOCK_REPURCHASE':
+    case 'TX_STOCK_CANCELLATION':
+    case 'TX_EQUITY_COMPENSATION_CANCELLATION':
+    case 'TX_WARRANT_CANCELLATION':
+    case 'TX_CONVERTIBLE_CANCELLATION':
+      return 40;
+    case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
+    case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
+    case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
+      return 5;
+    default:
+      return 50;
+  }
+}
+
+/**
+ * Build a composite sort key for deterministic same-day ordering.
+ *
+ * Key structure: day|weight|group|created|id
+ * This ensures:
+ * - Same-day transactions are ordered by domain weight
+ * - Within same weight, grouped by security_id for locality
+ * - Within same group, ordered by created timestamp
+ * - Final tiebreaker by transaction id for determinism
+ */
+function buildTransactionSortKey(tx: Record<string, unknown>): string {
+  const dateMs = getTimestamp(tx.date, 0);
+  const day = new Date(dateMs).toISOString().slice(0, 10);
+  const weight = String(txWeight(tx)).padStart(3, '0');
+  const group = typeof tx.security_id === 'string' ? tx.security_id : '_no_security_';
+
+  const createdMs = getTimestampOrNull(tx.createdAt ?? tx.created_at);
+  const created = createdMs !== null ? new Date(createdMs).toISOString() : '9999-12-31T23:59:59.999Z';
+
+  // Safe string conversion for transaction ID
+  const id = typeof tx.id === 'string' ? tx.id : '';
+
+  return `${day}|${weight}|${group}|${created}|${id}`;
+}
+
+/**
+ * Sort transactions with domain-aware same-day ordering.
+ *
+ * This ensures Canton transactions are sorted consistently with DB data.
+ * The cap table engine processes transactions in array order, so this
+ * sorting is critical for producing identical outputs.
+ */
+function sortTransactions(transactions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+  return [...transactions].sort((a, b) => {
+    const ka = buildTransactionSortKey(a);
+    const kb = buildTransactionSortKey(b);
+    if (ka < kb) return -1;
+    if (ka > kb) return 1;
+    return 0;
+  });
+}
+
 /**
  * Core OCF entity types that have dedicated `get*AsOcf` functions.
  * These are not included in SupportedOcfReadType but need special handling.
@@ -292,6 +423,11 @@ export async function extractCantonOcfManifest(
       }
     }
   }
+
+  // Sort transactions by date with domain-aware same-day ordering
+  // This matches the DB loader behavior (buildCaptableInput uses sortTransactions)
+  // and is critical for consistent cap table processing results
+  result.transactions = sortTransactions(result.transactions);
 
   return result;
 }
