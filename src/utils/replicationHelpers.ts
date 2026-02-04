@@ -562,14 +562,7 @@ export function computeReplicationDiff(
   for (const item of sourceItems) {
     // Normalize planSecurity types to equityCompensation for Canton lookup
     // Canton stores planSecurity items under equity_compensation_* fields
-    const normalizedTypeRaw = normalizeEntityType(item.entityType);
-    if (!isOcfEntityType(normalizedTypeRaw)) {
-      throw new Error(
-        `Invalid entityType "${item.entityType}" (normalized: "${normalizedTypeRaw}") for ocfId="${item.ocfId}". ` +
-          `Expected a valid OcfEntityType.`
-      );
-    }
-    const normalizedType: OcfEntityType = normalizedTypeRaw;
+    const normalizedType = normalizeEntityType(item.entityType) as OcfEntityType;
 
     // Skip duplicate items (same ocfId + normalized entityType)
     // Use normalized type because aliased types (e.g., planSecurityIssuance and
