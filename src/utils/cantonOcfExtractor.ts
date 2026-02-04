@@ -35,12 +35,13 @@ import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuan
 // ===== Transaction Sorting =====
 // These utilities ensure Canton transactions are sorted consistently with DB data.
 // The cap table engine processes transactions in array order, so sorting is critical.
+// Exported for unit testing - sorting correctness is critical for cap table verification.
 
 /**
  * Safe timestamp helper that can return null.
  * Used when we need to distinguish "missing" from "zero".
  */
-function getTimestampOrNull(input: unknown): number | null {
+export function getTimestampOrNull(input: unknown): number | null {
   if (input == null) return null;
   const ms = typeof input === 'number' ? input : new Date(input as string).getTime();
   return Number.isNaN(ms) ? null : ms;
@@ -56,7 +57,7 @@ function getTimestampOrNull(input: unknown): number | null {
  * Weights are ported from libs/api/service-ocp/utils/transactionSort.js
  * to ensure parity between DB and Canton data processing.
  */
-function txWeight(tx: Record<string, unknown>): number {
+export function txWeight(tx: Record<string, unknown>): number {
   switch (tx.object_type) {
     // Administrative adjustments early in the day
     case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
@@ -176,7 +177,7 @@ function txWeight(tx: Record<string, unknown>): number {
  *
  * @throws Error if tx.date is missing or invalid - fail fast on malformed records
  */
-function buildTransactionSortKey(tx: Record<string, unknown>): string {
+export function buildTransactionSortKey(tx: Record<string, unknown>): string {
   const dateMs = getTimestampOrNull(tx.date);
   if (dateMs === null) {
     const txId = typeof tx.id === 'string' ? tx.id : 'unknown';
@@ -208,7 +209,7 @@ function buildTransactionSortKey(tx: Record<string, unknown>): string {
  * Uses decorate-sort-undecorate pattern to avoid recomputing sort keys
  * during comparisons, which is more efficient for large transaction lists.
  */
-function sortTransactions(transactions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+export function sortTransactions(transactions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
   // Decorate: precompute sort keys once per transaction
   const decorated = transactions.map((tx) => ({
     tx,
@@ -216,11 +217,7 @@ function sortTransactions(transactions: Array<Record<string, unknown>>): Array<R
   }));
 
   // Sort by precomputed key
-  decorated.sort((a, b) => {
-    if (a.key < b.key) return -1;
-    if (a.key > b.key) return 1;
-    return 0;
-  });
+  decorated.sort((a, b) => a.key.localeCompare(b.key));
 
   // Undecorate: return transactions in sorted order
   return decorated.map((item) => item.tx);
