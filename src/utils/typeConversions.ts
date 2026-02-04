@@ -329,7 +329,7 @@ export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Mon
  * ```
  */
 export function parseDamlMap<K extends string, V>(data: unknown): Array<[K, V]> {
-  if (!data) {
+  if (data == null) {
     return [];
   }
 

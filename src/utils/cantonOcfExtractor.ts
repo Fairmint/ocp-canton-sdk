@@ -205,15 +205,26 @@ function buildTransactionSortKey(tx: Record<string, unknown>): string {
  * This ensures Canton transactions are sorted consistently with DB data.
  * The cap table engine processes transactions in array order, so this
  * sorting is critical for producing identical outputs.
+ *
+ * Uses decorate-sort-undecorate pattern to avoid recomputing sort keys
+ * during comparisons, which is more efficient for large transaction lists.
  */
 function sortTransactions(transactions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
-  return [...transactions].sort((a, b) => {
-    const ka = buildTransactionSortKey(a);
-    const kb = buildTransactionSortKey(b);
-    if (ka < kb) return -1;
-    if (ka > kb) return 1;
+  // Decorate: precompute sort keys once per transaction
+  const decorated = transactions.map((tx) => ({
+    tx,
+    key: buildTransactionSortKey(tx),
+  }));
+
+  // Sort by precomputed key
+  decorated.sort((a, b) => {
+    if (a.key < b.key) return -1;
+    if (a.key > b.key) return 1;
     return 0;
   });
+
+  // Undecorate: return transactions in sorted order
+  return decorated.map((item) => item.tx);
 }
 
 /**
