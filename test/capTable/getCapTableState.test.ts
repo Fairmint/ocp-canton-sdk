@@ -124,6 +124,76 @@ describe('getCapTableState', () => {
       expect(result).toBeNull();
     });
 
+    it('should parse DAML maps in array-of-tuples format (JSON API v2)', async () => {
+      // JSON API v2 can serialize DAML Maps as [[key, value], ...] arrays
+      const mockCapTableResponse = [
+        {
+          contractEntry: {
+            JsActiveContract: {
+              createdEvent: {
+                contractId: 'cap-table-contract-array-format',
+                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                createArgument: {
+                  issuer: 'issuer-contract-789',
+                  // Array-of-tuples format for DAML Maps
+                  stakeholders: [
+                    ['stakeholder-a', 'stakeholder-contract-a'],
+                    ['stakeholder-b', 'stakeholder-contract-b'],
+                    ['stakeholder-c', 'stakeholder-contract-c'],
+                  ],
+                  stock_classes: [['stock-class-x', 'stock-class-contract-x']],
+                  stock_plans: [],
+                  vesting_terms: [],
+                  stock_issuances: [
+                    ['issuance-1', 'issuance-contract-1'],
+                    ['issuance-2', 'issuance-contract-2'],
+                  ],
+                },
+                createdEventBlob: 'blob-data',
+                witnessParties: ['party-1'],
+                signatories: ['party-1'],
+                observers: [],
+                createdAt: '2024-01-01T00:00:00Z',
+                packageName: 'OpenCapTable-v31',
+                offset: 2000,
+                nodeId: 1,
+                contractKey: null,
+                interfaceViews: [],
+              },
+              synchronizerId: 'sync-1',
+              reassignmentCounter: 0,
+            },
+          },
+        },
+      ];
+
+      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+
+      const result = await getCapTableState(mockClient, 'issuer::party-456');
+
+      expect(result).not.toBeNull();
+      expect(result!.capTableContractId).toBe('cap-table-contract-array-format');
+      expect(result!.issuerContractId).toBe('issuer-contract-789');
+
+      // Verify stakeholders from array format
+      const stakeholders = result!.entities.get('stakeholder');
+      expect(stakeholders).toBeDefined();
+      expect(stakeholders!.size).toBe(3);
+      expect(stakeholders!.has('stakeholder-a')).toBe(true);
+      expect(stakeholders!.has('stakeholder-b')).toBe(true);
+      expect(stakeholders!.has('stakeholder-c')).toBe(true);
+
+      // Verify contractIds are correctly parsed from array format
+      const stakeholderContractIds = result!.contractIds.get('stakeholder');
+      expect(stakeholderContractIds!.get('stakeholder-a')).toBe('stakeholder-contract-a');
+      expect(stakeholderContractIds!.get('stakeholder-b')).toBe('stakeholder-contract-b');
+
+      // Verify stock issuances from array format
+      const stockIssuances = result!.entities.get('stockIssuance');
+      expect(stockIssuances).toBeDefined();
+      expect(stockIssuances!.size).toBe(2);
+    });
+
     it('should handle empty entity maps gracefully', async () => {
       const mockCapTableResponse = [
         {

@@ -311,6 +311,7 @@ export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Mon
  *
  * @param data - Raw DAML Map data from JSON API response (may be array or object)
  * @returns Array of [key, value] tuples, or empty array if data is null/undefined
+ * @throws OcpParseError if the data format is invalid (non-array, non-object, or malformed entries)
  *
  * @example
  * ```typescript
@@ -334,8 +335,24 @@ export function parseDamlMap<K extends string, V>(data: unknown): Array<[K, V]> 
 
   if (Array.isArray(data)) {
     // JSON API v2 format: [[key, value], [key, value], ...]
-    // Validate that each entry is a 2-element array
-    return data.filter((entry): entry is [K, V] => Array.isArray(entry) && entry.length === 2);
+    // Validate each entry and throw on malformed data to avoid silent data loss
+    return data.map((entry, index) => {
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        throw new OcpParseError(`parseDamlMap: Invalid entry at index ${index} - expected [key, value] tuple`, {
+          code: OcpErrorCodes.INVALID_FORMAT,
+        });
+      }
+      const [key, value] = entry as [unknown, unknown];
+      if (typeof key !== 'string') {
+        throw new OcpParseError(
+          `parseDamlMap: Invalid key type at index ${index} - expected string, got ${typeof key}`,
+          {
+            code: OcpErrorCodes.INVALID_TYPE,
+          }
+        );
+      }
+      return [key as K, value as V];
+    });
   }
 
   if (typeof data === 'object') {
@@ -343,7 +360,9 @@ export function parseDamlMap<K extends string, V>(data: unknown): Array<[K, V]> 
     return Object.entries(data) as Array<[K, V]>;
   }
 
-  return [];
+  throw new OcpParseError(`parseDamlMap: Invalid data format - expected array or object, got ${typeof data}`, {
+    code: OcpErrorCodes.INVALID_TYPE,
+  });
 }
 
 // ===== Data Cleaning Helpers =====

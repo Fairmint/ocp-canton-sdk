@@ -62,60 +62,113 @@ function getTimestampOrNull(input: unknown): number | null {
  * Lower weights are processed first within the same day.
  * This ensures domain-correct ordering: issuances before exercises,
  * acceptances before splits, transfers before conversions, etc.
+ *
+ * Weights are ported from libs/api/service-ocp/utils/transactionSort.js
+ * to ensure parity between DB and Canton data processing.
  */
 function txWeight(tx: Record<string, unknown>): number {
   switch (tx.object_type) {
+    // Administrative adjustments early in the day
+    case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
+    case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
+    case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
+    case 'TX_STOCK_PLAN_RETURN_TO_POOL':
+      return 5;
+
+    // Reissuance must run before child issuances
+    case 'TX_STOCK_REISSUANCE':
+      return 9;
+
+    // Creations first
+    case 'TX_STOCK_ISSUANCE':
+    case 'TX_EQUITY_COMPENSATION_ISSUANCE':
+    case 'TX_PLAN_SECURITY_ISSUANCE': // legacy alias
+    case 'TX_WARRANT_ISSUANCE':
+    case 'TX_CONVERTIBLE_ISSUANCE':
+      return 10;
+
+    // Acceptances after issuances, before splits
+    case 'TX_STOCK_ACCEPTANCE':
+    case 'TX_WARRANT_ACCEPTANCE':
+    case 'TX_EQUITY_COMPENSATION_ACCEPTANCE':
+    case 'TX_PLAN_SECURITY_ACCEPTANCE': // legacy alias
+      return 11;
+
+    // Vesting events
     case 'TX_VESTING_START':
       return 12;
     case 'TX_VESTING_EVENT':
       return 13;
     case 'TX_VESTING_ACCELERATION':
       return 14;
-    case 'TX_STOCK_REISSUANCE':
-      return 9;
-    case 'TX_STOCK_ISSUANCE':
-    case 'TX_EQUITY_COMPENSATION_ISSUANCE':
-    case 'TX_WARRANT_ISSUANCE':
-    case 'TX_CONVERTIBLE_ISSUANCE':
-      return 10; // creations first
-    case 'TX_STOCK_ACCEPTANCE':
-    case 'TX_WARRANT_ACCEPTANCE':
-    case 'TX_EQUITY_COMPENSATION_ACCEPTANCE':
-    case 'TX_PLAN_SECURITY_ACCEPTANCE':
-      return 11;
+
+    // Splits after vesting, before transfers
     case 'TX_STOCK_CLASS_SPLIT':
       return 15;
+
+    // Retractions after splits, before transfers
     case 'TX_STOCK_RETRACTION':
+    case 'TX_WARRANT_RETRACTION':
+    case 'TX_CONVERTIBLE_RETRACTION':
+    case 'TX_EQUITY_COMPENSATION_RETRACTION':
+    case 'TX_PLAN_SECURITY_RETRACTION': // legacy alias
       return 16;
+
+    // Consolidation after retractions, before transfers
     case 'TX_STOCK_CONSOLIDATION':
       return 17;
+
+    // Ratio adjustments after consolidation, before transfers
     case 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT':
       return 18;
+
+    // Repricing after ratio adjustments, before transfers
     case 'TX_EQUITY_COMPENSATION_REPRICING':
       return 19;
+
+    // Transfers - neutral moves
     case 'TX_STOCK_TRANSFER':
     case 'TX_WARRANT_TRANSFER':
     case 'TX_CONVERTIBLE_TRANSFER':
     case 'TX_EQUITY_COMPENSATION_TRANSFER':
-    case 'TX_PLAN_SECURITY_TRANSFER':
+    case 'TX_PLAN_SECURITY_TRANSFER': // legacy alias
       return 20;
+
+    // Convertible acceptance requires preceding transfer
     case 'TX_CONVERTIBLE_ACCEPTANCE':
       return 22;
+
+    // Releases before exercises
+    case 'TX_EQUITY_COMPENSATION_RELEASE':
+    case 'TX_PLAN_SECURITY_RELEASE': // legacy alias
+      return 25;
+
+    // Exercises that may mint resulting stock
     case 'TX_EQUITY_COMPENSATION_EXERCISE':
+    case 'TX_PLAN_SECURITY_EXERCISE': // legacy alias
     case 'TX_WARRANT_EXERCISE':
       return 30;
+
+    // Conversions after exercises
+    case 'TX_STOCK_CONVERSION':
     case 'TX_CONVERTIBLE_CONVERSION':
       return 35;
+
+    // Reductions after issuances
     case 'TX_STOCK_REPURCHASE':
     case 'TX_STOCK_CANCELLATION':
     case 'TX_EQUITY_COMPENSATION_CANCELLATION':
+    case 'TX_PLAN_SECURITY_CANCELLATION': // legacy alias
     case 'TX_WARRANT_CANCELLATION':
     case 'TX_CONVERTIBLE_CANCELLATION':
       return 40;
-    case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
-    case 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT':
-    case 'TX_STOCK_PLAN_POOL_ADJUSTMENT':
-      return 5;
+
+    // Stakeholder events - process after transactions that might create/modify stakes
+    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE':
+    case 'TX_STAKEHOLDER_STATUS_CHANGE':
+      return 45;
+
+    // Unknown types at the end
     default:
       return 50;
   }

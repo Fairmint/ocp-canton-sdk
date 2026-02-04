@@ -1,7 +1,7 @@
 /** Unit tests for typeConversions utility functions. */
 
-import { OcpValidationError } from '../../src/errors';
-import { ensureArray, normalizeNumericString } from '../../src/utils/typeConversions';
+import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { ensureArray, normalizeNumericString, parseDamlMap } from '../../src/utils/typeConversions';
 
 describe('normalizeNumericString', () => {
   describe('valid inputs', () => {
@@ -99,6 +99,87 @@ describe('ensureArray', () => {
     test('works with string arrays', () => {
       const input = ['comment 1', 'comment 2'];
       expect(ensureArray(input)).toBe(input);
+    });
+  });
+});
+
+describe('parseDamlMap', () => {
+  describe('null/undefined handling', () => {
+    test('returns empty array for null', () => {
+      expect(parseDamlMap(null)).toEqual([]);
+    });
+
+    test('returns empty array for undefined', () => {
+      expect(parseDamlMap(undefined)).toEqual([]);
+    });
+  });
+
+  describe('JSON API v2 array format', () => {
+    test('parses valid array of tuples', () => {
+      const input = [
+        ['id1', 'contract1'],
+        ['id2', 'contract2'],
+      ];
+      expect(parseDamlMap(input)).toEqual([
+        ['id1', 'contract1'],
+        ['id2', 'contract2'],
+      ]);
+    });
+
+    test('handles empty array', () => {
+      expect(parseDamlMap([])).toEqual([]);
+    });
+
+    test('throws on non-array entry', () => {
+      const input = [['id1', 'contract1'], 'invalid'];
+      expect(() => parseDamlMap(input)).toThrow(OcpParseError);
+      expect(() => parseDamlMap(input)).toThrow('Invalid entry at index 1');
+    });
+
+    test('throws on wrong length tuple', () => {
+      const input = [['id1', 'contract1'], ['id2']];
+      expect(() => parseDamlMap(input)).toThrow(OcpParseError);
+      expect(() => parseDamlMap(input)).toThrow('expected [key, value] tuple');
+    });
+
+    test('throws on non-string key', () => {
+      const input = [
+        ['id1', 'contract1'],
+        [123, 'contract2'],
+      ];
+      expect(() => parseDamlMap(input)).toThrow(OcpParseError);
+      expect(() => parseDamlMap(input)).toThrow('expected string, got number');
+    });
+  });
+
+  describe('object format', () => {
+    test('parses valid object', () => {
+      const input = { id1: 'contract1', id2: 'contract2' };
+      expect(parseDamlMap(input)).toEqual([
+        ['id1', 'contract1'],
+        ['id2', 'contract2'],
+      ]);
+    });
+
+    test('handles empty object', () => {
+      expect(parseDamlMap({})).toEqual([]);
+    });
+  });
+
+  describe('invalid formats', () => {
+    test('throws on string input', () => {
+      expect(() => parseDamlMap('invalid')).toThrow(OcpParseError);
+      expect(() => parseDamlMap('invalid')).toThrow('expected array or object');
+    });
+
+    test('throws on number input', () => {
+      expect(() => parseDamlMap(123)).toThrow(OcpParseError);
+      expect(() => parseDamlMap(123)).toThrow('got number');
+    });
+
+    test('throws on boolean input', () => {
+      expect(() => parseDamlMap(true)).toThrow(OcpParseError);
+      expect(() => parseDamlMap(true)).toThrow('got boolean');
     });
   });
 });
