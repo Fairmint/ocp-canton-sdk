@@ -484,16 +484,18 @@ export function computeReplicationDiff(
 
   // Process each source item
   for (const item of sourceItems) {
-    // Skip duplicate items (same ocfId + entityType)
-    const itemKey = `${item.entityType}:${item.ocfId}`;
+    // Normalize planSecurity types to equityCompensation for Canton lookup
+    // Canton stores planSecurity items under equity_compensation_* fields
+    const normalizedType = normalizeEntityType(item.entityType) as OcfEntityType;
+
+    // Skip duplicate items (same ocfId + normalized entityType)
+    // Use normalized type because aliased types (e.g., planSecurityIssuance and
+    // equityCompensationIssuance) map to the same Canton entity
+    const itemKey = `${normalizedType}:${item.ocfId}`;
     if (seenItems.has(itemKey)) {
       continue;
     }
     seenItems.add(itemKey);
-
-    // Normalize planSecurity types to equityCompensation for Canton lookup
-    // Canton stores planSecurity items under equity_compensation_* fields
-    const normalizedType = normalizeEntityType(item.entityType) as OcfEntityType;
 
     // Track for delete detection (using normalized type to match Canton's storage)
     let typeIds = sourceIdsByType.get(normalizedType);
