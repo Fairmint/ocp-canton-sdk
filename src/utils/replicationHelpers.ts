@@ -12,9 +12,8 @@
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
-import { areOcfObjectsEquivalent } from './deprecatedFieldNormalization';
-import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS } from './ocfComparison';
-import { normalizeEntityType, normalizeObjectType } from './planSecurityAliases';
+import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
+import { normalizeEntityType, normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
 
 // ============================================================================
 // Categorized Type Mapping
