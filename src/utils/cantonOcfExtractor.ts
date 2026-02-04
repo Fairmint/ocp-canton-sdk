@@ -228,7 +228,7 @@ export function sortTransactions(transactions: Array<Record<string, unknown>>): 
  * Entity types that are classified as transactions for buildCaptableInput.
  * All entity types except core objects and a few non-transaction types.
  */
-export const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
+const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
   // Stock Transactions
   'stockIssuance',
   'stockTransfer',
@@ -287,7 +287,7 @@ export const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
  * Derived programmatically from TRANSACTION_SUBTYPE_MAP to avoid maintaining
  * duplicate inverse mappings that could drift out of sync.
  */
-export const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = Object.fromEntries(
+const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = Object.fromEntries(
   Object.entries(TRANSACTION_SUBTYPE_MAP).map(([objectType, entityType]) => [entityType, objectType])
 );
 
@@ -295,7 +295,7 @@ export const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = Object.fromEnt
  * Entity types supported by getEntityAsOcf dispatcher.
  * This matches the SupportedOcfReadType from damlToOcf.ts.
  */
-export const SUPPORTED_READ_TYPES: Set<SupportedOcfReadType> = new Set<SupportedOcfReadType>([
+const SUPPORTED_READ_TYPES: Set<SupportedOcfReadType> = new Set<SupportedOcfReadType>([
   // Acceptance types
   'stockAcceptance',
   'convertibleAcceptance',
