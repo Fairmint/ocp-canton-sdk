@@ -164,8 +164,8 @@ function txWeight(tx: Record<string, unknown>): number {
       return 40;
 
     // Stakeholder events - process after transactions that might create/modify stakes
-    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE':
-    case 'TX_STAKEHOLDER_STATUS_CHANGE':
+    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT':
+    case 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT':
       return 45;
 
     // Unknown types at the end
