@@ -17,6 +17,82 @@ import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS } from './ocfCompari
 import { normalizeEntityType, normalizeObjectType } from './planSecurityAliases';
 
 // ============================================================================
+// OcfEntityType Validation
+// ============================================================================
+
+/**
+ * Runtime set of all valid OcfEntityType values.
+ * Used for runtime validation when entity types come from external sources.
+ */
+const VALID_OCF_ENTITY_TYPES: ReadonlySet<string> = new Set<OcfEntityType>([
+  'convertibleAcceptance',
+  'convertibleCancellation',
+  'convertibleConversion',
+  'convertibleIssuance',
+  'convertibleRetraction',
+  'convertibleTransfer',
+  'document',
+  'equityCompensationAcceptance',
+  'equityCompensationCancellation',
+  'equityCompensationExercise',
+  'equityCompensationIssuance',
+  'equityCompensationRelease',
+  'equityCompensationRepricing',
+  'equityCompensationRetraction',
+  'equityCompensationTransfer',
+  'issuer',
+  'issuerAuthorizedSharesAdjustment',
+  'planSecurityAcceptance',
+  'planSecurityCancellation',
+  'planSecurityExercise',
+  'planSecurityIssuance',
+  'planSecurityRelease',
+  'planSecurityRetraction',
+  'planSecurityTransfer',
+  'stakeholder',
+  'stakeholderRelationshipChangeEvent',
+  'stakeholderStatusChangeEvent',
+  'stockAcceptance',
+  'stockCancellation',
+  'stockClass',
+  'stockClassAuthorizedSharesAdjustment',
+  'stockClassConversionRatioAdjustment',
+  'stockClassSplit',
+  'stockConsolidation',
+  'stockConversion',
+  'stockIssuance',
+  'stockLegendTemplate',
+  'stockPlan',
+  'stockPlanPoolAdjustment',
+  'stockPlanReturnToPool',
+  'stockReissuance',
+  'stockRepurchase',
+  'stockRetraction',
+  'stockTransfer',
+  'valuation',
+  'vestingAcceleration',
+  'vestingEvent',
+  'vestingStart',
+  'vestingTerms',
+  'warrantAcceptance',
+  'warrantCancellation',
+  'warrantExercise',
+  'warrantIssuance',
+  'warrantRetraction',
+  'warrantTransfer',
+]);
+
+/**
+ * Runtime type guard for OcfEntityType.
+ *
+ * @param value - The value to check
+ * @returns True if value is a valid OcfEntityType
+ */
+export function isOcfEntityType(value: string): value is OcfEntityType {
+  return VALID_OCF_ENTITY_TYPES.has(value);
+}
+
+// ============================================================================
 // Categorized Type Mapping
 // ============================================================================
 
@@ -486,7 +562,14 @@ export function computeReplicationDiff(
   for (const item of sourceItems) {
     // Normalize planSecurity types to equityCompensation for Canton lookup
     // Canton stores planSecurity items under equity_compensation_* fields
-    const normalizedType = normalizeEntityType(item.entityType) as OcfEntityType;
+    const normalizedTypeRaw = normalizeEntityType(item.entityType);
+    if (!isOcfEntityType(normalizedTypeRaw)) {
+      throw new Error(
+        `Invalid entityType "${item.entityType}" (normalized: "${normalizedTypeRaw}") for ocfId="${item.ocfId}". ` +
+          `Expected a valid OcfEntityType.`
+      );
+    }
+    const normalizedType: OcfEntityType = normalizedTypeRaw;
 
     // Skip duplicate items (same ocfId + normalized entityType)
     // Use normalized type because aliased types (e.g., planSecurityIssuance and
