@@ -267,19 +267,36 @@ export async function getCapTableState(
   if (issuerContractId) {
     try {
       const eventsResponse = await client.getEventsByContractId({ contractId: issuerContractId });
-      const createArgument = eventsResponse.created?.createdEvent.createArgument as Record<string, unknown> | undefined;
+      // Use optional chaining for defensive runtime validation of API response structure
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Runtime defensive access
+      const createArgument = eventsResponse.created?.createdEvent?.createArgument as
+        | Record<string, unknown>
+        | undefined;
       const issuerData = createArgument?.issuer_data as Record<string, unknown> | undefined;
       const issuerOcfId = issuerData?.id;
 
-      if (typeof issuerOcfId === 'string') {
+      // Only add issuer if we got a valid non-empty OCF ID
+      if (typeof issuerOcfId === 'string' && issuerOcfId.length > 0) {
         entities.set('issuer', new Set([issuerOcfId]));
         contractIds.set('issuer', new Map([[issuerOcfId, issuerContractId]]));
       }
-    } catch (error) {
-      // Issuer fetch failed - continue without adding to entities
-      // The issuerContractId is still available for direct access
+    } catch (error: unknown) {
+      // Differentiate between expected and unexpected failures for better debugging
+      // - Contract archived/not found: graceful degradation (expected in some workflows)
+      // - Network/permission errors: transient, may retry
+      // - Schema mismatch: indicates a bug, should be investigated
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isNotFoundError =
+        errorMessage.toLowerCase().includes('not found') || errorMessage.toLowerCase().includes('archived');
+
       // eslint-disable-next-line no-console -- Intentional warning for operational visibility
-      console.warn('[getCapTableState] Failed to fetch issuer contract events', { issuerContractId }, error);
+      console.warn(
+        `[getCapTableState] ${isNotFoundError ? 'Issuer contract not found (may be archived)' : 'Failed to fetch issuer contract events'}`,
+        { issuerContractId, errorMessage },
+        error instanceof Error ? error.stack : undefined
+      );
+
+      // Continue without adding issuer to entities - issuerContractId is still available
     }
   }
 
