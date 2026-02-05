@@ -44,10 +44,13 @@ describe('getCapTableState', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Use Pick to create a properly typed partial mock with only the methods we need
     mockClient = {
       getActiveContracts: jest.fn(),
       getEventsByContractId: jest.fn(),
-    } as unknown as jest.Mocked<LedgerJsonApiClient>;
+    } as jest.Mocked<
+      Pick<LedgerJsonApiClient, 'getActiveContracts' | 'getEventsByContractId'>
+    > as jest.Mocked<LedgerJsonApiClient>;
   });
 
   describe('JSON API v2 response format', () => {
@@ -358,6 +361,199 @@ describe('getCapTableState', () => {
       expect(result!.issuerContractId).toBe('issuer-contract-456');
 
       // Issuer should NOT be in entities (fetch failed)
+      expect(result!.entities.get('issuer')).toBeUndefined();
+
+      // But other entities should still be there
+      const stakeholders = result!.entities.get('stakeholder');
+      expect(stakeholders).toBeDefined();
+      expect(stakeholders!.size).toBe(1);
+    });
+
+    it('should not add issuer to entities when issuer_data.id is empty string', async () => {
+      const mockCapTableResponse = [
+        {
+          contractEntry: {
+            JsActiveContract: {
+              createdEvent: {
+                contractId: 'cap-table-contract-123',
+                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                createArgument: {
+                  issuer: 'issuer-contract-456',
+                  stakeholders: {
+                    'stakeholder-1': 'stakeholder-contract-1',
+                  },
+                },
+                createdEventBlob: 'blob-data',
+                witnessParties: ['party-1'],
+                signatories: ['party-1'],
+                observers: [],
+                createdAt: '2024-01-01T00:00:00Z',
+                packageName: 'OpenCapTable-v30',
+                offset: 1000,
+                nodeId: 1,
+                contractKey: null,
+                interfaceViews: [],
+              },
+              synchronizerId: 'sync-1',
+              reassignmentCounter: 0,
+            },
+          },
+        },
+      ];
+
+      // Mock issuer contract with empty string ID
+      const mockIssuerEventsResponse = {
+        created: {
+          createdEvent: {
+            contractId: 'issuer-contract-456',
+            createArgument: {
+              issuer_data: {
+                id: '', // Empty string - should not be added to entities
+                legal_name: 'Empty ID Corp',
+                country_of_formation: 'US',
+                formation_date: '2024-01-01T00:00:00Z',
+              },
+            },
+          },
+        },
+      };
+
+      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
+
+      const result = await getCapTableState(mockClient, 'issuer::party-123');
+
+      expect(result).not.toBeNull();
+      expect(result!.capTableContractId).toBe('cap-table-contract-123');
+      expect(result!.issuerContractId).toBe('issuer-contract-456');
+
+      // Issuer should NOT be in entities (empty ID)
+      expect(result!.entities.get('issuer')).toBeUndefined();
+      expect(result!.contractIds.get('issuer')).toBeUndefined();
+
+      // But other entities should still be there
+      const stakeholders = result!.entities.get('stakeholder');
+      expect(stakeholders).toBeDefined();
+      expect(stakeholders!.size).toBe(1);
+    });
+
+    it('should not add issuer to entities when issuer_data.id is missing', async () => {
+      const mockCapTableResponse = [
+        {
+          contractEntry: {
+            JsActiveContract: {
+              createdEvent: {
+                contractId: 'cap-table-contract-123',
+                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                createArgument: {
+                  issuer: 'issuer-contract-456',
+                  stakeholders: {
+                    'stakeholder-1': 'stakeholder-contract-1',
+                  },
+                },
+                createdEventBlob: 'blob-data',
+                witnessParties: ['party-1'],
+                signatories: ['party-1'],
+                observers: [],
+                createdAt: '2024-01-01T00:00:00Z',
+                packageName: 'OpenCapTable-v30',
+                offset: 1000,
+                nodeId: 1,
+                contractKey: null,
+                interfaceViews: [],
+              },
+              synchronizerId: 'sync-1',
+              reassignmentCounter: 0,
+            },
+          },
+        },
+      ];
+
+      // Mock issuer contract with missing id field
+      const mockIssuerEventsResponse = {
+        created: {
+          createdEvent: {
+            contractId: 'issuer-contract-456',
+            createArgument: {
+              issuer_data: {
+                // id is missing entirely
+                legal_name: 'Missing ID Corp',
+                country_of_formation: 'US',
+                formation_date: '2024-01-01T00:00:00Z',
+              },
+            },
+          },
+        },
+      };
+
+      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
+
+      const result = await getCapTableState(mockClient, 'issuer::party-123');
+
+      expect(result).not.toBeNull();
+      expect(result!.capTableContractId).toBe('cap-table-contract-123');
+      expect(result!.issuerContractId).toBe('issuer-contract-456');
+
+      // Issuer should NOT be in entities (missing ID)
+      expect(result!.entities.get('issuer')).toBeUndefined();
+      expect(result!.contractIds.get('issuer')).toBeUndefined();
+
+      // But other entities should still be there
+      const stakeholders = result!.entities.get('stakeholder');
+      expect(stakeholders).toBeDefined();
+      expect(stakeholders!.size).toBe(1);
+    });
+
+    it('should handle issuer response with missing createdEvent gracefully', async () => {
+      const mockCapTableResponse = [
+        {
+          contractEntry: {
+            JsActiveContract: {
+              createdEvent: {
+                contractId: 'cap-table-contract-123',
+                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                createArgument: {
+                  issuer: 'issuer-contract-456',
+                  stakeholders: {
+                    'stakeholder-1': 'stakeholder-contract-1',
+                  },
+                },
+                createdEventBlob: 'blob-data',
+                witnessParties: ['party-1'],
+                signatories: ['party-1'],
+                observers: [],
+                createdAt: '2024-01-01T00:00:00Z',
+                packageName: 'OpenCapTable-v30',
+                offset: 1000,
+                nodeId: 1,
+                contractKey: null,
+                interfaceViews: [],
+              },
+              synchronizerId: 'sync-1',
+              reassignmentCounter: 0,
+            },
+          },
+        },
+      ];
+
+      // Mock issuer response with missing createdEvent (malformed response)
+      const mockIssuerEventsResponse = {
+        created: {
+          // createdEvent is missing
+        },
+      };
+
+      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
+
+      const result = await getCapTableState(mockClient, 'issuer::party-123');
+
+      expect(result).not.toBeNull();
+      expect(result!.capTableContractId).toBe('cap-table-contract-123');
+      expect(result!.issuerContractId).toBe('issuer-contract-456');
+
+      // Issuer should NOT be in entities (malformed response)
       expect(result!.entities.get('issuer')).toBeUndefined();
 
       // But other entities should still be there
