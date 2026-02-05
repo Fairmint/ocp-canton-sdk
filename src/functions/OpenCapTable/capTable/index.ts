@@ -3,7 +3,13 @@ export * from './types';
 
 // Batch API exports
 export * from './batchTypes';
-export { CapTableBatch, buildUpdateCapTableCommand, type CapTableBatchParams } from './CapTableBatch';
+export {
+  CapTableBatch,
+  buildUpdateCapTableCommand,
+  type BatchItemDetails,
+  type BatchItemMeta,
+  type CapTableBatchParams,
+} from './CapTableBatch';
 export { convertToDaml } from './ocfToDaml';
 
 // DAML to OCF conversion (read operations)
@@ -18,4 +24,9 @@ export {
 } from './damlToOcf';
 
 // CapTable state reader (for replication)
-export { FIELD_TO_ENTITY_TYPE, getCapTableState, type CapTableState } from './getCapTableState';
+export {
+  FIELD_TO_ENTITY_TYPE,
+  SECURITY_ID_FIELD_TO_ENTITY_TYPE,
+  getCapTableState,
+  type CapTableState,
+} from './getCapTableState';

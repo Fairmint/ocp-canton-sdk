@@ -518,6 +518,7 @@ describe('computeReplicationDiff', () => {
     issuerContractId: 'issuer::test',
     entities: new Map(),
     contractIds: new Map(),
+    securityIds: new Map(),
   });
 
   describe('create detection', () => {

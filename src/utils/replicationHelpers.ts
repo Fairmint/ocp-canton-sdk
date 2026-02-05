@@ -467,6 +467,14 @@ export interface ReplicationItem {
 }
 
 /**
+ * A replication item that was skipped due to a constraint conflict.
+ */
+export interface SkippedReplicationItem extends ReplicationItem {
+  /** Human-readable reason why this item was skipped */
+  reason: string;
+}
+
+/**
  * Result of comparing source state (desired) to Canton state (actual).
  */
 export interface ReplicationDiff {
@@ -476,7 +484,12 @@ export interface ReplicationDiff {
   edits: ReplicationItem[];
   /** Items in Canton but not in source - may need to be deleted */
   deletes: ReplicationItem[];
-  /** Total number of operations */
+  /**
+   * Items that were skipped due to constraint conflicts (e.g., duplicate security_id).
+   * These would fail at DAML validation, so they are excluded from creates/edits.
+   */
+  skipped: SkippedReplicationItem[];
+  /** Total number of actionable operations (creates + edits + deletes, excludes skipped) */
   total: number;
 }
 
@@ -510,6 +523,18 @@ export interface ComputeReplicationDiffOptions {
    * When not provided, only creates are detected (no edits).
    */
   cantonOcfData?: CantonOcfDataMap;
+
+  /**
+   * Canton security_id maps for pre-flight uniqueness validation.
+   *
+   * When provided, creates for issuance types (stockIssuance, convertibleIssuance, etc.)
+   * are checked for security_id conflicts against existing Canton state. Items with
+   * duplicate security_ids are moved to `skipped` instead of `creates`, preventing
+   * DAML "security_id already exists" errors.
+   *
+   * Typically sourced from `cantonState.securityIds` (from getCapTableState).
+   */
+  cantonSecurityIds?: Map<OcfEntityType, Set<string>>;
 }
 
 /**
@@ -540,17 +565,21 @@ export function computeReplicationDiff(
   cantonState: CapTableState,
   options: ComputeReplicationDiffOptions = {}
 ): ReplicationDiff {
-  const { syncDeletes = false, cantonOcfData } = options;
+  const { syncDeletes = false, cantonOcfData, cantonSecurityIds } = options;
 
   const creates: ReplicationItem[] = [];
   const edits: ReplicationItem[] = [];
   const deletes: ReplicationItem[] = [];
+  const skipped: SkippedReplicationItem[] = [];
 
   // Track source items by type for delete detection
   const sourceIdsByType = new Map<OcfEntityType, Set<string>>();
 
   // Track seen items to prevent duplicate create/edit operations
   const seenItems = new Set<string>();
+
+  // Track security_ids being created in this batch to detect intra-batch duplicates
+  const pendingSecurityIds = new Map<OcfEntityType, Set<string>>();
 
   // Comparison options for OCF deep equality
   const comparisonOptions = {
@@ -587,13 +616,32 @@ export function computeReplicationDiff(
     const existsInCanton = cantonIds.has(item.ocfId);
 
     if (!existsInCanton) {
-      // Item in source but not Canton → CREATE
-      creates.push({
-        ocfId: item.ocfId,
-        entityType: item.entityType,
-        operation: 'create',
-        data: item.data,
-      });
+      // Item in source but not Canton → candidate for CREATE
+      // Pre-flight: check security_id uniqueness for issuance types
+      const securityIdConflict = checkSecurityIdConflict(
+        normalizedType,
+        item.data,
+        cantonSecurityIds,
+        pendingSecurityIds
+      );
+      if (securityIdConflict) {
+        skipped.push({
+          ocfId: item.ocfId,
+          entityType: item.entityType,
+          operation: 'create',
+          data: item.data,
+          reason: securityIdConflict,
+        });
+      } else {
+        creates.push({
+          ocfId: item.ocfId,
+          entityType: item.entityType,
+          operation: 'create',
+          data: item.data,
+        });
+        // Track this item's security_id for intra-batch duplicate detection
+        trackPendingSecurityId(normalizedType, item.data, pendingSecurityIds);
+      }
     } else if (cantonOcfData) {
       // Deep comparison: compare actual OCF data to detect changes
       const cantonTypeData = cantonOcfData.get(normalizedType);
@@ -657,6 +705,94 @@ export function computeReplicationDiff(
     creates,
     edits,
     deletes,
+    skipped,
     total: creates.length + edits.length + deletes.length,
   };
+}
+
+// ============================================================================
+// Security ID Validation Helpers
+// ============================================================================
+
+/**
+ * Entity types that have a security_id uniqueness constraint in DAML.
+ * These types maintain a `*_by_security_id` map in the CapTable contract.
+ */
+const SECURITY_ID_ENTITY_TYPES: ReadonlySet<string> = new Set([
+  'stockIssuance',
+  'convertibleIssuance',
+  'equityCompensationIssuance',
+  'warrantIssuance',
+]);
+
+/**
+ * Extract security_id from an OCF data object, if the entity type uses one.
+ */
+function extractSecurityId(normalizedType: string, data: unknown): string | null {
+  if (!SECURITY_ID_ENTITY_TYPES.has(normalizedType)) {
+    return null;
+  }
+  const obj = data as Record<string, unknown> | null | undefined;
+  const securityId = obj?.security_id;
+  return typeof securityId === 'string' ? securityId : null;
+}
+
+/**
+ * Check if a create operation would conflict with an existing security_id.
+ *
+ * Returns a reason string if there's a conflict, or null if the create is safe.
+ * Checks both Canton's existing security_ids and pending creates within the same batch.
+ */
+function checkSecurityIdConflict(
+  normalizedType: OcfEntityType,
+  data: unknown,
+  cantonSecurityIds: Map<OcfEntityType, Set<string>> | undefined,
+  pendingSecurityIds: Map<OcfEntityType, Set<string>>
+): string | null {
+  const securityId = extractSecurityId(normalizedType, data);
+  if (!securityId) {
+    return null; // Not an issuance type or no security_id
+  }
+
+  // Check against existing Canton state
+  if (cantonSecurityIds) {
+    const existingIds = cantonSecurityIds.get(normalizedType);
+    if (existingIds?.has(securityId)) {
+      return (
+        `Duplicate security_id: "${securityId}" already exists on Canton for ${normalizedType}. ` +
+        `This item has a different OCF id but the same security_id as an existing issuance.`
+      );
+    }
+  }
+
+  // Check against other creates in this same batch
+  const pendingIds = pendingSecurityIds.get(normalizedType);
+  if (pendingIds?.has(securityId)) {
+    return (
+      `Duplicate security_id within batch: "${securityId}" is used by multiple ${normalizedType} ` +
+      `items in the same replication batch.`
+    );
+  }
+
+  return null;
+}
+
+/**
+ * Track a security_id from a create that passed validation, for intra-batch duplicate detection.
+ */
+function trackPendingSecurityId(
+  normalizedType: OcfEntityType,
+  data: unknown,
+  pendingSecurityIds: Map<OcfEntityType, Set<string>>
+): void {
+  const securityId = extractSecurityId(normalizedType, data);
+  if (!securityId) {
+    return;
+  }
+  let ids = pendingSecurityIds.get(normalizedType);
+  if (!ids) {
+    ids = new Set();
+    pendingSecurityIds.set(normalizedType, ids);
+  }
+  ids.add(securityId);
 }
