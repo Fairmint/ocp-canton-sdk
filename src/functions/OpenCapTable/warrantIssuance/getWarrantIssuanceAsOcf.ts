@@ -312,10 +312,14 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
     ...(exercise_price ? { exercise_price } : {}),
     purchase_price,
     exercise_triggers,
-    // If quantity provided but quantity_source missing, default to UNSPECIFIED per schema
+    // Include quantity_source if present in DAML data, regardless of whether quantity is set.
+    // The OCF-to-DAML converter may set quantity_source even when quantity is null,
+    // so we must read it back to avoid false diffs during replication.
     ...(d.quantity !== null && d.quantity !== undefined
       ? { quantity_source: mapQuantitySource(d.quantity_source) ?? 'UNSPECIFIED' }
-      : {}),
+      : d.quantity_source
+        ? { quantity_source: mapQuantitySource(d.quantity_source) ?? 'UNSPECIFIED' }
+        : {}),
     ...(d.warrant_expiration_date
       ? { warrant_expiration_date: (d.warrant_expiration_date as string).split('T')[0] }
       : {}),

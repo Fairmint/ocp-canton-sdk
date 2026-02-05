@@ -556,6 +556,7 @@ export function computeReplicationDiff(
   const comparisonOptions = {
     ignoredFields: DEFAULT_INTERNAL_FIELDS,
     deprecatedFields: DEFAULT_DEPRECATED_FIELDS,
+    reportDifferences: true,
   };
 
   // Process each source item

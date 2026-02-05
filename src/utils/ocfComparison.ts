@@ -72,13 +72,22 @@ export interface OcfComparisonResult {
  *
  * Handles common variations that should be considered equal:
  *
- * - Numbers as strings are converted to fixed precision
+ * - Numbers (JS number type) are converted to fixed precision strings
+ * - Numeric strings are converted to the same fixed precision format
+ * - This ensures `22500` (number) and `"22500"` (string) compare as equal
  * - Whitespace is trimmed from strings
  *
  * @param value - Value to normalize
  * @returns Normalized value for comparison
  */
 function normalizeOcfValue(value: unknown): unknown {
+  // Normalize JS numbers to the same fixed-precision string format as numeric strings.
+  // DB JSONB can store amounts as numbers (e.g., 22500) while DAML readback returns
+  // strings (e.g., "22500"). Without this, they would always fail the type check.
+  if (typeof value === 'number' && isFinite(value)) {
+    return value.toFixed(10);
+  }
+
   if (typeof value === 'string') {
     // Trim whitespace to avoid mismatches due to leading/trailing spaces
     const trimmed = value.trim();
@@ -219,8 +228,18 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
       return false;
     }
 
-    // Handle different types
+    // Handle different types - but try normalization first for number/string pairs.
+    // DB JSONB can store numeric values as JS numbers while DAML readback returns strings.
     if (typeof valA !== typeof valB) {
+      // If one is a number and the other is a string, try normalizing both before rejecting
+      if (
+        (typeof valA === 'number' && typeof valB === 'string') ||
+        (typeof valA === 'string' && typeof valB === 'number')
+      ) {
+        const normalizedA = normalizeOcfValue(valA);
+        const normalizedB = normalizeOcfValue(valB);
+        if (normalizedA === normalizedB) return true;
+      }
       differences.push(`${path}: type mismatch (${typeof valA} vs ${typeof valB})`);
       return false;
     }
@@ -341,6 +360,12 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
   }
 
   if (typeof a !== typeof b) {
+    // If one is a number and the other is a string, try normalizing both before rejecting
+    if ((typeof a === 'number' && typeof b === 'string') || (typeof a === 'string' && typeof b === 'number')) {
+      const normalizedA = normalizeOcfValue(a);
+      const normalizedB = normalizeOcfValue(b);
+      if (normalizedA === normalizedB) return diffs;
+    }
     diffs.push(`${path || '(root)'}: type mismatch (${typeof a} vs ${typeof b})`);
     return diffs;
   }
