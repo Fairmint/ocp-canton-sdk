@@ -19,6 +19,7 @@ describe('getCapTableState', () => {
     jest.clearAllMocks();
     mockClient = {
       getActiveContracts: jest.fn(),
+      getEventsByContractId: jest.fn(),
     } as unknown as jest.Mocked<LedgerJsonApiClient>;
   });
 
@@ -75,7 +76,25 @@ describe('getCapTableState', () => {
         },
       ];
 
+      // Mock issuer contract fetch (cast to unknown to bypass strict type checking in tests)
+      const mockIssuerEventsResponse = {
+        created: {
+          createdEvent: {
+            contractId: 'issuer-contract-456',
+            createArgument: {
+              issuer_data: {
+                id: 'issuer-ocf-id-123',
+                legal_name: 'Test Corp',
+                country_of_formation: 'US',
+                formation_date: '2024-01-01T00:00:00Z',
+              },
+            },
+          },
+        },
+      };
+
       mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
 
@@ -85,10 +104,26 @@ describe('getCapTableState', () => {
         templateIds: expect.any(Array),
       });
 
+      // Verify issuer contract was fetched
+      expect(mockClient.getEventsByContractId).toHaveBeenCalledWith({
+        contractId: 'issuer-contract-456',
+      });
+
       // Verify entities were correctly extracted
       expect(result).not.toBeNull();
       expect(result!.capTableContractId).toBe('cap-table-contract-123');
       expect(result!.issuerContractId).toBe('issuer-contract-456');
+
+      // Verify issuer is included in entities
+      const issuers = result!.entities.get('issuer');
+      expect(issuers).toBeDefined();
+      expect(issuers!.size).toBe(1);
+      expect(issuers!.has('issuer-ocf-id-123')).toBe(true);
+
+      // Verify issuer contractIds map is populated
+      const issuerContractIds = result!.contractIds.get('issuer');
+      expect(issuerContractIds).toBeDefined();
+      expect(issuerContractIds!.get('issuer-ocf-id-123')).toBe('issuer-contract-456');
 
       // This is the critical assertion - stakeholders should be extracted
       const stakeholders = result!.entities.get('stakeholder');
@@ -167,13 +202,37 @@ describe('getCapTableState', () => {
         },
       ];
 
+      // Mock issuer contract fetch
+      const mockIssuerEventsResponse = {
+        created: {
+          createdEvent: {
+            contractId: 'issuer-contract-789',
+            createArgument: {
+              issuer_data: {
+                id: 'issuer-ocf-id-789',
+                legal_name: 'Array Format Corp',
+                country_of_formation: 'US',
+                formation_date: '2024-01-01T00:00:00Z',
+              },
+            },
+          },
+        },
+      };
+
       mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-456');
 
       expect(result).not.toBeNull();
       expect(result!.capTableContractId).toBe('cap-table-contract-array-format');
       expect(result!.issuerContractId).toBe('issuer-contract-789');
+
+      // Verify issuer is included in entities
+      const issuers = result!.entities.get('issuer');
+      expect(issuers).toBeDefined();
+      expect(issuers!.size).toBe(1);
+      expect(issuers!.has('issuer-ocf-id-789')).toBe(true);
 
       // Verify stakeholders from array format
       const stakeholders = result!.entities.get('stakeholder');
@@ -194,7 +253,7 @@ describe('getCapTableState', () => {
       expect(stockIssuances!.size).toBe(2);
     });
 
-    it('should handle empty entity maps gracefully', async () => {
+    it('should handle empty entity maps gracefully but still include issuer', async () => {
       const mockCapTableResponse = [
         {
           contractEntry: {
@@ -227,14 +286,84 @@ describe('getCapTableState', () => {
         },
       ];
 
+      // Mock issuer contract fetch
+      const mockIssuerEventsResponse = {
+        created: {
+          createdEvent: {
+            contractId: 'issuer-contract-456',
+            createArgument: {
+              issuer_data: {
+                id: 'issuer-only-ocf-id',
+                legal_name: 'Empty Cap Table Corp',
+                country_of_formation: 'US',
+                formation_date: '2024-01-01T00:00:00Z',
+              },
+            },
+          },
+        },
+      };
+
       mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
 
       expect(result).not.toBeNull();
       expect(result!.capTableContractId).toBe('cap-table-contract-123');
-      // Empty maps should not be added to entities
-      expect(result!.entities.size).toBe(0);
+      // Issuer should still be included even when other maps are empty
+      expect(result!.entities.size).toBe(1);
+      expect(result!.entities.get('issuer')!.has('issuer-only-ocf-id')).toBe(true);
+    });
+
+    it('should continue without issuer in entities if issuer fetch fails', async () => {
+      const mockCapTableResponse = [
+        {
+          contractEntry: {
+            JsActiveContract: {
+              createdEvent: {
+                contractId: 'cap-table-contract-123',
+                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                createArgument: {
+                  issuer: 'issuer-contract-456',
+                  stakeholders: {
+                    'stakeholder-1': 'stakeholder-contract-1',
+                  },
+                },
+                createdEventBlob: 'blob-data',
+                witnessParties: ['party-1'],
+                signatories: ['party-1'],
+                observers: [],
+                createdAt: '2024-01-01T00:00:00Z',
+                packageName: 'OpenCapTable-v30',
+                offset: 1000,
+                nodeId: 1,
+                contractKey: null,
+                interfaceViews: [],
+              },
+              synchronizerId: 'sync-1',
+              reassignmentCounter: 0,
+            },
+          },
+        },
+      ];
+
+      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      // Simulate issuer fetch failure
+      mockClient.getEventsByContractId.mockRejectedValue(new Error('Contract not found'));
+
+      const result = await getCapTableState(mockClient, 'issuer::party-123');
+
+      expect(result).not.toBeNull();
+      expect(result!.capTableContractId).toBe('cap-table-contract-123');
+      expect(result!.issuerContractId).toBe('issuer-contract-456');
+
+      // Issuer should NOT be in entities (fetch failed)
+      expect(result!.entities.get('issuer')).toBeUndefined();
+
+      // But other entities should still be there
+      const stakeholders = result!.entities.get('stakeholder');
+      expect(stakeholders).toBeDefined();
+      expect(stakeholders!.size).toBe(1);
     });
 
     it('should fall back to legacy format when JsActiveContract structure is incomplete', async () => {
@@ -259,14 +388,37 @@ describe('getCapTableState', () => {
         },
       ];
 
+      // Mock issuer contract fetch
+      const mockIssuerEventsResponse = {
+        created: {
+          createdEvent: {
+            contractId: 'legacy-issuer-456',
+            createArgument: {
+              issuer_data: {
+                id: 'legacy-issuer-ocf-id',
+                legal_name: 'Legacy Corp',
+                country_of_formation: 'US',
+                formation_date: '2024-01-01T00:00:00Z',
+              },
+            },
+          },
+        },
+      };
+
       // Cast to unknown to test runtime fallback behavior with malformed data
       mockClient.getActiveContracts.mockResolvedValue(mockMalformedResponse as unknown as never);
+      mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
 
       expect(result).not.toBeNull();
       expect(result!.capTableContractId).toBe('legacy-cap-table-123');
       expect(result!.issuerContractId).toBe('legacy-issuer-456');
+
+      // Verify issuer is in entities
+      const issuers = result!.entities.get('issuer');
+      expect(issuers).toBeDefined();
+      expect(issuers!.has('legacy-issuer-ocf-id')).toBe(true);
 
       const stakeholders = result!.entities.get('stakeholder');
       expect(stakeholders).toBeDefined();
@@ -298,14 +450,37 @@ describe('getCapTableState', () => {
         },
       ];
 
+      // Mock issuer contract fetch
+      const mockIssuerEventsResponse = {
+        created: {
+          createdEvent: {
+            contractId: 'legacy-issuer-contract',
+            createArgument: {
+              issuer_data: {
+                id: 'legacy-top-level-issuer-id',
+                legal_name: 'Legacy Top Level Corp',
+                country_of_formation: 'US',
+                formation_date: '2024-01-01T00:00:00Z',
+              },
+            },
+          },
+        },
+      };
+
       // Cast to unknown to test legacy format handling
       mockClient.getActiveContracts.mockResolvedValue(mockLegacyResponse as unknown as never);
+      mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
 
       expect(result).not.toBeNull();
       expect(result!.capTableContractId).toBe('legacy-cap-table-789');
       expect(result!.issuerContractId).toBe('legacy-issuer-contract');
+
+      // Verify issuer is in entities
+      const issuers = result!.entities.get('issuer');
+      expect(issuers).toBeDefined();
+      expect(issuers!.has('legacy-top-level-issuer-id')).toBe(true);
 
       const stakeholders = result!.entities.get('stakeholder');
       expect(stakeholders).toBeDefined();
@@ -338,14 +513,37 @@ describe('getCapTableState', () => {
         },
       ];
 
+      // Mock issuer contract fetch
+      const mockIssuerEventsResponse = {
+        created: {
+          createdEvent: {
+            contractId: 'nested-legacy-issuer',
+            createArgument: {
+              issuer_data: {
+                id: 'nested-legacy-issuer-id',
+                legal_name: 'Nested Legacy Corp',
+                country_of_formation: 'US',
+                formation_date: '2024-01-01T00:00:00Z',
+              },
+            },
+          },
+        },
+      };
+
       // Cast to unknown to test nested legacy format handling
       mockClient.getActiveContracts.mockResolvedValue(mockNestedLegacyResponse as unknown as never);
+      mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
 
       expect(result).not.toBeNull();
       expect(result!.capTableContractId).toBe('nested-legacy-cap-table');
       expect(result!.issuerContractId).toBe('nested-legacy-issuer');
+
+      // Verify issuer is in entities
+      const issuers = result!.entities.get('issuer');
+      expect(issuers).toBeDefined();
+      expect(issuers!.has('nested-legacy-issuer-id')).toBe(true);
 
       const stakeholders = result!.entities.get('stakeholder');
       expect(stakeholders).toBeDefined();

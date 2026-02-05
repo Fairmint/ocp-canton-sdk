@@ -262,6 +262,25 @@ export async function getCapTableState(
   // Extract issuer contract ID from payload
   const issuerContractId = typeof payload.issuer === 'string' ? payload.issuer : '';
 
+  // Fetch issuer contract to get OCF ID
+  // (issuer is stored as a single contract reference, not a map like other entities)
+  if (issuerContractId) {
+    try {
+      const eventsResponse = await client.getEventsByContractId({ contractId: issuerContractId });
+      const createArgument = eventsResponse.created?.createdEvent.createArgument as Record<string, unknown> | undefined;
+      const issuerData = createArgument?.issuer_data as Record<string, unknown> | undefined;
+      const issuerOcfId = issuerData?.id;
+
+      if (typeof issuerOcfId === 'string') {
+        entities.set('issuer', new Set([issuerOcfId]));
+        contractIds.set('issuer', new Map([[issuerOcfId, issuerContractId]]));
+      }
+    } catch {
+      // Issuer fetch failed - continue without adding to entities
+      // The issuerContractId is still available for direct access
+    }
+  }
+
   return {
     capTableContractId: contractId,
     issuerContractId,
