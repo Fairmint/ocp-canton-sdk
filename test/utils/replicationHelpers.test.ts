@@ -696,22 +696,12 @@ describe('computeReplicationDiff', () => {
   });
 
   describe('delete detection', () => {
-    it('does not detect deletes by default', () => {
+    it('detects items in Canton but not in source as deletes', () => {
       const sourceItems: Array<{ ocfId: string; entityType: OcfEntityType; data: unknown }> = [];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1', 'sh-2']));
 
       const diff = computeReplicationDiff(sourceItems, cantonState);
-
-      expect(diff.deletes).toHaveLength(0);
-    });
-
-    it('detects deletes when syncDeletes is true', () => {
-      const sourceItems: Array<{ ocfId: string; entityType: OcfEntityType; data: unknown }> = [];
-      const cantonState = createEmptyCantonState();
-      cantonState.entities.set('stakeholder', new Set(['sh-1', 'sh-2']));
-
-      const diff = computeReplicationDiff(sourceItems, cantonState, { syncDeletes: true });
 
       expect(diff.deletes).toHaveLength(2);
       expect(diff.deletes).toContainEqual({
@@ -731,7 +721,7 @@ describe('computeReplicationDiff', () => {
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1', 'sh-2']));
 
-      const diff = computeReplicationDiff(sourceItems, cantonState, { syncDeletes: true });
+      const diff = computeReplicationDiff(sourceItems, cantonState);
 
       expect(diff.deletes).toHaveLength(1);
       expect(diff.deletes[0].ocfId).toBe('sh-2');
@@ -822,7 +812,7 @@ describe('computeReplicationDiff', () => {
         ],
       ]);
 
-      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData, syncDeletes: true });
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
 
       expect(diff.creates).toHaveLength(1); // sh-1
       expect(diff.edits).toHaveLength(1); // sh-2
