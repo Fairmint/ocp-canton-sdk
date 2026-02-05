@@ -505,6 +505,13 @@ export interface ComputeReplicationDiffOptions {
    * When not provided, only creates are detected (no edits).
    */
   cantonOcfData?: CantonOcfDataMap;
+
+  /**
+   * Enable detailed diff logging for diagnostics.
+   * When true, logs field-level differences for items marked as edits.
+   * Default: false (opt-in to avoid leaking sensitive data in production logs)
+   */
+  reportDifferences?: boolean;
 }
 
 /**
@@ -537,7 +544,7 @@ export function computeReplicationDiff(
   cantonState: CapTableState,
   options: ComputeReplicationDiffOptions = {}
 ): ReplicationDiff {
-  const { cantonOcfData } = options;
+  const { cantonOcfData, reportDifferences = false } = options;
 
   const creates: ReplicationItem[] = [];
   const edits: ReplicationItem[] = [];
@@ -553,7 +560,7 @@ export function computeReplicationDiff(
   const comparisonOptions = {
     ignoredFields: DEFAULT_INTERNAL_FIELDS,
     deprecatedFields: DEFAULT_DEPRECATED_FIELDS,
-    reportDifferences: true,
+    reportDifferences,
   };
 
   // Process each source item

@@ -66,9 +66,20 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(areOcfObjectsEquivalent(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
 
-  test('warrant issuance with null quantity and no quantity_source survives round-trip', () => {
+  test('warrant issuance with undefined quantity and no quantity_source survives round-trip', () => {
     const input = { ...baseWarrantIssuance };
     const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input };
+    const cantonData = roundTrip(input);
+
+    expect(areOcfObjectsEquivalent(dbData, cantonData)).toBe(true);
+  });
+
+  test('warrant issuance with explicit null quantity and no quantity_source survives round-trip', () => {
+    // Regression test: DB JSONB may store quantity as explicit null (not undefined).
+    // The OCF-to-DAML converter must treat null the same as undefined to avoid
+    // injecting quantity_source: UNSPECIFIED that the DB doesn't have.
+    const input = { ...baseWarrantIssuance, quantity: null as unknown as string };
+    const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input } as Record<string, unknown>;
     const cantonData = roundTrip(input);
 
     expect(areOcfObjectsEquivalent(dbData, cantonData)).toBe(true);

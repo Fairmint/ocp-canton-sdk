@@ -84,6 +84,11 @@ function normalizeOcfValue(value: unknown): unknown {
   // Normalize JS numbers to the same fixed-precision string format as numeric strings.
   // DB JSONB can store amounts as numbers (e.g., 22500) while DAML readback returns
   // strings (e.g., "22500"). Without this, they would always fail the type check.
+  //
+  // Precision note: toFixed(10) is safe for OCF monetary values (share prices,
+  // quantities, etc.) which are well within IEEE 754 safe integer range.
+  // Values beyond Number.MAX_SAFE_INTEGER would lose precision before reaching
+  // this code, but OCF amounts don't approach that range.
   if (typeof value === 'number' && isFinite(value)) {
     return value.toFixed(10);
   }

@@ -245,7 +245,7 @@ export function warrantIssuanceDataToDaml(d: {
   stockholder_approval_date?: string;
   consideration_text?: string;
   security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-  quantity?: string | number;
+  quantity?: string | number | null;
   quantity_source?:
     | 'HUMAN_ESTIMATED'
     | 'MACHINE_ESTIMATED'
@@ -262,7 +262,7 @@ export function warrantIssuanceDataToDaml(d: {
   comments?: string[];
 }): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
   const quantitySourceDaml =
-    d.quantity !== undefined
+    d.quantity !== undefined && d.quantity !== null
       ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
       : d.quantity_source
         ? quantitySourceToDamlEnum(d.quantity_source)
@@ -278,7 +278,7 @@ export function warrantIssuanceDataToDaml(d: {
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions,
-    quantity: d.quantity !== undefined ? numberToString(d.quantity) : null,
+    quantity: d.quantity !== undefined && d.quantity !== null ? numberToString(d.quantity) : null,
     quantity_source: quantitySourceDaml ?? null,
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),
