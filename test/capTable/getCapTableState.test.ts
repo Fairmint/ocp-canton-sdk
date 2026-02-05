@@ -12,6 +12,33 @@ import { getCapTableState } from '../../src/functions/OpenCapTable/capTable/getC
 // Mock the canton-node-sdk
 jest.mock('@fairmint/canton-node-sdk');
 
+/**
+ * Issuer data type for test fixtures.
+ */
+interface TestIssuerData {
+  id: string;
+  legal_name: string;
+  country_of_formation: string;
+  formation_date: string;
+}
+
+/**
+ * Builds a mock issuer events response for getEventsByContractId.
+ * Extracted to reduce duplication across tests (DRY principle).
+ */
+function buildMockIssuerEventsResponse(contractId: string, issuerData: TestIssuerData) {
+  return {
+    created: {
+      createdEvent: {
+        contractId,
+        createArgument: {
+          issuer_data: issuerData,
+        },
+      },
+    },
+  };
+}
+
 describe('getCapTableState', () => {
   let mockClient: jest.Mocked<LedgerJsonApiClient>;
 
@@ -76,22 +103,13 @@ describe('getCapTableState', () => {
         },
       ];
 
-      // Mock issuer contract fetch (cast to unknown to bypass strict type checking in tests)
-      const mockIssuerEventsResponse = {
-        created: {
-          createdEvent: {
-            contractId: 'issuer-contract-456',
-            createArgument: {
-              issuer_data: {
-                id: 'issuer-ocf-id-123',
-                legal_name: 'Test Corp',
-                country_of_formation: 'US',
-                formation_date: '2024-01-01T00:00:00Z',
-              },
-            },
-          },
-        },
-      };
+      // Mock issuer contract fetch
+      const mockIssuerEventsResponse = buildMockIssuerEventsResponse('issuer-contract-456', {
+        id: 'issuer-ocf-id-123',
+        legal_name: 'Test Corp',
+        country_of_formation: 'US',
+        formation_date: '2024-01-01T00:00:00Z',
+      });
 
       mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
@@ -203,21 +221,12 @@ describe('getCapTableState', () => {
       ];
 
       // Mock issuer contract fetch
-      const mockIssuerEventsResponse = {
-        created: {
-          createdEvent: {
-            contractId: 'issuer-contract-789',
-            createArgument: {
-              issuer_data: {
-                id: 'issuer-ocf-id-789',
-                legal_name: 'Array Format Corp',
-                country_of_formation: 'US',
-                formation_date: '2024-01-01T00:00:00Z',
-              },
-            },
-          },
-        },
-      };
+      const mockIssuerEventsResponse = buildMockIssuerEventsResponse('issuer-contract-789', {
+        id: 'issuer-ocf-id-789',
+        legal_name: 'Array Format Corp',
+        country_of_formation: 'US',
+        formation_date: '2024-01-01T00:00:00Z',
+      });
 
       mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
@@ -287,21 +296,12 @@ describe('getCapTableState', () => {
       ];
 
       // Mock issuer contract fetch
-      const mockIssuerEventsResponse = {
-        created: {
-          createdEvent: {
-            contractId: 'issuer-contract-456',
-            createArgument: {
-              issuer_data: {
-                id: 'issuer-only-ocf-id',
-                legal_name: 'Empty Cap Table Corp',
-                country_of_formation: 'US',
-                formation_date: '2024-01-01T00:00:00Z',
-              },
-            },
-          },
-        },
-      };
+      const mockIssuerEventsResponse = buildMockIssuerEventsResponse('issuer-contract-456', {
+        id: 'issuer-only-ocf-id',
+        legal_name: 'Empty Cap Table Corp',
+        country_of_formation: 'US',
+        formation_date: '2024-01-01T00:00:00Z',
+      });
 
       mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
@@ -389,21 +389,12 @@ describe('getCapTableState', () => {
       ];
 
       // Mock issuer contract fetch
-      const mockIssuerEventsResponse = {
-        created: {
-          createdEvent: {
-            contractId: 'legacy-issuer-456',
-            createArgument: {
-              issuer_data: {
-                id: 'legacy-issuer-ocf-id',
-                legal_name: 'Legacy Corp',
-                country_of_formation: 'US',
-                formation_date: '2024-01-01T00:00:00Z',
-              },
-            },
-          },
-        },
-      };
+      const mockIssuerEventsResponse = buildMockIssuerEventsResponse('legacy-issuer-456', {
+        id: 'legacy-issuer-ocf-id',
+        legal_name: 'Legacy Corp',
+        country_of_formation: 'US',
+        formation_date: '2024-01-01T00:00:00Z',
+      });
 
       // Cast to unknown to test runtime fallback behavior with malformed data
       mockClient.getActiveContracts.mockResolvedValue(mockMalformedResponse as unknown as never);
@@ -451,21 +442,12 @@ describe('getCapTableState', () => {
       ];
 
       // Mock issuer contract fetch
-      const mockIssuerEventsResponse = {
-        created: {
-          createdEvent: {
-            contractId: 'legacy-issuer-contract',
-            createArgument: {
-              issuer_data: {
-                id: 'legacy-top-level-issuer-id',
-                legal_name: 'Legacy Top Level Corp',
-                country_of_formation: 'US',
-                formation_date: '2024-01-01T00:00:00Z',
-              },
-            },
-          },
-        },
-      };
+      const mockIssuerEventsResponse = buildMockIssuerEventsResponse('legacy-issuer-contract', {
+        id: 'legacy-top-level-issuer-id',
+        legal_name: 'Legacy Top Level Corp',
+        country_of_formation: 'US',
+        formation_date: '2024-01-01T00:00:00Z',
+      });
 
       // Cast to unknown to test legacy format handling
       mockClient.getActiveContracts.mockResolvedValue(mockLegacyResponse as unknown as never);
@@ -514,21 +496,12 @@ describe('getCapTableState', () => {
       ];
 
       // Mock issuer contract fetch
-      const mockIssuerEventsResponse = {
-        created: {
-          createdEvent: {
-            contractId: 'nested-legacy-issuer',
-            createArgument: {
-              issuer_data: {
-                id: 'nested-legacy-issuer-id',
-                legal_name: 'Nested Legacy Corp',
-                country_of_formation: 'US',
-                formation_date: '2024-01-01T00:00:00Z',
-              },
-            },
-          },
-        },
-      };
+      const mockIssuerEventsResponse = buildMockIssuerEventsResponse('nested-legacy-issuer', {
+        id: 'nested-legacy-issuer-id',
+        legal_name: 'Nested Legacy Corp',
+        country_of_formation: 'US',
+        formation_date: '2024-01-01T00:00:00Z',
+      });
 
       // Cast to unknown to test nested legacy format handling
       mockClient.getActiveContracts.mockResolvedValue(mockNestedLegacyResponse as unknown as never);
