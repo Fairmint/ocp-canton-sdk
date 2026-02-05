@@ -120,6 +120,7 @@ const OBJECT_TYPES: Record<string, OcfEntityType> = {
  */
 const DIRECT_TYPE_MAP: Record<string, OcfEntityType> = {
   // Core entity types
+  ISSUER: 'issuer',
   STAKEHOLDER: 'stakeholder',
   STOCK_CLASS: 'stockClass',
   STOCK_PLAN: 'stockPlan',
