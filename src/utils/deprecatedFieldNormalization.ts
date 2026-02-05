@@ -1687,10 +1687,7 @@ function normalizeQuantitySource<T extends Record<string, unknown>>(data: T): T 
   // and quantity_source is 'UNSPECIFIED' (which is equivalent to "don't know")
   const { quantity, quantity_source: quantitySource } = data;
 
-  if (
-    (quantity === null || quantity === undefined) &&
-    quantitySource === 'UNSPECIFIED'
-  ) {
+  if ((quantity === null || quantity === undefined) && quantitySource === 'UNSPECIFIED') {
     const { quantity_source: _, ...rest } = data;
     return rest as T;
   }
