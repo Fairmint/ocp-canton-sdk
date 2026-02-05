@@ -292,8 +292,11 @@ export async function getCapTableState(
       // eslint-disable-next-line no-console -- Intentional warning for operational visibility
       console.warn(
         `[getCapTableState] ${isNotFoundError ? 'Issuer contract not found (may be archived)' : 'Failed to fetch issuer contract events'}`,
-        { issuerContractId, errorMessage },
-        error instanceof Error ? error.stack : undefined
+        {
+          issuerContractId,
+          errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+        }
       );
 
       // Continue without adding issuer to entities - issuerContractId is still available
