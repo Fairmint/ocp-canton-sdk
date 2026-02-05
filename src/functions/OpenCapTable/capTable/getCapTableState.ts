@@ -275,9 +275,11 @@ export async function getCapTableState(
         entities.set('issuer', new Set([issuerOcfId]));
         contractIds.set('issuer', new Map([[issuerOcfId, issuerContractId]]));
       }
-    } catch {
+    } catch (error) {
       // Issuer fetch failed - continue without adding to entities
       // The issuerContractId is still available for direct access
+      // eslint-disable-next-line no-console -- Intentional warning for operational visibility
+      console.warn('[getCapTableState] Failed to fetch issuer contract events', { issuerContractId }, error);
     }
   }
 
