@@ -265,7 +265,7 @@ describe('getCapTableState', () => {
       expect(stockIssuances!.size).toBe(2);
     });
 
-    it('should handle empty entity maps gracefully but still include issuer', async () => {
+    it('should include issuer even when other entity maps are empty', async () => {
       const mockCapTableResponse = [
         {
           contractEntry: {
