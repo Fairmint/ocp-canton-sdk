@@ -207,7 +207,6 @@ export function damlMonetaryToNativeWithValidation(
 /** DAML type for OcfInitialSharesAuthorized union */
 type DamlInitialSharesAuthorized = Fairmint.OpenCapTable.Types.Stock.OcfInitialSharesAuthorized;
 
-
 /**
  * Convert initial_shares_authorized value to DAML tagged union format.
  * V30 DAML contracts use OcfInitialSharesAuthorized union type:

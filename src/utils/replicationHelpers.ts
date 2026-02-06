@@ -13,7 +13,7 @@ import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchType
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
-import { normalizeEntityType, normalizeOcfData, normalizeObjectType } from './planSecurityAliases';
+import { normalizeEntityType, normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
 
 // ============================================================================
 // OcfEntityType Validation
