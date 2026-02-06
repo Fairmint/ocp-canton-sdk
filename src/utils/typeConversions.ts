@@ -57,6 +57,13 @@ export function numberToString(value: string): string {
  * @throws OcpValidationError if the string contains scientific notation (e.g., "1.5e10") or is not a valid numeric string
  */
 export function normalizeNumericString(value: string): string {
+  // Defensive: DAML Numeric values may arrive as JavaScript numbers at runtime
+  // despite being typed as string in the generated package types.
+  // Coerce to string at this boundary to prevent TypeError on string methods.
+  if (typeof value === 'number') {
+    value = (value as unknown as number).toString();
+  }
+
   // Validate: reject scientific notation
   if (value.toLowerCase().includes('e')) {
     throw new OcpValidationError('numericString', `Scientific notation is not supported`, {

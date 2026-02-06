@@ -580,6 +580,22 @@ export interface ComputeReplicationDiffOptions {
  * // diff.deletes = items in Canton but not source
  * ```
  */
+/**
+ * Strip SDK-injected default values that may differ between source and Canton data.
+ *
+ * The SDK's OCF-to-DAML converter injects `quantity_source: 'UNSPECIFIED'` as a default
+ * when a warrant has quantity but no explicit quantity_source. Canton then stores this
+ * default, but the source DB may not have it. Stripping these defaults prevents
+ * false-positive edit diffs.
+ */
+function stripSdkDefaults(data: Record<string, unknown>): Record<string, unknown> {
+  if (data.quantity_source === 'UNSPECIFIED') {
+    const { quantity_source: _, ...rest } = data;
+    return rest;
+  }
+  return data;
+}
+
 export function computeReplicationDiff(
   sourceItems: Array<{ ocfId: string; entityType: OcfEntityType; data: unknown }>,
   cantonState: CapTableState,
@@ -686,10 +702,12 @@ export function computeReplicationDiff(
         );
       }
 
-      // Normalize object_type aliases (e.g., TX_PLAN_SECURITY_* → TX_EQUITY_COMPENSATION_*)
-      // before comparison to prevent false-positive diffs from alias variants
-      const normalizedSourceData = normalizeOcfData(item.data as Record<string, unknown>);
-      const normalizedCantonData = normalizeOcfData(cantonItemData);
+      // Normalize both objects before comparison:
+      // 1. object_type aliases (TX_PLAN_SECURITY_* → TX_EQUITY_COMPENSATION_*)
+      // 2. Strip SDK-injected defaults (quantity_source: 'UNSPECIFIED') that
+      //    the source data may not have, to prevent false-positive diffs
+      const normalizedSourceData = stripSdkDefaults(normalizeOcfData(item.data as Record<string, unknown>));
+      const normalizedCantonData = stripSdkDefaults(normalizeOcfData(cantonItemData));
 
       // Compare source data with Canton data using semantic OCF equality
       const isEqual = ocfDeepEqual(normalizedSourceData, normalizedCantonData, comparisonOptions);
