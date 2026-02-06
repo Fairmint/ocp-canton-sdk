@@ -1671,6 +1671,46 @@ const OBJECT_TYPE_TO_REGISTRY_TYPE: Record<string, string> = {
 };
 
 /**
+ * Normalize quantity_source field for OCF objects.
+ *
+ * Handles two scenarios to ensure consistent comparison:
+ *
+ * 1. When quantity is NOT present (null/undefined): quantity_source is meaningless
+ *    and should be stripped. This ensures:
+ *    - DB with { quantity_source: 'UNSPECIFIED' } (no quantity)
+ *    - Canton readback with {} (no quantity, no quantity_source)
+ *    are treated as semantically equivalent.
+ *
+ * 2. When quantity IS present but quantity_source is missing: quantity_source should
+ *    be set to 'UNSPECIFIED' because the OCF-to-DAML converter defaults to 'UNSPECIFIED'
+ *    when quantity is present without quantity_source. This ensures:
+ *    - DB with { quantity: '1000' } (no quantity_source)
+ *    - Canton readback with { quantity: '1000', quantity_source: 'UNSPECIFIED' }
+ *    are treated as semantically equivalent.
+ *
+ * @param data - OCF object that may have quantity and quantity_source fields
+ * @returns Object with quantity_source normalized based on quantity presence
+ */
+function normalizeQuantitySource<T extends Record<string, unknown>>(data: T): T {
+  const { quantity, quantity_source: quantitySource } = data;
+
+  // Case 1: Strip quantity_source if quantity is not present (null/undefined)
+  // and quantity_source is 'UNSPECIFIED' (which is equivalent to "don't know")
+  if ((quantity === null || quantity === undefined) && quantitySource === 'UNSPECIFIED') {
+    const { quantity_source: _, ...rest } = data;
+    return rest as T;
+  }
+
+  // Case 2: Add quantity_source: 'UNSPECIFIED' if quantity IS present but quantity_source is missing
+  // This matches the OCF-to-DAML converter behavior that defaults to 'UNSPECIFIED'
+  if (quantity !== null && quantity !== undefined && quantitySource === undefined) {
+    return { ...data, quantity_source: 'UNSPECIFIED' } as T;
+  }
+
+  return data;
+}
+
+/**
  * Options for normalizeOcfObject.
  */
 export interface NormalizeOcfObjectOptions {
@@ -1686,6 +1726,7 @@ export interface NormalizeOcfObjectOptions {
  * This function auto-detects the object type from the `object_type` field and applies:
  * 1. PlanSecurity -> EquityCompensation object_type normalization
  * 2. Deprecated field normalizations (singular->array, value mappings, etc.)
+ * 3. Semantic normalizations (e.g., quantity_source: 'UNSPECIFIED' when quantity is absent)
  */
 export function normalizeOcfObject<T extends Record<string, unknown>>(
   data: T,
@@ -1696,8 +1737,12 @@ export function normalizeOcfObject<T extends Record<string, unknown>>(
   const normalizedFields: string[] = [];
   const warnings: string[] = [];
 
+  // Step 0: Normalize quantity_source (strip if UNSPECIFIED and no quantity)
+  // This must happen before other normalizations to ensure consistent comparison
+  let result = normalizeQuantitySource(data);
+
   // Step 1: Normalize PlanSecurity object_type to EquityCompensation
-  let result = normalizePlanSecurityObjectType(data);
+  result = normalizePlanSecurityObjectType(result);
   const originalObjectType = data.object_type;
   const normalizedObjectType = result.object_type;
 

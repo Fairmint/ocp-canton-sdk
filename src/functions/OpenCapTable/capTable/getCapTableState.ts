@@ -153,6 +153,22 @@ export const FIELD_TO_ENTITY_TYPE: Record<string, OcfEntityType> = {
 };
 
 /**
+ * Mapping from CapTable `*_by_security_id` fields to OcfEntityType.
+ *
+ * These maps track security_id uniqueness for issuance types. The keys are
+ * security_id values (not OCF IDs), and the values are ContractIds.
+ *
+ * Used by the replication diff to detect duplicate security_id conflicts
+ * before submitting to DAML (which would fail with "security_id already exists").
+ */
+export const SECURITY_ID_FIELD_TO_ENTITY_TYPE: Record<string, OcfEntityType> = {
+  stock_issuances_by_security_id: 'stockIssuance',
+  convertible_issuances_by_security_id: 'convertibleIssuance',
+  equity_compensation_issuances_by_security_id: 'equityCompensationIssuance',
+  warrant_issuances_by_security_id: 'warrantIssuance',
+};
+
+/**
  * Current state of a CapTable on Canton, with all OCF IDs grouped by entity type.
  */
 export interface CapTableState {
@@ -173,6 +189,17 @@ export interface CapTableState {
    * Useful for deep verification where contract data needs to be compared.
    */
   contractIds: Map<OcfEntityType, Map<string, string>>;
+
+  /**
+   * Map of issuance entity type to security_ids currently on-chain.
+   *
+   * Only populated for issuance types that enforce security_id uniqueness:
+   * stockIssuance, convertibleIssuance, equityCompensationIssuance, warrantIssuance.
+   *
+   * Used by computeReplicationDiff to detect duplicate security_id conflicts before
+   * submitting batch commands (avoiding DAML "security_id already exists" errors).
+   */
+  securityIds: Map<OcfEntityType, Set<string>>;
 }
 
 /**
@@ -259,6 +286,22 @@ export async function getCapTableState(
     }
   }
 
+  // Build security_id maps from *_by_security_id payload fields
+  // These track security_id uniqueness for issuance types
+  const securityIds = new Map<OcfEntityType, Set<string>>();
+
+  for (const [field, entityType] of Object.entries(SECURITY_ID_FIELD_TO_ENTITY_TYPE)) {
+    const fieldData = payload[field];
+
+    if (fieldData) {
+      const entries = parseDamlMap<string, string>(fieldData);
+
+      if (entries.length > 0) {
+        securityIds.set(entityType, new Set(entries.map(([key]) => key)));
+      }
+    }
+  }
+
   // Extract issuer contract ID from payload
   const issuerContractId = typeof payload.issuer === 'string' ? payload.issuer : '';
 
@@ -308,5 +351,6 @@ export async function getCapTableState(
     issuerContractId,
     entities,
     contractIds,
+    securityIds,
   };
 }
