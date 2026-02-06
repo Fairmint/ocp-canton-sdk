@@ -383,11 +383,13 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
   return [];
 }
 
-/** Filter out empty string entries from a comments array. */
-export function cleanComments(comments?: string[]): string[] {
+/**
+ * Filter out empty string entries from a comments array.
+ * Defensively handles null values that may appear at runtime despite TypeScript types.
+ */
+export function cleanComments(comments?: Array<string | null>): string[] {
   if (!comments) return [];
-  const filtered = comments.filter((c) => c.trim() !== '');
-  return filtered;
+  return comments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
 }
 
 // ===== Shared DAML-to-Native Transfer/Cancellation Helpers =====
