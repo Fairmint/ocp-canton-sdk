@@ -39,9 +39,14 @@ export function damlTimeToDateString(timeString: string): string {
   return timeString.split('T')[0];
 }
 
-/** Convert a number or string to a string Used for DAML numeric fields that require string values */
-export function numberToString(value: number | string): string {
-  return typeof value === 'number' ? value.toString() : value;
+/**
+ * Validate and pass through a numeric string for DAML fields.
+ *
+ * @deprecated Prefer using string values directly. This function exists only for
+ * internal backwards compatibility and will be removed in a future version.
+ */
+export function numberToString(value: string): string {
+  return value;
 }
 
 /**
@@ -88,12 +93,12 @@ export function normalizeNumericString(value: string): string {
 }
 
 /**
- * Convert a number, string, null or undefined to a string or undefined Used for optional DAML numeric fields that
- * require string values
+ * Pass through an optional numeric string for DAML fields.
+ * Returns undefined for null/undefined values.
  */
-export function optionalNumberToString(value: number | string | null | undefined): string | undefined {
+export function optionalNumberToString(value: string | null | undefined): string | undefined {
   if (value === null || value === undefined) return undefined;
-  return typeof value === 'number' ? value.toString() : value;
+  return value;
 }
 
 /**
@@ -105,21 +110,24 @@ export function optionalString(value: string | null | undefined): string | null 
 }
 
 /**
- * Safely convert an unknown value to a string Returns empty string if value is null, undefined, or not a string/number
- * Used when parsing DAML values that might be in various formats
+ * @deprecated Use typed values directly instead of this function.
+ * This function hides type errors by returning empty strings for invalid values.
+ * If you need to handle unknown data, use proper type guards instead.
  */
 export function safeString(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number') return value.toString();
-  // For objects, try to get a meaningful string representation
-  if (typeof value === 'object') {
-    // Handle DAML tagged unions
-    if ('tag' in value && typeof (value as { tag?: unknown }).tag === 'string') {
-      return (value as { tag: string }).tag;
-    }
+  if (value === null || value === undefined) {
+    throw new OcpValidationError('safeString', 'Expected a string value, got null/undefined', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string',
+      receivedValue: value,
+    });
   }
-  return '';
+  if (typeof value === 'string') return value;
+  throw new OcpValidationError('safeString', `Expected a string value, got ${typeof value}`, {
+    code: OcpErrorCodes.INVALID_TYPE,
+    expectedType: 'string',
+    receivedValue: value,
+  });
 }
 
 // ===== DAML Enum Conversions =====
@@ -145,7 +153,7 @@ export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
 
 export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.Monetary.OcfMonetary {
   return {
-    amount: typeof monetary.amount === 'number' ? monetary.amount.toString() : monetary.amount,
+    amount: monetary.amount,
     currency: monetary.currency,
   };
 }
@@ -159,8 +167,7 @@ export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.M
 
 /**
  * Convert DAML monetary data to native OCF format with validation.
- * This function handles untyped data from DAML contract responses and validates
- * that amount and currency fields are present and correctly typed.
+ * Validates that amount and currency fields are present and correctly typed.
  *
  * @param monetary - The raw monetary object (or null/undefined)
  * @returns The validated native monetary object, or undefined if input is null/undefined
@@ -171,21 +178,21 @@ export function damlMonetaryToNativeWithValidation(
 ): Monetary | undefined {
   if (!monetary) return undefined;
 
-  // Validate amount exists and is string or number
+  // Validate amount exists and is string
   if (monetary.amount === undefined || monetary.amount === null) {
     throw new OcpValidationError('monetary.amount', 'Monetary amount is required but was undefined or null', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string | number',
+      expectedType: 'string',
       receivedValue: monetary.amount,
     });
   }
-  if (typeof monetary.amount !== 'string' && typeof monetary.amount !== 'number') {
+  if (typeof monetary.amount !== 'string') {
     throw new OcpValidationError(
       'monetary.amount',
-      `Monetary amount must be string or number, got ${typeof monetary.amount}`,
+      `Monetary amount must be a string, got ${typeof monetary.amount}`,
       {
         code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string | number',
+        expectedType: 'string',
         receivedValue: monetary.amount,
       }
     );
@@ -200,9 +207,7 @@ export function damlMonetaryToNativeWithValidation(
     });
   }
 
-  const amount = normalizeNumericString(
-    typeof monetary.amount === 'number' ? monetary.amount.toString() : monetary.amount
-  );
+  const amount = normalizeNumericString(monetary.amount);
   return { amount, currency: monetary.currency };
 }
 
@@ -220,14 +225,14 @@ type DamlAuthorizedShares = Fairmint.OpenCapTable.Types.Stock.OcfAuthorizedShare
  * - OcfInitialSharesNumeric Decimal - for numeric values
  * - OcfInitialSharesEnum - for "UNLIMITED" or "NOT_APPLICABLE"
  *
- * @param value - Native value (number, numeric string, or "UNLIMITED"/"NOT_APPLICABLE")
+ * @param value - Numeric string, or "UNLIMITED"/"NOT_APPLICABLE"
  * @returns DAML-formatted discriminated union
  */
-export function initialSharesAuthorizedToDaml(value: string | number): DamlInitialSharesAuthorized {
-  if (typeof value === 'number' || (typeof value === 'string' && /^\d+(\.\d+)?$/.test(value))) {
+export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesAuthorized {
+  if (/^\d+(\.\d+)?$/.test(value)) {
     return {
       tag: 'OcfInitialSharesNumeric',
-      value: typeof value === 'number' ? value.toString() : value,
+      value,
     };
   }
   const enumValue: DamlAuthorizedShares =
@@ -391,14 +396,11 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
   return [];
 }
 
-/** Remove empty string entries from comments array (mutates in place and returns the object) */
-export function cleanComments(comments?: Array<string | null>): string[] {
-  if (Array.isArray(comments)) {
-    const filtered = comments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
-    return filtered.length > 0 ? filtered : [];
-  }
-
-  return [];
+/** Filter out empty string entries from a comments array. */
+export function cleanComments(comments?: string[]): string[] {
+  if (!comments) return [];
+  const filtered = comments.filter((c) => c.trim() !== '');
+  return filtered;
 }
 
 // ===== Shared DAML-to-Native Transfer/Cancellation Helpers =====
