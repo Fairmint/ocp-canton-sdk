@@ -11,7 +11,7 @@ import {
 
 export interface SimpleVesting {
   date: string;
-  amount: string | number;
+  amount: string;
 }
 
 type WarrantTriggerTypeInput =
@@ -26,11 +26,11 @@ type WarrantConversionMechanismInput =
   | { type: 'CUSTOM_CONVERSION'; custom_conversion_description: string }
   | {
       type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
-      converts_to_percent: string | number;
+      converts_to_percent: string;
       capitalization_definition?: string | null;
       capitalization_definition_rules?: Record<string, unknown> | null;
     }
-  | { type: 'FIXED_AMOUNT_CONVERSION'; converts_to_quantity: string | number }
+  | { type: 'FIXED_AMOUNT_CONVERSION'; converts_to_quantity: string }
   | {
       type: 'VALUATION_BASED_CONVERSION';
       valuation_type: string;
@@ -42,7 +42,7 @@ type WarrantConversionMechanismInput =
       type: 'SHARE_PRICE_BASED_CONVERSION';
       description: string;
       discount: boolean;
-      discount_percentage?: string | number | null;
+      discount_percentage?: string | null;
       discount_amount?: Monetary | null;
     };
 
@@ -245,7 +245,7 @@ export function warrantIssuanceDataToDaml(d: {
   stockholder_approval_date?: string;
   consideration_text?: string;
   security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-  quantity?: string | number;
+  quantity?: string;
   quantity_source?:
     | 'HUMAN_ESTIMATED'
     | 'MACHINE_ESTIMATED'

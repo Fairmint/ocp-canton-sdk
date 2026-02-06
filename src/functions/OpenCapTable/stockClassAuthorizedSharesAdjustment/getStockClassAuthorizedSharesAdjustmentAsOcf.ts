@@ -35,16 +35,11 @@ type StockClassAuthorizedSharesAdjustmentCreateArgument =
 export function damlStockClassAuthorizedSharesAdjustmentDataToNative(
   data: PkgStockClassAuthorizedSharesAdjustmentOcfData
 ): OcfStockClassAuthorizedSharesAdjustment {
-  // Convert new_shares_authorized to string for normalization (DAML Numeric may come as number at runtime)
-  const newSharesAuthorized = data.new_shares_authorized as string | number;
-  const newSharesAuthorizedStr =
-    typeof newSharesAuthorized === 'number' ? newSharesAuthorized.toString() : newSharesAuthorized;
-
   return {
     id: data.id,
     date: damlTimeToDateString(data.date),
     stock_class_id: data.stock_class_id,
-    new_shares_authorized: normalizeNumericString(newSharesAuthorizedStr),
+    new_shares_authorized: normalizeNumericString(data.new_shares_authorized),
     ...(data.board_approval_date ? { board_approval_date: damlTimeToDateString(data.board_approval_date) } : {}),
     ...(data.stockholder_approval_date
       ? { stockholder_approval_date: damlTimeToDateString(data.stockholder_approval_date) }
@@ -70,11 +65,6 @@ export async function getStockClassAuthorizedSharesAdjustmentAsOcf(
   const event: OcfStockClassAuthorizedSharesAdjustmentEvent = {
     object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
     ...native,
-    // Ensure new_shares_authorized is string (native type allows string | number)
-    new_shares_authorized:
-      typeof native.new_shares_authorized === 'number'
-        ? native.new_shares_authorized.toString()
-        : native.new_shares_authorized,
   };
   return { event, contractId: params.contractId };
 }

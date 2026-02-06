@@ -578,18 +578,9 @@ export interface OcfStakeholder {
   /** Alternate ID assigned by issuer */
   issuer_assigned_id?: string;
   /** Current relationship(s) to issuer */
-  current_relationships?: string[];
+  current_relationships?: StakeholderRelationshipType[];
   /** Current employment/engagement status */
-  current_status?:
-    | 'ACTIVE'
-    | 'LEAVE_OF_ABSENCE'
-    | 'TERMINATION_VOLUNTARY_OTHER'
-    | 'TERMINATION_VOLUNTARY_GOOD_CAUSE'
-    | 'TERMINATION_VOLUNTARY_RETIREMENT'
-    | 'TERMINATION_INVOLUNTARY_OTHER'
-    | 'TERMINATION_INVOLUNTARY_DEATH'
-    | 'TERMINATION_INVOLUNTARY_DISABILITY'
-    | 'TERMINATION_INVOLUNTARY_WITH_CAUSE';
+  current_status?: StakeholderStatus;
   /** Primary contact information */
   primary_contact?: ContactInfo;
   /** Contact info without name */

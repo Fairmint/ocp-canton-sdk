@@ -140,7 +140,7 @@ function mechanismInputToDamlEnum(
         const anyM = m as Record<string, unknown>;
         const exitMultipleValue = (() => {
           const r = (anyM as { exit_multiple?: unknown }).exit_multiple as
-            | { numerator?: string | number; denominator?: string | number }
+            | { numerator?: string; denominator?: string }
             | undefined;
           if (!r) return null;
           const num = r.numerator !== undefined ? String(r.numerator) : undefined;
@@ -275,7 +275,7 @@ function mechanismInputToDamlEnum(
         return {
           tag: 'OcfConvMechPercentCapitalization',
           value: {
-            converts_to_percent: numberToString(anyM.converts_to_percent as string | number),
+            converts_to_percent: numberToString(anyM.converts_to_percent as string),
             capitalization_definition: optionalString(anyM.capitalization_definition as string | undefined),
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
           },
@@ -293,7 +293,7 @@ function mechanismInputToDamlEnum(
         return {
           tag: 'OcfConvMechFixedAmount',
           value: {
-            converts_to_quantity: numberToString(anyM.converts_to_quantity as string | number),
+            converts_to_quantity: numberToString(anyM.converts_to_quantity as string),
           },
         } as Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;
       }
@@ -330,7 +330,7 @@ function mechanismInputToDamlEnum(
             description: anyM.description,
             discount: Boolean(anyM.discount),
             discount_percentage: anyM.discount_percentage
-              ? numberToString(anyM.discount_percentage as string | number)
+              ? numberToString(anyM.discount_percentage as string)
               : null,
             discount_amount: anyM.discount_amount ? monetaryToDaml(anyM.discount_amount as Monetary) : null,
           },
@@ -425,7 +425,7 @@ export function convertibleIssuanceDataToDaml(d: {
   investment_amount: Monetary;
   convertible_type: 'NOTE' | 'SAFE' | 'SECURITY';
   conversion_triggers: ConversionTriggerInput[];
-  pro_rata?: string | number;
+  pro_rata?: string;
   seniority: number;
   comments?: string[];
 }): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
@@ -442,7 +442,7 @@ export function convertibleIssuanceDataToDaml(d: {
     investment_amount: monetaryToDaml(d.investment_amount),
     convertible_type: convertibleTypeToDaml(d.convertible_type),
     conversion_triggers: d.conversion_triggers.map((t, idx) => buildTriggerToDaml(t, idx, d.id)),
-    pro_rata: d.pro_rata !== undefined ? (typeof d.pro_rata === 'number' ? d.pro_rata.toString() : d.pro_rata) : null,
+    pro_rata: d.pro_rata ?? null,
     seniority: d.seniority.toString(),
     comments: cleanComments(d.comments),
   };

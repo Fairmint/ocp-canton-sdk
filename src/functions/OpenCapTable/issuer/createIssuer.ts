@@ -11,6 +11,7 @@ import {
   cleanComments,
   dateStringToDAMLTime,
   ensureArray,
+  initialSharesAuthorizedToDaml,
   optionalString,
 } from '../../../utils/typeConversions';
 
@@ -82,19 +83,7 @@ export function issuerDataToDaml(issuerData: IssuerDataInput): Fairmint.OpenCapT
     address: normalizedData.address ? addressToDaml(normalizedData.address) : null,
     initial_shares_authorized:
       normalizedData.initial_shares_authorized !== undefined
-        ? ((): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData['initial_shares_authorized'] => {
-            const v = normalizedData.initial_shares_authorized;
-            if (typeof v === 'number' || (typeof v === 'string' && /^\d+(\.\d+)?$/.test(v))) {
-              return {
-                tag: 'OcfInitialSharesNumeric',
-                value: typeof v === 'number' ? v.toString() : v,
-              };
-            }
-            if (v === 'UNLIMITED') {
-              return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
-            }
-            return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
-          })()
+        ? initialSharesAuthorizedToDaml(normalizedData.initial_shares_authorized)
         : null,
     comments: cleanComments(normalizedData.comments),
   };

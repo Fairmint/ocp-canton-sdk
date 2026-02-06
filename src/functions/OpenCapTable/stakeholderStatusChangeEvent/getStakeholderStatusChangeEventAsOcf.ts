@@ -3,7 +3,8 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
 import { damlStakeholderStatusToNative } from '../../../utils/enumConversions';
 
@@ -26,7 +27,7 @@ interface DamlStakeholderStatusChangeEventData {
   id: string;
   date: string;
   stakeholder_id: string;
-  new_status: string;
+  new_status: Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderStatusType;
   comments: string[];
 }
 
