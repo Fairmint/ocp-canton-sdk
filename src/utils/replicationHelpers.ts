@@ -13,7 +13,7 @@ import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchType
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
-import { normalizeEntityType, normalizeObjectType } from './planSecurityAliases';
+import { normalizeEntityType, normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
 
 // ============================================================================
 // OcfEntityType Validation
@@ -687,7 +687,10 @@ export function computeReplicationDiff(
       }
 
       // Compare source data with Canton data using semantic OCF equality
-      const isEqual = ocfDeepEqual(item.data as Record<string, unknown>, cantonItemData, comparisonOptions);
+      // Normalize both objects to handle TX_PLAN_SECURITY_* → TX_EQUITY_COMPENSATION_* aliases
+      const normalizedSourceData = normalizeOcfData(item.data as Record<string, unknown>);
+      const normalizedCantonData = normalizeOcfData(cantonItemData);
+      const isEqual = ocfDeepEqual(normalizedSourceData, normalizedCantonData, comparisonOptions);
 
       if (!isEqual) {
         // Data differs → EDIT
