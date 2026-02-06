@@ -525,16 +525,19 @@ export async function extractCantonOcfManifest(
 
 /**
  * Count the total number of OCF objects in a manifest.
+ *
+ * Accepts Partial<OcfManifest> to handle partial manifests (e.g. from buildCaptableInput
+ * which may omit valuations, documents, or stockLegendTemplates).
  */
-export function countManifestObjects(manifest: OcfManifest): number {
+export function countManifestObjects(manifest: Partial<OcfManifest>): number {
   let count = manifest.issuer ? 1 : 0;
-  count += manifest.stakeholders.length;
-  count += manifest.stockClasses.length;
-  count += manifest.stockPlans.length;
-  count += manifest.vestingTerms.length;
-  count += manifest.transactions.length;
-  count += manifest.valuations.length;
-  count += manifest.documents.length;
-  count += manifest.stockLegendTemplates.length;
+  count += (manifest.stakeholders ?? []).length;
+  count += (manifest.stockClasses ?? []).length;
+  count += (manifest.stockPlans ?? []).length;
+  count += (manifest.vestingTerms ?? []).length;
+  count += (manifest.transactions ?? []).length;
+  count += (manifest.valuations ?? []).length;
+  count += (manifest.documents ?? []).length;
+  count += (manifest.stockLegendTemplates ?? []).length;
   return count;
 }
