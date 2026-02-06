@@ -239,7 +239,6 @@ export function mapCategorizedTypeToEntityType(categoryType: string, subtype: st
   return null;
 }
 
-
 // ============================================================================
 // Human-Readable Labels
 // ============================================================================

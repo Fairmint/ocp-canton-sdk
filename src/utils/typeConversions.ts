@@ -187,15 +187,11 @@ export function damlMonetaryToNativeWithValidation(
     });
   }
   if (typeof monetary.amount !== 'string') {
-    throw new OcpValidationError(
-      'monetary.amount',
-      `Monetary amount must be a string, got ${typeof monetary.amount}`,
-      {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string',
-        receivedValue: monetary.amount,
-      }
-    );
+    throw new OcpValidationError('monetary.amount', `Monetary amount must be a string, got ${typeof monetary.amount}`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string',
+      receivedValue: monetary.amount,
+    });
   }
 
   // Validate currency exists and is string
