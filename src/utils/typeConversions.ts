@@ -110,18 +110,13 @@ export function optionalString(value: string | null | undefined): string | null 
 }
 
 /**
- * @deprecated Use typed values directly instead of this function.
- * This function hides type errors by returning empty strings for invalid values.
- * If you need to handle unknown data, use proper type guards instead.
+ * Convert an unknown value to a string, returning empty string for null/undefined.
+ * Throws for non-string types (numbers, objects, etc.) to prevent silent coercion.
+ *
+ * Used internally for DAML optional enum fields where null means "not set".
  */
 export function safeString(value: unknown): string {
-  if (value === null || value === undefined) {
-    throw new OcpValidationError('safeString', 'Expected a string value, got null/undefined', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
-      receivedValue: value,
-    });
-  }
+  if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
   throw new OcpValidationError('safeString', `Expected a string value, got ${typeof value}`, {
     code: OcpErrorCodes.INVALID_TYPE,

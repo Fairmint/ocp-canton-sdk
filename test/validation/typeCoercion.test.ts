@@ -115,12 +115,12 @@ describe('Type Coercion Utilities', () => {
   });
 
   describe('safeString', () => {
-    test('throws for null', () => {
-      expect(() => safeString(null)).toThrow();
+    test('returns empty string for null', () => {
+      expect(safeString(null)).toBe('');
     });
 
-    test('throws for undefined', () => {
-      expect(() => safeString(undefined)).toThrow();
+    test('returns empty string for undefined', () => {
+      expect(safeString(undefined)).toBe('');
     });
 
     test('returns string as-is', () => {
