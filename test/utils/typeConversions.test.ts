@@ -152,24 +152,19 @@ describe('parseDamlMap', () => {
     });
   });
 
-  describe('object format', () => {
-    test('parses valid object', () => {
-      const input = { id1: 'contract1', id2: 'contract2' };
-      expect(parseDamlMap(input)).toEqual([
-        ['id1', 'contract1'],
-        ['id2', 'contract2'],
-      ]);
-    });
-
-    test('handles empty object', () => {
-      expect(parseDamlMap({})).toEqual([]);
-    });
-  });
-
   describe('invalid formats', () => {
+    test('throws for object input', () => {
+      const input = { id1: 'contract1', id2: 'contract2' };
+      expect(() => parseDamlMap(input)).toThrow(OcpParseError);
+    });
+
+    test('throws for empty object', () => {
+      expect(() => parseDamlMap({})).toThrow(OcpParseError);
+    });
+
     test('throws on string input', () => {
       expect(() => parseDamlMap('invalid')).toThrow(OcpParseError);
-      expect(() => parseDamlMap('invalid')).toThrow('expected array or object');
+      expect(() => parseDamlMap('invalid')).toThrow('Expected array of tuples');
     });
 
     test('throws on number input', () => {

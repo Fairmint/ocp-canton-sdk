@@ -94,8 +94,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
         reference_valuation_price_per_share: right.reference_valuation_price_per_share
           ? { tag: 'Some', value: monetaryToDaml(right.reference_valuation_price_per_share) }
           : null,
-        discount_rate:
-          right.discount_rate !== undefined ? { tag: 'Some', value: right.discount_rate } : null,
+        discount_rate: right.discount_rate !== undefined ? { tag: 'Some', value: right.discount_rate } : null,
         valuation_cap: right.valuation_cap ? { tag: 'Some', value: monetaryToDaml(right.valuation_cap) } : null,
         floor_price_per_share: right.floor_price_per_share
           ? { tag: 'Some', value: monetaryToDaml(right.floor_price_per_share) }

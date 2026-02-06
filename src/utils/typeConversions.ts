@@ -338,12 +338,9 @@ export function parseDamlMap<K extends string, V>(data: unknown): Array<[K, V]> 
     }
     const [key, value] = entry as [unknown, unknown];
     if (typeof key !== 'string') {
-      throw new OcpParseError(
-        `parseDamlMap: Invalid key type at index ${index} - expected string, got ${typeof key}`,
-        {
-          code: OcpErrorCodes.INVALID_TYPE,
-        }
-      );
+      throw new OcpParseError(`parseDamlMap: Invalid key type at index ${index} - expected string, got ${typeof key}`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+      });
     }
     return [key as K, value as V];
   });

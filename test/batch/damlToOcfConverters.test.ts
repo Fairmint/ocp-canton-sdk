@@ -38,8 +38,9 @@ describe('DAML to OCF Converters', () => {
       );
     });
 
-    it('returns undefined for unknown status', () => {
-      expect(damlStakeholderStatusToNative('UnknownStatus')).toBeUndefined();
+    it('throws for unknown status', () => {
+      // @ts-expect-error Testing runtime behavior with invalid input
+      expect(() => damlStakeholderStatusToNative('UnknownStatus')).toThrow();
     });
   });
 
@@ -94,7 +95,9 @@ describe('DAML to OCF Converters', () => {
 
       // Verify each DAML status converts to expected native status
       for (let i = 0; i < damlStatuses.length; i++) {
-        expect(damlStakeholderStatusToNative(damlStatuses[i])).toBe(statuses[i]);
+        expect(
+          damlStakeholderStatusToNative(damlStatuses[i] as Parameters<typeof damlStakeholderStatusToNative>[0])
+        ).toBe(statuses[i]);
       }
     });
 

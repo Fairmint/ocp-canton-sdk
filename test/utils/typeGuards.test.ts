@@ -65,11 +65,11 @@ describe('Primitive Type Guards', () => {
   });
 
   describe('isNumericValue', () => {
-    it('returns true for valid numbers', () => {
-      expect(isNumericValue(0)).toBe(true);
-      expect(isNumericValue(123)).toBe(true);
-      expect(isNumericValue(-456)).toBe(true);
-      expect(isNumericValue(3.14)).toBe(true);
+    it('returns false for numbers (only accepts strings)', () => {
+      expect(isNumericValue(0)).toBe(false);
+      expect(isNumericValue(123)).toBe(false);
+      expect(isNumericValue(-456)).toBe(false);
+      expect(isNumericValue(3.14)).toBe(false);
     });
 
     it('returns true for valid numeric strings', () => {
@@ -126,7 +126,7 @@ describe('Primitive Type Guards', () => {
   describe('isMonetary', () => {
     it('returns true for valid monetary objects', () => {
       expect(isMonetary({ amount: '100.00', currency: 'USD' })).toBe(true);
-      expect(isMonetary({ amount: 100, currency: 'EUR' })).toBe(true);
+      expect(isMonetary({ amount: '100', currency: 'EUR' })).toBe(true);
     });
 
     it('returns false for invalid monetary objects', () => {

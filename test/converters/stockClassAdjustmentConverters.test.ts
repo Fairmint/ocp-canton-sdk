@@ -55,8 +55,8 @@ describe('Stock Class Adjustment Converters', () => {
       test('handles numeric split ratio values', () => {
         const dataWithNumericRatio = {
           ...baseData,
-          split_ratio_numerator: 3,
-          split_ratio_denominator: 1,
+          split_ratio_numerator: '3',
+          split_ratio_denominator: '1',
         };
 
         const result = convertToDaml('stockClassSplit', dataWithNumericRatio);
@@ -115,8 +115,8 @@ describe('Stock Class Adjustment Converters', () => {
       test('handles numeric ratio values', () => {
         const dataWithNumericRatio = {
           ...baseData,
-          new_ratio_numerator: 5,
-          new_ratio_denominator: 4,
+          new_ratio_numerator: '5',
+          new_ratio_denominator: '4',
         };
 
         const result = convertToDaml('stockClassConversionRatioAdjustment', dataWithNumericRatio);

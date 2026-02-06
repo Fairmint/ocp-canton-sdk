@@ -25,8 +25,8 @@ describe('StockClass Converters', () => {
       });
     });
 
-    test('encodes number as OcfInitialSharesNumeric with string value', () => {
-      const result = initialSharesAuthorizedToDaml(5000000);
+    test('encodes numeric string as OcfInitialSharesNumeric', () => {
+      const result = initialSharesAuthorizedToDaml('5000000');
 
       expect(result).toEqual({
         tag: 'OcfInitialSharesNumeric',

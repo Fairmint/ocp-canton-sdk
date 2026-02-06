@@ -156,8 +156,8 @@ describe('Entity Validators', () => {
       expect(() => validateMonetaryObject({ amount: '100', currency: 'USD' }, 'price')).not.toThrow();
     });
 
-    it('passes for numeric amount', () => {
-      expect(() => validateMonetaryObject({ amount: 100, currency: 'USD' }, 'price')).not.toThrow();
+    it('passes for numeric string amount', () => {
+      expect(() => validateMonetaryObject({ amount: '100', currency: 'USD' }, 'price')).not.toThrow();
     });
 
     it('throws for missing amount', () => {
@@ -368,9 +368,9 @@ describe('Entity Validators', () => {
       expect(() => validateStockClassData(rest, 'stockClass')).toThrow(OcpValidationError);
     });
 
-    it('passes for numeric initial_shares_authorized', () => {
+    it('passes for numeric string initial_shares_authorized', () => {
       expect(() =>
-        validateStockClassData({ ...validStockClass, initial_shares_authorized: 1000000 }, 'stockClass')
+        validateStockClassData({ ...validStockClass, initial_shares_authorized: '1000000' }, 'stockClass')
       ).not.toThrow();
     });
   });

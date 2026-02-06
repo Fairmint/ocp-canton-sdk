@@ -129,18 +129,6 @@ describe('Property-based tests: Type Conversions', () => {
 
   describe('numberToString properties', () => {
     /**
-     * Numbers convert to their string representation.
-     */
-    test('converts numbers to strings', () => {
-      fc.assert(
-        fc.property(fc.integer({ min: -1e15, max: 1e15 }), (n) => {
-          expect(numberToString(n)).toBe(n.toString());
-        }),
-        { numRuns: 200 }
-      );
-    });
-
-    /**
      * Strings pass through unchanged.
      */
     test('strings pass through unchanged', () => {
@@ -163,12 +151,12 @@ describe('Property-based tests: Type Conversions', () => {
     });
 
     /**
-     * Numbers convert to strings.
+     * Strings pass through unchanged.
      */
-    test('converts numbers to strings', () => {
+    test('strings pass through unchanged', () => {
       fc.assert(
-        fc.property(fc.integer({ min: -1e15, max: 1e15 }), (n) => {
-          expect(optionalNumberToString(n)).toBe(n.toString());
+        fc.property(fc.stringMatching(/^[0-9.\-]{1,20}$/), (s) => {
+          expect(optionalNumberToString(s)).toBe(s);
         }),
         { numRuns: 200 }
       );
@@ -313,18 +301,18 @@ describe('Property-based tests: Type Conversions', () => {
     });
 
     /**
-     * Monetary with number amounts: Should convert number amounts correctly.
+     * Monetary with string amounts: Should pass through string amounts.
      */
-    test('converts number amounts to strings', () => {
+    test('preserves string amounts', () => {
       fc.assert(
         fc.property(
           fc.record({
-            amount: fc.integer({ min: 0, max: 1e12 }),
+            amount: fc.stringMatching(/^\d+(\.\d+)?$/),
             currency: fc.constant('USD'),
           }),
           (monetary) => {
             const daml = monetaryToDaml(monetary);
-            expect(daml.amount).toBe(monetary.amount.toString());
+            expect(daml.amount).toBe(monetary.amount);
             expect(daml.currency).toBe(monetary.currency);
           }
         ),
