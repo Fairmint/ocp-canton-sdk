@@ -105,27 +105,76 @@ export function normalizeObjectType<T extends string>(objectType: T): string {
 }
 
 /**
- * Normalize OCF data by converting any PlanSecurity object_type to EquityCompensation.
+ * Normalize quantity_source field for OCF objects.
  *
- * This function creates a shallow copy of the input with the normalized object_type.
- * If the object_type is not a PlanSecurity type, the original object is returned unchanged.
+ * Handles two scenarios to ensure consistent comparison:
+ *
+ * 1. When quantity is NOT present (null/undefined): quantity_source is meaningless
+ *    and should be stripped if it's 'UNSPECIFIED'. This ensures:
+ *    - DB with { quantity_source: 'UNSPECIFIED' } (no quantity)
+ *    - Canton readback with {} (no quantity, no quantity_source)
+ *    are treated as semantically equivalent.
+ *
+ * 2. When quantity IS present but quantity_source is missing: quantity_source should
+ *    be set to 'UNSPECIFIED' because the OCF-to-DAML converter defaults to 'UNSPECIFIED'
+ *    when quantity is present without quantity_source. This ensures:
+ *    - DB with { quantity: '1000' } (no quantity_source)
+ *    - Canton readback with { quantity: '1000', quantity_source: 'UNSPECIFIED' }
+ *    are treated as semantically equivalent.
+ *
+ * @param data - OCF object that may have quantity and quantity_source fields
+ * @returns Object with quantity_source normalized based on quantity presence
+ */
+function normalizeQuantitySource<T extends Record<string, unknown>>(data: T): T {
+  const { quantity, quantity_source: quantitySource } = data;
+
+  // Case 1: Strip quantity_source if quantity is not present (null/undefined)
+  // and quantity_source is 'UNSPECIFIED' (which is equivalent to "don't know")
+  if ((quantity === null || quantity === undefined) && quantitySource === 'UNSPECIFIED') {
+    const { quantity_source: _, ...rest } = data;
+    return rest as T;
+  }
+
+  // Case 2: Add quantity_source: 'UNSPECIFIED' if quantity IS present but quantity_source is missing
+  // This matches the OCF-to-DAML converter behavior that defaults to 'UNSPECIFIED'
+  if (quantity !== null && quantity !== undefined && quantitySource === undefined) {
+    return { ...data, quantity_source: 'UNSPECIFIED' } as T;
+  }
+
+  return data;
+}
+
+/**
+ * Normalize OCF data for consistent comparison.
+ *
+ * This function applies normalizations to ensure semantically equivalent data compares as equal:
+ * 1. Converts PlanSecurity object_type to EquityCompensation equivalent
+ * 2. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
  *
  * @param data - The OCF data object that may contain an object_type field
- * @returns The data with normalized object_type (shallow copy if modified)
+ * @returns The data with normalized fields (shallow copy if modified)
  *
  * @example
  * ```typescript
  * normalizeOcfData({ object_type: 'TX_PLAN_SECURITY_ISSUANCE', id: '123' })
  * // => { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE', id: '123' }
+ *
+ * normalizeOcfData({ quantity: '1000' })
+ * // => { quantity: '1000', quantity_source: 'UNSPECIFIED' }
  * ```
  */
 export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T {
-  const objectType = data.object_type;
+  // First normalize quantity_source for consistent comparison
+  let result = normalizeQuantitySource(data);
+
+  // Then normalize PlanSecurity object_type to EquityCompensation
+  const objectType = result.object_type;
   if (typeof objectType === 'string' && isPlanSecurityObjectType(objectType)) {
-    return {
-      ...data,
+    result = {
+      ...result,
       object_type: PLAN_SECURITY_OBJECT_TYPE_MAP[objectType],
     };
   }
-  return data;
+
+  return result;
 }
