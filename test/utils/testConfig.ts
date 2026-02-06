@@ -32,21 +32,24 @@ export function buildIntegrationTestClientConfig(): ClientConfig {
       LEDGER_JSON_API: {
         apiUrl: 'http://localhost:3975',
         auth: {
-          grantType: 'none',
+          grantType: 'client_credentials',
+          clientId: 'ocp-sdk',
           tokenGenerator: generateSharedSecretJwt,
         },
       },
       VALIDATOR_API: {
         apiUrl: 'http://localhost:3903',
         auth: {
-          grantType: 'none',
+          grantType: 'client_credentials',
+          clientId: 'ocp-sdk',
           tokenGenerator: generateSharedSecretJwt,
         },
       },
       SCAN_API: {
         apiUrl: 'http://localhost:4000',
         auth: {
-          grantType: 'none',
+          grantType: 'client_credentials',
+          clientId: 'ocp-sdk',
         },
       },
     },

@@ -5,7 +5,6 @@ import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/sr
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { extractUpdateId } from '../../../utils/typeConversions';
 
 export interface AuthorizeIssuerParams {
   issuer: string; // Party ID of the issuer to authorize
@@ -89,7 +88,7 @@ export async function authorizeIssuer(
 
   return {
     contractId: issuerAuthorizationContractId,
-    updateId: extractUpdateId(response),
+    updateId: response.transactionTree.updateId,
     createdEventBlob: issuerAuthorizationContractEvents.created.createdEvent.createdEventBlob,
     synchronizerId: response.transactionTree.synchronizerId,
     templateId: created.CreatedTreeEvent.value.templateId,

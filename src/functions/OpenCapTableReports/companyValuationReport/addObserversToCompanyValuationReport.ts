@@ -3,7 +3,6 @@ import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
-import { extractUpdateId } from '../../../utils/typeConversions';
 
 export interface AddObserversToCompanyValuationReportParams {
   companyValuationReportContractId: string;
@@ -89,7 +88,7 @@ export async function addObserversToCompanyValuationReport(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: extractUpdateId(response),
+    updateId: response.transactionTree.updateId,
     response,
   };
 }

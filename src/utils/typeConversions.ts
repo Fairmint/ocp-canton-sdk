@@ -7,7 +7,7 @@
 
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
 
 // ===== Date and Time Conversion Helpers =====
@@ -477,15 +477,11 @@ export function quantityCancellationToNative(d: DamlQuantityCancellationData): N
 
 /**
  * Extract updateId from a transaction tree response.
+ *
+ * @deprecated Access response.transactionTree.updateId directly.
+ * Kept temporarily for backward compatibility but all internal callers should
+ * migrate to direct property access.
  */
 export function extractUpdateId(response: SubmitAndWaitForTransactionTreeResponse): string {
-  const tree = response.transactionTree as Record<string, unknown>;
-
-  if (typeof tree.updateId !== 'string') {
-    throw new OcpContractError('updateId not found in transaction tree response', {
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-
-  return tree.updateId;
+  return response.transactionTree.updateId;
 }
