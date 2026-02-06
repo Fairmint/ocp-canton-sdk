@@ -83,11 +83,11 @@ describe('Valuation Converters', () => {
       expect(() => convertToDaml('valuation', ocfData)).toThrow("'valuation.id'");
     });
 
-    test('handles numeric amount conversion', () => {
+    test('handles string amount', () => {
       const ocfData: OcfValuation = {
         id: 'val-003',
         stock_class_id: 'sc-003',
-        price_per_share: { amount: 1.5, currency: 'USD' },
+        price_per_share: { amount: '1.5', currency: 'USD' },
         effective_date: '2024-01-15',
         valuation_type: '409A',
       };
@@ -406,7 +406,7 @@ describe('VestingAcceleration Converters', () => {
         id: 'va-003',
         date: '2024-12-01',
         security_id: 'sec-003',
-        quantity: 15000,
+        quantity: '15000',
         reason_text: 'Termination without cause',
       };
 

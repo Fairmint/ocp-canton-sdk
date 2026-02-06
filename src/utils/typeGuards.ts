@@ -55,17 +55,11 @@ export function isNonEmptyString(value: unknown): value is string {
 }
 
 /**
- * Check if a value is a valid numeric string or number.
+ * Check if a value is a valid numeric string (decimal format, no whitespace or scientific notation).
  */
-export function isNumericValue(value: unknown): value is string | number {
-  if (typeof value === 'number' && !Number.isNaN(value)) {
-    return true;
-  }
-  if (typeof value === 'string' && value.length > 0) {
-    const num = Number(value);
-    return !Number.isNaN(num);
-  }
-  return false;
+export function isNumericValue(value: unknown): value is string {
+  if (typeof value !== 'string' || value.length === 0) return false;
+  return /^-?\d+(\.\d+)?$/.test(value);
 }
 
 /**
@@ -80,9 +74,9 @@ export function isIsoDateString(value: unknown): value is string {
 }
 
 /**
- * Check if a value is a valid Monetary object.
+ * Check if a value is a valid Monetary object (amount must be a numeric string).
  */
-export function isMonetary(value: unknown): value is { amount: string | number; currency: string } {
+export function isMonetary(value: unknown): value is { amount: string; currency: string } {
   if (!isObject(value)) return false;
   return 'amount' in value && isNumericValue(value.amount) && 'currency' in value && typeof value.currency === 'string';
 }

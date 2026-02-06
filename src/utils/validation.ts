@@ -73,115 +73,107 @@ export function validateOptionalString(value: unknown, fieldPath: string): strin
 // ===== Numeric Validation =====
 
 /**
- * Validate that a value is a valid numeric (number or numeric string).
+ * Validate that a value is a valid numeric string.
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {OcpValidationError} if the value is not a valid numeric
+ * @throws {OcpValidationError} if the value is not a valid numeric string
  */
-export function validateRequiredNumeric(value: unknown, fieldPath: string): asserts value is string | number {
-  if (typeof value === 'number') {
-    if (Number.isNaN(value)) {
-      throw new OcpValidationError(fieldPath, 'Numeric field cannot be NaN', {
-        expectedType: 'valid number',
-        receivedValue: value,
-        code: OcpErrorCodes.INVALID_TYPE,
-      });
-    }
-    return;
+export function validateRequiredNumeric(value: unknown, fieldPath: string): asserts value is string {
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, 'Numeric field must be a string', {
+      expectedType: 'numeric string',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
   }
-  if (typeof value === 'string') {
-    if (value.length === 0) {
-      throw new OcpValidationError(fieldPath, 'Numeric string cannot be empty', {
-        expectedType: 'non-empty numeric string',
-        receivedValue: value,
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      });
-    }
-    const num = Number(value);
-    if (Number.isNaN(num)) {
-      throw new OcpValidationError(fieldPath, 'String must represent a valid number', {
-        expectedType: 'valid numeric string',
-        receivedValue: value,
-        code: OcpErrorCodes.INVALID_FORMAT,
-      });
-    }
-    return;
+  if (value.length === 0) {
+    throw new OcpValidationError(fieldPath, 'Numeric string cannot be empty', {
+      expectedType: 'non-empty numeric string',
+      receivedValue: value,
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
-  throw new OcpValidationError(fieldPath, 'Field must be a number or numeric string', {
-    expectedType: 'number or numeric string',
-    receivedValue: value,
-    code: OcpErrorCodes.INVALID_TYPE,
-  });
+  // Strict decimal format: no whitespace, no scientific notation
+  if (!/^-?\d+(\.\d+)?$/.test(value)) {
+    throw new OcpValidationError(fieldPath, 'String must be a valid decimal numeric format (no scientific notation)', {
+      expectedType: 'decimal numeric string (e.g. "100", "3.14", "-50")',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
 }
 
 /**
- * Validate and convert a numeric value to string for DAML.
+ * Validate an optional numeric string for DAML.
  * Returns null for undefined/null values.
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @returns The numeric value as a string, or null
+ * @returns The numeric string value, or null
  */
 export function validateOptionalNumeric(value: unknown, fieldPath: string): string | null {
   if (value === undefined || value === null) {
     return null;
   }
   validateRequiredNumeric(value, fieldPath);
-  return typeof value === 'number' ? value.toString() : value;
+  return value;
 }
 
 /**
- * Validate that a numeric value is within a range (inclusive).
+ * Validate that a numeric string value is within a range (inclusive).
  *
- * @param value - The value to validate
+ * @param value - The numeric string value to validate
  * @param fieldPath - Dot-notation path for error messages
  * @param min - Minimum allowed value
  * @param max - Maximum allowed value
- * @throws {OcpValidationError} if the value is outside the range
+ * @throws {OcpValidationError} if the value is not a valid numeric string or outside the range
  */
-export function validateNumericRange(value: number | string, fieldPath: string, min: number, max: number): void {
-  const num = typeof value === 'string' ? Number(value) : value;
+export function validateNumericRange(value: string, fieldPath: string, min: number, max: number): void {
+  validateRequiredNumeric(value, fieldPath);
+  const num = Number(value);
   if (num < min || num > max) {
     throw new OcpValidationError(fieldPath, `Value must be between ${min} and ${max}`, {
-      expectedType: `number between ${min} and ${max}`,
-      receivedValue: num,
+      expectedType: `numeric string between ${min} and ${max}`,
+      receivedValue: value,
       code: OcpErrorCodes.OUT_OF_RANGE,
     });
   }
 }
 
 /**
- * Validate that a numeric value is positive (> 0).
+ * Validate that a numeric string value is positive (> 0).
  *
- * @param value - The value to validate
+ * @param value - The numeric string value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {OcpValidationError} if the value is not positive
+ * @throws {OcpValidationError} if the value is not a valid numeric string or not positive
  */
-export function validatePositiveNumeric(value: number | string, fieldPath: string): void {
-  const num = typeof value === 'string' ? Number(value) : value;
+export function validatePositiveNumeric(value: string, fieldPath: string): void {
+  validateRequiredNumeric(value, fieldPath);
+  const num = Number(value);
   if (num <= 0) {
     throw new OcpValidationError(fieldPath, 'Value must be positive (> 0)', {
-      expectedType: 'positive number (> 0)',
-      receivedValue: num,
+      expectedType: 'positive numeric string (> 0)',
+      receivedValue: value,
       code: OcpErrorCodes.OUT_OF_RANGE,
     });
   }
 }
 
 /**
- * Validate that a numeric value is non-negative (>= 0).
+ * Validate that a numeric string value is non-negative (>= 0).
  *
- * @param value - The value to validate
+ * @param value - The numeric string value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {OcpValidationError} if the value is negative
+ * @throws {OcpValidationError} if the value is not a valid numeric string or negative
  */
-export function validateNonNegativeNumeric(value: number | string, fieldPath: string): void {
-  const num = typeof value === 'string' ? Number(value) : value;
+export function validateNonNegativeNumeric(value: string, fieldPath: string): void {
+  validateRequiredNumeric(value, fieldPath);
+  const num = Number(value);
   if (num < 0) {
     throw new OcpValidationError(fieldPath, 'Value must be non-negative (>= 0)', {
-      expectedType: 'non-negative number (>= 0)',
-      receivedValue: num,
+      expectedType: 'non-negative numeric string (>= 0)',
+      receivedValue: value,
       code: OcpErrorCodes.OUT_OF_RANGE,
     });
   }
@@ -405,10 +397,9 @@ export function validateOptionalMonetary(value: unknown, fieldPath: string): Val
     return null;
   }
   validateRequiredMonetary(value, fieldPath);
-  const obj = value as { amount: string | number; currency: string };
   return {
-    amount: typeof obj.amount === 'number' ? obj.amount.toString() : obj.amount,
-    currency: obj.currency,
+    amount: value.amount,
+    currency: value.currency,
   };
 }
 

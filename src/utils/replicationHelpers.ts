@@ -12,9 +12,8 @@
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
-import { areOcfObjectsEquivalent } from './deprecatedFieldNormalization';
-import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS } from './ocfComparison';
-import { normalizeEntityType, normalizeObjectType } from './planSecurityAliases';
+import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
+import { normalizeEntityType, normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
 
 // ============================================================================
 // OcfEntityType Validation
@@ -240,11 +239,6 @@ export function mapCategorizedTypeToEntityType(categoryType: string, subtype: st
 
   return null;
 }
-
-/**
- * @deprecated Use `mapCategorizedTypeToEntityType` instead. This alias will be removed in a future version.
- */
-export const mapDbTypeToEntityType = mapCategorizedTypeToEntityType;
 
 // ============================================================================
 // Human-Readable Labels
@@ -586,6 +580,7 @@ export interface ComputeReplicationDiffOptions {
  * // diff.deletes = items in Canton but not source
  * ```
  */
+
 export function computeReplicationDiff(
   sourceItems: Array<{ ocfId: string; entityType: OcfEntityType; data: unknown }>,
   cantonState: CapTableState,
@@ -692,10 +687,14 @@ export function computeReplicationDiff(
         );
       }
 
+      // Normalize both objects before comparison:
+      // - object_type aliases (TX_PLAN_SECURITY_* → TX_EQUITY_COMPENSATION_*)
+      // - quantity_source defaults (add/strip UNSPECIFIED based on quantity presence)
+      const normalizedSourceData = normalizeOcfData(item.data as Record<string, unknown>);
+      const normalizedCantonData = normalizeOcfData(cantonItemData);
+
       // Compare source data with Canton data using semantic OCF equality
-      // Uses areOcfObjectsEquivalent which normalizes object_type (e.g., TX_PLAN_SECURITY_* → TX_EQUITY_COMPENSATION_*)
-      // before comparison, preventing false positives from alias variants
-      const isEqual = areOcfObjectsEquivalent(item.data as Record<string, unknown>, cantonItemData, comparisonOptions);
+      const isEqual = ocfDeepEqual(normalizedSourceData, normalizedCantonData, comparisonOptions);
 
       if (!isEqual) {
         // Data differs → EDIT

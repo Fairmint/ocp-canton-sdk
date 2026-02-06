@@ -49,7 +49,7 @@ export async function getWarrantExerciseAsOcf(
   const event: OcfWarrantExerciseEvent = {
     object_type: 'TX_WARRANT_EXERCISE',
     ...native,
-    quantity: native.quantity as string,
+    quantity: native.quantity,
   };
 
   return { event, contractId: params.contractId };

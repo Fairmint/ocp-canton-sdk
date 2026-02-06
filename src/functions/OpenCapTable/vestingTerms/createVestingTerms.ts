@@ -248,8 +248,8 @@ function vestingConditionPortionToDaml(
   p: VestingConditionPortion
 ): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion {
   return {
-    numerator: typeof p.numerator === 'number' ? p.numerator.toString() : p.numerator,
-    denominator: typeof p.denominator === 'number' ? p.denominator.toString() : p.denominator,
+    numerator: p.numerator,
+    denominator: p.denominator,
     remainder: p.remainder,
   };
 }
@@ -264,7 +264,7 @@ function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.OCF.
           value: vestingConditionPortionToDaml(c.portion),
         } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition['portion'])
       : null,
-    quantity: c.quantity !== undefined ? (typeof c.quantity === 'number' ? c.quantity.toString() : c.quantity) : null,
+    quantity: c.quantity ?? null,
     trigger: vestingTriggerToDaml(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };

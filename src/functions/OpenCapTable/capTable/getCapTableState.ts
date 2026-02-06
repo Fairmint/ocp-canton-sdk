@@ -272,10 +272,7 @@ export async function getCapTableState(
     const fieldData = payload[field];
 
     if (fieldData) {
-      // DAML Map can be serialized as either:
-      // - Array format (JSON API v2): [[key, value], [key, value], ...]
-      // - Object format: {key: value, ...}
-      // parseDamlMap handles both formats
+      // DAML Map is serialized as array of tuples: [[key, value], [key, value], ...]
       const entries = parseDamlMap<string, string>(fieldData);
 
       if (entries.length > 0) {

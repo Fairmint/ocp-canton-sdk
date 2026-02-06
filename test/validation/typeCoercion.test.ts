@@ -18,21 +18,10 @@ import {
 
 describe('Type Coercion Utilities', () => {
   describe('numberToString', () => {
-    test('converts number to string', () => {
-      expect(numberToString(42)).toBe('42');
-      expect(numberToString(0)).toBe('0');
-      expect(numberToString(-123.45)).toBe('-123.45');
-    });
-
     test('returns string as-is', () => {
       expect(numberToString('42')).toBe('42');
       expect(numberToString('0')).toBe('0');
       expect(numberToString('-123.45')).toBe('-123.45');
-    });
-
-    test('handles edge cases', () => {
-      expect(numberToString(Number.MAX_SAFE_INTEGER)).toBe('9007199254740991');
-      expect(numberToString(0.1)).toBe('0.1');
     });
   });
 
@@ -70,20 +59,16 @@ describe('Type Coercion Utilities', () => {
   });
 
   describe('optionalNumberToString', () => {
-    test('converts number to string', () => {
-      expect(optionalNumberToString(42)).toBe('42');
-    });
-
     test('returns string as-is', () => {
       expect(optionalNumberToString('42')).toBe('42');
     });
 
-    test('returns undefined for null', () => {
-      expect(optionalNumberToString(null)).toBeUndefined();
+    test('returns null for null', () => {
+      expect(optionalNumberToString(null)).toBeNull();
     });
 
-    test('returns undefined for undefined', () => {
-      expect(optionalNumberToString(undefined)).toBeUndefined();
+    test('returns null for undefined', () => {
+      expect(optionalNumberToString(undefined)).toBeNull();
     });
   });
 
@@ -142,17 +127,13 @@ describe('Type Coercion Utilities', () => {
       expect(safeString('hello')).toBe('hello');
     });
 
-    test('converts number to string', () => {
-      expect(safeString(42)).toBe('42');
+    test('throws for number', () => {
+      expect(() => safeString(42)).toThrow();
     });
 
-    test('extracts tag from DAML tagged unions', () => {
-      expect(safeString({ tag: 'SomeTag' })).toBe('SomeTag');
-    });
-
-    test('returns empty string for objects without tag', () => {
-      expect(safeString({ foo: 'bar' })).toBe('');
-      expect(safeString([])).toBe('');
+    test('throws for objects', () => {
+      expect(() => safeString({ tag: 'SomeTag' })).toThrow();
+      expect(() => safeString({ foo: 'bar' })).toThrow();
     });
   });
 });

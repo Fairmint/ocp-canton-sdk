@@ -69,23 +69,19 @@ describe('getCapTableState', () => {
                 // This is the correct field name per Canton JSON API v2
                 createArgument: {
                   issuer: 'issuer-contract-456',
-                  stakeholders: {
-                    'stakeholder-1': 'stakeholder-contract-1',
-                    'stakeholder-2': 'stakeholder-contract-2',
-                  },
-                  stock_classes: {
-                    'stock-class-1': 'stock-class-contract-1',
-                  },
-                  stock_plans: {},
-                  vesting_terms: {},
-                  stock_legend_templates: {},
-                  documents: {},
-                  valuations: {},
-                  stock_issuances: {
-                    'stock-issuance-1': 'stock-issuance-contract-1',
-                  },
-                  stock_cancellations: {},
-                  stock_transfers: {},
+                  stakeholders: [
+                    ['stakeholder-1', 'stakeholder-contract-1'],
+                    ['stakeholder-2', 'stakeholder-contract-2'],
+                  ],
+                  stock_classes: [['stock-class-1', 'stock-class-contract-1']],
+                  stock_plans: [],
+                  vesting_terms: [],
+                  stock_legend_templates: [],
+                  documents: [],
+                  valuations: [],
+                  stock_issuances: [['stock-issuance-1', 'stock-issuance-contract-1']],
+                  stock_cancellations: [],
+                  stock_transfers: [],
                   // ... other empty fields
                 },
                 createdEventBlob: 'blob-data',
@@ -275,9 +271,9 @@ describe('getCapTableState', () => {
                 templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
                 createArgument: {
                   issuer: 'issuer-contract-456',
-                  stakeholders: {},
-                  stock_classes: {},
-                  stock_plans: {},
+                  stakeholders: [],
+                  stock_classes: [],
+                  stock_plans: [],
                   // All entity maps are empty
                 },
                 createdEventBlob: 'blob-data',
@@ -328,9 +324,7 @@ describe('getCapTableState', () => {
                 templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
                 createArgument: {
                   issuer: 'issuer-contract-456',
-                  stakeholders: {
-                    'stakeholder-1': 'stakeholder-contract-1',
-                  },
+                  stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
                 },
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
@@ -379,9 +373,7 @@ describe('getCapTableState', () => {
                 templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
                 createArgument: {
                   issuer: 'issuer-contract-456',
-                  stakeholders: {
-                    'stakeholder-1': 'stakeholder-contract-1',
-                  },
+                  stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
                 },
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
@@ -447,9 +439,7 @@ describe('getCapTableState', () => {
                 templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
                 createArgument: {
                   issuer: 'issuer-contract-456',
-                  stakeholders: {
-                    'stakeholder-1': 'stakeholder-contract-1',
-                  },
+                  stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
                 },
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
@@ -515,9 +505,7 @@ describe('getCapTableState', () => {
                 templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
                 createArgument: {
                   issuer: 'issuer-contract-456',
-                  stakeholders: {
-                    'stakeholder-1': 'stakeholder-contract-1',
-                  },
+                  stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
                 },
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
@@ -577,9 +565,7 @@ describe('getCapTableState', () => {
           contractId: 'legacy-cap-table-123',
           payload: {
             issuer: 'legacy-issuer-456',
-            stakeholders: {
-              'legacy-stakeholder-1': 'legacy-stakeholder-contract-1',
-            },
+            stakeholders: [['legacy-stakeholder-1', 'legacy-stakeholder-contract-1']],
           },
         },
       ];
@@ -625,14 +611,12 @@ describe('getCapTableState', () => {
           contractId: 'legacy-cap-table-789',
           payload: {
             issuer: 'legacy-issuer-contract',
-            stakeholders: {
-              'sh-1': 'sh-contract-1',
-              'sh-2': 'sh-contract-2',
-            },
-            stock_classes: {
-              'sc-1': 'sc-contract-1',
-            },
-            stock_issuances: {},
+            stakeholders: [
+              ['sh-1', 'sh-contract-1'],
+              ['sh-2', 'sh-contract-2'],
+            ],
+            stock_classes: [['sc-1', 'sc-contract-1']],
+            stock_issuances: [],
           },
         },
       ];
@@ -680,12 +664,8 @@ describe('getCapTableState', () => {
           contract: {
             payload: {
               issuer: 'nested-legacy-issuer',
-              stakeholders: {
-                'nested-sh-1': 'nested-sh-contract-1',
-              },
-              stock_plans: {
-                'plan-1': 'plan-contract-1',
-              },
+              stakeholders: [['nested-sh-1', 'nested-sh-contract-1']],
+              stock_plans: [['plan-1', 'plan-contract-1']],
             },
           },
         },

@@ -7,7 +7,7 @@
 
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
 
 // ===== Date and Time Conversion Helpers =====
@@ -39,9 +39,14 @@ export function damlTimeToDateString(timeString: string): string {
   return timeString.split('T')[0];
 }
 
-/** Convert a number or string to a string Used for DAML numeric fields that require string values */
-export function numberToString(value: number | string): string {
-  return typeof value === 'number' ? value.toString() : value;
+/**
+ * Pass through a numeric string for DAML fields (identity function).
+ *
+ * @deprecated Use string values directly. This is a no-op kept for
+ * internal compatibility and will be removed in a future version.
+ */
+export function numberToString(value: string): string {
+  return value;
 }
 
 /**
@@ -51,7 +56,14 @@ export function numberToString(value: number | string): string {
  *
  * @throws OcpValidationError if the string contains scientific notation (e.g., "1.5e10") or is not a valid numeric string
  */
-export function normalizeNumericString(value: string): string {
+export function normalizeNumericString(value: string | number): string {
+  // DAML Numeric values may arrive as JavaScript numbers at runtime
+  // despite being typed as string in the generated package types.
+  // Coerce to string at this boundary.
+  if (typeof value === 'number') {
+    return normalizeNumericString(value.toString());
+  }
+
   // Validate: reject scientific notation
   if (value.toLowerCase().includes('e')) {
     throw new OcpValidationError('numericString', `Scientific notation is not supported`, {
@@ -88,12 +100,12 @@ export function normalizeNumericString(value: string): string {
 }
 
 /**
- * Convert a number, string, null or undefined to a string or undefined Used for optional DAML numeric fields that
- * require string values
+ * Pass through an optional numeric string for DAML fields.
+ * Returns null for null/undefined values (DAML optional field semantics).
  */
-export function optionalNumberToString(value: number | string | null | undefined): string | undefined {
-  if (value === null || value === undefined) return undefined;
-  return typeof value === 'number' ? value.toString() : value;
+export function optionalNumberToString(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  return value;
 }
 
 /**
@@ -105,21 +117,19 @@ export function optionalString(value: string | null | undefined): string | null 
 }
 
 /**
- * Safely convert an unknown value to a string Returns empty string if value is null, undefined, or not a string/number
- * Used when parsing DAML values that might be in various formats
+ * Convert an unknown value to a string, returning empty string for null/undefined.
+ * Throws for non-string types (numbers, objects, etc.) to prevent silent coercion.
+ *
+ * Used internally for DAML optional enum fields where null means "not set".
  */
 export function safeString(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
-  if (typeof value === 'number') return value.toString();
-  // For objects, try to get a meaningful string representation
-  if (typeof value === 'object') {
-    // Handle DAML tagged unions
-    if ('tag' in value && typeof (value as { tag?: unknown }).tag === 'string') {
-      return (value as { tag: string }).tag;
-    }
-  }
-  return '';
+  throw new OcpValidationError('safeString', `Expected a string value, got ${typeof value}`, {
+    code: OcpErrorCodes.INVALID_TYPE,
+    expectedType: 'string',
+    receivedValue: value,
+  });
 }
 
 // ===== DAML Enum Conversions =====
@@ -145,7 +155,7 @@ export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
 
 export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.Monetary.OcfMonetary {
   return {
-    amount: typeof monetary.amount === 'number' ? monetary.amount.toString() : monetary.amount,
+    amount: monetary.amount,
     currency: monetary.currency,
   };
 }
@@ -159,8 +169,7 @@ export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.M
 
 /**
  * Convert DAML monetary data to native OCF format with validation.
- * This function handles untyped data from DAML contract responses and validates
- * that amount and currency fields are present and correctly typed.
+ * Validates that amount and currency fields are present and correctly typed.
  *
  * @param monetary - The raw monetary object (or null/undefined)
  * @returns The validated native monetary object, or undefined if input is null/undefined
@@ -171,24 +180,20 @@ export function damlMonetaryToNativeWithValidation(
 ): Monetary | undefined {
   if (!monetary) return undefined;
 
-  // Validate amount exists and is string or number
+  // Validate amount exists and is string
   if (monetary.amount === undefined || monetary.amount === null) {
     throw new OcpValidationError('monetary.amount', 'Monetary amount is required but was undefined or null', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string | number',
+      expectedType: 'string',
       receivedValue: monetary.amount,
     });
   }
-  if (typeof monetary.amount !== 'string' && typeof monetary.amount !== 'number') {
-    throw new OcpValidationError(
-      'monetary.amount',
-      `Monetary amount must be string or number, got ${typeof monetary.amount}`,
-      {
-        code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'string | number',
-        receivedValue: monetary.amount,
-      }
-    );
+  if (typeof monetary.amount !== 'string') {
+    throw new OcpValidationError('monetary.amount', `Monetary amount must be a string, got ${typeof monetary.amount}`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string',
+      receivedValue: monetary.amount,
+    });
   }
 
   // Validate currency exists and is string
@@ -200,9 +205,7 @@ export function damlMonetaryToNativeWithValidation(
     });
   }
 
-  const amount = normalizeNumericString(
-    typeof monetary.amount === 'number' ? monetary.amount.toString() : monetary.amount
-  );
+  const amount = normalizeNumericString(monetary.amount);
   return { amount, currency: monetary.currency };
 }
 
@@ -211,28 +214,37 @@ export function damlMonetaryToNativeWithValidation(
 /** DAML type for OcfInitialSharesAuthorized union */
 type DamlInitialSharesAuthorized = Fairmint.OpenCapTable.Types.Stock.OcfInitialSharesAuthorized;
 
-/** DAML type for OcfAuthorizedShares enum */
-type DamlAuthorizedShares = Fairmint.OpenCapTable.Types.Stock.OcfAuthorizedShares;
-
 /**
  * Convert initial_shares_authorized value to DAML tagged union format.
  * V30 DAML contracts use OcfInitialSharesAuthorized union type:
  * - OcfInitialSharesNumeric Decimal - for numeric values
  * - OcfInitialSharesEnum - for "UNLIMITED" or "NOT_APPLICABLE"
  *
- * @param value - Native value (number, numeric string, or "UNLIMITED"/"NOT_APPLICABLE")
+ * @param value - Numeric string, or "UNLIMITED"/"NOT_APPLICABLE"
  * @returns DAML-formatted discriminated union
  */
-export function initialSharesAuthorizedToDaml(value: string | number): DamlInitialSharesAuthorized {
-  if (typeof value === 'number' || (typeof value === 'string' && /^\d+(\.\d+)?$/.test(value))) {
+export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesAuthorized {
+  if (/^\d+(\.\d+)?$/.test(value)) {
     return {
       tag: 'OcfInitialSharesNumeric',
-      value: typeof value === 'number' ? value.toString() : value,
+      value,
     };
   }
-  const enumValue: DamlAuthorizedShares =
-    value === 'UNLIMITED' ? 'OcfAuthorizedSharesUnlimited' : 'OcfAuthorizedSharesNotApplicable';
-  return { tag: 'OcfInitialSharesEnum', value: enumValue };
+  if (value === 'UNLIMITED') {
+    return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
+  }
+  if (value === 'NOT_APPLICABLE') {
+    return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
+  }
+  throw new OcpValidationError(
+    'initial_shares_authorized',
+    `Expected numeric string, "UNLIMITED", or "NOT_APPLICABLE", got "${value}"`,
+    {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'numeric string | "UNLIMITED" | "NOT_APPLICABLE"',
+      receivedValue: value,
+    }
+  );
 }
 
 // ===== Address Conversions =====
@@ -300,30 +312,20 @@ export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Mon
 // ===== DAML Map Helpers =====
 
 /**
- * Parse a DAML Map from JSON API response.
+ * Parse a DAML Map from JSON API v2 response.
  *
- * DAML Maps can be serialized in two formats depending on the JSON API version:
- * - **Array format (JSON API v2)**: `[[key1, value1], [key2, value2], ...]`
- * - **Object format**: `{key1: value1, key2: value2, ...}`
+ * DAML Maps are serialized as arrays of key-value tuples:
+ * `[[key1, value1], [key2, value2], ...]`
  *
- * This function normalizes both formats to an array of key-value tuples
- * that can be used with `new Map(entries)` or `Object.fromEntries(entries)`.
- *
- * @param data - Raw DAML Map data from JSON API response (may be array or object)
+ * @param data - Raw DAML Map data from JSON API response (array of tuples)
  * @returns Array of [key, value] tuples, or empty array if data is null/undefined
- * @throws OcpParseError if the data format is invalid (non-array, non-object, or malformed entries)
+ * @throws OcpParseError if the data format is invalid
  *
  * @example
  * ```typescript
- * // JSON API v2 format (array of tuples)
  * const arrayData = [['id1', 'contract1'], ['id2', 'contract2']];
  * parseDamlMap(arrayData); // Returns [['id1', 'contract1'], ['id2', 'contract2']]
  *
- * // Object format
- * const objectData = { id1: 'contract1', id2: 'contract2' };
- * parseDamlMap(objectData); // Returns [['id1', 'contract1'], ['id2', 'contract2']]
- *
- * // Converting to Map
  * const entries = parseDamlMap(data);
  * const map = new Map(entries);
  * ```
@@ -333,35 +335,25 @@ export function parseDamlMap<K extends string, V>(data: unknown): Array<[K, V]> 
     return [];
   }
 
-  if (Array.isArray(data)) {
-    // JSON API v2 format: [[key, value], [key, value], ...]
-    // Validate each entry and throw on malformed data to avoid silent data loss
-    return data.map((entry, index) => {
-      if (!Array.isArray(entry) || entry.length !== 2) {
-        throw new OcpParseError(`parseDamlMap: Invalid entry at index ${index} - expected [key, value] tuple`, {
-          code: OcpErrorCodes.INVALID_FORMAT,
-        });
-      }
-      const [key, value] = entry as [unknown, unknown];
-      if (typeof key !== 'string') {
-        throw new OcpParseError(
-          `parseDamlMap: Invalid key type at index ${index} - expected string, got ${typeof key}`,
-          {
-            code: OcpErrorCodes.INVALID_TYPE,
-          }
-        );
-      }
-      return [key as K, value as V];
+  if (!Array.isArray(data)) {
+    throw new OcpParseError(`parseDamlMap: Expected array of tuples, got ${typeof data}`, {
+      code: OcpErrorCodes.INVALID_TYPE,
     });
   }
 
-  if (typeof data === 'object') {
-    // Object format: {key: value, ...}
-    return Object.entries(data) as Array<[K, V]>;
-  }
-
-  throw new OcpParseError(`parseDamlMap: Invalid data format - expected array or object, got ${typeof data}`, {
-    code: OcpErrorCodes.INVALID_TYPE,
+  return data.map((entry, index) => {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      throw new OcpParseError(`parseDamlMap: Invalid entry at index ${index} - expected [key, value] tuple`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+      });
+    }
+    const [key, value] = entry as [unknown, unknown];
+    if (typeof key !== 'string') {
+      throw new OcpParseError(`parseDamlMap: Invalid key type at index ${index} - expected string, got ${typeof key}`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+      });
+    }
+    return [key as K, value as V];
   });
 }
 
@@ -391,14 +383,13 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
   return [];
 }
 
-/** Remove empty string entries from comments array (mutates in place and returns the object) */
+/**
+ * Filter out empty string entries from a comments array.
+ * Defensively handles null values that may appear at runtime despite TypeScript types.
+ */
 export function cleanComments(comments?: Array<string | null>): string[] {
-  if (Array.isArray(comments)) {
-    const filtered = comments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
-    return filtered.length > 0 ? filtered : [];
-  }
-
-  return [];
+  if (!comments) return [];
+  return comments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
 }
 
 // ===== Shared DAML-to-Native Transfer/Cancellation Helpers =====
@@ -503,24 +494,12 @@ export function quantityCancellationToNative(d: DamlQuantityCancellationData): N
 // ===== Transaction Response Helpers =====
 
 /**
- * Extract updateId from a transaction tree response. The updateId can be at different paths depending on the Canton
- * version. This function checks both possible locations in a type-safe way.
+ * Extract updateId from a transaction tree response.
+ *
+ * @deprecated Access response.transactionTree.updateId directly.
+ * Kept temporarily for backward compatibility but all internal callers should
+ * migrate to direct property access.
  */
 export function extractUpdateId(response: SubmitAndWaitForTransactionTreeResponse): string {
-  const tree = response.transactionTree as Record<string, unknown>;
-
-  // Try direct updateId first
-  if (typeof tree.updateId === 'string') {
-    return tree.updateId;
-  }
-
-  // Try transaction.updateId as fallback
-  const transaction = tree.transaction as Record<string, unknown> | undefined;
-  if (transaction && typeof transaction.updateId === 'string') {
-    return transaction.updateId;
-  }
-
-  throw new OcpContractError('updateId not found in transaction tree', {
-    code: OcpErrorCodes.RESULT_NOT_FOUND,
-  });
+  return response.transactionTree.updateId;
 }

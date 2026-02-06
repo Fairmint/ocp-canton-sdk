@@ -99,7 +99,7 @@ export function equityCompensationIssuanceDataToDaml(
     expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
     termination_exercise_windows: (d.termination_exercise_windows ?? []).map((w) => ({
       reason: terminationWindowReasonMap[w.reason],
-      period: numberToString(w.period),
+      period: w.period.toString(),
       period_type: terminationWindowPeriodTypeMap[w.period_type],
     })),
     comments: cleanComments(d.comments),

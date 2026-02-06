@@ -2,13 +2,13 @@
  * Unit tests for WarrantIssuance round-trip conversion.
  *
  * Verifies that OCF data survives the OCF -> DAML -> OCF round-trip and
- * is considered equivalent by areOcfObjectsEquivalent. This prevents
+ * is considered equivalent by ocfDeepEqual. This prevents
  * infinite edit loops in the replication script.
  */
 
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
-import { areOcfObjectsEquivalent } from '../../src/utils/deprecatedFieldNormalization';
+import { ocfDeepEqual } from '../../src/utils/ocfComparison';
 
 /** Helper: round-trip OCF data through DAML and back to OCF */
 function roundTrip(ocfInput: Parameters<typeof warrantIssuanceDataToDaml>[0]): Record<string, unknown> {
@@ -51,7 +51,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...baseWarrantIssuance } as Record<string, unknown>;
     const cantonData = roundTrip(baseWarrantIssuance);
 
-    expect(areOcfObjectsEquivalent(dbData, cantonData)).toBe(true);
+    expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
   });
 
   test('warrant issuance with numeric amount as JS number survives round-trip', () => {
@@ -63,7 +63,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     };
     const cantonData = roundTrip(baseWarrantIssuance);
 
-    expect(areOcfObjectsEquivalent(dbData as Record<string, unknown>, cantonData)).toBe(true);
+    expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
 
   test('warrant issuance with undefined quantity and no quantity_source survives round-trip', () => {
@@ -71,7 +71,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input };
     const cantonData = roundTrip(input);
 
-    expect(areOcfObjectsEquivalent(dbData, cantonData)).toBe(true);
+    expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
   });
 
   test('warrant issuance with explicit null quantity and no quantity_source survives round-trip', () => {
@@ -82,7 +82,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input } as Record<string, unknown>;
     const cantonData = roundTrip(input);
 
-    expect(areOcfObjectsEquivalent(dbData, cantonData)).toBe(true);
+    expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
   });
 
   test('warrant issuance with null quantity and UNSPECIFIED quantity_source survives round-trip', () => {
@@ -93,7 +93,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input };
     const cantonData = roundTrip(input);
 
-    expect(areOcfObjectsEquivalent(dbData as Record<string, unknown>, cantonData)).toBe(true);
+    expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
 
   test('warrant issuance with quantity and quantity_source survives round-trip', () => {
@@ -105,7 +105,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input };
     const cantonData = roundTrip(input);
 
-    expect(areOcfObjectsEquivalent(dbData as Record<string, unknown>, cantonData)).toBe(true);
+    expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
 
   test('warrant issuance with empty comments array survives round-trip', () => {
@@ -113,7 +113,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input };
     const cantonData = roundTrip(input);
 
-    expect(areOcfObjectsEquivalent(dbData, cantonData)).toBe(true);
+    expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
   });
 
   test('warrant issuance with converts_to_future_round: null in DB survives round-trip', () => {
@@ -135,7 +135,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     };
     const cantonData = roundTrip(input);
 
-    expect(areOcfObjectsEquivalent(dbData as Record<string, unknown>, cantonData)).toBe(true);
+    expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
 
   test('warrant issuance with numeric converts_to_quantity as JS number survives round-trip', () => {
@@ -173,6 +173,6 @@ describe('WarrantIssuance round-trip equivalence', () => {
     };
     const cantonData = roundTrip(input);
 
-    expect(areOcfObjectsEquivalent(dbData as Record<string, unknown>, cantonData)).toBe(true);
+    expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
 });

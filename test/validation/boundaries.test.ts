@@ -11,23 +11,17 @@ import { normalizeNumericString, numberToString, optionalString } from '../../sr
 
 describe('Boundary Condition Tests', () => {
   describe('Numeric Boundaries', () => {
-    test('numberToString handles very large numbers', () => {
-      // Maximum safe integer
-      expect(numberToString(Number.MAX_SAFE_INTEGER)).toBe('9007199254740991');
-
-      // Large string numbers (beyond JavaScript safe integer)
+    test('numberToString passes through string values', () => {
+      expect(numberToString('9007199254740991')).toBe('9007199254740991');
       expect(numberToString('99999999999999999999')).toBe('99999999999999999999');
     });
 
     test('numberToString handles zero correctly', () => {
-      expect(numberToString(0)).toBe('0');
       expect(numberToString('0')).toBe('0');
-      expect(numberToString(-0)).toBe('0');
     });
 
-    test('numberToString handles very small decimals', () => {
-      expect(numberToString(0.0001)).toBe('0.0001');
-      expect(numberToString(0.00000001)).toBe('1e-8'); // Note: JavaScript converts to scientific notation
+    test('numberToString handles decimal strings', () => {
+      expect(numberToString('0.0001')).toBe('0.0001');
     });
 
     test('normalizeNumericString handles various precision levels', () => {
@@ -134,7 +128,7 @@ describe('Boundary Condition Tests', () => {
         id: 'sh-comments',
         name: { legal_name: 'Test' },
         stakeholder_type: 'INDIVIDUAL',
-        comments: ['Valid comment', '', 'Another comment', '  ', null as unknown as string],
+        comments: ['Valid comment', '', 'Another comment', '  '],
       };
 
       const result = stakeholderDataToDaml(dataWithComments);

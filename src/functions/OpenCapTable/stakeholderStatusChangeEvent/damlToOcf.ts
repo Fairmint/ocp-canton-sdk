@@ -2,7 +2,7 @@
  * DAML to OCF converters for StakeholderStatusChangeEvent entities.
  */
 
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { OcfStakeholderStatusChangeEvent } from '../../../types';
 import { damlStakeholderStatusToNative } from '../../../utils/enumConversions';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
@@ -15,7 +15,7 @@ export interface DamlStakeholderStatusChangeData {
   id: string;
   date: string;
   stakeholder_id: string;
-  new_status: string;
+  new_status: Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderStatusType;
   comments?: string[];
 }
 
@@ -29,20 +29,11 @@ export interface DamlStakeholderStatusChangeData {
 export function damlStakeholderStatusChangeEventToNative(
   d: DamlStakeholderStatusChangeData
 ): OcfStakeholderStatusChangeEvent {
-  const nativeStatus = damlStakeholderStatusToNative(d.new_status);
-
-  if (nativeStatus === undefined) {
-    throw new OcpParseError(`Unknown stakeholder status: ${d.new_status}`, {
-      source: 'stakeholderStatusChangeEvent.new_status',
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-    });
-  }
-
   return {
     id: d.id,
     date: damlTimeToDateString(d.date),
     stakeholder_id: d.stakeholder_id,
-    new_status: nativeStatus,
+    new_status: damlStakeholderStatusToNative(d.new_status),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }

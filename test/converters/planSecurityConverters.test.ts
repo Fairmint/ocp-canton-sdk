@@ -273,7 +273,7 @@ describe('PlanSecurity Type Converters', () => {
           id: 'pse-numeric',
           date: '2026-03-01',
           security_id: 'sec-numeric',
-          quantity: 5000, // numeric instead of string
+          quantity: '5000',
           resulting_security_ids: ['result-004'],
         };
 
