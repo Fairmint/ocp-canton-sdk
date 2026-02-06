@@ -261,12 +261,13 @@ export function warrantIssuanceDataToDaml(d: {
   vestings?: SimpleVesting[];
   comments?: string[];
 }): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
-  const quantitySourceDaml =
-    d.quantity !== undefined
-      ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
-      : d.quantity_source
-        ? quantitySourceToDamlEnum(d.quantity_source)
-        : null;
+  // Runtime null check: DB JSONB may store quantity as explicit null even though type is string | undefined
+  const hasQuantity = d.quantity != null;
+  const quantitySourceDaml = hasQuantity
+    ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
+    : d.quantity_source
+      ? quantitySourceToDamlEnum(d.quantity_source)
+      : null;
 
   return {
     id: d.id,
@@ -278,7 +279,7 @@ export function warrantIssuanceDataToDaml(d: {
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions,
-    quantity: d.quantity !== undefined ? numberToString(d.quantity) : null,
+    quantity: d.quantity ?? null,
     quantity_source: quantitySourceDaml ?? null,
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),

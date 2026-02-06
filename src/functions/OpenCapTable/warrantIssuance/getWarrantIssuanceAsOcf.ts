@@ -312,10 +312,33 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
     ...(exercise_price ? { exercise_price } : {}),
     purchase_price,
     exercise_triggers,
-    // If quantity provided but quantity_source missing, default to UNSPECIFIED per schema
-    ...(d.quantity !== null && d.quantity !== undefined
-      ? { quantity_source: mapQuantitySource(d.quantity_source) ?? 'UNSPECIFIED' }
-      : {}),
+    // Include quantity_source based on quantity presence and DAML data.
+    // When quantity is present: always include quantity_source (default UNSPECIFIED).
+    // When quantity is absent: only include if DAML explicitly has a non-default value
+    // (the OCF-to-DAML converter can set quantity_source independently of quantity).
+    ...(() => {
+      const mappedQuantitySource =
+        d.quantity_source !== null && d.quantity_source !== undefined
+          ? mapQuantitySource(d.quantity_source)
+          : undefined;
+
+      // Fail fast: if DAML has a quantity_source value but we can't map it, throw
+      if (d.quantity_source !== null && d.quantity_source !== undefined && !mappedQuantitySource) {
+        throw new OcpValidationError('warrantIssuance.quantity_source', 'Invalid quantity_source value', {
+          code: OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'known quantity source',
+          receivedValue: d.quantity_source,
+        });
+      }
+
+      if (d.quantity !== null && d.quantity !== undefined) {
+        return { quantity_source: mappedQuantitySource ?? 'UNSPECIFIED' };
+      }
+      if (mappedQuantitySource) {
+        return { quantity_source: mappedQuantitySource };
+      }
+      return {};
+    })(),
     ...(d.warrant_expiration_date
       ? { warrant_expiration_date: (d.warrant_expiration_date as string).split('T')[0] }
       : {}),
