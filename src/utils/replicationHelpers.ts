@@ -12,8 +12,7 @@
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
-import { areOcfObjectsEquivalent } from './deprecatedFieldNormalization';
-import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS } from './ocfComparison';
+import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
 import { normalizeEntityType, normalizeObjectType } from './planSecurityAliases';
 
 // ============================================================================
@@ -240,10 +239,6 @@ export function mapCategorizedTypeToEntityType(categoryType: string, subtype: st
   return null;
 }
 
-/**
- * @deprecated Use `mapCategorizedTypeToEntityType` instead. This alias will be removed in a future version.
- */
-export const mapDbTypeToEntityType = mapCategorizedTypeToEntityType;
 
 // ============================================================================
 // Human-Readable Labels
@@ -617,9 +612,7 @@ export function computeReplicationDiff(
       }
 
       // Compare source data with Canton data using semantic OCF equality
-      // Uses areOcfObjectsEquivalent which normalizes object_type (e.g., TX_PLAN_SECURITY_* → TX_EQUITY_COMPENSATION_*)
-      // before comparison, preventing false positives from alias variants
-      const isEqual = areOcfObjectsEquivalent(item.data as Record<string, unknown>, cantonItemData, comparisonOptions);
+      const isEqual = ocfDeepEqual(item.data as Record<string, unknown>, cantonItemData, comparisonOptions);
 
       if (!isEqual) {
         // Data differs → EDIT
