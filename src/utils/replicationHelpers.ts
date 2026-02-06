@@ -454,6 +454,19 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
 // ============================================================================
 
 /**
+ * Issuance entity types that enforce security_id uniqueness on Canton.
+ * These types maintain a separate `*_by_security_id` map in the CapTable contract,
+ * and creating two issuances with the same security_id will fail with
+ * "security_id already exists".
+ */
+const ISSUANCE_ENTITY_TYPES: ReadonlySet<OcfEntityType> = new Set([
+  'stockIssuance',
+  'convertibleIssuance',
+  'equityCompensationIssuance',
+  'warrantIssuance',
+]);
+
+/**
  * A single item to be synced to Canton.
  */
 export interface ReplicationItem {
@@ -468,6 +481,22 @@ export interface ReplicationItem {
 }
 
 /**
+ * A security_id conflict detected during diff computation.
+ * This occurs when a proposed CREATE has a security_id that already exists
+ * on Canton under a different object ID.
+ */
+export interface SecurityIdConflict {
+  /** The OCF ID of the source item that would conflict */
+  ocfId: string;
+  /** The entity type of the conflicting item */
+  entityType: OcfEntityType;
+  /** The security_id value that already exists on Canton */
+  securityId: string;
+  /** Human-readable description of the conflict */
+  message: string;
+}
+
+/**
  * Result of comparing source state (desired) to Canton state (actual).
  */
 export interface ReplicationDiff {
@@ -479,6 +508,14 @@ export interface ReplicationDiff {
   deletes: ReplicationItem[];
   /** Total number of operations (creates + edits + deletes) */
   total: number;
+  /**
+   * Security ID conflicts detected in proposed creates.
+   * Each conflict indicates a CREATE that will fail because its security_id
+   * is already taken by a different object on Canton. The conflicting items
+   * are still included in `creates` (they represent real source-vs-Canton diffs),
+   * but callers should handle conflicts before submitting to DAML.
+   */
+  conflicts: SecurityIdConflict[];
 }
 
 /**
@@ -512,6 +549,16 @@ export interface ComputeReplicationDiffOptions {
    * Default: false (opt-in to avoid leaking sensitive data in production logs)
    */
   reportDifferences?: boolean;
+
+  /**
+   * Security IDs currently on Canton, grouped by issuance entity type.
+   * When provided, creates for issuance types (stockIssuance, convertibleIssuance,
+   * equityCompensationIssuance, warrantIssuance) are checked against this map
+   * to detect security_id conflicts before DAML rejects them.
+   *
+   * Populated from `CapTableState.securityIds` (returned by `getCapTableState`).
+   */
+  securityIds?: Map<OcfEntityType, Set<string>>;
 }
 
 /**
@@ -544,11 +591,12 @@ export function computeReplicationDiff(
   cantonState: CapTableState,
   options: ComputeReplicationDiffOptions = {}
 ): ReplicationDiff {
-  const { cantonOcfData, reportDifferences = false } = options;
+  const { cantonOcfData, reportDifferences = false, securityIds } = options;
 
   const creates: ReplicationItem[] = [];
   const edits: ReplicationItem[] = [];
   const deletes: ReplicationItem[] = [];
+  const conflicts: SecurityIdConflict[] = [];
 
   // Track source items by type for delete detection
   const sourceIdsByType = new Map<OcfEntityType, Set<string>>();
@@ -598,6 +646,29 @@ export function computeReplicationDiff(
         operation: 'create',
         data: item.data,
       });
+
+      // Check for security_id conflicts on issuance creates
+      // The DAML contract enforces security_id uniqueness via *_by_security_id maps.
+      // If the source has a new object ID but reuses a security_id already on Canton,
+      // the create will be rejected. Detect this early with an actionable message.
+      if (securityIds && ISSUANCE_ENTITY_TYPES.has(normalizedType)) {
+        const dataObj = item.data as Record<string, unknown> | null | undefined;
+        const securityId = typeof dataObj?.security_id === 'string' ? dataObj.security_id : undefined;
+        if (securityId) {
+          const cantonSecurityIds = securityIds.get(normalizedType);
+          if (cantonSecurityIds?.has(securityId)) {
+            conflicts.push({
+              ocfId: item.ocfId,
+              entityType: normalizedType,
+              securityId,
+              message:
+                `${getEntityTypeLabel(normalizedType, 1)} id="${item.ocfId}" has ` +
+                `security_id="${securityId}" which already exists on Canton under a different ` +
+                `object ID. This indicates duplicate security_id values in the source data.`,
+            });
+          }
+        }
+      }
     } else if (cantonOcfData) {
       // Deep comparison: compare actual OCF data to detect changes
       const cantonTypeData = cantonOcfData.get(normalizedType);
@@ -661,5 +732,6 @@ export function computeReplicationDiff(
     edits,
     deletes,
     total: creates.length + edits.length + deletes.length,
+    conflicts,
   };
 }

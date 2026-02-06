@@ -793,6 +793,121 @@ describe('computeReplicationDiff', () => {
     });
   });
 
+  describe('security_id conflict detection', () => {
+    it('detects conflict when issuance create has security_id already on Canton', () => {
+      const sourceItems = [
+        {
+          ocfId: 'tx-new',
+          entityType: 'stockIssuance' as OcfEntityType,
+          data: { id: 'tx-new', security_id: 'sec-existing', stakeholder_id: 'sh-1' },
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      // Canton already has a different StockIssuance with the same security_id
+      cantonState.securityIds.set('stockIssuance', new Set(['sec-existing']));
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, {
+        securityIds: cantonState.securityIds,
+      });
+
+      // Item still appears in creates (the ocfId IS missing from Canton)
+      expect(diff.creates).toHaveLength(1);
+      expect(diff.creates[0].ocfId).toBe('tx-new');
+      // But conflict is flagged
+      expect(diff.conflicts).toHaveLength(1);
+      expect(diff.conflicts[0].ocfId).toBe('tx-new');
+      expect(diff.conflicts[0].securityId).toBe('sec-existing');
+      expect(diff.conflicts[0].entityType).toBe('stockIssuance');
+      expect(diff.conflicts[0].message).toContain('security_id="sec-existing"');
+      expect(diff.conflicts[0].message).toContain('already exists on Canton');
+    });
+
+    it('detects conflict for convertibleIssuance', () => {
+      const sourceItems = [
+        {
+          ocfId: 'tx-conv',
+          entityType: 'convertibleIssuance' as OcfEntityType,
+          data: { id: 'tx-conv', security_id: 'sec-dup' },
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.securityIds.set('convertibleIssuance', new Set(['sec-dup']));
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, {
+        securityIds: cantonState.securityIds,
+      });
+
+      expect(diff.conflicts).toHaveLength(1);
+      expect(diff.conflicts[0].entityType).toBe('convertibleIssuance');
+    });
+
+    it('no conflict when security_id is new', () => {
+      const sourceItems = [
+        {
+          ocfId: 'tx-new',
+          entityType: 'stockIssuance' as OcfEntityType,
+          data: { id: 'tx-new', security_id: 'sec-new' },
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.securityIds.set('stockIssuance', new Set(['sec-other']));
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, {
+        securityIds: cantonState.securityIds,
+      });
+
+      expect(diff.creates).toHaveLength(1);
+      expect(diff.conflicts).toHaveLength(0);
+    });
+
+    it('no conflict check for non-issuance types', () => {
+      const sourceItems = [
+        {
+          ocfId: 'tx-transfer',
+          entityType: 'stockTransfer' as OcfEntityType,
+          data: { id: 'tx-transfer', security_id: 'sec-existing' },
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      // Even if securityIds has this value, transfers don't enforce uniqueness
+      cantonState.securityIds.set('stockIssuance', new Set(['sec-existing']));
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, {
+        securityIds: cantonState.securityIds,
+      });
+
+      expect(diff.creates).toHaveLength(1);
+      expect(diff.conflicts).toHaveLength(0);
+    });
+
+    it('no conflict check when securityIds option not provided', () => {
+      const sourceItems = [
+        {
+          ocfId: 'tx-new',
+          entityType: 'stockIssuance' as OcfEntityType,
+          data: { id: 'tx-new', security_id: 'sec-existing' },
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.securityIds.set('stockIssuance', new Set(['sec-existing']));
+
+      // No securityIds in options -> no conflict detection
+      const diff = computeReplicationDiff(sourceItems, cantonState);
+
+      expect(diff.creates).toHaveLength(1);
+      expect(diff.conflicts).toHaveLength(0);
+    });
+
+    it('returns empty conflicts array when no conflicts exist', () => {
+      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1' } }];
+      const cantonState = createEmptyCantonState();
+
+      const diff = computeReplicationDiff(sourceItems, cantonState);
+
+      expect(diff.conflicts).toEqual([]);
+    });
+  });
+
   describe('total calculation', () => {
     it('calculates total correctly', () => {
       const sourceItems = [
