@@ -9,7 +9,7 @@ import {
   damlStockClassTypeToNative,
   emailTypeToDaml,
   phoneTypeToDaml,
-  stakeholderRelationshipToDaml,
+  stakeholderRelationshipTypeToDaml,
   stakeholderStatusToDaml,
   stakeholderTypeToDaml,
   stockClassTypeToDaml,
@@ -124,42 +124,38 @@ describe('enumConversions', () => {
     });
   });
 
-  describe('stakeholderRelationshipToDaml', () => {
+  describe('stakeholderRelationshipTypeToDaml', () => {
     test('converts EMPLOYEE to OcfRelEmployee', () => {
-      expect(stakeholderRelationshipToDaml('EMPLOYEE')).toBe('OcfRelEmployee');
+      expect(stakeholderRelationshipTypeToDaml('EMPLOYEE')).toBe('OcfRelEmployee');
     });
 
     test('converts ADVISOR to OcfRelAdvisor', () => {
-      expect(stakeholderRelationshipToDaml('ADVISOR')).toBe('OcfRelAdvisor');
+      expect(stakeholderRelationshipTypeToDaml('ADVISOR')).toBe('OcfRelAdvisor');
     });
 
     test('converts INVESTOR to OcfRelInvestor', () => {
-      expect(stakeholderRelationshipToDaml('INVESTOR')).toBe('OcfRelInvestor');
+      expect(stakeholderRelationshipTypeToDaml('INVESTOR')).toBe('OcfRelInvestor');
     });
 
     test('converts FOUNDER to OcfRelFounder', () => {
-      expect(stakeholderRelationshipToDaml('FOUNDER')).toBe('OcfRelFounder');
+      expect(stakeholderRelationshipTypeToDaml('FOUNDER')).toBe('OcfRelFounder');
     });
 
     test('converts BOARD_MEMBER to OcfRelBoardMember', () => {
-      expect(stakeholderRelationshipToDaml('BOARD_MEMBER')).toBe('OcfRelBoardMember');
+      expect(stakeholderRelationshipTypeToDaml('BOARD_MEMBER')).toBe('OcfRelBoardMember');
     });
 
     test('converts OFFICER to OcfRelOfficer', () => {
-      expect(stakeholderRelationshipToDaml('OFFICER')).toBe('OcfRelOfficer');
+      expect(stakeholderRelationshipTypeToDaml('OFFICER')).toBe('OcfRelOfficer');
     });
 
     test('converts OTHER to OcfRelOther', () => {
-      expect(stakeholderRelationshipToDaml('OTHER')).toBe('OcfRelOther');
+      expect(stakeholderRelationshipTypeToDaml('OTHER')).toBe('OcfRelOther');
     });
 
-    test('handles case-insensitive input', () => {
-      expect(stakeholderRelationshipToDaml('employee')).toBe('OcfRelEmployee');
-      expect(stakeholderRelationshipToDaml('Employee')).toBe('OcfRelEmployee');
-    });
-
-    test('defaults unknown values to OcfRelOther', () => {
-      expect(stakeholderRelationshipToDaml('UNKNOWN')).toBe('OcfRelOther');
+    test('throws for unknown values', () => {
+      // @ts-expect-error Testing runtime behavior with invalid input
+      expect(() => stakeholderRelationshipTypeToDaml('UNKNOWN')).toThrow();
     });
   });
 
@@ -284,8 +280,11 @@ describe('enumConversions', () => {
       );
     });
 
-    test('returns undefined for unknown status', () => {
-      expect(damlStakeholderStatusToNative('UnknownStatus')).toBeUndefined();
+    test('throws for unknown status', () => {
+      // @ts-expect-error Testing runtime behavior with invalid input
+      expect(() => damlStakeholderStatusToNative('UnknownStatus')).toThrow(
+        'Unknown DAML stakeholder status: UnknownStatus'
+      );
     });
   });
 

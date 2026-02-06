@@ -4,7 +4,7 @@ import { validateStakeholderData } from '../../../utils/entityValidators';
 import {
   emailTypeToDaml,
   phoneTypeToDaml,
-  stakeholderRelationshipToDaml,
+  stakeholderRelationshipTypeToDaml,
   stakeholderStatusToDaml,
   stakeholderTypeToDaml,
 } from '../../../utils/enumConversions';
@@ -66,14 +66,6 @@ export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTab
   // Validate input data using the entity validator
   validateStakeholderData(data, 'stakeholder');
 
-  const dataWithSingular = data as OcfStakeholder & { current_relationship?: string };
-  const relationships =
-    (data.current_relationships ?? []).length > 0
-      ? data.current_relationships
-      : dataWithSingular.current_relationship
-        ? [dataWithSingular.current_relationship]
-        : [];
-
   const payload: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData = {
     id: data.id,
     name: nameToDaml(data.name),
@@ -84,7 +76,7 @@ export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTab
     addresses: (data.addresses ?? []).map(addressToDaml),
     tax_ids: data.tax_ids ?? [],
     comments: cleanComments(data.comments),
-    current_relationships: relationships?.map(stakeholderRelationshipToDaml) ?? [],
+    current_relationships: (data.current_relationships ?? []).map(stakeholderRelationshipTypeToDaml),
     current_status: data.current_status ? stakeholderStatusToDaml(data.current_status) : null,
   };
 

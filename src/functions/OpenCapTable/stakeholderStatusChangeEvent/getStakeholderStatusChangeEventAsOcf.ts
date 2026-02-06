@@ -63,19 +63,11 @@ export async function getStakeholderStatusChangeEventAsOcf(
   const contract = res.created.createdEvent.createArgument as DamlStakeholderStatusChangeEventContract;
   const data = contract.status_change_data;
 
-  const convertedStatus = damlStakeholderStatusToNative(data.new_status);
-  if (!convertedStatus) {
-    throw new OcpParseError(`Unknown DAML stakeholder status: ${data.new_status}`, {
-      source: 'stakeholderStatusChange.new_status',
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-    });
-  }
-
   const event: OcfStakeholderStatusChangeEvent = {
     id: data.id,
     date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,
-    new_status: convertedStatus,
+    new_status: damlStakeholderStatusToNative(data.new_status),
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
 

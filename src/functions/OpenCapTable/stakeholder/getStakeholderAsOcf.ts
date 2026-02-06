@@ -83,7 +83,9 @@ export function damlStakeholderDataToNative(
     current_relationships: relationships,
     ...(dAny.current_status
       ? {
-          current_status: damlStakeholderStatusToNative(dAny.current_status as string),
+          current_status: damlStakeholderStatusToNative(
+            dAny.current_status as Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderStatusType
+          ),
         }
       : {}),
     ...(damlData.primary_contact && {
