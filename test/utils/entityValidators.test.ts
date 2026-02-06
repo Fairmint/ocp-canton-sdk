@@ -156,8 +156,8 @@ describe('Entity Validators', () => {
       expect(() => validateMonetaryObject({ amount: '100', currency: 'USD' }, 'price')).not.toThrow();
     });
 
-    it('passes for numeric string amount', () => {
-      expect(() => validateMonetaryObject({ amount: '100', currency: 'USD' }, 'price')).not.toThrow();
+    it('passes for decimal string amount', () => {
+      expect(() => validateMonetaryObject({ amount: '100.50', currency: 'USD' }, 'price')).not.toThrow();
     });
 
     it('throws for missing amount', () => {

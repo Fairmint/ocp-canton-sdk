@@ -63,12 +63,12 @@ describe('Type Coercion Utilities', () => {
       expect(optionalNumberToString('42')).toBe('42');
     });
 
-    test('returns undefined for null', () => {
-      expect(optionalNumberToString(null)).toBeUndefined();
+    test('returns null for null', () => {
+      expect(optionalNumberToString(null)).toBeNull();
     });
 
-    test('returns undefined for undefined', () => {
-      expect(optionalNumberToString(undefined)).toBeUndefined();
+    test('returns null for undefined', () => {
+      expect(optionalNumberToString(undefined)).toBeNull();
     });
   });
 

@@ -127,9 +127,10 @@ export function validateOptionalNumeric(value: unknown, fieldPath: string): stri
  * @param fieldPath - Dot-notation path for error messages
  * @param min - Minimum allowed value
  * @param max - Maximum allowed value
- * @throws {OcpValidationError} if the value is outside the range
+ * @throws {OcpValidationError} if the value is not a valid numeric string or outside the range
  */
 export function validateNumericRange(value: string, fieldPath: string, min: number, max: number): void {
+  validateRequiredNumeric(value, fieldPath);
   const num = Number(value);
   if (num < min || num > max) {
     throw new OcpValidationError(fieldPath, `Value must be between ${min} and ${max}`, {
@@ -145,9 +146,10 @@ export function validateNumericRange(value: string, fieldPath: string, min: numb
  *
  * @param value - The numeric string value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {OcpValidationError} if the value is not positive
+ * @throws {OcpValidationError} if the value is not a valid numeric string or not positive
  */
 export function validatePositiveNumeric(value: string, fieldPath: string): void {
+  validateRequiredNumeric(value, fieldPath);
   const num = Number(value);
   if (num <= 0) {
     throw new OcpValidationError(fieldPath, 'Value must be positive (> 0)', {
@@ -163,9 +165,10 @@ export function validatePositiveNumeric(value: string, fieldPath: string): void 
  *
  * @param value - The numeric string value to validate
  * @param fieldPath - Dot-notation path for error messages
- * @throws {OcpValidationError} if the value is negative
+ * @throws {OcpValidationError} if the value is not a valid numeric string or negative
  */
 export function validateNonNegativeNumeric(value: string, fieldPath: string): void {
+  validateRequiredNumeric(value, fieldPath);
   const num = Number(value);
   if (num < 0) {
     throw new OcpValidationError(fieldPath, 'Value must be non-negative (>= 0)', {

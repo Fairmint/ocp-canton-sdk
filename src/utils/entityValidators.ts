@@ -289,6 +289,17 @@ export function validateIssuerData(data: unknown, fieldPath: string): void {
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
+    if (!/^\d+(\.\d+)?$/.test(shares) && shares !== 'UNLIMITED' && shares !== 'NOT_APPLICABLE') {
+      throw new OcpValidationError(
+        `${fieldPath}.initial_shares_authorized`,
+        'Must be a numeric string, "UNLIMITED", or "NOT_APPLICABLE"',
+        {
+          expectedType: 'numeric string or "UNLIMITED"/"NOT_APPLICABLE"',
+          receivedValue: shares,
+          code: OcpErrorCodes.INVALID_FORMAT,
+        }
+      );
+    }
   }
 
   // Optional comments array
@@ -412,6 +423,17 @@ export function validateStockClassData(data: unknown, fieldPath: string): void {
       receivedValue: shares,
       code: OcpErrorCodes.INVALID_TYPE,
     });
+  }
+  if (!/^\d+(\.\d+)?$/.test(shares) && shares !== 'UNLIMITED' && shares !== 'NOT_APPLICABLE') {
+    throw new OcpValidationError(
+      `${fieldPath}.initial_shares_authorized`,
+      'Must be a numeric string, "UNLIMITED", or "NOT_APPLICABLE"',
+      {
+        expectedType: 'numeric string or "UNLIMITED"/"NOT_APPLICABLE"',
+        receivedValue: shares,
+        code: OcpErrorCodes.INVALID_FORMAT,
+      }
+    );
   }
 
   validateRequiredNumeric(value.seniority, `${fieldPath}.seniority`);

@@ -55,12 +55,11 @@ export function isNonEmptyString(value: unknown): value is string {
 }
 
 /**
- * Check if a value is a valid numeric string.
+ * Check if a value is a valid numeric string (decimal format, no whitespace or scientific notation).
  */
 export function isNumericValue(value: unknown): value is string {
   if (typeof value !== 'string' || value.length === 0) return false;
-  const num = Number(value);
-  return !Number.isNaN(num);
+  return /^-?\d+(\.\d+)?$/.test(value);
 }
 
 /**

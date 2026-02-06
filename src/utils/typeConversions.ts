@@ -94,10 +94,10 @@ export function normalizeNumericString(value: string): string {
 
 /**
  * Pass through an optional numeric string for DAML fields.
- * Returns undefined for null/undefined values.
+ * Returns null for null/undefined values (DAML optional field semantics).
  */
-export function optionalNumberToString(value: string | null | undefined): string | undefined {
-  if (value === null || value === undefined) return undefined;
+export function optionalNumberToString(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
   return value;
 }
 
@@ -207,8 +207,6 @@ export function damlMonetaryToNativeWithValidation(
 /** DAML type for OcfInitialSharesAuthorized union */
 type DamlInitialSharesAuthorized = Fairmint.OpenCapTable.Types.Stock.OcfInitialSharesAuthorized;
 
-/** DAML type for OcfAuthorizedShares enum */
-type DamlAuthorizedShares = Fairmint.OpenCapTable.Types.Stock.OcfAuthorizedShares;
 
 /**
  * Convert initial_shares_authorized value to DAML tagged union format.
@@ -226,9 +224,21 @@ export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesA
       value,
     };
   }
-  const enumValue: DamlAuthorizedShares =
-    value === 'UNLIMITED' ? 'OcfAuthorizedSharesUnlimited' : 'OcfAuthorizedSharesNotApplicable';
-  return { tag: 'OcfInitialSharesEnum', value: enumValue };
+  if (value === 'UNLIMITED') {
+    return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
+  }
+  if (value === 'NOT_APPLICABLE') {
+    return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
+  }
+  throw new OcpValidationError(
+    'initial_shares_authorized',
+    `Expected numeric string, "UNLIMITED", or "NOT_APPLICABLE", got "${value}"`,
+    {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'numeric string | "UNLIMITED" | "NOT_APPLICABLE"',
+      receivedValue: value,
+    }
+  );
 }
 
 // ===== Address Conversions =====

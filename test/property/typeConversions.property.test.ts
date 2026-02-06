@@ -145,9 +145,9 @@ describe('Property-based tests: Type Conversions', () => {
     /**
      * Null and undefined return undefined.
      */
-    test('null and undefined return undefined', () => {
-      expect(optionalNumberToString(null)).toBeUndefined();
-      expect(optionalNumberToString(undefined)).toBeUndefined();
+    test('null and undefined return null', () => {
+      expect(optionalNumberToString(null)).toBeNull();
+      expect(optionalNumberToString(undefined)).toBeNull();
     });
 
     /**
