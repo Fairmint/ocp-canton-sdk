@@ -94,10 +94,10 @@ export function validateRequiredNumeric(value: unknown, fieldPath: string): asse
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const num = Number(value);
-  if (Number.isNaN(num)) {
-    throw new OcpValidationError(fieldPath, 'String must represent a valid number', {
-      expectedType: 'valid numeric string',
+  // Strict decimal format: no whitespace, no scientific notation
+  if (!/^-?\d+(\.\d+)?$/.test(value)) {
+    throw new OcpValidationError(fieldPath, 'String must be a valid decimal numeric format (no scientific notation)', {
+      expectedType: 'decimal numeric string (e.g. "100", "3.14", "-50")',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,
     });
@@ -397,10 +397,9 @@ export function validateOptionalMonetary(value: unknown, fieldPath: string): Val
     return null;
   }
   validateRequiredMonetary(value, fieldPath);
-  const obj = value as { amount: string; currency: string };
   return {
-    amount: obj.amount,
-    currency: obj.currency,
+    amount: value.amount,
+    currency: value.currency,
   };
 }
 

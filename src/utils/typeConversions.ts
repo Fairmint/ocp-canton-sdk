@@ -40,10 +40,10 @@ export function damlTimeToDateString(timeString: string): string {
 }
 
 /**
- * Validate and pass through a numeric string for DAML fields.
+ * Pass through a numeric string for DAML fields (identity function).
  *
- * @deprecated Prefer using string values directly. This function exists only for
- * internal backwards compatibility and will be removed in a future version.
+ * @deprecated Use string values directly. This is a no-op kept for
+ * internal compatibility and will be removed in a future version.
  */
 export function numberToString(value: string): string {
   return value;
@@ -56,12 +56,12 @@ export function numberToString(value: string): string {
  *
  * @throws OcpValidationError if the string contains scientific notation (e.g., "1.5e10") or is not a valid numeric string
  */
-export function normalizeNumericString(value: string): string {
-  // Defensive: DAML Numeric values may arrive as JavaScript numbers at runtime
+export function normalizeNumericString(value: string | number): string {
+  // DAML Numeric values may arrive as JavaScript numbers at runtime
   // despite being typed as string in the generated package types.
-  // Coerce to string at this boundary to prevent TypeError on string methods.
+  // Coerce to string at this boundary.
   if (typeof value === 'number') {
-    value = (value as unknown as number).toString();
+    return normalizeNumericString(value.toString());
   }
 
   // Validate: reject scientific notation
