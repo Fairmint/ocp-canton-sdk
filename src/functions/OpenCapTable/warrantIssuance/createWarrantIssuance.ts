@@ -258,8 +258,9 @@ export function warrantIssuanceDataToDaml(d: {
   vestings?: SimpleVesting[];
   comments?: string[];
 }): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
-  // Runtime null check: DB JSONB may store quantity as explicit null even though type is string | undefined
-  const hasQuantity = d.quantity != null;
+  // Runtime truthiness check: DB JSONB may store quantity as explicit null or empty string
+  // Must match the truthiness check used for the quantity field itself (d.quantity ? ... : null)
+  const hasQuantity = Boolean(d.quantity);
   const quantitySourceDaml = hasQuantity
     ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
     : d.quantity_source
