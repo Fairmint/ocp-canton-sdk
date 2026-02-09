@@ -1,6 +1,11 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfWarrantTransfer } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  normalizeNumericString,
+  optionalString,
+} from '../../../utils/typeConversions';
 
 export function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string, unknown> {
   if (!d.id) {
@@ -22,7 +27,7 @@ export function warrantTransferDataToDaml(d: OcfWarrantTransfer): Record<string,
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
-    quantity: d.quantity,
+    quantity: normalizeNumericString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,
     balance_security_id: optionalString(d.balance_security_id),
     consideration_text: optionalString(d.consideration_text),

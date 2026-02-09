@@ -1,7 +1,13 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { Monetary } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  monetaryToDaml,
+  normalizeNumericString,
+  optionalString,
+} from '../../../utils/typeConversions';
 
 export interface SimpleVesting {
   date: string;
@@ -270,7 +276,7 @@ export function warrantIssuanceDataToDaml(d: {
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions,
-    quantity: d.quantity ?? null,
+    quantity: d.quantity ? normalizeNumericString(d.quantity) : null,
     quantity_source: quantitySourceDaml ?? null,
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),

@@ -6,7 +6,13 @@ import type {
   StockIssuanceType,
 } from '../../../types';
 import { validateStockIssuanceData } from '../../../utils/entityValidators';
-import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  monetaryToDaml,
+  normalizeNumericString,
+  optionalString,
+} from '../../../utils/typeConversions';
 
 /**
  * Convert native StockIssuanceType to DAML enum value.
@@ -62,7 +68,7 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
         ending_share_number: r.ending_share_number,
       })),
     share_price: monetaryToDaml(d.share_price),
-    quantity: d.quantity,
+    quantity: normalizeNumericString(d.quantity),
     vesting_terms_id: optionalString(d.vesting_terms_id),
     vestings: (d.vestings ?? [])
       .filter((v) => Number(v.amount) > 0)

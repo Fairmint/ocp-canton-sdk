@@ -1,7 +1,13 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  monetaryToDaml,
+  normalizeNumericString,
+  optionalString,
+} from '../../../utils/typeConversions';
 
 function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
   switch (t) {
@@ -91,7 +97,7 @@ export function equityCompensationIssuanceDataToDaml(
     stock_class_id: optionalString(d.stock_class_id),
     vesting_terms_id: optionalString(d.vesting_terms_id),
     compensation_type: compensationTypeToDaml(d.compensation_type),
-    quantity: d.quantity,
+    quantity: normalizeNumericString(d.quantity),
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,

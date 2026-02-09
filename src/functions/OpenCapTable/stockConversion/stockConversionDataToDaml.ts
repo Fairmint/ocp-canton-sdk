@@ -4,7 +4,12 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockConversion } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  normalizeNumericString,
+  optionalString,
+} from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF StockConversion data to DAML format.
@@ -24,7 +29,7 @@ export function stockConversionDataToDaml(d: OcfStockConversion): Record<string,
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
-    quantity: d.quantity,
+    quantity: normalizeNumericString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,
     balance_security_id: optionalString(d.balance_security_id),
     comments: cleanComments(d.comments),
