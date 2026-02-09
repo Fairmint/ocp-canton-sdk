@@ -185,6 +185,13 @@ import type {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function toContractResult<T>(data: any, contractId: string): ContractResult<T> {
+  if (data == null) {
+    throw new OcpValidationError(
+      'toContractResult.data',
+      `Expected entity data but received ${data === null ? 'null' : 'undefined'} (contractId: ${contractId})`,
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: data }
+    );
+  }
   return { data: data as T, contractId };
 }
 

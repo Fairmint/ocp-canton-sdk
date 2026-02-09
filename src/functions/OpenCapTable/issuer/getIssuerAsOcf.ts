@@ -67,10 +67,10 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
 }
 
 /** @deprecated Use `GetByContractIdParams` instead */
-export type GetIssuerAsOcfParams = GetByContractIdParams;
+export interface GetIssuerAsOcfParams extends GetByContractIdParams {}
 
 /** @deprecated Use `ContractResult<OcfIssuerOutput>` instead */
-export type GetIssuerAsOcfResult = ContractResult<OcfIssuerOutput>;
+export interface GetIssuerAsOcfResult extends ContractResult<OcfIssuerOutput> {}
 
 /**
  * Retrieve an issuer contract by ID and return it as an OCF JSON object.

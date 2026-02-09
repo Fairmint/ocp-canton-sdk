@@ -264,17 +264,17 @@ function mechanismInputToDamlEnum(
       }
       case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION': {
         const anyM = m as Record<string, unknown>;
-        if (anyM.converts_to_percent === undefined) {
+        if (anyM.converts_to_percent === undefined || typeof anyM.converts_to_percent !== 'string') {
           throw new OcpValidationError(
             'conversion_mechanism.converts_to_percent',
-            'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION requires converts_to_percent',
+            'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION requires converts_to_percent as string',
             { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
           );
         }
         return {
           tag: 'OcfConvMechPercentCapitalization',
           value: {
-            converts_to_percent: anyM.converts_to_percent as string,
+            converts_to_percent: anyM.converts_to_percent,
             capitalization_definition: optionalString(anyM.capitalization_definition as string | undefined),
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
           },
@@ -282,17 +282,17 @@ function mechanismInputToDamlEnum(
       }
       case 'FIXED_AMOUNT_CONVERSION': {
         const anyM = m as Record<string, unknown>;
-        if (anyM.converts_to_quantity === undefined) {
+        if (anyM.converts_to_quantity === undefined || typeof anyM.converts_to_quantity !== 'string') {
           throw new OcpValidationError(
             'conversion_mechanism.converts_to_quantity',
-            'FIXED_AMOUNT_CONVERSION requires converts_to_quantity',
+            'FIXED_AMOUNT_CONVERSION requires converts_to_quantity as string',
             { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
           );
         }
         return {
           tag: 'OcfConvMechFixedAmount',
           value: {
-            converts_to_quantity: anyM.converts_to_quantity as string,
+            converts_to_quantity: anyM.converts_to_quantity,
           },
         } as Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;
       }

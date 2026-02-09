@@ -1,5 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
 import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
 
@@ -63,7 +63,16 @@ export function equityCompensationIssuanceDataToDaml(
     vesting_terms_id?: string;
   }
 ): Record<string, unknown> {
-  const filteredVestings = (d.vestings ?? []).filter((v) => Number(v.amount) > 0);
+  const filteredVestings = (d.vestings ?? []).filter((v) => {
+    const num = Number(v.amount);
+    if (Number.isNaN(num)) {
+      throw new OcpValidationError('vesting.amount', `Invalid numeric value: ${v.amount}`, {
+        expectedType: 'numeric string',
+        receivedValue: v.amount,
+      });
+    }
+    return num > 0;
+  });
 
   return {
     id: d.id,
