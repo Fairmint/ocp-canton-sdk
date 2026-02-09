@@ -340,12 +340,12 @@ describe('Transfer Type Converters', () => {
       expect(result.quantity).toBe('1000.5');
     });
 
-    it('handles numeric quantity', () => {
+    it('handles string quantity', () => {
       const input: OcfStockTransfer = {
         id: 'st-num-2',
         date: '2025-08-05',
         security_id: 'sec-001',
-        quantity: 1000 as unknown as string, // Some inputs may come as numbers
+        quantity: '1000',
         resulting_security_ids: ['result-001'],
       };
 

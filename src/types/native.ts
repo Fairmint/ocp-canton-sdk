@@ -361,15 +361,15 @@ export type AuthorizedShares = 'NOT_APPLICABLE' | 'UNLIMITED';
  * Initial shares authorized type (can be either numeric or enum) Type representing the number of shares initially
  * authorized
  */
-export type InitialSharesAuthorized = number | string;
+export type InitialSharesAuthorized = string;
 
 /**
  * Type - Monetary Type representation of a money amount and currency OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/Monetary.schema.json
  */
 export interface Monetary {
-  /** Amount of money in the given currency */
-  amount: string | number;
+  /** Amount of money in the given currency (decimal string, e.g. "100.00") */
+  amount: string;
   /** Three-letter ISO currency code */
   currency: string;
 }
@@ -425,21 +425,19 @@ export interface StockClassConversionRight {
   conversion_trigger: ConversionTrigger;
   /** Identifier of stock class to which this converts */
   converts_to_stock_class_id: string;
-  /** Legacy simple ratio value (if provided, denominator assumed 1) */
-  ratio?: number;
-  /** Ratio components for RATIO_CONVERSION */
-  ratio_numerator?: number;
-  ratio_denominator?: number;
-  /** Percent of capitalization this converts to (0 < p <= 1) */
-  percent_of_capitalization?: number;
+  /** Ratio components for RATIO_CONVERSION (decimal string) */
+  ratio_numerator?: string;
+  ratio_denominator?: string;
+  /** Percent of capitalization this converts to ("0" < p <= "1", decimal string) */
+  percent_of_capitalization?: string;
   /** Conversion price per share for fixed-amount conversion */
   conversion_price?: Monetary;
   /** Reference share price */
   reference_share_price?: Monetary;
   /** Reference valuation price per share */
   reference_valuation_price_per_share?: Monetary;
-  /** Discount rate (0-1 decimal) */
-  discount_rate?: number;
+  /** Discount rate (0-1 decimal string) */
+  discount_rate?: string;
   /** Valuation cap */
   valuation_cap?: Monetary;
   /** Floor price per share */
@@ -501,8 +499,8 @@ export interface OcfStockClass {
    * the prefix should end in the dash like CS-
    */
   default_id_prefix: string;
-  /** The initial number of shares authorized for this stock class */
-  initial_shares_authorized: string | number;
+  /** The initial number of shares authorized for this stock class (numeric string or "UNLIMITED"/"NOT_APPLICABLE") */
+  initial_shares_authorized: string;
   /** Name for the stock type (e.g. Series A Preferred or Class A Common) */
   name: string;
   /**
@@ -515,21 +513,21 @@ export interface OcfStockClass {
    * can be created with seniority between two existing stock classes, in which case it is assigned some decimal number
    * between the numbers representing seniority of the respective classes.
    */
-  seniority: string | number;
+  seniority: string;
   /** The number of votes each share of this stock class gets */
-  votes_per_share: string | number;
+  votes_per_share: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
   /** List of stock class conversion rights possible for this stock class */
   conversion_rights?: StockClassConversionRight[];
   /** Date on which the board approved the stock class */
   board_approval_date?: string;
-  /** The liquidation preference per share for this stock class */
-  liquidation_preference_multiple?: string | number;
+  /** The liquidation preference per share for this stock class (decimal string) */
+  liquidation_preference_multiple?: string;
   /** Per-share par value of this stock class */
   par_value?: Monetary;
-  /** The participation cap multiple per share for this stock class */
-  participation_cap_multiple?: string | number;
+  /** The participation cap multiple per share for this stock class (decimal string) */
+  participation_cap_multiple?: string;
   /** Per-share price this stock class was issued for */
   price_per_share?: Monetary;
   /** Date on which the stockholders approved the stock class */
@@ -580,18 +578,9 @@ export interface OcfStakeholder {
   /** Alternate ID assigned by issuer */
   issuer_assigned_id?: string;
   /** Current relationship(s) to issuer */
-  current_relationships?: string[];
+  current_relationships?: StakeholderRelationshipType[];
   /** Current employment/engagement status */
-  current_status?:
-    | 'ACTIVE'
-    | 'LEAVE_OF_ABSENCE'
-    | 'TERMINATION_VOLUNTARY_OTHER'
-    | 'TERMINATION_VOLUNTARY_GOOD_CAUSE'
-    | 'TERMINATION_VOLUNTARY_RETIREMENT'
-    | 'TERMINATION_INVOLUNTARY_OTHER'
-    | 'TERMINATION_INVOLUNTARY_DEATH'
-    | 'TERMINATION_INVOLUNTARY_DISABILITY'
-    | 'TERMINATION_INVOLUNTARY_WITH_CAUSE';
+  current_status?: StakeholderStatus;
   /** Primary contact information */
   primary_contact?: ContactInfo;
   /** Contact info without name */
@@ -741,10 +730,10 @@ export interface OcfValuation {
 export type StockIssuanceType = 'RSA' | 'FOUNDERS_STOCK';
 
 export interface ShareNumberRange {
-  /** Starting share number in the range (must be > 0) */
-  starting_share_number: string | number;
-  /** Ending share number in the range (>= starting) */
-  ending_share_number: string | number;
+  /** Starting share number in the range (must be > 0, numeric string) */
+  starting_share_number: string;
+  /** Ending share number in the range (>= starting, numeric string) */
+  ending_share_number: string;
 }
 
 export interface SecurityExemption {
@@ -757,8 +746,8 @@ export interface SecurityExemption {
 export interface VestingSimple {
   /** Date when vesting occurs */
   date: string; // YYYY-MM-DD
-  /** Number of shares, units, or amount vesting */
-  amount: string | number;
+  /** Number of shares, units, or amount vesting (decimal string) */
+  amount: string;
 }
 
 export interface OcfStockIssuance {
@@ -788,8 +777,8 @@ export interface OcfStockIssuance {
   share_numbers_issued?: ShareNumberRange[];
   /** Price per share paid for the stock */
   share_price: Monetary;
-  /** Quantity of shares issued */
-  quantity: string | number;
+  /** Quantity of shares issued (decimal string) */
+  quantity: string;
   /** Reference to vesting terms object, if used instead of inline vestings */
   vesting_terms_id?: string;
   /** Vesting schedule entries associated directly with this issuance */
@@ -850,10 +839,10 @@ export type VestingTrigger =
   | { kind: 'EVENT' };
 
 export interface VestingConditionPortion {
-  /** Portion numerator (e.g., 25) */
-  numerator: string | number;
-  /** Portion denominator (e.g., 100) */
-  denominator: string | number;
+  /** Portion numerator (e.g., "25") */
+  numerator: string;
+  /** Portion denominator (e.g., "100") */
+  denominator: string;
   /** If true, vest remainder after all integer tranches */
   remainder: boolean;
 }
@@ -865,8 +854,8 @@ export interface VestingCondition {
   description?: string;
   /** If specified, the fractional part of the whole security that vests */
   portion?: VestingConditionPortion;
-  /** If specified, the fixed amount of the whole security to vest */
-  quantity?: string | number;
+  /** If specified, the fixed amount of the whole security to vest (decimal string) */
+  quantity?: string;
   /** Describes how this vesting condition is met */
   trigger: VestingTrigger;
   /** List of ALL VestingCondition IDs that can trigger after this one */
@@ -907,8 +896,8 @@ export interface OcfStockPlan {
   board_approval_date?: string;
   /** Date of stockholder approval for the plan */
   stockholder_approval_date?: string;
-  /** Initial number of shares reserved for the plan */
-  initial_shares_reserved: string | number;
+  /** Initial number of shares reserved for the plan (decimal string) */
+  initial_shares_reserved: string;
   /** Default cancellation behavior if not specified at the security level */
   default_cancellation_behavior?: StockPlanCancellationBehavior;
   /** List of stock class ids associated with this plan */
@@ -924,8 +913,8 @@ export type CompensationType = 'OPTION_NSO' | 'OPTION_ISO' | 'OPTION' | 'RSU' | 
 export interface Vesting {
   /** Date when vesting occurs */
   date: string; // YYYY-MM-DD
-  /** Number of shares, units, or amount vesting */
-  amount: string | number;
+  /** Number of shares, units, or amount vesting (decimal string) */
+  amount: string;
 }
 
 export type TerminationWindowReason =
@@ -960,8 +949,8 @@ export interface OcfEquityCompensationIssuance {
   vesting_terms_id?: string;
   /** Type of equity compensation instrument */
   compensation_type: CompensationType;
-  /** Quantity granted/issued */
-  quantity: string | number;
+  /** Quantity granted/issued (decimal string) */
+  quantity: string;
   /** Exercise price per share/unit */
   exercise_price?: Monetary;
   /** Base price used to value compensation (for SARs) */
@@ -1008,8 +997,8 @@ export interface OcfConvertibleIssuance {
   conversion_triggers: ConvertibleConversionTrigger[];
   /** If different convertible instruments have seniority over one another, use this value to build a seniority stack */
   seniority: number;
-  /** What pro-rata (if any) is the holder entitled to buy at the next round? */
-  pro_rata?: string | number;
+  /** What pro-rata (if any) is the holder entitled to buy at the next round? (decimal string) */
+  pro_rata?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1029,8 +1018,8 @@ export interface OcfWarrantIssuance {
   stockholder_approval_date?: string;
   consideration_text?: string;
   security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-  /** Quantity of shares the warrant is exercisable for */
-  quantity?: string | number;
+  /** Quantity of shares the warrant is exercisable for (decimal string) */
+  quantity?: string;
   quantity_source?:
     | 'UNSPECIFIED'
     | 'HUMAN_ESTIMATED'
@@ -1038,9 +1027,9 @@ export interface OcfWarrantIssuance {
     | 'INSTRUMENT_FIXED'
     | 'INSTRUMENT_MAX'
     | 'INSTRUMENT_MIN';
-  ratio_numerator?: string | number;
-  ratio_denominator?: string | number;
-  percent_of_outstanding?: string | number;
+  ratio_numerator?: string;
+  ratio_denominator?: string;
+  percent_of_outstanding?: string;
   /** The exercise price of the warrant */
   exercise_price?: Monetary;
   /** Actual purchase price of the warrant (sum up purported value of all consideration, including in-kind) */
@@ -1061,7 +1050,7 @@ export interface OcfStockCancellation {
   id: string;
   date: string;
   security_id: string;
-  quantity: string | number;
+  quantity: string;
   balance_security_id?: string;
   reason_text: string;
   comments?: string[];
@@ -1079,7 +1068,7 @@ export interface OcfWarrantCancellation {
   /** Identifier for the security being cancelled */
   security_id: string;
   /** Quantity of warrants being cancelled */
-  quantity: string | number;
+  quantity: string;
   /** Identifier for the security that holds the remainder balance (for partial cancellations) */
   balance_security_id?: string;
   /** Reason for the cancellation */
@@ -1122,7 +1111,7 @@ export interface OcfEquityCompensationCancellation {
   /** Identifier for the security being cancelled */
   security_id: string;
   /** Quantity of equity compensation being cancelled */
-  quantity: string | number;
+  quantity: string;
   /** Identifier for the security that holds the remainder balance (for partial cancellations) */
   balance_security_id?: string;
   /** Reason for the cancellation */
@@ -1135,7 +1124,7 @@ export interface OcfIssuerAuthorizedSharesAdjustment {
   id: string;
   date: string;
   issuer_id: string;
-  new_shares_authorized: string | number;
+  new_shares_authorized: string;
   board_approval_date?: string;
   stockholder_approval_date?: string;
   comments?: string[];
@@ -1145,7 +1134,7 @@ export interface OcfStockClassAuthorizedSharesAdjustment {
   id: string;
   date: string;
   stock_class_id: string;
-  new_shares_authorized: string | number;
+  new_shares_authorized: string;
   board_approval_date?: string;
   stockholder_approval_date?: string;
   comments?: string[];
@@ -1157,7 +1146,7 @@ export interface OcfStockPlanPoolAdjustment {
   stock_plan_id: string;
   board_approval_date?: string;
   stockholder_approval_date?: string;
-  shares_reserved: string | number;
+  shares_reserved: string;
   comments?: string[];
 }
 
@@ -1165,7 +1154,7 @@ export interface OcfEquityCompensationExercise {
   id: string;
   date: string;
   security_id: string;
-  quantity: string | number;
+  quantity: string;
   consideration_text?: string;
   resulting_security_ids: string[];
   comments?: string[];
@@ -1183,7 +1172,7 @@ export interface OcfStockTransfer {
   /** Identifier for the security being transferred */
   security_id: string;
   /** Quantity of non-monetary security units transferred */
-  quantity: string | number;
+  quantity: string;
   /** Array of identifiers for new securities created as a result of the transfer (min 1 item) */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial transfers) */
@@ -1206,7 +1195,7 @@ export interface OcfStockRepurchase {
   /** Identifier for the security being repurchased */
   security_id: string;
   /** Quantity of shares being repurchased */
-  quantity: string | number;
+  quantity: string;
   /** Price per share paid for repurchase */
   price: Monetary;
   /** Identifier for the security that holds the remainder balance (for partial repurchases) */
@@ -1231,7 +1220,7 @@ export interface OcfWarrantTransfer {
   /** Identifier for the security being transferred */
   security_id: string;
   /** Quantity of warrants being transferred */
-  quantity: string | number;
+  quantity: string;
   /** Array of identifiers for new securities created as a result of the transfer (min 1 item) */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial transfers) */
@@ -1277,7 +1266,7 @@ export interface OcfEquityCompensationTransfer {
   /** Identifier for the security being transferred */
   security_id: string;
   /** Quantity of equity compensation being transferred */
-  quantity: string | number;
+  quantity: string;
   /** Array of identifiers for new securities created as a result of the transfer (min 1 item) */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial transfers) */
@@ -1438,7 +1427,7 @@ export interface OcfWarrantExercise {
   /** Identifier for the warrant's exercise trigger that resulted in this exercise */
   trigger_id: string;
   /** Quantity of warrants being exercised */
-  quantity: string | number;
+  quantity: string;
   /** Array of identifiers for new securities resulting from the exercise */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial exercises) */
@@ -1463,7 +1452,7 @@ export interface OcfStockConversion {
   /** Identifier for the stock security being converted */
   security_id: string;
   /** Quantity of stock being converted */
-  quantity: string | number;
+  quantity: string;
   /** Array of identifiers for new securities resulting from the conversion */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial conversions) */
@@ -1507,7 +1496,7 @@ export interface OcfEquityCompensationRelease {
   /** Identifier for the equity compensation security being released */
   security_id: string;
   /** Quantity of equity compensation being released */
-  quantity: string | number;
+  quantity: string;
   /** Array of identifiers for new securities resulting from the release */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial releases) */
@@ -1568,7 +1557,7 @@ export interface OcfVestingAcceleration {
   /** Identifier for the security whose vesting is being accelerated */
   security_id: string;
   /** Quantity of shares/units being accelerated */
-  quantity: string | number;
+  quantity: string;
   /** Reason for the vesting acceleration */
   reason_text: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1588,10 +1577,10 @@ export interface OcfStockClassSplit {
   date: string;
   /** Identifier for the stock class being split */
   stock_class_id: string;
-  /** Split ratio - numerator (e.g., 2 for a 2-for-1 split) */
-  split_ratio_numerator: string | number;
-  /** Split ratio - denominator (e.g., 1 for a 2-for-1 split) */
-  split_ratio_denominator: string | number;
+  /** Split ratio - numerator (e.g., "2" for a 2-for-1 split) */
+  split_ratio_numerator: string;
+  /** Split ratio - denominator (e.g., "1" for a 2-for-1 split) */
+  split_ratio_denominator: string;
   /** Date on which the board approved the split */
   board_approval_date?: string;
   /** Date on which stockholders approved the split */
@@ -1611,10 +1600,10 @@ export interface OcfStockClassConversionRatioAdjustment {
   date: string;
   /** Identifier for the stock class whose conversion ratio is being adjusted */
   stock_class_id: string;
-  /** New conversion ratio - numerator */
-  new_ratio_numerator: string | number;
-  /** New conversion ratio - denominator */
-  new_ratio_denominator: string | number;
+  /** New conversion ratio - numerator (decimal string) */
+  new_ratio_numerator: string;
+  /** New conversion ratio - denominator (decimal string) */
+  new_ratio_denominator: string;
   /** Date on which the board approved the adjustment */
   board_approval_date?: string;
   /** Date on which stockholders approved the adjustment */
@@ -1635,7 +1624,7 @@ export interface OcfStockPlanReturnToPool {
   /** Identifier for the stock plan to which shares are being returned */
   stock_plan_id: string;
   /** Quantity of shares being returned to the pool */
-  quantity: string | number;
+  quantity: string;
   /** Reason for shares returning to pool */
   reason_text: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1728,7 +1717,7 @@ export interface OcfPlanSecurityIssuance {
   /** Type of plan security */
   plan_security_type: 'OPTION' | 'RSU' | 'OTHER';
   /** Quantity of plan securities being issued */
-  quantity: string | number;
+  quantity: string;
   /** Exercise price per share/unit */
   exercise_price?: Monetary;
   /** Identifier for the vesting terms */
@@ -1757,7 +1746,7 @@ export interface OcfPlanSecurityExercise {
   /** Identifier for the plan security being exercised */
   security_id: string;
   /** Quantity being exercised */
-  quantity: string | number;
+  quantity: string;
   /** Array of identifiers for new securities resulting from the exercise */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial exercises) */
@@ -1780,7 +1769,7 @@ export interface OcfPlanSecurityCancellation {
   /** Identifier for the plan security being cancelled */
   security_id: string;
   /** Quantity being cancelled */
-  quantity: string | number;
+  quantity: string;
   /** Identifier for the security that holds the remainder balance (for partial cancellations) */
   balance_security_id?: string;
   /** Reason for the cancellation */
@@ -1816,7 +1805,7 @@ export interface OcfPlanSecurityRelease {
   /** Identifier for the plan security being released */
   security_id: string;
   /** Quantity being released */
-  quantity: string | number;
+  quantity: string;
   /** Array of identifiers for new securities resulting from the release */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial releases) */
@@ -1858,7 +1847,7 @@ export interface OcfPlanSecurityTransfer {
   /** Identifier for the plan security being transferred */
   security_id: string;
   /** Quantity being transferred */
-  quantity: string | number;
+  quantity: string;
   /** Array of identifiers for new securities resulting from the transfer */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial transfers) */

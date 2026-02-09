@@ -153,6 +153,22 @@ export const FIELD_TO_ENTITY_TYPE: Record<string, OcfEntityType> = {
 };
 
 /**
+ * Mapping from CapTable `*_by_security_id` fields to OcfEntityType.
+ *
+ * These maps track security_id uniqueness for issuance types. The keys are
+ * security_id values (not OCF IDs), and the values are ContractIds.
+ *
+ * Used by the replication diff to detect duplicate security_id conflicts
+ * before submitting to DAML (which would fail with "security_id already exists").
+ */
+export const SECURITY_ID_FIELD_TO_ENTITY_TYPE: Record<string, OcfEntityType> = {
+  stock_issuances_by_security_id: 'stockIssuance',
+  convertible_issuances_by_security_id: 'convertibleIssuance',
+  equity_compensation_issuances_by_security_id: 'equityCompensationIssuance',
+  warrant_issuances_by_security_id: 'warrantIssuance',
+};
+
+/**
  * Current state of a CapTable on Canton, with all OCF IDs grouped by entity type.
  */
 export interface CapTableState {
@@ -173,6 +189,17 @@ export interface CapTableState {
    * Useful for deep verification where contract data needs to be compared.
    */
   contractIds: Map<OcfEntityType, Map<string, string>>;
+
+  /**
+   * Map of issuance entity type to security_ids currently on-chain.
+   *
+   * Only populated for issuance types that enforce security_id uniqueness:
+   * stockIssuance, convertibleIssuance, equityCompensationIssuance, warrantIssuance.
+   *
+   * Used by computeReplicationDiff to detect duplicate security_id conflicts before
+   * submitting batch commands (avoiding DAML "security_id already exists" errors).
+   */
+  securityIds: Map<OcfEntityType, Set<string>>;
 }
 
 /**
@@ -245,10 +272,7 @@ export async function getCapTableState(
     const fieldData = payload[field];
 
     if (fieldData) {
-      // DAML Map can be serialized as either:
-      // - Array format (JSON API v2): [[key, value], [key, value], ...]
-      // - Object format: {key: value, ...}
-      // parseDamlMap handles both formats
+      // DAML Map is serialized as array of tuples: [[key, value], [key, value], ...]
       const entries = parseDamlMap<string, string>(fieldData);
 
       if (entries.length > 0) {
@@ -259,13 +283,71 @@ export async function getCapTableState(
     }
   }
 
+  // Build security_id maps from *_by_security_id payload fields
+  // These track security_id uniqueness for issuance types
+  const securityIds = new Map<OcfEntityType, Set<string>>();
+
+  for (const [field, entityType] of Object.entries(SECURITY_ID_FIELD_TO_ENTITY_TYPE)) {
+    const fieldData = payload[field];
+
+    if (fieldData) {
+      const entries = parseDamlMap<string, string>(fieldData);
+
+      if (entries.length > 0) {
+        securityIds.set(entityType, new Set(entries.map(([key]) => key)));
+      }
+    }
+  }
+
   // Extract issuer contract ID from payload
   const issuerContractId = typeof payload.issuer === 'string' ? payload.issuer : '';
+
+  // Fetch issuer contract to get OCF ID
+  // (issuer is stored as a single contract reference, not a map like other entities)
+  if (issuerContractId) {
+    try {
+      const eventsResponse = await client.getEventsByContractId({ contractId: issuerContractId });
+      // Use optional chaining for defensive runtime validation of API response structure
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Runtime defensive access
+      const createArgument = eventsResponse.created?.createdEvent?.createArgument as
+        | Record<string, unknown>
+        | undefined;
+      const issuerData = createArgument?.issuer_data as Record<string, unknown> | undefined;
+      const issuerOcfId = issuerData?.id;
+
+      // Only add issuer if we got a valid non-empty OCF ID
+      if (typeof issuerOcfId === 'string' && issuerOcfId.length > 0) {
+        entities.set('issuer', new Set([issuerOcfId]));
+        contractIds.set('issuer', new Map([[issuerOcfId, issuerContractId]]));
+      }
+    } catch (error: unknown) {
+      // Differentiate between expected and unexpected failures for better debugging
+      // - Contract archived/not found: graceful degradation (expected in some workflows)
+      // - Network/permission errors: transient, may retry
+      // - Schema mismatch: indicates a bug, should be investigated
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isNotFoundError =
+        errorMessage.toLowerCase().includes('not found') || errorMessage.toLowerCase().includes('archived');
+
+      // eslint-disable-next-line no-console -- Intentional warning for operational visibility
+      console.warn(
+        `[getCapTableState] ${isNotFoundError ? 'Issuer contract not found (may be archived)' : 'Failed to fetch issuer contract events'}`,
+        {
+          issuerContractId,
+          errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+        }
+      );
+
+      // Continue without adding issuer to entities - issuerContractId is still available
+    }
+  }
 
   return {
     capTableContractId: contractId,
     issuerContractId,
     entities,
     contractIds,
+    securityIds,
   };
 }

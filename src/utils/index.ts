@@ -1,5 +1,4 @@
 export * from './cantonOcfExtractor';
-export * from './deprecatedFieldNormalization';
 export * from './entityValidators';
 export * from './enumConversions';
 export * from './ocfComparison';

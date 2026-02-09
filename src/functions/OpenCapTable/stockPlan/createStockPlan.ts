@@ -1,10 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types';
-import {
-  normalizeDeprecatedStockPlanFields,
-  type StockPlanDataWithDeprecatedField,
-} from '../../../utils/deprecatedFieldNormalization';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
 
 function cancellationBehaviorToDaml(
@@ -38,22 +34,14 @@ export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.
     });
   }
 
-  // Normalize deprecated stock_class_id → stock_class_ids using centralized helper
-  // Cast to allow for deprecated field which may be present in older OCF data
-  const { stock_class_ids } = normalizeDeprecatedStockPlanFields(
-    d as StockPlanDataWithDeprecatedField,
-    'stockPlan.create'
-  );
-
   return {
     id: d.id,
     plan_name: d.plan_name,
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-    initial_shares_reserved:
-      typeof d.initial_shares_reserved === 'number' ? d.initial_shares_reserved.toString() : d.initial_shares_reserved,
+    initial_shares_reserved: d.initial_shares_reserved,
     default_cancellation_behavior: cancellationBehaviorToDaml(d.default_cancellation_behavior),
-    stock_class_ids,
+    stock_class_ids: d.stock_class_ids,
     comments: cleanComments(d.comments),
   };
 }

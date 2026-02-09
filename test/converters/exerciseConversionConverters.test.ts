@@ -59,7 +59,7 @@ describe('Exercise and Conversion Type Converters', () => {
       test('converts numeric quantity to string', () => {
         const dataWithNumericQuantity = {
           ...validWarrantExerciseData,
-          quantity: 5000,
+          quantity: '5000',
         };
 
         const result = convertToDaml('warrantExercise', dataWithNumericQuantity);
@@ -139,7 +139,7 @@ describe('Exercise and Conversion Type Converters', () => {
             date: '2024-01-15T00:00:00.000Z',
             security_id: 'warrant-sec-003',
             trigger_id: 'trigger-002',
-            quantity: 5000,
+            quantity: '5000',
             resulting_security_ids: ['stock-sec-003'],
           },
         });
@@ -371,7 +371,7 @@ describe('Exercise and Conversion Type Converters', () => {
       test('converts numeric quantity to string', () => {
         const dataWithNumericQuantity = {
           ...validStockConversionData,
-          quantity: 10000,
+          quantity: '10000',
         };
 
         const result = convertToDaml('stockConversion', dataWithNumericQuantity);
@@ -444,7 +444,7 @@ describe('Exercise and Conversion Type Converters', () => {
             id: 'sc-002',
             date: '2024-03-10T00:00:00.000Z',
             security_id: 'stock-sec-003',
-            quantity: 10000,
+            quantity: '10000',
             resulting_security_ids: ['preferred-sec-002'],
           },
         });

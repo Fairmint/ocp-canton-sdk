@@ -1,7 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { extractUpdateId } from '../../../utils/typeConversions';
 
 export interface WithdrawAuthorizationParams {
   issuerAuthorizationContractId: string;
@@ -32,7 +31,7 @@ export async function withdrawAuthorization(
   })) as SubmitAndWaitForTransactionTreeResponse;
 
   return {
-    updateId: extractUpdateId(response),
+    updateId: response.transactionTree.updateId,
     response,
   };
 }

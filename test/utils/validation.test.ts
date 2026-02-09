@@ -93,10 +93,10 @@ describe('String Validators', () => {
 
 describe('Numeric Validators', () => {
   describe('validateRequiredNumeric', () => {
-    it('passes for valid numbers', () => {
-      expect(() => validateRequiredNumeric(0, 'field')).not.toThrow();
-      expect(() => validateRequiredNumeric(123, 'field')).not.toThrow();
-      expect(() => validateRequiredNumeric(-456, 'field')).not.toThrow();
+    it('passes for valid numeric strings', () => {
+      expect(() => validateRequiredNumeric('0', 'field')).not.toThrow();
+      expect(() => validateRequiredNumeric('123', 'field')).not.toThrow();
+      expect(() => validateRequiredNumeric('-456', 'field')).not.toThrow();
     });
 
     it('passes for valid numeric strings', () => {
@@ -121,8 +121,8 @@ describe('Numeric Validators', () => {
   });
 
   describe('validateOptionalNumeric', () => {
-    it('returns string for numbers', () => {
-      expect(validateOptionalNumeric(123, 'field')).toBe('123');
+    it('returns string for numeric strings', () => {
+      expect(validateOptionalNumeric('123', 'field')).toBe('123');
     });
 
     it('returns string for numeric strings', () => {
@@ -137,44 +137,40 @@ describe('Numeric Validators', () => {
 
   describe('validateNumericRange', () => {
     it('passes for values within range', () => {
-      expect(() => validateNumericRange(5, 'field', 0, 10)).not.toThrow();
-      expect(() => validateNumericRange(0, 'field', 0, 10)).not.toThrow();
-      expect(() => validateNumericRange(10, 'field', 0, 10)).not.toThrow();
+      expect(() => validateNumericRange('5', 'field', 0, 10)).not.toThrow();
+      expect(() => validateNumericRange('0', 'field', 0, 10)).not.toThrow();
+      expect(() => validateNumericRange('10', 'field', 0, 10)).not.toThrow();
     });
 
     it('throws for values outside range', () => {
-      expect(() => validateNumericRange(-1, 'field', 0, 10)).toThrow(OcpValidationError);
-      expect(() => validateNumericRange(11, 'field', 0, 10)).toThrow(OcpValidationError);
-    });
-
-    it('works with string values', () => {
-      expect(() => validateNumericRange('5', 'field', 0, 10)).not.toThrow();
+      expect(() => validateNumericRange('-1', 'field', 0, 10)).toThrow(OcpValidationError);
+      expect(() => validateNumericRange('11', 'field', 0, 10)).toThrow(OcpValidationError);
     });
   });
 
   describe('validatePositiveNumeric', () => {
     it('passes for positive values', () => {
-      expect(() => validatePositiveNumeric(1, 'field')).not.toThrow();
-      expect(() => validatePositiveNumeric(0.001, 'field')).not.toThrow();
+      expect(() => validatePositiveNumeric('1', 'field')).not.toThrow();
+      expect(() => validatePositiveNumeric('0.001', 'field')).not.toThrow();
     });
 
     it('throws for zero', () => {
-      expect(() => validatePositiveNumeric(0, 'field')).toThrow(OcpValidationError);
+      expect(() => validatePositiveNumeric('0', 'field')).toThrow(OcpValidationError);
     });
 
     it('throws for negative values', () => {
-      expect(() => validatePositiveNumeric(-1, 'field')).toThrow(OcpValidationError);
+      expect(() => validatePositiveNumeric('-1', 'field')).toThrow(OcpValidationError);
     });
   });
 
   describe('validateNonNegativeNumeric', () => {
     it('passes for non-negative values', () => {
-      expect(() => validateNonNegativeNumeric(0, 'field')).not.toThrow();
-      expect(() => validateNonNegativeNumeric(1, 'field')).not.toThrow();
+      expect(() => validateNonNegativeNumeric('0', 'field')).not.toThrow();
+      expect(() => validateNonNegativeNumeric('1', 'field')).not.toThrow();
     });
 
     it('throws for negative values', () => {
-      expect(() => validateNonNegativeNumeric(-1, 'field')).toThrow(OcpValidationError);
+      expect(() => validateNonNegativeNumeric('-1', 'field')).toThrow(OcpValidationError);
     });
   });
 });
@@ -313,7 +309,7 @@ describe('Monetary Validators', () => {
   describe('validateRequiredMonetary', () => {
     it('passes for valid monetary objects', () => {
       expect(() => validateRequiredMonetary({ amount: '100', currency: 'USD' }, 'field')).not.toThrow();
-      expect(() => validateRequiredMonetary({ amount: 100, currency: 'EUR' }, 'field')).not.toThrow();
+      expect(() => validateRequiredMonetary({ amount: '99.99', currency: 'EUR' }, 'field')).not.toThrow();
     });
 
     it('throws when amount is missing', () => {
@@ -327,7 +323,7 @@ describe('Monetary Validators', () => {
 
   describe('validateOptionalMonetary', () => {
     it('returns normalized monetary object', () => {
-      expect(validateOptionalMonetary({ amount: 100, currency: 'USD' }, 'field')).toEqual({
+      expect(validateOptionalMonetary({ amount: '100', currency: 'USD' }, 'field')).toEqual({
         amount: '100',
         currency: 'USD',
       });

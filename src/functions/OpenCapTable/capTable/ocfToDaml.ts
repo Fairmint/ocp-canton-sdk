@@ -64,36 +64,15 @@ import { warrantIssuanceDataToDaml } from '../warrantIssuance/createWarrantIssua
 import { warrantRetractionDataToDaml } from '../warrantRetraction/warrantRetractionDataToDaml';
 import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDataToDaml';
 
-// Import automatic deprecated field normalization
-import { normalizeDeprecatedOcfFields } from '../../../utils/deprecatedFieldNormalization';
-
 /**
  * Convert native OCF data to DAML format based on entity type.
  *
- * This function automatically normalizes deprecated OCF fields before conversion,
- * making deprecated field handling transparent to end-users. For example,
- * a StockPlan with `stock_class_id` (deprecated) will automatically be
- * converted to use `stock_class_ids` (current).
- *
  * @param type - The OCF entity type
- * @param data - The native OCF data object (may contain deprecated fields)
- * @returns The DAML-formatted data object with normalized fields
+ * @param data - The native OCF data object
+ * @returns The DAML-formatted data object
  */
 export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTypeFor<T>): Record<string, unknown> {
-  // Automatically normalize deprecated fields before conversion
-  // This makes the SDK transparent to end-users who may use deprecated OCF fields
-  const { data: normalizedData, warnings } = normalizeDeprecatedOcfFields(
-    type,
-    data as unknown as Record<string, unknown>
-  );
-
-  // Emit any warnings (e.g., when both deprecated and current fields are present)
-  for (const warning of warnings) {
-    // eslint-disable-next-line no-console -- Intentional warning to help developers understand deprecated field handling
-    console.warn(`[OCF Deprecation] ${warning}`);
-  }
-
-  const d = normalizedData as unknown as OcfDataTypeFor<T>;
+  const d = data;
 
   switch (type) {
     case 'stakeholder':

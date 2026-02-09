@@ -10,7 +10,6 @@ import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts } from '../../../types';
-import { extractUpdateId } from '../../../utils/typeConversions';
 import {
   ENTITY_TAG_MAP,
   type CapTableBatchExecuteResult,
@@ -35,6 +34,16 @@ export interface CapTableBatchParams {
   readAs?: string[];
 }
 
+/** Metadata for a batch operation item, used for debugging and error reporting. */
+export interface BatchItemMeta {
+  /** The OCF entity type (e.g., 'stockIssuance', 'stakeholder') */
+  entityType: string;
+  /** The OCF object ID */
+  ocfId: string;
+  /** The security_id for issuance types (stockIssuance, convertibleIssuance, etc.) */
+  securityId?: string;
+}
+
 /**
  * Fluent builder for batch cap table updates.
  *
@@ -46,6 +55,11 @@ export class CapTableBatch {
   private creates: OcfCreateData[] = [];
   private edits: OcfEditData[] = [];
   private deletes: OcfDeleteData[] = [];
+
+  // Metadata arrays track per-item details for debugging/error reporting
+  private createMetas: BatchItemMeta[] = [];
+  private editMetas: BatchItemMeta[] = [];
+  private deleteMetas: BatchItemMeta[] = [];
 
   constructor(params: CapTableBatchParams, client: LedgerJsonApiClient | null = null) {
     this.params = params;
@@ -78,6 +92,7 @@ export class CapTableBatch {
       });
     }
     this.creates.push({ tag, value: damlData } as unknown as OcfCreateData);
+    this.createMetas.push(extractBatchItemMeta(type, data));
     return this;
   }
 
@@ -97,6 +112,7 @@ export class CapTableBatch {
       });
     }
     this.edits.push({ tag, value: damlData } as unknown as OcfEditData);
+    this.editMetas.push(extractBatchItemMeta(type, data));
     return this;
   }
 
@@ -123,6 +139,7 @@ export class CapTableBatch {
       });
     }
     this.deletes.push({ tag, value: id } as unknown as OcfDeleteData);
+    this.deleteMetas.push({ entityType: type, ocfId: id });
     return this;
   }
 
@@ -209,20 +226,25 @@ export class CapTableBatch {
     } catch (error) {
       // Wrap the error with batch context for better debugging
       const originalMessage = error instanceof Error ? error.message : String(error);
+      const detailedItems = this.getDetailedSummary();
       const contextMessage = `Batch execution failed: ${originalMessage} ${batchSummary.formatted}`;
 
-      throw new OcpContractError(contextMessage, {
+      const wrappedError = new OcpContractError(contextMessage, {
         contractId: this.params.capTableContractId,
         choice: 'UpdateCapTable',
         cause: error instanceof Error ? error : new Error(String(error)),
         code: OcpErrorCodes.CHOICE_FAILED,
       });
+
+      // Attach detailed item metadata for callers to use in error reporting
+      (wrappedError as OcpContractError & { batchItems?: BatchItemDetails }).batchItems = detailedItems;
+
+      throw wrappedError;
     }
 
     // Extract the result from the transaction tree
-    const tree = response.transactionTree;
-    const { eventsById } = tree;
-    const updateId = extractUpdateId(response);
+    const { transactionTree } = response;
+    const { eventsById, updateId } = transactionTree;
 
     // Find the exercised event for UpdateCapTable
     // Canton returns ExercisedTreeEvent (not ExercisedEvent) in transaction tree responses
@@ -291,13 +313,63 @@ export class CapTableBatch {
     };
   }
 
+  /**
+   * Get detailed per-item metadata for all operations in the batch.
+   *
+   * Useful for error reporting and debugging - includes OCF IDs, entity types,
+   * and key fields like security_id for issuance types.
+   */
+  getDetailedSummary(): BatchItemDetails {
+    return {
+      creates: [...this.createMetas],
+      edits: [...this.editMetas],
+      deletes: [...this.deleteMetas],
+    };
+  }
+
   /** Clear all operations from the batch. */
   clear(): this {
     this.creates = [];
     this.edits = [];
     this.deletes = [];
+    this.createMetas = [];
+    this.editMetas = [];
+    this.deleteMetas = [];
     return this;
   }
+}
+
+/** Detailed metadata for all items in a batch, grouped by operation type. */
+export interface BatchItemDetails {
+  creates: BatchItemMeta[];
+  edits: BatchItemMeta[];
+  deletes: BatchItemMeta[];
+}
+
+/** Entity types that have a security_id field. */
+const ISSUANCE_ENTITY_TYPES = new Set([
+  'stockIssuance',
+  'convertibleIssuance',
+  'equityCompensationIssuance',
+  'warrantIssuance',
+  'planSecurityIssuance',
+]);
+
+/**
+ * Extract debugging metadata from native OCF data.
+ * Pulls id, and security_id for issuance types.
+ */
+function extractBatchItemMeta(entityType: string, data: unknown): BatchItemMeta {
+  const obj = data as Record<string, unknown> | undefined;
+  const ocfId = typeof obj?.id === 'string' ? obj.id : 'unknown';
+  const meta: BatchItemMeta = { entityType, ocfId };
+  if (ISSUANCE_ENTITY_TYPES.has(entityType)) {
+    const securityId = obj?.security_id;
+    if (typeof securityId === 'string') {
+      meta.securityId = securityId;
+    }
+  }
+  return meta;
 }
 
 /**

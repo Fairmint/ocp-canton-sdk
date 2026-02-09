@@ -25,8 +25,8 @@ describe('StockClass Converters', () => {
       });
     });
 
-    test('encodes number as OcfInitialSharesNumeric with string value', () => {
-      const result = initialSharesAuthorizedToDaml(5000000);
+    test('encodes numeric string as OcfInitialSharesNumeric', () => {
+      const result = initialSharesAuthorizedToDaml('5000000');
 
       expect(result).toEqual({
         tag: 'OcfInitialSharesNumeric',
@@ -61,13 +61,10 @@ describe('StockClass Converters', () => {
       });
     });
 
-    test('encodes unknown string as NOT_APPLICABLE', () => {
-      const result = initialSharesAuthorizedToDaml('UNKNOWN_VALUE');
-
-      expect(result).toEqual({
-        tag: 'OcfInitialSharesEnum',
-        value: 'OcfAuthorizedSharesNotApplicable',
-      });
+    test('throws for unknown string values', () => {
+      expect(() => initialSharesAuthorizedToDaml('UNKNOWN_VALUE')).toThrow(
+        'Expected numeric string, "UNLIMITED", or "NOT_APPLICABLE"'
+      );
     });
   });
 

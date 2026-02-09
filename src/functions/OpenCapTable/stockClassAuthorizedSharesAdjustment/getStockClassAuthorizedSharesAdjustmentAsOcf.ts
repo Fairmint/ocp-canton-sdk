@@ -70,11 +70,6 @@ export async function getStockClassAuthorizedSharesAdjustmentAsOcf(
   const event: OcfStockClassAuthorizedSharesAdjustmentEvent = {
     object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
     ...native,
-    // Ensure new_shares_authorized is string (native type allows string | number)
-    new_shares_authorized:
-      typeof native.new_shares_authorized === 'number'
-        ? native.new_shares_authorized.toString()
-        : native.new_shares_authorized,
   };
   return { event, contractId: params.contractId };
 }

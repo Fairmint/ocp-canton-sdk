@@ -55,7 +55,7 @@ describe('StockPlan Converters', () => {
       const ocfData: OcfStockPlan = {
         id: 'sp-003',
         plan_name: 'Test Plan',
-        initial_shares_reserved: 500000,
+        initial_shares_reserved: '500000',
         stock_class_ids: ['sc-001'],
       };
 
@@ -76,69 +76,29 @@ describe('StockPlan Converters', () => {
       expect(() => stockPlanDataToDaml(ocfData)).toThrow("'stockPlan.id'");
     });
 
-    describe('deprecated stock_class_id field handling', () => {
-      test('uses stock_class_ids when both fields are present (when stock_class_ids has values)', () => {
-        const ocfDataWithBoth = {
-          id: 'sp-deprecated-001',
+    describe('stock_class_ids field handling', () => {
+      test('passes through stock_class_ids directly', () => {
+        const ocfData: OcfStockPlan = {
+          id: 'sp-001',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
-          stock_class_ids: ['sc-new-001', 'sc-new-002'],
-          stock_class_id: 'sc-deprecated-001', // deprecated field
-        } as OcfStockPlan & { stock_class_id?: string };
+          stock_class_ids: ['sc-001', 'sc-002'],
+        };
 
-        const damlData = stockPlanDataToDaml(ocfDataWithBoth);
+        const damlData = stockPlanDataToDaml(ocfData);
 
-        expect(damlData.stock_class_ids).toEqual(['sc-new-001', 'sc-new-002']);
+        expect(damlData.stock_class_ids).toEqual(['sc-001', 'sc-002']);
       });
 
-      test('uses deprecated stock_class_id when stock_class_ids is empty', () => {
-        const ocfDataWithDeprecated = {
-          id: 'sp-deprecated-002',
-          plan_name: 'Test Plan',
-          initial_shares_reserved: '1000000',
-          stock_class_ids: [],
-          stock_class_id: 'sc-deprecated-001', // deprecated field
-        } as OcfStockPlan & { stock_class_id?: string };
-
-        const damlData = stockPlanDataToDaml(ocfDataWithDeprecated);
-
-        expect(damlData.stock_class_ids).toEqual(['sc-deprecated-001']);
-      });
-
-      test('uses deprecated stock_class_id when stock_class_ids is undefined', () => {
-        const ocfDataWithDeprecated = {
-          id: 'sp-deprecated-003',
-          plan_name: 'Test Plan',
-          initial_shares_reserved: '1000000',
-          stock_class_id: 'sc-deprecated-001', // deprecated field
-        } as unknown as OcfStockPlan;
-
-        const damlData = stockPlanDataToDaml(ocfDataWithDeprecated);
-
-        expect(damlData.stock_class_ids).toEqual(['sc-deprecated-001']);
-      });
-
-      test('returns empty array when neither field is provided', () => {
-        const ocfDataNoStockClass = {
-          id: 'sp-deprecated-004',
-          plan_name: 'Test Plan',
-          initial_shares_reserved: '1000000',
-        } as unknown as OcfStockPlan;
-
-        const damlData = stockPlanDataToDaml(ocfDataNoStockClass);
-
-        expect(damlData.stock_class_ids).toEqual([]);
-      });
-
-      test('returns empty array when stock_class_ids is empty and stock_class_id is undefined', () => {
-        const ocfDataEmptyArray: OcfStockPlan = {
-          id: 'sp-deprecated-005',
+      test('passes empty array when stock_class_ids is empty', () => {
+        const ocfData: OcfStockPlan = {
+          id: 'sp-002',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
           stock_class_ids: [],
         };
 
-        const damlData = stockPlanDataToDaml(ocfDataEmptyArray);
+        const damlData = stockPlanDataToDaml(ocfData);
 
         expect(damlData.stock_class_ids).toEqual([]);
       });
@@ -216,64 +176,19 @@ describe('StockPlan Converters', () => {
     });
   });
 
-  describe('Automatic normalization via convertToDaml', () => {
-    test('automatically normalizes deprecated stock_class_id in batch API', () => {
-      // Simulate data as it would come from a user script with deprecated field
-      const userProvidedData = {
-        id: 'sp-auto-001',
-        plan_name: 'Auto-Normalized Plan',
+  describe('convertToDaml dispatches correctly', () => {
+    test('converts stock plan via convertToDaml', () => {
+      const data: OcfStockPlan = {
+        id: 'sp-batch-001',
+        plan_name: 'Batch Plan',
         initial_shares_reserved: '1000000',
-        stock_class_id: 'sc-deprecated-001', // deprecated field
-      } as unknown as OcfStockPlan;
-
-      // convertToDaml should automatically normalize this
-      const damlData = convertToDaml('stockPlan', userProvidedData);
-
-      // The DAML output should have the normalized stock_class_ids array
-      expect(damlData.stock_class_ids).toEqual(['sc-deprecated-001']);
-    });
-
-    test('automatic normalization preserves stock_class_ids when already present', () => {
-      const userProvidedData: OcfStockPlan = {
-        id: 'sp-auto-002',
-        plan_name: 'Already Current Plan',
-        initial_shares_reserved: '1000000',
-        stock_class_ids: ['sc-current-001', 'sc-current-002'],
+        stock_class_ids: ['sc-001'],
       };
 
-      const damlData = convertToDaml('stockPlan', userProvidedData);
+      const damlData = convertToDaml('stockPlan', data);
 
-      expect(damlData.stock_class_ids).toEqual(['sc-current-001', 'sc-current-002']);
-    });
-
-    test('automatic normalization uses current field when both deprecated and current are present', () => {
-      // User accidentally provides both fields
-      const userProvidedData = {
-        id: 'sp-auto-003',
-        plan_name: 'Both Fields Plan',
-        initial_shares_reserved: '1000000',
-        stock_class_id: 'sc-deprecated',
-        stock_class_ids: ['sc-current'],
-      } as unknown as OcfStockPlan;
-
-      const damlData = convertToDaml('stockPlan', userProvidedData);
-
-      // Current field should take precedence
-      expect(damlData.stock_class_ids).toEqual(['sc-current']);
-    });
-
-    test('automatic normalization handles empty stock_class_ids with deprecated field', () => {
-      const userProvidedData = {
-        id: 'sp-auto-004',
-        plan_name: 'Empty Array Plan',
-        initial_shares_reserved: '1000000',
-        stock_class_ids: [],
-        stock_class_id: 'sc-deprecated',
-      } as unknown as OcfStockPlan;
-
-      const damlData = convertToDaml('stockPlan', userProvidedData);
-
-      expect(damlData.stock_class_ids).toEqual(['sc-deprecated']);
+      expect(damlData.stock_class_ids).toEqual(['sc-001']);
+      expect(damlData.plan_name).toBe('Batch Plan');
     });
   });
 });

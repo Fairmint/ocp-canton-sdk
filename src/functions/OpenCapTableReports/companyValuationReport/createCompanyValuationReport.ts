@@ -6,7 +6,6 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js/lib';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/reports-factory-contract-id.json';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts } from '../../../types';
-import { extractUpdateId } from '../../../utils/typeConversions';
 
 export interface CreateCompanyValuationReportParams {
   companyId: string;
@@ -53,7 +52,7 @@ export async function createCompanyValuationReport(
 
   return {
     contractId: created.CreatedTreeEvent.value.contractId,
-    updateId: extractUpdateId(response),
+    updateId: response.transactionTree.updateId,
     response,
   };
 }

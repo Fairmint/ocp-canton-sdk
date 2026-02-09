@@ -245,15 +245,16 @@ export function damlStockClassTypeToNative(damlType: string): StockClassType {
 export type DamlStakeholderRelationshipType = Fairmint.OpenCapTable.Types.Stakeholder.OcfStakeholderRelationshipType;
 
 /**
- * Convert a native OCF stakeholder relationship string to DAML enum.
- * Uses exact string matching (case-insensitive) with fallback to OTHER for unknown values.
+ * Convert a native OCF stakeholder relationship type to DAML enum.
  *
- * @param relationship - Native relationship string (e.g., 'EMPLOYEE', 'BOARD_MEMBER')
+ * @param relationship - Native relationship type
  * @returns DAML stakeholder relationship type enum value
+ * @throws Error if relationship is not a valid value
  */
-export function stakeholderRelationshipToDaml(relationship: string): DamlStakeholderRelationshipType {
-  const normalized = relationship.toUpperCase();
-  switch (normalized) {
+export function stakeholderRelationshipTypeToDaml(
+  relationship: StakeholderRelationshipType
+): DamlStakeholderRelationshipType {
+  switch (relationship) {
     case 'EMPLOYEE':
       return 'OcfRelEmployee';
     case 'ADVISOR':
@@ -267,19 +268,15 @@ export function stakeholderRelationshipToDaml(relationship: string): DamlStakeho
     case 'OFFICER':
       return 'OcfRelOfficer';
     case 'OTHER':
-    default:
-      // Unknown relationship types default to OTHER for forward compatibility
       return 'OcfRelOther';
+    default: {
+      const exhaustiveCheck: never = relationship;
+      throw new OcpParseError(`Unknown stakeholder relationship type: ${exhaustiveCheck as string}`, {
+        source: 'stakeholderRelationshipType',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
   }
-}
-
-/**
- * Alias for stakeholderRelationshipToDaml for compatibility with typed inputs.
- */
-export function stakeholderRelationshipTypeToDaml(
-  relationship: StakeholderRelationshipType
-): DamlStakeholderRelationshipType {
-  return stakeholderRelationshipToDaml(relationship);
 }
 
 /**
@@ -371,9 +368,10 @@ export function stakeholderStatusToDaml(status: StakeholderStatus): DamlStakehol
  * Convert a DAML stakeholder status to native OCF string.
  *
  * @param damlStatus - DAML stakeholder status enum value
- * @returns Native status string or undefined for unknown status
+ * @returns Native status string
+ * @throws OcpParseError if damlStatus is not a valid value
  */
-export function damlStakeholderStatusToNative(damlStatus: string): StakeholderStatus | undefined {
+export function damlStakeholderStatusToNative(damlStatus: DamlStakeholderStatus): StakeholderStatus {
   switch (damlStatus) {
     case 'OcfStakeholderStatusActive':
       return 'ACTIVE';
@@ -393,7 +391,12 @@ export function damlStakeholderStatusToNative(damlStatus: string): StakeholderSt
       return 'TERMINATION_INVOLUNTARY_DISABILITY';
     case 'OcfStakeholderStatusTerminationInvoluntaryWithCause':
       return 'TERMINATION_INVOLUNTARY_WITH_CAUSE';
-    default:
-      return undefined;
+    default: {
+      const exhaustiveCheck: never = damlStatus;
+      throw new OcpParseError(`Unknown DAML stakeholder status: ${exhaustiveCheck as string}`, {
+        source: 'damlStakeholderStatus',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
+    }
   }
 }
