@@ -13,6 +13,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
 import { OcpValidationError } from '../errors/OcpValidationError';
+import type { ContractId } from '../types/branded';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
@@ -421,8 +422,10 @@ export async function extractCantonOcfManifest(
   // Fetch issuer
   if (cantonState.issuerContractId) {
     try {
-      const { issuer } = await getIssuerAsOcf(client, { contractId: cantonState.issuerContractId });
-      result.issuer = issuer as unknown as Record<string, unknown>;
+      const issuerResult = await getIssuerAsOcf(client, {
+        contractId: cantonState.issuerContractId as ContractId,
+      });
+      result.issuer = issuerResult.data as unknown as Record<string, unknown>;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       log(`  ⚠️ Failed to fetch issuer: ${msg}`);
