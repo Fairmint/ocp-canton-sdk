@@ -49,8 +49,11 @@ src/
 │   ├── CantonPayments/     # Airdrop, payment streams
 │   └── OpenCapTableReports/
 ├── types/
-│   ├── native.ts           # OCF-native input/output types
-│   └── contractDetails.ts  # Disclosed contract refs
+│   ├── native.ts           # OCF-native input types (OcfIssuer, OcfStakeholder, etc.)
+│   ├── output.ts           # OCF output types with object_type discriminant (OcfIssuerOutput, etc.)
+│   ├── common.ts           # Shared types (GetByContractIdParams, ContractResult<T>, re-exports)
+│   ├── branded.ts          # Branded types (ContractId, PartyId) - optional strict typing
+│   └── daml.ts             # Re-exported DAML package types
 ├── utils/
 │   ├── typeConversions.ts  # DAML ↔ OCF conversions
 │   └── TransactionBatch.ts # Multi-command helper
@@ -126,16 +129,33 @@ export function convertToDaml(type: OcfEntityType, data: OcfEntityData): unknown
 
 Each operation exports: `Params`, `Result`, function, and optionally `buildXCommand`.
 
+### OcpClient API (consumer-facing)
+
+The `OcpClient` is the primary API surface. Methods are organized by entity type:
+
+```typescript
+// All get() methods return ContractResult<T> with { data, contractId }
+const { data: issuer } = await ocp.OpenCapTable.issuer.get({ contractId: '...' });
+console.log(issuer.object_type); // 'ISSUER' - discriminated union
+console.log(issuer.legal_name);
+
+// Batch operations
+const batch = ocp.OpenCapTable.capTable.update({
+  capTableContractId: '...',
+  actAs: ['issuerParty'],
+});
+batch.create('stakeholder', stakeholderData);
+await batch.execute();
+```
+
+### Internal function pattern
+
 ```typescript
 // src/functions/OpenCapTable/stakeholder/createStakeholder.ts
 export interface CreateStakeholderParams {
-  issuerContractId: ContractId;
+  issuerContractId: string;
   stakeholderData: OcfStakeholder;
-  featuredAppRightContractDetails: ContractDetails;
-}
-
-export interface CreateStakeholderResult {
-  stakeholderContractId: ContractId;
+  featuredAppRightContractDetails: DisclosedContract;
 }
 
 export function buildCreateStakeholderCommand(
@@ -166,7 +186,6 @@ Use utilities from `src/utils/typeConversions.ts`:
 
 ```typescript
 import {
-  numberToString, // number|string → string (for DAML numerics)
   normalizeNumericString, // Normalize and validate numeric strings (throws on invalid input)
   optionalString, // empty/undefined → null
   cleanComments, // filter comments array
