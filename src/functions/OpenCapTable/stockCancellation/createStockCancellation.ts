@@ -1,5 +1,10 @@
 import type { OcfStockCancellation } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, normalizeNumericString, optionalString } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  normalizeNumericString,
+  optionalString,
+} from '../../../utils/typeConversions';
 
 export function stockCancellationDataToDaml(d: OcfStockCancellation): Record<string, unknown> {
   return {

@@ -1,6 +1,11 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockTransfer } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, normalizeNumericString, optionalString } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  normalizeNumericString,
+  optionalString,
+} from '../../../utils/typeConversions';
 
 export function stockTransferDataToDaml(d: OcfStockTransfer): Record<string, unknown> {
   // Validate required array field
