@@ -4,7 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfEquityCompensationRelease } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF EquityCompensationRelease data to DAML format.
@@ -24,7 +24,7 @@ export function equityCompensationReleaseDataToDaml(d: OcfEquityCompensationRele
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
-    quantity: numberToString(d.quantity),
+    quantity: d.quantity,
     resulting_security_ids: d.resulting_security_ids,
     balance_security_id: optionalString(d.balance_security_id),
     settlement_date: d.settlement_date ? dateStringToDAMLTime(d.settlement_date) : null,

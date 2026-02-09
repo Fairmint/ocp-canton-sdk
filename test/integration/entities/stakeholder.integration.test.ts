@@ -41,17 +41,17 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
     });
 
     // Read back as OCF
-    const ocfResult = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: stakeholderSetup.stakeholderContractId,
     });
 
     // Validate OCF structure
-    expect(ocfResult.stakeholder.object_type).toBe('STAKEHOLDER');
-    expect(ocfResult.stakeholder.name.legal_name).toBe('John Doe');
-    expect(ocfResult.stakeholder.stakeholder_type).toBe('INDIVIDUAL');
+    expect(ocfResult.data.object_type).toBe('STAKEHOLDER');
+    expect(ocfResult.data.name.legal_name).toBe('John Doe');
+    expect(ocfResult.data.stakeholder_type).toBe('INDIVIDUAL');
 
     // Validate against official OCF schema
-    await validateOcfObject(ocfResult.stakeholder as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
   });
 
   test('creates institutional stakeholder', async () => {
@@ -74,11 +74,11 @@ createIntegrationTestSuite('Stakeholder operations', (getContext) => {
       },
     });
 
-    const ocfResult = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: stakeholderSetup.stakeholderContractId,
     });
 
-    expect(ocfResult.stakeholder.stakeholder_type).toBe('INSTITUTION');
-    await validateOcfObject(ocfResult.stakeholder as unknown as Record<string, unknown>);
+    expect(ocfResult.data.stakeholder_type).toBe('INSTITUTION');
+    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
   });
 });

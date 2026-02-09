@@ -8,7 +8,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfPlanSecurityExercise } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF PlanSecurityExercise data to DAML format.
@@ -32,7 +32,7 @@ export function planSecurityExerciseDataToDaml(d: OcfPlanSecurityExercise): Reco
     id: d.id,
     security_id: d.security_id,
     date: dateStringToDAMLTime(d.date),
-    quantity: numberToString(d.quantity),
+    quantity: d.quantity,
     consideration_text: optionalString(d.consideration_text),
     resulting_security_ids: d.resulting_security_ids,
     comments: cleanComments(d.comments),

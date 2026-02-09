@@ -1,13 +1,7 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { Monetary } from '../../../types';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  monetaryToDaml,
-  numberToString,
-  optionalString,
-} from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
 
 export interface SimpleVesting {
   date: string;
@@ -112,7 +106,7 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
-          converts_to_percent: numberToString(m.converts_to_percent),
+          converts_to_percent: m.converts_to_percent,
           capitalization_definition: optionalString(m.capitalization_definition),
           capitalization_definition_rules: (m.capitalization_definition_rules ??
             null) as Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules | null,
@@ -122,7 +116,7 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismFixedAmount',
         value: {
-          converts_to_quantity: numberToString(m.converts_to_quantity),
+          converts_to_quantity: m.converts_to_quantity,
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
     case 'VALUATION_BASED_CONVERSION':
@@ -142,10 +136,7 @@ function warrantMechanismToDamlVariant(
         value: {
           description: m.description,
           discount: m.discount,
-          discount_percentage:
-            m.discount_percentage !== undefined && m.discount_percentage !== null
-              ? numberToString(m.discount_percentage)
-              : null,
+          discount_percentage: m.discount_percentage ?? null,
           discount_amount: m.discount_amount ? monetaryToDaml(m.discount_amount) : null,
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
@@ -288,7 +279,7 @@ export function warrantIssuanceDataToDaml(d: {
     vesting_terms_id: optionalString(d.vesting_terms_id),
     vestings: (d.vestings ?? []).map((v) => ({
       date: dateStringToDAMLTime(v.date),
-      amount: numberToString(v.amount),
+      amount: v.amount,
     })),
     comments: cleanComments(d.comments),
   };

@@ -4,7 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfWarrantExercise } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF WarrantExercise data to DAML format.
@@ -31,7 +31,7 @@ export function warrantExerciseDataToDaml(d: OcfWarrantExercise): Record<string,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     trigger_id: d.trigger_id,
-    quantity: numberToString(d.quantity),
+    quantity: d.quantity,
     resulting_security_ids: d.resulting_security_ids,
     balance_security_id: optionalString(d.balance_security_id),
     consideration_text: optionalString(d.consideration_text),

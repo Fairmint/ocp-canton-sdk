@@ -6,13 +6,7 @@ import type {
   StockIssuanceType,
 } from '../../../types';
 import { validateStockIssuanceData } from '../../../utils/entityValidators';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  monetaryToDaml,
-  numberToString,
-  optionalString,
-} from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
 
 /**
  * Convert native StockIssuanceType to DAML enum value.
@@ -64,17 +58,17 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
     share_numbers_issued: (d.share_numbers_issued ?? [])
       .filter((range) => !(range.starting_share_number === '0' && range.ending_share_number === '0'))
       .map((r) => ({
-        starting_share_number: numberToString(r.starting_share_number),
-        ending_share_number: numberToString(r.ending_share_number),
+        starting_share_number: r.starting_share_number,
+        ending_share_number: r.ending_share_number,
       })),
     share_price: monetaryToDaml(d.share_price),
-    quantity: numberToString(d.quantity),
+    quantity: d.quantity,
     vesting_terms_id: optionalString(d.vesting_terms_id),
     vestings: (d.vestings ?? [])
       .filter((v) => Number(v.amount) > 0)
       .map((v) => ({
         date: dateStringToDAMLTime(v.date),
-        amount: numberToString(v.amount),
+        amount: v.amount,
       })),
     cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,
     stock_legend_ids: d.stock_legend_ids ?? [],

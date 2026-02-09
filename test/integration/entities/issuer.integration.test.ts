@@ -32,16 +32,16 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
     });
 
     // Read back the issuer as OCF using the actual Issuer contract ID
-    const ocfResult = await ctx.ocp.OpenCapTable.issuer.getIssuerAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.issuer.get({
       contractId: testSetup.issuerOcfContractId,
     });
 
     // Validate OCF structure
-    expect(ocfResult.issuer.object_type).toBe('ISSUER');
-    expect(ocfResult.issuer.legal_name).toBe('Integration Test Corp');
+    expect(ocfResult.data.object_type).toBe('ISSUER');
+    expect(ocfResult.data.legal_name).toBe('Integration Test Corp');
 
     // Validate against official OCF schema
-    await validateOcfObject(ocfResult.issuer as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
   });
 
   test('issuer data round-trips correctly', async () => {
@@ -65,17 +65,17 @@ createIntegrationTestSuite('Issuer operations', (getContext) => {
       issuerData: originalData,
     });
 
-    const ocfResult = await ctx.ocp.OpenCapTable.issuer.getIssuerAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.issuer.get({
       contractId: testSetup.issuerOcfContractId,
     });
 
     // Verify data round-trip
-    expect(ocfResult.issuer.id).toBe(originalData.id);
-    expect(ocfResult.issuer.legal_name).toBe(originalData.legal_name);
-    expect(ocfResult.issuer.formation_date).toBe(originalData.formation_date);
-    expect(ocfResult.issuer.country_of_formation).toBe(originalData.country_of_formation);
-    expect(ocfResult.issuer.country_subdivision_of_formation).toBe(originalData.country_subdivision_of_formation);
-    expect(ocfResult.issuer.dba).toBe(originalData.dba);
+    expect(ocfResult.data.id).toBe(originalData.id);
+    expect(ocfResult.data.legal_name).toBe(originalData.legal_name);
+    expect(ocfResult.data.formation_date).toBe(originalData.formation_date);
+    expect(ocfResult.data.country_of_formation).toBe(originalData.country_of_formation);
+    expect(ocfResult.data.country_subdivision_of_formation).toBe(originalData.country_subdivision_of_formation);
+    expect(ocfResult.data.dba).toBe(originalData.dba);
   });
 
   test('edits issuer via batch UpdateCapTable', async () => {

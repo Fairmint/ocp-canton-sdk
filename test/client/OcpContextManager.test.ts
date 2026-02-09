@@ -3,6 +3,7 @@
  */
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpContextManager } from '../../src/OcpClient';
+import type { ContractId, PartyId } from '../../src/types/branded';
 
 describe('OcpContextManager', () => {
   let contextManager: OcpContextManager;
@@ -52,26 +53,26 @@ describe('OcpContextManager', () => {
 
   describe('setIssuerParty', () => {
     it('should set issuerParty', () => {
-      contextManager.setIssuerParty('issuer::party-123');
+      contextManager.setIssuerParty('issuer::party-123' as PartyId);
       expect(contextManager.issuerParty).toBe('issuer::party-123');
     });
 
     it('should overwrite existing issuerParty', () => {
-      contextManager.setIssuerParty('issuer::party-123');
-      contextManager.setIssuerParty('issuer::party-456');
+      contextManager.setIssuerParty('issuer::party-123' as PartyId);
+      contextManager.setIssuerParty('issuer::party-456' as PartyId);
       expect(contextManager.issuerParty).toBe('issuer::party-456');
     });
   });
 
   describe('setCapTableContractId', () => {
     it('should set capTableContractId', () => {
-      contextManager.setCapTableContractId('captable-contract-789');
+      contextManager.setCapTableContractId('captable-contract-789' as ContractId);
       expect(contextManager.capTableContractId).toBe('captable-contract-789');
     });
 
     it('should overwrite existing capTableContractId', () => {
-      contextManager.setCapTableContractId('captable-contract-789');
-      contextManager.setCapTableContractId('captable-contract-999');
+      contextManager.setCapTableContractId('captable-contract-789' as ContractId);
+      contextManager.setCapTableContractId('captable-contract-999' as ContractId);
       expect(contextManager.capTableContractId).toBe('captable-contract-999');
     });
   });
@@ -87,8 +88,8 @@ describe('OcpContextManager', () => {
     it('should set all values at once', () => {
       contextManager.setAll({
         featuredAppRight: mockDisclosedContract,
-        issuerParty: 'issuer::party-123',
-        capTableContractId: 'captable-contract-789',
+        issuerParty: 'issuer::party-123' as PartyId,
+        capTableContractId: 'captable-contract-789' as ContractId,
       });
 
       expect(contextManager.featuredAppRight).toEqual(mockDisclosedContract);
@@ -97,7 +98,7 @@ describe('OcpContextManager', () => {
     });
 
     it('should allow partial updates', () => {
-      contextManager.setIssuerParty('issuer::existing-party');
+      contextManager.setIssuerParty('issuer::existing-party' as PartyId);
       contextManager.setAll({
         featuredAppRight: mockDisclosedContract,
       });
@@ -108,7 +109,7 @@ describe('OcpContextManager', () => {
     });
 
     it('should allow setting null values explicitly', () => {
-      contextManager.setIssuerParty('issuer::party-123');
+      contextManager.setIssuerParty('issuer::party-123' as PartyId);
       contextManager.setAll({
         issuerParty: null,
       });
@@ -117,7 +118,7 @@ describe('OcpContextManager', () => {
     });
 
     it('should not change values when undefined is passed', () => {
-      contextManager.setIssuerParty('issuer::party-123');
+      contextManager.setIssuerParty('issuer::party-123' as PartyId);
       contextManager.setAll({
         issuerParty: undefined,
       });
@@ -149,7 +150,7 @@ describe('OcpContextManager', () => {
 
   describe('requireIssuerParty', () => {
     it('should return issuerParty when set', () => {
-      contextManager.setIssuerParty('issuer::party-123');
+      contextManager.setIssuerParty('issuer::party-123' as PartyId);
       expect(contextManager.requireIssuerParty()).toBe('issuer::party-123');
     });
 
@@ -162,7 +163,7 @@ describe('OcpContextManager', () => {
 
   describe('requireCapTableContractId', () => {
     it('should return capTableContractId when set', () => {
-      contextManager.setCapTableContractId('captable-contract-789');
+      contextManager.setCapTableContractId('captable-contract-789' as ContractId);
       expect(contextManager.requireCapTableContractId()).toBe('captable-contract-789');
     });
 
@@ -183,8 +184,8 @@ describe('OcpContextManager', () => {
       };
 
       contextManager.setFeaturedAppRight(mockDisclosedContract);
-      contextManager.setIssuerParty('issuer::party-123');
-      contextManager.setCapTableContractId('captable-contract-789');
+      contextManager.setIssuerParty('issuer::party-123' as PartyId);
+      contextManager.setCapTableContractId('captable-contract-789' as ContractId);
 
       contextManager.clear();
 
@@ -202,7 +203,7 @@ describe('OcpContextManager', () => {
       };
 
       contextManager.setFeaturedAppRight(mockDisclosedContract);
-      contextManager.setCapTableContractId('captable-contract-789');
+      contextManager.setCapTableContractId('captable-contract-789' as ContractId);
 
       expect(contextManager.isReadyForBatchOperations()).toBe(true);
 
@@ -226,25 +227,25 @@ describe('OcpContextManager', () => {
     });
 
     it('should return false when only capTableContractId is set', () => {
-      contextManager.setCapTableContractId('captable-contract-789');
+      contextManager.setCapTableContractId('captable-contract-789' as ContractId);
       expect(contextManager.isReadyForBatchOperations()).toBe(false);
     });
 
     it('should return true when featuredAppRight and capTableContractId are both set', () => {
       contextManager.setFeaturedAppRight(mockDisclosedContract);
-      contextManager.setCapTableContractId('captable-contract-789');
+      contextManager.setCapTableContractId('captable-contract-789' as ContractId);
       expect(contextManager.isReadyForBatchOperations()).toBe(true);
     });
 
     it('should return true regardless of issuerParty', () => {
       contextManager.setFeaturedAppRight(mockDisclosedContract);
-      contextManager.setCapTableContractId('captable-contract-789');
+      contextManager.setCapTableContractId('captable-contract-789' as ContractId);
 
       // Without issuerParty
       expect(contextManager.isReadyForBatchOperations()).toBe(true);
 
       // With issuerParty
-      contextManager.setIssuerParty('issuer::party-123');
+      contextManager.setIssuerParty('issuer::party-123' as PartyId);
       expect(contextManager.isReadyForBatchOperations()).toBe(true);
     });
   });

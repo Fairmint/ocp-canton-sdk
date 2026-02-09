@@ -121,9 +121,8 @@ import {
   type WaitUntilCanMintOptions,
 } from './functions/CouponMinter';
 import { CapTableBatch } from './functions/OpenCapTable/capTable';
-import type { ContractId, PartyId } from './types/branded';
-import type { ContractResult, GetByContractIdParams } from './types/common';
 import type { CommandWithDisclosedContracts } from './types';
+import type { ContractResult, GetByContractIdParams } from './types/common';
 import type {
   OcfConvertibleAcceptanceOutput,
   OcfConvertibleCancellationOutput,
@@ -175,7 +174,7 @@ import type {
  * @internal
  */
 function toContractResult<T>(data: T, contractId: string): ContractResult<T> {
-  return { data, contractId: contractId as ContractId };
+  return { data, contractId };
 }
 
 // ===== Context Manager =====
@@ -204,9 +203,9 @@ export interface OcpContext {
   /** The cached FeaturedAppRight disclosed contract details */
   featuredAppRight: DisclosedContract | null;
   /** The cached issuer party ID */
-  issuerParty: PartyId | null;
+  issuerParty: string | null;
   /** The cached cap table contract ID */
-  capTableContractId: ContractId | null;
+  capTableContractId: string | null;
 }
 
 /**
@@ -216,8 +215,8 @@ export interface OcpContext {
  */
 export class OcpContextManager implements OcpContext {
   private _featuredAppRight: DisclosedContract | null = null;
-  private _issuerParty: PartyId | null = null;
-  private _capTableContractId: ContractId | null = null;
+  private _issuerParty: string | null = null;
+  private _capTableContractId: string | null = null;
 
   /** Get the cached FeaturedAppRight disclosed contract details */
   get featuredAppRight(): DisclosedContract | null {
@@ -225,12 +224,12 @@ export class OcpContextManager implements OcpContext {
   }
 
   /** Get the cached issuer party ID */
-  get issuerParty(): PartyId | null {
+  get issuerParty(): string | null {
     return this._issuerParty;
   }
 
   /** Get the cached cap table contract ID */
-  get capTableContractId(): ContractId | null {
+  get capTableContractId(): string | null {
     return this._capTableContractId;
   }
 
@@ -246,7 +245,7 @@ export class OcpContextManager implements OcpContext {
    * Set the issuer party ID.
    * @param partyId - The party ID to cache
    */
-  setIssuerParty(partyId: PartyId): void {
+  setIssuerParty(partyId: string): void {
     this._issuerParty = partyId;
   }
 
@@ -254,7 +253,7 @@ export class OcpContextManager implements OcpContext {
    * Set the cap table contract ID.
    * @param contractId - The contract ID to cache
    */
-  setCapTableContractId(contractId: ContractId): void {
+  setCapTableContractId(contractId: string): void {
     this._capTableContractId = contractId;
   }
 
@@ -293,7 +292,7 @@ export class OcpContextManager implements OcpContext {
    * Get the issuer party or throw if not set.
    * @throws OcpValidationError if issuer party has not been set
    */
-  requireIssuerParty(): PartyId {
+  requireIssuerParty(): string {
     if (!this._issuerParty) {
       throw new OcpValidationError(
         'context.issuerParty',
@@ -308,7 +307,7 @@ export class OcpContextManager implements OcpContext {
    * Get the cap table contract ID or throw if not set.
    * @throws OcpValidationError if cap table contract ID has not been set
    */
-  requireCapTableContractId(): ContractId {
+  requireCapTableContractId(): string {
     if (!this._capTableContractId) {
       throw new OcpValidationError(
         'context.capTableContractId',
@@ -401,7 +400,7 @@ export class OcpClient {
   }
 
   /** Create a new transaction batch for submitting multiple commands atomically */
-  public createBatch(params: { actAs: PartyId[]; readAs?: PartyId[] }): TransactionBatch {
+  public createBatch(params: { actAs: string[]; readAs?: string[] }): TransactionBatch {
     return new TransactionBatch(this.client, params.actAs, params.readAs);
   }
 
@@ -592,10 +591,7 @@ export class OcpClient {
       issuerAuthorizedSharesAdjustment: {
         get: async (params) => {
           const r = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, params);
-          return toContractResult(
-            r.event as unknown as OcfIssuerAuthorizedSharesAdjustmentOutput,
-            params.contractId
-          );
+          return toContractResult(r.event as unknown as OcfIssuerAuthorizedSharesAdjustmentOutput, params.contractId);
         },
       },
       stockClassAuthorizedSharesAdjustment: {
@@ -665,10 +661,7 @@ export class OcpClient {
       vestingAcceleration: {
         get: async (params) => {
           const r = await getVestingAccelerationAsOcf(client, params);
-          return toContractResult(
-            r.vestingAcceleration as unknown as OcfVestingAccelerationOutput,
-            params.contractId
-          );
+          return toContractResult(r.vestingAcceleration as unknown as OcfVestingAccelerationOutput, params.contractId);
         },
       },
 
@@ -676,19 +669,13 @@ export class OcpClient {
       stakeholderRelationshipChangeEvent: {
         get: async (params) => {
           const r = await getStakeholderRelationshipChangeEventAsOcf(client, params);
-          return toContractResult(
-            r.event as unknown as OcfStakeholderRelationshipChangeEventOutput,
-            params.contractId
-          );
+          return toContractResult(r.event as unknown as OcfStakeholderRelationshipChangeEventOutput, params.contractId);
         },
       },
       stakeholderStatusChangeEvent: {
         get: async (params) => {
           const r = await getStakeholderStatusChangeEventAsOcf(client, params);
-          return toContractResult(
-            r.event as unknown as OcfStakeholderStatusChangeEventOutput,
-            params.contractId
-          );
+          return toContractResult(r.event as unknown as OcfStakeholderStatusChangeEventOutput, params.contractId);
         },
       },
 
@@ -711,7 +698,7 @@ export class OcpClient {
       companyValuationReport: {
         buildCreate: (params: CreateCompanyValuationReportParams) =>
           buildCreateCompanyValuationReportCommand(client, params),
-        addObservers: async (params: { companyValuationReportContractId: ContractId; added: PartyId[] }) =>
+        addObservers: async (params: { companyValuationReportContractId: string; added: string[] }) =>
           addObserversToCompanyValuationReport(client, params),
         create: async (params: CreateCompanyValuationReportParams) => createCompanyValuationReport(client, params),
         update: async (params: UpdateCompanyValuationParams) => updateCompanyValuationReport(client, params),
@@ -747,13 +734,13 @@ export class OcpClient {
 /** Parameters for creating a batch cap table update */
 interface CapTableUpdateParams {
   /** The contract ID of the CapTable to update */
-  capTableContractId: ContractId;
+  capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
   capTableContractDetails?: { templateId: string };
   /** Party IDs to act as (signatories) */
-  actAs: PartyId[];
+  actAs: string[];
   /** Optional additional party IDs for read access */
-  readAs?: PartyId[];
+  readAs?: string[];
 }
 
 /** Entity namespace with a single `get()` method */
@@ -857,8 +844,8 @@ interface OpenCapTableReportsMethods {
     buildCreate: (params: CreateCompanyValuationReportParams) => CommandWithDisclosedContracts;
     /** Add observers to a company valuation report */
     addObservers: (params: {
-      companyValuationReportContractId: ContractId;
-      added: PartyId[];
+      companyValuationReportContractId: string;
+      added: string[];
     }) => Promise<{ contractId: string; updateId: string }>;
     /** Create a new company valuation report */
     create: (params: CreateCompanyValuationReportParams) => Promise<CreateCompanyValuationReportResult>;

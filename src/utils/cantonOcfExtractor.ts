@@ -13,7 +13,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
 import { OcpValidationError } from '../errors/OcpValidationError';
-import type { ContractId } from '../types/branded';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
@@ -34,6 +33,7 @@ import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stock
 import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
+import type { ContractId } from '../types/branded';
 import { TRANSACTION_SUBTYPE_MAP } from './replicationHelpers';
 
 // ===== Transaction Sorting =====

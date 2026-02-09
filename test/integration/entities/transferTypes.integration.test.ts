@@ -126,20 +126,20 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     expect(transferContractId).toBeTruthy();
 
     // Read back as OCF
-    const ocfResult = await ctx.ocp.OpenCapTable.stockTransfer.getStockTransferAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.stockTransfer.get({
       contractId: transferContractId!,
     });
 
     // Validate structure
-    expect(ocfResult.event.object_type).toBe('TX_STOCK_TRANSFER');
-    expect(ocfResult.event.id).toBe(transferData.id);
-    expect(ocfResult.event.security_id).toBe(transferData.security_id);
-    expect(ocfResult.event.quantity).toBe(transferData.quantity);
-    expect(ocfResult.event.resulting_security_ids).toEqual(transferData.resulting_security_ids);
-    expect(ocfResult.event.balance_security_id).toBe(transferData.balance_security_id);
+    expect(ocfResult.data.object_type).toBe('TX_STOCK_TRANSFER');
+    expect(ocfResult.data.id).toBe(transferData.id);
+    expect(ocfResult.data.security_id).toBe(transferData.security_id);
+    expect(ocfResult.data.quantity).toBe(transferData.quantity);
+    expect(ocfResult.data.resulting_security_ids).toEqual(transferData.resulting_security_ids);
+    expect(ocfResult.data.balance_security_id).toBe(transferData.balance_security_id);
 
     // Validate against OCF schema
-    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
   });
 
   /**
@@ -202,18 +202,18 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     const transferContractId = extractContractIdFromResponse(result, 'ConvertibleTransfer');
     expect(transferContractId).toBeTruthy();
 
-    const ocfResult = await ctx.ocp.OpenCapTable.convertibleTransfer.getConvertibleTransferAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.convertibleTransfer.get({
       contractId: transferContractId!,
     });
 
-    expect(ocfResult.event.object_type).toBe('TX_CONVERTIBLE_TRANSFER');
-    expect(ocfResult.event.id).toBe(transferData.id);
-    expect(ocfResult.event.security_id).toBe(transferData.security_id);
-    expect(ocfResult.event.amount.amount).toBe(transferData.amount.amount);
-    expect(ocfResult.event.amount.currency).toBe(transferData.amount.currency);
-    expect(ocfResult.event.resulting_security_ids).toEqual(transferData.resulting_security_ids);
+    expect(ocfResult.data.object_type).toBe('TX_CONVERTIBLE_TRANSFER');
+    expect(ocfResult.data.id).toBe(transferData.id);
+    expect(ocfResult.data.security_id).toBe(transferData.security_id);
+    expect(ocfResult.data.amount.amount).toBe(transferData.amount.amount);
+    expect(ocfResult.data.amount.currency).toBe(transferData.amount.currency);
+    expect(ocfResult.data.resulting_security_ids).toEqual(transferData.resulting_security_ids);
 
-    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
   });
 
   /**
@@ -275,18 +275,18 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     const transferContractId = extractContractIdFromResponse(result, 'EquityCompensationTransfer');
     expect(transferContractId).toBeTruthy();
 
-    const ocfResult = await ctx.ocp.OpenCapTable.equityCompensationTransfer.getEquityCompensationTransferAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.equityCompensationTransfer.get({
       contractId: transferContractId!,
     });
 
-    expect(ocfResult.event.object_type).toBe('TX_EQUITY_COMPENSATION_TRANSFER');
-    expect(ocfResult.event.id).toBe(transferData.id);
-    expect(ocfResult.event.security_id).toBe(transferData.security_id);
-    expect(ocfResult.event.quantity).toBe(transferData.quantity);
-    expect(ocfResult.event.resulting_security_ids).toEqual(transferData.resulting_security_ids);
-    expect(ocfResult.event.balance_security_id).toBe(transferData.balance_security_id);
+    expect(ocfResult.data.object_type).toBe('TX_EQUITY_COMPENSATION_TRANSFER');
+    expect(ocfResult.data.id).toBe(transferData.id);
+    expect(ocfResult.data.security_id).toBe(transferData.security_id);
+    expect(ocfResult.data.quantity).toBe(transferData.quantity);
+    expect(ocfResult.data.resulting_security_ids).toEqual(transferData.resulting_security_ids);
+    expect(ocfResult.data.balance_security_id).toBe(transferData.balance_security_id);
 
-    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
   });
 
   /**
@@ -347,16 +347,16 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     const transferContractId = extractContractIdFromResponse(result, 'WarrantTransfer');
     expect(transferContractId).toBeTruthy();
 
-    const ocfResult = await ctx.ocp.OpenCapTable.warrantTransfer.getWarrantTransferAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.warrantTransfer.get({
       contractId: transferContractId!,
     });
 
-    expect(ocfResult.event.object_type).toBe('TX_WARRANT_TRANSFER');
-    expect(ocfResult.event.id).toBe(transferData.id);
-    expect(ocfResult.event.security_id).toBe(transferData.security_id);
-    expect(ocfResult.event.quantity).toBe(transferData.quantity);
-    expect(ocfResult.event.resulting_security_ids).toEqual(transferData.resulting_security_ids);
+    expect(ocfResult.data.object_type).toBe('TX_WARRANT_TRANSFER');
+    expect(ocfResult.data.id).toBe(transferData.id);
+    expect(ocfResult.data.security_id).toBe(transferData.security_id);
+    expect(ocfResult.data.quantity).toBe(transferData.quantity);
+    expect(ocfResult.data.resulting_security_ids).toEqual(transferData.resulting_security_ids);
 
-    await validateOcfObject(ocfResult.event as unknown as Record<string, unknown>);
+    await validateOcfObject(ocfResult.data as unknown as Record<string, unknown>);
   });
 });

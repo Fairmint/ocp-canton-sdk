@@ -1,5 +1,5 @@
 import type { OcfEquityCompensationCancellation } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, numberToString, optionalString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
 
 export function equityCompensationCancellationDataToDaml(
   d: OcfEquityCompensationCancellation
@@ -9,7 +9,7 @@ export function equityCompensationCancellationDataToDaml(
     security_id: d.security_id,
     reason_text: d.reason_text,
     date: dateStringToDAMLTime(d.date),
-    quantity: numberToString(d.quantity),
+    quantity: d.quantity,
     balance_security_id: optionalString(d.balance_security_id),
     comments: cleanComments(d.comments),
   };

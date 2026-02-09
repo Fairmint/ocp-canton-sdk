@@ -13,7 +13,6 @@ import {
   dateStringToDAMLTime,
   monetaryToDaml,
   normalizeNumericString,
-  numberToString,
   optionalNumberToString,
   optionalString,
 } from '../../src/utils/typeConversions';
@@ -123,20 +122,6 @@ describe('Property-based tests: Type Conversions', () => {
           expect(() => normalizeNumericString(scientific)).toThrow(/scientific notation/i);
         }),
         { numRuns: 100 }
-      );
-    });
-  });
-
-  describe('numberToString properties', () => {
-    /**
-     * Strings pass through unchanged.
-     */
-    test('strings pass through unchanged', () => {
-      fc.assert(
-        fc.property(fc.stringMatching(/^[0-9.\-]{1,20}$/), (s) => {
-          expect(numberToString(s)).toBe(s);
-        }),
-        { numRuns: 200 }
       );
     });
   });

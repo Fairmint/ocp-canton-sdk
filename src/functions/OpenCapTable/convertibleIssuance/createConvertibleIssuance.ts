@@ -5,7 +5,6 @@ import {
   cleanComments,
   dateStringToDAMLTime,
   monetaryToDaml,
-  numberToString,
   optionalString,
   safeString,
 } from '../../../utils/typeConversions';
@@ -275,7 +274,7 @@ function mechanismInputToDamlEnum(
         return {
           tag: 'OcfConvMechPercentCapitalization',
           value: {
-            converts_to_percent: numberToString(anyM.converts_to_percent as string),
+            converts_to_percent: anyM.converts_to_percent as string,
             capitalization_definition: optionalString(anyM.capitalization_definition as string | undefined),
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
           },
@@ -293,7 +292,7 @@ function mechanismInputToDamlEnum(
         return {
           tag: 'OcfConvMechFixedAmount',
           value: {
-            converts_to_quantity: numberToString(anyM.converts_to_quantity as string),
+            converts_to_quantity: anyM.converts_to_quantity as string,
           },
         } as Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;
       }
@@ -329,7 +328,7 @@ function mechanismInputToDamlEnum(
           value: {
             description: anyM.description,
             discount: Boolean(anyM.discount),
-            discount_percentage: anyM.discount_percentage ? numberToString(anyM.discount_percentage as string) : null,
+            discount_percentage: anyM.discount_percentage ? (anyM.discount_percentage as string) : null,
             discount_amount: anyM.discount_amount ? monetaryToDaml(anyM.discount_amount as Monetary) : null,
           },
         } as Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;
