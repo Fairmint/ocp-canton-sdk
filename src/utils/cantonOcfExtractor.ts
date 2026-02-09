@@ -33,7 +33,6 @@ import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stock
 import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
-import type { ContractId } from '../types/branded';
 import { TRANSACTION_SUBTYPE_MAP } from './replicationHelpers';
 
 // ===== Transaction Sorting =====
@@ -423,7 +422,7 @@ export async function extractCantonOcfManifest(
   if (cantonState.issuerContractId) {
     try {
       const issuerResult = await getIssuerAsOcf(client, {
-        contractId: cantonState.issuerContractId as ContractId,
+        contractId: cantonState.issuerContractId,
       });
       result.issuer = issuerResult.data as unknown as Record<string, unknown>;
     } catch (error) {

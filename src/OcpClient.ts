@@ -167,14 +167,25 @@ import type {
   OcfWarrantTransferOutput,
 } from './types/output';
 
-// ===== Helper to adapt old function results to ContractResult<T> =====
+// ===== Helper to adapt underlying function results to ContractResult<T> =====
 
 /**
- * Adapt a function result with a named entity property to the standardized ContractResult<T> format.
+ * Adapt an underlying `get*AsOcf` function result to the standardized `ContractResult<T>` format.
+ *
+ * The underlying functions define their own local output types that may differ
+ * structurally from the centralized output types in `types/output.ts` (e.g., optional
+ * vs required fields, locally-defined interfaces vs `WithObjectType` aliases). The
+ * centralized types are stricter and canonical. This adapter performs a single, contained
+ * type assertion to bridge the gap, keeping the cast out of individual call sites.
+ *
+ * @typeParam T - The target output type from `types/output.ts`
+ * @param data - Entity data from the underlying function (runtime-correct, locally-typed)
+ * @param contractId - The contract ID returned by the underlying function
  * @internal
  */
-function toContractResult<T>(data: T, contractId: string): ContractResult<T> {
-  return { data, contractId };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toContractResult<T>(data: any, contractId: string): ContractResult<T> {
+  return { data: data as T, contractId };
 }
 
 // ===== Context Manager =====
@@ -415,43 +426,43 @@ export class OcpClient {
       stakeholder: {
         get: async (params) => {
           const r = await getStakeholderAsOcf(client, params);
-          return toContractResult(r.stakeholder as unknown as OcfStakeholderOutput, params.contractId);
+          return toContractResult(r.stakeholder, r.contractId);
         },
       },
       stockClass: {
         get: async (params) => {
           const r = await getStockClassAsOcf(client, params);
-          return toContractResult(r.stockClass as unknown as OcfStockClassOutput, params.contractId);
+          return toContractResult(r.stockClass, r.contractId);
         },
       },
       stockLegendTemplate: {
         get: async (params) => {
           const r = await getStockLegendTemplateAsOcf(client, params);
-          return toContractResult(r.stockLegendTemplate as unknown as OcfStockLegendTemplateOutput, params.contractId);
+          return toContractResult(r.stockLegendTemplate, r.contractId);
         },
       },
       stockPlan: {
         get: async (params) => {
           const r = await getStockPlanAsOcf(client, params);
-          return toContractResult(r.stockPlan as unknown as OcfStockPlanOutput, params.contractId);
+          return toContractResult(r.stockPlan, r.contractId);
         },
       },
       vestingTerms: {
         get: async (params) => {
           const r = await getVestingTermsAsOcf(client, params);
-          return toContractResult(r.vestingTerms as unknown as OcfVestingTermsOutput, params.contractId);
+          return toContractResult(r.vestingTerms, r.contractId);
         },
       },
       valuation: {
         get: async (params) => {
           const r = await getValuationAsOcf(client, params);
-          return toContractResult(r.valuation as unknown as OcfValuationOutput, params.contractId);
+          return toContractResult(r.valuation, r.contractId);
         },
       },
       document: {
         get: async (params) => {
           const r = await getDocumentAsOcf(client, params);
-          return toContractResult(r.document as unknown as OcfDocumentOutput, params.contractId);
+          return toContractResult(r.document, r.contractId);
         },
       },
 
@@ -459,25 +470,25 @@ export class OcpClient {
       stockIssuance: {
         get: async (params) => {
           const r = await getStockIssuanceAsOcf(client, params);
-          return toContractResult(r.stockIssuance as unknown as OcfStockIssuanceOutput, params.contractId);
+          return toContractResult(r.stockIssuance, r.contractId);
         },
       },
       equityCompensationIssuance: {
         get: async (params) => {
           const r = await getEquityCompensationIssuanceAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfEquityCompensationIssuanceOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       warrantIssuance: {
         get: async (params) => {
           const r = await getWarrantIssuanceAsOcf(client, params);
-          return toContractResult(r.warrantIssuance as unknown as OcfWarrantIssuanceOutput, params.contractId);
+          return toContractResult(r.warrantIssuance, r.contractId);
         },
       },
       convertibleIssuance: {
         get: async (params) => {
           const r = await getConvertibleIssuanceAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfConvertibleIssuanceOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
 
@@ -485,25 +496,25 @@ export class OcpClient {
       stockTransfer: {
         get: async (params) => {
           const r = await getStockTransferAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfStockTransferOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       warrantTransfer: {
         get: async (params) => {
           const r = await getWarrantTransferAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfWarrantTransferOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       convertibleTransfer: {
         get: async (params) => {
           const r = await getConvertibleTransferAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfConvertibleTransferOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       equityCompensationTransfer: {
         get: async (params) => {
           const r = await getEquityCompensationTransferAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfEquityCompensationTransferOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
 
@@ -511,25 +522,25 @@ export class OcpClient {
       stockCancellation: {
         get: async (params) => {
           const r = await getStockCancellationAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfStockCancellationOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       warrantCancellation: {
         get: async (params) => {
           const r = await getWarrantCancellationAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfWarrantCancellationOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       convertibleCancellation: {
         get: async (params) => {
           const r = await getConvertibleCancellationAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfConvertibleCancellationOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       equityCompensationCancellation: {
         get: async (params) => {
           const r = await getEquityCompensationCancellationAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfEquityCompensationCancellationOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
 
@@ -537,13 +548,13 @@ export class OcpClient {
       equityCompensationExercise: {
         get: async (params) => {
           const r = await getEquityCompensationExerciseAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfEquityCompensationExerciseOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       warrantExercise: {
         get: async (params) => {
           const r = await getWarrantExerciseAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfWarrantExerciseOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
 
@@ -551,13 +562,13 @@ export class OcpClient {
       stockConversion: {
         get: async (params) => {
           const r = await getStockConversionAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfStockConversionOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       convertibleConversion: {
         get: async (params) => {
           const r = await getConvertibleConversionAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfConvertibleConversionOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
 
@@ -565,25 +576,25 @@ export class OcpClient {
       stockAcceptance: {
         get: async (params) => {
           const r = await getStockAcceptanceAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfStockAcceptanceOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       warrantAcceptance: {
         get: async (params) => {
           const r = await getWarrantAcceptanceAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfWarrantAcceptanceOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       convertibleAcceptance: {
         get: async (params) => {
           const r = await getConvertibleAcceptanceAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfConvertibleAcceptanceOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       equityCompensationAcceptance: {
         get: async (params) => {
           const r = await getEquityCompensationAcceptanceAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfEquityCompensationAcceptanceOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
 
@@ -591,37 +602,31 @@ export class OcpClient {
       issuerAuthorizedSharesAdjustment: {
         get: async (params) => {
           const r = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfIssuerAuthorizedSharesAdjustmentOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       stockClassAuthorizedSharesAdjustment: {
         get: async (params) => {
           const r = await getStockClassAuthorizedSharesAdjustmentAsOcf(client, params);
-          return toContractResult(
-            r.event as unknown as OcfStockClassAuthorizedSharesAdjustmentOutput,
-            params.contractId
-          );
+          return toContractResult(r.event, r.contractId);
         },
       },
       stockClassConversionRatioAdjustment: {
         get: async (params) => {
           const r = await getStockClassConversionRatioAdjustmentAsOcf(client, params);
-          return toContractResult(
-            r.event as unknown as OcfStockClassConversionRatioAdjustmentOutput,
-            params.contractId
-          );
+          return toContractResult(r.event, r.contractId);
         },
       },
       stockClassSplit: {
         get: async (params) => {
           const r = await getStockClassSplitAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfStockClassSplitOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       stockPlanPoolAdjustment: {
         get: async (params) => {
           const r = await getStockPlanPoolAdjustmentAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfStockPlanPoolAdjustmentOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
 
@@ -629,19 +634,19 @@ export class OcpClient {
       stockRepurchase: {
         get: async (params) => {
           const r = await getStockRepurchaseAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfStockRepurchaseOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       stockConsolidation: {
         get: async (params) => {
           const r = await getStockConsolidationAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfStockConsolidationOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       stockReissuance: {
         get: async (params) => {
           const r = await getStockReissuanceAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfStockReissuanceOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
 
@@ -649,19 +654,19 @@ export class OcpClient {
       vestingStart: {
         get: async (params) => {
           const r = await getVestingStartAsOcf(client, params);
-          return toContractResult(r.vestingStart as unknown as OcfVestingStartOutput, params.contractId);
+          return toContractResult(r.vestingStart, r.contractId);
         },
       },
       vestingEvent: {
         get: async (params) => {
           const r = await getVestingEventAsOcf(client, params);
-          return toContractResult(r.vestingEvent as unknown as OcfVestingEventOutput, params.contractId);
+          return toContractResult(r.vestingEvent, r.contractId);
         },
       },
       vestingAcceleration: {
         get: async (params) => {
           const r = await getVestingAccelerationAsOcf(client, params);
-          return toContractResult(r.vestingAcceleration as unknown as OcfVestingAccelerationOutput, params.contractId);
+          return toContractResult(r.vestingAcceleration, r.contractId);
         },
       },
 
@@ -669,13 +674,13 @@ export class OcpClient {
       stakeholderRelationshipChangeEvent: {
         get: async (params) => {
           const r = await getStakeholderRelationshipChangeEventAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfStakeholderRelationshipChangeEventOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
       stakeholderStatusChangeEvent: {
         get: async (params) => {
           const r = await getStakeholderStatusChangeEventAsOcf(client, params);
-          return toContractResult(r.event as unknown as OcfStakeholderStatusChangeEventOutput, params.contractId);
+          return toContractResult(r.event, r.contractId);
         },
       },
 
