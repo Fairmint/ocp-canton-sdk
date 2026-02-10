@@ -2,7 +2,7 @@
  * Tests for validation of required fields across OCP entities.
  *
  * These tests verify that the SDK fails fast with clear error messages when required fields are missing, as required by
- * the llms.txt guidelines.
+ * the CLAUDE.md guidelines.
  */
 
 import { OcpValidationError } from '../../src/errors';

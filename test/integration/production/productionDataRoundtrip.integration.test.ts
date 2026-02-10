@@ -118,7 +118,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     /**
      * SKIPPED: StockClass uses nested Numeric fields (price_per_share, par_value).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See llms.txt "DAML JSON API v2 Nested Numeric Encoding" for details.
+     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
     test.skip('Stock Class round-trips correctly', async () => {
       const ctx = getContext();
@@ -145,7 +145,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     /**
      * SKIPPED: Valuation uses nested Numeric fields (price_per_share).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See llms.txt "DAML JSON API v2 Nested Numeric Encoding" for details.
+     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
     test.skip('Valuation round-trips correctly', async () => {
       const ctx = getContext();
@@ -364,7 +364,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     /**
      * SKIPPED: StockIssuance uses nested Numeric fields (share_price, cost_basis).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See llms.txt "DAML JSON API v2 Nested Numeric Encoding" for details.
+     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
     test.skip('Stock Issuance round-trips correctly', async () => {
       const ctx = getContext();
@@ -527,7 +527,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
      * SKIPPED: ConvertibleIssuance has complex nested structures with Numeric fields
      * (investment_amount, conversion_valuation_cap).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See llms.txt "DAML JSON API v2 Nested Numeric Encoding" for details.
+     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
     test.skip('Convertible Issuance round-trips correctly', async () => {
       const ctx = getContext();
@@ -657,7 +657,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     /**
      * SKIPPED: EquityCompensationIssuance uses nested Numeric fields (exercise_price).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See llms.txt "DAML JSON API v2 Nested Numeric Encoding" for details.
+     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
     test.skip('Equity Compensation Issuance round-trips correctly', async () => {
       const ctx = getContext();
@@ -854,7 +854,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     /**
      * SKIPPED: StockClassSplit uses OcfRatio which has nested Numeric fields.
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See llms.txt "DAML JSON API v2 Nested Numeric Encoding" for details.
+     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
     test.skip('Stock Class Split round-trips correctly', async () => {
       const ctx = getContext();
@@ -887,7 +887,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     /**
      * SKIPPED: WarrantIssuance uses nested Numeric fields (exercise_price, purchase_price).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See llms.txt "DAML JSON API v2 Nested Numeric Encoding" for details.
+     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
     test.skip('Warrant Issuance round-trips correctly', async () => {
       const ctx = getContext();
@@ -1796,7 +1796,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     /**
      * SKIPPED: StockClassConversionRatioAdjustment uses OcfRatioConversionMechanism with nested Numeric fields.
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
-     * See llms.txt "DAML JSON API v2 Nested Numeric Encoding" for details.
+     * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
     test.skip('Stock Class Conversion Ratio Adjustment round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
