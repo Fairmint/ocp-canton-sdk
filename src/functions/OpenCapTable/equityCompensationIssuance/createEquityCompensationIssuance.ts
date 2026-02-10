@@ -1,5 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
 import {
   cleanComments,
@@ -70,14 +70,9 @@ export function equityCompensationIssuanceDataToDaml(
   }
 ): Record<string, unknown> {
   const filteredVestings = (d.vestings ?? []).filter((v) => {
-    const num = Number(v.amount);
-    if (Number.isNaN(num)) {
-      throw new OcpValidationError('vesting.amount', `Invalid numeric value: ${v.amount}`, {
-        expectedType: 'numeric string',
-        receivedValue: v.amount,
-      });
-    }
-    return num > 0;
+    // normalizeNumericString validates strict decimal format and rejects scientific notation
+    const normalized = normalizeNumericString(v.amount);
+    return parseFloat(normalized) > 0;
   });
 
   return {
@@ -103,7 +98,7 @@ export function equityCompensationIssuanceDataToDaml(
     early_exercisable: d.early_exercisable ?? null,
     vestings: filteredVestings.map((v) => ({
       date: dateStringToDAMLTime(v.date),
-      amount: v.amount,
+      amount: normalizeNumericString(v.amount),
     })),
     expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
     termination_exercise_windows: (d.termination_exercise_windows ?? []).map((w) => ({

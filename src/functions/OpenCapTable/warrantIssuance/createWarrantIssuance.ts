@@ -142,7 +142,10 @@ function warrantMechanismToDamlVariant(
         value: {
           description: m.description,
           discount: m.discount,
-          discount_percentage: m.discount_percentage ?? null,
+          discount_percentage:
+            m.discount_percentage === '' || m.discount_percentage == null
+              ? null
+              : normalizeNumericString(m.discount_percentage),
           discount_amount: m.discount_amount ? monetaryToDaml(m.discount_amount) : null,
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
@@ -286,18 +289,13 @@ export function warrantIssuanceDataToDaml(d: {
     vesting_terms_id: optionalString(d.vesting_terms_id),
     vestings: (d.vestings ?? [])
       .filter((v) => {
-        const num = Number(v.amount);
-        if (Number.isNaN(num)) {
-          throw new OcpValidationError('vesting.amount', `Invalid numeric value: ${v.amount}`, {
-            expectedType: 'numeric string',
-            receivedValue: v.amount,
-          });
-        }
-        return num > 0;
+        // normalizeNumericString validates strict decimal format and rejects scientific notation
+        const normalized = normalizeNumericString(v.amount);
+        return parseFloat(normalized) > 0;
       })
       .map((v) => ({
         date: dateStringToDAMLTime(v.date),
-        amount: v.amount,
+        amount: normalizeNumericString(v.amount),
       })),
     comments: cleanComments(d.comments),
   };

@@ -1,4 +1,4 @@
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type {
   OcfStockIssuance,
   PkgStockIssuanceOcfData,
@@ -72,18 +72,13 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
     vesting_terms_id: optionalString(d.vesting_terms_id),
     vestings: (d.vestings ?? [])
       .filter((v) => {
-        const num = Number(v.amount);
-        if (Number.isNaN(num)) {
-          throw new OcpValidationError('vesting.amount', `Invalid numeric value: ${v.amount}`, {
-            expectedType: 'numeric string',
-            receivedValue: v.amount,
-          });
-        }
-        return num > 0;
+        // normalizeNumericString validates strict decimal format and rejects scientific notation
+        const normalized = normalizeNumericString(v.amount);
+        return parseFloat(normalized) > 0;
       })
       .map((v) => ({
         date: dateStringToDAMLTime(v.date),
-        amount: v.amount,
+        amount: normalizeNumericString(v.amount),
       })),
     cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,
     stock_legend_ids: d.stock_legend_ids ?? [],
