@@ -4,7 +4,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
-import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
+import type { OcfStakeholderRelationshipChangeEventOutput } from '../../../types/output';
 import {
   damlStakeholderRelationshipToNative,
   type DamlStakeholderRelationshipType,
@@ -18,8 +18,8 @@ export interface GetStakeholderRelationshipChangeEventAsOcfParams {
 
 /** Result of getting a stakeholder relationship change event as OCF */
 export interface GetStakeholderRelationshipChangeEventAsOcfResult {
-  /** The OCF-formatted stakeholder relationship change event */
-  event: OcfStakeholderRelationshipChangeEvent;
+  /** The OCF-formatted stakeholder relationship change event with `object_type` discriminant */
+  event: OcfStakeholderRelationshipChangeEventOutput;
   /** The contract ID */
   contractId: string;
 }
@@ -66,7 +66,8 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
   const contract = res.created.createdEvent.createArgument as DamlStakeholderRelationshipChangeEventContract;
   const data = contract.relationship_change_data;
 
-  const event: OcfStakeholderRelationshipChangeEvent = {
+  const event: OcfStakeholderRelationshipChangeEventOutput = {
+    object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: data.id,
     date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,

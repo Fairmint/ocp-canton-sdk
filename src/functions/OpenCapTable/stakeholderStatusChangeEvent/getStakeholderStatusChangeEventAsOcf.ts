@@ -5,7 +5,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
-import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
+import type { OcfStakeholderStatusChangeEventOutput } from '../../../types/output';
 import { damlStakeholderStatusToNative } from '../../../utils/enumConversions';
 
 /** Parameters for getting a stakeholder status change event as OCF */
@@ -16,8 +16,8 @@ export interface GetStakeholderStatusChangeEventAsOcfParams {
 
 /** Result of getting a stakeholder status change event as OCF */
 export interface GetStakeholderStatusChangeEventAsOcfResult {
-  /** The OCF-formatted stakeholder status change event */
-  event: OcfStakeholderStatusChangeEvent;
+  /** The OCF-formatted stakeholder status change event with `object_type` discriminant */
+  event: OcfStakeholderStatusChangeEventOutput;
   /** The contract ID */
   contractId: string;
 }
@@ -64,7 +64,8 @@ export async function getStakeholderStatusChangeEventAsOcf(
   const contract = res.created.createdEvent.createArgument as DamlStakeholderStatusChangeEventContract;
   const data = contract.status_change_data;
 
-  const event: OcfStakeholderStatusChangeEvent = {
+  const event: OcfStakeholderStatusChangeEventOutput = {
+    object_type: 'CE_STAKEHOLDER_STATUS',
     id: data.id,
     date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,
