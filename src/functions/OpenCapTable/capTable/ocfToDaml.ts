@@ -6,7 +6,7 @@
  *
  * IMPORTANT: This file is a DISPATCHER ONLY. All converter implementations should be in their
  * respective entity folders (e.g., stakeholder/stakeholderDataToDaml.ts).
- * See llms.txt "Entity Folder Organization (CRITICAL)" for details.
+ * See CLAUDE.md "Entity Folder Organization (CRITICAL)" for details.
  */
 
 import { OcpErrorCodes, OcpParseError } from '../../../errors';

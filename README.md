@@ -85,7 +85,7 @@ This README is for SDK contributors and AI assistants. For end users/consumers, 
 - Contributor guidance lives here
 - End-user/API docs: [Open Cap Table Protocol Canton SDK](https://ocp.canton.fairmint.com/)
 - Internal API docs can be generated locally with `npm run docs` into `docs/`
-- AI context (single source of truth): `llms.txt` (agent entrypoints: `CLAUDE.md`, `AGENTS.md`,
+- AI context (single source of truth): `CLAUDE.md` (agent entrypoints: `CLAUDE.md`, `AGENTS.md`,
   `GEMINI.md`)
 
 ### Contribution checklist
