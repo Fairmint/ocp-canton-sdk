@@ -10,21 +10,12 @@ import {
   damlTimeToDateString,
   dateStringToDAMLTime,
   normalizeNumericString,
-  numberToString,
   optionalNumberToString,
   optionalString,
   safeString,
 } from '../../src/utils/typeConversions';
 
 describe('Type Coercion Utilities', () => {
-  describe('numberToString', () => {
-    test('returns string as-is', () => {
-      expect(numberToString('42')).toBe('42');
-      expect(numberToString('0')).toBe('0');
-      expect(numberToString('-123.45')).toBe('-123.45');
-    });
-  });
-
   describe('normalizeNumericString', () => {
     test('removes trailing zeros after decimal point', () => {
       expect(normalizeNumericString('5000000.0000000000')).toBe('5000000');

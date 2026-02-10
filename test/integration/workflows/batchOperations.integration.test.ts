@@ -94,11 +94,11 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     const stakeholderContractId = extractContractIdFromResponse(result, 'Stakeholder');
     expect(stakeholderContractId).toBeTruthy();
 
-    const stakeholderOcf = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+    const stakeholderOcf = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: stakeholderContractId!,
     });
-    expect(stakeholderOcf.stakeholder.name.legal_name).toBe('Batch Stakeholder 1');
-    await validateOcfObject(stakeholderOcf.stakeholder as unknown as Record<string, unknown>);
+    expect(stakeholderOcf.data.name.legal_name).toBe('Batch Stakeholder 1');
+    await validateOcfObject(stakeholderOcf.data as unknown as Record<string, unknown>);
   });
 
   /**
@@ -194,17 +194,17 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     expect(legendContractId).toBeTruthy();
 
     // Verify both entities
-    const stakeholderOcf = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+    const stakeholderOcf = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: stakeholderContractId!,
     });
-    expect(stakeholderOcf.stakeholder.name.legal_name).toBe('Batch Stakeholder');
-    await validateOcfObject(stakeholderOcf.stakeholder as unknown as Record<string, unknown>);
+    expect(stakeholderOcf.data.name.legal_name).toBe('Batch Stakeholder');
+    await validateOcfObject(stakeholderOcf.data as unknown as Record<string, unknown>);
 
-    const legendOcf = await ctx.ocp.OpenCapTable.stockLegendTemplate.getStockLegendTemplateAsOcf({
+    const legendOcf = await ctx.ocp.OpenCapTable.stockLegendTemplate.get({
       contractId: legendContractId!,
     });
-    expect(legendOcf.stockLegendTemplate.name).toBe('Batch Legend Template');
-    await validateOcfObject(legendOcf.stockLegendTemplate as unknown as Record<string, unknown>);
+    expect(legendOcf.data.name).toBe('Batch Legend Template');
+    await validateOcfObject(legendOcf.data as unknown as Record<string, unknown>);
   });
 
   /**
@@ -265,25 +265,25 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     });
 
     // Verify all three stakeholders exist and are readable
-    const sh1Ocf = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+    const sh1Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: sh1Setup.stakeholderContractId,
     });
-    expect(sh1Ocf.stakeholder.name.legal_name).toBe('First Stakeholder');
+    expect(sh1Ocf.data.name.legal_name).toBe('First Stakeholder');
 
-    const sh2Ocf = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+    const sh2Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: sh2Setup.stakeholderContractId,
     });
-    expect(sh2Ocf.stakeholder.name.legal_name).toBe('Second Stakeholder');
+    expect(sh2Ocf.data.name.legal_name).toBe('Second Stakeholder');
 
-    const sh3Ocf = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+    const sh3Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: sh3Setup.stakeholderContractId,
     });
-    expect(sh3Ocf.stakeholder.name.legal_name).toBe('Third Stakeholder');
+    expect(sh3Ocf.data.name.legal_name).toBe('Third Stakeholder');
 
     // Validate all stakeholders against OCF schema
-    await validateOcfObject(sh1Ocf.stakeholder as unknown as Record<string, unknown>);
-    await validateOcfObject(sh2Ocf.stakeholder as unknown as Record<string, unknown>);
-    await validateOcfObject(sh3Ocf.stakeholder as unknown as Record<string, unknown>);
+    await validateOcfObject(sh1Ocf.data as unknown as Record<string, unknown>);
+    await validateOcfObject(sh2Ocf.data as unknown as Record<string, unknown>);
+    await validateOcfObject(sh3Ocf.data as unknown as Record<string, unknown>);
   });
 
   /**
@@ -340,11 +340,11 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     const stakeholderContractId = extractContractIdFromResponse(result, 'Stakeholder');
     expect(stakeholderContractId).toBeTruthy();
 
-    const ocfResult = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: stakeholderContractId!,
     });
 
-    expect(ocfResult.stakeholder.id).toBe(stakeholderData.id);
-    expect(ocfResult.stakeholder.name.legal_name).toBe('TxBatch Stakeholder');
+    expect(ocfResult.data.id).toBe(stakeholderData.id);
+    expect(ocfResult.data.name.legal_name).toBe('TxBatch Stakeholder');
   });
 });

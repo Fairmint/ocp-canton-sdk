@@ -11,7 +11,7 @@ import {
   cleanComments,
   dateStringToDAMLTime,
   monetaryToDaml,
-  numberToString,
+  normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
 
@@ -84,7 +84,7 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
     stock_class_id: optionalString(d.stock_class_id),
     vesting_terms_id: optionalString(d.vesting_terms_id),
     compensation_type: compensationType,
-    quantity: numberToString(d.quantity),
+    quantity: normalizeNumericString(d.quantity),
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     base_price: null, // PlanSecurity doesn't have base_price
     early_exercisable: null, // PlanSecurity doesn't have early_exercisable

@@ -124,17 +124,17 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
     expect(result2.createdCids).toHaveLength(1);
 
     // Verify all stakeholders can be read back as valid OCF
-    const founder1Ocf = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+    const founder1Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: extractContractIdString(result1.createdCids[0]),
     });
-    expect(founder1Ocf.stakeholder.name.legal_name).toBe('Alice Founder');
-    await validateOcfObject(founder1Ocf.stakeholder as unknown as Record<string, unknown>);
+    expect(founder1Ocf.data.name.legal_name).toBe('Alice Founder');
+    await validateOcfObject(founder1Ocf.data as unknown as Record<string, unknown>);
 
-    const founder2Ocf = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+    const founder2Ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: extractContractIdString(result1.createdCids[1]),
     });
-    expect(founder2Ocf.stakeholder.name.legal_name).toBe('Bob Cofounder');
-    await validateOcfObject(founder2Ocf.stakeholder as unknown as Record<string, unknown>);
+    expect(founder2Ocf.data.name.legal_name).toBe('Bob Cofounder');
+    await validateOcfObject(founder2Ocf.data as unknown as Record<string, unknown>);
   });
 
   /**
@@ -223,10 +223,10 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
 
     // Verify all stakeholders exist and are readable
     for (let i = 0; i < createdStakeholderIds.length; i++) {
-      const ocf = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+      const ocf = await ctx.ocp.OpenCapTable.stakeholder.get({
         contractId: createdStakeholderIds[i],
       });
-      expect(ocf.stakeholder.name.legal_name).toBe(`Sequential Stakeholder ${i + 1}`);
+      expect(ocf.data.name.legal_name).toBe(`Sequential Stakeholder ${i + 1}`);
     }
   });
 
@@ -377,10 +377,10 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
 
     // Verify the edit worked - use editDeleteResult.editedCids[0] since DAML archives the original
     // contract and creates a new one with a new contract ID after an edit
-    const editedOcf = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+    const editedOcf = await ctx.ocp.OpenCapTable.stakeholder.get({
       contractId: extractContractIdString(editDeleteResult.editedCids[0]),
     });
-    expect(editedOcf.stakeholder.name.legal_name).toBe('Successfully Edited');
+    expect(editedOcf.data.name.legal_name).toBe('Successfully Edited');
   });
 });
 

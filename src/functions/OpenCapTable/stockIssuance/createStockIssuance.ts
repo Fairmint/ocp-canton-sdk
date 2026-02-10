@@ -10,7 +10,7 @@ import {
   cleanComments,
   dateStringToDAMLTime,
   monetaryToDaml,
-  numberToString,
+  normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
 
@@ -64,17 +64,21 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
     share_numbers_issued: (d.share_numbers_issued ?? [])
       .filter((range) => !(range.starting_share_number === '0' && range.ending_share_number === '0'))
       .map((r) => ({
-        starting_share_number: numberToString(r.starting_share_number),
-        ending_share_number: numberToString(r.ending_share_number),
+        starting_share_number: r.starting_share_number,
+        ending_share_number: r.ending_share_number,
       })),
     share_price: monetaryToDaml(d.share_price),
-    quantity: numberToString(d.quantity),
+    quantity: normalizeNumericString(d.quantity),
     vesting_terms_id: optionalString(d.vesting_terms_id),
     vestings: (d.vestings ?? [])
-      .filter((v) => Number(v.amount) > 0)
+      .filter((v) => {
+        // normalizeNumericString validates strict decimal format and rejects scientific notation
+        const normalized = normalizeNumericString(v.amount);
+        return parseFloat(normalized) > 0;
+      })
       .map((v) => ({
         date: dateStringToDAMLTime(v.date),
-        amount: numberToString(v.amount),
+        amount: normalizeNumericString(v.amount),
       })),
     cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,
     stock_legend_ids: d.stock_legend_ids ?? [],

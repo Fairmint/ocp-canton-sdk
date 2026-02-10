@@ -5,7 +5,7 @@ import {
   cleanComments,
   dateStringToDAMLTime,
   monetaryToDaml,
-  numberToString,
+  normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
 
@@ -112,7 +112,7 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
-          converts_to_percent: numberToString(m.converts_to_percent),
+          converts_to_percent: m.converts_to_percent,
           capitalization_definition: optionalString(m.capitalization_definition),
           capitalization_definition_rules: (m.capitalization_definition_rules ??
             null) as Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules | null,
@@ -122,7 +122,7 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismFixedAmount',
         value: {
-          converts_to_quantity: numberToString(m.converts_to_quantity),
+          converts_to_quantity: m.converts_to_quantity,
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
     case 'VALUATION_BASED_CONVERSION':
@@ -143,9 +143,9 @@ function warrantMechanismToDamlVariant(
           description: m.description,
           discount: m.discount,
           discount_percentage:
-            m.discount_percentage !== undefined && m.discount_percentage !== null
-              ? numberToString(m.discount_percentage)
-              : null,
+            m.discount_percentage === '' || m.discount_percentage == null
+              ? null
+              : normalizeNumericString(m.discount_percentage),
           discount_amount: m.discount_amount ? monetaryToDaml(m.discount_amount) : null,
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
@@ -261,8 +261,9 @@ export function warrantIssuanceDataToDaml(d: {
   vestings?: SimpleVesting[];
   comments?: string[];
 }): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
-  // Runtime null check: DB JSONB may store quantity as explicit null even though type is string | undefined
-  const hasQuantity = d.quantity != null;
+  // Runtime truthiness check: DB JSONB may store quantity as explicit null or empty string
+  // Must match the truthiness check used for the quantity field itself (d.quantity ? ... : null)
+  const hasQuantity = Boolean(d.quantity);
   const quantitySourceDaml = hasQuantity
     ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
     : d.quantity_source
@@ -279,17 +280,23 @@ export function warrantIssuanceDataToDaml(d: {
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions,
-    quantity: d.quantity ?? null,
+    quantity: d.quantity != null ? normalizeNumericString(d.quantity) : null,
     quantity_source: quantitySourceDaml ?? null,
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),
     exercise_triggers: d.exercise_triggers.map((t, idx) => buildWarrantTrigger(t, idx, d.id)),
     warrant_expiration_date: d.warrant_expiration_date ? dateStringToDAMLTime(d.warrant_expiration_date) : null,
     vesting_terms_id: optionalString(d.vesting_terms_id),
-    vestings: (d.vestings ?? []).map((v) => ({
-      date: dateStringToDAMLTime(v.date),
-      amount: numberToString(v.amount),
-    })),
+    vestings: (d.vestings ?? [])
+      .filter((v) => {
+        // normalizeNumericString validates strict decimal format and rejects scientific notation
+        const normalized = normalizeNumericString(v.amount);
+        return parseFloat(normalized) > 0;
+      })
+      .map((v) => ({
+        date: dateStringToDAMLTime(v.date),
+        amount: normalizeNumericString(v.amount),
+      })),
     comments: cleanComments(d.comments),
   };
 }

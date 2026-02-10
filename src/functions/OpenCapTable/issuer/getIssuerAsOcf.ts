@@ -1,7 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import type { ContractResult, GetByContractIdParams } from '../../../types/common';
 import type { OcfIssuer as OcfIssuerInput } from '../../../types/native';
+import type { OcfIssuerOutput } from '../../../types/output';
 import { damlEmailTypeToNative, damlPhoneTypeToNative } from '../../../utils/enumConversions';
 import { damlAddressToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -33,8 +35,14 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
   };
 
   const dataWithId = damlData as unknown as { id?: string };
+  if (!dataWithId.id) {
+    throw new OcpParseError('Issuer contract is missing required field: id', {
+      source: 'getIssuerAsOcf',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
   const out: OcfIssuerInput = {
-    id: dataWithId.id ?? '',
+    id: dataWithId.id,
     legal_name: damlData.legal_name,
     country_of_formation: damlData.country_of_formation,
     formation_date: damlTimeToDateString(damlData.formation_date),
@@ -64,49 +72,25 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
   return out;
 }
 
+/** @deprecated Use `GetByContractIdParams` instead */
+export interface GetIssuerAsOcfParams extends GetByContractIdParams {}
+
+/** @deprecated Use `ContractResult<OcfIssuerOutput>` instead */
+export interface GetIssuerAsOcfResult extends ContractResult<OcfIssuerOutput> {}
+
 /**
- * OCF Issuer object according to the Open Cap Table Coalition schema Object describing the issuer of the cap table (the
- * company whose cap table this is)
+ * Retrieve an issuer contract by ID and return it as an OCF JSON object.
+ *
+ * @param client - The ledger JSON API client
+ * @param params - Parameters containing the contract ID
+ * @returns The issuer data with `object_type: 'ISSUER'` discriminant and the contract ID
  *
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/Issuer.schema.json
  */
-interface OcfIssuerOutput {
-  object_type: 'ISSUER';
-  legal_name: string;
-  dba?: string;
-  formation_date?: string; // YYYY-MM-DD
-  country_of_formation: string; // ISO 3166-1 alpha-2
-  country_subdivision_of_formation?: string;
-  country_subdivision_name_of_formation?: string;
-  tax_ids?: Array<{ tax_id: string; country: string }>;
-  email?: { email_type: 'BUSINESS' | 'PERSONAL' | 'OTHER'; email_address: string };
-  phone?: { phone_type: 'HOME' | 'MOBILE' | 'BUSINESS' | 'OTHER'; phone_number: string };
-  address?: {
-    address_type: 'LEGAL' | 'CONTACT' | 'OTHER';
-    street_suite?: string;
-    city?: string;
-    country_subdivision?: string;
-    country: string;
-    postal_code?: string;
-  };
-  initial_shares_authorized?: string | number;
-  id?: string;
-  comments?: string[];
-}
-
-export interface GetIssuerAsOcfParams {
-  contractId: string;
-}
-
-export interface GetIssuerAsOcfResult {
-  issuer: OcfIssuerOutput;
-  contractId: string;
-}
-
 export async function getIssuerAsOcf(
   client: LedgerJsonApiClient,
-  params: GetIssuerAsOcfParams
-): Promise<GetIssuerAsOcfResult> {
+  params: GetByContractIdParams
+): Promise<ContractResult<OcfIssuerOutput>> {
   const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
@@ -126,10 +110,10 @@ export async function getIssuerAsOcf(
   const issuerData = createArgument.issuer_data as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
   const native = damlIssuerDataToNative(issuerData);
 
-  const ocfIssuer: OcfIssuerOutput = {
+  const data: OcfIssuerOutput = {
     object_type: 'ISSUER',
     ...native,
   };
 
-  return { issuer: ocfIssuer, contractId: params.contractId };
+  return { data, contractId: params.contractId };
 }

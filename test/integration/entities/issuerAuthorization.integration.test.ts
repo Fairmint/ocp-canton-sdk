@@ -52,7 +52,7 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
     );
 
     // Then withdraw - use systemOperatorParty since they own the authorization
-    const withdrawResult = await ctx.ocp.OpenCapTable.issuerAuthorization.withdrawAuthorization({
+    const withdrawResult = await ctx.ocp.OpenCapTable.issuerAuthorization.withdraw({
       issuerAuthorizationContractId: authResult.contractId,
       systemOperatorParty: ctx.systemOperatorParty,
     });
@@ -72,7 +72,7 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
     );
 
     // Withdraw - use systemOperatorParty
-    await ctx.ocp.OpenCapTable.issuerAuthorization.withdrawAuthorization({
+    await ctx.ocp.OpenCapTable.issuerAuthorization.withdraw({
       issuerAuthorizationContractId: authResult1.contractId,
       systemOperatorParty: ctx.systemOperatorParty,
     });

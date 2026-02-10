@@ -1,3 +1,44 @@
+/**
+ * High-level client for interacting with Open Cap Table Protocol (OCP) contracts on Canton.
+ *
+ * The OcpClient provides a clean, organized API for all OCP operations, grouped by domain:
+ *
+ * - **OpenCapTable**: Core cap table operations (issuer, stakeholders, stock classes, issuances, etc.)
+ * - **OpenCapTableReports**: Reporting operations (company valuations)
+ * - **CantonPayments**: Payment and airdrop operations
+ * - **PaymentStreams**: Recurring payment stream management
+ *
+ * @example
+ * ```typescript
+ * import { OcpClient, toContractId, toPartyId } from '@open-captable-protocol/canton';
+ *
+ * const ocp = new OcpClient({ baseUrl: 'http://localhost:3975' });
+ *
+ * // Set context once to cache common parameters
+ * ocp.context.setFeaturedAppRight(appRightContract);
+ * ocp.context.setIssuerParty(partyId);
+ *
+ * // Read operations return ContractResult<T> with { data, contractId }
+ * const { data: issuer } = await ocp.OpenCapTable.issuer.get({
+ *   contractId: toContractId('00abc123'),
+ * });
+ * console.log(issuer.object_type); // 'ISSUER'
+ * console.log(issuer.legal_name);
+ *
+ * // Batch updates
+ * const batch = ocp.OpenCapTable.capTable.update({
+ *   capTableContractId: toContractId('...'),
+ *   actAs: [toPartyId('issuer::namespace')],
+ * });
+ * batch.create('stakeholder', stakeholderData);
+ * await batch.execute();
+ * ```
+ *
+ * @see https://ocp.canton.fairmint.com/ - Full SDK documentation with usage examples
+ *
+ * @module
+ */
+
 import type { ClientConfig, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
@@ -65,88 +106,6 @@ import {
   type CreateCompanyValuationReportParams,
   type CreateCompanyValuationReportResult,
   type CreateIssuerParams,
-  type GetConvertibleAcceptanceAsOcfParams,
-  type GetConvertibleAcceptanceAsOcfResult,
-  type GetConvertibleCancellationAsOcfParams,
-  type GetConvertibleCancellationAsOcfResult,
-  type GetConvertibleConversionAsOcfParams,
-  type GetConvertibleConversionAsOcfResult,
-  type GetConvertibleIssuanceAsOcfParams,
-  type GetConvertibleIssuanceAsOcfResult,
-  type GetConvertibleTransferAsOcfParams,
-  type GetConvertibleTransferAsOcfResult,
-  type GetDocumentAsOcfParams,
-  type GetDocumentAsOcfResult,
-  type GetEquityCompensationAcceptanceAsOcfParams,
-  type GetEquityCompensationAcceptanceAsOcfResult,
-  type GetEquityCompensationCancellationAsOcfParams,
-  type GetEquityCompensationCancellationAsOcfResult,
-  type GetEquityCompensationExerciseAsOcfParams,
-  type GetEquityCompensationExerciseAsOcfResult,
-  type GetEquityCompensationIssuanceAsOcfParams,
-  type GetEquityCompensationIssuanceAsOcfResult,
-  type GetEquityCompensationTransferAsOcfParams,
-  type GetEquityCompensationTransferAsOcfResult,
-  type GetIssuerAsOcfParams,
-  type GetIssuerAsOcfResult,
-  type GetIssuerAuthorizedSharesAdjustmentAsOcfParams,
-  type GetIssuerAuthorizedSharesAdjustmentAsOcfResult,
-  type GetStakeholderAsOcfParams,
-  type GetStakeholderAsOcfResult,
-  type GetStakeholderRelationshipChangeEventAsOcfParams,
-  type GetStakeholderRelationshipChangeEventAsOcfResult,
-  type GetStakeholderStatusChangeEventAsOcfParams,
-  type GetStakeholderStatusChangeEventAsOcfResult,
-  type GetStockAcceptanceAsOcfParams,
-  type GetStockAcceptanceAsOcfResult,
-  type GetStockCancellationAsOcfParams,
-  type GetStockCancellationAsOcfResult,
-  type GetStockClassAsOcfParams,
-  type GetStockClassAsOcfResult,
-  type GetStockClassAuthorizedSharesAdjustmentAsOcfParams,
-  type GetStockClassAuthorizedSharesAdjustmentAsOcfResult,
-  type GetStockClassConversionRatioAdjustmentAsOcfParams,
-  type GetStockClassConversionRatioAdjustmentAsOcfResult,
-  type GetStockClassSplitAsOcfParams,
-  type GetStockClassSplitAsOcfResult,
-  type GetStockConsolidationAsOcfParams,
-  type GetStockConsolidationAsOcfResult,
-  type GetStockConversionAsOcfParams,
-  type GetStockConversionAsOcfResult,
-  type GetStockIssuanceAsOcfParams,
-  type GetStockIssuanceAsOcfResult,
-  type GetStockLegendTemplateAsOcfParams,
-  type GetStockLegendTemplateAsOcfResult,
-  type GetStockPlanAsOcfParams,
-  type GetStockPlanAsOcfResult,
-  type GetStockPlanPoolAdjustmentAsOcfParams,
-  type GetStockPlanPoolAdjustmentAsOcfResult,
-  type GetStockReissuanceAsOcfParams,
-  type GetStockReissuanceAsOcfResult,
-  type GetStockRepurchaseAsOcfParams,
-  type GetStockRepurchaseAsOcfResult,
-  type GetStockTransferAsOcfParams,
-  type GetStockTransferAsOcfResult,
-  type GetValuationAsOcfParams,
-  type GetValuationAsOcfResult,
-  type GetVestingAccelerationAsOcfParams,
-  type GetVestingAccelerationAsOcfResult,
-  type GetVestingEventAsOcfParams,
-  type GetVestingEventAsOcfResult,
-  type GetVestingStartAsOcfParams,
-  type GetVestingStartAsOcfResult,
-  type GetVestingTermsAsOcfParams,
-  type GetVestingTermsAsOcfResult,
-  type GetWarrantAcceptanceAsOcfParams,
-  type GetWarrantAcceptanceAsOcfResult,
-  type GetWarrantCancellationAsOcfParams,
-  type GetWarrantCancellationAsOcfResult,
-  type GetWarrantExerciseAsOcfParams,
-  type GetWarrantExerciseAsOcfResult,
-  type GetWarrantIssuanceAsOcfParams,
-  type GetWarrantIssuanceAsOcfResult,
-  type GetWarrantTransferAsOcfParams,
-  type GetWarrantTransferAsOcfResult,
   type UpdateCompanyValuationParams,
   type UpdateCompanyValuationResult,
   type WithdrawAuthorizationParams,
@@ -163,6 +122,80 @@ import {
 } from './functions/CouponMinter';
 import { CapTableBatch } from './functions/OpenCapTable/capTable';
 import type { CommandWithDisclosedContracts } from './types';
+import type { ContractResult, GetByContractIdParams } from './types/common';
+import type {
+  OcfConvertibleAcceptanceOutput,
+  OcfConvertibleCancellationOutput,
+  OcfConvertibleConversionOutput,
+  OcfConvertibleIssuanceOutput,
+  OcfConvertibleTransferOutput,
+  OcfDocumentOutput,
+  OcfEquityCompensationAcceptanceOutput,
+  OcfEquityCompensationCancellationOutput,
+  OcfEquityCompensationExerciseOutput,
+  OcfEquityCompensationIssuanceOutput,
+  OcfEquityCompensationTransferOutput,
+  OcfIssuerAuthorizedSharesAdjustmentOutput,
+  OcfIssuerOutput,
+  OcfStakeholderOutput,
+  OcfStakeholderRelationshipChangeEventOutput,
+  OcfStakeholderStatusChangeEventOutput,
+  OcfStockAcceptanceOutput,
+  OcfStockCancellationOutput,
+  OcfStockClassAuthorizedSharesAdjustmentOutput,
+  OcfStockClassConversionRatioAdjustmentOutput,
+  OcfStockClassOutput,
+  OcfStockClassSplitOutput,
+  OcfStockConsolidationOutput,
+  OcfStockConversionOutput,
+  OcfStockIssuanceOutput,
+  OcfStockLegendTemplateOutput,
+  OcfStockPlanOutput,
+  OcfStockPlanPoolAdjustmentOutput,
+  OcfStockReissuanceOutput,
+  OcfStockRepurchaseOutput,
+  OcfStockTransferOutput,
+  OcfValuationOutput,
+  OcfVestingAccelerationOutput,
+  OcfVestingEventOutput,
+  OcfVestingStartOutput,
+  OcfVestingTermsOutput,
+  OcfWarrantAcceptanceOutput,
+  OcfWarrantCancellationOutput,
+  OcfWarrantExerciseOutput,
+  OcfWarrantIssuanceOutput,
+  OcfWarrantTransferOutput,
+} from './types/output';
+
+// ===== Helper to adapt underlying function results to ContractResult<T> =====
+
+/**
+ * Adapt an underlying `get*AsOcf` function result to the standardized `ContractResult<T>` format.
+ *
+ * The underlying functions define their own local output types that may differ
+ * structurally from the centralized output types in `types/output.ts` (e.g., optional
+ * vs required fields, locally-defined interfaces vs `WithObjectType` aliases). The
+ * centralized types are stricter and canonical. This adapter performs a single, contained
+ * type assertion to bridge the gap, keeping the cast out of individual call sites.
+ *
+ * @typeParam T - The target output type from `types/output.ts`
+ * @param data - Entity data from the underlying function (runtime-correct, locally-typed)
+ * @param contractId - The contract ID returned by the underlying function
+ * @internal
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toContractResult<T>(data: any, contractId: string): ContractResult<T> {
+  if (data == null) {
+    throw new OcpValidationError(
+      'toContractResult.data',
+      `Expected entity data but received ${data === null ? 'null' : 'undefined'} (contractId: ${contractId})`,
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: data }
+    );
+  }
+  return { data: data as T, contractId };
+}
+
+// ===== Context Manager =====
 
 /**
  * Context for OCP operations that can be cached and reused.
@@ -170,19 +203,19 @@ import type { CommandWithDisclosedContracts } from './types';
  * Store commonly used contract details to avoid passing them repeatedly.
  *
  * @example
- *   ```typescript
- *   const ocp = new OcpClient({ network: 'localnet' });
+ * ```typescript
+ * const ocp = new OcpClient({ network: 'localnet' });
  *
- *   // Set context once after initial setup
- *   ocp.context.setFeaturedAppRight(featuredAppRightDetails);
+ * // Set context once after initial setup
+ * ocp.context.setFeaturedAppRight(featuredAppRightDetails);
  *
- *   // Later, retrieve cached values when needed
- *   const batch = ocp.OpenCapTable.capTable.update({
- *     capTableContractId,
- *     featuredAppRightContractDetails: ocp.context.requireFeaturedAppRight(),
- *     actAs: [issuerParty],
- *   });
- *   ```
+ * // Later, retrieve cached values when needed
+ * const batch = ocp.OpenCapTable.capTable.update({
+ *   capTableContractId: ocp.context.requireCapTableContractId(),
+ *   featuredAppRightContractDetails: ocp.context.requireFeaturedAppRight(),
+ *   actAs: [ocp.context.requireIssuerParty()],
+ * });
+ * ```
  */
 export interface OcpContext {
   /** The cached FeaturedAppRight disclosed contract details */
@@ -316,33 +349,24 @@ export class OcpContextManager implements OcpContext {
   }
 }
 
+// ===== OcpClient =====
+
 /**
  * High-level client for interacting with Open Cap Table Protocol (OCP) contracts on Canton.
  *
- * The OcpClient provides a clean, organized API for all OCP operations, grouped by domain:
- *
- * - **OpenCapTable**: Core cap table operations (issuer, stakeholders, stock classes, issuances, etc.)
- * - **OpenCapTableReports**: Reporting operations (company valuations)
- * - **CantonPayments**: Payment and airdrop operations
- * - **PaymentStreams**: Recurring payment stream management
- *
  * @example
  * ```typescript
+ * import { OcpClient, toContractId } from '@open-captable-protocol/canton';
+ *
  * const ocp = new OcpClient({ baseUrl: 'http://localhost:3975' });
  *
- * // Set context once to cache common parameters
- * ocp.context.setFeaturedAppRight(appRightContract);
- * ocp.context.setIssuerParty(partyId);
- *
- * // Now use cached values in operations
- * const batch = ocp.OpenCapTable.capTable.update({
- *   capTableContractId,
- *   featuredAppRightContractDetails: ocp.context.requireFeaturedAppRight(),
- *   actAs: [ocp.context.requireIssuerParty()],
+ * // Read an issuer - all get() methods return { data, contractId }
+ * const { data: issuer } = await ocp.OpenCapTable.issuer.get({
+ *   contractId: toContractId('00abc123'),
  * });
+ * console.log(issuer.legal_name);
+ * console.log(issuer.object_type); // 'ISSUER' - enables discriminated unions
  * ```
- *
- * @see https://ocp.canton.fairmint.com/ - Full SDK documentation with usage examples
  */
 export class OcpClient {
   /** The underlying LedgerJsonApiClient for direct ledger access */
@@ -353,21 +377,6 @@ export class OcpClient {
    *
    * Use this to store FeaturedAppRight details, issuer party, and cap table contract ID
    * after fetching them once, so they can be reused across operations.
-   *
-   * @example
-   *   ```typescript
-   *   // Set context after initial setup
-   *   ocp.context.setFeaturedAppRight(featuredAppRightDetails);
-   *   ocp.context.setIssuerParty(issuerParty);
-   *   ocp.context.setCapTableContractId(capTableContractId);
-   *
-   *   // Later, use cached values
-   *   const batch = ocp.OpenCapTable.capTable.update({
-   *     capTableContractId: ocp.context.requireCapTableContractId(),
-   *     featuredAppRightContractDetails: ocp.context.requireFeaturedAppRight(),
-   *     actAs: [ocp.context.requireIssuerParty()],
-   *   });
-   *   ```
    */
   public readonly context: OcpContextManager = new OcpContextManager();
 
@@ -389,13 +398,9 @@ export class OcpClient {
   constructor(config?: ClientConfig) {
     this.client = new LedgerJsonApiClient(config);
 
-    // Initialize OpenCapTable methods
     this.OpenCapTable = this.createOpenCapTableMethods();
-
-    // Initialize OpenCapTableReports methods
     this.OpenCapTableReports = this.createOpenCapTableReportsMethods();
 
-    // Initialize CouponMinter methods
     this.CouponMinter = {
       canMintCouponsNow: (payload: CouponMinterPayload, now?: Date) => canMintCouponsNow(payload, now),
       getRateLimitStatus: (payload: CouponMinterPayload, now?: Date) => getRateLimitStatus(payload, now),
@@ -408,7 +413,6 @@ export class OcpClient {
       ) => mintWithRateLimit(payload, mintFn, options),
     };
 
-    // Initialize extensions
     this.CantonPayments = createCantonPaymentsExtension();
     this.PaymentStreams = this.createPaymentStreamsMethods();
   }
@@ -421,173 +425,281 @@ export class OcpClient {
   private createOpenCapTableMethods(): OpenCapTableMethods {
     const { client } = this;
     return {
+      // ===== Objects =====
       issuer: {
-        buildCreateIssuerCommand: (params: CreateIssuerParams) => buildCreateIssuerCommand(params),
-        getIssuerAsOcf: async (params: GetIssuerAsOcfParams) => getIssuerAsOcf(client, params),
-      },
-      stockClass: {
-        getStockClassAsOcf: async (params: GetStockClassAsOcfParams) => getStockClassAsOcf(client, params),
+        get: async (params) => getIssuerAsOcf(client, params),
+        buildCreate: (params) => buildCreateIssuerCommand(params),
       },
       stakeholder: {
-        getStakeholderAsOcf: async (params: GetStakeholderAsOcfParams) => getStakeholderAsOcf(client, params),
+        get: async (params) => {
+          const r = await getStakeholderAsOcf(client, params);
+          return toContractResult(r.stakeholder, r.contractId);
+        },
       },
-      stakeholderRelationshipChangeEvent: {
-        getStakeholderRelationshipChangeEventAsOcf: async (params: GetStakeholderRelationshipChangeEventAsOcfParams) =>
-          getStakeholderRelationshipChangeEventAsOcf(client, params),
-      },
-      stakeholderStatusChangeEvent: {
-        getStakeholderStatusChangeEventAsOcf: async (params: GetStakeholderStatusChangeEventAsOcfParams) =>
-          getStakeholderStatusChangeEventAsOcf(client, params),
+      stockClass: {
+        get: async (params) => {
+          const r = await getStockClassAsOcf(client, params);
+          return toContractResult(r.stockClass, r.contractId);
+        },
       },
       stockLegendTemplate: {
-        getStockLegendTemplateAsOcf: async (params: GetStockLegendTemplateAsOcfParams) =>
-          getStockLegendTemplateAsOcf(client, params),
-      },
-      vestingTerms: {
-        getVestingTermsAsOcf: async (params: GetVestingTermsAsOcfParams) => getVestingTermsAsOcf(client, params),
+        get: async (params) => {
+          const r = await getStockLegendTemplateAsOcf(client, params);
+          return toContractResult(r.stockLegendTemplate, r.contractId);
+        },
       },
       stockPlan: {
-        getStockPlanAsOcf: async (params: GetStockPlanAsOcfParams) => getStockPlanAsOcf(client, params),
+        get: async (params) => {
+          const r = await getStockPlanAsOcf(client, params);
+          return toContractResult(r.stockPlan, r.contractId);
+        },
       },
-      equityCompensationIssuance: {
-        getEquityCompensationIssuanceAsOcf: async (params: GetEquityCompensationIssuanceAsOcfParams) =>
-          getEquityCompensationIssuanceAsOcf(client, params),
-      },
-      equityCompensationExercise: {
-        getEquityCompensationExerciseAsOcf: async (params: GetEquityCompensationExerciseAsOcfParams) =>
-          getEquityCompensationExerciseAsOcf(client, params),
-      },
-      warrantIssuance: {
-        getWarrantIssuanceAsOcf: async (params: GetWarrantIssuanceAsOcfParams) =>
-          getWarrantIssuanceAsOcf(client, params),
-      },
-      warrantExercise: {
-        getWarrantExerciseAsOcf: async (params: GetWarrantExerciseAsOcfParams) =>
-          getWarrantExerciseAsOcf(client, params),
-      },
-      convertibleIssuance: {
-        getConvertibleIssuanceAsOcf: async (params: GetConvertibleIssuanceAsOcfParams) =>
-          getConvertibleIssuanceAsOcf(client, params),
-      },
-      convertibleConversion: {
-        getConvertibleConversionAsOcf: async (params: GetConvertibleConversionAsOcfParams) =>
-          getConvertibleConversionAsOcf(client, params),
-      },
-      stockCancellation: {
-        getStockCancellationAsOcf: async (params: GetStockCancellationAsOcfParams) =>
-          getStockCancellationAsOcf(client, params),
-      },
-      stockConversion: {
-        getStockConversionAsOcf: async (params: GetStockConversionAsOcfParams) =>
-          getStockConversionAsOcf(client, params),
-      },
-      warrantCancellation: {
-        getWarrantCancellationAsOcf: async (params: GetWarrantCancellationAsOcfParams) =>
-          getWarrantCancellationAsOcf(client, params),
-      },
-      convertibleCancellation: {
-        getConvertibleCancellationAsOcf: async (params: GetConvertibleCancellationAsOcfParams) =>
-          getConvertibleCancellationAsOcf(client, params),
-      },
-      equityCompensationCancellation: {
-        getEquityCompensationCancellationAsOcf: async (params: GetEquityCompensationCancellationAsOcfParams) =>
-          getEquityCompensationCancellationAsOcf(client, params),
-      },
-      stockTransfer: {
-        getStockTransferAsOcf: async (params: GetStockTransferAsOcfParams) => getStockTransferAsOcf(client, params),
-      },
-      convertibleTransfer: {
-        getConvertibleTransferAsOcf: async (params: GetConvertibleTransferAsOcfParams) =>
-          getConvertibleTransferAsOcf(client, params),
-      },
-      equityCompensationTransfer: {
-        getEquityCompensationTransferAsOcf: async (params: GetEquityCompensationTransferAsOcfParams) =>
-          getEquityCompensationTransferAsOcf(client, params),
-      },
-      warrantTransfer: {
-        getWarrantTransferAsOcf: async (params: GetWarrantTransferAsOcfParams) =>
-          getWarrantTransferAsOcf(client, params),
-      },
-      issuerAuthorizedSharesAdjustment: {
-        getIssuerAuthorizedSharesAdjustmentAsOcf: async (params: GetIssuerAuthorizedSharesAdjustmentAsOcfParams) =>
-          getIssuerAuthorizedSharesAdjustmentAsOcf(client, params),
-      },
-      stockClassAuthorizedSharesAdjustment: {
-        getStockClassAuthorizedSharesAdjustmentAsOcf: async (
-          params: GetStockClassAuthorizedSharesAdjustmentAsOcfParams
-        ) => getStockClassAuthorizedSharesAdjustmentAsOcf(client, params),
-      },
-      stockClassConversionRatioAdjustment: {
-        getStockClassConversionRatioAdjustmentAsOcf: async (
-          params: GetStockClassConversionRatioAdjustmentAsOcfParams
-        ) => getStockClassConversionRatioAdjustmentAsOcf(client, params),
-      },
-      stockClassSplit: {
-        getStockClassSplitAsOcf: async (params: GetStockClassSplitAsOcfParams) =>
-          getStockClassSplitAsOcf(client, params),
-      },
-      stockConsolidation: {
-        getStockConsolidationAsOcf: async (params: GetStockConsolidationAsOcfParams) =>
-          getStockConsolidationAsOcf(client, params),
-      },
-      stockReissuance: {
-        getStockReissuanceAsOcf: async (params: GetStockReissuanceAsOcfParams) =>
-          getStockReissuanceAsOcf(client, params),
-      },
-      stockPlanPoolAdjustment: {
-        getStockPlanPoolAdjustmentAsOcf: async (params: GetStockPlanPoolAdjustmentAsOcfParams) =>
-          getStockPlanPoolAdjustmentAsOcf(client, params),
-      },
-      document: {
-        getDocumentAsOcf: async (params: GetDocumentAsOcfParams) => getDocumentAsOcf(client, params),
-      },
-      stockIssuance: {
-        getStockIssuanceAsOcf: async (params: GetStockIssuanceAsOcfParams) => getStockIssuanceAsOcf(client, params),
-      },
-      stockRepurchase: {
-        getStockRepurchaseAsOcf: async (params: GetStockRepurchaseAsOcfParams) =>
-          getStockRepurchaseAsOcf(client, params),
-      },
-      stockAcceptance: {
-        getStockAcceptanceAsOcf: async (params: GetStockAcceptanceAsOcfParams) =>
-          getStockAcceptanceAsOcf(client, params),
-      },
-      warrantAcceptance: {
-        getWarrantAcceptanceAsOcf: async (params: GetWarrantAcceptanceAsOcfParams) =>
-          getWarrantAcceptanceAsOcf(client, params),
-      },
-      convertibleAcceptance: {
-        getConvertibleAcceptanceAsOcf: async (params: GetConvertibleAcceptanceAsOcfParams) =>
-          getConvertibleAcceptanceAsOcf(client, params),
-      },
-      equityCompensationAcceptance: {
-        getEquityCompensationAcceptanceAsOcf: async (params: GetEquityCompensationAcceptanceAsOcfParams) =>
-          getEquityCompensationAcceptanceAsOcf(client, params),
+      vestingTerms: {
+        get: async (params) => {
+          const r = await getVestingTermsAsOcf(client, params);
+          return toContractResult(r.vestingTerms, r.contractId);
+        },
       },
       valuation: {
-        getValuationAsOcf: async (params: GetValuationAsOcfParams) => getValuationAsOcf(client, params),
+        get: async (params) => {
+          const r = await getValuationAsOcf(client, params);
+          return toContractResult(r.valuation, r.contractId);
+        },
       },
+      document: {
+        get: async (params) => {
+          const r = await getDocumentAsOcf(client, params);
+          return toContractResult(r.document, r.contractId);
+        },
+      },
+
+      // ===== Issuances =====
+      stockIssuance: {
+        get: async (params) => {
+          const r = await getStockIssuanceAsOcf(client, params);
+          return toContractResult(r.stockIssuance, r.contractId);
+        },
+      },
+      equityCompensationIssuance: {
+        get: async (params) => {
+          const r = await getEquityCompensationIssuanceAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      warrantIssuance: {
+        get: async (params) => {
+          const r = await getWarrantIssuanceAsOcf(client, params);
+          return toContractResult(r.warrantIssuance, r.contractId);
+        },
+      },
+      convertibleIssuance: {
+        get: async (params) => {
+          const r = await getConvertibleIssuanceAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+
+      // ===== Transfers =====
+      stockTransfer: {
+        get: async (params) => {
+          const r = await getStockTransferAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      warrantTransfer: {
+        get: async (params) => {
+          const r = await getWarrantTransferAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      convertibleTransfer: {
+        get: async (params) => {
+          const r = await getConvertibleTransferAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      equityCompensationTransfer: {
+        get: async (params) => {
+          const r = await getEquityCompensationTransferAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+
+      // ===== Cancellations =====
+      stockCancellation: {
+        get: async (params) => {
+          const r = await getStockCancellationAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      warrantCancellation: {
+        get: async (params) => {
+          const r = await getWarrantCancellationAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      convertibleCancellation: {
+        get: async (params) => {
+          const r = await getConvertibleCancellationAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      equityCompensationCancellation: {
+        get: async (params) => {
+          const r = await getEquityCompensationCancellationAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+
+      // ===== Exercises =====
+      equityCompensationExercise: {
+        get: async (params) => {
+          const r = await getEquityCompensationExerciseAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      warrantExercise: {
+        get: async (params) => {
+          const r = await getWarrantExerciseAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+
+      // ===== Conversions =====
+      stockConversion: {
+        get: async (params) => {
+          const r = await getStockConversionAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      convertibleConversion: {
+        get: async (params) => {
+          const r = await getConvertibleConversionAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+
+      // ===== Acceptances =====
+      stockAcceptance: {
+        get: async (params) => {
+          const r = await getStockAcceptanceAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      warrantAcceptance: {
+        get: async (params) => {
+          const r = await getWarrantAcceptanceAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      convertibleAcceptance: {
+        get: async (params) => {
+          const r = await getConvertibleAcceptanceAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      equityCompensationAcceptance: {
+        get: async (params) => {
+          const r = await getEquityCompensationAcceptanceAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+
+      // ===== Adjustments =====
+      issuerAuthorizedSharesAdjustment: {
+        get: async (params) => {
+          const r = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      stockClassAuthorizedSharesAdjustment: {
+        get: async (params) => {
+          const r = await getStockClassAuthorizedSharesAdjustmentAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      stockClassConversionRatioAdjustment: {
+        get: async (params) => {
+          const r = await getStockClassConversionRatioAdjustmentAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      stockClassSplit: {
+        get: async (params) => {
+          const r = await getStockClassSplitAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      stockPlanPoolAdjustment: {
+        get: async (params) => {
+          const r = await getStockPlanPoolAdjustmentAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+
+      // ===== Other Transactions =====
+      stockRepurchase: {
+        get: async (params) => {
+          const r = await getStockRepurchaseAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      stockConsolidation: {
+        get: async (params) => {
+          const r = await getStockConsolidationAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      stockReissuance: {
+        get: async (params) => {
+          const r = await getStockReissuanceAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+
+      // ===== Vesting =====
       vestingStart: {
-        getVestingStartAsOcf: async (params: GetVestingStartAsOcfParams) => getVestingStartAsOcf(client, params),
+        get: async (params) => {
+          const r = await getVestingStartAsOcf(client, params);
+          return toContractResult(r.vestingStart, r.contractId);
+        },
       },
       vestingEvent: {
-        getVestingEventAsOcf: async (params: GetVestingEventAsOcfParams) => getVestingEventAsOcf(client, params),
+        get: async (params) => {
+          const r = await getVestingEventAsOcf(client, params);
+          return toContractResult(r.vestingEvent, r.contractId);
+        },
       },
       vestingAcceleration: {
-        getVestingAccelerationAsOcf: async (params: GetVestingAccelerationAsOcfParams) =>
-          getVestingAccelerationAsOcf(client, params),
+        get: async (params) => {
+          const r = await getVestingAccelerationAsOcf(client, params);
+          return toContractResult(r.vestingAcceleration, r.contractId);
+        },
       },
+
+      // ===== Stakeholder Events =====
+      stakeholderRelationshipChangeEvent: {
+        get: async (params) => {
+          const r = await getStakeholderRelationshipChangeEventAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+      stakeholderStatusChangeEvent: {
+        get: async (params) => {
+          const r = await getStakeholderStatusChangeEventAsOcf(client, params);
+          return toContractResult(r.event, r.contractId);
+        },
+      },
+
+      // ===== Authorization =====
       issuerAuthorization: {
-        authorizeIssuer: async (params: AuthorizeIssuerParams) => authorizeIssuer(client, params),
-        withdrawAuthorization: async (params: WithdrawAuthorizationParams) => withdrawAuthorization(client, params),
+        authorize: async (params: AuthorizeIssuerParams) => authorizeIssuer(client, params),
+        withdraw: async (params: WithdrawAuthorizationParams) => withdrawAuthorization(client, params),
       },
+
+      // ===== Batch Updates =====
       capTable: {
-        update: (params: {
-          capTableContractId: string;
-          capTableContractDetails?: { templateId: string };
-          actAs: string[];
-          readAs?: string[];
-        }) => new CapTableBatch(params, client),
+        update: (params: CapTableUpdateParams) => new CapTableBatch(params, client),
       },
     };
   }
@@ -596,16 +708,12 @@ export class OcpClient {
     const { client } = this;
     return {
       companyValuationReport: {
-        buildCreateCompanyValuationReportCommand: (params: CreateCompanyValuationReportParams) =>
+        buildCreate: (params: CreateCompanyValuationReportParams) =>
           buildCreateCompanyValuationReportCommand(client, params),
-        addObserversToCompanyValuationReport: async (params: {
-          companyValuationReportContractId: string;
-          added: string[];
-        }) => addObserversToCompanyValuationReport(client, params),
-        createCompanyValuationReport: async (params: CreateCompanyValuationReportParams) =>
-          createCompanyValuationReport(client, params),
-        updateCompanyValuationReport: async (params: UpdateCompanyValuationParams) =>
-          updateCompanyValuationReport(client, params),
+        addObservers: async (params: { companyValuationReportContractId: string; added: string[] }) =>
+          addObserversToCompanyValuationReport(client, params),
+        create: async (params: CreateCompanyValuationReportParams) => createCompanyValuationReport(client, params),
+        update: async (params: UpdateCompanyValuationParams) => updateCompanyValuationReport(client, params),
       },
     };
   }
@@ -618,7 +726,6 @@ export class OcpClient {
       ...baseExtension,
       utils: {
         ...baseExtension.utils,
-        // Wrap utils that need the client
         getFactoryDisclosedContracts: () => baseExtension.utils.getFactoryDisclosedContracts(client),
         getProposedPaymentStreamDisclosedContracts: async (
           proposedPaymentStreamContractId: string,
@@ -634,200 +741,128 @@ export class OcpClient {
   }
 }
 
-// =============================================================================
-// Type Definitions for OpenCapTable methods
-// =============================================================================
+// ===== Type Definitions =====
 
+/** Parameters for creating a batch cap table update */
+interface CapTableUpdateParams {
+  /** The contract ID of the CapTable to update */
+  capTableContractId: string;
+  /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
+  capTableContractDetails?: { templateId: string };
+  /** Party IDs to act as (signatories) */
+  actAs: string[];
+  /** Optional additional party IDs for read access */
+  readAs?: string[];
+}
+
+/** Entity namespace with a single `get()` method */
+interface EntityReader<T> {
+  /** Retrieve a contract by ID and return its OCF data */
+  get: (params: GetByContractIdParams) => Promise<ContractResult<T>>;
+}
+
+/**
+ * Core cap table operations, organized by entity type.
+ *
+ * Each entity has a `get()` method that returns `ContractResult<T>` with
+ * `{ data, contractId }`. The `data` field contains the OCF entity with
+ * an `object_type` discriminant for type-safe pattern matching.
+ */
 interface OpenCapTableMethods {
-  issuer: {
-    buildCreateIssuerCommand: (params: CreateIssuerParams) => CommandWithDisclosedContracts;
-    getIssuerAsOcf: (params: GetIssuerAsOcfParams) => Promise<GetIssuerAsOcfResult>;
+  // Objects
+  issuer: EntityReader<OcfIssuerOutput> & {
+    /** Build a CreateIssuer command (for use with transaction batches) */
+    buildCreate: (params: CreateIssuerParams) => CommandWithDisclosedContracts;
   };
-  stockClass: {
-    getStockClassAsOcf: (params: GetStockClassAsOcfParams) => Promise<GetStockClassAsOcfResult>;
-  };
-  stakeholder: {
-    getStakeholderAsOcf: (params: GetStakeholderAsOcfParams) => Promise<GetStakeholderAsOcfResult>;
-  };
-  stakeholderRelationshipChangeEvent: {
-    getStakeholderRelationshipChangeEventAsOcf: (
-      params: GetStakeholderRelationshipChangeEventAsOcfParams
-    ) => Promise<GetStakeholderRelationshipChangeEventAsOcfResult>;
-  };
-  stakeholderStatusChangeEvent: {
-    getStakeholderStatusChangeEventAsOcf: (
-      params: GetStakeholderStatusChangeEventAsOcfParams
-    ) => Promise<GetStakeholderStatusChangeEventAsOcfResult>;
-  };
-  stockLegendTemplate: {
-    getStockLegendTemplateAsOcf: (
-      params: GetStockLegendTemplateAsOcfParams
-    ) => Promise<GetStockLegendTemplateAsOcfResult>;
-  };
-  vestingTerms: {
-    getVestingTermsAsOcf: (params: GetVestingTermsAsOcfParams) => Promise<GetVestingTermsAsOcfResult>;
-  };
-  stockPlan: {
-    getStockPlanAsOcf: (params: GetStockPlanAsOcfParams) => Promise<GetStockPlanAsOcfResult>;
-  };
-  equityCompensationIssuance: {
-    getEquityCompensationIssuanceAsOcf: (
-      params: GetEquityCompensationIssuanceAsOcfParams
-    ) => Promise<GetEquityCompensationIssuanceAsOcfResult>;
-  };
-  equityCompensationExercise: {
-    getEquityCompensationExerciseAsOcf: (
-      params: GetEquityCompensationExerciseAsOcfParams
-    ) => Promise<GetEquityCompensationExerciseAsOcfResult>;
-  };
-  warrantIssuance: {
-    getWarrantIssuanceAsOcf: (params: GetWarrantIssuanceAsOcfParams) => Promise<GetWarrantIssuanceAsOcfResult>;
-  };
-  warrantExercise: {
-    getWarrantExerciseAsOcf: (params: GetWarrantExerciseAsOcfParams) => Promise<GetWarrantExerciseAsOcfResult>;
-  };
-  convertibleIssuance: {
-    getConvertibleIssuanceAsOcf: (
-      params: GetConvertibleIssuanceAsOcfParams
-    ) => Promise<GetConvertibleIssuanceAsOcfResult>;
-  };
-  convertibleConversion: {
-    getConvertibleConversionAsOcf: (
-      params: GetConvertibleConversionAsOcfParams
-    ) => Promise<GetConvertibleConversionAsOcfResult>;
-  };
-  stockCancellation: {
-    getStockCancellationAsOcf: (params: GetStockCancellationAsOcfParams) => Promise<GetStockCancellationAsOcfResult>;
-  };
-  stockConversion: {
-    getStockConversionAsOcf: (params: GetStockConversionAsOcfParams) => Promise<GetStockConversionAsOcfResult>;
-  };
-  warrantCancellation: {
-    getWarrantCancellationAsOcf: (
-      params: GetWarrantCancellationAsOcfParams
-    ) => Promise<GetWarrantCancellationAsOcfResult>;
-  };
-  convertibleCancellation: {
-    getConvertibleCancellationAsOcf: (
-      params: GetConvertibleCancellationAsOcfParams
-    ) => Promise<GetConvertibleCancellationAsOcfResult>;
-  };
-  equityCompensationCancellation: {
-    getEquityCompensationCancellationAsOcf: (
-      params: GetEquityCompensationCancellationAsOcfParams
-    ) => Promise<GetEquityCompensationCancellationAsOcfResult>;
-  };
-  stockTransfer: {
-    getStockTransferAsOcf: (params: GetStockTransferAsOcfParams) => Promise<GetStockTransferAsOcfResult>;
-  };
-  convertibleTransfer: {
-    getConvertibleTransferAsOcf: (
-      params: GetConvertibleTransferAsOcfParams
-    ) => Promise<GetConvertibleTransferAsOcfResult>;
-  };
-  equityCompensationTransfer: {
-    getEquityCompensationTransferAsOcf: (
-      params: GetEquityCompensationTransferAsOcfParams
-    ) => Promise<GetEquityCompensationTransferAsOcfResult>;
-  };
-  warrantTransfer: {
-    getWarrantTransferAsOcf: (params: GetWarrantTransferAsOcfParams) => Promise<GetWarrantTransferAsOcfResult>;
-  };
-  issuerAuthorizedSharesAdjustment: {
-    getIssuerAuthorizedSharesAdjustmentAsOcf: (
-      params: GetIssuerAuthorizedSharesAdjustmentAsOcfParams
-    ) => Promise<GetIssuerAuthorizedSharesAdjustmentAsOcfResult>;
-  };
-  stockClassAuthorizedSharesAdjustment: {
-    getStockClassAuthorizedSharesAdjustmentAsOcf: (
-      params: GetStockClassAuthorizedSharesAdjustmentAsOcfParams
-    ) => Promise<GetStockClassAuthorizedSharesAdjustmentAsOcfResult>;
-  };
-  stockClassConversionRatioAdjustment: {
-    getStockClassConversionRatioAdjustmentAsOcf: (
-      params: GetStockClassConversionRatioAdjustmentAsOcfParams
-    ) => Promise<GetStockClassConversionRatioAdjustmentAsOcfResult>;
-  };
-  stockClassSplit: {
-    getStockClassSplitAsOcf: (params: GetStockClassSplitAsOcfParams) => Promise<GetStockClassSplitAsOcfResult>;
-  };
-  stockConsolidation: {
-    getStockConsolidationAsOcf: (params: GetStockConsolidationAsOcfParams) => Promise<GetStockConsolidationAsOcfResult>;
-  };
-  stockReissuance: {
-    getStockReissuanceAsOcf: (params: GetStockReissuanceAsOcfParams) => Promise<GetStockReissuanceAsOcfResult>;
-  };
-  stockPlanPoolAdjustment: {
-    getStockPlanPoolAdjustmentAsOcf: (
-      params: GetStockPlanPoolAdjustmentAsOcfParams
-    ) => Promise<GetStockPlanPoolAdjustmentAsOcfResult>;
-  };
-  stockIssuance: {
-    getStockIssuanceAsOcf: (params: GetStockIssuanceAsOcfParams) => Promise<GetStockIssuanceAsOcfResult>;
-  };
-  stockRepurchase: {
-    getStockRepurchaseAsOcf: (params: GetStockRepurchaseAsOcfParams) => Promise<GetStockRepurchaseAsOcfResult>;
-  };
-  stockAcceptance: {
-    getStockAcceptanceAsOcf: (params: GetStockAcceptanceAsOcfParams) => Promise<GetStockAcceptanceAsOcfResult>;
-  };
-  warrantAcceptance: {
-    getWarrantAcceptanceAsOcf: (params: GetWarrantAcceptanceAsOcfParams) => Promise<GetWarrantAcceptanceAsOcfResult>;
-  };
-  convertibleAcceptance: {
-    getConvertibleAcceptanceAsOcf: (
-      params: GetConvertibleAcceptanceAsOcfParams
-    ) => Promise<GetConvertibleAcceptanceAsOcfResult>;
-  };
-  equityCompensationAcceptance: {
-    getEquityCompensationAcceptanceAsOcf: (
-      params: GetEquityCompensationAcceptanceAsOcfParams
-    ) => Promise<GetEquityCompensationAcceptanceAsOcfResult>;
-  };
-  valuation: {
-    getValuationAsOcf: (params: GetValuationAsOcfParams) => Promise<GetValuationAsOcfResult>;
-  };
-  vestingStart: {
-    getVestingStartAsOcf: (params: GetVestingStartAsOcfParams) => Promise<GetVestingStartAsOcfResult>;
-  };
-  vestingEvent: {
-    getVestingEventAsOcf: (params: GetVestingEventAsOcfParams) => Promise<GetVestingEventAsOcfResult>;
-  };
-  vestingAcceleration: {
-    getVestingAccelerationAsOcf: (
-      params: GetVestingAccelerationAsOcfParams
-    ) => Promise<GetVestingAccelerationAsOcfResult>;
-  };
-  document: {
-    getDocumentAsOcf: (params: GetDocumentAsOcfParams) => Promise<GetDocumentAsOcfResult>;
-  };
+  stakeholder: EntityReader<OcfStakeholderOutput>;
+  stockClass: EntityReader<OcfStockClassOutput>;
+  stockLegendTemplate: EntityReader<OcfStockLegendTemplateOutput>;
+  stockPlan: EntityReader<OcfStockPlanOutput>;
+  vestingTerms: EntityReader<OcfVestingTermsOutput>;
+  valuation: EntityReader<OcfValuationOutput>;
+  document: EntityReader<OcfDocumentOutput>;
+
+  // Issuances
+  stockIssuance: EntityReader<OcfStockIssuanceOutput>;
+  equityCompensationIssuance: EntityReader<OcfEquityCompensationIssuanceOutput>;
+  warrantIssuance: EntityReader<OcfWarrantIssuanceOutput>;
+  convertibleIssuance: EntityReader<OcfConvertibleIssuanceOutput>;
+
+  // Transfers
+  stockTransfer: EntityReader<OcfStockTransferOutput>;
+  warrantTransfer: EntityReader<OcfWarrantTransferOutput>;
+  convertibleTransfer: EntityReader<OcfConvertibleTransferOutput>;
+  equityCompensationTransfer: EntityReader<OcfEquityCompensationTransferOutput>;
+
+  // Cancellations
+  stockCancellation: EntityReader<OcfStockCancellationOutput>;
+  warrantCancellation: EntityReader<OcfWarrantCancellationOutput>;
+  convertibleCancellation: EntityReader<OcfConvertibleCancellationOutput>;
+  equityCompensationCancellation: EntityReader<OcfEquityCompensationCancellationOutput>;
+
+  // Exercises
+  equityCompensationExercise: EntityReader<OcfEquityCompensationExerciseOutput>;
+  warrantExercise: EntityReader<OcfWarrantExerciseOutput>;
+
+  // Conversions
+  stockConversion: EntityReader<OcfStockConversionOutput>;
+  convertibleConversion: EntityReader<OcfConvertibleConversionOutput>;
+
+  // Acceptances
+  stockAcceptance: EntityReader<OcfStockAcceptanceOutput>;
+  warrantAcceptance: EntityReader<OcfWarrantAcceptanceOutput>;
+  convertibleAcceptance: EntityReader<OcfConvertibleAcceptanceOutput>;
+  equityCompensationAcceptance: EntityReader<OcfEquityCompensationAcceptanceOutput>;
+
+  // Adjustments
+  issuerAuthorizedSharesAdjustment: EntityReader<OcfIssuerAuthorizedSharesAdjustmentOutput>;
+  stockClassAuthorizedSharesAdjustment: EntityReader<OcfStockClassAuthorizedSharesAdjustmentOutput>;
+  stockClassConversionRatioAdjustment: EntityReader<OcfStockClassConversionRatioAdjustmentOutput>;
+  stockClassSplit: EntityReader<OcfStockClassSplitOutput>;
+  stockPlanPoolAdjustment: EntityReader<OcfStockPlanPoolAdjustmentOutput>;
+
+  // Other transactions
+  stockRepurchase: EntityReader<OcfStockRepurchaseOutput>;
+  stockConsolidation: EntityReader<OcfStockConsolidationOutput>;
+  stockReissuance: EntityReader<OcfStockReissuanceOutput>;
+
+  // Vesting
+  vestingStart: EntityReader<OcfVestingStartOutput>;
+  vestingEvent: EntityReader<OcfVestingEventOutput>;
+  vestingAcceleration: EntityReader<OcfVestingAccelerationOutput>;
+
+  // Stakeholder Events
+  stakeholderRelationshipChangeEvent: EntityReader<OcfStakeholderRelationshipChangeEventOutput>;
+  stakeholderStatusChangeEvent: EntityReader<OcfStakeholderStatusChangeEventOutput>;
+
+  // Authorization
   issuerAuthorization: {
-    authorizeIssuer: (params: AuthorizeIssuerParams) => Promise<AuthorizeIssuerResult>;
-    withdrawAuthorization: (params: WithdrawAuthorizationParams) => Promise<WithdrawAuthorizationResult>;
+    /** Authorize an issuer using the OCP Factory contract */
+    authorize: (params: AuthorizeIssuerParams) => Promise<AuthorizeIssuerResult>;
+    /** Withdraw an issuer's authorization */
+    withdraw: (params: WithdrawAuthorizationParams) => Promise<WithdrawAuthorizationResult>;
   };
+
+  // Batch Updates
   capTable: {
-    update: (params: {
-      capTableContractId: string;
-      capTableContractDetails?: { templateId: string };
-      actAs: string[];
-      readAs?: string[];
-    }) => CapTableBatch;
+    /** Create a batch builder for atomic cap table updates */
+    update: (params: CapTableUpdateParams) => CapTableBatch;
   };
 }
 
 interface OpenCapTableReportsMethods {
   companyValuationReport: {
-    addObserversToCompanyValuationReport: (params: {
+    /** Build a CreateCompanyValuationReport command */
+    buildCreate: (params: CreateCompanyValuationReportParams) => CommandWithDisclosedContracts;
+    /** Add observers to a company valuation report */
+    addObservers: (params: {
       companyValuationReportContractId: string;
       added: string[];
     }) => Promise<{ contractId: string; updateId: string }>;
-    createCompanyValuationReport: (
-      params: CreateCompanyValuationReportParams
-    ) => Promise<CreateCompanyValuationReportResult>;
-    updateCompanyValuationReport: (params: UpdateCompanyValuationParams) => Promise<UpdateCompanyValuationResult>;
-    buildCreateCompanyValuationReportCommand: (
-      params: CreateCompanyValuationReportParams
-    ) => CommandWithDisclosedContracts;
+    /** Create a new company valuation report */
+    create: (params: CreateCompanyValuationReportParams) => Promise<CreateCompanyValuationReportResult>;
+    /** Update an existing company valuation report */
+    update: (params: UpdateCompanyValuationParams) => Promise<UpdateCompanyValuationResult>;
   };
 }
 

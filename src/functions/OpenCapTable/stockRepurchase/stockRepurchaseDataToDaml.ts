@@ -4,7 +4,7 @@ import {
   cleanComments,
   dateStringToDAMLTime,
   monetaryToDaml,
-  numberToString,
+  normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
 
@@ -32,7 +32,7 @@ export function stockRepurchaseDataToDaml(d: OcfStockRepurchase): Record<string,
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
-    quantity: numberToString(d.quantity),
+    quantity: normalizeNumericString(d.quantity),
     price: monetaryToDaml(d.price),
     balance_security_id: optionalString(d.balance_security_id),
     consideration_text: optionalString(d.consideration_text),

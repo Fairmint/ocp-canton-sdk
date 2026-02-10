@@ -106,13 +106,13 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       // The issuer is created as part of setup - read it back
       // Note: issuerOcfContractId is the actual Issuer contract, not the CapTable contract
-      const readBack = await ctx.ocp.OpenCapTable.issuer.getIssuerAsOcf({
+      const readBack = await ctx.ocp.OpenCapTable.issuer.get({
         contractId: issuerSetup.issuerOcfContractId,
       });
 
       // Validate OCF schema
-      await validateOcfObject(readBack.issuer as unknown as Record<string, unknown>);
-      expect(readBack.issuer.object_type).toBe('ISSUER');
+      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      expect(readBack.data.object_type).toBe('ISSUER');
     });
 
     /**
@@ -194,18 +194,18 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       // Read back as OCF
-      const readBack = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+      const readBack = await ctx.ocp.OpenCapTable.stakeholder.get({
         contractId: extractContractIdString(result.createdCids[0]),
       });
 
       // Validate OCF schema
-      await validateOcfObject(readBack.stakeholder as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
 
       // Compare data (the ID will differ since we generated a new one)
-      const sourceWithoutId = stripInternalFields({ ...prepared, id: readBack.stakeholder.id });
+      const sourceWithoutId = stripInternalFields({ ...prepared, id: readBack.data.id });
       compareOcfData(
         sourceWithoutId as Record<string, unknown>,
-        readBack.stakeholder as unknown as Record<string, unknown>,
+        readBack.data as unknown as Record<string, unknown>,
         'Stakeholder individual'
       );
     });
@@ -231,11 +231,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       const result = await batch.create('stakeholder', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
 
-      const readBack = await ctx.ocp.OpenCapTable.stakeholder.getStakeholderAsOcf({
+      const readBack = await ctx.ocp.OpenCapTable.stakeholder.get({
         contractId: extractContractIdString(result.createdCids[0]),
       });
 
-      await validateOcfObject(readBack.stakeholder as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
     });
 
     test('Stock Legend Template round-trips correctly', async () => {
@@ -259,11 +259,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       const result = await batch.create('stockLegendTemplate', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
 
-      const readBack = await ctx.ocp.OpenCapTable.stockLegendTemplate.getStockLegendTemplateAsOcf({
+      const readBack = await ctx.ocp.OpenCapTable.stockLegendTemplate.get({
         contractId: extractContractIdString(result.createdCids[0]),
       });
 
-      await validateOcfObject(readBack.stockLegendTemplate as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
     });
 
     test('Document round-trips correctly', async () => {
@@ -287,11 +287,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       const result = await batch.create('document', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
 
-      const readBack = await ctx.ocp.OpenCapTable.document.getDocumentAsOcf({
+      const readBack = await ctx.ocp.OpenCapTable.document.get({
         contractId: extractContractIdString(result.createdCids[0]),
       });
 
-      await validateOcfObject(readBack.document as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
     });
 
     /**
@@ -320,11 +320,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       const result = await batch.create('vestingTerms', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
 
-      const readBack = await ctx.ocp.OpenCapTable.vestingTerms.getVestingTermsAsOcf({
+      const readBack = await ctx.ocp.OpenCapTable.vestingTerms.get({
         contractId: extractContractIdString(result.createdCids[0]),
       });
 
-      await validateOcfObject(readBack.vestingTerms as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
     });
 
     test('Stock Plan round-trips correctly', async () => {
@@ -348,11 +348,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       const result = await batch.create('stockPlan', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
 
-      const readBack = await ctx.ocp.OpenCapTable.stockPlan.getStockPlanAsOcf({
+      const readBack = await ctx.ocp.OpenCapTable.stockPlan.get({
         contractId: extractContractIdString(result.createdCids[0]),
       });
 
-      await validateOcfObject(readBack.stockPlan as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
     });
   });
 

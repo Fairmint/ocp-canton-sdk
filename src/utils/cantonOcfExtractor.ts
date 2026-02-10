@@ -421,8 +421,10 @@ export async function extractCantonOcfManifest(
   // Fetch issuer
   if (cantonState.issuerContractId) {
     try {
-      const { issuer } = await getIssuerAsOcf(client, { contractId: cantonState.issuerContractId });
-      result.issuer = issuer as unknown as Record<string, unknown>;
+      const issuerResult = await getIssuerAsOcf(client, {
+        contractId: cantonState.issuerContractId,
+      });
+      result.issuer = issuerResult.data as unknown as Record<string, unknown>;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       log(`  ⚠️ Failed to fetch issuer: ${msg}`);

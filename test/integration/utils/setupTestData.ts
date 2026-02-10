@@ -644,7 +644,7 @@ async function getOrCreateIssuerAuthorization(
     };
   }
 
-  const authResult = await ocp.OpenCapTable.issuerAuthorization.authorizeIssuer({
+  const authResult = await ocp.OpenCapTable.issuerAuthorization.authorize({
     issuer: options.issuerParty,
   });
   return {
@@ -670,7 +670,7 @@ export async function setupTestIssuer(
   const issuerAuthorizationContractDetails = await getOrCreateIssuerAuthorization(ocp, options);
   const issuerData = createTestIssuerData(options.issuerData);
 
-  const createIssuerCmd = ocp.OpenCapTable.issuer.buildCreateIssuerCommand({
+  const createIssuerCmd = ocp.OpenCapTable.issuer.buildCreate({
     issuerAuthorizationContractDetails,
     issuerParty: options.issuerParty,
     issuerData,

@@ -5,7 +5,7 @@ import {
   cleanComments,
   dateStringToDAMLTime,
   monetaryToDaml,
-  numberToString,
+  normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
 
@@ -69,7 +69,11 @@ export function equityCompensationIssuanceDataToDaml(
     vesting_terms_id?: string;
   }
 ): Record<string, unknown> {
-  const filteredVestings = (d.vestings ?? []).filter((v) => Number(v.amount) > 0);
+  const filteredVestings = (d.vestings ?? []).filter((v) => {
+    // normalizeNumericString validates strict decimal format and rejects scientific notation
+    const normalized = normalizeNumericString(v.amount);
+    return parseFloat(normalized) > 0;
+  });
 
   return {
     id: d.id,
@@ -88,13 +92,13 @@ export function equityCompensationIssuanceDataToDaml(
     stock_class_id: optionalString(d.stock_class_id),
     vesting_terms_id: optionalString(d.vesting_terms_id),
     compensation_type: compensationTypeToDaml(d.compensation_type),
-    quantity: numberToString(d.quantity),
+    quantity: normalizeNumericString(d.quantity),
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
     vestings: filteredVestings.map((v) => ({
       date: dateStringToDAMLTime(v.date),
-      amount: numberToString(v.amount),
+      amount: normalizeNumericString(v.amount),
     })),
     expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
     termination_exercise_windows: (d.termination_exercise_windows ?? []).map((w) => ({

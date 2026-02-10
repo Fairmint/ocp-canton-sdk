@@ -5,7 +5,6 @@
  * have been moved to their respective function files.
  */
 
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
@@ -37,16 +36,6 @@ export function relTimeToDAML(microseconds: string): { microseconds: string } {
 export function damlTimeToDateString(timeString: string): string {
   // Extract just the date portion (YYYY-MM-DD)
   return timeString.split('T')[0];
-}
-
-/**
- * Pass through a numeric string for DAML fields (identity function).
- *
- * @deprecated Use string values directly. This is a no-op kept for
- * internal compatibility and will be removed in a future version.
- */
-export function numberToString(value: string): string {
-  return value;
 }
 
 /**
@@ -489,17 +478,4 @@ export function quantityCancellationToNative(d: DamlQuantityCancellationData): N
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
-}
-
-// ===== Transaction Response Helpers =====
-
-/**
- * Extract updateId from a transaction tree response.
- *
- * @deprecated Access response.transactionTree.updateId directly.
- * Kept temporarily for backward compatibility but all internal callers should
- * migrate to direct property access.
- */
-export function extractUpdateId(response: SubmitAndWaitForTransactionTreeResponse): string {
-  return response.transactionTree.updateId;
 }

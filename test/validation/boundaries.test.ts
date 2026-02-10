@@ -7,23 +7,10 @@
 
 import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
 import type { OcfStakeholder } from '../../src/types';
-import { normalizeNumericString, numberToString, optionalString } from '../../src/utils/typeConversions';
+import { normalizeNumericString, optionalString } from '../../src/utils/typeConversions';
 
 describe('Boundary Condition Tests', () => {
   describe('Numeric Boundaries', () => {
-    test('numberToString passes through string values', () => {
-      expect(numberToString('9007199254740991')).toBe('9007199254740991');
-      expect(numberToString('99999999999999999999')).toBe('99999999999999999999');
-    });
-
-    test('numberToString handles zero correctly', () => {
-      expect(numberToString('0')).toBe('0');
-    });
-
-    test('numberToString handles decimal strings', () => {
-      expect(numberToString('0.0001')).toBe('0.0001');
-    });
-
     test('normalizeNumericString handles various precision levels', () => {
       // Standard precision
       expect(normalizeNumericString('1234.5600')).toBe('1234.56');

@@ -106,14 +106,14 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     expect(result.createdCids).toHaveLength(1);
 
     // Read back as OCF
-    const ocfResult = await ctx.ocp.OpenCapTable.warrantExercise.getWarrantExerciseAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.warrantExercise.get({
       contractId: extractContractIdString(result.createdCids[0]),
     });
 
-    expect(ocfResult.event.object_type).toBe('TX_WARRANT_EXERCISE');
-    expect(ocfResult.event.security_id).toBe(warrantSecurityId);
-    expect(ocfResult.event.quantity).toBe('1000');
-    expect(ocfResult.event.resulting_security_ids).toContain(resultingStockSecurityId);
+    expect(ocfResult.data.object_type).toBe('TX_WARRANT_EXERCISE');
+    expect(ocfResult.data.security_id).toBe(warrantSecurityId);
+    expect(ocfResult.data.quantity).toBe('1000');
+    expect(ocfResult.data.resulting_security_ids).toContain(resultingStockSecurityId);
   });
 
   /**
@@ -154,13 +154,13 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     expect(result.createdCids).toHaveLength(1);
 
     // Read back as OCF
-    const ocfResult = await ctx.ocp.OpenCapTable.convertibleConversion.getConvertibleConversionAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.convertibleConversion.get({
       contractId: extractContractIdString(result.createdCids[0]),
     });
 
-    expect(ocfResult.event.object_type).toBe('TX_CONVERTIBLE_CONVERSION');
-    expect(ocfResult.event.security_id).toBe(convertibleSecurityId);
-    expect(ocfResult.event.resulting_security_ids).toContain(resultingStockSecurityId);
+    expect(ocfResult.data.object_type).toBe('TX_CONVERTIBLE_CONVERSION');
+    expect(ocfResult.data.security_id).toBe(convertibleSecurityId);
+    expect(ocfResult.data.resulting_security_ids).toContain(resultingStockSecurityId);
   });
 
   /**
@@ -204,14 +204,14 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     expect(result.createdCids).toHaveLength(1);
 
     // Read back as OCF
-    const ocfResult = await ctx.ocp.OpenCapTable.stockConversion.getStockConversionAsOcf({
+    const ocfResult = await ctx.ocp.OpenCapTable.stockConversion.get({
       contractId: extractContractIdString(result.createdCids[0]),
     });
 
-    expect(ocfResult.event.object_type).toBe('TX_STOCK_CONVERSION');
-    expect(ocfResult.event.security_id).toBe(stockSecurityId);
-    expect(ocfResult.event.quantity).toBe('5000');
-    expect(ocfResult.event.resulting_security_ids).toContain(resultingSecurityId);
+    expect(ocfResult.data.object_type).toBe('TX_STOCK_CONVERSION');
+    expect(ocfResult.data.security_id).toBe(stockSecurityId);
+    expect(ocfResult.data.quantity).toBe('5000');
+    expect(ocfResult.data.resulting_security_ids).toContain(resultingSecurityId);
   });
 
   /**
@@ -225,13 +225,13 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
 
     // Verify methods exist on OcpClient
     expect(ctx.ocp.OpenCapTable.warrantExercise).toBeDefined();
-    expect(typeof ctx.ocp.OpenCapTable.warrantExercise.getWarrantExerciseAsOcf).toBe('function');
+    expect(typeof ctx.ocp.OpenCapTable.warrantExercise.get).toBe('function');
 
     expect(ctx.ocp.OpenCapTable.convertibleConversion).toBeDefined();
-    expect(typeof ctx.ocp.OpenCapTable.convertibleConversion.getConvertibleConversionAsOcf).toBe('function');
+    expect(typeof ctx.ocp.OpenCapTable.convertibleConversion.get).toBe('function');
 
     expect(ctx.ocp.OpenCapTable.stockConversion).toBeDefined();
-    expect(typeof ctx.ocp.OpenCapTable.stockConversion.getStockConversionAsOcf).toBe('function');
+    expect(typeof ctx.ocp.OpenCapTable.stockConversion.get).toBe('function');
   });
 
   /**

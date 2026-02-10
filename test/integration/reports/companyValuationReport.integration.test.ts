@@ -22,16 +22,14 @@ createIntegrationTestSuite('CompanyValuationReport operations', (getContext) => 
     const ctx = getContext();
 
     // Verify SDK exports company valuation report functions
-    expect(ctx.ocp.OpenCapTableReports.companyValuationReport.createCompanyValuationReport).toBeDefined();
-    expect(typeof ctx.ocp.OpenCapTableReports.companyValuationReport.createCompanyValuationReport).toBe('function');
+    expect(ctx.ocp.OpenCapTableReports.companyValuationReport.create).toBeDefined();
+    expect(typeof ctx.ocp.OpenCapTableReports.companyValuationReport.create).toBe('function');
 
-    expect(ctx.ocp.OpenCapTableReports.companyValuationReport.updateCompanyValuationReport).toBeDefined();
-    expect(typeof ctx.ocp.OpenCapTableReports.companyValuationReport.updateCompanyValuationReport).toBe('function');
+    expect(ctx.ocp.OpenCapTableReports.companyValuationReport.update).toBeDefined();
+    expect(typeof ctx.ocp.OpenCapTableReports.companyValuationReport.update).toBe('function');
 
-    expect(ctx.ocp.OpenCapTableReports.companyValuationReport.addObserversToCompanyValuationReport).toBeDefined();
-    expect(typeof ctx.ocp.OpenCapTableReports.companyValuationReport.addObserversToCompanyValuationReport).toBe(
-      'function'
-    );
+    expect(ctx.ocp.OpenCapTableReports.companyValuationReport.addObservers).toBeDefined();
+    expect(typeof ctx.ocp.OpenCapTableReports.companyValuationReport.addObservers).toBe('function');
   });
 
   test.skip('full company valuation workflow - requires OCP Factory', async () => {

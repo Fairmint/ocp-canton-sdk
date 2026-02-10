@@ -1,5 +1,5 @@
 import type { OcfStockPlanPoolAdjustment } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, numberToString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, normalizeNumericString } from '../../../utils/typeConversions';
 
 export function stockPlanPoolAdjustmentDataToDaml(d: OcfStockPlanPoolAdjustment): Record<string, unknown> {
   return {
@@ -8,7 +8,7 @@ export function stockPlanPoolAdjustmentDataToDaml(d: OcfStockPlanPoolAdjustment)
     date: dateStringToDAMLTime(d.date),
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-    shares_reserved: numberToString(d.shares_reserved),
+    shares_reserved: normalizeNumericString(d.shares_reserved),
     comments: cleanComments(d.comments),
   };
 }
