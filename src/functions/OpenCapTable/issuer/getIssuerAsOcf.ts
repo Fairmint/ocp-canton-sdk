@@ -35,8 +35,14 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
   };
 
   const dataWithId = damlData as unknown as { id?: string };
+  if (!dataWithId.id) {
+    throw new OcpParseError('Issuer contract is missing required field: id', {
+      source: 'getIssuerAsOcf',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
   const out: OcfIssuerInput = {
-    id: dataWithId.id ?? '',
+    id: dataWithId.id,
     legal_name: damlData.legal_name,
     country_of_formation: damlData.country_of_formation,
     formation_date: damlTimeToDateString(damlData.formation_date),

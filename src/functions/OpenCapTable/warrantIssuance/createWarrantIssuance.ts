@@ -277,17 +277,28 @@ export function warrantIssuanceDataToDaml(d: {
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions,
-    quantity: d.quantity ? normalizeNumericString(d.quantity) : null,
+    quantity: d.quantity != null ? normalizeNumericString(d.quantity) : null,
     quantity_source: quantitySourceDaml ?? null,
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     purchase_price: monetaryToDaml(d.purchase_price),
     exercise_triggers: d.exercise_triggers.map((t, idx) => buildWarrantTrigger(t, idx, d.id)),
     warrant_expiration_date: d.warrant_expiration_date ? dateStringToDAMLTime(d.warrant_expiration_date) : null,
     vesting_terms_id: optionalString(d.vesting_terms_id),
-    vestings: (d.vestings ?? []).map((v) => ({
-      date: dateStringToDAMLTime(v.date),
-      amount: v.amount,
-    })),
+    vestings: (d.vestings ?? [])
+      .filter((v) => {
+        const num = Number(v.amount);
+        if (Number.isNaN(num)) {
+          throw new OcpValidationError('vesting.amount', `Invalid numeric value: ${v.amount}`, {
+            expectedType: 'numeric string',
+            receivedValue: v.amount,
+          });
+        }
+        return num > 0;
+      })
+      .map((v) => ({
+        date: dateStringToDAMLTime(v.date),
+        amount: v.amount,
+      })),
     comments: cleanComments(d.comments),
   };
 }

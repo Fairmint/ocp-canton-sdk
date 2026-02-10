@@ -328,7 +328,7 @@ function mechanismInputToDamlEnum(
           value: {
             description: anyM.description,
             discount: Boolean(anyM.discount),
-            discount_percentage: anyM.discount_percentage ? (anyM.discount_percentage as string) : null,
+            discount_percentage: anyM.discount_percentage != null ? (anyM.discount_percentage as string) : null,
             discount_amount: anyM.discount_amount ? monetaryToDaml(anyM.discount_amount as Monetary) : null,
           },
         } as Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;

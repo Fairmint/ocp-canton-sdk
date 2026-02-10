@@ -771,7 +771,7 @@ interface EntityReader<T> {
 interface OpenCapTableMethods {
   // Objects
   issuer: EntityReader<OcfIssuerOutput> & {
-    /** Build a CreateCapTable command (for use with transaction batches) */
+    /** Build a CreateIssuer command (for use with transaction batches) */
     buildCreate: (params: CreateIssuerParams) => CommandWithDisclosedContracts;
   };
   stakeholder: EntityReader<OcfStakeholderOutput>;
