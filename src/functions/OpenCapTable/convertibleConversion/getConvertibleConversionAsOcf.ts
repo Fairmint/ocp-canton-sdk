@@ -98,7 +98,7 @@ export async function getConvertibleConversionAsOcf(
     resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.trigger_id ? { trigger_id: d.trigger_id } : {}),
-    ...(d.comments && d.comments.length ? { comments: d.comments } : {}),
+    ...(d.comments?.length ? { comments: d.comments } : {}),
   };
 
   return { event, contractId: params.contractId };

@@ -7,8 +7,8 @@ import type {
   VestingConditionPortion,
   VestingTrigger,
 } from '../../../types';
-import { isIsoDateString } from '../../../utils/typeGuards';
 import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import { isIsoDateString } from '../../../utils/typeGuards';
 
 function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType {
   switch (t) {
