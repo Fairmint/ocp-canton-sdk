@@ -1,33 +1,13 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type { AllocationType, OcfVestingTerms, VestingCondition, VestingConditionPortion } from '../../../types';
+import type {
+  AllocationType,
+  OcfVestingTerms,
+  VestingCondition,
+  VestingConditionPortion,
+  VestingTrigger,
+} from '../../../types';
 import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
-
-/**
- * Input type for vesting trigger conversion.
- * Supports both OCF standard format (with `type` discriminator) and internal format (with `kind`).
- */
-interface VestingTriggerInput {
-  /** OCF trigger type discriminator */
-  type?: string;
-  /** Internal trigger kind discriminator */
-  kind?: string;
-  /** Date for absolute schedule triggers */
-  date?: string;
-  /** Alternative date field name */
-  at?: string;
-  /** Relative condition reference */
-  relative_to_condition_id?: string;
-  /** Period configuration for relative triggers */
-  period?: {
-    type?: string;
-    length?: string | number;
-    value?: string | number;
-    occurrences?: string | number;
-    cliff_installment?: string | number;
-    day_of_month?: string;
-  };
-}
 
 function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType {
   switch (t) {
@@ -128,65 +108,54 @@ function mapOcfDayOfMonthToDaml(day: string): OcfVestingDay {
   return table[d] ?? 'OcfVestingStartDayOrLast';
 }
 
-function vestingTriggerToDaml(t: VestingTriggerInput): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger {
-  // Map internal 'kind' values to OCF 'type' values
-  const kindToType: Record<string, string> = {
-    START: 'VESTING_START_DATE',
-    EVENT: 'VESTING_EVENT',
-    SCHEDULE_ABSOLUTE: 'VESTING_SCHEDULE_ABSOLUTE',
-    SCHEDULE_RELATIVE: 'VESTING_SCHEDULE_RELATIVE',
-  };
-  const kindNormalized = typeof t.kind === 'string' ? kindToType[t.kind.toUpperCase()] : undefined;
-  const type: string | undefined = typeof t.type === 'string' ? t.type.toUpperCase() : kindNormalized;
-
-  if (type === 'VESTING_START_DATE') {
+function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger {
+  if (t.type === 'VESTING_START_DATE') {
     return {
       tag: 'OcfVestingStartTrigger',
       value: {},
     } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
   }
-  if (type === 'VESTING_EVENT') {
+  if (t.type === 'VESTING_EVENT') {
     return {
       tag: 'OcfVestingEventTrigger',
       value: {},
     } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
   }
-  if (type === 'VESTING_SCHEDULE_ABSOLUTE') {
-    const date: string | undefined = t.date ?? t.at;
-    if (!date)
-      throw new OcpValidationError('vestingTrigger.date', 'Vesting absolute trigger requires date', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      });
+  if (t.type === 'VESTING_SCHEDULE_ABSOLUTE') {
     return {
       tag: 'OcfVestingScheduleAbsoluteTrigger',
-      value: dateStringToDAMLTime(date),
+      value: dateStringToDAMLTime(t.date),
     } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
   }
-  if (type === 'VESTING_SCHEDULE_RELATIVE') {
-    const p = t.period ?? {};
-    const pType: 'DAYS' | 'MONTHS' = (p.type ?? '').toString().toUpperCase() === 'MONTHS' ? 'MONTHS' : 'DAYS';
-    const lengthVal = p.length ?? p.value;
-    const occurrencesVal = p.occurrences;
-    const cliffVal = p.cliff_installment;
-    const lengthNum = Number(lengthVal);
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime null check for malformed external API data
-    if (occurrencesVal === undefined || occurrencesVal === null) {
-      throw new OcpValidationError('vestingPeriod.occurrences', 'Missing vesting relative period occurrences', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      });
-    }
-    const occurrencesNum = Number(occurrencesVal);
-    if (!Number.isFinite(lengthNum) || lengthNum <= 0)
+  if (t.type === 'VESTING_SCHEDULE_RELATIVE') {
+    const { period: p } = t;
+    const lengthNum = Number(p.length);
+    const occurrencesNum = Number(p.occurrences);
+
+    if (!Number.isFinite(lengthNum) || lengthNum <= 0) {
       throw new OcpValidationError('vestingPeriod.length', 'Invalid vesting relative period length', {
         code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: lengthVal,
+        receivedValue: p.length,
       });
+    }
     if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1) {
       throw new OcpValidationError('vestingPeriod.occurrences', 'Invalid vesting relative period occurrences', {
         code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: occurrencesVal,
+        receivedValue: p.occurrences,
       });
     }
+
+    let cliffInstallment: string | null = null;
+    if (p.cliff_installment !== undefined) {
+      if (!Number.isFinite(p.cliff_installment)) {
+        throw new OcpValidationError('vestingPeriod.cliff_installment', 'Invalid vesting cliff_installment', {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          receivedValue: p.cliff_installment,
+        });
+      }
+      cliffInstallment = p.cliff_installment.toString();
+    }
+
     let period:
       | {
           tag: 'OcfVestingPeriodDays';
@@ -201,34 +170,33 @@ function vestingTriggerToDaml(t: VestingTriggerInput): Fairmint.OpenCapTable.OCF
             cliff_installment: string | null;
           };
         };
-    if (pType === 'DAYS') {
+
+    if (p.type === 'DAYS') {
       period = {
         tag: 'OcfVestingPeriodDays',
         value: {
-          length_: String(lengthNum),
-          occurrences: String(occurrencesNum),
-          cliff_installment: cliffVal === undefined ? null : String(Number(cliffVal)),
+          length_: lengthNum.toString(),
+          occurrences: occurrencesNum.toString(),
+          cliff_installment: cliffInstallment,
         },
       };
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime null check for malformed external API data
-      if (p.day_of_month === undefined || p.day_of_month === null) {
-        throw new OcpValidationError(
-          'vestingPeriod.day_of_month',
-          'Missing vesting relative period day_of_month for MONTHS',
-          { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-        );
-      }
+    } else if (p.type === 'MONTHS') {
       period = {
         tag: 'OcfVestingPeriodMonths',
         value: {
-          length_: String(lengthNum),
-          occurrences: String(occurrencesNum),
+          length_: lengthNum.toString(),
+          occurrences: occurrencesNum.toString(),
           day_of_month: mapOcfDayOfMonthToDaml(p.day_of_month),
-          cliff_installment: cliffVal === undefined ? null : String(Number(cliffVal)),
+          cliff_installment: cliffInstallment,
         },
       };
+    } else {
+      throw new OcpValidationError('vestingPeriod.type', 'Invalid vesting relative period type', {
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        receivedValue: p.type,
+      });
     }
+
     return {
       tag: 'OcfVestingScheduleRelativeTrigger',
       value: {
@@ -238,7 +206,8 @@ function vestingTriggerToDaml(t: VestingTriggerInput): Fairmint.OpenCapTable.OCF
     } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
   }
 
-  throw new OcpParseError('Unknown vesting trigger', {
+  const exhaustiveCheck: never = t;
+  throw new OcpParseError(`Unknown vesting trigger: ${JSON.stringify(exhaustiveCheck)}`, {
     source: 'vestingTrigger.type',
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });

@@ -1,7 +1,14 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type { AllocationType, VestingCondition, VestingConditionPortion } from '../../../types/native';
+import type {
+  AllocationType,
+  VestingCondition,
+  VestingConditionPortion,
+  VestingDayOfMonth,
+  VestingPeriod,
+  VestingTrigger,
+} from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
@@ -30,8 +37,8 @@ function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.Oc
   }
 }
 
-function mapDamlDayOfMonthToOcf(day: string): string {
-  const table: Record<string, string> = {
+function mapDamlDayOfMonthToOcf(day: string): VestingDayOfMonth {
+  const table: Record<string, VestingDayOfMonth> = {
     OcfVestingDay01: '01',
     OcfVestingDay02: '02',
     OcfVestingDay03: '03',
@@ -68,13 +75,7 @@ function mapDamlDayOfMonthToOcf(day: string): string {
   return table[day] ?? 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH';
 }
 
-function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unknown> }): {
-  tag: 'DAYS' | 'MONTHS';
-  length: number;
-  occurrences: number;
-  day_of_month?: string;
-  cliff_installment?: number;
-} {
+function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unknown> }): VestingPeriod {
   if (p.tag === 'OcfVestingPeriodDays') {
     const v = p.value ?? {};
     const occRaw = v.occurrences;
@@ -89,7 +90,7 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
         receivedValue: occRaw,
       });
     return {
-      tag: 'DAYS',
+      type: 'DAYS',
       length: Number(v.length_),
       occurrences: occ,
       ...(v.cliff_installment !== null && v.cliff_installment !== undefined
@@ -124,7 +125,7 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
       });
     }
     return {
-      tag: 'MONTHS',
+      type: 'MONTHS',
       length: Number(v.length_),
       occurrences: occ,
       day_of_month: mapDamlDayOfMonthToOcf(dayOfMonth),
@@ -139,9 +140,7 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
   });
 }
 
-function damlVestingTriggerToNative(
-  t: string | { tag?: string; value?: Record<string, unknown> }
-): Record<string, unknown> {
+function damlVestingTriggerToNative(t: string | { tag?: string; value?: Record<string, unknown> }): VestingTrigger {
   const tag: string | undefined = typeof t === 'string' ? t : t.tag;
 
   if (tag === 'OcfVestingStartTrigger') {
@@ -180,29 +179,19 @@ function damlVestingTriggerToNative(
         receivedValue: periodValue,
       });
     }
-    const p = damlVestingPeriodToNative(periodValue as { tag: string; value?: Record<string, unknown> });
-    if (p.tag === 'MONTHS') {
-      return {
-        type: 'VESTING_SCHEDULE_RELATIVE',
-        period: {
-          type: 'MONTHS',
-          length: p.length,
-          occurrences: p.occurrences,
-          day_of_month: p.day_of_month ?? 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
-          ...(p.cliff_installment !== undefined ? { cliff_installment: p.cliff_installment } : {}),
-        },
-        relative_to_condition_id: value.relative_to_condition_id,
-      };
+    const relativeToConditionId = value.relative_to_condition_id;
+    if (typeof relativeToConditionId !== 'string' || relativeToConditionId.length === 0) {
+      throw new OcpValidationError(
+        'vestingTrigger.relative_to_condition_id',
+        'Missing relative_to_condition_id for OcfVestingScheduleRelativeTrigger',
+        { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: relativeToConditionId }
+      );
     }
+
     return {
       type: 'VESTING_SCHEDULE_RELATIVE',
-      period: {
-        type: 'DAYS',
-        length: p.length,
-        occurrences: p.occurrences,
-        ...(p.cliff_installment !== undefined ? { cliff_installment: p.cliff_installment } : {}),
-      },
-      relative_to_condition_id: value.relative_to_condition_id,
+      period: damlVestingPeriodToNative(periodValue as { tag: string; value?: Record<string, unknown> }),
+      relative_to_condition_id: relativeToConditionId,
     };
   }
 
@@ -228,7 +217,7 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
     id: conditionWithId.id ?? '',
     ...(c.description && { description: c.description }),
     ...(c.quantity && { quantity: normalizeNumericString(c.quantity) }),
-    trigger: damlVestingTriggerToNative(c.trigger) as VestingCondition['trigger'],
+    trigger: damlVestingTriggerToNative(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };
   const portionUnknown = c.portion as unknown;

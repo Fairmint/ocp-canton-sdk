@@ -222,10 +222,6 @@ export function createTestVestingAccelerationData(
 /** Create test vesting terms data with optional overrides. */
 export function createTestVestingTermsData(overrides: Partial<OcfVestingTerms> = {}): OcfVestingTerms {
   const id = overrides.id ?? generateTestId('vesting-terms');
-  // Note: The vesting trigger format uses 'type' (e.g., 'VESTING_START_DATE') for actual OCF JSON format,
-  // which is what the SDK's vestingTriggerToDaml function expects. The TypeScript VestingTrigger type
-  // uses 'kind' which is a simplified version. We cast here to satisfy TypeScript while using the
-  // correct runtime format.
   return {
     id,
     name: overrides.name ?? `Vesting Terms ${id}`,
@@ -273,7 +269,7 @@ export function createTestVestingTermsData(overrides: Partial<OcfVestingTerms> =
           },
           next_condition_ids: [],
         },
-      ] as unknown as OcfVestingTerms['vesting_conditions']),
+      ]),
     ...overrides,
   };
 }

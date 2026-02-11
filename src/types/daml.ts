@@ -8,10 +8,8 @@
  * They differ from the native OCF types in native.ts which are the clean
  * TypeScript representations used in the SDK's public API.
  *
- * NOTE: Some types exported here may conflict with manually-defined interfaces
- * in the functions/ directory. When such conflicts exist, the manually-defined
- * interfaces take precedence for backwards compatibility. Use the Pkg* prefixed
- * types when you need the exact DAML package types.
+ * NOTE: Some names may overlap with manually-defined SDK interfaces. Use the
+ * `Pkg*` aliases from this module when you need the exact DAML package types.
  *
  * @module
  */
