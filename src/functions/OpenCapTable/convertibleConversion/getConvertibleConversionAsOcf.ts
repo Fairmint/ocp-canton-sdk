@@ -1,6 +1,30 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfConvertibleConversion } from '../../../types/native';
+import type { DamlConvertibleConversionData } from './damlToOcf';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
+}
+
+type DamlConvertibleConversionInput = Pick<DamlConvertibleConversionData, 'id' | 'date' | 'security_id'> &
+  Partial<
+    Pick<DamlConvertibleConversionData, 'resulting_security_ids' | 'balance_security_id' | 'trigger_id' | 'comments'>
+  >;
+
+function isDamlConvertibleConversionData(value: unknown): value is DamlConvertibleConversionInput {
+  if (!isRecord(value)) return false;
+
+  return (
+    typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
+    typeof value.security_id === 'string' &&
+    (value.balance_security_id === undefined ||
+      value.balance_security_id === null ||
+      typeof value.balance_security_id === 'string') &&
+    (value.trigger_id === undefined || value.trigger_id === null || typeof value.trigger_id === 'string')
+  );
+}
 
 /**
  * OCF Convertible Conversion Event with object_type discriminator OCF:
@@ -37,13 +61,13 @@ export async function getConvertibleConversionAsOcf(
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
   const conversionData = createArgument.conversion_data;
-  if (!conversionData || typeof conversionData !== 'object' || Array.isArray(conversionData)) {
+  if (!isDamlConvertibleConversionData(conversionData)) {
     throw new OcpContractError('ConvertibleConversion data not found in contract create argument', {
       contractId: params.contractId,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
-  const d = conversionData as Record<string, unknown>;
+  const d = conversionData;
 
   // Validate resulting_security_ids
   if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
@@ -59,13 +83,13 @@ export async function getConvertibleConversionAsOcf(
 
   const event: OcfConvertibleConversionEvent = {
     object_type: 'TX_CONVERTIBLE_CONVERSION',
-    id: d.id as string,
-    date: (d.date as string).split('T')[0],
-    security_id: d.security_id as string,
-    resulting_security_ids: d.resulting_security_ids as string[],
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id as string } : {}),
-    ...(d.trigger_id ? { trigger_id: d.trigger_id as string } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments as string[] } : {}),
+    id: d.id,
+    date: d.date.split('T')[0],
+    security_id: d.security_id,
+    resulting_security_ids: d.resulting_security_ids,
+    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
+    ...(d.trigger_id ? { trigger_id: d.trigger_id } : {}),
+    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };
 
   return { event, contractId: params.contractId };

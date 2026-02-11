@@ -3,6 +3,10 @@ import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { OcfWarrantExercise } from '../../../types/native';
 import { damlWarrantExerciseToNative } from './damlToOcf';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
+}
+
 /**
  * OCF Warrant Exercise Event with object_type discriminator OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/exercise/WarrantExercise.schema.json
@@ -40,13 +44,13 @@ export async function getWarrantExerciseAsOcf(
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
   const exerciseData = createArgument.exercise_data;
-  if (!exerciseData || typeof exerciseData !== 'object' || Array.isArray(exerciseData)) {
+  if (!isRecord(exerciseData)) {
     throw new OcpContractError('WarrantExercise data not found in contract create argument', {
       contractId: params.contractId,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
-  const d = exerciseData as Record<string, unknown>;
+  const d = exerciseData;
 
   const native = damlWarrantExerciseToNative(d);
   // Add object_type to create the full event type
