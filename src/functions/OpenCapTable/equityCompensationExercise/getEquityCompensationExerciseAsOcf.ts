@@ -83,7 +83,7 @@ export async function getEquityCompensationExerciseAsOcf(
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
   const exerciseData = createArgument.exercise_data;
-  if (!exerciseData || typeof exerciseData !== 'object') {
+  if (!exerciseData || typeof exerciseData !== 'object' || Array.isArray(exerciseData)) {
     throw new OcpContractError('EquityCompensationExercise data not found in contract create argument', {
       contractId: params.contractId,
       code: OcpErrorCodes.SCHEMA_MISMATCH,

@@ -37,7 +37,7 @@ export async function getConvertibleConversionAsOcf(
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
   const conversionData = createArgument.conversion_data;
-  if (!conversionData || typeof conversionData !== 'object') {
+  if (!conversionData || typeof conversionData !== 'object' || Array.isArray(conversionData)) {
     throw new OcpContractError('ConvertibleConversion data not found in contract create argument', {
       contractId: params.contractId,
       code: OcpErrorCodes.SCHEMA_MISMATCH,

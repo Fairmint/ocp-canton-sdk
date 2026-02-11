@@ -71,7 +71,7 @@ type OcfVestingDay =
 
 function mapOcfDayOfMonthToDaml(day: string): OcfVestingDay {
   const d = day.toString().toUpperCase();
-  const table: Record<string, OcfVestingDay> = {
+  const table: Partial<Record<string, OcfVestingDay>> = {
     '01': 'OcfVestingDay01',
     '02': 'OcfVestingDay02',
     '03': 'OcfVestingDay03',
@@ -105,7 +105,14 @@ function mapOcfDayOfMonthToDaml(day: string): OcfVestingDay {
     '31_OR_LAST_DAY_OF_MONTH': 'OcfVestingDay31OrLast',
     VESTING_START_DAY_OR_LAST_DAY_OF_MONTH: 'OcfVestingStartDayOrLast',
   };
-  return table[d] ?? 'OcfVestingStartDayOrLast';
+  const mapped = table[d];
+  if (!mapped) {
+    throw new OcpValidationError('vestingPeriod.day_of_month', 'Invalid vesting relative period day_of_month', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: day,
+    });
+  }
+  return mapped;
 }
 
 function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger {
@@ -129,6 +136,17 @@ function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.Vest
       } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
 
     case 'VESTING_SCHEDULE_RELATIVE': {
+      if (typeof t.relative_to_condition_id !== 'string' || t.relative_to_condition_id.length === 0) {
+        throw new OcpValidationError(
+          'vestingTrigger.relative_to_condition_id',
+          'Vesting relative trigger requires relative_to_condition_id',
+          {
+            code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+            receivedValue: t.relative_to_condition_id,
+          }
+        );
+      }
+
       const { period: p } = t;
       const lengthNum = Number(p.length);
       const occurrencesNum = Number(p.occurrences);
@@ -196,7 +214,7 @@ function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.Vest
       return {
         tag: 'OcfVestingScheduleRelativeTrigger',
         value: {
-          period: period as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingPeriod,
+          period: period as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingPeriod,
           relative_to_condition_id: t.relative_to_condition_id,
         },
       } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
