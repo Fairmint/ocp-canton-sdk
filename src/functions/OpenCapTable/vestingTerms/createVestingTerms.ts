@@ -132,8 +132,10 @@ function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.Vest
     case 'VESTING_SCHEDULE_ABSOLUTE':
       return {
         tag: 'OcfVestingScheduleAbsoluteTrigger',
-        value: dateStringToDAMLTime(t.date),
-      } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
+        value: {
+          date: dateStringToDAMLTime(t.date),
+        },
+      } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
 
     case 'VESTING_SCHEDULE_RELATIVE': {
       if (typeof t.relative_to_condition_id !== 'string' || t.relative_to_condition_id.length === 0) {
