@@ -7,10 +7,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object';
 }
 
-type DamlConvertibleConversionInput = Pick<DamlConvertibleConversionData, 'id' | 'date' | 'security_id'> &
-  Partial<
-    Pick<DamlConvertibleConversionData, 'resulting_security_ids' | 'balance_security_id' | 'trigger_id' | 'comments'>
-  >;
+type DamlConvertibleConversionInput = Pick<DamlConvertibleConversionData, 'id' | 'date' | 'security_id'> & {
+  resulting_security_ids?: string[] | null;
+  balance_security_id?: string | null;
+  trigger_id?: string | null;
+  comments?: string[] | null;
+};
 
 function isDamlConvertibleConversionData(value: unknown): value is DamlConvertibleConversionInput {
   if (!isRecord(value)) return false;
@@ -19,10 +21,17 @@ function isDamlConvertibleConversionData(value: unknown): value is DamlConvertib
     typeof value.id === 'string' &&
     typeof value.date === 'string' &&
     typeof value.security_id === 'string' &&
+    (value.resulting_security_ids === undefined ||
+      value.resulting_security_ids === null ||
+      (Array.isArray(value.resulting_security_ids) &&
+        value.resulting_security_ids.every((id) => typeof id === 'string'))) &&
     (value.balance_security_id === undefined ||
       value.balance_security_id === null ||
       typeof value.balance_security_id === 'string') &&
-    (value.trigger_id === undefined || value.trigger_id === null || typeof value.trigger_id === 'string')
+    (value.trigger_id === undefined || value.trigger_id === null || typeof value.trigger_id === 'string') &&
+    (value.comments === undefined ||
+      value.comments === null ||
+      (Array.isArray(value.comments) && value.comments.every((comment) => typeof comment === 'string')))
   );
 }
 
@@ -70,7 +79,7 @@ export async function getConvertibleConversionAsOcf(
   const d = conversionData;
 
   // Validate resulting_security_ids
-  if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
+  if (!d.resulting_security_ids || d.resulting_security_ids.length === 0) {
     throw new OcpValidationError(
       'convertibleConversion.resulting_security_ids',
       'Required field must be a non-empty array',
@@ -89,7 +98,7 @@ export async function getConvertibleConversionAsOcf(
     resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.trigger_id ? { trigger_id: d.trigger_id } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
+    ...(d.comments && d.comments.length ? { comments: d.comments } : {}),
   };
 
   return { event, contractId: params.contractId };

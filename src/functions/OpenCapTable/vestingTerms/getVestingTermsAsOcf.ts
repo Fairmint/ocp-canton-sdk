@@ -72,7 +72,14 @@ function mapDamlDayOfMonthToOcf(day: string): VestingDayOfMonth {
     OcfVestingDay31OrLast: '31_OR_LAST_DAY_OF_MONTH',
     OcfVestingStartDayOrLast: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
   };
-  return table[day] ?? 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH';
+  const mapped = table[day];
+  if (!mapped) {
+    throw new OcpParseError(`Unknown DAML vesting day: ${day}`, {
+      source: 'vestingPeriod.day_of_month',
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    });
+  }
+  return mapped;
 }
 
 /**
@@ -83,14 +90,34 @@ function parseVestingPeriodCommonFields(v: Record<string, unknown>): {
   occurrences: number;
   cliffInstallment?: number;
 } {
+  const parseNumericLike = (fieldPath: string, raw: unknown): number => {
+    const isNumericString = typeof raw === 'string' && /^-?\d+(\.\d+)?$/.test(raw);
+    if (typeof raw !== 'number' && !isNumericString) {
+      throw new OcpValidationError(fieldPath, 'Invalid numeric value format', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: raw,
+      });
+    }
+
+    const parsed = typeof raw === 'number' ? raw : Number(raw);
+    if (!Number.isFinite(parsed)) {
+      throw new OcpValidationError(fieldPath, 'Invalid numeric value format', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: raw,
+      });
+    }
+
+    return parsed;
+  };
+
   const lengthRaw = v.length_;
   if (lengthRaw === undefined || lengthRaw === null) {
     throw new OcpValidationError('vestingPeriod.length', 'Missing vesting period length', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const length = Number(lengthRaw);
-  if (!Number.isFinite(length) || length <= 0) {
+  const length = parseNumericLike('vestingPeriod.length', lengthRaw);
+  if (length <= 0) {
     throw new OcpValidationError('vestingPeriod.length', 'Invalid vesting period length', {
       code: OcpErrorCodes.INVALID_FORMAT,
       receivedValue: lengthRaw,
@@ -103,8 +130,8 @@ function parseVestingPeriodCommonFields(v: Record<string, unknown>): {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const occurrences = Number(occRaw);
-  if (!Number.isFinite(occurrences) || occurrences < 1) {
+  const occurrences = parseNumericLike('vestingPeriod.occurrences', occRaw);
+  if (occurrences < 1) {
     throw new OcpValidationError('vestingPeriod.occurrences', 'Invalid vesting period occurrences', {
       code: OcpErrorCodes.INVALID_FORMAT,
       receivedValue: occRaw,
@@ -112,7 +139,9 @@ function parseVestingPeriodCommonFields(v: Record<string, unknown>): {
   }
 
   const cliffInstallment =
-    v.cliff_installment !== null && v.cliff_installment !== undefined ? Number(v.cliff_installment) : undefined;
+    v.cliff_installment !== null && v.cliff_installment !== undefined
+      ? parseNumericLike('vestingPeriod.cliff_installment', v.cliff_installment)
+      : undefined;
 
   return { length, occurrences, cliffInstallment };
 }
@@ -181,10 +210,12 @@ function damlVestingTriggerToNative(t: string | { tag?: string; value?: Record<s
 
   if (tag === 'OcfVestingScheduleRelativeTrigger') {
     const value = typeof t === 'string' ? undefined : t.value;
-    if (!value)
-      throw new OcpValidationError('vestingTrigger.value', 'Missing value for OcfVestingScheduleRelativeTrigger', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    if (!value || typeof value !== 'object') {
+      throw new OcpValidationError('vestingTrigger.value', 'Invalid value for OcfVestingScheduleRelativeTrigger', {
+        code: OcpErrorCodes.INVALID_TYPE,
+        receivedValue: value,
       });
+    }
     const periodValue = (value as { period?: unknown }).period;
     if (
       !periodValue ||

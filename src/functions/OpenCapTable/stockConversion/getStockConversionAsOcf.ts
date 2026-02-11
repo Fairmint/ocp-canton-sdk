@@ -74,7 +74,7 @@ export async function getStockConversionAsOcf(
   const d = conversionData;
 
   // Validate quantity
-  if (d.quantity === undefined) {
+  if (d.quantity == null) {
     throw new OcpValidationError('stockConversion.quantity', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
