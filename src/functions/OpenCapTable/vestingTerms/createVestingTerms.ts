@@ -250,7 +250,8 @@ function vestingConditionPortionToDaml(
   return {
     numerator: p.numerator,
     denominator: p.denominator,
-    remainder: p.remainder,
+    // OCF schema makes `remainder` optional with default `false`.
+    remainder: p.remainder ?? false,
   };
 }
 
