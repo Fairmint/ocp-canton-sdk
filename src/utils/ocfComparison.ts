@@ -180,7 +180,9 @@ function isUndefinedLike(value: unknown): boolean {
  * because schema default is false.
  */
 function isSchemaDefaultEquivalent(path: string, valA: unknown, valB: unknown): boolean {
-  const isRemainderPath = path === 'remainder' || path.endsWith('.remainder');
+  // Match only portion.remainder to avoid false positives with other boolean fields.
+  // This specifically targets VestingConditionPortion.remainder in the OCF schema.
+  const isRemainderPath = path === 'portion.remainder' || path.endsWith('.portion.remainder');
   if (!isRemainderPath) return false;
 
   return (valA === false && isUndefinedLike(valB)) || (valB === false && isUndefinedLike(valA));

@@ -98,6 +98,13 @@ describe('ocfDeepEqual', () => {
       )
     ).toBe(true);
   });
+
+  test('remainder: true is NOT equivalent to omitted or false', () => {
+    // remainder: true should NOT match omitted remainder
+    expect(ocfDeepEqual({ portion: { remainder: true } }, { portion: {} })).toBe(false);
+    // remainder: true should NOT match remainder: false
+    expect(ocfDeepEqual({ portion: { remainder: true } }, { portion: { remainder: false } })).toBe(false);
+  });
 });
 
 describe('ocfCompare', () => {
