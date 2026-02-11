@@ -504,7 +504,7 @@ Before committing or pushing, run these checks:
 | `canton-explorer`             | Next.js explorer UI           | `AGENTS.md`, [cantonops.fairmint.com](https://cantonops.fairmint.com/)    |
 | `canton-fairmint-sdk`         | Shared TypeScript utilities   | `AGENTS.md`                                                               |
 | `canton-node-sdk`             | Low-level Canton client       | `AGENTS.md`, [sdk.canton.fairmint.com](https://sdk.canton.fairmint.com/)  |
-| `ocp-position-nft`            | Soulbound NFT smart contracts | `AGENTS.md`                                                               |
+| `ocp-digital-certificate`            | Soulbound digital certificate smart contracts | `AGENTS.md`                                                               |
 | `open-captable-protocol-daml` | DAML contracts (OCF impl)     | `AGENTS.md`                                                               |
 | `open-cap-format-ocf`         | OCF JSON schemas (submodule)  | [GitHub](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF) |
 
