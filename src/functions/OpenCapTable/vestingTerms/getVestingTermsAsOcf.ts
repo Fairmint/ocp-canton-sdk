@@ -179,12 +179,12 @@ function damlVestingTriggerToNative(t: string | { tag?: string; value?: Record<s
 
   if (tag === 'OcfVestingScheduleAbsoluteTrigger') {
     const value = typeof t === 'string' ? undefined : t.value;
-    if (!value || typeof value !== 'string')
+    if (!value || typeof value !== 'object' || !('date' in value) || typeof value.date !== 'string')
       throw new OcpValidationError('vestingTrigger.value', 'Missing value for OcfVestingScheduleAbsoluteTrigger', {
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         receivedValue: value,
       });
-    return { type: 'VESTING_SCHEDULE_ABSOLUTE', date: damlTimeToDateString(value) };
+    return { type: 'VESTING_SCHEDULE_ABSOLUTE', date: damlTimeToDateString(value.date) };
   }
 
   if (tag === 'OcfVestingScheduleRelativeTrigger') {
