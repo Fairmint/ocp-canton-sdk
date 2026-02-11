@@ -815,10 +815,59 @@ export type AllocationType =
  */
 export type PeriodType = 'DAYS' | 'MONTHS';
 
-export interface VestingPeriod {
-  type: PeriodType;
-  value: number;
+/**
+ * Allowed OCF day_of_month values for monthly vesting periods.
+ */
+export type VestingDayOfMonth =
+  | '01'
+  | '02'
+  | '03'
+  | '04'
+  | '05'
+  | '06'
+  | '07'
+  | '08'
+  | '09'
+  | '10'
+  | '11'
+  | '12'
+  | '13'
+  | '14'
+  | '15'
+  | '16'
+  | '17'
+  | '18'
+  | '19'
+  | '20'
+  | '21'
+  | '22'
+  | '23'
+  | '24'
+  | '25'
+  | '26'
+  | '27'
+  | '28'
+  | '29_OR_LAST_DAY_OF_MONTH'
+  | '30_OR_LAST_DAY_OF_MONTH'
+  | '31_OR_LAST_DAY_OF_MONTH'
+  | 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH';
+
+export interface VestingPeriodInDays {
+  type: 'DAYS';
+  length: number;
+  occurrences: number;
+  cliff_installment?: number;
 }
+
+export interface VestingPeriodInMonths {
+  type: 'MONTHS';
+  length: number;
+  occurrences: number;
+  day_of_month: VestingDayOfMonth;
+  cliff_installment?: number;
+}
+
+export type VestingPeriod = VestingPeriodInDays | VestingPeriodInMonths;
 
 /**
  * Primitive - Vesting Condition Trigger Type and specific triggers OCF (primitive):
@@ -833,10 +882,10 @@ export interface VestingPeriod {
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingEventTrigger.schema.json
  */
 export type VestingTrigger =
-  | { kind: 'START' }
-  | { kind: 'SCHEDULE_ABSOLUTE'; at: string }
-  | { kind: 'SCHEDULE_RELATIVE'; period: VestingPeriod; relative_to_condition_id: string }
-  | { kind: 'EVENT' };
+  | { type: 'VESTING_START_DATE' }
+  | { type: 'VESTING_SCHEDULE_ABSOLUTE'; date: string }
+  | { type: 'VESTING_SCHEDULE_RELATIVE'; period: VestingPeriod; relative_to_condition_id: string }
+  | { type: 'VESTING_EVENT' };
 
 export interface VestingConditionPortion {
   /** Portion numerator (e.g., "25") */

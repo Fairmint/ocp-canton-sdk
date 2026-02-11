@@ -1,7 +1,28 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockConversion } from '../../../types/native';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { isRecord, normalizeNumericString } from '../../../utils/typeConversions';
+import type { DamlStockConversionData } from './damlToOcf';
+
+type DamlStockConversionInput = Pick<DamlStockConversionData, 'id' | 'date' | 'security_id'> & {
+  quantity?: string | number;
+  resulting_security_ids?: unknown;
+  comments?: unknown;
+  balance_security_id?: string | null;
+};
+
+function isDamlStockConversionData(value: unknown): value is DamlStockConversionInput {
+  if (!isRecord(value)) return false;
+
+  return (
+    typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
+    typeof value.security_id === 'string' &&
+    (value.balance_security_id === undefined ||
+      value.balance_security_id === null ||
+      typeof value.balance_security_id === 'string')
+  );
+}
 
 /**
  * OCF Stock Conversion Event with object_type discriminator OCF:
@@ -39,12 +60,17 @@ export async function getStockConversionAsOcf(
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
-  // StockConversion contracts store data under conversion_data key
-  const d: Record<string, unknown> =
-    (createArgument.conversion_data as Record<string, unknown> | undefined) ?? createArgument;
+  const conversionData = createArgument.conversion_data;
+  if (!isDamlStockConversionData(conversionData)) {
+    throw new OcpContractError('StockConversion data not found in contract create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+  const d = conversionData;
 
   // Validate quantity
-  if (d.quantity === undefined || d.quantity === null) {
+  if (d.quantity == null) {
     throw new OcpValidationError('stockConversion.quantity', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
@@ -67,12 +93,12 @@ export async function getStockConversionAsOcf(
 
   const event: OcfStockConversionEvent = {
     object_type: 'TX_STOCK_CONVERSION',
-    id: d.id as string,
-    date: (d.date as string).split('T')[0],
-    security_id: d.security_id as string,
+    id: d.id,
+    date: d.date.split('T')[0],
+    security_id: d.security_id,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
     resulting_security_ids: d.resulting_security_ids as string[],
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id as string } : {}),
+    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments as string[] } : {}),
   };
 
