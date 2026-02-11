@@ -38,7 +38,7 @@ function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.Oc
 }
 
 function mapDamlDayOfMonthToOcf(day: string): VestingDayOfMonth {
-  const table: Record<string, VestingDayOfMonth> = {
+  const table: Partial<Record<string, VestingDayOfMonth>> = {
     OcfVestingDay01: '01',
     OcfVestingDay02: '02',
     OcfVestingDay03: '03',
