@@ -75,68 +75,62 @@ function mapDamlDayOfMonthToOcf(day: string): VestingDayOfMonth {
   return table[day] ?? 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH';
 }
 
+/**
+ * Helper to validate and extract shared vesting period fields (length, occurrences, cliff_installment).
+ */
+function parseVestingPeriodCommonFields(v: Record<string, unknown>): {
+  length: number;
+  occurrences: number;
+  cliffInstallment?: number;
+} {
+  const lengthRaw = v.length_;
+  if (lengthRaw === undefined || lengthRaw === null) {
+    throw new OcpValidationError('vestingPeriod.length', 'Missing vesting period length', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
+  const length = Number(lengthRaw);
+  if (!Number.isFinite(length) || length <= 0) {
+    throw new OcpValidationError('vestingPeriod.length', 'Invalid vesting period length', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: lengthRaw,
+    });
+  }
+
+  const occRaw = v.occurrences;
+  if (occRaw === undefined || occRaw === null) {
+    throw new OcpValidationError('vestingPeriod.occurrences', 'Missing vesting period occurrences', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
+  const occurrences = Number(occRaw);
+  if (!Number.isFinite(occurrences) || occurrences < 1) {
+    throw new OcpValidationError('vestingPeriod.occurrences', 'Invalid vesting period occurrences', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: occRaw,
+    });
+  }
+
+  const cliffInstallment =
+    v.cliff_installment !== null && v.cliff_installment !== undefined ? Number(v.cliff_installment) : undefined;
+
+  return { length, occurrences, cliffInstallment };
+}
+
 function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unknown> }): VestingPeriod {
   if (p.tag === 'OcfVestingPeriodDays') {
     const v = p.value ?? {};
-    const lengthRaw = v.length_;
-    if (lengthRaw === undefined || lengthRaw === null) {
-      throw new OcpValidationError('vestingPeriod.length', 'Missing vesting period length', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      });
-    }
-    const length = Number(lengthRaw);
-    if (!Number.isFinite(length) || length <= 0) {
-      throw new OcpValidationError('vestingPeriod.length', 'Invalid vesting period length', {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: lengthRaw,
-      });
-    }
-    const occRaw = v.occurrences;
-    if (occRaw === undefined || occRaw === null)
-      throw new OcpValidationError('vestingPeriod.occurrences', 'Missing vesting period occurrences', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      });
-    const occ = Number(occRaw);
-    if (!Number.isFinite(occ) || occ < 1)
-      throw new OcpValidationError('vestingPeriod.occurrences', 'Invalid vesting period occurrences', {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: occRaw,
-      });
+    const { length, occurrences, cliffInstallment } = parseVestingPeriodCommonFields(v);
     return {
       type: 'DAYS',
       length,
-      occurrences: occ,
-      ...(v.cliff_installment !== null && v.cliff_installment !== undefined
-        ? { cliff_installment: Number(v.cliff_installment) }
-        : {}),
+      occurrences,
+      ...(cliffInstallment !== undefined ? { cliff_installment: cliffInstallment } : {}),
     };
   }
   if (p.tag === 'OcfVestingPeriodMonths') {
     const v = p.value ?? {};
-    const lengthRaw = v.length_;
-    if (lengthRaw === undefined || lengthRaw === null) {
-      throw new OcpValidationError('vestingPeriod.length', 'Missing vesting period length', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      });
-    }
-    const length = Number(lengthRaw);
-    if (!Number.isFinite(length) || length <= 0) {
-      throw new OcpValidationError('vestingPeriod.length', 'Invalid vesting period length', {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: lengthRaw,
-      });
-    }
-    const occRaw = v.occurrences;
-    if (occRaw === undefined || occRaw === null)
-      throw new OcpValidationError('vestingPeriod.occurrences', 'Missing vesting period occurrences', {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      });
-    const occ = Number(occRaw);
-    if (!Number.isFinite(occ) || occ < 1)
-      throw new OcpValidationError('vestingPeriod.occurrences', 'Invalid vesting period occurrences', {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: occRaw,
-      });
+    const { length, occurrences, cliffInstallment } = parseVestingPeriodCommonFields(v);
     if (v.day_of_month === undefined || v.day_of_month === null) {
       throw new OcpValidationError('vestingPeriod.day_of_month', 'Missing vesting period day_of_month for MONTHS', {
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -153,11 +147,9 @@ function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unkn
     return {
       type: 'MONTHS',
       length,
-      occurrences: occ,
+      occurrences,
       day_of_month: mapDamlDayOfMonthToOcf(dayOfMonth),
-      ...(v.cliff_installment !== null && v.cliff_installment !== undefined
-        ? { cliff_installment: Number(v.cliff_installment) }
-        : {}),
+      ...(cliffInstallment !== undefined ? { cliff_installment: cliffInstallment } : {}),
     };
   }
   throw new OcpParseError('Unknown DAML vesting period', {
