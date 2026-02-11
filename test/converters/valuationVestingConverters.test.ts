@@ -27,7 +27,13 @@ import {
   damlVestingStartToNative,
   type DamlVestingStartData,
 } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
-import type { OcfValuation, OcfVestingAcceleration, OcfVestingEvent, OcfVestingStart, OcfVestingTerms } from '../../src/types';
+import type {
+  OcfValuation,
+  OcfVestingAcceleration,
+  OcfVestingEvent,
+  OcfVestingStart,
+  OcfVestingTerms,
+} from '../../src/types';
 
 describe('Valuation Converters', () => {
   describe('OCF → DAML (valuationDataToDaml)', () => {

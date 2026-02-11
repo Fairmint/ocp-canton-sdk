@@ -85,8 +85,18 @@ describe('ocfDeepEqual', () => {
   });
 
   test('treats omitted remainder and false as equivalent', () => {
-    expect(ocfDeepEqual({ portion: { numerator: '1', denominator: '4' } }, { portion: { numerator: '1', denominator: '4', remainder: false } })).toBe(true);
-    expect(ocfDeepEqual({ portion: { numerator: '1', denominator: '4', remainder: false } }, { portion: { numerator: '1', denominator: '4' } })).toBe(true);
+    expect(
+      ocfDeepEqual(
+        { portion: { numerator: '1', denominator: '4' } },
+        { portion: { numerator: '1', denominator: '4', remainder: false } }
+      )
+    ).toBe(true);
+    expect(
+      ocfDeepEqual(
+        { portion: { numerator: '1', denominator: '4', remainder: false } },
+        { portion: { numerator: '1', denominator: '4' } }
+      )
+    ).toBe(true);
   });
 });
 
