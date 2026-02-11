@@ -1,12 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockConversion } from '../../../types/native';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { isRecord, normalizeNumericString } from '../../../utils/typeConversions';
 import type { DamlStockConversionData } from './damlToOcf';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object';
-}
 
 type DamlStockConversionInput = Pick<DamlStockConversionData, 'id' | 'date' | 'security_id'> & {
   quantity?: string | number;

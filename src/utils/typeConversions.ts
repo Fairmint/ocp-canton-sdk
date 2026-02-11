@@ -9,6 +9,19 @@ import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
 
+// ===== Type Guards =====
+
+/**
+ * Type guard to check if a value is a plain object (not null and not an array).
+ * Used for validating DAML contract response data before accessing properties.
+ *
+ * @param value - The value to check
+ * @returns True if value is a non-null, non-array object
+ */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 // ===== Date and Time Conversion Helpers =====
 
 /**

@@ -1,11 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { OcfWarrantExercise } from '../../../types/native';
+import { isRecord } from '../../../utils/typeConversions';
 import { damlWarrantExerciseToNative } from './damlToOcf';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
 
 /**
  * OCF Warrant Exercise Event with object_type discriminator OCF:
