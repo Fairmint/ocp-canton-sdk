@@ -39,9 +39,14 @@ export async function getStockConversionAsOcf(
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
-  // StockConversion contracts store data under conversion_data key
-  const d: Record<string, unknown> =
-    (createArgument.conversion_data as Record<string, unknown> | undefined) ?? createArgument;
+  const conversionData = createArgument.conversion_data;
+  if (!conversionData || typeof conversionData !== 'object') {
+    throw new OcpContractError('StockConversion data not found in contract create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+  const d = conversionData as Record<string, unknown>;
 
   // Validate quantity
   if (d.quantity === undefined || d.quantity === null) {

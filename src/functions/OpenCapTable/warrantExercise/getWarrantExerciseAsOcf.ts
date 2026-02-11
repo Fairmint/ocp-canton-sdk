@@ -39,9 +39,14 @@ export async function getWarrantExerciseAsOcf(
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
-  // WarrantExercise contracts store data under exercise_data key
-  const d: Record<string, unknown> =
-    (createArgument.exercise_data as Record<string, unknown> | undefined) ?? createArgument;
+  const exerciseData = createArgument.exercise_data;
+  if (!exerciseData || typeof exerciseData !== 'object') {
+    throw new OcpContractError('WarrantExercise data not found in contract create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+  const d = exerciseData as Record<string, unknown>;
 
   const native = damlWarrantExerciseToNative(d);
   // Add object_type to create the full event type

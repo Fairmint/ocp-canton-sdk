@@ -36,9 +36,14 @@ export async function getConvertibleConversionAsOcf(
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
-  // ConvertibleConversion contracts store data under conversion_data key
-  const d: Record<string, unknown> =
-    (createArgument.conversion_data as Record<string, unknown> | undefined) ?? createArgument;
+  const conversionData = createArgument.conversion_data;
+  if (!conversionData || typeof conversionData !== 'object') {
+    throw new OcpContractError('ConvertibleConversion data not found in contract create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+  const d = conversionData as Record<string, unknown>;
 
   // Validate resulting_security_ids
   if (!Array.isArray(d.resulting_security_ids) || d.resulting_security_ids.length === 0) {
