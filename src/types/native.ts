@@ -843,8 +843,8 @@ export interface VestingConditionPortion {
   numerator: string;
   /** Portion denominator (e.g., "100") */
   denominator: string;
-  /** If true, vest remainder after all integer tranches */
-  remainder: boolean;
+  /** If true, vest remainder after all integer tranches (optional; defaults to false in OCF schema) */
+  remainder?: boolean;
 }
 
 export interface VestingCondition {

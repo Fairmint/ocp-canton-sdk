@@ -174,6 +174,19 @@ function isUndefinedLike(value: unknown): boolean {
 }
 
 /**
+ * Check semantic equivalence for schema-defaulted fields.
+ *
+ * For OCF `VestingConditionPortion.remainder`, omitted and `false` are equivalent
+ * because schema default is false.
+ */
+function isSchemaDefaultEquivalent(path: string, valA: unknown, valB: unknown): boolean {
+  const isRemainderPath = path === 'remainder' || path.endsWith('.remainder');
+  if (!isRemainderPath) return false;
+
+  return (valA === false && isUndefinedLike(valB)) || (valB === false && isUndefinedLike(valA));
+}
+
+/**
  * Deep equality comparison for OCF objects with normalization.
  *
  * This comparison:
@@ -288,6 +301,8 @@ export function ocfCompare(a: unknown, b: unknown, options?: OcfComparisonOption
         const childValA = objA[key];
         const childValB = objB[key];
         const childPath = path ? `${path}.${key}` : key;
+
+        if (isSchemaDefaultEquivalent(childPath, childValA, childValB)) continue;
 
         // Treat empty arrays as undefined-like and skip if both are undefined-like
         if (isUndefinedLike(childValA) && isUndefinedLike(childValB)) continue;
@@ -419,6 +434,8 @@ export function diffOcfObjects(a: unknown, b: unknown, path = ''): string[] {
       const subPath = path ? `${path}.${key}` : key;
       const av = objA[key];
       const bv = objB[key];
+
+      if (isSchemaDefaultEquivalent(subPath, av, bv)) continue;
 
       if (isUndefinedLike(av) && isUndefinedLike(bv)) continue;
       if (!isUndefinedLike(av) && isUndefinedLike(bv)) {
