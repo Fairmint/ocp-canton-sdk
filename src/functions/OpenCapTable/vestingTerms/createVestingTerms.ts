@@ -109,108 +109,107 @@ function mapOcfDayOfMonthToDaml(day: string): OcfVestingDay {
 }
 
 function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger {
-  if (t.type === 'VESTING_START_DATE') {
-    return {
-      tag: 'OcfVestingStartTrigger',
-      value: {},
-    } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
-  }
-  if (t.type === 'VESTING_EVENT') {
-    return {
-      tag: 'OcfVestingEventTrigger',
-      value: {},
-    } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
-  }
-  if (t.type === 'VESTING_SCHEDULE_ABSOLUTE') {
-    return {
-      tag: 'OcfVestingScheduleAbsoluteTrigger',
-      value: dateStringToDAMLTime(t.date),
-    } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
-  }
-  if (t.type === 'VESTING_SCHEDULE_RELATIVE') {
-    const { period: p } = t;
-    const lengthNum = Number(p.length);
-    const occurrencesNum = Number(p.occurrences);
+  switch (t.type) {
+    case 'VESTING_START_DATE':
+      return {
+        tag: 'OcfVestingStartTrigger',
+        value: {},
+      } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
 
-    if (!Number.isFinite(lengthNum) || lengthNum <= 0) {
-      throw new OcpValidationError('vestingPeriod.length', 'Invalid vesting relative period length', {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: p.length,
-      });
-    }
-    if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1) {
-      throw new OcpValidationError('vestingPeriod.occurrences', 'Invalid vesting relative period occurrences', {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: p.occurrences,
-      });
-    }
+    case 'VESTING_EVENT':
+      return {
+        tag: 'OcfVestingEventTrigger',
+        value: {},
+      } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
 
-    let cliffInstallment: string | null = null;
-    if (p.cliff_installment !== undefined) {
-      if (!Number.isFinite(p.cliff_installment)) {
-        throw new OcpValidationError('vestingPeriod.cliff_installment', 'Invalid vesting cliff_installment', {
+    case 'VESTING_SCHEDULE_ABSOLUTE':
+      return {
+        tag: 'OcfVestingScheduleAbsoluteTrigger',
+        value: dateStringToDAMLTime(t.date),
+      } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
+
+    case 'VESTING_SCHEDULE_RELATIVE': {
+      const { period: p } = t;
+      const lengthNum = Number(p.length);
+      const occurrencesNum = Number(p.occurrences);
+
+      if (!Number.isFinite(lengthNum) || lengthNum <= 0) {
+        throw new OcpValidationError('vestingPeriod.length', 'Invalid vesting relative period length', {
           code: OcpErrorCodes.INVALID_FORMAT,
-          receivedValue: p.cliff_installment,
+          receivedValue: p.length,
         });
       }
-      cliffInstallment = p.cliff_installment.toString();
+      if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1) {
+        throw new OcpValidationError('vestingPeriod.occurrences', 'Invalid vesting relative period occurrences', {
+          code: OcpErrorCodes.INVALID_FORMAT,
+          receivedValue: p.occurrences,
+        });
+      }
+
+      let cliffInstallment: string | null = null;
+      if (p.cliff_installment !== undefined) {
+        if (!Number.isFinite(p.cliff_installment)) {
+          throw new OcpValidationError('vestingPeriod.cliff_installment', 'Invalid vesting cliff_installment', {
+            code: OcpErrorCodes.INVALID_FORMAT,
+            receivedValue: p.cliff_installment,
+          });
+        }
+        cliffInstallment = p.cliff_installment.toString();
+      }
+
+      let period:
+        | {
+            tag: 'OcfVestingPeriodDays';
+            value: { length_: string; occurrences: string; cliff_installment: string | null };
+          }
+        | {
+            tag: 'OcfVestingPeriodMonths';
+            value: {
+              length_: string;
+              occurrences: string;
+              day_of_month: OcfVestingDay;
+              cliff_installment: string | null;
+            };
+          };
+
+      if (p.type === 'DAYS') {
+        period = {
+          tag: 'OcfVestingPeriodDays',
+          value: {
+            length_: lengthNum.toString(),
+            occurrences: occurrencesNum.toString(),
+            cliff_installment: cliffInstallment,
+          },
+        };
+      } else {
+        period = {
+          tag: 'OcfVestingPeriodMonths',
+          value: {
+            length_: lengthNum.toString(),
+            occurrences: occurrencesNum.toString(),
+            day_of_month: mapOcfDayOfMonthToDaml(p.day_of_month),
+            cliff_installment: cliffInstallment,
+          },
+        };
+      }
+
+      return {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: {
+          period: period as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingPeriod,
+          relative_to_condition_id: t.relative_to_condition_id,
+        },
+      } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
     }
 
-    let period:
-      | {
-          tag: 'OcfVestingPeriodDays';
-          value: { length_: string; occurrences: string; cliff_installment: string | null };
-        }
-      | {
-          tag: 'OcfVestingPeriodMonths';
-          value: {
-            length_: string;
-            occurrences: string;
-            day_of_month: OcfVestingDay;
-            cliff_installment: string | null;
-          };
-        };
-
-    if (p.type === 'DAYS') {
-      period = {
-        tag: 'OcfVestingPeriodDays',
-        value: {
-          length_: lengthNum.toString(),
-          occurrences: occurrencesNum.toString(),
-          cliff_installment: cliffInstallment,
-        },
-      };
-    } else if (p.type === 'MONTHS') {
-      period = {
-        tag: 'OcfVestingPeriodMonths',
-        value: {
-          length_: lengthNum.toString(),
-          occurrences: occurrencesNum.toString(),
-          day_of_month: mapOcfDayOfMonthToDaml(p.day_of_month),
-          cliff_installment: cliffInstallment,
-        },
-      };
-    } else {
-      throw new OcpValidationError('vestingPeriod.type', 'Invalid vesting relative period type', {
+    default: {
+      const exhaustiveCheck: never = t;
+      throw new OcpParseError(`Unknown vesting trigger: ${JSON.stringify(exhaustiveCheck)}`, {
+        source: 'vestingTrigger.type',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        receivedValue: p.type,
       });
     }
-
-    return {
-      tag: 'OcfVestingScheduleRelativeTrigger',
-      value: {
-        period: period as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingPeriod,
-        relative_to_condition_id: t.relative_to_condition_id,
-      },
-    } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
   }
-
-  const exhaustiveCheck: never = t;
-  throw new OcpParseError(`Unknown vesting trigger: ${JSON.stringify(exhaustiveCheck)}`, {
-    source: 'vestingTrigger.type',
-    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-  });
 }
 
 function vestingConditionPortionToDaml(

@@ -227,49 +227,47 @@ export function createTestVestingTermsData(overrides: Partial<OcfVestingTerms> =
     name: overrides.name ?? `Vesting Terms ${id}`,
     description: overrides.description ?? '4-year vesting with 1-year cliff',
     allocation_type: overrides.allocation_type ?? 'CUMULATIVE_ROUNDING',
-    vesting_conditions:
-      overrides.vesting_conditions ??
-      ([
-        {
-          id: 'vesting-start',
-          description: 'Vesting start condition',
-          quantity: '0',
-          trigger: { type: 'VESTING_START_DATE' },
-          next_condition_ids: ['cliff'],
-        },
-        {
-          id: 'cliff',
-          description: '1-year cliff (25%)',
-          portion: { numerator: '12', denominator: '48', remainder: false },
-          trigger: {
-            type: 'VESTING_SCHEDULE_RELATIVE',
-            period: {
-              type: 'MONTHS',
-              length: 12,
-              occurrences: 1,
-              day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
-            },
-            relative_to_condition_id: 'vesting-start',
+    vesting_conditions: overrides.vesting_conditions ?? [
+      {
+        id: 'vesting-start',
+        description: 'Vesting start condition',
+        quantity: '0',
+        trigger: { type: 'VESTING_START_DATE' },
+        next_condition_ids: ['cliff'],
+      },
+      {
+        id: 'cliff',
+        description: '1-year cliff (25%)',
+        portion: { numerator: '12', denominator: '48', remainder: false },
+        trigger: {
+          type: 'VESTING_SCHEDULE_RELATIVE',
+          period: {
+            type: 'MONTHS',
+            length: 12,
+            occurrences: 1,
+            day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
           },
-          next_condition_ids: ['monthly'],
+          relative_to_condition_id: 'vesting-start',
         },
-        {
-          id: 'monthly',
-          description: 'Monthly vesting (1/48 each month)',
-          portion: { numerator: '1', denominator: '48', remainder: false },
-          trigger: {
-            type: 'VESTING_SCHEDULE_RELATIVE',
-            period: {
-              type: 'MONTHS',
-              length: 1,
-              occurrences: 36,
-              day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
-            },
-            relative_to_condition_id: 'cliff',
+        next_condition_ids: ['monthly'],
+      },
+      {
+        id: 'monthly',
+        description: 'Monthly vesting (1/48 each month)',
+        portion: { numerator: '1', denominator: '48', remainder: false },
+        trigger: {
+          type: 'VESTING_SCHEDULE_RELATIVE',
+          period: {
+            type: 'MONTHS',
+            length: 1,
+            occurrences: 36,
+            day_of_month: 'VESTING_START_DAY_OR_LAST_DAY_OF_MONTH',
           },
-          next_condition_ids: [],
+          relative_to_condition_id: 'cliff',
         },
-      ]),
+        next_condition_ids: [],
+      },
+    ],
     ...overrides,
   };
 }
