@@ -343,7 +343,7 @@ describe('VestingTerms Converters', () => {
               denominator: '4',
               remainder: true,
             },
-            trigger: { kind: 'START' },
+            trigger: { type: 'VESTING_START_DATE' },
             next_condition_ids: [],
           },
         ],
