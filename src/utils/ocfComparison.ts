@@ -68,6 +68,41 @@ export interface OcfComparisonResult {
 }
 
 /**
+ * Regex for ISO 8601 date strings: YYYY-MM-DD with optional time portion.
+ *
+ * Matches:
+ * - "2024-01-15" (date only)
+ * - "2024-01-15T00:00:00.000Z" (date + time)
+ * - "2024-01-15T12:30:00Z" (date + time, no millis)
+ * - "2024-01-15T12:30:00+05:00" (date + time + offset)
+ *
+ * The date portion (YYYY-MM-DD) is captured in group 1.
+ */
+const ISO_DATE_REGEX = /^(\d{4}-\d{2}-\d{2})(T.+)?$/;
+
+/**
+ * If the string looks like an ISO date (or date-time), return the date-only
+ * portion (YYYY-MM-DD). Otherwise return null.
+ *
+ * This allows `"2024-01-15"` and `"2024-01-15T00:00:00.000Z"` to compare as
+ * equal during replication diff, which is the correct semantic for OCF date
+ * fields.
+ */
+function tryNormalizeDateString(value: string): string | null {
+  const match = ISO_DATE_REGEX.exec(value);
+  if (!match) return null;
+
+  // Only normalize when there is actually a time suffix to strip.
+  // Pure date strings (YYYY-MM-DD) are already canonical - returning them
+  // here would bypass the numeric parse below which is fine, but we keep
+  // the code path explicit: only act when there is something to normalize.
+  if (match[2]) {
+    return match[1]; // Strip time portion → YYYY-MM-DD
+  }
+  return match[1]; // Already date-only, return canonical form
+}
+
+/**
  * Normalize a value for OCF comparison.
  *
  * Handles common variations that should be considered equal:
@@ -76,6 +111,7 @@ export interface OcfComparisonResult {
  * - Numeric strings are converted to the same fixed precision format
  * - This ensures `22500` (number) and `"22500"` (string) compare as equal
  * - Whitespace is trimmed from strings
+ * - Date strings are normalized to YYYY-MM-DD (strips time portion from ISO timestamps)
  *
  * @param value - Value to normalize
  * @returns Normalized value for comparison
@@ -96,6 +132,17 @@ function normalizeOcfValue(value: unknown): unknown {
   if (typeof value === 'string') {
     // Trim whitespace to avoid mismatches due to leading/trailing spaces
     const trimmed = value.trim();
+
+    // Normalize date strings before numeric parsing.
+    // Date-only strings like "2024-01-15" would fail Number() anyway, but
+    // ISO timestamps like "2024-01-15T00:00:00.000Z" also fail Number(),
+    // so both fall through to the return. Without this normalization,
+    // "2024-01-15" !== "2024-01-15T00:00:00.000Z" causes phantom edits
+    // during replication.
+    const normalizedDate = tryNormalizeDateString(trimmed);
+    if (normalizedDate !== null) {
+      return normalizedDate;
+    }
 
     // Try to parse as a number after trimming
     const num = Number(trimmed);

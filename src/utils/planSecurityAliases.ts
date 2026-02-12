@@ -145,11 +145,47 @@ function normalizeQuantitySource<T extends Record<string, unknown>>(data: T): T 
 }
 
 /**
+ * Fields on OCF Document objects that the DAML contract does not model.
+ *
+ * The OCF standard includes a `date` field on Document, but the DAML
+ * DocumentOcfData type only stores: id, md5, path, uri, comments,
+ * related_objects.  Because Canton never stores `date`, it will always
+ * be absent from the Canton read-back, causing a phantom diff on every
+ * replication run.  Stripping these fields during normalization keeps
+ * both sides comparable.
+ */
+const DOCUMENT_NON_DAML_FIELDS: ReadonlySet<string> = new Set(['date']);
+
+/**
+ * Strip fields from Document OCF data that the DAML contract cannot store.
+ *
+ * @param data - OCF data object (only modified when object_type is DOCUMENT)
+ * @returns Data with non-DAML Document fields removed (shallow copy if modified)
+ */
+function stripDocumentNonDamlFields<T extends Record<string, unknown>>(data: T): T {
+  const objectType = data.object_type;
+  if (objectType !== 'DOCUMENT') return data;
+
+  // Check if any non-DAML fields are present before copying
+  const hasNonDamlFields = Object.keys(data).some((k) => DOCUMENT_NON_DAML_FIELDS.has(k));
+  if (!hasNonDamlFields) return data;
+
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (!DOCUMENT_NON_DAML_FIELDS.has(key)) {
+      result[key] = value;
+    }
+  }
+  return result as T;
+}
+
+/**
  * Normalize OCF data for consistent comparison.
  *
  * This function applies normalizations to ensure semantically equivalent data compares as equal:
  * 1. Converts PlanSecurity object_type to EquityCompensation equivalent
  * 2. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
+ * 3. Strips Document fields that the DAML contract does not model (e.g. `date`)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -161,6 +197,9 @@ function normalizeQuantitySource<T extends Record<string, unknown>>(data: T): T 
  *
  * normalizeOcfData({ quantity: '1000' })
  * // => { quantity: '1000', quantity_source: 'UNSPECIFIED' }
+ *
+ * normalizeOcfData({ object_type: 'DOCUMENT', id: 'doc-1', date: '2024-01-15' })
+ * // => { object_type: 'DOCUMENT', id: 'doc-1' }
  * ```
  */
 export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T {
@@ -175,6 +214,9 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
       object_type: PLAN_SECURITY_OBJECT_TYPE_MAP[objectType],
     };
   }
+
+  // Strip Document fields that DAML cannot store (e.g. `date`)
+  result = stripDocumentNonDamlFields(result);
 
   return result;
 }

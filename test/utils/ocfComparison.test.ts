@@ -107,6 +107,58 @@ describe('ocfDeepEqual', () => {
   });
 });
 
+describe('date normalization', () => {
+  test('returns true for date-only vs ISO timestamp with same date', () => {
+    expect(ocfDeepEqual({ date: '2024-01-15' }, { date: '2024-01-15T00:00:00.000Z' })).toBe(true);
+  });
+
+  test('returns true for ISO timestamp vs date-only with same date', () => {
+    expect(ocfDeepEqual({ date: '2024-01-15T12:30:00Z' }, { date: '2024-01-15' })).toBe(true);
+  });
+
+  test('returns true for two identical date-only strings', () => {
+    expect(ocfDeepEqual({ date: '2024-01-15' }, { date: '2024-01-15' })).toBe(true);
+  });
+
+  test('returns true for two ISO timestamps with same date', () => {
+    expect(ocfDeepEqual({ date: '2024-01-15T00:00:00.000Z' }, { date: '2024-01-15T12:30:00Z' })).toBe(true);
+  });
+
+  test('returns false for different dates', () => {
+    expect(ocfDeepEqual({ date: '2024-01-15' }, { date: '2024-01-16' })).toBe(false);
+  });
+
+  test('handles nested date fields in transaction-like objects', () => {
+    const dbData = {
+      id: 'tx-1',
+      date: '2024-08-14T00:00:00.000Z',
+      security_id: 'sec-1',
+    };
+    const cantonData = {
+      id: 'tx-1',
+      date: '2024-08-14',
+      security_id: 'sec-1',
+    };
+    expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
+  });
+
+  test('handles date in array elements', () => {
+    const a = { items: [{ date: '2024-01-15T00:00:00.000Z' }] };
+    const b = { items: [{ date: '2024-01-15' }] };
+    expect(ocfDeepEqual(a, b)).toBe(true);
+  });
+
+  test('does not treat non-date strings as dates', () => {
+    // A string that looks vaguely like a date prefix but isn't
+    expect(ocfDeepEqual({ val: 'hello' }, { val: 'hello' })).toBe(true);
+    expect(ocfDeepEqual({ val: 'hello' }, { val: 'world' })).toBe(false);
+  });
+
+  test('handles date with timezone offset', () => {
+    expect(ocfDeepEqual({ date: '2024-01-15' }, { date: '2024-01-15T12:00:00+05:00' })).toBe(true);
+  });
+});
+
 describe('ocfCompare', () => {
   test('reports no differences for number vs equivalent string', () => {
     const result = ocfCompare({ amount: 22500 }, { amount: '22500' });
@@ -116,6 +168,18 @@ describe('ocfCompare', () => {
 
   test('reports differences for actually different values', () => {
     const result = ocfCompare({ amount: '100' }, { amount: '200' });
+    expect(result.equal).toBe(false);
+    expect(result.differences.length).toBeGreaterThan(0);
+  });
+
+  test('reports no differences for date format variations', () => {
+    const result = ocfCompare({ date: '2024-08-14T00:00:00.000Z' }, { date: '2024-08-14' });
+    expect(result.equal).toBe(true);
+    expect(result.differences).toHaveLength(0);
+  });
+
+  test('reports differences for different dates', () => {
+    const result = ocfCompare({ date: '2024-08-14' }, { date: '2024-08-15' });
     expect(result.equal).toBe(false);
     expect(result.differences.length).toBeGreaterThan(0);
   });
@@ -143,6 +207,11 @@ describe('diffOcfObjects', () => {
     const a = { vesting_conditions: [{ portion: { numerator: '1', denominator: '4' } }] };
     const b = { vesting_conditions: [{ portion: { numerator: '1', denominator: '4', remainder: false } }] };
     const diffs = diffOcfObjects(a, b);
+    expect(diffs).toHaveLength(0);
+  });
+
+  test('returns no diffs for date format variations', () => {
+    const diffs = diffOcfObjects({ date: '2024-08-14T00:00:00.000Z' }, { date: '2024-08-14' });
     expect(diffs).toHaveLength(0);
   });
 });

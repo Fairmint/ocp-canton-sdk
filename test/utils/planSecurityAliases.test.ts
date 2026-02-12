@@ -138,6 +138,47 @@ describe('PlanSecurity alias utilities', () => {
 
       expect(result).toBe(input);
     });
+
+    it('strips date field from DOCUMENT objects (not modeled in DAML)', () => {
+      const input = {
+        object_type: 'DOCUMENT',
+        id: 'doc-1',
+        md5: 'abc123',
+        date: '2024-08-14',
+        comments: ['test'],
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result.id).toBe('doc-1');
+      expect(result.md5).toBe('abc123');
+      expect(result.comments).toEqual(['test']);
+      expect(result).not.toHaveProperty('date');
+    });
+
+    it('does not strip date from non-DOCUMENT objects', () => {
+      const input = {
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: 'tx-1',
+        date: '2024-01-15',
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result.date).toBe('2024-01-15');
+    });
+
+    it('returns DOCUMENT data unchanged when no non-DAML fields present', () => {
+      const input = {
+        object_type: 'DOCUMENT',
+        id: 'doc-1',
+        md5: 'abc123',
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result).toBe(input); // Same reference - no copy needed
+    });
   });
 
   describe('alias mappings', () => {
