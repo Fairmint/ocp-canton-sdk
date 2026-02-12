@@ -81,7 +81,7 @@ export interface OcfComparisonResult {
  * - "2024-01-15T12:30TICKET" (no seconds, trailing junk)
  *
  * Time portion requires HH:MM:SS with optional fractional seconds
- * (up to 9 digits) and a timezone (Z or +/-HH:MM).
+ * (up to 9 digits) and optional timezone (Z or +/-HH:MM).
  *
  * The date portion (YYYY-MM-DD) is captured in group 1.
  */
