@@ -82,9 +82,14 @@ export async function getEquityCompensationExerciseAsOcf(
   }
   const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
-  // Some events nest OCF data under a specific key; fall back to root for backward compatibility
-  const d: Record<string, unknown> =
-    (createArgument.exercise_data as Record<string, unknown> | undefined) ?? createArgument;
+  const exerciseData = createArgument.exercise_data;
+  if (!exerciseData || typeof exerciseData !== 'object' || Array.isArray(exerciseData)) {
+    throw new OcpContractError('EquityCompensationExercise data not found in contract create argument', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+  const d = exerciseData as Record<string, unknown>;
 
   const native = damlEquityCompensationExerciseDataToNative(d);
   // Add object_type to create the full event type

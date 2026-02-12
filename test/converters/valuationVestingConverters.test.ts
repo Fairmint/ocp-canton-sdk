@@ -27,7 +27,13 @@ import {
   damlVestingStartToNative,
   type DamlVestingStartData,
 } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
-import type { OcfValuation, OcfVestingAcceleration, OcfVestingEvent, OcfVestingStart } from '../../src/types';
+import type {
+  OcfValuation,
+  OcfVestingAcceleration,
+  OcfVestingEvent,
+  OcfVestingStart,
+  OcfVestingTerms,
+} from '../../src/types';
 
 describe('Valuation Converters', () => {
   describe('OCF → DAML (valuationDataToDaml)', () => {
@@ -281,6 +287,77 @@ describe('VestingStart Converters', () => {
       const ocfData = damlVestingStartToNative(damlData);
 
       expect(ocfData.comments).toEqual(['Employee start date']);
+    });
+  });
+});
+
+describe('VestingTerms Converters', () => {
+  describe('OCF -> DAML (vestingTermsDataToDaml)', () => {
+    test('defaults portion.remainder to false when omitted', () => {
+      const ocfData = {
+        id: 'vt-001',
+        name: 'Standard Vesting',
+        description: '4-year vesting with cliff',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'start',
+            portion: {
+              numerator: '1',
+              denominator: '4',
+            },
+            trigger: {
+              type: 'VESTING_START_DATE',
+            },
+            next_condition_ids: [],
+          },
+        ],
+      } as unknown as OcfVestingTerms;
+
+      const damlData = convertToDaml('vestingTerms', ocfData) as {
+        vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
+      };
+
+      expect(damlData.vesting_conditions[0].portion).toEqual({
+        numerator: '1',
+        denominator: '4',
+        remainder: false,
+      });
+
+      // Ensure command payload remains pure JSON with no undefined fields.
+      const serialized = JSON.parse(JSON.stringify(damlData));
+      expect(serialized.vesting_conditions[0].portion.remainder).toBe(false);
+    });
+
+    test('preserves provided portion.remainder value', () => {
+      const ocfData: OcfVestingTerms = {
+        id: 'vt-002',
+        name: 'Remainder Vesting',
+        description: 'Remainder flag explicitly set',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'start',
+            portion: {
+              numerator: '1',
+              denominator: '4',
+              remainder: true,
+            },
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: [],
+          },
+        ],
+      };
+
+      const damlData = convertToDaml('vestingTerms', ocfData) as {
+        vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
+      };
+
+      expect(damlData.vesting_conditions[0].portion).toEqual({
+        numerator: '1',
+        denominator: '4',
+        remainder: true,
+      });
     });
   });
 });

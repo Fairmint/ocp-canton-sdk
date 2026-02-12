@@ -11,6 +11,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
+import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import { parseDamlMap } from '../../../utils/typeConversions';
 import type { OcfEntityType } from './batchTypes';
 
@@ -244,25 +245,14 @@ export async function getCapTableState(
   // Extract payload from the first matching contract
   const capTableContract = contracts[0];
 
-  // Extract contract ID and payload using the SDK's response format
-  let contractId: string;
-  let payload: Record<string, unknown>;
-
-  if (isJsActiveContractItem(capTableContract)) {
-    // JSON API v2 format (preferred)
-    const { createdEvent } = capTableContract.contractEntry.JsActiveContract;
-    ({ contractId, createArgument: payload } = createdEvent);
-  } else {
-    // Legacy format fallback for backward compatibility
-    const legacyData = capTableContract as unknown as {
-      contractId?: string;
-      contract_id?: string;
-      payload?: Record<string, unknown>;
-      contract?: { payload?: Record<string, unknown> };
-    };
-    contractId = legacyData.contractId ?? legacyData.contract_id ?? '';
-    payload = legacyData.payload ?? legacyData.contract?.payload ?? {};
+  if (!isJsActiveContractItem(capTableContract)) {
+    throw new OcpContractError('Invalid CapTable contract response: expected JsActiveContract entry', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: 'unknown',
+    });
   }
+  const { createdEvent } = capTableContract.contractEntry.JsActiveContract;
+  const { contractId, createArgument: payload } = createdEvent;
 
   // Build entity maps from payload fields
   const entities = new Map<OcfEntityType, Set<string>>();

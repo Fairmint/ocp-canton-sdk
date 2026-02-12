@@ -8,9 +8,10 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { getConvertibleConversionAsOcf } from '../../src/functions/OpenCapTable/convertibleConversion';
+import { getEquityCompensationExerciseAsOcf } from '../../src/functions/OpenCapTable/equityCompensationExercise';
 import { getStockConversionAsOcf } from '../../src/functions/OpenCapTable/stockConversion';
 import { getWarrantExerciseAsOcf } from '../../src/functions/OpenCapTable/warrantExercise';
 import type { OcfConvertibleConversion, OcfStockConversion, OcfWarrantExercise } from '../../src/types/native';
@@ -29,6 +30,47 @@ function createMockClient(createArgument: Record<string, unknown>): LedgerJsonAp
 }
 
 describe('Exercise and Conversion Type Converters', () => {
+  describe('EquityCompensationExercise', () => {
+    describe('DAML → OCF (getEquityCompensationExerciseAsOcf)', () => {
+      test('converts valid nested exercise_data payload', async () => {
+        const mockClient = createMockClient({
+          exercise_data: {
+            id: 'ece-001',
+            date: '2024-01-15T00:00:00.000Z',
+            security_id: 'eq-sec-001',
+            quantity: '2500.0000000000',
+            resulting_security_ids: ['stock-sec-001'],
+            consideration_text: 'Cash exercise',
+            comments: ['approved by board'],
+          },
+        });
+
+        const result = await getEquityCompensationExerciseAsOcf(mockClient, { contractId: 'test-contract' });
+
+        expect(result.event.object_type).toBe('TX_EQUITY_COMPENSATION_EXERCISE');
+        expect(result.event.id).toBe('ece-001');
+        expect(result.event.date).toBe('2024-01-15');
+        expect(result.event.security_id).toBe('eq-sec-001');
+        expect(result.event.quantity).toBe('2500');
+        expect(result.event.resulting_security_ids).toEqual(['stock-sec-001']);
+      });
+
+      test('rejects legacy root-level payload without exercise_data', async () => {
+        const mockClient = createMockClient({
+          id: 'legacy-root-001',
+          date: '2024-01-15T00:00:00.000Z',
+          security_id: 'eq-sec-legacy',
+          quantity: '1000',
+          resulting_security_ids: ['stock-sec-legacy'],
+        });
+
+        await expect(getEquityCompensationExerciseAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
+          OcpContractError
+        );
+      });
+    });
+  });
+
   describe('WarrantExercise', () => {
     describe('OCF → DAML (convertToDaml)', () => {
       const validWarrantExerciseData: OcfWarrantExercise = {
@@ -130,6 +172,21 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.balance_security_id).toBe('warrant-sec-002');
         expect(result.event.consideration_text).toBe('Exercise consideration');
         expect(result.event.comments).toEqual(['Test comment']);
+      });
+
+      test('rejects legacy root-level payload without exercise_data', async () => {
+        const mockClient = createMockClient({
+          id: 'we-legacy-001',
+          date: '2024-01-15T00:00:00.000Z',
+          security_id: 'warrant-sec-legacy',
+          trigger_id: 'trigger-legacy',
+          quantity: '1000',
+          resulting_security_ids: ['stock-sec-legacy'],
+        });
+
+        await expect(getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
+          OcpContractError
+        );
       });
 
       test('handles numeric quantity from DAML', async () => {
@@ -302,6 +359,19 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toEqual(['Converted on financing round']);
       });
 
+      test('rejects legacy root-level payload without conversion_data', async () => {
+        const mockClient = createMockClient({
+          id: 'cc-legacy-001',
+          date: '2024-02-20T00:00:00.000Z',
+          security_id: 'convertible-sec-legacy',
+          resulting_security_ids: ['stock-sec-legacy'],
+        });
+
+        await expect(getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
+          OcpContractError
+        );
+      });
+
       test('omits optional fields when not present', async () => {
         const mockClient = createMockClient({
           conversion_data: {
@@ -436,6 +506,20 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.resulting_security_ids).toEqual(['preferred-sec-001']);
         expect(result.event.balance_security_id).toBe('stock-sec-002');
         expect(result.event.comments).toEqual(['Converted to preferred']);
+      });
+
+      test('rejects legacy root-level payload without conversion_data', async () => {
+        const mockClient = createMockClient({
+          id: 'sc-legacy-001',
+          date: '2024-03-10T00:00:00.000Z',
+          security_id: 'stock-sec-legacy',
+          quantity: '1000',
+          resulting_security_ids: ['preferred-sec-legacy'],
+        });
+
+        await expect(getStockConversionAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
+          OcpContractError
+        );
       });
 
       test('handles numeric quantity from DAML', async () => {

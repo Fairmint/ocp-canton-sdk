@@ -83,6 +83,28 @@ describe('ocfDeepEqual', () => {
       )
     ).toBe(true);
   });
+
+  test('treats omitted remainder and false as equivalent', () => {
+    expect(
+      ocfDeepEqual(
+        { portion: { numerator: '1', denominator: '4' } },
+        { portion: { numerator: '1', denominator: '4', remainder: false } }
+      )
+    ).toBe(true);
+    expect(
+      ocfDeepEqual(
+        { portion: { numerator: '1', denominator: '4', remainder: false } },
+        { portion: { numerator: '1', denominator: '4' } }
+      )
+    ).toBe(true);
+  });
+
+  test('remainder: true is NOT equivalent to omitted or false', () => {
+    // remainder: true should NOT match omitted remainder
+    expect(ocfDeepEqual({ portion: { remainder: true } }, { portion: {} })).toBe(false);
+    // remainder: true should NOT match remainder: false
+    expect(ocfDeepEqual({ portion: { remainder: true } }, { portion: { remainder: false } })).toBe(false);
+  });
 });
 
 describe('ocfCompare', () => {
@@ -113,6 +135,13 @@ describe('diffOcfObjects', () => {
   test('handles nested number/string equivalence', () => {
     const a = { purchase_price: { amount: 22500, currency: 'USD' } };
     const b = { purchase_price: { amount: '22500', currency: 'USD' } };
+    const diffs = diffOcfObjects(a, b);
+    expect(diffs).toHaveLength(0);
+  });
+
+  test('treats omitted remainder and false as no diff', () => {
+    const a = { vesting_conditions: [{ portion: { numerator: '1', denominator: '4' } }] };
+    const b = { vesting_conditions: [{ portion: { numerator: '1', denominator: '4', remainder: false } }] };
     const diffs = diffOcfObjects(a, b);
     expect(diffs).toHaveLength(0);
   });

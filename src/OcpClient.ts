@@ -183,8 +183,7 @@ import type {
  * @param contractId - The contract ID returned by the underlying function
  * @internal
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function toContractResult<T>(data: any, contractId: string): ContractResult<T> {
+function toContractResult<T>(data: unknown, contractId: string): ContractResult<T> {
   if (data == null) {
     throw new OcpValidationError(
       'toContractResult.data',
