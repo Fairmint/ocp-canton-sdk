@@ -68,17 +68,20 @@ export interface OcfComparisonResult {
 }
 
 /**
- * Regex for ISO 8601 date strings: YYYY-MM-DD with optional time portion.
+ * Regex for ISO 8601 date strings: YYYY-MM-DD with optional RFC 3339 time portion.
  *
  * Matches:
  * - "2024-01-15" (date only)
- * - "2024-01-15T00:00:00.000Z" (date + time)
+ * - "2024-01-15T00:00:00.000Z" (date + time + Z)
  * - "2024-01-15T12:30:00Z" (date + time, no millis)
  * - "2024-01-15T12:30:00+05:00" (date + time + offset)
  *
+ * The time suffix requires `T` followed by `HH:MM` to avoid false positives
+ * on non-date strings that happen to start with YYYY-MM-DD (e.g. IDs).
+ *
  * The date portion (YYYY-MM-DD) is captured in group 1.
  */
-const ISO_DATE_REGEX = /^(\d{4}-\d{2}-\d{2})(T.+)?$/;
+const ISO_DATE_REGEX = /^(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2}.+)?$/;
 
 /**
  * If the string looks like an ISO date (or date-time), return the date-only
@@ -91,15 +94,7 @@ const ISO_DATE_REGEX = /^(\d{4}-\d{2}-\d{2})(T.+)?$/;
 function tryNormalizeDateString(value: string): string | null {
   const match = ISO_DATE_REGEX.exec(value);
   if (!match) return null;
-
-  // Only normalize when there is actually a time suffix to strip.
-  // Pure date strings (YYYY-MM-DD) are already canonical - returning them
-  // here would bypass the numeric parse below which is fine, but we keep
-  // the code path explicit: only act when there is something to normalize.
-  if (match[2]) {
-    return match[1]; // Strip time portion → YYYY-MM-DD
-  }
-  return match[1]; // Already date-only, return canonical form
+  return match[1]; // YYYY-MM-DD (strips time portion if present)
 }
 
 /**

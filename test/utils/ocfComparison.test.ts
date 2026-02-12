@@ -149,9 +149,16 @@ describe('date normalization', () => {
   });
 
   test('does not treat non-date strings as dates', () => {
-    // A string that looks vaguely like a date prefix but isn't
     expect(ocfDeepEqual({ val: 'hello' }, { val: 'hello' })).toBe(true);
     expect(ocfDeepEqual({ val: 'hello' }, { val: 'world' })).toBe(false);
+  });
+
+  test('does not match date-prefixed IDs as dates', () => {
+    // Strings starting with YYYY-MM-DD but without valid time suffix
+    // must NOT be normalized as dates (could be IDs, codes, etc.)
+    expect(ocfDeepEqual({ id: '2024-01-15TICKET' }, { id: '2024-01-15TICKET' })).toBe(true);
+    expect(ocfDeepEqual({ id: '2024-01-15TICKET' }, { id: '2024-01-15' })).toBe(false);
+    expect(ocfDeepEqual({ id: '2024-01-15Tabc' }, { id: '2024-01-15' })).toBe(false);
   });
 
   test('handles date with timezone offset', () => {
