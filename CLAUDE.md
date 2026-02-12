@@ -238,10 +238,13 @@ import {
 6. **No defensive checks** - Trust DAML types, don't check `Array.isArray()`
 7. **Use `null`** for DAML optional fields (not `undefined`)
 8. **Use `??`** instead of `||` for nullish coalescing
-9. **Pinned dependencies** - ALWAYS use exact versions without `^` or `~`
+9. **Pinned dependencies** - ALWAYS use exact versions without `^` or `~` for dependencies and
+   devDependencies
    - ✅ Correct: `"jsonwebtoken": "9.0.3"`
    - ❌ Wrong: `"jsonwebtoken": "^9.0.3"` or `"~9.0.3"`
-   - This applies to ALL dependencies (dependencies, devDependencies, peerDependencies)
+   - This applies to `dependencies` and `devDependencies` (NOT `peerDependencies`)
+   - **peerDependencies should use ranges** to allow consuming packages flexibility
+   - Example peerDependency ranges: `">=0.0.183 <0.1.0"` or `">=0.2.133 <0.3.0"`
    - When adding packages: `npm install --save-exact <package>` or manually remove `^`/`~` after
      install
 10. **DRY code** - Extract duplicated logic into reusable helpers (especially in tests)
