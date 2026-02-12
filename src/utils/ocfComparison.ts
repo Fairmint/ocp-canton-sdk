@@ -68,7 +68,7 @@ export interface OcfComparisonResult {
 }
 
 /**
- * Regex for ISO 8601 date strings: YYYY-MM-DD with optional RFC 3339 time portion.
+ * Regex for ISO 8601 / RFC 3339 date strings: YYYY-MM-DD with optional time.
  *
  * Matches:
  * - "2024-01-15" (date only)
@@ -76,12 +76,16 @@ export interface OcfComparisonResult {
  * - "2024-01-15T12:30:00Z" (date + time, no millis)
  * - "2024-01-15T12:30:00+05:00" (date + time + offset)
  *
- * The time suffix requires `T` followed by `HH:MM` to avoid false positives
- * on non-date strings that happen to start with YYYY-MM-DD (e.g. IDs).
+ * Does NOT match:
+ * - "2024-01-15TICKET" (no T separator or invalid suffix)
+ * - "2024-01-15T12:30TICKET" (no seconds, trailing junk)
+ *
+ * Time portion requires HH:MM:SS with optional fractional seconds
+ * (up to 9 digits) and a timezone (Z or +/-HH:MM).
  *
  * The date portion (YYYY-MM-DD) is captured in group 1.
  */
-const ISO_DATE_REGEX = /^(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2}.+)?$/;
+const ISO_DATE_REGEX = /^(\d{4}-\d{2}-\d{2})(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})?)?$/;
 
 /**
  * If the string looks like an ISO date (or date-time), return the date-only
