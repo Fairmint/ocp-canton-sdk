@@ -908,6 +908,145 @@ describe('computeReplicationDiff', () => {
     });
   });
 
+  describe('date normalization in edits (regression: phantom document edits)', () => {
+    it('does not emit edit when document has date field in DB but not in Canton', () => {
+      // Reproduces: DB stores OCF Document with `date` field, but DAML Document
+      // contract has no `date` field. Canton readback omits `date`, causing a
+      // persistent diff on every replication run.
+      const sourceItems = [
+        {
+          ocfId: 'doc-1',
+          entityType: 'document' as OcfEntityType,
+          data: {
+            id: 'doc-1',
+            object_type: 'DOCUMENT',
+            md5: 'abc123def456',
+            uri: 's3://bucket/path',
+            date: '2024-08-14',
+            comments: ['filename: test.pdf'],
+            related_objects: [],
+          },
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('document', new Set(['doc-1']));
+
+      // Canton readback has no `date` field
+      const cantonOcfData: CantonOcfDataMap = new Map([
+        [
+          'document',
+          new Map([
+            [
+              'doc-1',
+              {
+                id: 'doc-1',
+                object_type: 'DOCUMENT',
+                md5: 'abc123def456',
+                uri: 's3://bucket/path',
+                comments: ['filename: test.pdf'],
+                related_objects: [],
+              },
+            ],
+          ]),
+        ],
+      ]);
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+
+      expect(diff.edits).toHaveLength(0);
+      expect(diff.creates).toHaveLength(0);
+      expect(diff.deletes).toHaveLength(0);
+      expect(diff.total).toBe(0);
+    });
+
+    it('does not emit edit when transaction dates differ only by ISO format', () => {
+      // DB may store full ISO timestamps while Canton returns date-only strings.
+      const sourceItems = [
+        {
+          ocfId: 'tx-1',
+          entityType: 'stockIssuance' as OcfEntityType,
+          data: {
+            id: 'tx-1',
+            object_type: 'TX_STOCK_ISSUANCE',
+            date: '2024-01-15T00:00:00.000Z',
+            security_id: 'sec-1',
+            quantity: '1000',
+          },
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stockIssuance', new Set(['tx-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([
+        [
+          'stockIssuance',
+          new Map([
+            [
+              'tx-1',
+              {
+                id: 'tx-1',
+                object_type: 'TX_STOCK_ISSUANCE',
+                date: '2024-01-15',
+                security_id: 'sec-1',
+                quantity: '1000',
+              },
+            ],
+          ]),
+        ],
+      ]);
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+
+      expect(diff.edits).toHaveLength(0);
+      expect(diff.total).toBe(0);
+    });
+
+    it('still detects real edits on document fields other than date', () => {
+      const sourceItems = [
+        {
+          ocfId: 'doc-1',
+          entityType: 'document' as OcfEntityType,
+          data: {
+            id: 'doc-1',
+            object_type: 'DOCUMENT',
+            md5: 'new-hash-value',
+            uri: 's3://bucket/path',
+            date: '2024-08-14',
+            comments: [],
+            related_objects: [],
+          },
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('document', new Set(['doc-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([
+        [
+          'document',
+          new Map([
+            [
+              'doc-1',
+              {
+                id: 'doc-1',
+                object_type: 'DOCUMENT',
+                md5: 'old-hash-value',
+                uri: 's3://bucket/path',
+                comments: [],
+                related_objects: [],
+              },
+            ],
+          ]),
+        ],
+      ]);
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+
+      // md5 actually changed → should detect an edit
+      expect(diff.edits).toHaveLength(1);
+      expect(diff.edits[0].ocfId).toBe('doc-1');
+    });
+  });
+
   describe('total calculation', () => {
     it('calculates total correctly', () => {
       const sourceItems = [
