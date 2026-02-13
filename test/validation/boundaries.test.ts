@@ -7,7 +7,26 @@
 
 import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
 import type { OcfStakeholder } from '../../src/types';
+import {
+  damlStakeholderRelationshipToNative,
+  type DamlStakeholderRelationshipType,
+} from '../../src/utils/enumConversions';
 import { normalizeNumericString, optionalString } from '../../src/utils/typeConversions';
+
+function getDashboardPrimaryRelationshipFromDb(stakeholder: OcfStakeholder): string {
+  const relationships = stakeholder.current_relationships ?? [];
+  if (relationships.length > 0) {
+    return relationships[0];
+  }
+  return stakeholder.current_relationship ?? 'OTHER';
+}
+
+function getDashboardPrimaryRelationshipFromDaml(damlRelationships: DamlStakeholderRelationshipType[]): string {
+  if (damlRelationships.length === 0) {
+    return 'OTHER';
+  }
+  return damlStakeholderRelationshipToNative(damlRelationships[0]);
+}
 
 describe('Boundary Condition Tests', () => {
   describe('Numeric Boundaries', () => {
@@ -110,6 +129,31 @@ describe('Boundary Condition Tests', () => {
       expect(result.comments).toEqual([]);
     });
 
+    test('maps legacy current_relationship when current_relationships is missing', () => {
+      const legacyRelationshipData: OcfStakeholder = {
+        id: 'sh-legacy-relationship',
+        name: { legal_name: 'Legacy Stakeholder' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'FOUNDER',
+      };
+
+      const result = stakeholderDataToDaml(legacyRelationshipData);
+      expect(result.current_relationships).toEqual(['OcfRelFounder']);
+    });
+
+    test('uses current_relationships when both relationship fields are present', () => {
+      const bothFieldsData: OcfStakeholder = {
+        id: 'sh-both-relationship-fields',
+        name: { legal_name: 'Both Fields Stakeholder' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'FOUNDER',
+        current_relationships: ['ADVISOR'],
+      };
+
+      const result = stakeholderDataToDaml(bothFieldsData);
+      expect(result.current_relationships).toEqual(['OcfRelAdvisor']);
+    });
+
     test('comments array filters out empty strings', () => {
       const dataWithComments: OcfStakeholder = {
         id: 'sh-comments',
@@ -178,6 +222,62 @@ describe('Boundary Condition Tests', () => {
       expect(result.current_relationships).toContain('OcfRelAdvisor');
       expect(result.current_relationships).toContain('OcfRelOfficer');
       expect(result.current_relationships).toContain('OcfRelOther');
+    });
+
+    test('fails fast for invalid current_relationships values', () => {
+      const invalidRelationshipArrayData: OcfStakeholder = {
+        id: 'sh-invalid-array-relationship',
+        name: { legal_name: 'Invalid Relationship Array' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVALID_RELATIONSHIP' as never],
+      };
+
+      expect(() => stakeholderDataToDaml(invalidRelationshipArrayData)).toThrow();
+      expect(() => stakeholderDataToDaml(invalidRelationshipArrayData)).toThrow('current_relationships[0]');
+    });
+
+    test('fails fast for invalid legacy current_relationship values', () => {
+      const invalidLegacyRelationshipData: OcfStakeholder = {
+        id: 'sh-invalid-legacy-relationship',
+        name: { legal_name: 'Invalid Legacy Relationship' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: '' as never,
+      };
+
+      expect(() => stakeholderDataToDaml(invalidLegacyRelationshipData)).toThrow();
+      expect(() => stakeholderDataToDaml(invalidLegacyRelationshipData)).toThrow('current_relationship');
+    });
+  });
+
+  describe('Relationship Parity Checks', () => {
+    test('legacy DB relationship resolves to same dashboard bucket after conversion', () => {
+      const legacyDbStakeholder: OcfStakeholder = {
+        id: 'sh-parity-legacy',
+        name: { legal_name: 'Parity Stakeholder' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'ADVISOR',
+      };
+
+      const expectedDbBucket = getDashboardPrimaryRelationshipFromDb(legacyDbStakeholder);
+      const daml = stakeholderDataToDaml(legacyDbStakeholder);
+      const actualDamlBucket = getDashboardPrimaryRelationshipFromDaml(daml.current_relationships);
+
+      expect(actualDamlBucket).toBe(expectedDbBucket);
+    });
+
+    test('missing relationship stays OTHER bucket after conversion', () => {
+      const noRelationshipStakeholder: OcfStakeholder = {
+        id: 'sh-parity-empty',
+        name: { legal_name: 'No Relationship Stakeholder' },
+        stakeholder_type: 'INDIVIDUAL',
+      };
+
+      const expectedDbBucket = getDashboardPrimaryRelationshipFromDb(noRelationshipStakeholder);
+      const daml = stakeholderDataToDaml(noRelationshipStakeholder);
+      const actualDamlBucket = getDashboardPrimaryRelationshipFromDaml(daml.current_relationships);
+
+      expect(actualDamlBucket).toBe(expectedDbBucket);
+      expect(actualDamlBucket).toBe('OTHER');
     });
   });
 });

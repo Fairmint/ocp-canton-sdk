@@ -344,6 +344,7 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
 
   // Optional fields
   validateOptionalString(value.issuer_assigned_id, `${fieldPath}.issuer_assigned_id`);
+  validateOptionalEnum(value.current_relationship, `${fieldPath}.current_relationship`, STAKEHOLDER_RELATIONSHIPS);
 
   // Optional current_relationships array
   if (value.current_relationships !== undefined && value.current_relationships !== null) {

@@ -577,6 +577,11 @@ export interface OcfStakeholder {
   stakeholder_type: StakeholderType;
   /** Alternate ID assigned by issuer */
   issuer_assigned_id?: string;
+  /**
+   * Deprecated singular relationship field (v1 compatibility).
+   * Prefer `current_relationships`.
+   */
+  current_relationship?: StakeholderRelationshipType;
   /** Current relationship(s) to issuer */
   current_relationships?: StakeholderRelationshipType[];
   /** Current employment/engagement status */
