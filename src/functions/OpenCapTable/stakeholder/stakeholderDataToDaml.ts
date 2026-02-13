@@ -65,7 +65,7 @@ function contactInfoWithoutNameToDaml(
 function getRelationshipsWithLegacyFallback(
   data: OcfStakeholder
 ): NonNullable<OcfStakeholder['current_relationships']> {
-  if (Array.isArray(data.current_relationships) && data.current_relationships.length > 0) {
+  if (Array.isArray(data.current_relationships)) {
     return data.current_relationships;
   }
   if (data.current_relationship) {
