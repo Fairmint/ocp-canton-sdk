@@ -26,6 +26,32 @@ function cancellationBehaviorToDaml(
   }
 }
 
+/**
+ * Resolve stock class IDs from either the current `stock_class_ids` array
+ * or the deprecated singular `stock_class_id` field.
+ *
+ * The OCF StockPlan schema uses a `oneOf` allowing either field but not both.
+ * Our DAML contract always expects `stock_class_ids` as an array.
+ */
+function resolveStockClassIds(d: OcfStockPlan): string[] {
+  if (Array.isArray(d.stock_class_ids) && d.stock_class_ids.length > 0) {
+    return d.stock_class_ids;
+  }
+  // Fall back to deprecated singular field (OCF schema oneOf alternative)
+  if (typeof d.stock_class_id === 'string' && d.stock_class_id.length > 0) {
+    return [d.stock_class_id];
+  }
+  throw new OcpValidationError(
+    'stockPlan.stock_class_ids',
+    'Either stock_class_ids (array) or deprecated stock_class_id (string) is required',
+    {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string[]',
+      receivedValue: d.stock_class_ids,
+    }
+  );
+}
+
 export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData {
   if (!d.id) {
     throw new OcpValidationError('stockPlan.id', 'Required field is missing or empty', {
@@ -41,7 +67,7 @@ export function stockPlanDataToDaml(d: OcfStockPlan): Fairmint.OpenCapTable.OCF.
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     initial_shares_reserved: d.initial_shares_reserved,
     default_cancellation_behavior: cancellationBehaviorToDaml(d.default_cancellation_behavior),
-    stock_class_ids: d.stock_class_ids,
+    stock_class_ids: resolveStockClassIds(d),
     comments: cleanComments(d.comments),
   };
 }

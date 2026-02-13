@@ -954,8 +954,14 @@ export interface OcfStockPlan {
   initial_shares_reserved: string;
   /** Default cancellation behavior if not specified at the security level */
   default_cancellation_behavior?: StockPlanCancellationBehavior;
-  /** List of stock class ids associated with this plan */
-  stock_class_ids: string[];
+  /**
+   * [DEPRECATED] Identifier of the StockClass object this plan is composed of.
+   * Use `stock_class_ids` instead. Accepted for backward compatibility with older OCF data
+   * that uses the deprecated singular field per the OCF StockPlan schema `oneOf`.
+   */
+  stock_class_id?: string;
+  /** List of stock class ids associated with this plan (preferred over deprecated stock_class_id) */
+  stock_class_ids?: string[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
