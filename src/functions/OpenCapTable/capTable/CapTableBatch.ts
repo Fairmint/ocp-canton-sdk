@@ -156,6 +156,10 @@ export class CapTableBatch {
   /**
    * Build the UpdateCapTable command without executing it.
    *
+   * Validates that the payload is JSON-safe (no `undefined` values) before returning.
+   * This catches converter bugs that would otherwise produce cryptic `commands.0: Invalid input`
+   * errors from the Canton JSON API parameter validation.
+   *
    * @returns The command and disclosed contracts for manual submission
    */
   build(): CommandWithDisclosedContracts {
@@ -169,6 +173,17 @@ export class CapTableBatch {
       );
     }
 
+    const choiceArgument = {
+      creates: this.creates,
+      edits: this.edits,
+      deletes: this.deletes,
+    };
+
+    // Pre-submit JSON-safety guard: detect undefined values that would poison the payload.
+    // Converters should never emit undefined, but if one does, catch it here with full context
+    // instead of letting it bubble up as an opaque "commands.0: Invalid input" from Zod.
+    this.assertJsonSafe(choiceArgument);
+
     // Use the templateId from capTableContractDetails when provided (from actual ledger),
     // otherwise fall back to the DAML-JS package's hardcoded templateId.
     const capTableTemplateId =
@@ -179,11 +194,7 @@ export class CapTableBatch {
         templateId: capTableTemplateId,
         contractId: this.params.capTableContractId,
         choice: 'UpdateCapTable',
-        choiceArgument: {
-          creates: this.creates,
-          edits: this.edits,
-          deletes: this.deletes,
-        },
+        choiceArgument,
       },
     };
 
@@ -271,6 +282,53 @@ export class CapTableBatch {
       choice: 'UpdateCapTable',
       code: OcpErrorCodes.RESULT_NOT_FOUND,
     });
+  }
+
+  /**
+   * Assert that the choice argument payload is JSON-safe (no `undefined` values).
+   *
+   * Walks the entire payload tree. If any `undefined` is found, throws an
+   * OcpValidationError with the full JSON-path and correlated batch item metadata
+   * so the caller can pinpoint exactly which converter produced bad output.
+   */
+  private assertJsonSafe(payload: Record<string, unknown>): void {
+    const undefinedPath = findUndefinedPath(payload, 'choiceArgument');
+    if (undefinedPath) {
+      // Try to correlate with batch item metadata for richer diagnostics
+      const meta = this.correlatePathToMeta(undefinedPath);
+      const metaSuffix = meta ? ` (entity: ${meta.entityType}, ocfId: ${meta.ocfId})` : '';
+      throw new OcpValidationError(
+        'batch.payload',
+        `Converter produced non-JSON-safe payload: undefined value at "${undefinedPath}"${metaSuffix}. ` +
+          'This is a converter bug — all optional fields must use null, not undefined.',
+        {
+          code: OcpErrorCodes.INVALID_TYPE,
+        }
+      );
+    }
+  }
+
+  /**
+   * Attempt to correlate a JSON-path like "choiceArgument.creates[3].value.stock_class_ids"
+   * back to the batch item metadata for that index.
+   */
+  private correlatePathToMeta(path: string): BatchItemMeta | undefined {
+    const createMatch = path.match(/^choiceArgument\.creates\[(\d+)]/);
+    if (createMatch) {
+      const idx = Number(createMatch[1]);
+      return this.createMetas[idx];
+    }
+    const editMatch = path.match(/^choiceArgument\.edits\[(\d+)]/);
+    if (editMatch) {
+      const idx = Number(editMatch[1]);
+      return this.editMetas[idx];
+    }
+    const deleteMatch = path.match(/^choiceArgument\.deletes\[(\d+)]/);
+    if (deleteMatch) {
+      const idx = Number(deleteMatch[1]);
+      return this.deleteMetas[idx];
+    }
+    return undefined;
   }
 
   /** Get a summary of the batch operations for logging and error messages. */
@@ -370,6 +428,35 @@ function extractBatchItemMeta(entityType: string, data: unknown): BatchItemMeta 
     }
   }
   return meta;
+}
+
+/**
+ * Recursively walk an object/array tree and return the JSON-path of the first `undefined` value found.
+ * Returns `undefined` (the JS value) if the tree is JSON-safe.
+ *
+ * This catches converter bugs where an optional TypeScript field is passed through without
+ * normalization to `null`, producing a payload that fails Zod's strict JSON schema validation.
+ */
+function findUndefinedPath(value: unknown, currentPath: string): string | undefined {
+  if (value === undefined) {
+    return currentPath;
+  }
+  if (value === null || typeof value !== 'object') {
+    return undefined;
+  }
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const result = findUndefinedPath(value[i], `${currentPath}[${i}]`);
+      if (result) return result;
+    }
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  for (const key of Object.keys(record)) {
+    const result = findUndefinedPath(record[key], `${currentPath}.${key}`);
+    if (result) return result;
+  }
+  return undefined;
 }
 
 /**

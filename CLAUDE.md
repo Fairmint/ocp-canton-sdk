@@ -461,6 +461,41 @@ The publish workflow requires:
 
 ---
 
+## Troubleshooting
+
+### `commands.0: Invalid input` (batch parameter validation failure)
+
+**Symptom:** `CapTableBatch.execute()` throws
+`Batch execution failed: Parameter validation failed: commands.0: Invalid input`.
+
+**Root cause:** A converter (`*DataToDaml`) emitted `undefined` for an optional field instead of
+`null`. The Canton JSON API uses strict Zod schema validation; `undefined` is not valid JSON and
+causes the entire command to fail with a non-descriptive path (`commands.0`).
+
+**Triage checklist:**
+
+1. **Identify the failing row** from the batch log (entity type + OCF ID).
+2. **Validate the source data against the OCF JSON schema** in `Open-Cap-Format-OCF/schema/`. If the
+   data is schema-valid, this is a **converter bug**, not a data issue.
+3. **Check the converter** in `src/functions/OpenCapTable/<entity>/` for direct passthrough of
+   optional fields (e.g., `fieldName: d.fieldName` without `?? null` or `?? []`).
+4. **Check for deprecated OCF fields** — the schema may allow alternative field names via `oneOf`
+   that our TypeScript interface doesn't model (e.g., `stock_class_id` vs `stock_class_ids` in
+   StockPlan).
+
+**Safety net:** `CapTableBatch.build()` runs `assertJsonSafe()` which recursively detects
+`undefined` values and throws with the exact JSON-path and correlated entity metadata. If you see
+`non-JSON-safe payload: undefined value at ...` in error logs, it points directly to the converter
+and field.
+
+**Converter rules:**
+
+- **Never** emit `undefined` in output objects — use `null` for DAML optional fields.
+- **Always** handle deprecated OCF field alternatives (check schema `oneOf`/`anyOf`).
+- **Always** normalize arrays with `?? []` and strings with `optionalString()`.
+
+---
+
 ## Living Document
 
 **Keep this file up-to-date.** Update it when:

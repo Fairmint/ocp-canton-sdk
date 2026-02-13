@@ -408,6 +408,84 @@ describe('CapTableBatch', () => {
   });
 });
 
+describe('JSON-safety guard', () => {
+  it('should throw OcpValidationError when converter output contains undefined', () => {
+    const batch = new CapTableBatch({
+      capTableContractId: 'cap-table-123',
+      actAs: ['party-1'],
+    });
+
+    // Simulate what happened in the DEV-MEZ incident: a converter emits undefined
+    // for stock_class_ids because the source data uses the deprecated stock_class_id field.
+    // We inject a poisoned create directly into the internal array to test the guard.
+    const poisonedCreate = {
+      tag: 'OcfCreateStockPlan',
+      value: {
+        id: 'stock-plan_eca1ad4ba4d9',
+        plan_name: 'Test Plan',
+        initial_shares_reserved: '900000',
+        stock_class_ids: undefined, // This is the bug
+        comments: [],
+      },
+    };
+
+    // Access private creates array via type assertion to inject the poisoned data
+    (batch as unknown as { creates: unknown[]; createMetas: unknown[] }).creates.push(poisonedCreate);
+    (batch as unknown as { creates: unknown[]; createMetas: unknown[] }).createMetas.push({
+      entityType: 'stockPlan',
+      ocfId: 'stock-plan_eca1ad4ba4d9',
+    });
+
+    expect(() => batch.build()).toThrow(OcpValidationError);
+    expect(() => batch.build()).toThrow(/non-JSON-safe payload/);
+    expect(() => batch.build()).toThrow(/undefined value at/);
+    expect(() => batch.build()).toThrow(/stock_class_ids/);
+    expect(() => batch.build()).toThrow(/stockPlan/);
+  });
+
+  it('should not throw when all values are JSON-safe', () => {
+    const batch = new CapTableBatch({
+      capTableContractId: 'cap-table-123',
+      actAs: ['party-1'],
+    });
+
+    const stakeholderData: OcfStakeholder = {
+      id: 'sh-123',
+      name: { legal_name: 'John Doe' },
+      stakeholder_type: 'INDIVIDUAL',
+    };
+
+    batch.create('stakeholder', stakeholderData);
+
+    // Should not throw
+    expect(() => batch.build()).not.toThrow();
+  });
+
+  it('should detect deeply nested undefined values', () => {
+    const batch = new CapTableBatch({
+      capTableContractId: 'cap-table-123',
+      actAs: ['party-1'],
+    });
+
+    // Inject a create with a deeply nested undefined
+    const poisonedCreate = {
+      tag: 'OcfCreateStakeholder',
+      value: {
+        id: 'sh-123',
+        name: { legal_name: 'Test', nested: { deep: undefined } },
+      },
+    };
+    (batch as unknown as { creates: unknown[]; createMetas: unknown[] }).creates.push(poisonedCreate);
+    (batch as unknown as { creates: unknown[]; createMetas: unknown[] }).createMetas.push({
+      entityType: 'stakeholder',
+      ocfId: 'sh-123',
+    });
+
+    expect(() => batch.build()).toThrow(OcpValidationError);
+    expect(() => batch.build()).toThrow(/undefined value at/);
+  });
+});
+
 describe('buildUpdateCapTableCommand', () => {
   it('should build command from operations object', () => {
     const stakeholderData: OcfStakeholder = {
