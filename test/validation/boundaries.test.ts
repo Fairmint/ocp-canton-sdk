@@ -154,6 +154,19 @@ describe('Boundary Condition Tests', () => {
       expect(result.current_relationships).toEqual(['OcfRelAdvisor']);
     });
 
+    test('preserves explicit empty current_relationships when both fields are present', () => {
+      const bothFieldsWithExplicitEmptyArray: OcfStakeholder = {
+        id: 'sh-both-empty-relationships',
+        name: { legal_name: 'Explicit Empty Relationships' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'FOUNDER',
+        current_relationships: [],
+      };
+
+      const result = stakeholderDataToDaml(bothFieldsWithExplicitEmptyArray);
+      expect(result.current_relationships).toEqual([]);
+    });
+
     test('comments array filters out empty strings', () => {
       const dataWithComments: OcfStakeholder = {
         id: 'sh-comments',
