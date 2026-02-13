@@ -204,14 +204,18 @@ export function isOcfStockLegendTemplate(value: unknown): value is OcfStockLegen
 
 /**
  * Type guard for OcfStockPlan objects.
+ * Accepts either `stock_class_ids` (array) or deprecated `stock_class_id` (string)
+ * per the OCF StockPlan schema oneOf.
  */
 export function isOcfStockPlan(value: unknown): value is OcfStockPlan {
   if (!isObject(value)) return false;
+  const hasStockClassIds = Array.isArray(value.stock_class_ids) && value.stock_class_ids.length > 0;
+  const hasDeprecatedStockClassId = isNonEmptyString(value.stock_class_id);
   return (
     isNonEmptyString(value.id) &&
     isNonEmptyString(value.plan_name) &&
     isNumericValue(value.initial_shares_reserved) &&
-    Array.isArray(value.stock_class_ids)
+    (hasStockClassIds || hasDeprecatedStockClassId)
   );
 }
 

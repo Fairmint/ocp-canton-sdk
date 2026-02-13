@@ -323,6 +323,11 @@ export class CapTableBatch {
       const idx = Number(editMatch[1]);
       return this.editMetas[idx];
     }
+    const deleteMatch = path.match(/^choiceArgument\.deletes\[(\d+)]/);
+    if (deleteMatch) {
+      const idx = Number(deleteMatch[1]);
+      return this.deleteMetas[idx];
+    }
     return undefined;
   }
 
