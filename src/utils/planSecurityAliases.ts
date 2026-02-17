@@ -1,3 +1,6 @@
+import type { OcfStakeholder } from '../types/native';
+import { isOcfStakeholder } from './typeGuards';
+
 /**
  * Plan Security to Equity Compensation alias mappings.
  *
@@ -194,19 +197,22 @@ function stripDocumentNonDamlFields<T extends Record<string, unknown>>(data: T):
  * - If `current_relationships` is missing and legacy `current_relationship` is
  *   a non-empty string, map it to `current_relationships: [value]`.
  */
+function normalizeStakeholderRelationships(data: OcfStakeholder): OcfStakeholder;
+function normalizeStakeholderRelationships<T extends Record<string, unknown>>(data: T): T;
 function normalizeStakeholderRelationships<T extends Record<string, unknown>>(data: T): T {
-  if (data.object_type !== 'STAKEHOLDER') return data;
+  const isStakeholderObject = data.object_type === 'STAKEHOLDER' || isOcfStakeholder(data);
+  if (!isStakeholderObject) return data;
 
   const relationshipsValue = data.current_relationships;
   if (Array.isArray(relationshipsValue)) {
     const normalizedRelationships: string[] = [];
     for (const value of relationshipsValue) {
       if (typeof value !== 'string') {
-        return data;
+        throw new Error(`Invalid stakeholder current_relationships entry: expected string, got ${typeof value}`);
       }
       const trimmed = value.trim();
       if (trimmed.length === 0) {
-        return data;
+        throw new Error('Invalid stakeholder current_relationships entry: empty string');
       }
       normalizedRelationships.push(trimmed);
     }
@@ -220,7 +226,7 @@ function normalizeStakeholderRelationships<T extends Record<string, unknown>>(da
     return {
       ...data,
       current_relationships: uniqueSortedRelationships,
-    } as T;
+    };
   }
 
   if (typeof data.current_relationship !== 'string') return data;
@@ -230,7 +236,7 @@ function normalizeStakeholderRelationships<T extends Record<string, unknown>>(da
   return {
     ...data,
     current_relationships: [legacyRelationship],
-  } as T;
+  };
 }
 
 /**

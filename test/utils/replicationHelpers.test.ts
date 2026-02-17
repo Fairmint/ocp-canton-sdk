@@ -13,6 +13,7 @@ import {
   mapCategorizedTypeToEntityType,
   TRANSACTION_SUBTYPE_MAP,
 } from '../../src/utils/replicationHelpers';
+import { validateOcfObject } from './ocfSchemaValidator';
 
 // ============================================================================
 // TRANSACTION_SUBTYPE_MAP Tests
@@ -620,36 +621,35 @@ describe('computeReplicationDiff', () => {
       expect(diff.edits).toHaveLength(0);
     });
 
-    it('treats stakeholder current_relationship as equivalent to current_relationships', () => {
+    it('treats stakeholder current_relationship as equivalent to current_relationships', async () => {
+      const sourceStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'INVESTOR',
+      };
+      const cantonStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR'],
+      };
+      await validateOcfObject(sourceStakeholder);
+      await validateOcfObject(cantonStakeholder);
+
       const sourceItems = [
         {
           ocfId: 'sh-1',
           entityType: 'stakeholder' as OcfEntityType,
-          data: {
-            object_type: 'STAKEHOLDER',
-            id: 'sh-1',
-            current_relationship: 'INVESTOR',
-          },
+          data: sourceStakeholder,
         },
       ];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
-      const cantonOcfData: CantonOcfDataMap = new Map([
-        [
-          'stakeholder',
-          new Map([
-            [
-              'sh-1',
-              {
-                object_type: 'STAKEHOLDER',
-                id: 'sh-1',
-                current_relationships: ['INVESTOR'],
-              },
-            ],
-          ]),
-        ],
-      ]);
+      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', cantonStakeholder]])]]);
 
       const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
 
@@ -658,36 +658,35 @@ describe('computeReplicationDiff', () => {
       expect(diff.total).toBe(0);
     });
 
-    it('treats stakeholder current_relationships with different order as equivalent', () => {
+    it('treats stakeholder current_relationships with different order as equivalent', async () => {
+      const sourceStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR', 'FOUNDER'],
+      };
+      const cantonStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['FOUNDER', 'INVESTOR'],
+      };
+      await validateOcfObject(sourceStakeholder);
+      await validateOcfObject(cantonStakeholder);
+
       const sourceItems = [
         {
           ocfId: 'sh-1',
           entityType: 'stakeholder' as OcfEntityType,
-          data: {
-            object_type: 'STAKEHOLDER',
-            id: 'sh-1',
-            current_relationships: ['INVESTOR', 'FOUNDER'],
-          },
+          data: sourceStakeholder,
         },
       ];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
-      const cantonOcfData: CantonOcfDataMap = new Map([
-        [
-          'stakeholder',
-          new Map([
-            [
-              'sh-1',
-              {
-                object_type: 'STAKEHOLDER',
-                id: 'sh-1',
-                current_relationships: ['FOUNDER', 'INVESTOR'],
-              },
-            ],
-          ]),
-        ],
-      ]);
+      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', cantonStakeholder]])]]);
 
       const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
 

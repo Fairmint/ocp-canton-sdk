@@ -11,6 +11,7 @@ import {
   PLAN_SECURITY_OBJECT_TYPE_MAP,
   PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP,
 } from '../../src/utils/planSecurityAliases';
+import { validateOcfObject } from './ocfSchemaValidator';
 
 describe('PlanSecurity alias utilities', () => {
   describe('isPlanSecurityEntityType', () => {
@@ -180,40 +181,49 @@ describe('PlanSecurity alias utilities', () => {
       expect(result).toBe(input); // Same reference - no copy needed
     });
 
-    it('maps stakeholder current_relationship to current_relationships', () => {
+    it('maps stakeholder current_relationship to current_relationships', async () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
         current_relationship: 'INVESTOR',
       };
 
       const result = normalizeOcfData(input);
+      await validateOcfObject(result);
 
       expect(result).toMatchObject({ current_relationships: ['INVESTOR'] });
     });
 
-    it('keeps explicit stakeholder current_relationships authoritative over legacy field', () => {
+    it('keeps explicit stakeholder current_relationships authoritative over legacy field', async () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
         current_relationship: 'INVESTOR',
         current_relationships: [],
       };
 
       const result = normalizeOcfData(input);
+      await validateOcfObject(result);
 
       expect(result).toBe(input);
       expect(result.current_relationships).toEqual([]);
     });
 
-    it('normalizes stakeholder current_relationships ordering and duplicates', () => {
+    it('normalizes stakeholder current_relationships ordering and duplicates', async () => {
       const input = {
         object_type: 'STAKEHOLDER',
         id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
         current_relationships: ['INVESTOR', 'FOUNDER', 'INVESTOR'],
       };
 
       const result = normalizeOcfData(input);
+      await validateOcfObject(result);
 
       expect(result.current_relationships).toEqual(['FOUNDER', 'INVESTOR']);
     });
@@ -229,6 +239,30 @@ describe('PlanSecurity alias utilities', () => {
 
       expect(result).toBe(input);
       expect(result).not.toHaveProperty('current_relationships');
+    });
+
+    it('throws for non-string entries in stakeholder current_relationships', () => {
+      const input = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR', 7],
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships entry');
+    });
+
+    it('throws for empty-string entries in stakeholder current_relationships', () => {
+      const input = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR', '   '],
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships entry');
     });
   });
 
