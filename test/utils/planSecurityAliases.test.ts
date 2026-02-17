@@ -179,6 +179,57 @@ describe('PlanSecurity alias utilities', () => {
 
       expect(result).toBe(input); // Same reference - no copy needed
     });
+
+    it('maps stakeholder current_relationship to current_relationships', () => {
+      const input = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        current_relationship: 'INVESTOR',
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result).toMatchObject({ current_relationships: ['INVESTOR'] });
+    });
+
+    it('keeps explicit stakeholder current_relationships authoritative over legacy field', () => {
+      const input = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        current_relationship: 'INVESTOR',
+        current_relationships: [],
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result).toBe(input);
+      expect(result.current_relationships).toEqual([]);
+    });
+
+    it('normalizes stakeholder current_relationships ordering and duplicates', () => {
+      const input = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        current_relationships: ['INVESTOR', 'FOUNDER', 'INVESTOR'],
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result.current_relationships).toEqual(['FOUNDER', 'INVESTOR']);
+    });
+
+    it('does not map legacy current_relationship for non-stakeholder objects', () => {
+      const input = {
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: 'tx-1',
+        current_relationship: 'INVESTOR',
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result).toBe(input);
+      expect(result).not.toHaveProperty('current_relationships');
+    });
   });
 
   describe('alias mappings', () => {

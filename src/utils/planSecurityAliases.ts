@@ -180,12 +180,67 @@ function stripDocumentNonDamlFields<T extends Record<string, unknown>>(data: T):
 }
 
 /**
+ * Normalize Stakeholder relationship fields for consistent comparison.
+ *
+ * OCF deprecated `current_relationship` in favor of `current_relationships`.
+ * During round-trip, Canton data uses `current_relationships`, while source data
+ * may still contain only the legacy field. This causes phantom edits where one
+ * side appears empty/undefined.
+ *
+ * Rules:
+ * - Apply only to Stakeholder objects.
+ * - If `current_relationships` is an array, keep it authoritative and normalize
+ *   ordering/duplicates for deterministic comparison.
+ * - If `current_relationships` is missing and legacy `current_relationship` is
+ *   a non-empty string, map it to `current_relationships: [value]`.
+ */
+function normalizeStakeholderRelationships<T extends Record<string, unknown>>(data: T): T {
+  if (data.object_type !== 'STAKEHOLDER') return data;
+
+  const relationshipsValue = data.current_relationships;
+  if (Array.isArray(relationshipsValue)) {
+    const normalizedRelationships: string[] = [];
+    for (const value of relationshipsValue) {
+      if (typeof value !== 'string') {
+        return data;
+      }
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        return data;
+      }
+      normalizedRelationships.push(trimmed);
+    }
+
+    const uniqueSortedRelationships = Array.from(new Set(normalizedRelationships)).sort();
+    const alreadyNormalized =
+      uniqueSortedRelationships.length === relationshipsValue.length &&
+      uniqueSortedRelationships.every((value, index) => value === relationshipsValue[index]);
+    if (alreadyNormalized) return data;
+
+    return {
+      ...data,
+      current_relationships: uniqueSortedRelationships,
+    } as T;
+  }
+
+  if (typeof data.current_relationship !== 'string') return data;
+  const legacyRelationship = data.current_relationship.trim();
+  if (legacyRelationship.length === 0) return data;
+
+  return {
+    ...data,
+    current_relationships: [legacyRelationship],
+  } as T;
+}
+
+/**
  * Normalize OCF data for consistent comparison.
  *
  * This function applies normalizations to ensure semantically equivalent data compares as equal:
  * 1. Converts PlanSecurity object_type to EquityCompensation equivalent
  * 2. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
  * 3. Strips Document fields that the DAML contract does not model (e.g. `date`)
+ * 4. Canonicalizes Stakeholder relationships (`current_relationship` -> `current_relationships`)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -217,6 +272,9 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
 
   // Strip Document fields that DAML cannot store (e.g. `date`)
   result = stripDocumentNonDamlFields(result);
+
+  // Canonicalize deprecated/current stakeholder relationship fields
+  result = normalizeStakeholderRelationships(result);
 
   return result;
 }
