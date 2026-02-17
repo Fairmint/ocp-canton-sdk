@@ -324,12 +324,14 @@ describe('PlanSecurity alias utilities', () => {
         plan_name: 'Stock Option Plan',
         initial_shares_reserved: '1000000',
         stock_class_ids: ['sc-1', 'sc-2'],
+        stock_class_id: 'legacy-sc',
       };
 
       const result = normalizeOcfData(input);
 
       expect(result).toBe(input);
       expect(result.stock_class_ids).toEqual(['sc-1', 'sc-2']);
+      expect(result.stock_class_id).toBe('legacy-sc');
     });
 
     it('returns stock plan unchanged when stock_class_ids already present', () => {
@@ -367,6 +369,18 @@ describe('PlanSecurity alias utilities', () => {
         plan_name: 'Stock Option Plan',
         initial_shares_reserved: '1000000',
         stock_class_ids: 'sc-1',
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stock plan stock_class_ids: expected array');
+    });
+
+    it('throws when stock plan stock_class_ids is null', () => {
+      const input = {
+        object_type: 'STOCK_PLAN',
+        id: 'sp-1',
+        plan_name: 'Stock Option Plan',
+        initial_shares_reserved: '1000000',
+        stock_class_ids: null,
       };
 
       expect(() => normalizeOcfData(input)).toThrow('Invalid stock plan stock_class_ids: expected array');

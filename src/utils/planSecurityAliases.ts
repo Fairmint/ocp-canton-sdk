@@ -275,8 +275,8 @@ function normalizeStockPlanClassIds<T extends Record<string, unknown>>(data: T):
   // If modern field is already present as an array, nothing to normalize
   if (Array.isArray(classIdsValue)) return data;
 
-  // If modern field is present but not an array, that's invalid
-  if (classIdsValue !== undefined && classIdsValue !== null) {
+  // If modern field is present but not an array (including null), that's invalid
+  if (classIdsValue !== undefined) {
     throw new Error(`Invalid stock plan stock_class_ids: expected array, got ${typeof classIdsValue}`);
   }
 
