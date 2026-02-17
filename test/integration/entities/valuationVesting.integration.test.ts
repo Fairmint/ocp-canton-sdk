@@ -29,6 +29,10 @@ import {
   setupTestIssuer,
 } from '../utils';
 
+function extractContractIdString(cid: { value: unknown }): string {
+  return cid.value as string;
+}
+
 createIntegrationTestSuite('Valuation and Vesting types via batch API', (getContext) => {
   /**
    * Test: Create a valuation (409A) via batch API.
@@ -104,6 +108,13 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
 
     expect(result.createdCids).toHaveLength(1);
     expect(result.updatedCapTableCid).toBeTruthy();
+
+    const ocfResult = await ctx.ocp.OpenCapTable.vestingStart.get({
+      contractId: extractContractIdString(result.createdCids[0]),
+    });
+    expect(ocfResult.data.object_type).toBe('TX_VESTING_START');
+    expect(ocfResult.data.security_id).toBe(vestingStartData.security_id);
+    expect(ocfResult.data.vesting_condition_id).toBe(vestingStartData.vesting_condition_id);
   });
 
   /**
@@ -158,6 +169,13 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
 
     expect(result.createdCids).toHaveLength(1);
     expect(result.updatedCapTableCid).toBeTruthy();
+
+    const ocfResult = await ctx.ocp.OpenCapTable.vestingEvent.get({
+      contractId: extractContractIdString(result.createdCids[0]),
+    });
+    expect(ocfResult.data.object_type).toBe('TX_VESTING_EVENT');
+    expect(ocfResult.data.security_id).toBe(vestingEventData.security_id);
+    expect(ocfResult.data.vesting_condition_id).toBe(vestingEventData.vesting_condition_id);
   });
 
   /**
@@ -211,6 +229,13 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
 
     expect(result.createdCids).toHaveLength(1);
     expect(result.updatedCapTableCid).toBeTruthy();
+
+    const ocfResult = await ctx.ocp.OpenCapTable.vestingAcceleration.get({
+      contractId: extractContractIdString(result.createdCids[0]),
+    });
+    expect(ocfResult.data.object_type).toBe('TX_VESTING_ACCELERATION');
+    expect(ocfResult.data.security_id).toBe(vestingAccelerationData.security_id);
+    expect(ocfResult.data.reason_text).toBe(vestingAccelerationData.reason_text);
   });
 
   /**

@@ -35,13 +35,15 @@ export async function getVestingAccelerationAsOcf(
 
   const { createArgument } = eventsResponse.created.createdEvent;
 
-  function hasVestingAccelerationData(arg: unknown): arg is { vesting_acceleration_data: DamlVestingAccelerationData } {
+  function hasVestingAccelerationData(arg: unknown): arg is {
+    acceleration_data?: DamlVestingAccelerationData;
+    vesting_acceleration_data?: DamlVestingAccelerationData;
+  } {
     const record = arg as Record<string, unknown>;
     return (
       typeof arg === 'object' &&
       arg !== null &&
-      'vesting_acceleration_data' in record &&
-      typeof record.vesting_acceleration_data === 'object'
+      (typeof record.acceleration_data === 'object' || typeof record.vesting_acceleration_data === 'object')
     );
   }
 
@@ -52,7 +54,15 @@ export async function getVestingAccelerationAsOcf(
     });
   }
 
-  const native = damlVestingAccelerationToNative(createArgument.vesting_acceleration_data);
+  const accelerationData = createArgument.acceleration_data ?? createArgument.vesting_acceleration_data;
+  if (!accelerationData || typeof accelerationData !== 'object') {
+    throw new OcpParseError('Unexpected createArgument shape for VestingAcceleration', {
+      source: 'VestingAcceleration.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+
+  const native = damlVestingAccelerationToNative(accelerationData);
   return {
     vestingAcceleration: {
       object_type: 'TX_VESTING_ACCELERATION' as const,

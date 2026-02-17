@@ -80,6 +80,55 @@ describe('damlToOcf dispatcher', () => {
       expect(result).toEqual({ id: 'acc-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1' });
     });
 
+    it('extracts vestingStart data from canonical vesting_data key', () => {
+      const createArgument = {
+        vesting_data: { id: 'vs-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1', vesting_condition_id: 'vc-1' },
+      };
+
+      const result = extractEntityData('vestingStart', createArgument);
+      expect(result).toEqual({
+        id: 'vs-1',
+        date: '2025-01-01T00:00:00Z',
+        security_id: 'sec-1',
+        vesting_condition_id: 'vc-1',
+      });
+    });
+
+    it('extracts vestingEvent data from canonical vesting_data key', () => {
+      const createArgument = {
+        vesting_data: { id: 've-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1', vesting_condition_id: 'vc-1' },
+      };
+
+      const result = extractEntityData('vestingEvent', createArgument);
+      expect(result).toEqual({
+        id: 've-1',
+        date: '2025-01-01T00:00:00Z',
+        security_id: 'sec-1',
+        vesting_condition_id: 'vc-1',
+      });
+    });
+
+    it('extracts vestingAcceleration data from canonical acceleration_data key', () => {
+      const createArgument = {
+        acceleration_data: {
+          id: 'va-1',
+          date: '2025-01-01T00:00:00Z',
+          security_id: 'sec-1',
+          quantity: '10',
+          reason_text: 'Acceleration trigger',
+        },
+      };
+
+      const result = extractEntityData('vestingAcceleration', createArgument);
+      expect(result).toEqual({
+        id: 'va-1',
+        date: '2025-01-01T00:00:00Z',
+        security_id: 'sec-1',
+        quantity: '10',
+        reason_text: 'Acceleration trigger',
+      });
+    });
+
     it('throws when createArgument is not an object', () => {
       expect(() => extractEntityData('stakeholder', null)).toThrow(OcpParseError);
       expect(() => extractEntityData('stakeholder', 'string')).toThrow(OcpParseError);
@@ -130,6 +179,12 @@ describe('damlToOcf dispatcher', () => {
       expect(ENTITY_DATA_FIELD_MAP.convertibleAcceptance).toBe('acceptance_data');
       expect(ENTITY_DATA_FIELD_MAP.warrantAcceptance).toBe('acceptance_data');
       expect(ENTITY_DATA_FIELD_MAP.equityCompensationAcceptance).toBe('acceptance_data');
+    });
+
+    it('maps vesting types to deployed DAML wrapper keys', () => {
+      expect(ENTITY_DATA_FIELD_MAP.vestingStart).toBe('vesting_data');
+      expect(ENTITY_DATA_FIELD_MAP.vestingEvent).toBe('vesting_data');
+      expect(ENTITY_DATA_FIELD_MAP.vestingAcceleration).toBe('acceleration_data');
     });
   });
 

@@ -120,9 +120,12 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
   stockRetraction: 'retraction_data',
   stockTransfer: 'transfer_data',
   valuation: 'valuation_data',
-  vestingAcceleration: 'vesting_acceleration_data',
-  vestingEvent: 'vesting_event_data',
-  vestingStart: 'vesting_start_data',
+  // Deployed DAML templates use these wrapper fields:
+  // - VestingStart/VestingEvent: vesting_data
+  // - VestingAcceleration: acceleration_data
+  vestingAcceleration: 'acceleration_data',
+  vestingEvent: 'vesting_data',
+  vestingStart: 'vesting_data',
   vestingTerms: 'vesting_terms_data',
   warrantAcceptance: 'acceptance_data',
   warrantCancellation: 'cancellation_data',

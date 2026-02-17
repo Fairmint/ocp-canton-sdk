@@ -373,6 +373,11 @@ export interface ExtractCantonOcfOptions {
   verbose?: boolean;
   /** Callback for logging (defaults to console.log when verbose) */
   logger?: (message: string) => void;
+  /**
+   * Throw when one or more contracts fail to extract.
+   * Default: true (fail fast instead of returning partial manifests).
+   */
+  failOnReadErrors?: boolean;
 }
 
 /**
@@ -402,9 +407,10 @@ export async function extractCantonOcfManifest(
   cantonState: CapTableState,
   options: ExtractCantonOcfOptions = {}
 ): Promise<OcfManifest> {
-  const { verbose = false } = options;
+  const { verbose = false, failOnReadErrors = true } = options;
   // eslint-disable-next-line no-console
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
+  const extractionFailures: Array<{ entityType: string; ocfId: string; contractId: string; message: string }> = [];
 
   const result: OcfManifest = {
     issuer: null,
@@ -428,6 +434,12 @@ export async function extractCantonOcfManifest(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       log(`  ⚠️ Failed to fetch issuer: ${msg}`);
+      extractionFailures.push({
+        entityType: 'issuer',
+        ocfId: 'issuer',
+        contractId: cantonState.issuerContractId,
+        message: msg,
+      });
     }
   }
 
@@ -513,8 +525,30 @@ export async function extractCantonOcfManifest(
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         log(`  ⚠️ Failed to fetch ${entityType}/${ocfId}: ${msg}`);
+        extractionFailures.push({
+          entityType,
+          ocfId,
+          contractId,
+          message: msg,
+        });
       }
     }
+  }
+
+  if (failOnReadErrors && extractionFailures.length > 0) {
+    const maxFailuresToReport = 10;
+    const failureSummary = extractionFailures
+      .slice(0, maxFailuresToReport)
+      .map((failure) => `${failure.entityType}/${failure.ocfId} (contractId=${failure.contractId}): ${failure.message}`)
+      .join('\n');
+    const extraCount = extractionFailures.length - maxFailuresToReport;
+    const extraSuffix = extraCount > 0 ? `\n... and ${extraCount} more` : '';
+
+    throw new Error(
+      `Failed to extract ${extractionFailures.length} Canton object(s) while building manifest. ` +
+        'Extraction returned partial data; aborting to avoid inconsistent diffs.\n' +
+        `${failureSummary}${extraSuffix}`
+    );
   }
 
   // Sort transactions by date with domain-aware same-day ordering
