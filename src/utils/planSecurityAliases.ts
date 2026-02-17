@@ -1,3 +1,6 @@
+import type { OcfStakeholder } from '../types/native';
+import { isOcfStakeholder } from './typeGuards';
+
 /**
  * Plan Security to Equity Compensation alias mappings.
  *
@@ -180,12 +183,81 @@ function stripDocumentNonDamlFields<T extends Record<string, unknown>>(data: T):
 }
 
 /**
+ * Normalize Stakeholder relationship fields for consistent comparison.
+ *
+ * OCF deprecated `current_relationship` in favor of `current_relationships`.
+ * During round-trip, Canton data uses `current_relationships`, while source data
+ * may still contain only the legacy field. This causes phantom edits where one
+ * side appears empty/undefined.
+ *
+ * Rules:
+ * - Apply only to Stakeholder objects.
+ * - If `current_relationships` is an array, keep it authoritative and normalize
+ *   ordering/duplicates for deterministic comparison.
+ * - If `current_relationships` is missing and legacy `current_relationship` is
+ *   a non-empty string, map it to `current_relationships: [value]`.
+ */
+function normalizeStakeholderRelationships(data: OcfStakeholder): OcfStakeholder;
+function normalizeStakeholderRelationships<T extends Record<string, unknown>>(data: T): T;
+function normalizeStakeholderRelationships<T extends Record<string, unknown>>(data: T): T {
+  const isStakeholderObject = data.object_type === 'STAKEHOLDER' || isOcfStakeholder(data);
+  if (!isStakeholderObject) return data;
+
+  const relationshipsValue = data.current_relationships;
+  if (relationshipsValue !== undefined && !Array.isArray(relationshipsValue)) {
+    throw new Error(`Invalid stakeholder current_relationships: expected array, got ${typeof relationshipsValue}`);
+  }
+
+  if (Array.isArray(relationshipsValue)) {
+    const normalizedRelationships: string[] = [];
+    for (const value of relationshipsValue) {
+      if (typeof value !== 'string') {
+        throw new Error(`Invalid stakeholder current_relationships entry: expected string, got ${typeof value}`);
+      }
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        throw new Error('Invalid stakeholder current_relationships entry: empty string');
+      }
+      normalizedRelationships.push(trimmed);
+    }
+
+    const uniqueSortedRelationships = Array.from(new Set(normalizedRelationships)).sort();
+    const alreadyNormalized =
+      uniqueSortedRelationships.length === relationshipsValue.length &&
+      uniqueSortedRelationships.every((value, index) => value === relationshipsValue[index]);
+    if (alreadyNormalized) return data;
+
+    return {
+      ...data,
+      current_relationships: uniqueSortedRelationships,
+    };
+  }
+
+  if (data.current_relationship !== undefined && typeof data.current_relationship !== 'string') {
+    throw new Error(
+      `Invalid stakeholder current_relationship: expected string, got ${typeof data.current_relationship}`
+    );
+  }
+  if (typeof data.current_relationship !== 'string') return data;
+  const legacyRelationship = data.current_relationship.trim();
+  if (legacyRelationship.length === 0) {
+    throw new Error('Invalid stakeholder current_relationship: empty string');
+  }
+
+  return {
+    ...data,
+    current_relationships: [legacyRelationship],
+  };
+}
+
+/**
  * Normalize OCF data for consistent comparison.
  *
  * This function applies normalizations to ensure semantically equivalent data compares as equal:
  * 1. Converts PlanSecurity object_type to EquityCompensation equivalent
  * 2. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
  * 3. Strips Document fields that the DAML contract does not model (e.g. `date`)
+ * 4. Canonicalizes Stakeholder relationships (`current_relationship` -> `current_relationships`)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -217,6 +289,9 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
 
   // Strip Document fields that DAML cannot store (e.g. `date`)
   result = stripDocumentNonDamlFields(result);
+
+  // Canonicalize deprecated/current stakeholder relationship fields
+  result = normalizeStakeholderRelationships(result);
 
   return result;
 }
