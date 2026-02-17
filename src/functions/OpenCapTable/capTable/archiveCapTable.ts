@@ -9,6 +9,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts } from '../../../types';
 import { buildCapTableCommand } from './buildCapTableCommand';
 
@@ -70,12 +71,27 @@ export async function archiveCapTable(
   client: LedgerJsonApiClient,
   params: ArchiveCapTableParams
 ): Promise<ArchiveCapTableResult> {
-  const { command } = buildArchiveCapTableCommand(params);
+  if (!params.capTableContractId) {
+    throw new OcpValidationError(
+      'archiveCapTable.capTableContractId',
+      'capTableContractId is required to archive a cap table.',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: params.capTableContractId }
+    );
+  }
+  if (!Array.isArray(params.actAs) || params.actAs.length === 0) {
+    throw new OcpValidationError('archiveCapTable.actAs', 'actAs must include at least the system_operator party.', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: params.actAs,
+    });
+  }
+
+  const { command, disclosedContracts } = buildArchiveCapTableCommand(params);
 
   const result = await client.submitAndWaitForTransactionTree({
     actAs: params.actAs,
     readAs: params.readAs,
     commands: [command],
+    disclosedContracts,
   });
 
   return { updateId: result.transactionTree.updateId };
