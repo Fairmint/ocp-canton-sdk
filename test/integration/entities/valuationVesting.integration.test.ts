@@ -30,7 +30,10 @@ import {
 } from '../utils';
 
 function extractContractIdString(cid: { value: unknown }): string {
-  return cid.value as string;
+  if (typeof cid.value !== 'string') {
+    throw new Error(`Expected contractId.value to be a string, got ${typeof cid.value}`);
+  }
+  return cid.value;
 }
 
 createIntegrationTestSuite('Valuation and Vesting types via batch API', (getContext) => {

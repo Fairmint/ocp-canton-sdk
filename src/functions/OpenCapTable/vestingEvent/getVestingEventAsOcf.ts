@@ -43,7 +43,8 @@ export async function getVestingEventAsOcf(
     return (
       typeof arg === 'object' &&
       arg !== null &&
-      (typeof record.vesting_data === 'object' || typeof record.vesting_event_data === 'object')
+      ((record.vesting_data !== null && typeof record.vesting_data === 'object') ||
+        (record.vesting_event_data !== null && typeof record.vesting_event_data === 'object'))
     );
   }
 

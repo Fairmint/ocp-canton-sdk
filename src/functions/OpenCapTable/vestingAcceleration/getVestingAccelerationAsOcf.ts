@@ -43,7 +43,8 @@ export async function getVestingAccelerationAsOcf(
     return (
       typeof arg === 'object' &&
       arg !== null &&
-      (typeof record.acceleration_data === 'object' || typeof record.vesting_acceleration_data === 'object')
+      ((record.acceleration_data !== null && typeof record.acceleration_data === 'object') ||
+        (record.vesting_acceleration_data !== null && typeof record.vesting_acceleration_data === 'object'))
     );
   }
 
