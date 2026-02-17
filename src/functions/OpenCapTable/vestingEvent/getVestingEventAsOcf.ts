@@ -35,13 +35,16 @@ export async function getVestingEventAsOcf(
 
   const { createArgument } = eventsResponse.created.createdEvent;
 
-  function hasVestingEventData(arg: unknown): arg is { vesting_event_data: DamlVestingEventData } {
+  function hasVestingEventData(arg: unknown): arg is {
+    vesting_data?: DamlVestingEventData;
+    vesting_event_data?: DamlVestingEventData;
+  } {
     const record = arg as Record<string, unknown>;
     return (
       typeof arg === 'object' &&
       arg !== null &&
-      'vesting_event_data' in record &&
-      typeof record.vesting_event_data === 'object'
+      ((record.vesting_data !== null && typeof record.vesting_data === 'object') ||
+        (record.vesting_event_data !== null && typeof record.vesting_event_data === 'object'))
     );
   }
 
@@ -52,7 +55,15 @@ export async function getVestingEventAsOcf(
     });
   }
 
-  const native = damlVestingEventToNative(createArgument.vesting_event_data);
+  const vestingData = createArgument.vesting_data ?? createArgument.vesting_event_data;
+  if (!vestingData || typeof vestingData !== 'object') {
+    throw new OcpParseError('Unexpected createArgument shape for VestingEvent', {
+      source: 'VestingEvent.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+
+  const native = damlVestingEventToNative(vestingData);
   return {
     vestingEvent: {
       object_type: 'TX_VESTING_EVENT' as const,

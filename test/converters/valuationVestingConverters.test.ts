@@ -8,6 +8,7 @@
  * - VestingAcceleration
  */
 
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import {
@@ -19,14 +20,17 @@ import {
   damlVestingAccelerationToNative,
   type DamlVestingAccelerationData,
 } from '../../src/functions/OpenCapTable/vestingAcceleration/damlToOcf';
+import { getVestingAccelerationAsOcf } from '../../src/functions/OpenCapTable/vestingAcceleration/getVestingAccelerationAsOcf';
 import {
   damlVestingEventToNative,
   type DamlVestingEventData,
 } from '../../src/functions/OpenCapTable/vestingEvent/damlToOcf';
+import { getVestingEventAsOcf } from '../../src/functions/OpenCapTable/vestingEvent/getVestingEventAsOcf';
 import {
   damlVestingStartToNative,
   type DamlVestingStartData,
 } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
+import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
 import type {
   OcfValuation,
   OcfVestingAcceleration,
@@ -580,5 +584,123 @@ describe('VestingAcceleration Converters', () => {
       expect(roundTrippedOcf.reason_text).toBe(originalOcf.reason_text);
       expect(roundTrippedOcf.comments).toEqual(originalOcf.comments);
     });
+  });
+});
+
+describe('Vesting read-path wrapper compatibility', () => {
+  const baseEventPayload = {
+    created: {
+      createdEvent: {
+        createArgument: {},
+      },
+    },
+  };
+
+  function mockClientWithCreateArgument(createArgument: Record<string, unknown>): LedgerJsonApiClient {
+    return {
+      getEventsByContractId: jest.fn().mockResolvedValue({
+        ...baseEventPayload,
+        created: {
+          createdEvent: {
+            createArgument,
+          },
+        },
+      }),
+    } as unknown as LedgerJsonApiClient;
+  }
+
+  test('getVestingStartAsOcf reads canonical vesting_data wrapper', async () => {
+    const client = mockClientWithCreateArgument({
+      vesting_data: {
+        id: 'vs-read-001',
+        date: '2024-01-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        vesting_condition_id: 'vc-001',
+        comments: [],
+      },
+    });
+
+    const result = await getVestingStartAsOcf(client, { contractId: 'cid-vs' });
+    expect(result.vestingStart.object_type).toBe('TX_VESTING_START');
+    expect(result.vestingStart.id).toBe('vs-read-001');
+  });
+
+  test('getVestingStartAsOcf also accepts legacy vesting_start_data wrapper', async () => {
+    const client = mockClientWithCreateArgument({
+      vesting_start_data: {
+        id: 'vs-read-legacy-001',
+        date: '2024-01-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        vesting_condition_id: 'vc-001',
+        comments: [],
+      },
+    });
+
+    const result = await getVestingStartAsOcf(client, { contractId: 'cid-vs-legacy' });
+    expect(result.vestingStart.id).toBe('vs-read-legacy-001');
+  });
+
+  test('getVestingEventAsOcf reads canonical vesting_data wrapper', async () => {
+    const client = mockClientWithCreateArgument({
+      vesting_data: {
+        id: 've-read-001',
+        date: '2024-06-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        vesting_condition_id: 'vc-evt-001',
+        comments: [],
+      },
+    });
+
+    const result = await getVestingEventAsOcf(client, { contractId: 'cid-ve' });
+    expect(result.vestingEvent.object_type).toBe('TX_VESTING_EVENT');
+    expect(result.vestingEvent.id).toBe('ve-read-001');
+  });
+
+  test('getVestingEventAsOcf also accepts legacy vesting_event_data wrapper', async () => {
+    const client = mockClientWithCreateArgument({
+      vesting_event_data: {
+        id: 've-read-legacy-001',
+        date: '2024-06-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        vesting_condition_id: 'vc-evt-001',
+        comments: [],
+      },
+    });
+
+    const result = await getVestingEventAsOcf(client, { contractId: 'cid-ve-legacy' });
+    expect(result.vestingEvent.id).toBe('ve-read-legacy-001');
+  });
+
+  test('getVestingAccelerationAsOcf reads canonical acceleration_data wrapper', async () => {
+    const client = mockClientWithCreateArgument({
+      acceleration_data: {
+        id: 'va-read-001',
+        date: '2024-12-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        quantity: '10000',
+        reason_text: 'Company acquisition',
+        comments: [],
+      },
+    });
+
+    const result = await getVestingAccelerationAsOcf(client, { contractId: 'cid-va' });
+    expect(result.vestingAcceleration.object_type).toBe('TX_VESTING_ACCELERATION');
+    expect(result.vestingAcceleration.id).toBe('va-read-001');
+  });
+
+  test('getVestingAccelerationAsOcf also accepts legacy vesting_acceleration_data wrapper', async () => {
+    const client = mockClientWithCreateArgument({
+      vesting_acceleration_data: {
+        id: 'va-read-legacy-001',
+        date: '2024-12-01T00:00:00.000Z',
+        security_id: 'sec-001',
+        quantity: '10000',
+        reason_text: 'Company acquisition',
+        comments: [],
+      },
+    });
+
+    const result = await getVestingAccelerationAsOcf(client, { contractId: 'cid-va-legacy' });
+    expect(result.vestingAcceleration.id).toBe('va-read-legacy-001');
   });
 });

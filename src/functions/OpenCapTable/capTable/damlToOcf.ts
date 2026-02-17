@@ -120,9 +120,12 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
   stockRetraction: 'retraction_data',
   stockTransfer: 'transfer_data',
   valuation: 'valuation_data',
-  vestingAcceleration: 'vesting_acceleration_data',
-  vestingEvent: 'vesting_event_data',
-  vestingStart: 'vesting_start_data',
+  // Deployed DAML templates use these wrapper fields:
+  // - VestingStart/VestingEvent: vesting_data
+  // - VestingAcceleration: acceleration_data
+  vestingAcceleration: 'acceleration_data',
+  vestingEvent: 'vesting_data',
+  vestingStart: 'vesting_data',
   vestingTerms: 'vesting_terms_data',
   warrantAcceptance: 'acceptance_data',
   warrantCancellation: 'cancellation_data',
@@ -130,6 +133,19 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
   warrantIssuance: 'issuance_data',
   warrantRetraction: 'retraction_data',
   warrantTransfer: 'transfer_data',
+};
+
+/**
+ * Backward-compatible fallback wrappers for entity data extraction.
+ *
+ * These are checked only when the canonical field in ENTITY_DATA_FIELD_MAP
+ * is missing. This keeps reads compatible with legacy deployed wrappers
+ * while preserving canonical output mapping.
+ */
+export const ENTITY_DATA_FIELD_FALLBACK_MAP: Partial<Record<OcfEntityType, readonly string[]>> = {
+  vestingAcceleration: ['vesting_acceleration_data'],
+  vestingEvent: ['vesting_event_data'],
+  vestingStart: ['vesting_start_data'],
 };
 
 // Note: DAML input type definitions and converter implementations have been moved to their
@@ -505,11 +521,15 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
   }
 
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
+  const fallbackFieldNames = ENTITY_DATA_FIELD_FALLBACK_MAP[entityType] ?? [];
   const record = createArgument as Record<string, unknown>;
+  const resolvedDataFieldName =
+    dataFieldName in record ? dataFieldName : fallbackFieldNames.find((fieldName) => fieldName in record);
 
-  if (!(dataFieldName in record)) {
+  if (!resolvedDataFieldName) {
+    const expectedFields = [dataFieldName, ...fallbackFieldNames].join("', '");
     throw new OcpParseError(
-      `Expected field '${dataFieldName}' not found in contract create argument for ${entityType}`,
+      `Expected field '${expectedFields}' not found in contract create argument for ${entityType}`,
       {
         source: entityType,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -517,9 +537,9 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
     );
   }
 
-  const entityData = record[dataFieldName];
+  const entityData = record[resolvedDataFieldName];
   if (!entityData || typeof entityData !== 'object') {
-    throw new OcpParseError(`Entity data field '${dataFieldName}' is not an object for ${entityType}`, {
+    throw new OcpParseError(`Entity data field '${resolvedDataFieldName}' is not an object for ${entityType}`, {
       source: entityType,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
