@@ -1,5 +1,5 @@
-import type { OcfStakeholder } from '../types/native';
-import { isOcfStakeholder } from './typeGuards';
+import type { OcfStakeholder, OcfStockPlan } from '../types/native';
+import { isOcfStakeholder, isOcfStockPlan } from './typeGuards';
 
 /**
  * Plan Security to Equity Compensation alias mappings.
@@ -251,6 +251,52 @@ function normalizeStakeholderRelationships<T extends Record<string, unknown>>(da
 }
 
 /**
+ * Normalize StockPlan stock class ID fields for consistent comparison.
+ *
+ * OCF deprecated `stock_class_id` in favor of `stock_class_ids`.
+ * During round-trip, Canton data uses `stock_class_ids`, while source data
+ * may still contain only the legacy singular field. This causes phantom edits
+ * where one side appears empty/undefined.
+ *
+ * Rules:
+ * - Apply only to StockPlan objects.
+ * - If `stock_class_ids` is an array, keep it authoritative.
+ * - If `stock_class_ids` is missing and legacy `stock_class_id` is
+ *   a non-empty string, map it to `stock_class_ids: [value]`.
+ */
+function normalizeStockPlanClassIds(data: OcfStockPlan): OcfStockPlan;
+function normalizeStockPlanClassIds<T extends Record<string, unknown>>(data: T): T;
+function normalizeStockPlanClassIds<T extends Record<string, unknown>>(data: T): T {
+  const isStockPlanObject = data.object_type === 'STOCK_PLAN' || isOcfStockPlan(data);
+  if (!isStockPlanObject) return data;
+
+  const classIdsValue = data.stock_class_ids;
+
+  // If modern field is already present as an array, nothing to normalize
+  if (Array.isArray(classIdsValue)) return data;
+
+  // If modern field is present but not an array (including null), that's invalid
+  if (classIdsValue !== undefined) {
+    throw new Error(`Invalid stock plan stock_class_ids: expected array, got ${typeof classIdsValue}`);
+  }
+
+  // Modern field is missing — check for deprecated singular field
+  if (data.stock_class_id !== undefined && typeof data.stock_class_id !== 'string') {
+    throw new Error(`Invalid stock plan stock_class_id: expected string, got ${typeof data.stock_class_id}`);
+  }
+  if (typeof data.stock_class_id !== 'string') return data;
+  const legacyClassId = data.stock_class_id.trim();
+  if (legacyClassId.length === 0) {
+    throw new Error('Invalid stock plan stock_class_id: empty string');
+  }
+
+  return {
+    ...data,
+    stock_class_ids: [legacyClassId],
+  };
+}
+
+/**
  * Normalize OCF data for consistent comparison.
  *
  * This function applies normalizations to ensure semantically equivalent data compares as equal:
@@ -258,6 +304,7 @@ function normalizeStakeholderRelationships<T extends Record<string, unknown>>(da
  * 2. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
  * 3. Strips Document fields that the DAML contract does not model (e.g. `date`)
  * 4. Canonicalizes Stakeholder relationships (`current_relationship` -> `current_relationships`)
+ * 5. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -272,6 +319,9 @@ function normalizeStakeholderRelationships<T extends Record<string, unknown>>(da
  *
  * normalizeOcfData({ object_type: 'DOCUMENT', id: 'doc-1', date: '2024-01-15' })
  * // => { object_type: 'DOCUMENT', id: 'doc-1' }
+ *
+ * normalizeOcfData({ object_type: 'STOCK_PLAN', stock_class_id: 'sc-1', id: 'sp-1', plan_name: 'Plan', initial_shares_reserved: '1000' })
+ * // => { object_type: 'STOCK_PLAN', stock_class_id: 'sc-1', stock_class_ids: ['sc-1'], id: 'sp-1', plan_name: 'Plan', initial_shares_reserved: '1000' }
  * ```
  */
 export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T {
@@ -292,6 +342,9 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
 
   // Canonicalize deprecated/current stakeholder relationship fields
   result = normalizeStakeholderRelationships(result);
+
+  // Canonicalize deprecated/current stock plan class ID fields
+  result = normalizeStockPlanClassIds(result);
 
   return result;
 }

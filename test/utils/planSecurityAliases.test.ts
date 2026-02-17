@@ -300,6 +300,115 @@ describe('PlanSecurity alias utilities', () => {
 
       expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationship: empty string');
     });
+
+    it('maps stock plan stock_class_id to stock_class_ids', () => {
+      const input: Record<string, unknown> = {
+        object_type: 'STOCK_PLAN',
+        id: 'sp-1',
+        plan_name: 'Stock Option Plan',
+        initial_shares_reserved: '1000000',
+        stock_class_id: 'sc-1',
+      };
+
+      const result = normalizeOcfData(input);
+
+      // Adds modern field; keeps deprecated field (ignored by comparison via DEFAULT_DEPRECATED_FIELDS)
+      expect(result.stock_class_ids).toEqual(['sc-1']);
+      expect(result.stock_class_id).toBe('sc-1');
+    });
+
+    it('keeps explicit stock plan stock_class_ids authoritative over legacy field', () => {
+      const input = {
+        object_type: 'STOCK_PLAN',
+        id: 'sp-1',
+        plan_name: 'Stock Option Plan',
+        initial_shares_reserved: '1000000',
+        stock_class_ids: ['sc-1', 'sc-2'],
+        stock_class_id: 'legacy-sc',
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result).toBe(input);
+      expect(result.stock_class_ids).toEqual(['sc-1', 'sc-2']);
+      expect(result.stock_class_id).toBe('legacy-sc');
+    });
+
+    it('returns stock plan unchanged when stock_class_ids already present', () => {
+      const input = {
+        object_type: 'STOCK_PLAN',
+        id: 'sp-1',
+        plan_name: 'Stock Option Plan',
+        initial_shares_reserved: '1000000',
+        stock_class_ids: ['sc-1'],
+        stock_class_id: 'sc-1',
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result).toBe(input);
+    });
+
+    it('does not map legacy stock_class_id for non-stock-plan objects', () => {
+      const input = {
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: 'tx-1',
+        stock_class_id: 'sc-1',
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result).toBe(input);
+      expect(result).not.toHaveProperty('stock_class_ids');
+    });
+
+    it('throws when stock plan stock_class_ids is not an array', () => {
+      const input = {
+        object_type: 'STOCK_PLAN',
+        id: 'sp-1',
+        plan_name: 'Stock Option Plan',
+        initial_shares_reserved: '1000000',
+        stock_class_ids: 'sc-1',
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stock plan stock_class_ids: expected array');
+    });
+
+    it('throws when stock plan stock_class_ids is null', () => {
+      const input = {
+        object_type: 'STOCK_PLAN',
+        id: 'sp-1',
+        plan_name: 'Stock Option Plan',
+        initial_shares_reserved: '1000000',
+        stock_class_ids: null,
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stock plan stock_class_ids: expected array');
+    });
+
+    it('throws when stock plan stock_class_id is not a string', () => {
+      const input = {
+        object_type: 'STOCK_PLAN',
+        id: 'sp-1',
+        plan_name: 'Stock Option Plan',
+        initial_shares_reserved: '1000000',
+        stock_class_id: 9,
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stock plan stock_class_id: expected string');
+    });
+
+    it('throws when stock plan stock_class_id is an empty string', () => {
+      const input = {
+        object_type: 'STOCK_PLAN',
+        id: 'sp-1',
+        plan_name: 'Stock Option Plan',
+        initial_shares_reserved: '1000000',
+        stock_class_id: '   ',
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stock plan stock_class_id: empty string');
+    });
   });
 
   describe('alias mappings', () => {
