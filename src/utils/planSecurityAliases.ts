@@ -204,6 +204,10 @@ function normalizeStakeholderRelationships<T extends Record<string, unknown>>(da
   if (!isStakeholderObject) return data;
 
   const relationshipsValue = data.current_relationships;
+  if (relationshipsValue !== undefined && !Array.isArray(relationshipsValue)) {
+    throw new Error(`Invalid stakeholder current_relationships: expected array, got ${typeof relationshipsValue}`);
+  }
+
   if (Array.isArray(relationshipsValue)) {
     const normalizedRelationships: string[] = [];
     for (const value of relationshipsValue) {
@@ -229,9 +233,16 @@ function normalizeStakeholderRelationships<T extends Record<string, unknown>>(da
     };
   }
 
+  if (data.current_relationship !== undefined && typeof data.current_relationship !== 'string') {
+    throw new Error(
+      `Invalid stakeholder current_relationship: expected string, got ${typeof data.current_relationship}`
+    );
+  }
   if (typeof data.current_relationship !== 'string') return data;
   const legacyRelationship = data.current_relationship.trim();
-  if (legacyRelationship.length === 0) return data;
+  if (legacyRelationship.length === 0) {
+    throw new Error('Invalid stakeholder current_relationship: empty string');
+  }
 
   return {
     ...data,

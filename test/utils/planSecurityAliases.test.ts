@@ -264,6 +264,42 @@ describe('PlanSecurity alias utilities', () => {
 
       expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships entry');
     });
+
+    it('throws when stakeholder current_relationships is not an array', () => {
+      const input = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: 'INVESTOR',
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships: expected array');
+    });
+
+    it('throws when stakeholder current_relationship is not a string', () => {
+      const input = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 9,
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationship: expected string');
+    });
+
+    it('throws when stakeholder current_relationship is an empty string', () => {
+      const input = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: '   ',
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationship: empty string');
+    });
   });
 
   describe('alias mappings', () => {
