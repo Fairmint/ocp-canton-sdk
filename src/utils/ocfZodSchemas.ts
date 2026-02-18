@@ -176,6 +176,9 @@ const ENTITY_TYPE_TO_OBJECT_TYPE: Record<OcfEntityType, OcfSchemaObjectType> = {
 
 const OBJECTS_DIR_RELATIVE_PATH = 'objects';
 const SCHEMA_FILE_SUFFIX = '.schema.json';
+const PACKAGED_SCHEMA_DIR_RELATIVE_PATH = '../ocf-schema';
+const SUBMODULE_SCHEMA_DIR_RELATIVE_PATH = '../../libs/Open-Cap-Format-OCF/schema';
+const REPO_SCHEMA_DIR_RELATIVE_PATH = '../../Open-Cap-Format-OCF/schema';
 
 let cachedAjv: Ajv | null = null;
 let cachedSchemaRootDir: string | null = null;
@@ -187,11 +190,12 @@ const zodSchemaCache = new Map<string, ZodType<Record<string, unknown>>>();
  * Resolve the local OCF schema directory.
  */
 export function resolveOcfSchemaDir(): string {
-  const candidates = [
-    process.env.OCP_OCF_SCHEMA_DIR,
-    path.resolve(__dirname, '../../libs/Open-Cap-Format-OCF/schema'),
-    path.resolve(__dirname, '../../Open-Cap-Format-OCF/schema'),
-  ].filter((candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0);
+  const packagedSchemaDir = path.resolve(__dirname, PACKAGED_SCHEMA_DIR_RELATIVE_PATH);
+  const submoduleSchemaDir = path.resolve(__dirname, SUBMODULE_SCHEMA_DIR_RELATIVE_PATH);
+  const repoSchemaDir = path.resolve(__dirname, REPO_SCHEMA_DIR_RELATIVE_PATH);
+  const candidates = [process.env.OCP_OCF_SCHEMA_DIR, packagedSchemaDir, submoduleSchemaDir, repoSchemaDir].filter(
+    (candidate): candidate is string => typeof candidate === 'string' && candidate.length > 0
+  );
 
   for (const candidate of candidates) {
     const objectsDir = path.join(candidate, OBJECTS_DIR_RELATIVE_PATH);
@@ -202,8 +206,9 @@ export function resolveOcfSchemaDir(): string {
 
   throw new OcpValidationError(
     'ocfSchemaDir',
-    `OCF schema directory not found. Set OCP_OCF_SCHEMA_DIR or initialize submodule with ` +
-      `"git submodule update --init --recursive libs/Open-Cap-Format-OCF".`,
+    `OCF schema directory not found. Set OCP_OCF_SCHEMA_DIR or initialize the OCF submodule with ` +
+      `"git submodule update --init --recursive libs/Open-Cap-Format-OCF" ` +
+      `(or "git submodule update --init --recursive Open-Cap-Format-OCF" for root-level checkouts).`,
     {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       expectedType: 'existing directory containing schema/objects/*.schema.json',
