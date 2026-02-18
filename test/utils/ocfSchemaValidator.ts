@@ -36,19 +36,6 @@ class OcfSchemaValidator {
     return this.schemaDir;
   }
 
-  /** Get a helpful error message when schemas are unavailable */
-  private getUnavailableMessage(): string {
-    return (
-      `OCF schema validation unavailable.\n\n` +
-      `The OCF schema submodule is not initialized at:\n` +
-      `  ${this.schemaDir}\n\n` +
-      `To enable OCF validation, initialize the submodule:\n` +
-      `  git submodule update --init --recursive libs/Open-Cap-Format-OCF\n\n` +
-      `This is required for CI. For local development, you can skip validation by\n` +
-      `setting OCP_SKIP_OCF_VALIDATION=true in your environment.`
-    );
-  }
-
   /** Validate an OCF object against its schema */
   async validate(ocfObject: Record<string, unknown>): Promise<{ valid: boolean; errors: string[] }> {
     try {
