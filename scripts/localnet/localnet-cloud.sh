@@ -152,7 +152,7 @@ EOF
         LOCALNET_DIR="${QUICKSTART_DIR}/docker/modules/localnet" \
         IMAGE_TAG="${quickstart_image_tag}" \
         PATH="${docker_shim_dir}:${HOME}/.daml/bin:${PATH}" \
-        bash -lc "${command}"
+        bash -c "${command}"
     )
     status=$?
   else
@@ -162,7 +162,7 @@ EOF
         LOCALNET_DIR="${QUICKSTART_DIR}/docker/modules/localnet" \
         IMAGE_TAG="${quickstart_image_tag}" \
         PATH="${HOME}/.daml/bin:${PATH}" \
-        bash -lc "${command}"
+        bash -c "${command}"
     )
     status=$?
   fi

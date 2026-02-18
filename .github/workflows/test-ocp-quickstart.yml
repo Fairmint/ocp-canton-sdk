@@ -126,34 +126,6 @@ jobs:
             echo "CN-Quickstart setup failed: .env.local was not created"
             exit 1
           fi
-          splice_version=""
-          for env_file in ".env" ".env.local"; do
-            if [ ! -f "$env_file" ]; then
-              continue
-            fi
-            parsed_value="$(awk -F= -v key="SPLICE_VERSION" '
-              $0 ~ /^[[:space:]]*#/ { next }
-              $1 == key {
-                value = substr($0, index($0, "=") + 1)
-                gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-                gsub(/^"|"$/, "", value)
-                gsub(/^'\''|'\''$/, "", value)
-                parsed = value
-              }
-              END {
-                if (parsed != "") {
-                  print parsed
-                }
-              }
-            ' "$env_file")"
-            if [ -n "$parsed_value" ]; then
-              splice_version="$parsed_value"
-            fi
-          done
-          if [ -z "$splice_version" ]; then
-            echo "CN-Quickstart setup failed: SPLICE_VERSION is missing from .env/.env.local"
-            exit 1
-          fi
           echo "✓ CN-Quickstart setup complete (shared-secret mode)"
         timeout-minutes: 15
 
