@@ -601,10 +601,11 @@ function normalizeStockPlanClassIds<T extends Record<string, unknown>>(data: T):
     throw new Error('Invalid stock plan stock_class_id: empty string');
   }
 
+  const { stock_class_id: _, ...rest } = data;
   return {
-    ...data,
+    ...rest,
     stock_class_ids: [legacyClassId],
-  };
+  } as T;
 }
 
 /**
@@ -817,7 +818,7 @@ function normalizeStockReissuanceSplitTransactionId<T extends Record<string, unk
  * // => { object_type: 'DOCUMENT', id: 'doc-1' }
  *
  * normalizeOcfData({ object_type: 'STOCK_PLAN', stock_class_id: 'sc-1', id: 'sp-1', plan_name: 'Plan', initial_shares_reserved: '1000' })
- * // => { object_type: 'STOCK_PLAN', stock_class_id: 'sc-1', stock_class_ids: ['sc-1'], id: 'sp-1', plan_name: 'Plan', initial_shares_reserved: '1000' }
+ * // => { object_type: 'STOCK_PLAN', stock_class_ids: ['sc-1'], id: 'sp-1', plan_name: 'Plan', initial_shares_reserved: '1000' }
  * ```
  */
 export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T {
