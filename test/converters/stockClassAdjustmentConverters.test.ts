@@ -70,6 +70,22 @@ describe('Stock Class Adjustment Converters', () => {
         expect(splitRatio.denominator).toBe('1');
       });
 
+      test('normalizes split ratio numeric strings before DAML conversion', () => {
+        const dataWithUnnormalizedRatio = {
+          ...baseData,
+          split_ratio: {
+            numerator: '2.0000000000',
+            denominator: '1.5000000000',
+          },
+        };
+
+        const result = convertToDaml('stockClassSplit', dataWithUnnormalizedRatio);
+        const splitRatio = result.split_ratio as { numerator: string; denominator: string };
+
+        expect(splitRatio.numerator).toBe('2');
+        expect(splitRatio.denominator).toBe('1.5');
+      });
+
       test('converts with comments', () => {
         const dataWithComments = {
           ...baseData,

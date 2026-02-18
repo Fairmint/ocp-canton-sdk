@@ -639,6 +639,16 @@ function normalizeStockConsolidationResultingSecurityId<T extends Record<string,
       );
     }
 
+    if (resulting_security_id !== undefined && typeof resulting_security_id !== 'string') {
+      throw new Error(`Invalid resulting_security_id: expected string, got ${typeof resulting_security_id}`);
+    }
+
+    if (typeof resulting_security_id === 'string' && resulting_security_id !== resulting_security_ids[0]) {
+      throw new Error(
+        `Conflicting stock consolidation resulting security IDs: resulting_security_id="${resulting_security_id}" does not match resulting_security_ids[0]="${resulting_security_ids[0]}"`
+      );
+    }
+
     if (resulting_security_id === undefined) {
       result.resulting_security_id = resulting_security_ids[0];
     }

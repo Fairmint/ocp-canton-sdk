@@ -593,6 +593,19 @@ describe('PlanSecurity alias utilities', () => {
       expect(resultRecord).not.toHaveProperty('resulting_security_ids');
     });
 
+    it('rejects conflicting stock consolidation legacy and canonical resulting security IDs', () => {
+      const input = {
+        object_type: 'TX_STOCK_CONSOLIDATION',
+        id: 'stock-consolidation-1',
+        date: '2024-01-15',
+        security_ids: ['sec-1', 'sec-2'],
+        resulting_security_id: 'sec-canonical',
+        resulting_security_ids: ['sec-legacy'],
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Conflicting stock consolidation resulting security IDs');
+    });
+
     it('canonicalizes stock conversion quantity to quantity_converted', async () => {
       const input = {
         object_type: 'TX_STOCK_CONVERSION',
