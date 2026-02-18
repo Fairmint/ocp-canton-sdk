@@ -408,7 +408,7 @@ npm run localnet:status
 npm run localnet:smoke
 
 # Run integration tests
-npm run test:integration
+npm run localnet:test
 
 # Stop localnet when done
 npm run localnet:stop

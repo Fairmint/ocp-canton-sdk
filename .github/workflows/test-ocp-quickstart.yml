@@ -117,6 +117,10 @@ jobs:
         run: |
           cd libs/cn-quickstart/quickstart
           printf 'Y\nn\n\n' | make setup || true
+          if [ ! -f ".env.local" ]; then
+            echo "CN-Quickstart setup failed: .env.local was not created"
+            exit 1
+          fi
           echo "✓ CN-Quickstart setup complete (shared-secret mode)"
         timeout-minutes: 15
 
@@ -177,7 +181,7 @@ jobs:
         run: |
           echo "Running tests..."
           npm run localnet:smoke
-          npm run test:integration:ci
+          npm run localnet:test
           echo "✓ Tests passed!"
 
       - name: Show Logs on Failure

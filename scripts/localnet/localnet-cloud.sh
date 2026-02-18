@@ -234,15 +234,16 @@ ensure_submodules() {
 }
 
 ensure_hosts_entries() {
-  if ! grep -Eq '(^|[[:space:]])scan\.localhost([[:space:]]|$)' /etc/hosts \
-    || ! grep -Eq '(^|[[:space:]])sv\.localhost([[:space:]]|$)' /etc/hosts \
-    || ! grep -Eq '(^|[[:space:]])wallet\.localhost([[:space:]]|$)' /etc/hosts; then
-    log "Adding localnet host aliases to /etc/hosts..."
-    echo "${HOSTS_ENTRY}" | sudo tee -a /etc/hosts >/dev/null
+  if grep -Fxq "${HOSTS_ENTRY}" /etc/hosts; then
+    return
   fi
+  log "Adding localnet host aliases to /etc/hosts..."
+  echo "${HOSTS_ENTRY}" | sudo tee -a /etc/hosts >/dev/null
 }
 
 quickstart_setup() {
+  local quickstart_image_tag=""
+
   if [[ ! -f "${QUICKSTART_DIR}/.env.local" ]]; then
     log "Running cn-quickstart setup (shared-secret mode)..."
     (
@@ -251,6 +252,17 @@ quickstart_setup() {
     )
   else
     log "Reusing existing ${QUICKSTART_DIR}/.env.local."
+  fi
+
+  if [[ ! -f "${QUICKSTART_DIR}/.env.local" ]]; then
+    log "cn-quickstart setup failed: ${QUICKSTART_DIR}/.env.local was not created."
+    exit 1
+  fi
+
+  quickstart_image_tag="$(resolve_quickstart_image_tag)"
+  if [[ -z "${quickstart_image_tag}" ]]; then
+    log "cn-quickstart setup failed: SPLICE_VERSION is missing from .env/.env.local."
+    exit 1
   fi
 
   if [[ ! -x "${HOME}/.daml/bin/daml" ]]; then
@@ -531,6 +543,15 @@ run_smoke() {
 }
 
 run_integration_tests() {
+  if [[ -n "${CANTON_LOCALNET_TEST_CMD:-}" ]]; then
+    log "Running custom integration command from CANTON_LOCALNET_TEST_CMD..."
+    (
+      cd "${PROJECT_ROOT}"
+      bash -lc "${CANTON_LOCALNET_TEST_CMD}"
+    )
+    return
+  fi
+
   log "Running integration tests..."
   (
     cd "${PROJECT_ROOT}"
@@ -558,6 +579,15 @@ Environment:
 USAGE
 }
 
+setup_all() {
+  ensure_sudo
+  ensure_docker_packages
+  start_docker_daemon
+  ensure_submodules
+  ensure_hosts_entries
+  quickstart_setup
+}
+
 main() {
   if [[ "${1:-}" == "" ]]; then
     usage
@@ -566,21 +596,11 @@ main() {
 
   case "$1" in
     setup)
-      ensure_sudo
-      ensure_docker_packages
-      start_docker_daemon
-      ensure_submodules
-      ensure_hosts_entries
-      quickstart_setup
+      setup_all
       ;;
     start)
       require_command curl
-      ensure_sudo
-      ensure_docker_packages
-      start_docker_daemon
-      ensure_submodules
-      ensure_hosts_entries
-      quickstart_setup
+      setup_all
       start_localnet
       ;;
     stop)
@@ -599,12 +619,7 @@ main() {
       ;;
     verify)
       require_command curl
-      ensure_sudo
-      ensure_docker_packages
-      start_docker_daemon
-      ensure_submodules
-      ensure_hosts_entries
-      quickstart_setup
+      setup_all
       start_localnet
       run_smoke
       run_integration_tests

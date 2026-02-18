@@ -26,6 +26,7 @@
     "localnet:start": "bash scripts/localnet/localnet-cloud.sh start",
     "localnet:status": "bash scripts/localnet/localnet-cloud.sh status",
     "localnet:stop": "bash scripts/localnet/localnet-cloud.sh stop",
+    "localnet:test": "bash scripts/localnet/localnet-cloud.sh test",
     "localnet:verify": "bash scripts/localnet/localnet-cloud.sh verify",
     "prepare-release": "ts-node scripts/prepare-release.ts",
     "script:authorize": "ts-node scripts/authorizeIssuer.ts",
