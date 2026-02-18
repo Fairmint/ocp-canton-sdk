@@ -2,8 +2,6 @@ import fs from 'fs';
 import path from 'path';
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const SOURCE_SCHEMA_DIR = path.join(REPO_ROOT, 'Open-Cap-Format-OCF', 'schema');
-const SOURCE_OBJECTS_DIR = path.join(SOURCE_SCHEMA_DIR, 'objects');
 const DIST_SCHEMA_DIR = path.join(REPO_ROOT, 'dist', 'ocf-schema');
 const DIST_OBJECTS_DIR = path.join(DIST_SCHEMA_DIR, 'objects');
 
@@ -16,13 +14,31 @@ function assertReadableDirectory(dirPath: string): void {
   }
 }
 
+function resolveSourceSchemaDir(): string {
+  const candidates = [
+    path.join(REPO_ROOT, 'libs', 'Open-Cap-Format-OCF', 'schema'),
+    path.join(REPO_ROOT, 'Open-Cap-Format-OCF', 'schema'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, 'objects'))) {
+      return candidate;
+    }
+  }
+
+  throw new Error(`Required directory not found: ${candidates.join(' or ')}`);
+}
+
 function main(): void {
-  assertReadableDirectory(SOURCE_SCHEMA_DIR);
-  assertReadableDirectory(SOURCE_OBJECTS_DIR);
+  const sourceSchemaDir = resolveSourceSchemaDir();
+  const sourceObjectsDir = path.join(sourceSchemaDir, 'objects');
+
+  assertReadableDirectory(sourceSchemaDir);
+  assertReadableDirectory(sourceObjectsDir);
 
   fs.rmSync(DIST_SCHEMA_DIR, { recursive: true, force: true });
   fs.mkdirSync(DIST_SCHEMA_DIR, { recursive: true });
-  fs.cpSync(SOURCE_SCHEMA_DIR, DIST_SCHEMA_DIR, { recursive: true });
+  fs.cpSync(sourceSchemaDir, DIST_SCHEMA_DIR, { recursive: true });
 
   assertReadableDirectory(DIST_OBJECTS_DIR);
   console.log(`Copied OCF schemas to ${DIST_SCHEMA_DIR}`);
