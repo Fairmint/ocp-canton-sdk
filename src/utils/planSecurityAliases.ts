@@ -789,14 +789,12 @@ function normalizeStockReissuanceSplitTransactionId<T extends Record<string, unk
   return rest as T;
 }
 
-/**
- * Regex matching decimal numeric strings with trailing zeros.
- *
- * Matches: "100000.00", "0.10", "1.0", "-123.4500"
- * Does NOT match: "100000" (no decimal), "0.1" (no trailing zeros),
- * "stk_000001" (not numeric), "2024-01-15" (date)
- */
-const TRAILING_ZEROS_PATTERN = /^-?\d+\.\d*0+$/;
+/** Matches a well-formed decimal number (no backtracking risk). */
+const DECIMAL_NUMBER_PATTERN = /^-?\d+\.\d+$/;
+
+function hasTrailingDecimalZeros(value: string): boolean {
+  return value.endsWith('0') && DECIMAL_NUMBER_PATTERN.test(value);
+}
 
 /**
  * Recursively normalize numeric strings with trailing zeros in an OCF data object.
@@ -805,11 +803,11 @@ const TRAILING_ZEROS_PATTERN = /^-?\d+\.\d*0+$/;
  * "0.10" -> "0.1") so semantically equivalent values compare as equal regardless
  * of source formatting.
  *
- * Only modifies string values matching TRAILING_ZEROS_PATTERN. Non-numeric
- * strings (IDs, dates, enums, names) are never touched.
+ * Only modifies string values that are decimal numbers ending in '0'.
+ * Non-numeric strings (IDs, dates, enums, names) are never touched.
  */
 export function deepNormalizeNumericStrings<T>(value: T): T {
-  if (typeof value === 'string' && TRAILING_ZEROS_PATTERN.test(value)) {
+  if (typeof value === 'string' && hasTrailingDecimalZeros(value)) {
     return normalizeNumericString(value) as T;
   }
   if (Array.isArray(value)) {
