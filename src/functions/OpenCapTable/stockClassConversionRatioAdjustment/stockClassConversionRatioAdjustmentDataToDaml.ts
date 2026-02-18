@@ -4,7 +4,12 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
-import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  monetaryToDaml,
+  normalizeNumericString,
+} from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF StockClassConversionRatioAdjustment data to DAML format.
@@ -79,8 +84,11 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
     date: dateStringToDAMLTime(d.date),
     stock_class_id: d.stock_class_id,
     new_ratio_conversion_mechanism: {
-      conversion_price: newRatioConversionMechanism.conversion_price,
-      ratio: newRatioConversionMechanism.ratio,
+      conversion_price: monetaryToDaml(newRatioConversionMechanism.conversion_price),
+      ratio: {
+        numerator: normalizeNumericString(newRatioConversionMechanism.ratio.numerator),
+        denominator: normalizeNumericString(newRatioConversionMechanism.ratio.denominator),
+      },
       rounding_type: normalizedRoundingType,
     },
     comments: cleanComments(d.comments),

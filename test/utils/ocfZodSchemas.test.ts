@@ -117,7 +117,7 @@ describe('ocfZodSchemas', () => {
     expect(parsedRecord).not.toHaveProperty('new_relationships');
   });
 
-  it('canonicalizes legacy stakeholder relationship event shape with two relationships', () => {
+  it('rejects ambiguous legacy stakeholder relationship event shape with two relationships', () => {
     const fixture = stripSourceMetadata(
       loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
     );
@@ -127,13 +127,9 @@ describe('ocfZodSchemas', () => {
       new_relationships: ['ADVISOR', 'INVESTOR'],
     };
 
-    const parsed = parseOcfEntityInput('stakeholderRelationshipChangeEvent', legacyFixture);
-    const parsedRecord = toRecord(parsed);
-
-    expect(parsedRecord.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
-    expect(parsedRecord.relationship_started).toBe('ADVISOR');
-    expect(parsedRecord.relationship_ended).toBe('INVESTOR');
-    expect(parsedRecord).not.toHaveProperty('new_relationships');
+    expect(() => parseOcfEntityInput('stakeholderRelationshipChangeEvent', legacyFixture)).toThrow(
+      'legacy new_relationships with multiple entries is ambiguous'
+    );
   });
 
   it('canonicalizes stock consolidation legacy resulting_security_ids field', () => {

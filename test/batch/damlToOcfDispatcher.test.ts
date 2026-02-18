@@ -80,6 +80,50 @@ describe('damlToOcf dispatcher', () => {
       expect(result).toEqual({ id: 'acc-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1' });
     });
 
+    it('extracts stakeholderRelationshipChangeEvent data from canonical event_data key', () => {
+      const createArgument = {
+        event_data: {
+          id: 'rce-1',
+          date: '2025-01-01T00:00:00Z',
+          stakeholder_id: 'sh-1',
+          relationship_started: 'OcfRelAdvisor',
+          relationship_ended: null,
+          comments: [],
+        },
+      };
+
+      const result = extractEntityData('stakeholderRelationshipChangeEvent', createArgument);
+      expect(result).toEqual({
+        id: 'rce-1',
+        date: '2025-01-01T00:00:00Z',
+        stakeholder_id: 'sh-1',
+        relationship_started: 'OcfRelAdvisor',
+        relationship_ended: null,
+        comments: [],
+      });
+    });
+
+    it('extracts stakeholderStatusChangeEvent data from canonical event_data key', () => {
+      const createArgument = {
+        event_data: {
+          id: 'sce-1',
+          date: '2025-01-01T00:00:00Z',
+          stakeholder_id: 'sh-1',
+          new_status: 'OcfStakeholderStatusActive',
+          comments: [],
+        },
+      };
+
+      const result = extractEntityData('stakeholderStatusChangeEvent', createArgument);
+      expect(result).toEqual({
+        id: 'sce-1',
+        date: '2025-01-01T00:00:00Z',
+        stakeholder_id: 'sh-1',
+        new_status: 'OcfStakeholderStatusActive',
+        comments: [],
+      });
+    });
+
     it('extracts vestingStart data from canonical vesting_data key', () => {
       const createArgument = {
         vesting_data: { id: 'vs-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1', vesting_condition_id: 'vc-1' },

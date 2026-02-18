@@ -25,24 +25,26 @@ export function stakeholderRelationshipChangeEventDataToDaml(
 
   const normalizedLegacyRelationships = Array.isArray(data.new_relationships) ? data.new_relationships : [];
 
-  if (normalizedLegacyRelationships.length > 2) {
+  if (
+    normalizedLegacyRelationships.length > 1 &&
+    data.relationship_started === undefined &&
+    data.relationship_ended === undefined
+  ) {
     throw new OcpValidationError(
       'stakeholderRelationshipChangeEvent.new_relationships',
-      'At most two relationship values are supported (relationship_started and relationship_ended)',
+      'Legacy new_relationships with multiple entries is ambiguous; provide canonical relationship_started/relationship_ended fields',
       {
-        expectedType: 'array with <= 2 elements',
+        expectedType: 'single-item array or canonical relationship_started/relationship_ended fields',
         receivedValue: data.new_relationships,
       }
     );
   }
 
   const legacyRelationshipStarted =
-    normalizedLegacyRelationships.length > 0 ? normalizedLegacyRelationships[0] : undefined;
-  const legacyRelationshipEnded =
-    normalizedLegacyRelationships.length > 1 ? normalizedLegacyRelationships[1] : undefined;
+    normalizedLegacyRelationships.length === 1 ? normalizedLegacyRelationships[0] : undefined;
 
   const relationshipStarted = data.relationship_started ?? legacyRelationshipStarted;
-  const relationshipEnded = data.relationship_ended ?? legacyRelationshipEnded;
+  const relationshipEnded = data.relationship_ended;
 
   if (!relationshipStarted && !relationshipEnded) {
     throw new OcpValidationError(

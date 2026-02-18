@@ -317,15 +317,22 @@ function normalizeStakeholderRelationshipChangeEvent<T extends Record<string, un
       return trimmed;
     });
 
-    if (normalizedRelationships.length > 2) {
-      throw new Error('Invalid stakeholder relationship change event: new_relationships supports at most two values');
+    if (
+      normalizedRelationships.length > 1 &&
+      result.relationship_started === undefined &&
+      result.relationship_ended === undefined
+    ) {
+      throw new Error(
+        'Invalid stakeholder relationship change event: legacy new_relationships with multiple entries is ambiguous; provide canonical relationship_started/relationship_ended fields'
+      );
     }
 
-    if (result.relationship_started === undefined && normalizedRelationships[0]) {
+    if (
+      normalizedRelationships.length === 1 &&
+      result.relationship_started === undefined &&
+      result.relationship_ended === undefined
+    ) {
       result.relationship_started = normalizedRelationships[0];
-    }
-    if (result.relationship_ended === undefined && normalizedRelationships[1]) {
-      result.relationship_ended = normalizedRelationships[1];
     }
 
     delete result.new_relationships;

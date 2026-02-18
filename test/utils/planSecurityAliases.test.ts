@@ -533,16 +533,16 @@ describe('PlanSecurity alias utilities', () => {
       expect(resultRecord).not.toHaveProperty('new_relationships');
     });
 
-    it('rejects stakeholder relationship change events with more than two legacy relationships', () => {
+    it('rejects stakeholder relationship change events with ambiguous legacy multi-value relationships', () => {
       const input = {
         object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
         id: 'event-1',
         date: '2024-01-15',
         stakeholder_id: 'stakeholder-1',
-        new_relationships: ['INVESTOR', 'FOUNDER', 'ADVISOR'],
+        new_relationships: ['INVESTOR', 'FOUNDER'],
       };
 
-      expect(() => normalizeOcfData(input)).toThrow('new_relationships supports at most two values');
+      expect(() => normalizeOcfData(input)).toThrow('legacy new_relationships with multiple entries is ambiguous');
     });
 
     it('rejects unknown stakeholder relationship values', () => {

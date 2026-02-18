@@ -326,7 +326,7 @@ describe('Stock Plan Event Converters', () => {
 
 describe('Stakeholder Change Event Converters', () => {
   describe('stakeholderRelationshipChangeEvent', () => {
-    it('should convert stakeholder relationship change event to DAML format', () => {
+    it('should convert legacy single-relationship stakeholder relationship change event to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
@@ -336,8 +336,8 @@ describe('Stakeholder Change Event Converters', () => {
         id: 'rce-123',
         date: '2024-08-01',
         stakeholder_id: 'sh-001',
-        new_relationships: ['EMPLOYEE', 'BOARD_MEMBER'],
-        comments: ['Promoted to board while remaining employee'],
+        new_relationships: ['EMPLOYEE'],
+        comments: ['Initial relationship assignment from legacy payload'],
       };
 
       batch.create('stakeholderRelationshipChangeEvent', data);
@@ -356,7 +356,7 @@ describe('Stakeholder Change Event Converters', () => {
       expect(value.id).toBe('rce-123');
       expect(value.stakeholder_id).toBe('sh-001');
       expect(value.relationship_started).toBe('OcfRelEmployee');
-      expect(value.relationship_ended).toBe('OcfRelBoardMember');
+      expect(value.relationship_ended).toBeNull();
     });
 
     it('should convert canonical relationship_started and relationship_ended fields', () => {
@@ -387,7 +387,7 @@ describe('Stakeholder Change Event Converters', () => {
       expect(value.relationship_ended).toBe('OcfRelInvestor');
     });
 
-    it('should reject legacy relationship list with more than two entries', () => {
+    it('should reject legacy relationship list with multiple entries', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
@@ -397,11 +397,11 @@ describe('Stakeholder Change Event Converters', () => {
         id: 'rce-invalid',
         date: '2024-08-20',
         stakeholder_id: 'sh-003',
-        new_relationships: ['FOUNDER', 'INVESTOR', 'ADVISOR'],
+        new_relationships: ['FOUNDER', 'INVESTOR'],
       };
 
       expect(() => batch.create('stakeholderRelationshipChangeEvent', data)).toThrow(
-        'new_relationships supports at most two values'
+        'new_relationships with multiple entries is ambiguous'
       );
     });
 
