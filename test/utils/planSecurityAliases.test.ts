@@ -559,6 +559,23 @@ describe('PlanSecurity alias utilities', () => {
       expect(resultRecord).not.toHaveProperty('resulting_security_ids');
     });
 
+    it('canonicalizes stock conversion quantity to quantity_converted', () => {
+      const input = {
+        object_type: 'TX_STOCK_CONVERSION',
+        id: 'stock-conversion-1',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        quantity: '100',
+        resulting_security_ids: ['sec-new-1'],
+      };
+
+      const result = normalizeOcfData(input);
+      const resultRecord = result as Record<string, unknown>;
+
+      expect(resultRecord.quantity_converted).toBe('100');
+      expect(resultRecord).not.toHaveProperty('quantity');
+    });
+
     it('strips null split_transaction_id from stock reissuance', () => {
       const input = {
         object_type: 'TX_STOCK_REISSUANCE',

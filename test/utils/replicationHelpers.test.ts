@@ -630,6 +630,30 @@ describe('computeReplicationDiff', () => {
       expect(diff.edits).toHaveLength(0);
     });
 
+    it('detects reason_text changes for non-deprecated entities', () => {
+      const sourceItems = [
+        {
+          ocfId: 'tx-1',
+          entityType: 'stockCancellation' as OcfEntityType,
+          data: { id: 'tx-1', object_type: 'TX_STOCK_CANCELLATION', reason_text: 'Corrected reason' },
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stockCancellation', new Set(['tx-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([
+        [
+          'stockCancellation',
+          new Map([['tx-1', { id: 'tx-1', object_type: 'TX_STOCK_CANCELLATION', reason_text: 'Original reason' }]]),
+        ],
+      ]);
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+
+      expect(diff.edits).toHaveLength(1);
+      expect(diff.edits[0].ocfId).toBe('tx-1');
+    });
+
     it('treats stakeholder current_relationship as equivalent to current_relationships', async () => {
       const sourceStakeholder = {
         object_type: 'STAKEHOLDER',

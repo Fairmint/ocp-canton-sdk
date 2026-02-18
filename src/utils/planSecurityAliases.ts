@@ -609,6 +609,28 @@ function normalizeStockConsolidationResultingSecurityId<T extends Record<string,
 }
 
 /**
+ * Canonicalize stock conversion quantity field.
+ *
+ * OCF now uses `quantity_converted`, while legacy payloads may still send `quantity`.
+ */
+function normalizeStockConversionQuantityConverted<T extends Record<string, unknown>>(data: T): T {
+  if (data.object_type !== 'TX_STOCK_CONVERSION') return data;
+
+  const result: Record<string, unknown> = { ...data };
+  const quantityConverted = result.quantity_converted;
+  const legacyQuantity = result.quantity;
+
+  if (legacyQuantity !== undefined) {
+    if (quantityConverted === undefined) {
+      result.quantity_converted = legacyQuantity;
+    }
+    delete result.quantity;
+  }
+
+  return result as T;
+}
+
+/**
  * Canonicalize stock reissuance optional split transaction identifier.
  *
  * Legacy exports may provide explicit `null` for omitted optional fields; convert to absent.
@@ -631,6 +653,7 @@ function normalizeStockReissuanceSplitTransactionId<T extends Record<string, unk
  * 4. Canonicalizes deprecated issuance aliases (`plan_security_type`/`option_grant_type`)
  * 5. Canonicalizes Stakeholder relationships (`current_relationship` -> `current_relationships`)
  * 6. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
+ * 7. Canonicalizes StockConversion quantity (`quantity` -> `quantity_converted`)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -680,6 +703,9 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
 
   // Canonicalize deprecated stock consolidation singular resulting security identifier
   result = normalizeStockConsolidationResultingSecurityId(result);
+
+  // Canonicalize deprecated stock conversion quantity field
+  result = normalizeStockConversionQuantityConverted(result);
 
   // Canonicalize stock reissuance optional fields exported as explicit nulls
   result = normalizeStockReissuanceSplitTransactionId(result);
