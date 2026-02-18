@@ -30,6 +30,7 @@ export function damlStakeholderStatusChangeEventToNative(
   d: DamlStakeholderStatusChangeData
 ): OcfStakeholderStatusChangeEvent {
   return {
+    object_type: 'CE_STAKEHOLDER_STATUS',
     id: d.id,
     date: damlTimeToDateString(d.date),
     stakeholder_id: d.stakeholder_id,

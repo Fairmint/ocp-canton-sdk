@@ -107,7 +107,7 @@ export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTyp
     case 'stockRepurchase':
       return stockRepurchaseDataToDaml(d as OcfDataTypeFor<'stockRepurchase'>);
     case 'issuer':
-      return issuerDataToDaml(d as OcfDataTypeFor<'issuer'>);
+      return issuerDataToDaml(d as OcfDataTypeFor<'issuer'>, { skipSchemaParse: true });
     case 'issuerAuthorizedSharesAdjustment':
       return issuerAuthorizedSharesAdjustmentDataToDaml(d as OcfDataTypeFor<'issuerAuthorizedSharesAdjustment'>);
     case 'stockClassAuthorizedSharesAdjustment':

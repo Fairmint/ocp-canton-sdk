@@ -63,15 +63,27 @@ export function normalizeIssuerData(data: IssuerDataInput): OcfIssuer {
  * @param issuerData - Native OCF issuer data
  * @returns DAML-formatted issuer data
  */
-export function issuerDataToDaml(issuerData: IssuerDataInput): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
+export function issuerDataToDaml(
+  issuerData: IssuerDataInput,
+  options?: { skipSchemaParse?: boolean }
+): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
+  return issuerDataToDamlInternal(issuerData, options?.skipSchemaParse ?? false);
+}
+
+function issuerDataToDamlInternal(
+  issuerData: IssuerDataInput,
+  skipSchemaParse: boolean
+): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
   // Normalize input data to ensure array fields are arrays
   const normalizedInputData = normalizeIssuerData(issuerData);
 
-  // Parse against strict OCF schema and canonicalize deprecated aliases/defaults.
-  const parsedData = parseOcfEntityInput('issuer', normalizedInputData);
-
-  // Ensure array normalization remains applied after schema parsing/canonicalization.
-  const normalizedData = normalizeIssuerData(parsedData);
+  let normalizedData: OcfIssuer;
+  if (skipSchemaParse) {
+    normalizedData = normalizedInputData;
+  } else {
+    // Parse against strict OCF schema and canonicalize deprecated aliases/defaults.
+    normalizedData = normalizeIssuerData(parseOcfEntityInput('issuer', normalizedInputData));
+  }
 
   // Validate input data using the entity validator
   validateIssuerData(normalizedData, 'issuer');
