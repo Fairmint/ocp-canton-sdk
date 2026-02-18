@@ -52,7 +52,9 @@ jobs:
             fi
 
             echo "Submodule init failed for $path, retrying with clean checkout..."
+            git submodule deinit -f -- "$path" || true
             rm -rf "$path"
+            rm -rf ".git/modules/$path"
             git submodule update --init "$@" "$path"
           }
 
