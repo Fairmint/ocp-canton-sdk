@@ -2,13 +2,27 @@ import { OcpValidationError } from '../../src/errors';
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from './productionFixtures';
 
+const schemaAvailabilityError = (() => {
+  try {
+    resolveOcfSchemaDir();
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error : new Error(String(error));
+  }
+})();
+
+const shouldSkipForLocal = schemaAvailabilityError !== null && process.env.OCP_SKIP_OCF_VALIDATION === 'true';
+
+const itIfSchemas = shouldSkipForLocal ? it.skip : it;
+
 describe('ocfZodSchemas', () => {
   beforeAll(() => {
-    // Fail fast with actionable error if source-of-truth OCF schema is unavailable.
-    resolveOcfSchemaDir();
+    if (schemaAvailabilityError && !shouldSkipForLocal) {
+      throw schemaAvailabilityError;
+    }
   });
 
-  it('parses strict source-of-truth OCF objects', () => {
+  itIfSchemas('parses strict source-of-truth OCF objects', () => {
     const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
     const parsed = parseOcfObject(fixture);
 
@@ -16,7 +30,7 @@ describe('ocfZodSchemas', () => {
     expect(parsed.id).toBe(fixture.id);
   });
 
-  it('rejects unknown fields with strict validation', () => {
+  itIfSchemas('rejects unknown fields with strict validation', () => {
     const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
     const invalidFixture = {
       ...fixture,
@@ -27,7 +41,7 @@ describe('ocfZodSchemas', () => {
     expect(() => parseOcfObject(invalidFixture)).toThrow('__unexpected_field');
   });
 
-  it('canonicalizes legacy plan security issuance + option_grant_type before validation', () => {
+  itIfSchemas('canonicalizes legacy plan security issuance + option_grant_type before validation', () => {
     const fixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
     );
@@ -47,7 +61,7 @@ describe('ocfZodSchemas', () => {
     expect(parsedRecord).not.toHaveProperty('option_grant_type');
   });
 
-  it('canonicalizes legacy stakeholder status change event object_type + reason_text', () => {
+  itIfSchemas('canonicalizes legacy stakeholder status change event object_type + reason_text', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
     const legacyFixture = {
       ...fixture,
@@ -63,7 +77,7 @@ describe('ocfZodSchemas', () => {
     expect(parsedRecord.comments).toContain('Legacy reason');
   });
 
-  it('canonicalizes legacy stakeholder relationship event shape', () => {
+  itIfSchemas('canonicalizes legacy stakeholder relationship event shape', () => {
     const fixture = stripSourceMetadata(
       loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent')
     );

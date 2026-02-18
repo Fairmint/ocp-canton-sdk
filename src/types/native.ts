@@ -1557,12 +1557,14 @@ export interface OcfEquityCompensationRelease {
   security_id: string;
   /** Quantity of equity compensation being released */
   quantity: string;
+  /** Price used to value the released security at release time */
+  release_price: Monetary;
+  /** Settlement date for the release */
+  settlement_date: string;
   /** Array of identifiers for new securities resulting from the release */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial releases) */
   balance_security_id?: string;
-  /** Settlement date for the release */
-  settlement_date?: string;
   /** Unstructured text description of consideration provided */
   consideration_text?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1681,6 +1683,8 @@ export interface OcfStockPlanReturnToPool {
   id: string;
   /** Date on which the transaction occurred */
   date: string;
+  /** Identifier for the security being returned to the pool */
+  security_id: string;
   /** Identifier for the stock plan to which shares are being returned */
   stock_plan_id: string;
   /** Quantity of shares being returned to the pool */
@@ -1747,8 +1751,10 @@ export interface OcfEquityCompensationRepricing {
   date: string;
   /** Identifier for the security being repriced */
   security_id: string;
-  /** Array of identifiers for new securities resulting from the repricing */
-  resulting_security_ids: string[];
+  /** Updated exercise price after repricing */
+  new_exercise_price: Monetary;
+  /** Deprecated legacy resulting security IDs field (not in canonical schema) */
+  resulting_security_ids?: string[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

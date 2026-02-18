@@ -31,6 +31,7 @@ import {
   setupEquityCompensationSecurity,
   setupStockSecurity,
   setupTestIssuer,
+  setupTestStakeholder,
   setupWarrantSecurity,
 } from '../utils';
 
@@ -1722,12 +1723,21 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
+      const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent');
-      const prepared = prepareFixture(fixture, 'relationship-change');
+      const prepared = {
+        ...prepareFixture(fixture, 'relationship-change'),
+        stakeholder_id: stakeholderSetup.stakeholderData.id,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stakeholderSetup.newCapTableContractId,
+        capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1761,12 +1771,21 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
+      const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent');
-      const prepared = prepareFixture(fixture, 'status-change');
+      const prepared = {
+        ...prepareFixture(fixture, 'status-change'),
+        stakeholder_id: stakeholderSetup.stakeholderData.id,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stakeholderSetup.newCapTableContractId,
+        capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 

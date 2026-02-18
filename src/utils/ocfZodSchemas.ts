@@ -268,7 +268,7 @@ function ensureAjvInitialized(): { ajv: Ajv; schemaRootDir: string } {
 }
 
 function resolveSchemaObjectType(objectType: string): OcfSchemaObjectType {
-  if (objectType in OCF_OBJECT_SCHEMA_PATHS) {
+  if (Object.prototype.hasOwnProperty.call(OCF_OBJECT_SCHEMA_PATHS, objectType)) {
     return objectType as OcfSchemaObjectType;
   }
 
@@ -308,9 +308,7 @@ function getAjvValidator(objectType: OcfSchemaObjectType): ValidateFunction {
     validator = ajv.getSchema(schemaId);
   }
 
-  if (!validator) {
-    validator = ajv.compile(schema);
-  }
+  validator ??= ajv.compile(schema);
 
   validatorCache.set(objectType, validator);
   return validator;
@@ -402,7 +400,19 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  const normalized = normalizeOcfData(input as Record<string, unknown>);
+  let normalized: Record<string, unknown>;
+  try {
+    normalized = normalizeOcfData(input as Record<string, unknown>);
+  } catch (error) {
+    if (error instanceof OcpValidationError) {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : 'Failed to normalize OCF data';
+    throw new OcpValidationError('ocfObject', message, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: input,
+    });
+  }
   const objectType = normalized.object_type;
   if (typeof objectType !== 'string' || objectType.length === 0) {
     throw new OcpValidationError('object_type', 'Required field is missing or invalid', {

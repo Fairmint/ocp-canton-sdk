@@ -3,7 +3,9 @@
  */
 
 import type { OcfEquityCompensationRepricing } from '../../../types';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlMonetaryToNative, damlTimeToDateString } from '../../../utils/typeConversions';
+
+type DamlMonetary = Parameters<typeof damlMonetaryToNative>[0];
 
 /**
  * DAML EquityCompensationRepricing data structure.
@@ -13,7 +15,7 @@ export interface DamlEquityCompensationRepricingData {
   id: string;
   date: string;
   security_id: string;
-  resulting_security_ids: string[];
+  new_exercise_price: DamlMonetary;
   comments: string[];
 }
 
@@ -30,7 +32,7 @@ export function damlEquityCompensationRepricingToNative(
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,
-    resulting_security_ids: d.resulting_security_ids,
+    new_exercise_price: damlMonetaryToNative(d.new_exercise_price),
     ...(d.comments.length > 0 && { comments: d.comments }),
   };
 }

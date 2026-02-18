@@ -82,7 +82,7 @@ export function isPlanSecurityObjectType(objectType: string): objectType is Plan
  * Check if an object_type is a legacy alias.
  */
 export function isLegacyObjectType(objectType: string): objectType is LegacyObjectType {
-  return objectType in LEGACY_OBJECT_TYPE_MAP;
+  return Object.prototype.hasOwnProperty.call(LEGACY_OBJECT_TYPE_MAP, objectType);
 }
 
 /**

@@ -195,6 +195,7 @@ describe('Equity Compensation Event Converters', () => {
         quantity: '1000',
         resulting_security_ids: ['stock-001'],
         settlement_date: '2024-05-20',
+        release_price: { amount: '0.00', currency: 'USD' },
         consideration_text: 'RSU vesting release',
       };
 
@@ -236,7 +237,7 @@ describe('Equity Compensation Event Converters', () => {
         id: 'rep-123',
         date: '2024-06-01',
         security_id: 'option-underwater-001',
-        resulting_security_ids: ['option-repriced-001'],
+        new_exercise_price: { amount: '0.20', currency: 'USD' },
         comments: ['Underwater option repricing program'],
       };
 
@@ -254,7 +255,10 @@ describe('Equity Compensation Event Converters', () => {
 
       const value = choiceArg.creates[0].value as Record<string, unknown>;
       expect(value.id).toBe('rep-123');
-      expect(value.resulting_security_ids).toEqual(['option-repriced-001']);
+      expect(value.new_exercise_price).toEqual({
+        amount: '0.20',
+        currency: 'USD',
+      });
     });
 
     it('should have correct ENTITY_TAG_MAP entry', () => {
@@ -278,6 +282,7 @@ describe('Stock Plan Event Converters', () => {
       const data: OcfStockPlanReturnToPool = {
         id: 'rtp-123',
         date: '2024-07-10',
+        security_id: 'sec-123',
         stock_plan_id: 'plan-2024',
         quantity: '5000',
         reason_text: 'Employee termination - unvested shares returned',
@@ -298,6 +303,7 @@ describe('Stock Plan Event Converters', () => {
 
       const value = choiceArg.creates[0].value as Record<string, unknown>;
       expect(value.id).toBe('rtp-123');
+      expect(value.security_id).toBe('sec-123');
       expect(value.stock_plan_id).toBe('plan-2024');
       expect(value.quantity).toBe('5000');
       expect(value.reason_text).toBe('Employee termination - unvested shares returned');
@@ -344,10 +350,11 @@ describe('Stakeholder Change Event Converters', () => {
       const value = choiceArg.creates[0].value as Record<string, unknown>;
       expect(value.id).toBe('rce-123');
       expect(value.stakeholder_id).toBe('sh-001');
-      expect(value.new_relationships).toEqual(['OcfRelEmployee', 'OcfRelBoardMember']);
+      expect(value.relationship_started).toBe('OcfRelEmployee');
+      expect(value.relationship_ended).toBe('OcfRelBoardMember');
     });
 
-    it('should convert all relationship types correctly', () => {
+    it('should convert canonical relationship_started and relationship_ended fields', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
@@ -357,7 +364,8 @@ describe('Stakeholder Change Event Converters', () => {
         id: 'rce-456',
         date: '2024-08-15',
         stakeholder_id: 'sh-002',
-        new_relationships: ['FOUNDER', 'INVESTOR', 'ADVISOR', 'OFFICER', 'OTHER'],
+        relationship_started: 'FOUNDER',
+        relationship_ended: 'INVESTOR',
       };
 
       batch.create('stakeholderRelationshipChangeEvent', data);
@@ -370,13 +378,35 @@ describe('Stakeholder Change Event Converters', () => {
       };
 
       const value = choiceArg.creates[0].value as Record<string, unknown>;
-      expect(value.new_relationships).toEqual([
-        'OcfRelFounder',
-        'OcfRelInvestor',
-        'OcfRelAdvisor',
-        'OcfRelOfficer',
-        'OcfRelOther',
-      ]);
+      expect(value.relationship_started).toBe('OcfRelFounder');
+      expect(value.relationship_ended).toBe('OcfRelInvestor');
+    });
+
+    it('should use first two entries from legacy relationship list', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      const data: OcfStakeholderRelationshipChangeEvent = {
+        id: 'rce-invalid',
+        date: '2024-08-20',
+        stakeholder_id: 'sh-003',
+        new_relationships: ['FOUNDER', 'INVESTOR', 'ADVISOR'],
+      };
+
+      batch.create('stakeholderRelationshipChangeEvent', data);
+
+      const { command } = batch.build();
+      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+
+      const choiceArg = command.ExerciseCommand.choiceArgument as {
+        creates: Array<{ tag: string; value: unknown }>;
+      };
+
+      const value = choiceArg.creates[0].value as Record<string, unknown>;
+      expect(value.relationship_started).toBe('OcfRelFounder');
+      expect(value.relationship_ended).toBe('OcfRelInvestor');
     });
 
     it('should have correct ENTITY_TAG_MAP entry', () => {
@@ -500,10 +530,13 @@ describe('Batch operations with remaining types', () => {
         security_id: 'rsu-1',
         quantity: '100',
         resulting_security_ids: ['stock-1'],
+        settlement_date: '2024-01-05',
+        release_price: { amount: '0.00', currency: 'USD' },
       })
       .create('stockPlanReturnToPool', {
         id: 'rtp-1',
         date: '2024-01-03',
+        security_id: 'sec-1',
         stock_plan_id: 'plan-1',
         quantity: '500',
         reason_text: 'Termination',

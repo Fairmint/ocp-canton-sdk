@@ -29,7 +29,8 @@ interface DamlStakeholderRelationshipChangeEventData {
   id: string;
   date: string;
   stakeholder_id: string;
-  new_relationships: string[];
+  relationship_started: DamlStakeholderRelationshipType | null;
+  relationship_ended: DamlStakeholderRelationshipType | null;
   comments: string[];
 }
 
@@ -38,23 +39,18 @@ interface DamlStakeholderRelationshipChangeEventContract {
 }
 
 function mapRelationshipsToLatestFields(
-  relationships: StakeholderRelationshipType[]
+  relationshipStarted: StakeholderRelationshipType | null,
+  relationshipEnded: StakeholderRelationshipType | null
 ): Pick<OcfStakeholderRelationshipChangeEvent, 'relationship_started' | 'relationship_ended'> {
-  const uniqueRelationships = [...new Set(relationships)];
-  if (!uniqueRelationships.length) {
+  if (!relationshipStarted && !relationshipEnded) {
     throw new OcpContractError('Missing stakeholder relationship change data', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-    });
-  }
-  if (uniqueRelationships.length > 2) {
-    throw new OcpContractError('Cannot map more than 2 relationships to canonical OCF change-event shape', {
       code: OcpErrorCodes.INVALID_FORMAT,
     });
   }
 
   return {
-    relationship_started: uniqueRelationships[0],
-    ...(uniqueRelationships[1] ? { relationship_ended: uniqueRelationships[1] } : {}),
+    ...(relationshipStarted ? { relationship_started: relationshipStarted } : {}),
+    ...(relationshipEnded ? { relationship_ended: relationshipEnded } : {}),
   };
 }
 
@@ -87,10 +83,10 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
   const contract = res.created.createdEvent.createArgument as DamlStakeholderRelationshipChangeEventContract;
   const data = contract.relationship_change_data;
 
-  const nativeRelationships = data.new_relationships.map((rel) =>
-    damlStakeholderRelationshipToNative(rel as DamlStakeholderRelationshipType)
+  const relationshipFields = mapRelationshipsToLatestFields(
+    data.relationship_started ? damlStakeholderRelationshipToNative(data.relationship_started) : null,
+    data.relationship_ended ? damlStakeholderRelationshipToNative(data.relationship_ended) : null
   );
-  const relationshipFields = mapRelationshipsToLatestFields(nativeRelationships);
 
   const event: OcfStakeholderRelationshipChangeEvent = {
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
