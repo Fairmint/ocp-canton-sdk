@@ -206,8 +206,9 @@ export function resolveOcfSchemaDir(): string {
 
   throw new OcpValidationError(
     'ocfSchemaDir',
-    `OCF schema directory not found. Set OCP_OCF_SCHEMA_DIR or initialize submodule with ` +
-      `"git submodule update --init --recursive libs/Open-Cap-Format-OCF".`,
+    `OCF schema directory not found. Set OCP_OCF_SCHEMA_DIR or initialize the OCF submodule with ` +
+      `"git submodule update --init --recursive libs/Open-Cap-Format-OCF" ` +
+      `(or "git submodule update --init --recursive Open-Cap-Format-OCF" for root-level checkouts).`,
     {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       expectedType: 'existing directory containing schema/objects/*.schema.json',
