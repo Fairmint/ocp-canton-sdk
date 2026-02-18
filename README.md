@@ -96,6 +96,22 @@ This README is for SDK contributors and AI assistants. For end users/consumers, 
 - Functions added to the relevant `index.ts` barrels and `OcpClient`
 - Add `buildXCommand` variant where batching is expected
 
+### LocalNet (cn-quickstart)
+
+Local Canton Network for integration testing:
+
+```bash
+npm run localnet:start    # Start (fast path when artifacts exist)
+npm run localnet:stop     # Stop services
+npm run localnet:status   # Docker + endpoint status
+npm run localnet:smoke    # Endpoint smoke checks
+npm run localnet:test     # Run integration tests
+npm run localnet:verify   # Setup + start + smoke + test
+```
+
+Environment toggles: `CANTON_LOCALNET_FAST_START` (default: true),
+`CANTON_LOCALNET_FORCE_FULL_START` (default: false).
+
 ### OCF Schema Validation
 
 This SDK includes automated validation of all OCF data against the official
