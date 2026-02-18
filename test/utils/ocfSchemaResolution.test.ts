@@ -12,7 +12,11 @@ describe('resolveOcfSchemaDir', () => {
   let tempDirsToDelete: string[] = [];
 
   afterEach(() => {
-    process.env.OCP_OCF_SCHEMA_DIR = originalSchemaEnv;
+    if (originalSchemaEnv === undefined) {
+      delete process.env.OCP_OCF_SCHEMA_DIR;
+    } else {
+      process.env.OCP_OCF_SCHEMA_DIR = originalSchemaEnv;
+    }
     resetOcfSchemaRegistryForTests();
 
     for (const tempDir of tempDirsToDelete) {
