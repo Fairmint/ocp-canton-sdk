@@ -9,9 +9,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && npm run copy-ocf-schemas",
+    "build": "tsc",
     "clean": "rm -rf dist",
-    "copy-ocf-schemas": "ts-node scripts/copy-ocf-schemas.ts",
     "dev": "tsc --watch",
     "docs": "typedoc",
     "docs:clean": "rm -rf docs",
@@ -41,10 +40,7 @@
   },
   "dependencies": {
     "@daml/ledger": "2.10.3",
-    "@daml/types": "3.4.10",
-    "ajv": "8.17.1",
-    "ajv-formats": "3.0.1",
-    "zod": "4.1.12"
+    "@daml/types": "3.4.10"
   },
   "devDependencies": {
     "@apidevtools/json-schema-ref-parser": "15.2.2",
