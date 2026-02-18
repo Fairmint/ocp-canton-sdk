@@ -813,23 +813,14 @@ export function deepNormalizeNumericStrings<T>(value: T): T {
     return normalizeNumericString(value) as T;
   }
   if (Array.isArray(value)) {
-    let changed = false;
-    const mapped = value.map((item) => {
-      const normalized = deepNormalizeNumericStrings(item);
-      if (normalized !== item) changed = true;
-      return normalized;
-    });
-    return (changed ? mapped : value) as T;
+    const mapped = value.map(deepNormalizeNumericStrings);
+    return (mapped.some((item, i) => item !== value[i]) ? mapped : value) as T;
   }
   if (typeof value === 'object' && value !== null) {
-    let changed = false;
-    const result: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      const normalized = deepNormalizeNumericStrings(v);
-      if (normalized !== v) changed = true;
-      result[k] = normalized;
-    }
-    return (changed ? result : value) as T;
+    const entries = Object.entries(value as Record<string, unknown>);
+    const normalized = entries.map(([k, v]) => [k, deepNormalizeNumericStrings(v)] as const);
+    if (normalized.every(([, v], i) => v === entries[i][1])) return value;
+    return Object.fromEntries(normalized) as T;
   }
   return value;
 }
