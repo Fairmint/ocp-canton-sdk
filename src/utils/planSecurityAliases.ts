@@ -1,4 +1,4 @@
-import type { CompensationType, OcfStakeholder, OcfStockPlan } from '../types/native';
+import type { CompensationType, OcfStakeholder, OcfStockPlan, StakeholderRelationshipType } from '../types/native';
 import { isOcfStakeholder, isOcfStockPlan } from './typeGuards';
 
 /**
@@ -168,7 +168,7 @@ function isObjectTypeEquityCompensationIssuance(objectType: unknown): boolean {
  * - If both exist and conflict, throw.
  * - Always strip deprecated `option_grant_type` from canonical output.
  */
-function normalizeOptionGrantType<T extends Record<string, unknown>>(data: T): T {
+function normalizeOptionGrantType(data: Record<string, unknown>): Record<string, unknown> {
   if (!isObjectTypeEquityCompensationIssuance(data.object_type)) return data;
 
   const optionGrantTypeValue = data.option_grant_type;
@@ -213,7 +213,7 @@ function normalizeOptionGrantType<T extends Record<string, unknown>>(data: T): T
   return {
     ...rest,
     compensation_type: derivedCompensationType,
-  } as unknown as T;
+  };
 }
 
 /**
@@ -223,7 +223,7 @@ function normalizeOptionGrantType<T extends Record<string, unknown>>(data: T): T
  * - If only `plan_security_type` exists, derive `compensation_type` for supported values.
  * - Always strip deprecated `plan_security_type` from canonical output.
  */
-function normalizePlanSecurityType<T extends Record<string, unknown>>(data: T): T {
+function normalizePlanSecurityType(data: Record<string, unknown>): Record<string, unknown> {
   if (!isObjectTypeEquityCompensationIssuance(data.object_type)) return data;
 
   const planSecurityTypeValue = data.plan_security_type;
@@ -244,22 +244,21 @@ function normalizePlanSecurityType<T extends Record<string, unknown>>(data: T): 
   const { plan_security_type: _, ...rest } = data;
   const compensationTypeValue = data.compensation_type;
   if (compensationTypeValue !== undefined && compensationTypeValue !== null) {
-    return rest as unknown as T;
+    return rest;
   }
 
   const derivedCompensationType = mapPlanSecurityTypeToCompensationType(normalizedPlanSecurityType);
   if (!derivedCompensationType) {
-    return rest as unknown as T;
+    return rest;
   }
 
   return {
     ...rest,
     compensation_type: derivedCompensationType,
-  } as unknown as T;
+  };
 }
 
-type StakeholderRelationship = 'EMPLOYEE' | 'ADVISOR' | 'INVESTOR' | 'FOUNDER' | 'BOARD_MEMBER' | 'OFFICER' | 'OTHER';
-const VALID_STAKEHOLDER_RELATIONSHIPS: ReadonlySet<StakeholderRelationship> = new Set([
+const VALID_STAKEHOLDER_RELATIONSHIPS: ReadonlySet<StakeholderRelationshipType> = new Set([
   'EMPLOYEE',
   'ADVISOR',
   'INVESTOR',
@@ -268,6 +267,10 @@ const VALID_STAKEHOLDER_RELATIONSHIPS: ReadonlySet<StakeholderRelationship> = ne
   'OFFICER',
   'OTHER',
 ]);
+
+function isStakeholderRelationshipType(value: string): value is StakeholderRelationshipType {
+  return VALID_STAKEHOLDER_RELATIONSHIPS.has(value as StakeholderRelationshipType);
+}
 
 /**
  * Canonicalize stakeholder relationship change events to latest OCF format.
@@ -305,10 +308,10 @@ function normalizeStakeholderRelationshipChangeEvent<T extends Record<string, un
       if (!trimmed) {
         throw new Error('Invalid new_relationships entry: empty string');
       }
-      if (!VALID_STAKEHOLDER_RELATIONSHIPS.has(trimmed as StakeholderRelationship)) {
+      if (!isStakeholderRelationshipType(trimmed)) {
         throw new Error(`Invalid new_relationships entry: unknown relationship "${relationship}"`);
       }
-      return trimmed as StakeholderRelationship;
+      return trimmed;
     });
 
     if (normalizedRelationships.length > 2) {
@@ -338,17 +341,19 @@ function normalizeStakeholderRelationshipChangeEvent<T extends Record<string, un
   if (relationshipEnded !== undefined && typeof relationshipEnded !== 'string') {
     throw new Error(`Invalid relationship_ended: expected string, got ${typeof relationshipEnded}`);
   }
-  if (
-    typeof relationshipStarted === 'string' &&
-    !VALID_STAKEHOLDER_RELATIONSHIPS.has(relationshipStarted as StakeholderRelationship)
-  ) {
-    throw new Error(`Invalid relationship_started: unknown relationship "${relationshipStarted}"`);
+  if (typeof relationshipStarted === 'string') {
+    const normalizedRelationshipStarted = relationshipStarted.trim().toUpperCase();
+    if (!isStakeholderRelationshipType(normalizedRelationshipStarted)) {
+      throw new Error(`Invalid relationship_started: unknown relationship "${relationshipStarted}"`);
+    }
+    result.relationship_started = normalizedRelationshipStarted;
   }
-  if (
-    typeof relationshipEnded === 'string' &&
-    !VALID_STAKEHOLDER_RELATIONSHIPS.has(relationshipEnded as StakeholderRelationship)
-  ) {
-    throw new Error(`Invalid relationship_ended: unknown relationship "${relationshipEnded}"`);
+  if (typeof relationshipEnded === 'string') {
+    const normalizedRelationshipEnded = relationshipEnded.trim().toUpperCase();
+    if (!isStakeholderRelationshipType(normalizedRelationshipEnded)) {
+      throw new Error(`Invalid relationship_ended: unknown relationship "${relationshipEnded}"`);
+    }
+    result.relationship_ended = normalizedRelationshipEnded;
   }
 
   return result as T;
@@ -374,8 +379,24 @@ function normalizeStakeholderStatusChangeEvent<T extends Record<string, unknown>
     object_type: 'CE_STAKEHOLDER_STATUS',
   };
 
+  if (result.comments !== undefined && !Array.isArray(result.comments)) {
+    throw new Error(
+      `normalizeStakeholderStatusChangeEvent (CE_STAKEHOLDER_STATUS): comments must be an array of strings`
+    );
+  }
+  const existingComments: string[] = [];
+  if (Array.isArray(result.comments)) {
+    for (const comment of result.comments) {
+      if (typeof comment !== 'string') {
+        throw new Error(
+          `normalizeStakeholderStatusChangeEvent (CE_STAKEHOLDER_STATUS): comments must contain only strings, received value ${JSON.stringify(comment)} of type ${typeof comment}`
+        );
+      }
+      existingComments.push(comment);
+    }
+  }
+
   if (typeof result.reason_text === 'string' && result.reason_text.trim().length > 0) {
-    const existingComments = Array.isArray(result.comments) ? result.comments.filter((v) => typeof v === 'string') : [];
     result.comments = [...existingComments, result.reason_text.trim()];
   }
   delete result.reason_text;
@@ -586,21 +607,30 @@ function normalizeStockConsolidationResultingSecurityId<T extends Record<string,
   if (data.object_type !== 'TX_STOCK_CONSOLIDATION') return data;
 
   const result: Record<string, unknown> = { ...data };
-  const resultingSecurityId = result.resulting_security_id;
-  const legacyResultingSecurityIds = result.resulting_security_ids;
+  const { resulting_security_id } = result;
+  const { resulting_security_ids } = result;
 
-  if (legacyResultingSecurityIds !== undefined) {
-    if (!Array.isArray(legacyResultingSecurityIds)) {
+  if (resulting_security_ids !== undefined) {
+    if (!Array.isArray(resulting_security_ids)) {
+      throw new Error(`Invalid resulting_security_ids: expected array, got ${typeof resulting_security_ids}`);
+    }
+
+    for (const id of resulting_security_ids) {
+      if (typeof id !== 'string') {
+        throw new Error(
+          `Invalid resulting_security_ids: expected array of strings, found ${typeof id} (${JSON.stringify(id)})`
+        );
+      }
+    }
+
+    if (resulting_security_ids.length !== 1) {
       throw new Error(
-        `Invalid stock consolidation resulting_security_ids: expected array, got ${typeof legacyResultingSecurityIds}`
+        `Invalid resulting_security_ids: expected exactly one entry to map to resulting_security_id, got ${resulting_security_ids.length}`
       );
     }
-    if (
-      resultingSecurityId === undefined &&
-      legacyResultingSecurityIds.length > 0 &&
-      typeof legacyResultingSecurityIds[0] === 'string'
-    ) {
-      result.resulting_security_id = legacyResultingSecurityIds[0];
+
+    if (resulting_security_id === undefined) {
+      result.resulting_security_id = resulting_security_ids[0];
     }
     delete result.resulting_security_ids;
   }
@@ -675,7 +705,7 @@ function normalizeStockReissuanceSplitTransactionId<T extends Record<string, unk
  */
 export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T {
   // First normalize quantity_source for consistent comparison
-  let result = normalizeQuantitySource(data);
+  let result: Record<string, unknown> = normalizeQuantitySource(data);
 
   // Then normalize PlanSecurity object_type to EquityCompensation
   const objectType = result.object_type;
@@ -715,5 +745,5 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
   result = normalizeStakeholderRelationshipChangeEvent(result);
   result = normalizeStakeholderStatusChangeEvent(result);
 
-  return result;
+  return result as T;
 }

@@ -342,6 +342,13 @@ function formatAjvError(error: ErrorObject): string {
 }
 
 function convertZodErrorToValidationError(error: ZodError, contextField: string): OcpValidationError {
+  if (error.issues.length === 0) {
+    return new OcpValidationError(contextField, 'OCF schema validation failed', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: error.issues,
+    });
+  }
+
   const firstIssue = error.issues[0];
   const issuePath = firstIssue.path.join('.') || contextField;
   const issueMessage = error.issues
@@ -363,7 +370,7 @@ function createSchemaForObjectType(objectType: OcfSchemaObjectType): ZodType<Rec
     const errors = validator.errors ?? [];
     for (const error of errors) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ajvErrorToPath(error),
         message: formatAjvError(error),
       });

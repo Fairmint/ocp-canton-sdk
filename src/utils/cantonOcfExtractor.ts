@@ -33,6 +33,7 @@ import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stock
 import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
+import { LEGACY_OBJECT_TYPE_MAP } from './planSecurityAliases';
 import { TRANSACTION_SUBTYPE_MAP } from './replicationHelpers';
 
 // ===== Transaction Sorting =====
@@ -301,10 +302,7 @@ const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
  */
 const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = Object.fromEntries(
   Object.entries(TRANSACTION_SUBTYPE_MAP)
-    .filter(
-      ([objectType]) =>
-        objectType !== 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT' && objectType !== 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT'
-    )
+    .filter(([objectType]) => !Object.prototype.hasOwnProperty.call(LEGACY_OBJECT_TYPE_MAP, objectType))
     .map(([objectType, entityType]) => [entityType, objectType])
 );
 

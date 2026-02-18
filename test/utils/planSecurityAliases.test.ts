@@ -430,39 +430,51 @@ describe('PlanSecurity alias utilities', () => {
       expect(() => normalizeOcfData(input)).toThrow('Invalid stock plan stock_class_id: empty string');
     });
 
-    it('canonicalizes deprecated option_grant_type to compensation_type', () => {
+    it('canonicalizes deprecated option_grant_type to compensation_type', async () => {
       const input = {
         object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
         id: 'eq-1',
         date: '2024-01-15',
         security_id: 'sec-1',
+        custom_id: 'custom-1',
         stakeholder_id: 'stakeholder-1',
         stock_class_id: 'sc-1',
         quantity: '100',
+        exercise_price: { amount: '1.00', currency: 'USD' },
+        expiration_date: null,
+        termination_exercise_windows: [],
+        security_law_exemptions: [],
         compensation_type: 'OPTION',
         option_grant_type: 'NSO',
       };
 
       const result = normalizeOcfData(input);
+      await validateOcfObject(result as Record<string, unknown>);
 
       expect(result.compensation_type).toBe('OPTION_NSO');
       expect(result).not.toHaveProperty('option_grant_type');
     });
 
-    it('canonicalizes deprecated plan_security_type to compensation_type', () => {
+    it('canonicalizes deprecated plan_security_type to compensation_type', async () => {
       const input = {
         object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
         id: 'eq-1',
         date: '2024-01-15',
         security_id: 'sec-1',
+        custom_id: 'custom-1',
         stakeholder_id: 'stakeholder-1',
         stock_class_id: 'sc-1',
         quantity: '100',
+        exercise_price: { amount: '1.00', currency: 'USD' },
+        expiration_date: null,
+        termination_exercise_windows: [],
+        security_law_exemptions: [],
         plan_security_type: 'OPTION',
       };
 
       const result = normalizeOcfData(input);
       const resultRecord = result as Record<string, unknown>;
+      await validateOcfObject(resultRecord);
 
       expect(resultRecord.compensation_type).toBe('OPTION');
       expect(resultRecord).not.toHaveProperty('plan_security_type');
@@ -484,7 +496,7 @@ describe('PlanSecurity alias utilities', () => {
       expect(() => normalizeOcfData(input)).toThrow('conflicts with compensation_type');
     });
 
-    it('canonicalizes legacy stakeholder relationship change event fields', () => {
+    it('canonicalizes legacy stakeholder relationship change event fields', async () => {
       const input = {
         object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
         id: 'event-1',
@@ -495,6 +507,7 @@ describe('PlanSecurity alias utilities', () => {
 
       const result = normalizeOcfData(input);
       const resultRecord = result as Record<string, unknown>;
+      await validateOcfObject(resultRecord);
 
       expect(resultRecord.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
       expect(resultRecord.relationship_started).toBe('INVESTOR');
@@ -525,25 +538,26 @@ describe('PlanSecurity alias utilities', () => {
       expect(() => normalizeOcfData(input)).toThrow('unknown relationship');
     });
 
-    it('canonicalizes legacy stakeholder status change event reason_text into comments', () => {
+    it('canonicalizes legacy stakeholder status change event reason_text into comments', async () => {
       const input = {
         object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
         id: 'event-1',
         date: '2024-01-15',
         stakeholder_id: 'stakeholder-1',
-        new_status: 'CURRENT',
+        new_status: 'ACTIVE',
         reason_text: 'legacy reason',
         comments: ['existing'],
       };
 
       const result = normalizeOcfData(input);
+      await validateOcfObject(result as Record<string, unknown>);
 
       expect(result.object_type).toBe('CE_STAKEHOLDER_STATUS');
       expect(result.comments).toEqual(['existing', 'legacy reason']);
       expect(result).not.toHaveProperty('reason_text');
     });
 
-    it('canonicalizes stock consolidation resulting_security_ids to resulting_security_id', () => {
+    it('canonicalizes stock consolidation resulting_security_ids to resulting_security_id', async () => {
       const input = {
         object_type: 'TX_STOCK_CONSOLIDATION',
         id: 'stock-consolidation-1',
@@ -554,12 +568,13 @@ describe('PlanSecurity alias utilities', () => {
 
       const result = normalizeOcfData(input);
       const resultRecord = result as Record<string, unknown>;
+      await validateOcfObject(resultRecord);
 
       expect(resultRecord.resulting_security_id).toBe('sec-new-1');
       expect(resultRecord).not.toHaveProperty('resulting_security_ids');
     });
 
-    it('canonicalizes stock conversion quantity to quantity_converted', () => {
+    it('canonicalizes stock conversion quantity to quantity_converted', async () => {
       const input = {
         object_type: 'TX_STOCK_CONVERSION',
         id: 'stock-conversion-1',
@@ -571,12 +586,13 @@ describe('PlanSecurity alias utilities', () => {
 
       const result = normalizeOcfData(input);
       const resultRecord = result as Record<string, unknown>;
+      await validateOcfObject(resultRecord);
 
       expect(resultRecord.quantity_converted).toBe('100');
       expect(resultRecord).not.toHaveProperty('quantity');
     });
 
-    it('strips null split_transaction_id from stock reissuance', () => {
+    it('strips null split_transaction_id from stock reissuance', async () => {
       const input = {
         object_type: 'TX_STOCK_REISSUANCE',
         id: 'stock-reissuance-1',
@@ -587,6 +603,7 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
+      await validateOcfObject(result as Record<string, unknown>);
 
       expect(result).not.toHaveProperty('split_transaction_id');
     });

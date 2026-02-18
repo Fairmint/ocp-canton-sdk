@@ -51,9 +51,8 @@ class OcfSchemaValidator {
 
   /** Validate an OCF object against its schema */
   async validate(ocfObject: Record<string, unknown>): Promise<{ valid: boolean; errors: string[] }> {
-    await Promise.resolve();
     try {
-      parseOcfObject(ocfObject);
+      await Promise.resolve(parseOcfObject(ocfObject));
       return { valid: true, errors: [] };
     } catch (error) {
       if (error instanceof OcpValidationError) {

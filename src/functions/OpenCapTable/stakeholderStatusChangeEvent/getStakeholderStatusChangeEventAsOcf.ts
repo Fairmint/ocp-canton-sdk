@@ -7,6 +7,7 @@ import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
 import { damlStakeholderStatusToNative } from '../../../utils/enumConversions';
+import { isRecord } from '../../../utils/typeConversions';
 
 /** Parameters for getting a stakeholder status change event as OCF */
 export interface GetStakeholderStatusChangeEventAsOcfParams {
@@ -36,6 +37,35 @@ interface DamlStakeholderStatusChangeEventContract {
   status_change_data?: DamlStakeholderStatusChangeEventData;
 }
 
+function isDamlStakeholderStatusChangeEventData(value: unknown): value is DamlStakeholderStatusChangeEventData {
+  if (!isRecord(value)) return false;
+
+  return (
+    typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
+    typeof value.stakeholder_id === 'string' &&
+    typeof value.new_status === 'string' &&
+    Array.isArray(value.comments) &&
+    value.comments.every((comment) => typeof comment === 'string')
+  );
+}
+
+function isDamlStakeholderStatusChangeEventContract(value: unknown): value is DamlStakeholderStatusChangeEventContract {
+  if (!isRecord(value)) return false;
+
+  const eventData = value.event_data;
+  const statusChangeData = value.status_change_data;
+
+  if (eventData !== undefined && !isDamlStakeholderStatusChangeEventData(eventData)) {
+    return false;
+  }
+  if (statusChangeData !== undefined && !isDamlStakeholderStatusChangeEventData(statusChangeData)) {
+    return false;
+  }
+
+  return eventData !== undefined || statusChangeData !== undefined;
+}
+
 /**
  * Read a StakeholderStatusChangeEvent contract from the ledger and convert to OCF format.
  *
@@ -62,7 +92,15 @@ export async function getStakeholderStatusChangeEventAsOcf(
     });
   }
 
-  const contract = res.created.createdEvent.createArgument as DamlStakeholderStatusChangeEventContract;
+  const { createArgument } = res.created.createdEvent;
+  if (!isDamlStakeholderStatusChangeEventContract(createArgument)) {
+    throw new OcpContractError('Invalid stakeholder status event contract payload', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
+
+  const contract = createArgument;
   const data = contract.event_data ?? contract.status_change_data;
   if (!data) {
     throw new OcpContractError('Missing stakeholder status event data', {
@@ -77,7 +115,7 @@ export async function getStakeholderStatusChangeEventAsOcf(
     date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,
     new_status: damlStakeholderStatusToNative(data.new_status),
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
+    ...(data.comments.length ? { comments: data.comments } : {}),
   };
 
   return { event, contractId: params.contractId };

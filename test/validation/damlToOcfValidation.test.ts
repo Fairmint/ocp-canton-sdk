@@ -14,6 +14,7 @@ import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/
 import { getStockPlanAsOcf } from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
 import { getVestingTermsAsOcf } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
+import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
 /**
  * Creates a mock LedgerJsonApiClient with the given createArgument data
@@ -30,6 +31,10 @@ function createMockClient(dataKey: string, data: Record<string, unknown>): Ledge
       },
     }),
   } as unknown as LedgerJsonApiClient;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value as Record<string, unknown>;
 }
 
 describe('DAML to OCF Validation', () => {
@@ -303,6 +308,7 @@ describe('DAML to OCF Validation', () => {
       });
 
       const result = await getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'test-contract' });
+      await validateOcfObject(asRecord(result.event));
       expect(result.event.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
       expect(result.event.relationship_started).toBe('ADVISOR');
       expect(result.event.relationship_ended).toBeUndefined();
@@ -319,6 +325,7 @@ describe('DAML to OCF Validation', () => {
       });
 
       const result = await getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'test-contract' });
+      await validateOcfObject(asRecord(result.event));
       expect(result.event.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
       expect(result.event.relationship_started).toBeUndefined();
       expect(result.event.relationship_ended).toBe('EMPLOYEE');
@@ -334,6 +341,7 @@ describe('DAML to OCF Validation', () => {
       });
 
       const result = await getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' });
+      await validateOcfObject(asRecord(result.event));
       expect(result.event.object_type).toBe('CE_STAKEHOLDER_STATUS');
       expect(result.event.new_status).toBe('ACTIVE');
     });
@@ -348,6 +356,7 @@ describe('DAML to OCF Validation', () => {
       });
 
       const result = await getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' });
+      await validateOcfObject(asRecord(result.event));
       expect(result.event.object_type).toBe('CE_STAKEHOLDER_STATUS');
       expect(result.event.new_status).toBe('LEAVE_OF_ABSENCE');
     });
