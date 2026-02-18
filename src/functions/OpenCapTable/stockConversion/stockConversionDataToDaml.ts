@@ -25,6 +25,19 @@ export function stockConversionDataToDaml(d: OcfStockConversion): Record<string,
       receivedValue: d.id,
     });
   }
+  if (!d.security_id) {
+    throw new OcpValidationError('stockConversion.security_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.security_id,
+    });
+  }
+  if (!d.quantity_converted) {
+    throw new OcpValidationError('stockConversion.quantity_converted', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.quantity_converted,
+    });
+  }
+
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),

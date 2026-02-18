@@ -6,9 +6,22 @@
  */
 
 import { OcpValidationError } from '../../src/errors';
+import { convertibleConversionDataToDaml } from '../../src/functions/OpenCapTable/convertibleConversion/convertibleConversionDataToDaml';
+import { equityCompensationReleaseDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationRelease/equityCompensationReleaseDataToDaml';
+import { equityCompensationRepricingDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationRepricing/equityCompensationRepricingDataToDaml';
 import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
+import { stockConversionDataToDaml } from '../../src/functions/OpenCapTable/stockConversion/stockConversionDataToDaml';
 import { stockIssuanceDataToDaml } from '../../src/functions/OpenCapTable/stockIssuance/createStockIssuance';
-import type { OcfStakeholder, OcfStockIssuance } from '../../src/types';
+import { stockPlanReturnToPoolDataToDaml } from '../../src/functions/OpenCapTable/stockPlanReturnToPool/stockPlanReturnToPoolDataToDaml';
+import type {
+  OcfConvertibleConversion,
+  OcfEquityCompensationRelease,
+  OcfEquityCompensationRepricing,
+  OcfStakeholder,
+  OcfStockConversion,
+  OcfStockIssuance,
+  OcfStockPlanReturnToPool,
+} from '../../src/types';
 
 describe('Required Field Validation', () => {
   describe('stakeholderDataToDaml', () => {
@@ -92,6 +105,131 @@ describe('Required Field Validation', () => {
       const result = stockIssuanceDataToDaml(validBaseData as OcfStockIssuance);
       expect(result.id).toBe('iss-001');
       expect(result.security_id).toBe('sec-001');
+    });
+  });
+
+  describe('convertibleConversionDataToDaml', () => {
+    const validBaseData: OcfConvertibleConversion = {
+      id: 'cc-001',
+      date: '2024-01-15',
+      reason_text: 'Qualified financing trigger',
+      security_id: 'conv-001',
+      trigger_id: 'trigger-001',
+      resulting_security_ids: ['stock-001'],
+    };
+
+    test('throws OcpValidationError when reason_text is missing', () => {
+      const invalidData = { ...validBaseData, reason_text: '' };
+      expect(() => convertibleConversionDataToDaml(invalidData)).toThrow(OcpValidationError);
+      expect(() => convertibleConversionDataToDaml(invalidData)).toThrow("'convertibleConversion.reason_text'");
+    });
+
+    test('throws OcpValidationError when trigger_id is missing', () => {
+      const invalidData = { ...validBaseData, trigger_id: '' };
+      expect(() => convertibleConversionDataToDaml(invalidData)).toThrow(OcpValidationError);
+      expect(() => convertibleConversionDataToDaml(invalidData)).toThrow("'convertibleConversion.trigger_id'");
+    });
+
+    test('succeeds with valid canonical data', () => {
+      const result = convertibleConversionDataToDaml(validBaseData);
+      expect(result.security_id).toBe('conv-001');
+      expect(result.trigger_id).toBe('trigger-001');
+    });
+  });
+
+  describe('stockConversionDataToDaml', () => {
+    const validBaseData: OcfStockConversion = {
+      id: 'sc-001',
+      date: '2024-01-15',
+      security_id: 'stock-001',
+      quantity_converted: '100',
+      resulting_security_ids: ['pref-001'],
+    };
+
+    test('throws OcpValidationError when security_id is missing', () => {
+      const invalidData = { ...validBaseData, security_id: '' };
+      expect(() => stockConversionDataToDaml(invalidData)).toThrow(OcpValidationError);
+      expect(() => stockConversionDataToDaml(invalidData)).toThrow("'stockConversion.security_id'");
+    });
+
+    test('throws OcpValidationError when quantity_converted is missing', () => {
+      const invalidData = { ...validBaseData, quantity_converted: '' };
+      expect(() => stockConversionDataToDaml(invalidData)).toThrow(OcpValidationError);
+      expect(() => stockConversionDataToDaml(invalidData)).toThrow("'stockConversion.quantity_converted'");
+    });
+  });
+
+  describe('equityCompensationReleaseDataToDaml', () => {
+    const validBaseData: OcfEquityCompensationRelease = {
+      id: 'ecr-001',
+      date: '2024-01-15',
+      security_id: 'eq-001',
+      quantity: '50',
+      release_price: { amount: '0.00', currency: 'USD' },
+      settlement_date: '2024-01-16',
+      resulting_security_ids: ['stock-001'],
+    };
+
+    test('throws OcpValidationError when release_price is missing', () => {
+      const invalidData = {
+        ...validBaseData,
+        release_price: undefined,
+      } as unknown as OcfEquityCompensationRelease;
+      expect(() => equityCompensationReleaseDataToDaml(invalidData)).toThrow(OcpValidationError);
+      expect(() => equityCompensationReleaseDataToDaml(invalidData)).toThrow(
+        "'equityCompensationRelease.release_price'"
+      );
+    });
+
+    test('throws OcpValidationError when settlement_date is missing', () => {
+      const invalidData = { ...validBaseData, settlement_date: '' };
+      expect(() => equityCompensationReleaseDataToDaml(invalidData)).toThrow(OcpValidationError);
+      expect(() => equityCompensationReleaseDataToDaml(invalidData)).toThrow(
+        "'equityCompensationRelease.settlement_date'"
+      );
+    });
+  });
+
+  describe('equityCompensationRepricingDataToDaml', () => {
+    const validBaseData: OcfEquityCompensationRepricing = {
+      id: 'repricing-001',
+      date: '2024-01-15',
+      security_id: 'option-001',
+      new_exercise_price: { amount: '0.50', currency: 'USD' },
+    };
+
+    test('throws OcpValidationError when new_exercise_price is missing', () => {
+      const invalidData = {
+        ...validBaseData,
+        new_exercise_price: undefined,
+      } as unknown as OcfEquityCompensationRepricing;
+      expect(() => equityCompensationRepricingDataToDaml(invalidData)).toThrow(OcpValidationError);
+      expect(() => equityCompensationRepricingDataToDaml(invalidData)).toThrow(
+        "'equityCompensationRepricing.new_exercise_price'"
+      );
+    });
+  });
+
+  describe('stockPlanReturnToPoolDataToDaml', () => {
+    const validBaseData: OcfStockPlanReturnToPool = {
+      id: 'return-001',
+      date: '2024-01-15',
+      security_id: 'sec-001',
+      stock_plan_id: 'plan-001',
+      quantity: '15',
+      reason_text: 'Termination',
+    };
+
+    test('throws OcpValidationError when security_id is missing', () => {
+      const invalidData = { ...validBaseData, security_id: '' };
+      expect(() => stockPlanReturnToPoolDataToDaml(invalidData)).toThrow(OcpValidationError);
+      expect(() => stockPlanReturnToPoolDataToDaml(invalidData)).toThrow("'stockPlanReturnToPool.security_id'");
+    });
+
+    test('throws OcpValidationError when reason_text is missing', () => {
+      const invalidData = { ...validBaseData, reason_text: '' };
+      expect(() => stockPlanReturnToPoolDataToDaml(invalidData)).toThrow(OcpValidationError);
+      expect(() => stockPlanReturnToPoolDataToDaml(invalidData)).toThrow("'stockPlanReturnToPool.reason_text'");
     });
   });
 });

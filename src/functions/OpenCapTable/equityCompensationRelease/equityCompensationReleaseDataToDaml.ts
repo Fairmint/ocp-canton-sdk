@@ -26,6 +26,32 @@ export function equityCompensationReleaseDataToDaml(d: OcfEquityCompensationRele
       receivedValue: d.id,
     });
   }
+  if (!d.security_id) {
+    throw new OcpValidationError('equityCompensationRelease.security_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.security_id,
+    });
+  }
+  if (!d.quantity) {
+    throw new OcpValidationError('equityCompensationRelease.quantity', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.quantity,
+    });
+  }
+  const releasePrice: unknown = d.release_price;
+  if (releasePrice === undefined || releasePrice === null) {
+    throw new OcpValidationError('equityCompensationRelease.release_price', 'Required field is missing', {
+      expectedType: 'Monetary',
+      receivedValue: releasePrice,
+    });
+  }
+  if (!d.settlement_date) {
+    throw new OcpValidationError('equityCompensationRelease.settlement_date', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.settlement_date,
+    });
+  }
+
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),

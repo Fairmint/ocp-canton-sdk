@@ -20,6 +20,20 @@ export function equityCompensationRepricingDataToDaml(d: OcfEquityCompensationRe
       receivedValue: d.id,
     });
   }
+  if (!d.security_id) {
+    throw new OcpValidationError('equityCompensationRepricing.security_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.security_id,
+    });
+  }
+  const newExercisePrice: unknown = d.new_exercise_price;
+  if (newExercisePrice === undefined || newExercisePrice === null) {
+    throw new OcpValidationError('equityCompensationRepricing.new_exercise_price', 'Required field is missing', {
+      expectedType: 'Monetary',
+      receivedValue: newExercisePrice,
+    });
+  }
+
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),

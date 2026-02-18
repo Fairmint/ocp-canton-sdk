@@ -134,6 +134,10 @@ export function normalizeObjectType<T extends string>(objectType: T): string {
 type OptionGrantType = 'NSO' | 'ISO' | 'INTL';
 type PlanSecurityType = 'OPTION' | 'RSU' | 'OTHER';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 function mapOptionGrantTypeToCompensationType(optionGrantType: OptionGrantType): CompensationType {
   switch (optionGrantType) {
     case 'NSO':
@@ -675,7 +679,21 @@ function normalizeStockConversionQuantityConverted<T extends Record<string, unkn
       throw new Error(`Invalid stock conversion quantity: expected string or number, got ${typeof legacyQuantity}`);
     }
     const normalizedLegacyQuantity = normalizeNumericString(legacyQuantity);
-    if (quantityConverted === undefined) {
+
+    if (quantityConverted !== undefined) {
+      if (typeof quantityConverted !== 'string' && typeof quantityConverted !== 'number') {
+        throw new Error(
+          `Invalid stock conversion quantity_converted: expected string or number, got ${typeof quantityConverted}`
+        );
+      }
+
+      const normalizedCanonicalQuantity = normalizeNumericString(quantityConverted);
+      if (normalizedCanonicalQuantity !== normalizedLegacyQuantity) {
+        throw new Error(
+          `Conflicting stock conversion quantities: quantity_converted="${normalizedCanonicalQuantity}" does not match quantity="${normalizedLegacyQuantity}"`
+        );
+      }
+    } else {
       result.quantity_converted = normalizedLegacyQuantity;
     }
     delete result.quantity;
@@ -713,10 +731,39 @@ function normalizeStockClassSplitRatio<T extends Record<string, unknown>>(data: 
       );
     }
 
-    if (splitRatio === undefined) {
+    const normalizedLegacyNumerator = normalizeNumericString(legacyNumerator);
+    const normalizedLegacyDenominator = normalizeNumericString(legacyDenominator);
+
+    if (splitRatio !== undefined) {
+      if (!isRecord(splitRatio)) {
+        throw new Error(`Invalid split_ratio: expected object, got ${typeof splitRatio}`);
+      }
+
+      const canonicalNumerator = splitRatio.numerator;
+      const canonicalDenominator = splitRatio.denominator;
+      if (
+        (typeof canonicalNumerator !== 'string' && typeof canonicalNumerator !== 'number') ||
+        (typeof canonicalDenominator !== 'string' && typeof canonicalDenominator !== 'number')
+      ) {
+        throw new Error(
+          `Invalid split_ratio values: expected string or number values, got numerator=${typeof canonicalNumerator}, denominator=${typeof canonicalDenominator}`
+        );
+      }
+
+      const normalizedCanonicalNumerator = normalizeNumericString(canonicalNumerator);
+      const normalizedCanonicalDenominator = normalizeNumericString(canonicalDenominator);
+      if (
+        normalizedCanonicalNumerator !== normalizedLegacyNumerator ||
+        normalizedCanonicalDenominator !== normalizedLegacyDenominator
+      ) {
+        throw new Error(
+          `Conflicting stock class split ratios: split_ratio=(${normalizedCanonicalNumerator}/${normalizedCanonicalDenominator}) does not match legacy fields (${normalizedLegacyNumerator}/${normalizedLegacyDenominator})`
+        );
+      }
+    } else {
       result.split_ratio = {
-        numerator: normalizeNumericString(legacyNumerator),
-        denominator: normalizeNumericString(legacyDenominator),
+        numerator: normalizedLegacyNumerator,
+        denominator: normalizedLegacyDenominator,
       };
     }
 
@@ -756,13 +803,47 @@ function normalizeStockClassConversionRatioAdjustmentMechanism<T extends Record<
       );
     }
 
-    if (ratioMechanism === undefined) {
+    const normalizedLegacyNumerator = normalizeNumericString(legacyNumerator);
+    const normalizedLegacyDenominator = normalizeNumericString(legacyDenominator);
+
+    if (ratioMechanism !== undefined) {
+      if (!isRecord(ratioMechanism)) {
+        throw new Error(`Invalid new_ratio_conversion_mechanism: expected object, got ${typeof ratioMechanism}`);
+      }
+
+      const ratioValue = ratioMechanism.ratio;
+      if (!isRecord(ratioValue)) {
+        throw new Error(`Invalid new_ratio_conversion_mechanism.ratio: expected object, got ${typeof ratioValue}`);
+      }
+
+      const canonicalNumerator = ratioValue.numerator;
+      const canonicalDenominator = ratioValue.denominator;
+      if (
+        (typeof canonicalNumerator !== 'string' && typeof canonicalNumerator !== 'number') ||
+        (typeof canonicalDenominator !== 'string' && typeof canonicalDenominator !== 'number')
+      ) {
+        throw new Error(
+          `Invalid new_ratio_conversion_mechanism.ratio values: expected string or number values, got numerator=${typeof canonicalNumerator}, denominator=${typeof canonicalDenominator}`
+        );
+      }
+
+      const normalizedCanonicalNumerator = normalizeNumericString(canonicalNumerator);
+      const normalizedCanonicalDenominator = normalizeNumericString(canonicalDenominator);
+      if (
+        normalizedCanonicalNumerator !== normalizedLegacyNumerator ||
+        normalizedCanonicalDenominator !== normalizedLegacyDenominator
+      ) {
+        throw new Error(
+          `Conflicting stock class conversion ratios: new_ratio_conversion_mechanism.ratio=(${normalizedCanonicalNumerator}/${normalizedCanonicalDenominator}) does not match legacy fields (${normalizedLegacyNumerator}/${normalizedLegacyDenominator})`
+        );
+      }
+    } else {
       result.new_ratio_conversion_mechanism = {
         type: 'RATIO_CONVERSION',
         conversion_price: { amount: '0', currency: 'USD' },
         ratio: {
-          numerator: normalizeNumericString(legacyNumerator),
-          denominator: normalizeNumericString(legacyDenominator),
+          numerator: normalizedLegacyNumerator,
+          denominator: normalizedLegacyDenominator,
         },
         rounding_type: 'NORMAL',
       };

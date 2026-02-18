@@ -25,6 +25,25 @@ export function convertibleConversionDataToDaml(d: OcfConvertibleConversion): Re
       receivedValue: d.id,
     });
   }
+  if (!d.reason_text) {
+    throw new OcpValidationError('convertibleConversion.reason_text', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.reason_text,
+    });
+  }
+  if (!d.security_id) {
+    throw new OcpValidationError('convertibleConversion.security_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.security_id,
+    });
+  }
+  if (!d.trigger_id) {
+    throw new OcpValidationError('convertibleConversion.trigger_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.trigger_id,
+    });
+  }
+
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),

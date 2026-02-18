@@ -20,6 +20,31 @@ export function stockPlanReturnToPoolDataToDaml(d: OcfStockPlanReturnToPool): Re
       receivedValue: d.id,
     });
   }
+  if (!d.security_id) {
+    throw new OcpValidationError('stockPlanReturnToPool.security_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.security_id,
+    });
+  }
+  if (!d.stock_plan_id) {
+    throw new OcpValidationError('stockPlanReturnToPool.stock_plan_id', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.stock_plan_id,
+    });
+  }
+  if (!d.quantity) {
+    throw new OcpValidationError('stockPlanReturnToPool.quantity', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.quantity,
+    });
+  }
+  if (!d.reason_text) {
+    throw new OcpValidationError('stockPlanReturnToPool.reason_text', 'Required field is missing or empty', {
+      expectedType: 'string',
+      receivedValue: d.reason_text,
+    });
+  }
+
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),

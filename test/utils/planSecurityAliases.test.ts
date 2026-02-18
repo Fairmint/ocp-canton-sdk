@@ -624,6 +624,20 @@ describe('PlanSecurity alias utilities', () => {
       expect(resultRecord).not.toHaveProperty('quantity');
     });
 
+    it('rejects conflicting stock conversion legacy and canonical quantities', () => {
+      const input = {
+        object_type: 'TX_STOCK_CONVERSION',
+        id: 'stock-conversion-1',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        quantity_converted: '101',
+        quantity: '100',
+        resulting_security_ids: ['sec-new-1'],
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Conflicting stock conversion quantities');
+    });
+
     it('canonicalizes stock class split legacy ratio fields to split_ratio', async () => {
       const input = {
         object_type: 'TX_STOCK_CLASS_SPLIT',
@@ -644,6 +658,20 @@ describe('PlanSecurity alias utilities', () => {
       });
       expect(resultRecord).not.toHaveProperty('split_ratio_numerator');
       expect(resultRecord).not.toHaveProperty('split_ratio_denominator');
+    });
+
+    it('rejects conflicting stock class split canonical and legacy ratios', () => {
+      const input = {
+        object_type: 'TX_STOCK_CLASS_SPLIT',
+        id: 'stock-class-split-1',
+        date: '2024-01-15',
+        stock_class_id: 'sc-1',
+        split_ratio: { numerator: '3', denominator: '2' },
+        split_ratio_numerator: '4',
+        split_ratio_denominator: '2',
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Conflicting stock class split ratios');
     });
 
     it('canonicalizes stock class conversion ratio legacy fields to conversion mechanism', async () => {
@@ -668,6 +696,25 @@ describe('PlanSecurity alias utilities', () => {
       });
       expect(resultRecord).not.toHaveProperty('new_ratio_numerator');
       expect(resultRecord).not.toHaveProperty('new_ratio_denominator');
+    });
+
+    it('rejects conflicting stock class conversion mechanism and legacy ratio fields', () => {
+      const input = {
+        object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+        id: 'stock-class-ratio-adj-1',
+        date: '2024-01-15',
+        stock_class_id: 'sc-1',
+        new_ratio_conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          conversion_price: { amount: '0', currency: 'USD' },
+          ratio: { numerator: '11', denominator: '10' },
+          rounding_type: 'NORMAL',
+        },
+        new_ratio_numerator: '12',
+        new_ratio_denominator: '10',
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('Conflicting stock class conversion ratios');
     });
 
     it('strips null split_transaction_id from stock reissuance', async () => {
