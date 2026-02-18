@@ -129,6 +129,19 @@ The validator automatically validates both:
 
 All 78+ test fixtures pass validation for both input and output data.
 
+### LocalNet
+
+```bash
+npm run localnet:start    # Start (fast path when artifacts exist)
+npm run localnet:stop     # Stop services
+npm run localnet:status   # Docker + endpoint status
+npm run localnet:smoke    # Endpoint smoke checks
+npm run localnet:verify   # Setup + start + smoke + test
+```
+
+`localnet:start` uses a fast startup path when quickstart build artifacts already exist. To force a
+full rebuild start, run `CANTON_LOCALNET_FORCE_FULL_START=true npm run localnet:start`.
+
 ### License
 
 MIT
