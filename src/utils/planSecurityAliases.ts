@@ -1,4 +1,5 @@
 import type { CompensationType, OcfStakeholder, OcfStockPlan, StakeholderRelationshipType } from '../types/native';
+import { normalizeNumericString } from './typeConversions';
 import { isOcfStakeholder, isOcfStockPlan } from './typeGuards';
 
 /**
@@ -249,7 +250,9 @@ function normalizePlanSecurityType(data: Record<string, unknown>): Record<string
 
   const derivedCompensationType = mapPlanSecurityTypeToCompensationType(normalizedPlanSecurityType);
   if (!derivedCompensationType) {
-    return rest;
+    throw new Error(
+      "plan_security_type 'OTHER' is not supported. DAML only supports 'OPTION' and 'RSU' types. Use EquityCompensationIssuance with a specific compensation_type instead."
+    );
   }
 
   return {
@@ -651,8 +654,12 @@ function normalizeStockConversionQuantityConverted<T extends Record<string, unkn
   const legacyQuantity = result.quantity;
 
   if (legacyQuantity !== undefined) {
+    if (typeof legacyQuantity !== 'string' && typeof legacyQuantity !== 'number') {
+      throw new Error(`Invalid stock conversion quantity: expected string or number, got ${typeof legacyQuantity}`);
+    }
+    const normalizedLegacyQuantity = normalizeNumericString(legacyQuantity);
     if (quantityConverted === undefined) {
-      result.quantity_converted = legacyQuantity;
+      result.quantity_converted = normalizedLegacyQuantity;
     }
     delete result.quantity;
   }

@@ -335,7 +335,7 @@ function ajvErrorToPath(error: ErrorObject): Array<string | number> {
 }
 
 function formatAjvError(error: ErrorObject): string {
-  const instancePath = error.instancePath || '/';
+  const instancePath = error.instancePath && error.instancePath.length > 0 ? error.instancePath : '/';
   const message = error.message ?? 'schema validation failed';
   const params = JSON.stringify(error.params);
   return `${instancePath}: ${message} ${params}`;
@@ -350,12 +350,18 @@ function convertZodErrorToValidationError(error: ZodError, contextField: string)
   }
 
   const firstIssue = error.issues[0];
-  const issuePath = firstIssue.path.join('.') || contextField;
+  const firstIssuePath = firstIssue.path.join('.');
+  const issuePath = firstIssuePath.length > 0 ? firstIssuePath : contextField;
   const issueMessage = error.issues
-    .map((issue) => `[${issue.path.join('.') || contextField}] ${issue.message}`)
+    .map((issue) => {
+      const issuePathValue = issue.path.join('.');
+      const formattedIssuePath = issuePathValue.length > 0 ? issuePathValue : contextField;
+      return `[${formattedIssuePath}] ${issue.message}`;
+    })
     .join('; ');
 
-  return new OcpValidationError(issuePath, issueMessage || 'OCF schema validation failed', {
+  const finalIssueMessage = issueMessage.length > 0 ? issueMessage : 'OCF schema validation failed';
+  return new OcpValidationError(issuePath, finalIssueMessage, {
     code: OcpErrorCodes.INVALID_FORMAT,
     receivedValue: error.issues,
   });
@@ -393,13 +399,24 @@ export function getOcfSchema(objectType: string): ZodType<Record<string, unknown
   return schema;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isParsedEntityType<T extends OcfEntityType>(
+  value: Record<string, unknown>,
+  expectedObjectType: string
+): value is OcfDataTypeFor<T> & Record<string, unknown> {
+  return value.object_type === expectedObjectType;
+}
+
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
  * Deprecated/legacy aliases are normalized to canonical latest forms prior to strict validation.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+  if (!isRecord(input)) {
     throw new OcpValidationError('ocfObject', 'Expected a JSON object', {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'Record<string, unknown>',
@@ -409,7 +426,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
 
   let normalized: Record<string, unknown>;
   try {
-    normalized = normalizeOcfData(input as Record<string, unknown>);
+    normalized = normalizeOcfData(input);
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw error;
@@ -446,7 +463,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
  * If object_type is missing, the canonical object_type for the entity is injected before validation.
  */
 export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+  if (!isRecord(input)) {
     throw new OcpValidationError(`${entityType}`, 'Expected a JSON object', {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'Record<string, unknown>',
@@ -455,28 +472,30 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
   }
 
   const expectedObjectType = ENTITY_TYPE_TO_OBJECT_TYPE[entityType];
-  const objectInput = input as Record<string, unknown>;
+  const objectInput = input;
 
   const withObjectType =
     typeof objectInput.object_type === 'string' && objectInput.object_type.length > 0
       ? objectInput
-      : ({ ...objectInput, object_type: expectedObjectType } as Record<string, unknown>);
+      : { ...objectInput, object_type: expectedObjectType };
 
   const parsed = parseOcfObject(withObjectType);
-  const parsedObjectType = parsed.object_type;
-  if (parsedObjectType !== expectedObjectType) {
+  if (!isParsedEntityType<T>(parsed, expectedObjectType)) {
+    const receivedObjectType = parsed.object_type;
+    const receivedObjectTypeMessage =
+      typeof receivedObjectType === 'string' ? receivedObjectType : JSON.stringify(receivedObjectType);
     throw new OcpValidationError(
       'object_type',
-      `Entity type "${entityType}" expects object_type "${expectedObjectType}", received "${String(parsedObjectType)}"`,
+      `Entity type "${entityType}" expects object_type "${expectedObjectType}", received "${receivedObjectTypeMessage}"`,
       {
         code: OcpErrorCodes.INVALID_FORMAT,
         expectedType: expectedObjectType,
-        receivedValue: parsedObjectType,
+        receivedValue: receivedObjectType,
       }
     );
   }
 
-  return parsed as unknown as OcfDataTypeFor<T>;
+  return parsed;
 }
 
 /**

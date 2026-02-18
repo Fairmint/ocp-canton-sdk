@@ -9,6 +9,7 @@ import {
   damlStakeholderRelationshipToNative,
   type DamlStakeholderRelationshipType,
 } from '../../../utils/enumConversions';
+import { isRecord } from '../../../utils/typeConversions';
 
 /** Parameters for getting a stakeholder relationship change event as OCF */
 export interface GetStakeholderRelationshipChangeEventAsOcfParams {
@@ -41,10 +42,12 @@ interface DamlStakeholderRelationshipChangeEventContract {
 
 function mapRelationshipsToLatestFields(
   relationshipStarted: StakeholderRelationshipType | null,
-  relationshipEnded: StakeholderRelationshipType | null
+  relationshipEnded: StakeholderRelationshipType | null,
+  contractId: string
 ): Pick<OcfStakeholderRelationshipChangeEvent, 'relationship_started' | 'relationship_ended'> {
   if (!relationshipStarted && !relationshipEnded) {
     throw new OcpContractError('Missing stakeholder relationship change data', {
+      contractId,
       code: OcpErrorCodes.INVALID_FORMAT,
     });
   }
@@ -53,6 +56,40 @@ function mapRelationshipsToLatestFields(
     ...(relationshipStarted ? { relationship_started: relationshipStarted } : {}),
     ...(relationshipEnded ? { relationship_ended: relationshipEnded } : {}),
   };
+}
+
+function isDamlStakeholderRelationshipChangeEventData(
+  value: unknown
+): value is DamlStakeholderRelationshipChangeEventData {
+  if (!isRecord(value)) return false;
+
+  return (
+    typeof value.id === 'string' &&
+    typeof value.date === 'string' &&
+    typeof value.stakeholder_id === 'string' &&
+    (typeof value.relationship_started === 'string' || value.relationship_started === null) &&
+    (typeof value.relationship_ended === 'string' || value.relationship_ended === null) &&
+    Array.isArray(value.comments) &&
+    value.comments.every((comment) => typeof comment === 'string')
+  );
+}
+
+function isDamlStakeholderRelationshipChangeEventContract(
+  value: unknown
+): value is DamlStakeholderRelationshipChangeEventContract {
+  if (!isRecord(value)) return false;
+
+  const eventData = value.event_data;
+  const relationshipChangeData = value.relationship_change_data;
+
+  if (eventData !== undefined && !isDamlStakeholderRelationshipChangeEventData(eventData)) {
+    return false;
+  }
+  if (relationshipChangeData !== undefined && !isDamlStakeholderRelationshipChangeEventData(relationshipChangeData)) {
+    return false;
+  }
+
+  return eventData !== undefined || relationshipChangeData !== undefined;
 }
 
 /**
@@ -81,7 +118,15 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
     });
   }
 
-  const contract = res.created.createdEvent.createArgument as DamlStakeholderRelationshipChangeEventContract;
+  const { createArgument } = res.created.createdEvent;
+  if (!isDamlStakeholderRelationshipChangeEventContract(createArgument)) {
+    throw new OcpContractError('Invalid stakeholder relationship event contract payload', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
+
+  const contract = createArgument;
   const data = contract.event_data ?? contract.relationship_change_data;
   if (!data) {
     throw new OcpContractError('Missing stakeholder relationship event data', {
@@ -92,7 +137,8 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
 
   const relationshipFields = mapRelationshipsToLatestFields(
     data.relationship_started ? damlStakeholderRelationshipToNative(data.relationship_started) : null,
-    data.relationship_ended ? damlStakeholderRelationshipToNative(data.relationship_ended) : null
+    data.relationship_ended ? damlStakeholderRelationshipToNative(data.relationship_ended) : null,
+    params.contractId
   );
 
   const event: OcfStakeholderRelationshipChangeEvent = {
@@ -101,7 +147,7 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
     date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,
     ...relationshipFields,
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
+    ...(data.comments.length ? { comments: data.comments } : {}),
   };
 
   return { event, contractId: params.contractId };

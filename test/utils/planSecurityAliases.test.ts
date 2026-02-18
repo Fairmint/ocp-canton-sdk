@@ -480,6 +480,25 @@ describe('PlanSecurity alias utilities', () => {
       expect(resultRecord).not.toHaveProperty('plan_security_type');
     });
 
+    it('throws a clear error when legacy plan_security_type is OTHER', () => {
+      const input = {
+        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+        id: 'eq-1',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        custom_id: 'custom-1',
+        stakeholder_id: 'stakeholder-1',
+        stock_class_id: 'sc-1',
+        quantity: '100',
+        expiration_date: null,
+        termination_exercise_windows: [],
+        security_law_exemptions: [],
+        plan_security_type: 'OTHER',
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow("plan_security_type 'OTHER' is not supported");
+    });
+
     it('throws when option_grant_type conflicts with compensation_type', () => {
       const input = {
         object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',

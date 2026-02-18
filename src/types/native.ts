@@ -1545,7 +1545,7 @@ export interface OcfConvertibleConversion {
   /** Optional quantity converted */
   quantity_converted?: string;
   /** Optional capitalization-definition details used in conversion calculations */
-  capitalization_definition?: Record<string, unknown>;
+  capitalization_definition?: CapitalizationDefinitionRules;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1641,6 +1641,11 @@ export interface OcfVestingAcceleration {
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/adjustment/StockClassSplit.schema.json
  */
 export interface OcfStockClassSplit {
+  /**
+   * At least one split-ratio representation must be provided:
+   * - canonical `split_ratio`, or
+   * - deprecated `split_ratio_numerator` + `split_ratio_denominator` pair.
+   */
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1649,9 +1654,9 @@ export interface OcfStockClassSplit {
   stock_class_id: string;
   /** Canonical split ratio object */
   split_ratio?: { numerator: string; denominator: string };
-  /** Deprecated legacy split ratio numerator (e.g., "2" for a 2-for-1 split) */
+  /** Deprecated legacy split ratio numerator (must be paired with split_ratio_denominator) */
   split_ratio_numerator?: string;
-  /** Deprecated legacy split ratio denominator (e.g., "1" for a 2-for-1 split) */
+  /** Deprecated legacy split ratio denominator (must be paired with split_ratio_numerator) */
   split_ratio_denominator?: string;
   /** Date on which the board approved the split */
   board_approval_date?: string;

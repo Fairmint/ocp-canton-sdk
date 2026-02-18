@@ -630,23 +630,39 @@ describe('computeReplicationDiff', () => {
       expect(diff.edits).toHaveLength(0);
     });
 
-    it('detects reason_text changes for non-deprecated entities', () => {
+    it('detects reason_text changes for non-deprecated entities', async () => {
+      const sourceData = {
+        id: 'tx-1',
+        object_type: 'TX_STOCK_CANCELLATION',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        quantity: '100',
+        reason_text: 'Corrected reason',
+        comments: [],
+      };
+      const cantonData = {
+        id: 'tx-1',
+        object_type: 'TX_STOCK_CANCELLATION',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        quantity: '100',
+        reason_text: 'Original reason',
+        comments: [],
+      };
+      await validateOcfObject(sourceData);
+      await validateOcfObject(cantonData);
+
       const sourceItems = [
         {
           ocfId: 'tx-1',
           entityType: 'stockCancellation' as OcfEntityType,
-          data: { id: 'tx-1', object_type: 'TX_STOCK_CANCELLATION', reason_text: 'Corrected reason' },
+          data: sourceData,
         },
       ];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stockCancellation', new Set(['tx-1']));
 
-      const cantonOcfData: CantonOcfDataMap = new Map([
-        [
-          'stockCancellation',
-          new Map([['tx-1', { id: 'tx-1', object_type: 'TX_STOCK_CANCELLATION', reason_text: 'Original reason' }]]),
-        ],
-      ]);
+      const cantonOcfData: CantonOcfDataMap = new Map([['stockCancellation', new Map([['tx-1', cantonData]])]]);
 
       const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
 
