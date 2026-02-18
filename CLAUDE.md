@@ -398,13 +398,43 @@ await validateOcfObject({ object_type: 'ISSUER', ... });
 Git submodule for local Canton Network development and testing.
 
 ```bash
-# Quick start
-cd libs/cn-quickstart/quickstart
-make setup && make start
+# Start localnet (uses fast path when artifacts exist)
+npm run localnet:start
 
-# Wait for healthy, then run tests
-docker ps --format "table {{.Names}}\t{{.Status}}"
+# Check status at any time
+npm run localnet:status
+
+# Run smoke checks
+npm run localnet:smoke
+
+# Run integration tests
 npm run test:integration
+
+# Stop localnet when done
+npm run localnet:stop
+
+# One-shot: setup + start + smoke + test
+npm run localnet:verify
+```
+
+### Startup Modes
+
+`npm run localnet:start` uses a fast path by default:
+
+- If quickstart build artifacts are already present, it skips rebuilding and runs compose startup
+  directly.
+- If artifacts are missing (or fast start fails), it automatically falls back to full `make start`.
+
+Force a full rebuild start:
+
+```bash
+CANTON_LOCALNET_FORCE_FULL_START=true npm run localnet:start
+```
+
+Disable fast startup explicitly:
+
+```bash
+CANTON_LOCALNET_FAST_START=false npm run localnet:start
 ```
 
 **Pre-push checklist:**
