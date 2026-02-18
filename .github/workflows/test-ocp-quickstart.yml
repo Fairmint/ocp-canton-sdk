@@ -21,7 +21,7 @@ jobs:
         id: submodule-cache-key
         run: |
           set -euo pipefail
-          key="$(git submodule status --recursive | tr -s ' ' | cut -d' ' -f1-2 | sha256sum | cut -d' ' -f1)"
+          key="$(cat .gitmodules | sha256sum | cut -d' ' -f1)"
           echo "value=$key" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js
