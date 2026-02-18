@@ -251,6 +251,8 @@ ensure_hosts_entries() {
 }
 
 quickstart_setup() {
+  local quickstart_image_tag=""
+
   if [[ ! -f "${QUICKSTART_DIR}/.env.local" ]]; then
     log "Running cn-quickstart setup (shared-secret mode)..."
     (
@@ -259,6 +261,17 @@ quickstart_setup() {
     )
   else
     log "Reusing existing ${QUICKSTART_DIR}/.env.local."
+  fi
+
+  if [[ ! -f "${QUICKSTART_DIR}/.env.local" ]]; then
+    log "cn-quickstart setup failed: ${QUICKSTART_DIR}/.env.local was not created."
+    exit 1
+  fi
+
+  quickstart_image_tag="$(resolve_quickstart_image_tag)"
+  if [[ -z "${quickstart_image_tag}" ]]; then
+    log "cn-quickstart setup failed: SPLICE_VERSION is missing from .env/.env.local."
+    exit 1
   fi
 
   if [[ ! -x "${HOME}/.daml/bin/daml" ]]; then
