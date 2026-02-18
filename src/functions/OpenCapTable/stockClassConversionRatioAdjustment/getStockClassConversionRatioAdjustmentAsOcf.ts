@@ -8,8 +8,12 @@ export interface OcfStockClassConversionRatioAdjustmentEvent {
   id: string;
   date: string;
   stock_class_id: string;
-  new_ratio_numerator: string;
-  new_ratio_denominator: string;
+  new_ratio_conversion_mechanism: {
+    type: 'RATIO_CONVERSION';
+    conversion_price: { amount: string; currency: string };
+    ratio: { numerator: string; denominator: string };
+    rounding_type: 'NORMAL' | 'CEILING' | 'FLOOR';
+  };
   comments?: string[];
 }
 
@@ -52,8 +56,20 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
     id: data.id,
     date: data.date.split('T')[0],
     stock_class_id: data.stock_class_id,
-    new_ratio_numerator: normalizeNumericString(newRatioNumeratorStr),
-    new_ratio_denominator: normalizeNumericString(newRatioDenominatorStr),
+    new_ratio_conversion_mechanism: {
+      type: 'RATIO_CONVERSION',
+      conversion_price: data.new_ratio_conversion_mechanism.conversion_price as { amount: string; currency: string },
+      ratio: {
+        numerator: normalizeNumericString(newRatioNumeratorStr),
+        denominator: normalizeNumericString(newRatioDenominatorStr),
+      },
+      rounding_type:
+        data.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingCeiling'
+          ? 'CEILING'
+          : data.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingFloor'
+            ? 'FLOOR'
+            : 'NORMAL',
+    },
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
   return { event, contractId: params.contractId };

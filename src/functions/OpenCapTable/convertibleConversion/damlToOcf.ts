@@ -3,7 +3,7 @@
  */
 
 import type { OcfConvertibleConversion } from '../../../types';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
  * DAML ConvertibleConversion data structure.
@@ -12,10 +12,13 @@ import { damlTimeToDateString } from '../../../utils/typeConversions';
 export interface DamlConvertibleConversionData {
   id: string;
   date: string;
+  reason_text: string;
   security_id: string;
+  trigger_id: string;
   resulting_security_ids: string[];
   balance_security_id?: string | null;
-  trigger_id?: string | null;
+  capitalization_definition?: Record<string, unknown> | null;
+  quantity_converted?: string | null;
   comments: string[];
 }
 
@@ -29,10 +32,13 @@ export function damlConvertibleConversionToNative(d: DamlConvertibleConversionDa
   return {
     id: d.id,
     date: damlTimeToDateString(d.date),
+    reason_text: d.reason_text,
     security_id: d.security_id,
+    trigger_id: d.trigger_id,
     resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id && { balance_security_id: d.balance_security_id }),
-    ...(d.trigger_id && { trigger_id: d.trigger_id }),
+    ...(d.capitalization_definition ? { capitalization_definition: d.capitalization_definition } : {}),
+    ...(d.quantity_converted ? { quantity_converted: normalizeNumericString(d.quantity_converted) } : {}),
     ...(d.comments.length > 0 && { comments: d.comments }),
   };
 }

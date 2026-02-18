@@ -19,19 +19,21 @@ export function stockConsolidationDataToDaml(d: OcfStockConsolidation): Record<s
       receivedValue: d.id,
     });
   }
-  // Validate that resulting_security_ids has at least one element
-  if (d.resulting_security_ids.length === 0) {
+  const resultingSecurityId =
+    d.resulting_security_id ??
+    (Array.isArray(d.resulting_security_ids) && d.resulting_security_ids.length > 0
+      ? d.resulting_security_ids[0]
+      : undefined);
+  if (!resultingSecurityId) {
     throw new OcpValidationError(
-      'stockConsolidation.resulting_security_ids',
-      'Required array must have at least one element',
+      'stockConsolidation.resulting_security_id',
+      'Required resulting security identifier is missing',
       {
-        expectedType: 'string[]',
-        receivedValue: d.resulting_security_ids,
+        expectedType: 'string',
+        receivedValue: d.resulting_security_id ?? d.resulting_security_ids,
       }
     );
   }
-  // DAML expects resulting_security_id (singular) - take first item from array
-  const resultingSecurityId = d.resulting_security_ids[0];
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),

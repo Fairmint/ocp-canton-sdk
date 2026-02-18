@@ -428,9 +428,10 @@ describe('damlToOcf dispatcher', () => {
 
         expect(result.id).toBe('split-1');
         expect(result.stock_class_id).toBe('sc-1');
-        // Split ratio is flattened to separate fields
-        expect(result.split_ratio_numerator).toBe('2');
-        expect(result.split_ratio_denominator).toBe('1');
+        expect((result as { split_ratio: { numerator: string; denominator: string } }).split_ratio).toEqual({
+          numerator: '2',
+          denominator: '1',
+        });
       });
     });
 

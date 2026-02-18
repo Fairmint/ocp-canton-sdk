@@ -14,13 +14,13 @@ import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typ
  * @returns The native OCF WarrantExercise object
  */
 export function damlWarrantExerciseToNative(d: Record<string, unknown>): OcfWarrantExercise {
-  // Validate quantity
-  if (d.quantity === undefined || d.quantity === null) {
-    throw new OcpValidationError('warrantExercise.quantity', 'Required field is missing', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
-  }
-  if (typeof d.quantity !== 'string' && typeof d.quantity !== 'number') {
+  const quantity =
+    d.quantity === undefined || d.quantity === null
+      ? undefined
+      : typeof d.quantity === 'number'
+        ? d.quantity.toString()
+        : d.quantity;
+  if (quantity !== undefined && typeof quantity !== 'string') {
     throw new OcpValidationError('warrantExercise.quantity', `Must be string or number, got ${typeof d.quantity}`, {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'string | number',
@@ -49,9 +49,8 @@ export function damlWarrantExerciseToNative(d: Record<string, unknown>): OcfWarr
     date: damlTimeToDateString(d.date as string),
     security_id: d.security_id as string,
     trigger_id: d.trigger_id,
-    quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
+    ...(quantity !== undefined ? { quantity: normalizeNumericString(quantity) } : {}),
     resulting_security_ids: d.resulting_security_ids as string[],
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id as string } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text as string } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments as string[] } : {}),
   };

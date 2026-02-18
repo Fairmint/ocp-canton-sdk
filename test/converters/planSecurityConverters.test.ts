@@ -13,7 +13,7 @@
  * 4. Fields are properly transformed to DAML format
  */
 
-import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
+import { OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import type { OcfPlanSecurityExercise, OcfPlanSecurityIssuance } from '../../src/types/native';
 
@@ -29,10 +29,12 @@ describe('PlanSecurity Type Converters', () => {
           stakeholder_id: 'stakeholder-001',
           stock_plan_id: 'plan-001',
           stock_class_id: 'class-001',
-          plan_security_type: 'OPTION',
+          compensation_type: 'OPTION',
           quantity: '10000',
           exercise_price: { amount: '1.50', currency: 'USD' },
           vesting_terms_id: 'vesting-001',
+          expiration_date: null,
+          termination_exercise_windows: [],
           board_approval_date: '2025-01-10',
           stockholder_approval_date: '2025-01-12',
           consideration_text: 'For services rendered',
@@ -87,8 +89,11 @@ describe('PlanSecurity Type Converters', () => {
           custom_id: 'custom-002',
           stakeholder_id: 'stakeholder-002',
           stock_plan_id: 'plan-002',
-          plan_security_type: 'RSU',
+          compensation_type: 'RSU',
           quantity: '5000',
+          expiration_date: null,
+          termination_exercise_windows: [],
+          security_law_exemptions: [],
         };
 
         const result = convertToDaml('planSecurityIssuance', input);
@@ -105,7 +110,7 @@ describe('PlanSecurity Type Converters', () => {
         expect(result.exercise_price).toBeNull();
       });
 
-      it('throws OcpValidationError for OTHER plan security type', () => {
+      it('throws OcpValidationError when compensation_type is missing', () => {
         const input: OcfPlanSecurityIssuance = {
           id: 'psi-003',
           date: '2025-03-01',
@@ -113,8 +118,10 @@ describe('PlanSecurity Type Converters', () => {
           custom_id: 'custom-003',
           stakeholder_id: 'stakeholder-003',
           stock_plan_id: 'plan-003',
-          plan_security_type: 'OTHER',
           quantity: '1000',
+          expiration_date: null,
+          termination_exercise_windows: [],
+          security_law_exemptions: [],
         };
 
         expect(() => convertToDaml('planSecurityIssuance', input)).toThrow(OcpValidationError);
@@ -124,10 +131,7 @@ describe('PlanSecurity Type Converters', () => {
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('planSecurityIssuance.plan_security_type');
-          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
-          expect(validationError.message).toContain("'OTHER' is not supported");
-          expect(validationError.message).toContain('Use EquityCompensationIssuance');
+          expect(validationError.fieldPath).toContain('compensation_type');
         }
       });
 
@@ -138,14 +142,16 @@ describe('PlanSecurity Type Converters', () => {
           custom_id: 'custom-001',
           stakeholder_id: 'stakeholder-001',
           stock_plan_id: 'plan-001',
-          plan_security_type: 'OPTION',
           quantity: '10000',
-        } as OcfPlanSecurityIssuance;
+          expiration_date: null,
+          termination_exercise_windows: [],
+          security_law_exemptions: [],
+        } as unknown as OcfPlanSecurityIssuance;
 
         expect(() => convertToDaml('planSecurityIssuance', input)).toThrow(OcpValidationError);
       });
 
-      it('throws OcpValidationError when plan_security_type is undefined', () => {
+      it('throws OcpValidationError when compensation_type is undefined', () => {
         const input = {
           id: 'psi-004',
           date: '2025-01-15',
@@ -154,6 +160,9 @@ describe('PlanSecurity Type Converters', () => {
           stakeholder_id: 'stakeholder-001',
           stock_plan_id: 'plan-001',
           quantity: '10000',
+          expiration_date: null,
+          termination_exercise_windows: [],
+          security_law_exemptions: [],
         } as OcfPlanSecurityIssuance;
 
         expect(() => convertToDaml('planSecurityIssuance', input)).toThrow(OcpValidationError);
@@ -163,8 +172,7 @@ describe('PlanSecurity Type Converters', () => {
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('planSecurityIssuance.plan_security_type');
-          expect(validationError.message).toContain('plan_security_type is required');
+          expect(validationError.fieldPath).toContain('compensation_type');
         }
       });
 
@@ -176,8 +184,12 @@ describe('PlanSecurity Type Converters', () => {
           custom_id: 'custom-minimal',
           stakeholder_id: 'stakeholder-minimal',
           stock_plan_id: 'plan-minimal',
-          plan_security_type: 'OPTION',
+          compensation_type: 'OPTION',
           quantity: '100',
+          exercise_price: { amount: '0.10', currency: 'USD' },
+          expiration_date: null,
+          termination_exercise_windows: [],
+          security_law_exemptions: [],
         };
 
         const result = convertToDaml('planSecurityIssuance', input);
@@ -192,7 +204,7 @@ describe('PlanSecurity Type Converters', () => {
         expect(result.board_approval_date).toBeNull();
         expect(result.stockholder_approval_date).toBeNull();
         expect(result.consideration_text).toBeNull();
-        expect(result.exercise_price).toBeNull();
+        expect(result.exercise_price).toEqual({ amount: '0.10', currency: 'USD' });
         expect(result.security_law_exemptions).toEqual([]);
         expect(result.comments).toEqual([]);
       });
@@ -206,7 +218,6 @@ describe('PlanSecurity Type Converters', () => {
           security_id: 'sec-001',
           quantity: '2500',
           resulting_security_ids: ['result-001', 'result-002'],
-          balance_security_id: 'balance-001',
           consideration_text: 'Cash exercise',
           comments: ['Partial exercise'],
         };
@@ -222,10 +233,6 @@ describe('PlanSecurity Type Converters', () => {
 
         // Date is converted to DAML time format
         expect(result.date).toContain('2026-01-15');
-
-        // Note: balance_security_id is intentionally NOT included in the DAML output
-        // because the underlying EquityCompensationExercise contract doesn't support it
-        expect(result.balance_security_id).toBeUndefined();
       });
 
       it('converts plan security exercise with minimal fields', () => {
@@ -264,7 +271,7 @@ describe('PlanSecurity Type Converters', () => {
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('planSecurityExercise.id');
+          expect(validationError.fieldPath).toBe('id');
         }
       });
 

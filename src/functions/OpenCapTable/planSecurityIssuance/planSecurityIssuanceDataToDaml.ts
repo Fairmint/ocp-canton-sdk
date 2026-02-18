@@ -6,7 +6,7 @@
  */
 
 import { OcpValidationError } from '../../../errors';
-import type { OcfPlanSecurityIssuance } from '../../../types';
+import type { CompensationType, OcfPlanSecurityIssuance } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -20,9 +20,18 @@ import {
  * PlanSecurity types are aliases that map to EquityCompensation DAML contracts.
  * Note: 'OTHER' is not included because DAML has no equivalent type - it must be handled explicitly.
  */
-const PLAN_SECURITY_TO_COMPENSATION_TYPE: Record<'OPTION' | 'RSU', string> = {
+const PLAN_SECURITY_TO_COMPENSATION_TYPE: Record<'OPTION' | 'RSU', CompensationType> = {
+  OPTION: 'OPTION',
+  RSU: 'RSU',
+};
+
+const COMPENSATION_TYPE_TO_DAML: Record<CompensationType, string> = {
   OPTION: 'OcfCompensationTypeOption',
+  OPTION_NSO: 'OcfCompensationTypeOptionNSO',
+  OPTION_ISO: 'OcfCompensationTypeOptionISO',
   RSU: 'OcfCompensationTypeRSU',
+  CSAR: 'OcfCompensationTypeCSAR',
+  SSAR: 'OcfCompensationTypeSSAR',
 };
 
 /**
@@ -41,28 +50,34 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
     });
   }
 
-  // Validate plan_security_type - 'OTHER' is not supported because DAML has no equivalent type
-  if (d.plan_security_type === 'OTHER') {
-    throw new OcpValidationError(
-      'planSecurityIssuance.plan_security_type',
-      "plan_security_type 'OTHER' is not supported. DAML only supports 'OPTION' and 'RSU' types. Use EquityCompensationIssuance with a specific compensation_type instead.",
-      {
-        expectedType: "'OPTION' | 'RSU'",
-        receivedValue: d.plan_security_type,
-      }
-    );
+  const compensationTypeInput = (d as OcfPlanSecurityIssuance & { compensation_type?: CompensationType })
+    .compensation_type;
+  let compensationType: CompensationType | undefined = compensationTypeInput;
+
+  if (!compensationType) {
+    // Validate legacy plan_security_type - 'OTHER' is not supported because DAML has no equivalent type
+    if (d.plan_security_type === 'OTHER') {
+      throw new OcpValidationError(
+        'planSecurityIssuance.plan_security_type',
+        "plan_security_type 'OTHER' is not supported. DAML only supports 'OPTION' and 'RSU' types. Use EquityCompensationIssuance with a specific compensation_type instead.",
+        {
+          expectedType: "'OPTION' | 'RSU'",
+          receivedValue: d.plan_security_type,
+        }
+      );
+    }
+
+    compensationType =
+      d.plan_security_type === undefined ? undefined : PLAN_SECURITY_TO_COMPENSATION_TYPE[d.plan_security_type];
   }
 
-  // Map plan_security_type to compensation_type
-  // Validate that the result is defined (catches undefined/invalid plan_security_type at runtime)
-  const compensationType = PLAN_SECURITY_TO_COMPENSATION_TYPE[d.plan_security_type];
   if (!compensationType) {
     throw new OcpValidationError(
-      'planSecurityIssuance.plan_security_type',
-      "plan_security_type is required and must be 'OPTION' or 'RSU'.",
+      'planSecurityIssuance.compensation_type',
+      "compensation_type is required (or provide legacy plan_security_type as 'OPTION' or 'RSU').",
       {
-        expectedType: "'OPTION' | 'RSU'",
-        receivedValue: d.plan_security_type,
+        expectedType: "CompensationType or legacy 'OPTION' | 'RSU'",
+        receivedValue: compensationTypeInput ?? d.plan_security_type,
       }
     );
   }
@@ -83,7 +98,7 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
     stock_plan_id: optionalString(d.stock_plan_id),
     stock_class_id: optionalString(d.stock_class_id),
     vesting_terms_id: optionalString(d.vesting_terms_id),
-    compensation_type: compensationType,
+    compensation_type: COMPENSATION_TYPE_TO_DAML[compensationType],
     quantity: normalizeNumericString(d.quantity),
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     base_price: null, // PlanSecurity doesn't have base_price

@@ -303,20 +303,21 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
         date: '2024-01-15',
         security_id: 'warrant-sec',
         trigger_id: 'trigger-001',
-        quantity: '1000',
         resulting_security_ids: ['stock-sec'],
       })
-    ).toThrow("'warrantExercise.id'");
+    ).toThrow("'id'");
 
     // Convertible conversion without id should fail
     expect(() =>
       batch.create('convertibleConversion', {
         id: '',
         date: '2024-02-20',
+        reason_text: 'Automatic conversion',
         security_id: 'convertible-sec',
+        trigger_id: 'trigger-002',
         resulting_security_ids: ['stock-sec'],
       })
-    ).toThrow("'convertibleConversion.id'");
+    ).toThrow("'id'");
 
     // Stock conversion without id should fail
     expect(() =>
@@ -324,10 +325,10 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
         id: '',
         date: '2024-03-10',
         security_id: 'stock-sec',
-        quantity: '5000',
+        quantity_converted: '5000',
         resulting_security_ids: ['preferred-sec'],
       })
-    ).toThrow("'stockConversion.id'");
+    ).toThrow("'id'");
   });
 
   /**

@@ -1486,11 +1486,11 @@ export interface OcfWarrantExercise {
   security_id: string;
   /** Identifier for the warrant's exercise trigger that resulted in this exercise */
   trigger_id: string;
-  /** Quantity of warrants being exercised */
-  quantity: string;
+  /** Deprecated legacy quantity field (optional in current schema/DAML) */
+  quantity?: string;
   /** Array of identifiers for new securities resulting from the exercise */
   resulting_security_ids: string[];
-  /** Identifier for the security that holds the remainder balance (for partial exercises) */
+  /** Deprecated legacy remainder security field (not in current schema) */
   balance_security_id?: string;
   /** Unstructured text description of consideration provided in exchange for security exercise */
   consideration_text?: string;
@@ -1511,8 +1511,10 @@ export interface OcfStockConversion {
   date: string;
   /** Identifier for the stock security being converted */
   security_id: string;
-  /** Quantity of stock being converted */
-  quantity: string;
+  /** Quantity of stock being converted (canonical field) */
+  quantity_converted: string;
+  /** Deprecated legacy quantity field */
+  quantity?: string;
   /** Array of identifiers for new securities resulting from the conversion */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial conversions) */
@@ -1532,12 +1534,18 @@ export interface OcfConvertibleConversion {
   date: string;
   /** Identifier for the convertible security being converted */
   security_id: string;
+  /** Reason for the conversion */
+  reason_text: string;
   /** Array of identifiers for new securities resulting from the conversion */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial conversions) */
   balance_security_id?: string;
   /** Identifier of the trigger that caused conversion */
-  trigger_id?: string;
+  trigger_id: string;
+  /** Optional quantity converted */
+  quantity_converted?: string;
+  /** Optional capitalization-definition details used in conversion calculations */
+  capitalization_definition?: Record<string, unknown>;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1639,10 +1647,12 @@ export interface OcfStockClassSplit {
   date: string;
   /** Identifier for the stock class being split */
   stock_class_id: string;
-  /** Split ratio - numerator (e.g., "2" for a 2-for-1 split) */
-  split_ratio_numerator: string;
-  /** Split ratio - denominator (e.g., "1" for a 2-for-1 split) */
-  split_ratio_denominator: string;
+  /** Canonical split ratio object */
+  split_ratio?: { numerator: string; denominator: string };
+  /** Deprecated legacy split ratio numerator (e.g., "2" for a 2-for-1 split) */
+  split_ratio_numerator?: string;
+  /** Deprecated legacy split ratio denominator (e.g., "1" for a 2-for-1 split) */
+  split_ratio_denominator?: string;
   /** Date on which the board approved the split */
   board_approval_date?: string;
   /** Date on which stockholders approved the split */
@@ -1662,10 +1672,17 @@ export interface OcfStockClassConversionRatioAdjustment {
   date: string;
   /** Identifier for the stock class whose conversion ratio is being adjusted */
   stock_class_id: string;
-  /** New conversion ratio - numerator (decimal string) */
-  new_ratio_numerator: string;
-  /** New conversion ratio - denominator (decimal string) */
-  new_ratio_denominator: string;
+  /** Canonical conversion mechanism payload */
+  new_ratio_conversion_mechanism?: {
+    type: 'RATIO_CONVERSION';
+    conversion_price: Monetary;
+    ratio: { numerator: string; denominator: string };
+    rounding_type: 'NORMAL' | 'CEILING' | 'FLOOR';
+  };
+  /** Deprecated legacy ratio numerator (converted to mechanism form) */
+  new_ratio_numerator?: string;
+  /** Deprecated legacy ratio denominator (converted to mechanism form) */
+  new_ratio_denominator?: string;
   /** Date on which the board approved the adjustment */
   board_approval_date?: string;
   /** Date on which stockholders approved the adjustment */
@@ -1729,8 +1746,10 @@ export interface OcfStockConsolidation {
   date: string;
   /** Array of identifiers for securities being consolidated */
   security_ids: string[];
-  /** Array of identifiers for new securities resulting from the consolidation */
-  resulting_security_ids: string[];
+  /** Identifier for the new consolidated security (canonical field) */
+  resulting_security_id?: string;
+  /** Deprecated legacy array form of resulting security ids */
+  resulting_security_ids?: string[];
   /** Reason for the consolidation */
   reason_text?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1777,15 +1796,27 @@ export interface OcfPlanSecurityIssuance {
   /** Identifier for the stakeholder receiving the security */
   stakeholder_id: string;
   /** Identifier for the stock plan */
-  stock_plan_id: string;
+  stock_plan_id?: string;
   /** Identifier for the stock class */
   stock_class_id?: string;
-  /** Type of plan security */
-  plan_security_type: 'OPTION' | 'RSU' | 'OTHER';
+  /** Canonical compensation type */
+  compensation_type?: CompensationType;
+  /** Deprecated legacy plan security type alias */
+  plan_security_type?: 'OPTION' | 'RSU' | 'OTHER';
   /** Quantity of plan securities being issued */
   quantity: string;
   /** Exercise price per share/unit */
   exercise_price?: Monetary;
+  /** Base price per share/unit (for SARs) */
+  base_price?: Monetary;
+  /** Whether security is early exercisable */
+  early_exercisable?: boolean;
+  /** Inline vesting installments */
+  vestings?: Vesting[];
+  /** Expiration date for this security */
+  expiration_date?: string | null;
+  /** Termination exercise windows */
+  termination_exercise_windows?: TerminationWindow[];
   /** Identifier for the vesting terms */
   vesting_terms_id?: string;
   /** Date on which the board approved the issuance */
@@ -1815,7 +1846,7 @@ export interface OcfPlanSecurityExercise {
   quantity: string;
   /** Array of identifiers for new securities resulting from the exercise */
   resulting_security_ids: string[];
-  /** Identifier for the security that holds the remainder balance (for partial exercises) */
+  /** Deprecated legacy remainder security field (not in canonical schema) */
   balance_security_id?: string;
   /** Unstructured text description of consideration */
   consideration_text?: string;

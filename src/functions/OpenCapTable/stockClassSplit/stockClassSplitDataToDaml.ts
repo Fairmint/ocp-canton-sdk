@@ -23,14 +23,27 @@ export function stockClassSplitDataToDaml(d: OcfStockClassSplit): Record<string,
       receivedValue: d.id,
     });
   }
+  const splitRatio =
+    d.split_ratio ??
+    (d.split_ratio_numerator && d.split_ratio_denominator
+      ? {
+          numerator: d.split_ratio_numerator,
+          denominator: d.split_ratio_denominator,
+        }
+      : null);
+
+  if (!splitRatio) {
+    throw new OcpValidationError('stockClassSplit.split_ratio', 'Required split ratio is missing', {
+      expectedType: '{ numerator: string; denominator: string }',
+      receivedValue: d.split_ratio,
+    });
+  }
+
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     stock_class_id: d.stock_class_id,
-    split_ratio: {
-      numerator: d.split_ratio_numerator,
-      denominator: d.split_ratio_denominator,
-    },
+    split_ratio: splitRatio,
     comments: cleanComments(d.comments),
   };
 }

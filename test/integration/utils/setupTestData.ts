@@ -359,7 +359,6 @@ export function createTestWarrantExerciseData(
     date: generateDateString(0),
     security_id,
     trigger_id: trigger_id ?? generateTestId('trigger'),
-    quantity: '1000',
     resulting_security_ids,
     ...rest,
   };
@@ -377,7 +376,9 @@ export function createTestConvertibleConversionData(
   return {
     id,
     date: generateDateString(0),
+    reason_text: 'Automatic conversion at financing',
     security_id,
+    trigger_id: generateTestId('trigger'),
     resulting_security_ids,
     ...rest,
   };
@@ -396,7 +397,7 @@ export function createTestStockConversionData(
     id,
     date: generateDateString(0),
     security_id,
-    quantity: '1000',
+    quantity_converted: '1000',
     resulting_security_ids,
     ...rest,
   };

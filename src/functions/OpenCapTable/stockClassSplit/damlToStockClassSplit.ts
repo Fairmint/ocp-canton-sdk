@@ -32,8 +32,10 @@ export function damlStockClassSplitToNative(d: DamlStockClassSplitData): OcfStoc
     id: d.id,
     date: d.date.split('T')[0],
     stock_class_id: d.stock_class_id,
-    split_ratio_numerator: normalizeNumericString(numeratorStr),
-    split_ratio_denominator: normalizeNumericString(denominatorStr),
+    split_ratio: {
+      numerator: normalizeNumericString(numeratorStr),
+      denominator: normalizeNumericString(denominatorStr),
+    },
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };
 }
