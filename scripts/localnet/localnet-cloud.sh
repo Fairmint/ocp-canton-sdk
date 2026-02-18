@@ -130,6 +130,7 @@ run_quickstart_command() {
   local command="$1"
   local docker_shim_dir=""
   local quickstart_image_tag=""
+  local quickstart_path="${HOME}/.daml/bin:${PATH}"
   local status=0
 
   quickstart_image_tag="$(resolve_quickstart_image_tag)"
@@ -144,28 +145,27 @@ EOF
     log "Using sudo docker shim for quickstart command."
   fi
 
-  set +e
   if [[ -n "${docker_shim_dir}" ]]; then
-    (
-      cd "${QUICKSTART_DIR}"
-      MODULES_DIR="${QUICKSTART_DIR}/docker/modules" \
-        LOCALNET_DIR="${QUICKSTART_DIR}/docker/modules/localnet" \
-        IMAGE_TAG="${quickstart_image_tag}" \
-        PATH="${docker_shim_dir}:${HOME}/.daml/bin:${PATH}" \
-        bash -c "${command}"
-    )
-    status=$?
-  else
-    (
-      cd "${QUICKSTART_DIR}"
-      MODULES_DIR="${QUICKSTART_DIR}/docker/modules" \
-        LOCALNET_DIR="${QUICKSTART_DIR}/docker/modules/localnet" \
-        IMAGE_TAG="${quickstart_image_tag}" \
-        PATH="${HOME}/.daml/bin:${PATH}" \
-        bash -c "${command}"
-    )
-    status=$?
+    quickstart_path="${docker_shim_dir}:${quickstart_path}"
   fi
+
+  set +e
+  (
+    cd "${QUICKSTART_DIR}"
+    if [[ -n "${quickstart_image_tag}" ]]; then
+      MODULES_DIR="${QUICKSTART_DIR}/docker/modules" \
+        LOCALNET_DIR="${QUICKSTART_DIR}/docker/modules/localnet" \
+        IMAGE_TAG="${quickstart_image_tag}" \
+        PATH="${quickstart_path}" \
+        bash -lc "${command}"
+    else
+      MODULES_DIR="${QUICKSTART_DIR}/docker/modules" \
+        LOCALNET_DIR="${QUICKSTART_DIR}/docker/modules/localnet" \
+        PATH="${quickstart_path}" \
+        bash -lc "${command}"
+    fi
+  )
+  status=$?
   set -e
 
   if [[ -n "${docker_shim_dir}" ]]; then
@@ -214,10 +214,6 @@ start_docker_daemon() {
 }
 
 ensure_submodules() {
-  if [[ -d "${REPO_ROOT}/libs/splice" && -d "${QUICKSTART_DIR}" ]]; then
-    return
-  fi
-
   require_command git
 
   if ! git -C "${REPO_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -225,15 +221,11 @@ ensure_submodules() {
     exit 1
   fi
 
-  if [[ ! -d "${REPO_ROOT}/libs/splice" ]]; then
-    log "Initializing libs/splice submodule..."
-    git -C "${REPO_ROOT}" submodule update --init --depth 1 libs/splice
-  fi
+  log "Ensuring libs/splice submodule is initialized..."
+  git -C "${REPO_ROOT}" submodule update --init --depth 1 libs/splice
 
-  if [[ ! -d "${REPO_ROOT}/libs/cn-quickstart" ]]; then
-    log "Initializing libs/cn-quickstart submodule..."
-    git -C "${REPO_ROOT}" submodule update --init --recursive libs/cn-quickstart
-  fi
+  log "Ensuring libs/cn-quickstart submodule is initialized..."
+  git -C "${REPO_ROOT}" submodule update --init --recursive libs/cn-quickstart
 
   if [[ ! -d "${QUICKSTART_DIR}" ]]; then
     log "cn-quickstart directory not found after submodule init."
@@ -344,16 +336,16 @@ wait_for_services() {
   local code=""
   local ledger_code=""
 
-  log "Checking Keycloak (optional in shared-secret mode)..."
-  local keycloak_ready="no"
-  for _ in $(seq 1 10); do
+  log "Checking for Keycloak (optional in shared-secret mode)..."
+  keycloak_found=false
+  for _ in $(seq 1 5); do
     if curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsS http://localhost:8082/realms/AppProvider >/dev/null 2>&1; then
-      keycloak_ready="yes"
+      keycloak_found=true
       break
     fi
     sleep 2
   done
-  if [[ "${keycloak_ready}" == "yes" ]]; then
+  if [[ "${keycloak_found}" == "true" ]]; then
     log "Keycloak is ready."
   else
     log "Keycloak not detected (expected in shared-secret mode)."
