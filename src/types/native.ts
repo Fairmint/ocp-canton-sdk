@@ -1903,12 +1903,14 @@ export interface OcfPlanSecurityRelease {
   security_id: string;
   /** Quantity being released */
   quantity: string;
+  /** Price used to value the released security at release time */
+  release_price: Monetary;
   /** Array of identifiers for new securities resulting from the release */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial releases) */
   balance_security_id?: string;
   /** Settlement date for the release */
-  settlement_date?: string;
+  settlement_date: string;
   /** Unstructured text description of consideration */
   consideration_text?: string;
   /** Unstructured text comments related to and stored for the object */

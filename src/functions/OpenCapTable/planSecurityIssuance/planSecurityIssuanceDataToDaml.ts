@@ -6,7 +6,7 @@
  */
 
 import { OcpValidationError } from '../../../errors';
-import type { CompensationType, OcfPlanSecurityIssuance, TerminationWindow } from '../../../types';
+import type { CompensationType, OcfPlanSecurityIssuance } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -14,6 +14,11 @@ import {
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
+import {
+  compensationTypeToDaml,
+  terminationWindowPeriodTypeMap,
+  terminationWindowReasonMap,
+} from '../equityCompensationIssuance/createEquityCompensationIssuance';
 
 /**
  * Map PlanSecurity type to EquityCompensation type for DAML.
@@ -23,30 +28,6 @@ import {
 const PLAN_SECURITY_TO_COMPENSATION_TYPE: Record<'OPTION' | 'RSU', CompensationType> = {
   OPTION: 'OPTION',
   RSU: 'RSU',
-};
-
-const COMPENSATION_TYPE_TO_DAML: Record<CompensationType, string> = {
-  OPTION: 'OcfCompensationTypeOption',
-  OPTION_NSO: 'OcfCompensationTypeOptionNSO',
-  OPTION_ISO: 'OcfCompensationTypeOptionISO',
-  RSU: 'OcfCompensationTypeRSU',
-  CSAR: 'OcfCompensationTypeCSAR',
-  SSAR: 'OcfCompensationTypeSSAR',
-};
-
-const terminationWindowReasonMap: Record<TerminationWindow['reason'], string> = {
-  VOLUNTARY_OTHER: 'OcfTermVoluntaryOther',
-  VOLUNTARY_GOOD_CAUSE: 'OcfTermVoluntaryGoodCause',
-  VOLUNTARY_RETIREMENT: 'OcfTermVoluntaryRetirement',
-  INVOLUNTARY_OTHER: 'OcfTermInvoluntaryOther',
-  INVOLUNTARY_DEATH: 'OcfTermInvoluntaryDeath',
-  INVOLUNTARY_DISABILITY: 'OcfTermInvoluntaryDisability',
-  INVOLUNTARY_WITH_CAUSE: 'OcfTermInvoluntaryWithCause',
-};
-
-const terminationWindowPeriodTypeMap: Record<TerminationWindow['period_type'], string> = {
-  DAYS: 'OcfPeriodDays',
-  MONTHS: 'OcfPeriodMonths',
 };
 
 /**
@@ -97,6 +78,11 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
     );
   }
 
+  const filteredVestings = (d.vestings ?? []).filter((v) => {
+    const normalized = normalizeNumericString(v.amount);
+    return parseFloat(normalized) > 0;
+  });
+
   return {
     id: d.id,
     security_id: d.security_id,
@@ -113,12 +99,12 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
     stock_plan_id: optionalString(d.stock_plan_id),
     stock_class_id: optionalString(d.stock_class_id),
     vesting_terms_id: optionalString(d.vesting_terms_id),
-    compensation_type: COMPENSATION_TYPE_TO_DAML[compensationType],
+    compensation_type: compensationTypeToDaml(compensationType),
     quantity: normalizeNumericString(d.quantity),
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
     base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
-    vestings: (d.vestings ?? []).map((v) => ({
+    vestings: filteredVestings.map((v) => ({
       date: dateStringToDAMLTime(v.date),
       amount: normalizeNumericString(v.amount),
     })),

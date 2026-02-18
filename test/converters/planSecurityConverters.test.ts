@@ -93,7 +93,10 @@ describe('PlanSecurity Type Converters', () => {
           exercise_price: { amount: '0.5000000000', currency: 'USD' },
           base_price: { amount: '0.2500000000', currency: 'USD' },
           early_exercisable: true,
-          vestings: [{ date: '2025-06-01', amount: '10.0000000000' }],
+          vestings: [
+            { date: '2025-06-01', amount: '10.0000000000' },
+            { date: '2025-07-01', amount: '0.0000000000' },
+          ],
           expiration_date: '2030-01-01',
           termination_exercise_windows: [{ reason: 'VOLUNTARY_OTHER', period: 90, period_type: 'DAYS' }],
           security_law_exemptions: [],

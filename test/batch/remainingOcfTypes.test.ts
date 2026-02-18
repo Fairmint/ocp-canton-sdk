@@ -215,6 +215,11 @@ describe('Equity Compensation Event Converters', () => {
       expect(value.id).toBe('rel-123');
       expect(value.quantity).toBe('1000');
       expect(value.resulting_security_ids).toEqual(['stock-001']);
+      expect(value.settlement_date).toBe('2024-05-20T00:00:00.000Z');
+      expect(value.release_price).toEqual({
+        amount: '0.00',
+        currency: 'USD',
+      });
     });
 
     it('should have correct ENTITY_TAG_MAP entry', () => {
