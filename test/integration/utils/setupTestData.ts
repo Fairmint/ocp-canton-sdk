@@ -308,6 +308,8 @@ export function createTestStockIssuanceData(
     stock_class_id,
     quantity: '10000',
     share_price: { amount: '1.00', currency: 'USD' },
+    security_law_exemptions: [],
+    stock_legend_ids: [],
     ...rest,
   };
 }
@@ -335,6 +337,8 @@ export function createTestEquityCompensationIssuanceData(
     quantity: '50000',
     exercise_price: { amount: '0.50', currency: 'USD' },
     expiration_date: generateDateString(365 * 10), // 10 years
+    security_law_exemptions: [],
+    termination_exercise_windows: [],
     ...rest,
   };
 }
@@ -355,7 +359,6 @@ export function createTestWarrantExerciseData(
     date: generateDateString(0),
     security_id,
     trigger_id: trigger_id ?? generateTestId('trigger'),
-    quantity: '1000',
     resulting_security_ids,
     ...rest,
   };
@@ -373,7 +376,9 @@ export function createTestConvertibleConversionData(
   return {
     id,
     date: generateDateString(0),
+    reason_text: 'Automatic conversion at financing',
     security_id,
+    trigger_id: generateTestId('trigger'),
     resulting_security_ids,
     ...rest,
   };
@@ -392,7 +397,7 @@ export function createTestStockConversionData(
     id,
     date: generateDateString(0),
     security_id,
-    quantity: '1000',
+    quantity_converted: '1000',
     resulting_security_ids,
     ...rest,
   };
@@ -470,6 +475,8 @@ export function createTestEquityCompensationReleaseData(
     id,
     date: generateDateString(0),
     security_id,
+    settlement_date: generateDateString(2),
+    release_price: { amount: '0.00', currency: 'USD' },
     quantity: '1000',
     resulting_security_ids: [generateTestId('resulting-security')],
     ...rest,
@@ -486,20 +493,21 @@ export function createTestEquityCompensationRepricingData(
     id,
     date: generateDateString(0),
     security_id,
-    resulting_security_ids: [generateTestId('repriced-security')],
+    new_exercise_price: { amount: '0.25', currency: 'USD' },
     ...rest,
   };
 }
 
 /** Create test stock plan return to pool data with optional overrides. */
 export function createTestStockPlanReturnToPoolData(
-  overrides: Partial<OcfStockPlanReturnToPool> & { stock_plan_id: string }
+  overrides: Partial<OcfStockPlanReturnToPool> & { stock_plan_id: string; security_id: string }
 ): OcfStockPlanReturnToPool {
   const id = overrides.id ?? generateTestId('stock-plan-return');
-  const { stock_plan_id, ...rest } = overrides;
+  const { stock_plan_id, security_id, ...rest } = overrides;
   return {
     id,
     date: generateDateString(0),
+    security_id,
     stock_plan_id,
     quantity: '5000',
     reason_text: 'Employee termination - unvested shares returned',
@@ -517,7 +525,7 @@ export function createTestStakeholderRelationshipChangeData(
     id,
     date: generateDateString(0),
     stakeholder_id,
-    new_relationships: ['EMPLOYEE'],
+    relationship_started: 'EMPLOYEE',
     ...rest,
   };
 }

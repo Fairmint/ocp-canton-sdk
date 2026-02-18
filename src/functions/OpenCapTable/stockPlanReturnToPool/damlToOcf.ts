@@ -12,6 +12,7 @@ import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typ
 export interface DamlStockPlanReturnToPoolData {
   id: string;
   date: string;
+  security_id: string;
   stock_plan_id: string;
   quantity: string;
   reason_text: string;
@@ -28,6 +29,7 @@ export function damlStockPlanReturnToPoolToNative(d: DamlStockPlanReturnToPoolDa
   return {
     id: d.id,
     date: damlTimeToDateString(d.date),
+    security_id: d.security_id,
     stock_plan_id: d.stock_plan_id,
     quantity: normalizeNumericString(d.quantity),
     reason_text: d.reason_text,

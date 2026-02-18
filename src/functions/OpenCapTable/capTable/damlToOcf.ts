@@ -143,6 +143,8 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
  * while preserving canonical output mapping.
  */
 export const ENTITY_DATA_FIELD_FALLBACK_MAP: Partial<Record<OcfEntityType, readonly string[]>> = {
+  stakeholderRelationshipChangeEvent: ['event_data'],
+  stakeholderStatusChangeEvent: ['event_data'],
   vestingAcceleration: ['vesting_acceleration_data'],
   vestingEvent: ['vesting_event_data'],
   vestingStart: ['vesting_start_data'],

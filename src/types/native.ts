@@ -1486,11 +1486,11 @@ export interface OcfWarrantExercise {
   security_id: string;
   /** Identifier for the warrant's exercise trigger that resulted in this exercise */
   trigger_id: string;
-  /** Quantity of warrants being exercised */
-  quantity: string;
+  /** Deprecated legacy quantity field (optional in current schema/DAML) */
+  quantity?: string;
   /** Array of identifiers for new securities resulting from the exercise */
   resulting_security_ids: string[];
-  /** Identifier for the security that holds the remainder balance (for partial exercises) */
+  /** Deprecated legacy remainder security field (not in current schema) */
   balance_security_id?: string;
   /** Unstructured text description of consideration provided in exchange for security exercise */
   consideration_text?: string;
@@ -1511,8 +1511,10 @@ export interface OcfStockConversion {
   date: string;
   /** Identifier for the stock security being converted */
   security_id: string;
-  /** Quantity of stock being converted */
-  quantity: string;
+  /** Quantity of stock being converted (canonical field) */
+  quantity_converted: string;
+  /** Deprecated legacy quantity field */
+  quantity?: string;
   /** Array of identifiers for new securities resulting from the conversion */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial conversions) */
@@ -1532,12 +1534,18 @@ export interface OcfConvertibleConversion {
   date: string;
   /** Identifier for the convertible security being converted */
   security_id: string;
+  /** Reason for the conversion */
+  reason_text: string;
   /** Array of identifiers for new securities resulting from the conversion */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial conversions) */
   balance_security_id?: string;
   /** Identifier of the trigger that caused conversion */
-  trigger_id?: string;
+  trigger_id: string;
+  /** Optional quantity converted */
+  quantity_converted?: string;
+  /** Optional capitalization-definition details used in conversion calculations */
+  capitalization_definition?: CapitalizationDefinitionRules;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1557,12 +1565,14 @@ export interface OcfEquityCompensationRelease {
   security_id: string;
   /** Quantity of equity compensation being released */
   quantity: string;
+  /** Price used to value the released security at release time */
+  release_price: Monetary;
+  /** Settlement date for the release */
+  settlement_date: string;
   /** Array of identifiers for new securities resulting from the release */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial releases) */
   balance_security_id?: string;
-  /** Settlement date for the release */
-  settlement_date?: string;
   /** Unstructured text description of consideration provided */
   consideration_text?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1631,16 +1641,23 @@ export interface OcfVestingAcceleration {
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/adjustment/StockClassSplit.schema.json
  */
 export interface OcfStockClassSplit {
+  /**
+   * At least one split-ratio representation must be provided:
+   * - canonical `split_ratio`, or
+   * - deprecated `split_ratio_numerator` + `split_ratio_denominator` pair.
+   */
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
   date: string;
   /** Identifier for the stock class being split */
   stock_class_id: string;
-  /** Split ratio - numerator (e.g., "2" for a 2-for-1 split) */
-  split_ratio_numerator: string;
-  /** Split ratio - denominator (e.g., "1" for a 2-for-1 split) */
-  split_ratio_denominator: string;
+  /** Canonical split ratio object */
+  split_ratio?: { numerator: string; denominator: string };
+  /** Deprecated legacy split ratio numerator (must be paired with split_ratio_denominator) */
+  split_ratio_numerator?: string;
+  /** Deprecated legacy split ratio denominator (must be paired with split_ratio_numerator) */
+  split_ratio_denominator?: string;
   /** Date on which the board approved the split */
   board_approval_date?: string;
   /** Date on which stockholders approved the split */
@@ -1660,10 +1677,17 @@ export interface OcfStockClassConversionRatioAdjustment {
   date: string;
   /** Identifier for the stock class whose conversion ratio is being adjusted */
   stock_class_id: string;
-  /** New conversion ratio - numerator (decimal string) */
-  new_ratio_numerator: string;
-  /** New conversion ratio - denominator (decimal string) */
-  new_ratio_denominator: string;
+  /** Canonical conversion mechanism payload */
+  new_ratio_conversion_mechanism?: {
+    type: 'RATIO_CONVERSION';
+    conversion_price: Monetary;
+    ratio: { numerator: string; denominator: string };
+    rounding_type: 'NORMAL' | 'CEILING' | 'FLOOR';
+  };
+  /** Deprecated legacy ratio numerator (converted to mechanism form) */
+  new_ratio_numerator?: string;
+  /** Deprecated legacy ratio denominator (converted to mechanism form) */
+  new_ratio_denominator?: string;
   /** Date on which the board approved the adjustment */
   board_approval_date?: string;
   /** Date on which stockholders approved the adjustment */
@@ -1681,6 +1705,8 @@ export interface OcfStockPlanReturnToPool {
   id: string;
   /** Date on which the transaction occurred */
   date: string;
+  /** Identifier for the security being returned to the pool */
+  security_id: string;
   /** Identifier for the stock plan to which shares are being returned */
   stock_plan_id: string;
   /** Quantity of shares being returned to the pool */
@@ -1725,8 +1751,10 @@ export interface OcfStockConsolidation {
   date: string;
   /** Array of identifiers for securities being consolidated */
   security_ids: string[];
-  /** Array of identifiers for new securities resulting from the consolidation */
-  resulting_security_ids: string[];
+  /** Identifier for the new consolidated security (canonical field) */
+  resulting_security_id?: string;
+  /** Deprecated legacy array form of resulting security ids */
+  resulting_security_ids?: string[];
   /** Reason for the consolidation */
   reason_text?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1747,8 +1775,10 @@ export interface OcfEquityCompensationRepricing {
   date: string;
   /** Identifier for the security being repriced */
   security_id: string;
-  /** Array of identifiers for new securities resulting from the repricing */
-  resulting_security_ids: string[];
+  /** Updated exercise price after repricing */
+  new_exercise_price: Monetary;
+  /** Deprecated legacy resulting security IDs field (not in canonical schema) */
+  resulting_security_ids?: string[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1771,15 +1801,27 @@ export interface OcfPlanSecurityIssuance {
   /** Identifier for the stakeholder receiving the security */
   stakeholder_id: string;
   /** Identifier for the stock plan */
-  stock_plan_id: string;
+  stock_plan_id?: string;
   /** Identifier for the stock class */
   stock_class_id?: string;
-  /** Type of plan security */
-  plan_security_type: 'OPTION' | 'RSU' | 'OTHER';
+  /** Canonical compensation type */
+  compensation_type?: CompensationType;
+  /** Deprecated legacy plan security type alias */
+  plan_security_type?: 'OPTION' | 'RSU' | 'OTHER';
   /** Quantity of plan securities being issued */
   quantity: string;
   /** Exercise price per share/unit */
   exercise_price?: Monetary;
+  /** Base price per share/unit (for SARs) */
+  base_price?: Monetary;
+  /** Whether security is early exercisable */
+  early_exercisable?: boolean;
+  /** Inline vesting installments */
+  vestings?: Vesting[];
+  /** Expiration date for this security */
+  expiration_date?: string | null;
+  /** Termination exercise windows */
+  termination_exercise_windows?: TerminationWindow[];
   /** Identifier for the vesting terms */
   vesting_terms_id?: string;
   /** Date on which the board approved the issuance */
@@ -1809,7 +1851,7 @@ export interface OcfPlanSecurityExercise {
   quantity: string;
   /** Array of identifiers for new securities resulting from the exercise */
   resulting_security_ids: string[];
-  /** Identifier for the security that holds the remainder balance (for partial exercises) */
+  /** Deprecated legacy remainder security field (not in canonical schema) */
   balance_security_id?: string;
   /** Unstructured text description of consideration */
   consideration_text?: string;
@@ -1866,12 +1908,14 @@ export interface OcfPlanSecurityRelease {
   security_id: string;
   /** Quantity being released */
   quantity: string;
+  /** Price used to value the released security at release time */
+  release_price: Monetary;
   /** Array of identifiers for new securities resulting from the release */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial releases) */
   balance_security_id?: string;
   /** Settlement date for the release */
-  settlement_date?: string;
+  settlement_date: string;
   /** Unstructured text description of consideration */
   consideration_text?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1990,26 +2034,37 @@ export type StakeholderStatus =
 /**
  * Object - Stakeholder Relationship Change Event Object describing a change in a stakeholder's relationship with the
  * issuer OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/events/StakeholderRelationshipChangeEvent.schema.json
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/change_event/StakeholderRelationshipChangeEvent.schema.json
  */
 export interface OcfStakeholderRelationshipChangeEvent {
+  /** OCF object type discriminator */
+  object_type?: 'CE_STAKEHOLDER_RELATIONSHIP' | 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT';
   /** Identifier for the object */
   id: string;
   /** Date on which the event occurred */
   date: string;
   /** Identifier for the stakeholder whose relationship is changing */
   stakeholder_id: string;
-  /** New relationship type(s) for the stakeholder */
-  new_relationships: StakeholderRelationshipType[];
+  /** Relationship that started on this change date */
+  relationship_started?: StakeholderRelationshipType;
+  /** Relationship that ended on this change date */
+  relationship_ended?: StakeholderRelationshipType;
+  /**
+   * Deprecated legacy relationship list.
+   * Canonical format uses relationship_started/relationship_ended.
+   */
+  new_relationships?: StakeholderRelationshipType[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
 
 /**
  * Object - Stakeholder Status Change Event Object describing a change in a stakeholder's status with the issuer OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/events/StakeholderStatusChangeEvent.schema.json
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/change_event/StakeholderStatusChangeEvent.schema.json
  */
 export interface OcfStakeholderStatusChangeEvent {
+  /** OCF object type discriminator */
+  object_type?: 'CE_STAKEHOLDER_STATUS' | 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT';
   /** Identifier for the object */
   id: string;
   /** Date on which the event occurred */
@@ -2018,6 +2073,8 @@ export interface OcfStakeholderStatusChangeEvent {
   stakeholder_id: string;
   /** New status for the stakeholder */
   new_status: StakeholderStatus;
+  /** Deprecated legacy free-text reason (not part of canonical schema) */
+  reason_text?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

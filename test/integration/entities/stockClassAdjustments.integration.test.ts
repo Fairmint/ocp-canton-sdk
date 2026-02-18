@@ -99,8 +99,12 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         id: adjustmentId,
         date: generateDateString(0),
         stock_class_id: stockClassId,
-        new_ratio_numerator: '3',
-        new_ratio_denominator: '2',
+        new_ratio_conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          conversion_price: { amount: '0', currency: 'USD' },
+          ratio: { numerator: '3', denominator: '2' },
+          rounding_type: 'NORMAL',
+        },
         comments: ['Anti-dilution adjustment'],
       })
       .execute();
@@ -189,7 +193,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         id: consolidationId,
         date: generateDateString(0),
         security_ids: [stockSecurity1.securityId, stockSecurity2.securityId, stockSecurity3.securityId],
-        resulting_security_ids: ['new-sec-001'],
+        resulting_security_id: 'new-sec-001',
         comments: ['10-for-1 reverse split consolidation'],
       })
       .execute();
@@ -333,7 +337,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         id: generateTestId('batch-consolidation'),
         date: generateDateString(0),
         security_ids: [stockSecurity1.securityId, stockSecurity2.securityId],
-        resulting_security_ids: ['batch-new-sec-001'],
+        resulting_security_id: 'batch-new-sec-001',
         comments: ['Batch consolidation'],
       })
       .create('stockReissuance', {

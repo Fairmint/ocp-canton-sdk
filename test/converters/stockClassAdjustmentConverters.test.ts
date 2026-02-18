@@ -33,8 +33,10 @@ describe('Stock Class Adjustment Converters', () => {
         id: 'split-001',
         date: '2024-01-15',
         stock_class_id: 'class-001',
-        split_ratio_numerator: '2',
-        split_ratio_denominator: '1',
+        split_ratio: {
+          numerator: '2',
+          denominator: '1',
+        },
       };
 
       test('converts basic stock class split with nested split_ratio', () => {
@@ -55,8 +57,10 @@ describe('Stock Class Adjustment Converters', () => {
       test('handles numeric split ratio values', () => {
         const dataWithNumericRatio = {
           ...baseData,
-          split_ratio_numerator: '3',
-          split_ratio_denominator: '1',
+          split_ratio: {
+            numerator: '3',
+            denominator: '1',
+          },
         };
 
         const result = convertToDaml('stockClassSplit', dataWithNumericRatio);
@@ -64,6 +68,22 @@ describe('Stock Class Adjustment Converters', () => {
 
         expect(splitRatio.numerator).toBe('3');
         expect(splitRatio.denominator).toBe('1');
+      });
+
+      test('normalizes split ratio numeric strings before DAML conversion', () => {
+        const dataWithUnnormalizedRatio = {
+          ...baseData,
+          split_ratio: {
+            numerator: '2.0000000000',
+            denominator: '1.5000000000',
+          },
+        };
+
+        const result = convertToDaml('stockClassSplit', dataWithUnnormalizedRatio);
+        const splitRatio = result.split_ratio as { numerator: string; denominator: string };
+
+        expect(splitRatio.numerator).toBe('2');
+        expect(splitRatio.denominator).toBe('1.5');
       });
 
       test('converts with comments', () => {
@@ -89,8 +109,15 @@ describe('Stock Class Adjustment Converters', () => {
         id: 'adj-001',
         date: '2024-02-01',
         stock_class_id: 'class-002',
-        new_ratio_numerator: '3',
-        new_ratio_denominator: '2',
+        new_ratio_conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          conversion_price: { amount: '0', currency: 'USD' },
+          ratio: {
+            numerator: '3',
+            denominator: '2',
+          },
+          rounding_type: 'NORMAL',
+        },
       };
 
       test('converts basic conversion ratio adjustment with nested mechanism', () => {
@@ -113,10 +140,17 @@ describe('Stock Class Adjustment Converters', () => {
       });
 
       test('handles numeric ratio values', () => {
-        const dataWithNumericRatio = {
+        const dataWithNumericRatio: OcfStockClassConversionRatioAdjustment = {
           ...baseData,
-          new_ratio_numerator: '5',
-          new_ratio_denominator: '4',
+          new_ratio_conversion_mechanism: {
+            type: 'RATIO_CONVERSION',
+            conversion_price: { amount: '0', currency: 'USD' },
+            ratio: {
+              numerator: '5',
+              denominator: '4',
+            },
+            rounding_type: 'NORMAL',
+          },
         };
 
         const result = convertToDaml('stockClassConversionRatioAdjustment', dataWithNumericRatio);
@@ -153,7 +187,7 @@ describe('Stock Class Adjustment Converters', () => {
         id: 'consolidation-001',
         date: '2024-03-01',
         security_ids: ['sec-001', 'sec-002', 'sec-003'],
-        resulting_security_ids: ['new-sec-001'],
+        resulting_security_id: 'new-sec-001',
       };
 
       test('converts basic stock consolidation with singular resulting_security_id', () => {
@@ -180,15 +214,8 @@ describe('Stock Class Adjustment Converters', () => {
         expect(result.comments).toEqual(['Reverse split consolidation']);
       });
 
-      test('takes first resulting security when multiple provided', () => {
-        const dataWithMultipleResults = {
-          ...baseData,
-          resulting_security_ids: ['new-sec-001', 'new-sec-002'],
-        };
-
-        const result = convertToDaml('stockConsolidation', dataWithMultipleResults);
-
-        // DAML only supports singular resulting_security_id, takes first
+      test('keeps canonical resulting_security_id', () => {
+        const result = convertToDaml('stockConsolidation', baseData);
         expect(result.resulting_security_id).toBe('new-sec-001');
       });
 
@@ -271,8 +298,10 @@ describe('Stock Class Adjustment Converters', () => {
           id: 'split-001',
           date: '2024-01-15',
           stock_class_id: 'class-001',
-          split_ratio_numerator: '2',
-          split_ratio_denominator: '1',
+          split_ratio: {
+            numerator: '2',
+            denominator: '1',
+          },
           comments: ['2-for-1 stock split'],
         });
       });
@@ -299,7 +328,7 @@ describe('Stock Class Adjustment Converters', () => {
           date: '2024-02-01T00:00:00.000Z',
           stock_class_id: 'class-002',
           new_ratio_conversion_mechanism: {
-            conversion_price: { amount: '0', currency: 'USD' },
+            conversion_price: { amount: '0.0000000000', currency: 'USD' },
             ratio: {
               numerator: '3.0000000000',
               denominator: '2.0000000000',
@@ -315,8 +344,15 @@ describe('Stock Class Adjustment Converters', () => {
           id: 'adj-001',
           date: '2024-02-01',
           stock_class_id: 'class-002',
-          new_ratio_numerator: '3',
-          new_ratio_denominator: '2',
+          new_ratio_conversion_mechanism: {
+            type: 'RATIO_CONVERSION',
+            conversion_price: { amount: '0', currency: 'USD' },
+            ratio: {
+              numerator: '3',
+              denominator: '2',
+            },
+            rounding_type: 'NORMAL',
+          },
           comments: ['Anti-dilution adjustment'],
         });
       });
@@ -339,7 +375,7 @@ describe('Stock Class Adjustment Converters', () => {
           id: 'consolidation-001',
           date: '2024-03-01',
           security_ids: ['sec-001', 'sec-002'],
-          resulting_security_ids: ['new-sec-001'], // OCF expects array
+          resulting_security_id: 'new-sec-001',
           reason_text: 'Reverse split',
           comments: ['Consolidation comment'],
         });

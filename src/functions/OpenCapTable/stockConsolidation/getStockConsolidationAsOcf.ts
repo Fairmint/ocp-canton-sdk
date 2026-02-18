@@ -7,7 +7,7 @@ export interface OcfStockConsolidationEvent {
   id: string;
   date: string;
   security_ids: string[];
-  resulting_security_ids: string[];
+  resulting_security_id: string;
   reason_text?: string;
   comments?: string[];
 }
@@ -37,14 +37,12 @@ export async function getStockConsolidationAsOcf(
   const contract = res.created.createdEvent.createArgument as StockConsolidationCreateArgument;
   const data = contract.consolidation_data;
 
-  // DAML has resulting_security_id (singular), but OCF expects resulting_security_ids (array)
-  // We wrap the single ID in an array to match OCF format
   const event: OcfStockConsolidationEvent = {
     object_type: 'TX_STOCK_CONSOLIDATION',
     id: data.id,
     date: data.date.split('T')[0],
     security_ids: data.security_ids,
-    resulting_security_ids: [data.resulting_security_id],
+    resulting_security_id: data.resulting_security_id,
     ...(data.reason_text ? { reason_text: data.reason_text } : {}),
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };

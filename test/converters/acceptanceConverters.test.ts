@@ -90,16 +90,14 @@ describe('Acceptance Type Converters', () => {
         expect(() => convertToDaml('stockAcceptance', ocfData)).toThrow('stockAcceptance.id');
       });
 
-      test('preserves date with time portion', () => {
+      test('rejects date values that include time portion', () => {
         const ocfData: OcfStockAcceptance = {
           id: 'stock-accept-003',
           date: '2024-01-15T10:30:00.000Z',
           security_id: 'stock-sec-003',
         };
 
-        const result = convertToDaml('stockAcceptance', ocfData);
-
-        expect(result.date).toBe('2024-01-15T10:30:00.000Z');
+        expect(() => convertToDaml('stockAcceptance', ocfData)).toThrow(OcpValidationError);
       });
 
       test('filters empty comments', () => {

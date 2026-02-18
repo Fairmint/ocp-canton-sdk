@@ -4,7 +4,7 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfEquityCompensationRepricing } from '../../../types';
-import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime, monetaryToDaml } from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF EquityCompensationRepricing data to DAML format.
@@ -24,7 +24,7 @@ export function equityCompensationRepricingDataToDaml(d: OcfEquityCompensationRe
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
-    resulting_security_ids: d.resulting_security_ids,
+    new_exercise_price: monetaryToDaml(d.new_exercise_price),
     comments: cleanComments(d.comments),
   };
 }

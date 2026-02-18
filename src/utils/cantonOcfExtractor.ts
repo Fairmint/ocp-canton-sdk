@@ -33,6 +33,7 @@ import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stock
 import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
+import { LEGACY_OBJECT_TYPE_MAP } from './planSecurityAliases';
 import { TRANSACTION_SUBTYPE_MAP } from './replicationHelpers';
 
 // ===== Transaction Sorting =====
@@ -164,8 +165,10 @@ export function txWeight(tx: Record<string, unknown>): number {
       return 40;
 
     // Stakeholder events - process after transactions that might create/modify stakes
-    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT':
-    case 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT':
+    case 'CE_STAKEHOLDER_RELATIONSHIP':
+    case 'CE_STAKEHOLDER_STATUS':
+    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT': // legacy alias
+    case 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT': // legacy alias
       return 45;
 
     // Unknown types at the end
@@ -298,7 +301,9 @@ const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
  * duplicate inverse mappings that could drift out of sync.
  */
 const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = Object.fromEntries(
-  Object.entries(TRANSACTION_SUBTYPE_MAP).map(([objectType, entityType]) => [entityType, objectType])
+  Object.entries(TRANSACTION_SUBTYPE_MAP)
+    .filter(([objectType]) => !Object.prototype.hasOwnProperty.call(LEGACY_OBJECT_TYPE_MAP, objectType))
+    .map(([objectType, entityType]) => [entityType, objectType])
 );
 
 /**

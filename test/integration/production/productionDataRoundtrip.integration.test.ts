@@ -22,6 +22,7 @@ import {
   ocfCompare,
   stripInternalFields,
 } from '../../../src/utils/ocfComparison';
+import { normalizeOcfData } from '../../../src/utils/planSecurityAliases';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
 import { createIntegrationTestSuite } from '../setup';
@@ -31,6 +32,7 @@ import {
   setupEquityCompensationSecurity,
   setupStockSecurity,
   setupTestIssuer,
+  setupTestStakeholder,
   setupWarrantSecurity,
 } from '../utils';
 
@@ -1713,11 +1715,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
     });
 
-    /**
-     * SKIPPED: StakeholderRelationshipChangeEvent batch API fails with INVALID_ARGUMENT.
-     * The enum values need to match DAML schema exactly.
-     */
-    test.skip('Stakeholder Relationship Change Event round-trips correctly (synthetic)', async () => {
+    test('Stakeholder Relationship Change Event round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1726,24 +1724,48 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
+      const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent');
-      const prepared = prepareFixture(fixture, 'relationship-change');
+      const prepared = {
+        ...prepareFixture(fixture, 'relationship-change'),
+        stakeholder_id: stakeholderSetup.stakeholderData.id,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stakeholderSetup.newCapTableContractId,
+        capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
       const result = await batch.create('stakeholderRelationshipChangeEvent', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
+
+      const readBack = await ctx.ocp.OpenCapTable.stakeholderRelationshipChangeEvent.get({
+        contractId: extractContractIdString(result.createdCids[0]),
+      });
+
+      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+
+      const sourceWithoutId = stripInternalFields(
+        normalizeOcfData({
+          ...prepared,
+          object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+          id: readBack.data.id,
+        })
+      );
+      compareOcfData(
+        sourceWithoutId as Record<string, unknown>,
+        readBack.data as unknown as Record<string, unknown>,
+        'Stakeholder Relationship Change Event synthetic'
+      );
     });
 
-    /**
-     * SKIPPED: StakeholderStatusChangeEvent batch API fails with DAML_FAILURE.
-     * The status values need to match DAML schema exactly.
-     */
-    test.skip('Stakeholder Status Change Event round-trips correctly (synthetic)', async () => {
+    test('Stakeholder Status Change Event round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1752,17 +1774,45 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         issuerParty: ctx.issuerParty,
       });
 
+      const stakeholderSetup = await setupTestStakeholder(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent');
-      const prepared = prepareFixture(fixture, 'status-change');
+      const prepared = {
+        ...prepareFixture(fixture, 'status-change'),
+        stakeholder_id: stakeholderSetup.stakeholderData.id,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stakeholderSetup.newCapTableContractId,
+        capTableContractDetails: stakeholderSetup.newCapTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
       const result = await batch.create('stakeholderStatusChangeEvent', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
+
+      const readBack = await ctx.ocp.OpenCapTable.stakeholderStatusChangeEvent.get({
+        contractId: extractContractIdString(result.createdCids[0]),
+      });
+
+      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+
+      const sourceWithoutId = stripInternalFields(
+        normalizeOcfData({
+          ...prepared,
+          object_type: 'CE_STAKEHOLDER_STATUS',
+          id: readBack.data.id,
+        })
+      );
+      compareOcfData(
+        sourceWithoutId as Record<string, unknown>,
+        readBack.data as unknown as Record<string, unknown>,
+        'Stakeholder Status Change Event synthetic'
+      );
     });
 
     /**
