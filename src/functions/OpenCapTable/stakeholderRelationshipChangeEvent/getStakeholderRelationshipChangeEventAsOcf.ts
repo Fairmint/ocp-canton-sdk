@@ -35,7 +35,8 @@ interface DamlStakeholderRelationshipChangeEventData {
 }
 
 interface DamlStakeholderRelationshipChangeEventContract {
-  relationship_change_data: DamlStakeholderRelationshipChangeEventData;
+  event_data?: DamlStakeholderRelationshipChangeEventData;
+  relationship_change_data?: DamlStakeholderRelationshipChangeEventData;
 }
 
 function mapRelationshipsToLatestFields(
@@ -81,7 +82,13 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
   }
 
   const contract = res.created.createdEvent.createArgument as DamlStakeholderRelationshipChangeEventContract;
-  const data = contract.relationship_change_data;
+  const data = contract.event_data ?? contract.relationship_change_data;
+  if (!data) {
+    throw new OcpContractError('Missing stakeholder relationship event data', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
 
   const relationshipFields = mapRelationshipsToLatestFields(
     data.relationship_started ? damlStakeholderRelationshipToNative(data.relationship_started) : null,

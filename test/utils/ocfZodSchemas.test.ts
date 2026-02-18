@@ -115,4 +115,24 @@ describe('ocfZodSchemas', () => {
     expect(parsedRecord.relationship_started).toBe('ADVISOR');
     expect(parsedRecord).not.toHaveProperty('new_relationships');
   });
+
+  itIfSchemas('canonicalizes stock consolidation legacy resulting_security_ids field', () => {
+    const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stockConsolidation'));
+    const parsed = parseOcfEntityInput('stockConsolidation', fixture);
+    const parsedRecord = parsed as unknown as Record<string, unknown>;
+
+    expect(parsedRecord.resulting_security_id).toBe('test-security-consolidated-result-001');
+    expect(parsedRecord).not.toHaveProperty('resulting_security_ids');
+  });
+
+  itIfSchemas('rejects entity/object_type mismatches', () => {
+    const stakeholderFixture = stripSourceMetadata(
+      loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual')
+    );
+
+    expect(() => parseOcfEntityInput('stockIssuance', stakeholderFixture)).toThrow(OcpValidationError);
+    expect(() => parseOcfEntityInput('stockIssuance', stakeholderFixture)).toThrow(
+      'expects object_type "TX_STOCK_ISSUANCE"'
+    );
+  });
 });

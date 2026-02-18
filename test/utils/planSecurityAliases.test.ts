@@ -462,9 +462,10 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
+      const resultRecord = result as Record<string, unknown>;
 
-      expect(result.compensation_type).toBe('OPTION');
-      expect(result).not.toHaveProperty('plan_security_type');
+      expect(resultRecord.compensation_type).toBe('OPTION');
+      expect(resultRecord).not.toHaveProperty('plan_security_type');
     });
 
     it('throws when option_grant_type conflicts with compensation_type', () => {
@@ -500,6 +501,30 @@ describe('PlanSecurity alias utilities', () => {
       expect(resultRecord).not.toHaveProperty('new_relationships');
     });
 
+    it('rejects stakeholder relationship change events with more than two legacy relationships', () => {
+      const input = {
+        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+        id: 'event-1',
+        date: '2024-01-15',
+        stakeholder_id: 'stakeholder-1',
+        new_relationships: ['INVESTOR', 'FOUNDER', 'ADVISOR'],
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('new_relationships supports at most two values');
+    });
+
+    it('rejects unknown stakeholder relationship values', () => {
+      const input = {
+        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+        id: 'event-1',
+        date: '2024-01-15',
+        stakeholder_id: 'stakeholder-1',
+        new_relationships: ['UNKNOWN_RELATIONSHIP'],
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('unknown relationship');
+    });
+
     it('canonicalizes legacy stakeholder status change event reason_text into comments', () => {
       const input = {
         object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
@@ -516,6 +541,37 @@ describe('PlanSecurity alias utilities', () => {
       expect(result.object_type).toBe('CE_STAKEHOLDER_STATUS');
       expect(result.comments).toEqual(['existing', 'legacy reason']);
       expect(result).not.toHaveProperty('reason_text');
+    });
+
+    it('canonicalizes stock consolidation resulting_security_ids to resulting_security_id', () => {
+      const input = {
+        object_type: 'TX_STOCK_CONSOLIDATION',
+        id: 'stock-consolidation-1',
+        date: '2024-01-15',
+        security_ids: ['sec-1', 'sec-2'],
+        resulting_security_ids: ['sec-new-1'],
+      };
+
+      const result = normalizeOcfData(input);
+      const resultRecord = result as Record<string, unknown>;
+
+      expect(resultRecord.resulting_security_id).toBe('sec-new-1');
+      expect(resultRecord).not.toHaveProperty('resulting_security_ids');
+    });
+
+    it('strips null split_transaction_id from stock reissuance', () => {
+      const input = {
+        object_type: 'TX_STOCK_REISSUANCE',
+        id: 'stock-reissuance-1',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        resulting_security_ids: ['sec-new-1'],
+        split_transaction_id: null,
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result).not.toHaveProperty('split_transaction_id');
     });
   });
 

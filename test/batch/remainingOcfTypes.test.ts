@@ -382,7 +382,7 @@ describe('Stakeholder Change Event Converters', () => {
       expect(value.relationship_ended).toBe('OcfRelInvestor');
     });
 
-    it('should use first two entries from legacy relationship list', () => {
+    it('should reject legacy relationship list with more than two entries', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
@@ -395,18 +395,9 @@ describe('Stakeholder Change Event Converters', () => {
         new_relationships: ['FOUNDER', 'INVESTOR', 'ADVISOR'],
       };
 
-      batch.create('stakeholderRelationshipChangeEvent', data);
-
-      const { command } = batch.build();
-      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
-
-      const choiceArg = command.ExerciseCommand.choiceArgument as {
-        creates: Array<{ tag: string; value: unknown }>;
-      };
-
-      const value = choiceArg.creates[0].value as Record<string, unknown>;
-      expect(value.relationship_started).toBe('OcfRelFounder');
-      expect(value.relationship_ended).toBe('OcfRelInvestor');
+      expect(() => batch.create('stakeholderRelationshipChangeEvent', data)).toThrow(
+        'new_relationships supports at most two values'
+      );
     });
 
     it('should have correct ENTITY_TAG_MAP entry', () => {

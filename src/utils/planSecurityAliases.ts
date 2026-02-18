@@ -1,4 +1,4 @@
-import type { OcfStakeholder, OcfStockPlan } from '../types/native';
+import type { CompensationType, OcfStakeholder, OcfStockPlan } from '../types/native';
 import { isOcfStakeholder, isOcfStockPlan } from './typeGuards';
 
 /**
@@ -65,7 +65,7 @@ export type LegacyObjectType = keyof typeof LEGACY_OBJECT_TYPE_MAP;
  * @returns True if the type is a PlanSecurity alias
  */
 export function isPlanSecurityEntityType(type: string): type is PlanSecurityEntityType {
-  return type in PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP;
+  return Object.prototype.hasOwnProperty.call(PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP, type);
 }
 
 /**
@@ -75,7 +75,7 @@ export function isPlanSecurityEntityType(type: string): type is PlanSecurityEnti
  * @returns True if the object_type is a PlanSecurity alias
  */
 export function isPlanSecurityObjectType(objectType: string): objectType is PlanSecurityObjectType {
-  return objectType in PLAN_SECURITY_OBJECT_TYPE_MAP;
+  return Object.prototype.hasOwnProperty.call(PLAN_SECURITY_OBJECT_TYPE_MAP, objectType);
 }
 
 /**
@@ -131,7 +131,6 @@ export function normalizeObjectType<T extends string>(objectType: T): string {
 }
 
 type OptionGrantType = 'NSO' | 'ISO' | 'INTL';
-type CompensationType = 'OPTION_NSO' | 'OPTION_ISO' | 'OPTION' | 'RSU' | 'CSAR' | 'SSAR';
 type PlanSecurityType = 'OPTION' | 'RSU' | 'OTHER';
 
 function mapOptionGrantTypeToCompensationType(optionGrantType: OptionGrantType): CompensationType {
@@ -260,6 +259,15 @@ function normalizePlanSecurityType<T extends Record<string, unknown>>(data: T): 
 }
 
 type StakeholderRelationship = 'EMPLOYEE' | 'ADVISOR' | 'INVESTOR' | 'FOUNDER' | 'BOARD_MEMBER' | 'OFFICER' | 'OTHER';
+const VALID_STAKEHOLDER_RELATIONSHIPS: ReadonlySet<StakeholderRelationship> = new Set([
+  'EMPLOYEE',
+  'ADVISOR',
+  'INVESTOR',
+  'FOUNDER',
+  'BOARD_MEMBER',
+  'OFFICER',
+  'OTHER',
+]);
 
 /**
  * Canonicalize stakeholder relationship change events to latest OCF format.
@@ -297,8 +305,15 @@ function normalizeStakeholderRelationshipChangeEvent<T extends Record<string, un
       if (!trimmed) {
         throw new Error('Invalid new_relationships entry: empty string');
       }
+      if (!VALID_STAKEHOLDER_RELATIONSHIPS.has(trimmed as StakeholderRelationship)) {
+        throw new Error(`Invalid new_relationships entry: unknown relationship "${relationship}"`);
+      }
       return trimmed as StakeholderRelationship;
     });
+
+    if (normalizedRelationships.length > 2) {
+      throw new Error('Invalid stakeholder relationship change event: new_relationships supports at most two values');
+    }
 
     if (result.relationship_started === undefined && normalizedRelationships[0]) {
       result.relationship_started = normalizedRelationships[0];
@@ -322,6 +337,18 @@ function normalizeStakeholderRelationshipChangeEvent<T extends Record<string, un
   }
   if (relationshipEnded !== undefined && typeof relationshipEnded !== 'string') {
     throw new Error(`Invalid relationship_ended: expected string, got ${typeof relationshipEnded}`);
+  }
+  if (
+    typeof relationshipStarted === 'string' &&
+    !VALID_STAKEHOLDER_RELATIONSHIPS.has(relationshipStarted as StakeholderRelationship)
+  ) {
+    throw new Error(`Invalid relationship_started: unknown relationship "${relationshipStarted}"`);
+  }
+  if (
+    typeof relationshipEnded === 'string' &&
+    !VALID_STAKEHOLDER_RELATIONSHIPS.has(relationshipEnded as StakeholderRelationship)
+  ) {
+    throw new Error(`Invalid relationship_ended: unknown relationship "${relationshipEnded}"`);
   }
 
   return result as T;
@@ -550,6 +577,51 @@ function normalizeStockPlanClassIds<T extends Record<string, unknown>>(data: T):
 }
 
 /**
+ * Canonicalize stock consolidation resulting security identifier fields.
+ *
+ * OCF now uses singular `resulting_security_id`, while legacy payloads may still send
+ * `resulting_security_ids` as an array.
+ */
+function normalizeStockConsolidationResultingSecurityId<T extends Record<string, unknown>>(data: T): T {
+  if (data.object_type !== 'TX_STOCK_CONSOLIDATION') return data;
+
+  const result: Record<string, unknown> = { ...data };
+  const resultingSecurityId = result.resulting_security_id;
+  const legacyResultingSecurityIds = result.resulting_security_ids;
+
+  if (legacyResultingSecurityIds !== undefined) {
+    if (!Array.isArray(legacyResultingSecurityIds)) {
+      throw new Error(
+        `Invalid stock consolidation resulting_security_ids: expected array, got ${typeof legacyResultingSecurityIds}`
+      );
+    }
+    if (
+      resultingSecurityId === undefined &&
+      legacyResultingSecurityIds.length > 0 &&
+      typeof legacyResultingSecurityIds[0] === 'string'
+    ) {
+      result.resulting_security_id = legacyResultingSecurityIds[0];
+    }
+    delete result.resulting_security_ids;
+  }
+
+  return result as T;
+}
+
+/**
+ * Canonicalize stock reissuance optional split transaction identifier.
+ *
+ * Legacy exports may provide explicit `null` for omitted optional fields; convert to absent.
+ */
+function normalizeStockReissuanceSplitTransactionId<T extends Record<string, unknown>>(data: T): T {
+  if (data.object_type !== 'TX_STOCK_REISSUANCE') return data;
+  if (data.split_transaction_id !== null) return data;
+
+  const { split_transaction_id: _, ...rest } = data;
+  return rest as T;
+}
+
+/**
  * Normalize OCF data for consistent comparison.
  *
  * This function applies normalizations to ensure semantically equivalent data compares as equal:
@@ -606,7 +678,14 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
   // Canonicalize deprecated/current stock plan class ID fields
   result = normalizeStockPlanClassIds(result);
 
-  // Canonicalize stakeholder change event object_type/fields to latest OCF schema
+  // Canonicalize deprecated stock consolidation singular resulting security identifier
+  result = normalizeStockConsolidationResultingSecurityId(result);
+
+  // Canonicalize stock reissuance optional fields exported as explicit nulls
+  result = normalizeStockReissuanceSplitTransactionId(result);
+
+  // Canonicalize stakeholder change events after object_type alias normalization above.
+  // This ordering ensures TX_STAKEHOLDER_* aliases are converted before field upgrades.
   result = normalizeStakeholderRelationshipChangeEvent(result);
   result = normalizeStakeholderStatusChangeEvent(result);
 

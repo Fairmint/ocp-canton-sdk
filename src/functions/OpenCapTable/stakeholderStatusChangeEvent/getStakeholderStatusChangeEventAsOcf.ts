@@ -32,7 +32,8 @@ interface DamlStakeholderStatusChangeEventData {
 }
 
 interface DamlStakeholderStatusChangeEventContract {
-  status_change_data: DamlStakeholderStatusChangeEventData;
+  event_data?: DamlStakeholderStatusChangeEventData;
+  status_change_data?: DamlStakeholderStatusChangeEventData;
 }
 
 /**
@@ -62,7 +63,13 @@ export async function getStakeholderStatusChangeEventAsOcf(
   }
 
   const contract = res.created.createdEvent.createArgument as DamlStakeholderStatusChangeEventContract;
-  const data = contract.status_change_data;
+  const data = contract.event_data ?? contract.status_change_data;
+  if (!data) {
+    throw new OcpContractError('Missing stakeholder status event data', {
+      contractId: params.contractId,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
 
   const event: OcfStakeholderStatusChangeEvent = {
     object_type: 'CE_STAKEHOLDER_STATUS',

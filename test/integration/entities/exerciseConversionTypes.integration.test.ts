@@ -305,7 +305,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
         trigger_id: 'trigger-001',
         resulting_security_ids: ['stock-sec'],
       })
-    ).toThrow("'id'");
+    ).toThrow('warrantExercise.id');
 
     // Convertible conversion without id should fail
     expect(() =>
@@ -317,7 +317,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
         trigger_id: 'trigger-002',
         resulting_security_ids: ['stock-sec'],
       })
-    ).toThrow("'id'");
+    ).toThrow('convertibleConversion.id');
 
     // Stock conversion without id should fail
     expect(() =>
@@ -328,7 +328,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
         quantity_converted: '5000',
         resulting_security_ids: ['preferred-sec'],
       })
-    ).toThrow("'id'");
+    ).toThrow('stockConversion.id');
   });
 
   /**
