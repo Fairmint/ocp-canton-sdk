@@ -164,8 +164,10 @@ export function txWeight(tx: Record<string, unknown>): number {
       return 40;
 
     // Stakeholder events - process after transactions that might create/modify stakes
-    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT':
-    case 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT':
+    case 'CE_STAKEHOLDER_RELATIONSHIP':
+    case 'CE_STAKEHOLDER_STATUS':
+    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT': // legacy alias
+    case 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT': // legacy alias
       return 45;
 
     // Unknown types at the end
@@ -298,7 +300,12 @@ const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
  * duplicate inverse mappings that could drift out of sync.
  */
 const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = Object.fromEntries(
-  Object.entries(TRANSACTION_SUBTYPE_MAP).map(([objectType, entityType]) => [entityType, objectType])
+  Object.entries(TRANSACTION_SUBTYPE_MAP)
+    .filter(
+      ([objectType]) =>
+        objectType !== 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT' && objectType !== 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT'
+    )
+    .map(([objectType, entityType]) => [entityType, objectType])
 );
 
 /**

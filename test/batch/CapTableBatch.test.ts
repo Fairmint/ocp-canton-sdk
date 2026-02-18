@@ -34,6 +34,40 @@ describe('CapTableBatch', () => {
       expect(batch.size).toBe(1);
     });
 
+    it('should reject schema-invalid create payloads at write boundary', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      const invalidStakeholder = {
+        id: 'sh-123',
+        name: { legal_name: 'John Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        unexpected_field: 'not allowed by strict schema',
+      };
+
+      expect(() => batch.create('stakeholder', invalidStakeholder as OcfStakeholder)).toThrow(OcpValidationError);
+      expect(() => batch.create('stakeholder', invalidStakeholder as OcfStakeholder)).toThrow('unexpected_field');
+    });
+
+    it('should accept deprecated stakeholder relationship field via canonicalization', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      const stakeholderWithDeprecatedField = {
+        id: 'sh-123',
+        name: { legal_name: 'John Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'INVESTOR',
+      };
+
+      expect(() => batch.create('stakeholder', stakeholderWithDeprecatedField as OcfStakeholder)).not.toThrow();
+      expect(batch.size).toBe(1);
+    });
+
     it('should chain multiple operations', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',

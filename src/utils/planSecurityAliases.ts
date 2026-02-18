@@ -39,11 +39,24 @@ export const PLAN_SECURITY_OBJECT_TYPE_MAP = {
   TX_PLAN_SECURITY_TRANSFER: 'TX_EQUITY_COMPENSATION_TRANSFER',
 } as const;
 
+/**
+ * Legacy object_type aliases from older OCF event naming.
+ *
+ * Canonical OCF v2 names:
+ * - CE_STAKEHOLDER_RELATIONSHIP
+ * - CE_STAKEHOLDER_STATUS
+ */
+export const LEGACY_OBJECT_TYPE_MAP = {
+  TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'CE_STAKEHOLDER_RELATIONSHIP',
+  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'CE_STAKEHOLDER_STATUS',
+} as const;
+
 /** PlanSecurity entity type string union */
 export type PlanSecurityEntityType = keyof typeof PLAN_SECURITY_TO_EQUITY_COMPENSATION_MAP;
 
 /** PlanSecurity object_type string union */
 export type PlanSecurityObjectType = keyof typeof PLAN_SECURITY_OBJECT_TYPE_MAP;
+export type LegacyObjectType = keyof typeof LEGACY_OBJECT_TYPE_MAP;
 
 /**
  * Check if an entity type is a PlanSecurity alias.
@@ -63,6 +76,13 @@ export function isPlanSecurityEntityType(type: string): type is PlanSecurityEnti
  */
 export function isPlanSecurityObjectType(objectType: string): objectType is PlanSecurityObjectType {
   return objectType in PLAN_SECURITY_OBJECT_TYPE_MAP;
+}
+
+/**
+ * Check if an object_type is a legacy alias.
+ */
+export function isLegacyObjectType(objectType: string): objectType is LegacyObjectType {
+  return objectType in LEGACY_OBJECT_TYPE_MAP;
 }
 
 /**
@@ -104,7 +124,182 @@ export function normalizeObjectType<T extends string>(objectType: T): string {
   if (isPlanSecurityObjectType(objectType)) {
     return PLAN_SECURITY_OBJECT_TYPE_MAP[objectType];
   }
+  if (isLegacyObjectType(objectType)) {
+    return LEGACY_OBJECT_TYPE_MAP[objectType];
+  }
   return objectType;
+}
+
+type OptionGrantType = 'NSO' | 'ISO' | 'INTL';
+type CompensationType = 'OPTION_NSO' | 'OPTION_ISO' | 'OPTION' | 'RSU' | 'CSAR' | 'SSAR';
+
+function mapOptionGrantTypeToCompensationType(optionGrantType: OptionGrantType): CompensationType {
+  switch (optionGrantType) {
+    case 'NSO':
+      return 'OPTION_NSO';
+    case 'ISO':
+      return 'OPTION_ISO';
+    case 'INTL':
+      return 'OPTION';
+  }
+}
+
+function isObjectTypeEquityCompensationIssuance(objectType: unknown): boolean {
+  return objectType === 'TX_EQUITY_COMPENSATION_ISSUANCE' || objectType === 'TX_PLAN_SECURITY_ISSUANCE';
+}
+
+/**
+ * Canonicalize deprecated `option_grant_type` to `compensation_type`.
+ *
+ * Behavior:
+ * - If only `option_grant_type` exists, derive `compensation_type`.
+ * - If both exist and are compatible, keep canonical `compensation_type`.
+ * - If both exist and conflict, throw.
+ * - Always strip deprecated `option_grant_type` from canonical output.
+ */
+function normalizeOptionGrantType<T extends Record<string, unknown>>(data: T): T {
+  if (!isObjectTypeEquityCompensationIssuance(data.object_type)) return data;
+
+  const optionGrantTypeValue = data.option_grant_type;
+  if (optionGrantTypeValue === undefined || optionGrantTypeValue === null) return data;
+  if (typeof optionGrantTypeValue !== 'string') {
+    throw new Error(`Invalid option_grant_type: expected string, got ${typeof optionGrantTypeValue}`);
+  }
+
+  const normalizedOptionGrantType = optionGrantTypeValue.trim().toUpperCase();
+  if (
+    normalizedOptionGrantType !== 'NSO' &&
+    normalizedOptionGrantType !== 'ISO' &&
+    normalizedOptionGrantType !== 'INTL'
+  ) {
+    throw new Error(`Invalid option_grant_type: unsupported value "${optionGrantTypeValue}"`);
+  }
+
+  const derivedCompensationType = mapOptionGrantTypeToCompensationType(normalizedOptionGrantType);
+  const compensationTypeValue = data.compensation_type;
+  if (compensationTypeValue !== undefined && compensationTypeValue !== null) {
+    if (typeof compensationTypeValue !== 'string') {
+      throw new Error(`Invalid compensation_type: expected string, got ${typeof compensationTypeValue}`);
+    }
+
+    const normalizedCompensationType = compensationTypeValue.trim().toUpperCase();
+
+    // Allow generic OPTION with ISO/NSO to be upgraded to specific option type.
+    const canonicalCompensationType =
+      normalizedCompensationType === 'OPTION' &&
+      (normalizedOptionGrantType === 'NSO' || normalizedOptionGrantType === 'ISO')
+        ? derivedCompensationType
+        : normalizedCompensationType;
+
+    if (canonicalCompensationType !== derivedCompensationType) {
+      throw new Error(
+        `Deprecated option_grant_type "${normalizedOptionGrantType}" conflicts with compensation_type "${compensationTypeValue}"`
+      );
+    }
+  }
+
+  const { option_grant_type: _, ...rest } = data;
+  return {
+    ...rest,
+    compensation_type: derivedCompensationType,
+  } as unknown as T;
+}
+
+type StakeholderRelationship = 'EMPLOYEE' | 'ADVISOR' | 'INVESTOR' | 'FOUNDER' | 'BOARD_MEMBER' | 'OFFICER' | 'OTHER';
+
+/**
+ * Canonicalize stakeholder relationship change events to latest OCF format.
+ *
+ * Latest schema fields:
+ * - object_type: CE_STAKEHOLDER_RELATIONSHIP
+ * - relationship_started?: StakeholderRelationship
+ * - relationship_ended?: StakeholderRelationship
+ *
+ * Legacy compatibility:
+ * - object_type: TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT
+ * - new_relationships: StakeholderRelationship[]
+ */
+function normalizeStakeholderRelationshipChangeEvent<T extends Record<string, unknown>>(data: T): T {
+  const normalizedObjectType = normalizeObjectType(typeof data.object_type === 'string' ? data.object_type : '');
+  const isRelationshipEvent = normalizedObjectType === 'CE_STAKEHOLDER_RELATIONSHIP';
+  if (!isRelationshipEvent) return data;
+
+  const result: Record<string, unknown> = {
+    ...data,
+    object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+  };
+
+  const legacyRelationships = result.new_relationships;
+  if (legacyRelationships !== undefined) {
+    if (!Array.isArray(legacyRelationships)) {
+      throw new Error(`Invalid new_relationships: expected array, got ${typeof legacyRelationships}`);
+    }
+
+    const normalizedRelationships = legacyRelationships.map((relationship) => {
+      if (typeof relationship !== 'string') {
+        throw new Error(`Invalid new_relationships entry: expected string, got ${typeof relationship}`);
+      }
+      const trimmed = relationship.trim().toUpperCase();
+      if (!trimmed) {
+        throw new Error('Invalid new_relationships entry: empty string');
+      }
+      return trimmed as StakeholderRelationship;
+    });
+
+    if (result.relationship_started === undefined && normalizedRelationships[0]) {
+      result.relationship_started = normalizedRelationships[0];
+    }
+    if (result.relationship_ended === undefined && normalizedRelationships[1]) {
+      result.relationship_ended = normalizedRelationships[1];
+    }
+
+    delete result.new_relationships;
+  }
+
+  const relationshipStarted = result.relationship_started;
+  const relationshipEnded = result.relationship_ended;
+  if (relationshipStarted === undefined && relationshipEnded === undefined) {
+    throw new Error(
+      'Invalid stakeholder relationship change event: one of relationship_started or relationship_ended is required'
+    );
+  }
+  if (relationshipStarted !== undefined && typeof relationshipStarted !== 'string') {
+    throw new Error(`Invalid relationship_started: expected string, got ${typeof relationshipStarted}`);
+  }
+  if (relationshipEnded !== undefined && typeof relationshipEnded !== 'string') {
+    throw new Error(`Invalid relationship_ended: expected string, got ${typeof relationshipEnded}`);
+  }
+
+  return result as T;
+}
+
+/**
+ * Canonicalize stakeholder status change events to latest OCF format.
+ *
+ * Latest schema fields:
+ * - object_type: CE_STAKEHOLDER_STATUS
+ * - new_status
+ *
+ * Legacy compatibility:
+ * - object_type: TX_STAKEHOLDER_STATUS_CHANGE_EVENT
+ * - reason_text (dropped during canonicalization)
+ */
+function normalizeStakeholderStatusChangeEvent<T extends Record<string, unknown>>(data: T): T {
+  const normalizedObjectType = normalizeObjectType(typeof data.object_type === 'string' ? data.object_type : '');
+  if (normalizedObjectType !== 'CE_STAKEHOLDER_STATUS') return data;
+
+  const result: Record<string, unknown> = {
+    ...data,
+    object_type: 'CE_STAKEHOLDER_STATUS',
+  };
+
+  if (typeof result.reason_text === 'string' && result.reason_text.trim().length > 0) {
+    const existingComments = Array.isArray(result.comments) ? result.comments.filter((v) => typeof v === 'string') : [];
+    result.comments = [...existingComments, result.reason_text.trim()];
+  }
+  delete result.reason_text;
+
+  return result as T;
 }
 
 /**
@@ -129,6 +324,10 @@ export function normalizeObjectType<T extends string>(objectType: T): string {
  * @returns Object with quantity_source normalized based on quantity presence
  */
 function normalizeQuantitySource<T extends Record<string, unknown>>(data: T): T {
+  if (data.object_type !== 'TX_WARRANT_ISSUANCE') {
+    return data;
+  }
+
   const { quantity, quantity_source: quantitySource } = data;
 
   // Case 1: Strip quantity_source if quantity is not present (null/undefined)
@@ -340,11 +539,18 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
   // Strip Document fields that DAML cannot store (e.g. `date`)
   result = stripDocumentNonDamlFields(result);
 
+  // Canonicalize deprecated option_grant_type to compensation_type
+  result = normalizeOptionGrantType(result);
+
   // Canonicalize deprecated/current stakeholder relationship fields
   result = normalizeStakeholderRelationships(result);
 
   // Canonicalize deprecated/current stock plan class ID fields
   result = normalizeStockPlanClassIds(result);
+
+  // Canonicalize stakeholder change event object_type/fields to latest OCF schema
+  result = normalizeStakeholderRelationshipChangeEvent(result);
+  result = normalizeStakeholderStatusChangeEvent(result);
 
   return result;
 }

@@ -197,6 +197,10 @@ export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
   TX_VESTING_START: 'vestingStart',
 
   // Stakeholder Events (2 types)
+  CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
+  CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
+
+  // Legacy aliases kept for backward compatibility with historical exports
   TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'stakeholderRelationshipChangeEvent',
   TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'stakeholderStatusChangeEvent',
 };

@@ -6,6 +6,7 @@ import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts, OcfIssuer } from '../../../types';
 import { validateIssuerData } from '../../../utils/entityValidators';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
+import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import {
   addressToDaml,
   cleanComments,
@@ -64,7 +65,13 @@ export function normalizeIssuerData(data: IssuerDataInput): OcfIssuer {
  */
 export function issuerDataToDaml(issuerData: IssuerDataInput): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
   // Normalize input data to ensure array fields are arrays
-  const normalizedData = normalizeIssuerData(issuerData);
+  const normalizedInputData = normalizeIssuerData(issuerData);
+
+  // Parse against strict OCF schema and canonicalize deprecated aliases/defaults.
+  const parsedData = parseOcfEntityInput('issuer', normalizedInputData);
+
+  // Ensure array normalization remains applied after schema parsing/canonicalization.
+  const normalizedData = normalizeIssuerData(parsedData);
 
   // Validate input data using the entity validator
   validateIssuerData(normalizedData, 'issuer');

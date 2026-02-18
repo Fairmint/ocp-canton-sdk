@@ -21,8 +21,9 @@ import { validateOcfObject } from './ocfSchemaValidator';
 
 describe('TRANSACTION_SUBTYPE_MAP', () => {
   it('has correct count of transaction types', () => {
-    // 9 stock + 8 equity comp + 6 convertible + 6 warrant + 4 stock class adj + 2 stock plan + 3 vesting + 2 stakeholder = 40
-    expect(Object.keys(TRANSACTION_SUBTYPE_MAP)).toHaveLength(40);
+    // 9 stock + 8 equity comp + 6 convertible + 6 warrant + 4 stock class adj + 2 stock plan + 3 vesting + 2 stakeholder
+    // + 2 legacy stakeholder aliases = 42
+    expect(Object.keys(TRANSACTION_SUBTYPE_MAP)).toHaveLength(42);
   });
 
   describe('Stock Transactions (9 types)', () => {
@@ -126,10 +127,12 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     });
   });
 
-  describe('Stakeholder Events (2 types)', () => {
+  describe('Stakeholder Events (canonical + legacy aliases)', () => {
     const stakeholderTypes: Array<[string, OcfEntityType]> = [
-      ['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'stakeholderRelationshipChangeEvent'],
-      ['TX_STAKEHOLDER_STATUS_CHANGE_EVENT', 'stakeholderStatusChangeEvent'],
+      ['CE_STAKEHOLDER_RELATIONSHIP', 'stakeholderRelationshipChangeEvent'],
+      ['CE_STAKEHOLDER_STATUS', 'stakeholderStatusChangeEvent'],
+      ['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'stakeholderRelationshipChangeEvent'], // legacy
+      ['TX_STAKEHOLDER_STATUS_CHANGE_EVENT', 'stakeholderStatusChangeEvent'], // legacy
     ];
 
     it.each(stakeholderTypes)('maps %s to %s', (objectType, entityType) => {
@@ -219,6 +222,12 @@ describe('mapCategorizedTypeToEntityType', () => {
 
     it('maps TRANSACTION/TX_CONVERTIBLE_ISSUANCE to convertibleIssuance', () => {
       expect(mapCategorizedTypeToEntityType('TRANSACTION', 'TX_CONVERTIBLE_ISSUANCE')).toBe('convertibleIssuance');
+    });
+
+    it('maps TRANSACTION/CE_STAKEHOLDER_STATUS to stakeholderStatusChangeEvent', () => {
+      expect(mapCategorizedTypeToEntityType('TRANSACTION', 'CE_STAKEHOLDER_STATUS')).toBe(
+        'stakeholderStatusChangeEvent'
+      );
     });
 
     it('returns null for unknown TRANSACTION subtype', () => {

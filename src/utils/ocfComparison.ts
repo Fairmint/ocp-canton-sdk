@@ -30,6 +30,8 @@ export const DEFAULT_INTERNAL_FIELDS = [
 export const DEFAULT_DEPRECATED_FIELDS = [
   'option_grant_type', // Deprecated in favor of compensation_type
   'current_relationship', // Deprecated in favor of current_relationships (Stakeholder)
+  'new_relationships', // Deprecated in favor of relationship_started/relationship_ended
+  'reason_text', // Deprecated free-text field on stakeholder status change events
   'stock_class_id', // Deprecated in favor of stock_class_ids (StockPlan)
 ] as const;
 

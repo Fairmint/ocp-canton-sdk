@@ -1713,11 +1713,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
     });
 
-    /**
-     * SKIPPED: StakeholderRelationshipChangeEvent batch API fails with INVALID_ARGUMENT.
-     * The enum values need to match DAML schema exactly.
-     */
-    test.skip('Stakeholder Relationship Change Event round-trips correctly (synthetic)', async () => {
+    test('Stakeholder Relationship Change Event round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1737,13 +1733,26 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const result = await batch.create('stakeholderRelationshipChangeEvent', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
+
+      const readBack = await ctx.ocp.OpenCapTable.stakeholderRelationshipChangeEvent.get({
+        contractId: extractContractIdString(result.createdCids[0]),
+      });
+
+      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+
+      const sourceWithoutId = stripInternalFields({
+        ...prepared,
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+        id: readBack.data.id,
+      });
+      compareOcfData(
+        sourceWithoutId as Record<string, unknown>,
+        readBack.data as unknown as Record<string, unknown>,
+        'Stakeholder Relationship Change Event synthetic'
+      );
     });
 
-    /**
-     * SKIPPED: StakeholderStatusChangeEvent batch API fails with DAML_FAILURE.
-     * The status values need to match DAML schema exactly.
-     */
-    test.skip('Stakeholder Status Change Event round-trips correctly (synthetic)', async () => {
+    test('Stakeholder Status Change Event round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1763,6 +1772,23 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       const result = await batch.create('stakeholderStatusChangeEvent', prepared).execute();
       expect(result.createdCids).toHaveLength(1);
+
+      const readBack = await ctx.ocp.OpenCapTable.stakeholderStatusChangeEvent.get({
+        contractId: extractContractIdString(result.createdCids[0]),
+      });
+
+      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+
+      const sourceWithoutId = stripInternalFields({
+        ...prepared,
+        object_type: 'CE_STAKEHOLDER_STATUS',
+        id: readBack.data.id,
+      });
+      compareOcfData(
+        sourceWithoutId as Record<string, unknown>,
+        readBack.data as unknown as Record<string, unknown>,
+        'Stakeholder Status Change Event synthetic'
+      );
     });
 
     /**

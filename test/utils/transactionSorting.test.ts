@@ -111,6 +111,8 @@ describe('txWeight', () => {
   });
 
   it('returns weight 45 for stakeholder events', () => {
+    expect(txWeight({ object_type: 'CE_STAKEHOLDER_RELATIONSHIP' })).toBe(45);
+    expect(txWeight({ object_type: 'CE_STAKEHOLDER_STATUS' })).toBe(45);
     expect(txWeight({ object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT' })).toBe(45);
     expect(txWeight({ object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT' })).toBe(45);
   });

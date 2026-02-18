@@ -3,8 +3,10 @@
  */
 
 import {
+  isLegacyObjectType,
   isPlanSecurityEntityType,
   isPlanSecurityObjectType,
+  LEGACY_OBJECT_TYPE_MAP,
   normalizeEntityType,
   normalizeObjectType,
   normalizeOcfData,
@@ -53,6 +55,19 @@ describe('PlanSecurity alias utilities', () => {
     });
   });
 
+  describe('isLegacyObjectType', () => {
+    it('returns true for legacy stakeholder event object types', () => {
+      expect(isLegacyObjectType('TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT')).toBe(true);
+      expect(isLegacyObjectType('TX_STAKEHOLDER_STATUS_CHANGE_EVENT')).toBe(true);
+    });
+
+    it('returns false for canonical object types', () => {
+      expect(isLegacyObjectType('CE_STAKEHOLDER_RELATIONSHIP')).toBe(false);
+      expect(isLegacyObjectType('CE_STAKEHOLDER_STATUS')).toBe(false);
+      expect(isLegacyObjectType('TX_STOCK_ISSUANCE')).toBe(false);
+    });
+  });
+
   describe('normalizeEntityType', () => {
     it('converts PlanSecurity entity types to EquityCompensation types', () => {
       expect(normalizeEntityType('planSecurityIssuance')).toBe('equityCompensationIssuance');
@@ -87,6 +102,11 @@ describe('PlanSecurity alias utilities', () => {
       expect(normalizeObjectType('TX_EQUITY_COMPENSATION_ISSUANCE')).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
       expect(normalizeObjectType('TX_STOCK_ISSUANCE')).toBe('TX_STOCK_ISSUANCE');
       expect(normalizeObjectType('STAKEHOLDER')).toBe('STAKEHOLDER');
+    });
+
+    it('converts legacy stakeholder event object types to canonical CE_* values', () => {
+      expect(normalizeObjectType('TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT')).toBe('CE_STAKEHOLDER_RELATIONSHIP');
+      expect(normalizeObjectType('TX_STAKEHOLDER_STATUS_CHANGE_EVENT')).toBe('CE_STAKEHOLDER_STATUS');
     });
   });
 
@@ -409,6 +429,76 @@ describe('PlanSecurity alias utilities', () => {
 
       expect(() => normalizeOcfData(input)).toThrow('Invalid stock plan stock_class_id: empty string');
     });
+
+    it('canonicalizes deprecated option_grant_type to compensation_type', () => {
+      const input = {
+        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+        id: 'eq-1',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        stakeholder_id: 'stakeholder-1',
+        stock_class_id: 'sc-1',
+        quantity: '100',
+        compensation_type: 'OPTION',
+        option_grant_type: 'NSO',
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result.compensation_type).toBe('OPTION_NSO');
+      expect(result).not.toHaveProperty('option_grant_type');
+    });
+
+    it('throws when option_grant_type conflicts with compensation_type', () => {
+      const input = {
+        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+        id: 'eq-1',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        stakeholder_id: 'stakeholder-1',
+        stock_class_id: 'sc-1',
+        quantity: '100',
+        compensation_type: 'RSU',
+        option_grant_type: 'ISO',
+      };
+
+      expect(() => normalizeOcfData(input)).toThrow('conflicts with compensation_type');
+    });
+
+    it('canonicalizes legacy stakeholder relationship change event fields', () => {
+      const input = {
+        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+        id: 'event-1',
+        date: '2024-01-15',
+        stakeholder_id: 'stakeholder-1',
+        new_relationships: ['INVESTOR'],
+      };
+
+      const result = normalizeOcfData(input);
+      const resultRecord = result as Record<string, unknown>;
+
+      expect(resultRecord.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
+      expect(resultRecord.relationship_started).toBe('INVESTOR');
+      expect(resultRecord).not.toHaveProperty('new_relationships');
+    });
+
+    it('canonicalizes legacy stakeholder status change event reason_text into comments', () => {
+      const input = {
+        object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
+        id: 'event-1',
+        date: '2024-01-15',
+        stakeholder_id: 'stakeholder-1',
+        new_status: 'CURRENT',
+        reason_text: 'legacy reason',
+        comments: ['existing'],
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result.object_type).toBe('CE_STAKEHOLDER_STATUS');
+      expect(result.comments).toEqual(['existing', 'legacy reason']);
+      expect(result).not.toHaveProperty('reason_text');
+    });
   });
 
   describe('alias mappings', () => {
@@ -435,6 +525,13 @@ describe('PlanSecurity alias utilities', () => {
         TX_PLAN_SECURITY_RELEASE: 'TX_EQUITY_COMPENSATION_RELEASE',
         TX_PLAN_SECURITY_RETRACTION: 'TX_EQUITY_COMPENSATION_RETRACTION',
         TX_PLAN_SECURITY_TRANSFER: 'TX_EQUITY_COMPENSATION_TRANSFER',
+      });
+    });
+
+    it('has correct legacy event object_type mappings', () => {
+      expect(LEGACY_OBJECT_TYPE_MAP).toEqual({
+        TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'CE_STAKEHOLDER_RELATIONSHIP',
+        TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'CE_STAKEHOLDER_STATUS',
       });
     });
   });

@@ -10,6 +10,7 @@
  */
 
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
 
 // Import converters from entity folders
@@ -72,7 +73,7 @@ import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDat
  * @returns The DAML-formatted data object
  */
 export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTypeFor<T>): Record<string, unknown> {
-  const d = data;
+  const d = parseOcfEntityInput(type, data);
 
   switch (type) {
     case 'stakeholder':

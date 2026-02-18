@@ -4,7 +4,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
-import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
+import type { OcfStakeholderRelationshipChangeEvent, StakeholderRelationshipType } from '../../../types/native';
 import {
   damlStakeholderRelationshipToNative,
   type DamlStakeholderRelationshipType,
@@ -37,6 +37,27 @@ interface DamlStakeholderRelationshipChangeEventContract {
   relationship_change_data: DamlStakeholderRelationshipChangeEventData;
 }
 
+function mapRelationshipsToLatestFields(
+  relationships: StakeholderRelationshipType[]
+): Pick<OcfStakeholderRelationshipChangeEvent, 'relationship_started' | 'relationship_ended'> {
+  const uniqueRelationships = [...new Set(relationships)];
+  if (!uniqueRelationships.length) {
+    throw new OcpContractError('Missing stakeholder relationship change data', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
+  if (uniqueRelationships.length > 2) {
+    throw new OcpContractError('Cannot map more than 2 relationships to canonical OCF change-event shape', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
+
+  return {
+    relationship_started: uniqueRelationships[0],
+    ...(uniqueRelationships[1] ? { relationship_ended: uniqueRelationships[1] } : {}),
+  };
+}
+
 /**
  * Read a StakeholderRelationshipChangeEvent contract from the ledger and convert to OCF format.
  *
@@ -66,13 +87,17 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
   const contract = res.created.createdEvent.createArgument as DamlStakeholderRelationshipChangeEventContract;
   const data = contract.relationship_change_data;
 
+  const nativeRelationships = data.new_relationships.map((rel) =>
+    damlStakeholderRelationshipToNative(rel as DamlStakeholderRelationshipType)
+  );
+  const relationshipFields = mapRelationshipsToLatestFields(nativeRelationships);
+
   const event: OcfStakeholderRelationshipChangeEvent = {
+    object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: data.id,
     date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,
-    new_relationships: data.new_relationships.map((rel) =>
-      damlStakeholderRelationshipToNative(rel as DamlStakeholderRelationshipType)
-    ),
+    ...relationshipFields,
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
 

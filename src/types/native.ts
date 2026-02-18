@@ -1990,26 +1990,37 @@ export type StakeholderStatus =
 /**
  * Object - Stakeholder Relationship Change Event Object describing a change in a stakeholder's relationship with the
  * issuer OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/events/StakeholderRelationshipChangeEvent.schema.json
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/change_event/StakeholderRelationshipChangeEvent.schema.json
  */
 export interface OcfStakeholderRelationshipChangeEvent {
+  /** OCF object type discriminator */
+  object_type?: 'CE_STAKEHOLDER_RELATIONSHIP' | 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT';
   /** Identifier for the object */
   id: string;
   /** Date on which the event occurred */
   date: string;
   /** Identifier for the stakeholder whose relationship is changing */
   stakeholder_id: string;
-  /** New relationship type(s) for the stakeholder */
-  new_relationships: StakeholderRelationshipType[];
+  /** Relationship that started on this change date */
+  relationship_started?: StakeholderRelationshipType;
+  /** Relationship that ended on this change date */
+  relationship_ended?: StakeholderRelationshipType;
+  /**
+   * Deprecated legacy relationship list.
+   * Canonical format uses relationship_started/relationship_ended.
+   */
+  new_relationships?: StakeholderRelationshipType[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
 
 /**
  * Object - Stakeholder Status Change Event Object describing a change in a stakeholder's status with the issuer OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/events/StakeholderStatusChangeEvent.schema.json
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/change_event/StakeholderStatusChangeEvent.schema.json
  */
 export interface OcfStakeholderStatusChangeEvent {
+  /** OCF object type discriminator */
+  object_type?: 'CE_STAKEHOLDER_STATUS' | 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT';
   /** Identifier for the object */
   id: string;
   /** Date on which the event occurred */
@@ -2018,6 +2029,8 @@ export interface OcfStakeholderStatusChangeEvent {
   stakeholder_id: string;
   /** New status for the stakeholder */
   new_status: StakeholderStatus;
+  /** Deprecated legacy free-text reason (not part of canonical schema) */
+  reason_text?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

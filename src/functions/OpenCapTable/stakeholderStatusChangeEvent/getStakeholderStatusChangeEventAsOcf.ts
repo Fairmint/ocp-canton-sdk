@@ -65,6 +65,7 @@ export async function getStakeholderStatusChangeEventAsOcf(
   const data = contract.status_change_data;
 
   const event: OcfStakeholderStatusChangeEvent = {
+    object_type: 'CE_STAKEHOLDER_STATUS',
     id: data.id,
     date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,
