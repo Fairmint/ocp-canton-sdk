@@ -5,6 +5,10 @@
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
 import { damlMonetaryToNative, normalizeNumericString } from '../../../utils/typeConversions';
 
+export function damlRoundingTypeToOcf(roundingType: string): 'NORMAL' | 'CEILING' | 'FLOOR' {
+  return roundingType === 'OcfRoundingCeiling' ? 'CEILING' : roundingType === 'OcfRoundingFloor' ? 'FLOOR' : 'NORMAL';
+}
+
 /** DAML StockClassConversionRatioAdjustmentOcfData structure */
 export interface DamlStockClassConversionRatioAdjustmentData {
   id: string;
@@ -49,12 +53,7 @@ export function damlStockClassConversionRatioAdjustmentToNative(
         numerator: normalizeNumericString(numeratorStr),
         denominator: normalizeNumericString(denominatorStr),
       },
-      rounding_type:
-        d.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingCeiling'
-          ? 'CEILING'
-          : d.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingFloor'
-            ? 'FLOOR'
-            : 'NORMAL',
+      rounding_type: damlRoundingTypeToOcf(d.new_ratio_conversion_mechanism.rounding_type),
     },
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };

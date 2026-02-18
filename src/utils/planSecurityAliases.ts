@@ -1,5 +1,5 @@
 import type { CompensationType, OcfStakeholder, OcfStockPlan, StakeholderRelationshipType } from '../types/native';
-import { normalizeNumericString } from './typeConversions';
+import { isRecord, normalizeNumericString } from './typeConversions';
 import { isOcfStakeholder, isOcfStockPlan } from './typeGuards';
 
 /**
@@ -133,10 +133,6 @@ export function normalizeObjectType<T extends string>(objectType: T): string {
 
 type OptionGrantType = 'NSO' | 'ISO' | 'INTL';
 type PlanSecurityType = 'OPTION' | 'RSU' | 'OTHER';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function mapOptionGrantTypeToCompensationType(optionGrantType: OptionGrantType): CompensationType {
   switch (optionGrantType) {
