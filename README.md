@@ -112,6 +112,10 @@ npm run localnet:verify   # Setup + start + smoke + test
 Environment toggles: `CANTON_LOCALNET_FAST_START` (default: true),
 `CANTON_LOCALNET_FORCE_FULL_START` (default: false).
 
+> **Note:** The orchestrator requires Linux with passwordless `sudo` and `apt-get`
+> (designed for CI/cloud environments). For local development on macOS, use the
+> cn-quickstart `Makefile` directly.
+
 ### OCF Schema Validation
 
 This SDK includes automated validation of all OCF data against the official

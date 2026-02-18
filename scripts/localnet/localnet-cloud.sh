@@ -234,12 +234,11 @@ ensure_submodules() {
 }
 
 ensure_hosts_entries() {
-  if ! grep -Eq '(^|[[:space:]])scan\.localhost([[:space:]]|$)' /etc/hosts \
-    || ! grep -Eq '(^|[[:space:]])sv\.localhost([[:space:]]|$)' /etc/hosts \
-    || ! grep -Eq '(^|[[:space:]])wallet\.localhost([[:space:]]|$)' /etc/hosts; then
-    log "Adding localnet host aliases to /etc/hosts..."
-    echo "${HOSTS_ENTRY}" | sudo tee -a /etc/hosts >/dev/null
+  if grep -Fxq "${HOSTS_ENTRY}" /etc/hosts; then
+    return
   fi
+  log "Adding localnet host aliases to /etc/hosts..."
+  echo "${HOSTS_ENTRY}" | sudo tee -a /etc/hosts >/dev/null
 }
 
 quickstart_setup() {
@@ -580,6 +579,15 @@ Environment:
 USAGE
 }
 
+setup_all() {
+  ensure_sudo
+  ensure_docker_packages
+  start_docker_daemon
+  ensure_submodules
+  ensure_hosts_entries
+  quickstart_setup
+}
+
 main() {
   if [[ "${1:-}" == "" ]]; then
     usage
@@ -588,21 +596,11 @@ main() {
 
   case "$1" in
     setup)
-      ensure_sudo
-      ensure_docker_packages
-      start_docker_daemon
-      ensure_submodules
-      ensure_hosts_entries
-      quickstart_setup
+      setup_all
       ;;
     start)
       require_command curl
-      ensure_sudo
-      ensure_docker_packages
-      start_docker_daemon
-      ensure_submodules
-      ensure_hosts_entries
-      quickstart_setup
+      setup_all
       start_localnet
       ;;
     stop)
@@ -621,12 +619,7 @@ main() {
       ;;
     verify)
       require_command curl
-      ensure_sudo
-      ensure_docker_packages
-      start_docker_daemon
-      ensure_submodules
-      ensure_hosts_entries
-      quickstart_setup
+      setup_all
       start_localnet
       run_smoke
       run_integration_tests
