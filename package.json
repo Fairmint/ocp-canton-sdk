@@ -9,8 +9,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-ocf-schemas",
     "clean": "rm -rf dist",
+    "copy-ocf-schemas": "ts-node scripts/copy-ocf-schemas.ts",
     "dev": "tsc --watch",
     "docs": "typedoc",
     "docs:clean": "rm -rf docs",
