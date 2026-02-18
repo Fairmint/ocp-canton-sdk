@@ -328,6 +328,9 @@ try_fast_start_localnet() {
 }
 
 wait_for_services() {
+  local code=""
+  local ledger_code=""
+
   log "Waiting for Keycloak..."
   for _ in $(seq 1 30); do
     if curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsS http://localhost:8082/realms/AppProvider >/dev/null 2>&1; then
@@ -363,6 +366,20 @@ wait_for_services() {
   done
   if ! curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsS http://scan.localhost:4000/api/scan/v0/dso-party-id >/dev/null 2>&1; then
     log "Scan API did not become ready."
+    exit 1
+  fi
+
+  log "Waiting for Ledger JSON API..."
+  for _ in $(seq 1 60); do
+    ledger_code="$(curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -sS -o /dev/null -w '%{http_code}' http://localhost:3975/v2/version || true)"
+    if [[ "${ledger_code}" == "200" || "${ledger_code}" == "401" ]]; then
+      break
+    fi
+    sleep 2
+  done
+  ledger_code="$(curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -sS -o /dev/null -w '%{http_code}' http://localhost:3975/v2/version || true)"
+  if [[ "${ledger_code}" != "200" && "${ledger_code}" != "401" ]]; then
+    log "Ledger JSON API did not become ready (HTTP ${ledger_code})."
     exit 1
   fi
 
@@ -479,6 +496,7 @@ status_localnet() {
 
 run_smoke() {
   local validator_code=""
+  local ledger_code=""
 
   log "Running localnet smoke checks..."
 
@@ -495,6 +513,12 @@ run_smoke() {
 
   if ! curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsS http://scan.localhost:4000/api/scan/v0/dso-party-id >/dev/null 2>&1; then
     log "Scan API is not reachable."
+    exit 1
+  fi
+
+  ledger_code="$(curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -sS -o /dev/null -w '%{http_code}' http://localhost:3975/v2/version || true)"
+  if [[ "${ledger_code}" != "200" && "${ledger_code}" != "401" ]]; then
+    log "Ledger JSON API is not reachable (HTTP ${ledger_code})."
     exit 1
   fi
 
