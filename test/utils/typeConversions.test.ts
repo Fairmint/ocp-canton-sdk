@@ -1,7 +1,13 @@
 /** Unit tests for typeConversions utility functions. */
 
 import { OcpParseError, OcpValidationError } from '../../src/errors';
-import { ensureArray, normalizeNumericString, parseDamlMap } from '../../src/utils/typeConversions';
+import {
+  damlMonetaryToNative,
+  ensureArray,
+  monetaryToDaml,
+  normalizeNumericString,
+  parseDamlMap,
+} from '../../src/utils/typeConversions';
 
 describe('normalizeNumericString', () => {
   describe('valid inputs', () => {
@@ -176,5 +182,52 @@ describe('parseDamlMap', () => {
       expect(() => parseDamlMap(true)).toThrow(OcpParseError);
       expect(() => parseDamlMap(true)).toThrow('got boolean');
     });
+  });
+});
+
+describe('monetaryToDaml', () => {
+  test('normalizes amount with trailing zeros', () => {
+    const result = monetaryToDaml({ amount: '100000.00', currency: 'USD' });
+    expect(result.amount).toBe('100000');
+    expect(result.currency).toBe('USD');
+  });
+
+  test('normalizes fractional amount', () => {
+    const result = monetaryToDaml({ amount: '0.50', currency: 'USD' });
+    expect(result.amount).toBe('0.5');
+  });
+
+  test('preserves already-normalized amount', () => {
+    const result = monetaryToDaml({ amount: '1000', currency: 'USD' });
+    expect(result.amount).toBe('1000');
+  });
+
+  test('preserves significant decimals', () => {
+    const result = monetaryToDaml({ amount: '99.99', currency: 'USD' });
+    expect(result.amount).toBe('99.99');
+  });
+
+  test('handles negative amounts', () => {
+    const result = monetaryToDaml({ amount: '-500.00', currency: 'EUR' });
+    expect(result.amount).toBe('-500');
+    expect(result.currency).toBe('EUR');
+  });
+});
+
+describe('monetary round-trip normalization', () => {
+  test('monetaryToDaml followed by damlMonetaryToNative produces stable output', () => {
+    const input = { amount: '100000.00', currency: 'USD' };
+    const daml1 = monetaryToDaml(input);
+    const native = damlMonetaryToNative(daml1);
+    const daml2 = monetaryToDaml(native);
+    expect(daml2).toEqual(daml1);
+  });
+
+  test('damlMonetaryToNative followed by monetaryToDaml is idempotent', () => {
+    const damlInput = { amount: '5000.0000000000', currency: 'USD' };
+    const native1 = damlMonetaryToNative(damlInput);
+    const daml = monetaryToDaml(native1);
+    const native2 = damlMonetaryToNative(daml);
+    expect(native2).toEqual(native1);
   });
 });

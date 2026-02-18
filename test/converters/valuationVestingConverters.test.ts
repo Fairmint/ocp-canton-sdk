@@ -54,7 +54,7 @@ describe('Valuation Converters', () => {
 
       expect(damlData.id).toBe('val-001');
       expect(damlData.stock_class_id).toBe('sc-001');
-      expect(damlData.price_per_share).toEqual({ amount: '1.50', currency: 'USD' });
+      expect(damlData.price_per_share).toEqual({ amount: '1.5', currency: 'USD' });
       expect(damlData.effective_date).toBe('2024-01-15T00:00:00.000Z');
       expect(damlData.valuation_type).toBe('OcfValuationType409A');
     });

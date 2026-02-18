@@ -122,7 +122,7 @@ describe('StockClass Converters', () => {
       const result = convertToDaml('stockClass', dataWithPrice);
 
       expect(result.price_per_share).toEqual({
-        amount: '1.00',
+        amount: '1',
         currency: 'USD',
       });
     });

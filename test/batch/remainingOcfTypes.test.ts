@@ -217,7 +217,7 @@ describe('Equity Compensation Event Converters', () => {
       expect(value.resulting_security_ids).toEqual(['stock-001']);
       expect(value.settlement_date).toBe('2024-05-20T00:00:00.000Z');
       expect(value.release_price).toEqual({
-        amount: '0.00',
+        amount: '0',
         currency: 'USD',
       });
     });
@@ -261,7 +261,7 @@ describe('Equity Compensation Event Converters', () => {
       const value = choiceArg.creates[0].value as Record<string, unknown>;
       expect(value.id).toBe('rep-123');
       expect(value.new_exercise_price).toEqual({
-        amount: '0.20',
+        amount: '0.2',
         currency: 'USD',
       });
     });

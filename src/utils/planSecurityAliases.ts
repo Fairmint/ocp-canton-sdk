@@ -790,6 +790,51 @@ function normalizeStockReissuanceSplitTransactionId<T extends Record<string, unk
 }
 
 /**
+ * Regex matching decimal numeric strings with trailing zeros.
+ *
+ * Matches: "100000.00", "0.10", "1.0", "-123.4500"
+ * Does NOT match: "100000" (no decimal), "0.1" (no trailing zeros),
+ * "stk_000001" (not numeric), "2024-01-15" (date)
+ */
+const TRAILING_ZEROS_PATTERN = /^-?\d+\.\d*0+$/;
+
+/**
+ * Recursively normalize numeric strings with trailing zeros in an OCF data object.
+ *
+ * Strips trailing zeros from decimal strings (e.g., "100000.00" -> "100000",
+ * "0.10" -> "0.1") so semantically equivalent values compare as equal regardless
+ * of source formatting.
+ *
+ * Only modifies string values matching TRAILING_ZEROS_PATTERN. Non-numeric
+ * strings (IDs, dates, enums, names) are never touched.
+ */
+export function deepNormalizeNumericStrings<T>(value: T): T {
+  if (typeof value === 'string' && TRAILING_ZEROS_PATTERN.test(value)) {
+    return normalizeNumericString(value) as T;
+  }
+  if (Array.isArray(value)) {
+    let changed = false;
+    const mapped = value.map((item) => {
+      const normalized = deepNormalizeNumericStrings(item);
+      if (normalized !== item) changed = true;
+      return normalized;
+    });
+    return (changed ? mapped : value) as T;
+  }
+  if (typeof value === 'object' && value !== null) {
+    let changed = false;
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      const normalized = deepNormalizeNumericStrings(v);
+      if (normalized !== v) changed = true;
+      result[k] = normalized;
+    }
+    return (changed ? result : value) as T;
+  }
+  return value;
+}
+
+/**
  * Normalize OCF data for consistent comparison.
  *
  * This function applies normalizations to ensure semantically equivalent data compares as equal:
@@ -802,6 +847,7 @@ function normalizeStockReissuanceSplitTransactionId<T extends Record<string, unk
  * 7. Canonicalizes StockConversion quantity (`quantity` -> `quantity_converted`)
  * 8. Canonicalizes StockClassSplit legacy ratio fields
  * 9. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
+ * 10. Normalizes numeric string formatting (strips trailing zeros from decimals)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -868,6 +914,8 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
   // This ordering ensures TX_STAKEHOLDER_* aliases are converted before field upgrades.
   result = normalizeStakeholderRelationshipChangeEvent(result);
   result = normalizeStakeholderStatusChangeEvent(result);
+
+  result = deepNormalizeNumericStrings(result);
 
   return result as T;
 }

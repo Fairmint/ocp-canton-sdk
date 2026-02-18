@@ -7,7 +7,12 @@ import type {
   VestingConditionPortion,
   VestingTrigger,
 } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  normalizeNumericString,
+  optionalString,
+} from '../../../utils/typeConversions';
 import { isIsoDateString } from '../../../utils/typeGuards';
 
 function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType {
@@ -247,8 +252,8 @@ function vestingConditionPortionToDaml(
   p: VestingConditionPortion
 ): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion {
   return {
-    numerator: p.numerator,
-    denominator: p.denominator,
+    numerator: normalizeNumericString(p.numerator),
+    denominator: normalizeNumericString(p.denominator),
     // OCF schema makes `remainder` optional with default `false`.
     remainder: p.remainder ?? false,
   };
@@ -264,7 +269,7 @@ function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.OCF.
           value: vestingConditionPortionToDaml(c.portion),
         } as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition['portion'])
       : null,
-    quantity: c.quantity ?? null,
+    quantity: c.quantity != null ? normalizeNumericString(c.quantity) : null,
     trigger: vestingTriggerToDaml(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };

@@ -143,15 +143,16 @@ function mechanismInputToDamlEnum(
             | { numerator?: string; denominator?: string }
             | undefined;
           if (!r) return null;
-          const num = r.numerator !== undefined ? String(r.numerator) : undefined;
-          const den = r.denominator !== undefined ? String(r.denominator) : undefined;
+          const num = r.numerator !== undefined ? normalizeNumericString(String(r.numerator)) : undefined;
+          const den = r.denominator !== undefined ? normalizeNumericString(String(r.denominator)) : undefined;
           if (!num || !den) return null;
           return { numerator: num, denominator: den };
         })();
         return {
           tag: 'OcfConvMechSAFE',
           value: {
-            conversion_discount: anyM.conversion_discount ?? null,
+            conversion_discount:
+              anyM.conversion_discount != null ? normalizeNumericString(anyM.conversion_discount as string) : null,
             conversion_valuation_cap: anyM.conversion_valuation_cap
               ? monetaryToDaml(anyM.conversion_valuation_cap as Monetary)
               : null,
@@ -174,7 +175,7 @@ function mechanismInputToDamlEnum(
         }> =>
           Array.isArray(arr)
             ? arr.map((ir) => ({
-                rate: ir?.rate ?? null,
+                rate: ir?.rate != null ? normalizeNumericString(String(ir.rate)) : null,
                 accrual_start_date: ir?.accrual_start_date
                   ? dateStringToDAMLTime(ir.accrual_start_date as string)
                   : null,
@@ -252,7 +253,8 @@ function mechanismInputToDamlEnum(
             interest_payout: payoutToDaml(anyM.interest_payout),
             interest_accrual_period: accrualToDaml(anyM.interest_accrual_period),
             compounding_type: compoundingToDaml(anyM.compounding_type),
-            conversion_discount: anyM.conversion_discount ?? null,
+            conversion_discount:
+              anyM.conversion_discount != null ? normalizeNumericString(anyM.conversion_discount as string) : null,
             conversion_valuation_cap: anyM.conversion_valuation_cap
               ? monetaryToDaml(anyM.conversion_valuation_cap as Monetary)
               : null,
@@ -275,7 +277,7 @@ function mechanismInputToDamlEnum(
         return {
           tag: 'OcfConvMechPercentCapitalization',
           value: {
-            converts_to_percent: anyM.converts_to_percent,
+            converts_to_percent: normalizeNumericString(anyM.converts_to_percent),
             capitalization_definition: optionalString(anyM.capitalization_definition as string | undefined),
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
           },
@@ -293,7 +295,7 @@ function mechanismInputToDamlEnum(
         return {
           tag: 'OcfConvMechFixedAmount',
           value: {
-            converts_to_quantity: anyM.converts_to_quantity,
+            converts_to_quantity: normalizeNumericString(anyM.converts_to_quantity),
           },
         } as Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;
       }
@@ -443,7 +445,7 @@ export function convertibleIssuanceDataToDaml(d: {
     investment_amount: monetaryToDaml(d.investment_amount),
     convertible_type: convertibleTypeToDaml(d.convertible_type),
     conversion_triggers: d.conversion_triggers.map((t, idx) => buildTriggerToDaml(t, idx, d.id)),
-    pro_rata: d.pro_rata ?? null,
+    pro_rata: d.pro_rata != null ? normalizeNumericString(d.pro_rata) : null,
     seniority: d.seniority.toString(),
     comments: cleanComments(d.comments),
   };

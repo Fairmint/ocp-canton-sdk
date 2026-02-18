@@ -66,7 +66,7 @@ describe('PlanSecurity Type Converters', () => {
 
         // Exercise price is converted to DAML monetary format
         expect(result.exercise_price).toEqual({
-          amount: '1.50',
+          amount: '1.5',
           currency: 'USD',
         });
 
@@ -104,7 +104,7 @@ describe('PlanSecurity Type Converters', () => {
 
         const result = convertToDaml('planSecurityIssuance', input);
 
-        expect(result.base_price).toEqual({ amount: '0.2500000000', currency: 'USD' });
+        expect(result.base_price).toEqual({ amount: '0.25', currency: 'USD' });
         expect(result.early_exercisable).toBe(true);
         expect(result.vestings).toEqual([{ date: '2025-06-01T00:00:00.000Z', amount: '10' }]);
         expect(result.expiration_date).toBe('2030-01-01T00:00:00.000Z');
@@ -236,7 +236,7 @@ describe('PlanSecurity Type Converters', () => {
         expect(result.board_approval_date).toBeNull();
         expect(result.stockholder_approval_date).toBeNull();
         expect(result.consideration_text).toBeNull();
-        expect(result.exercise_price).toEqual({ amount: '0.10', currency: 'USD' });
+        expect(result.exercise_price).toEqual({ amount: '0.1', currency: 'USD' });
         expect(result.security_law_exemptions).toEqual([]);
         expect(result.comments).toEqual([]);
       });
