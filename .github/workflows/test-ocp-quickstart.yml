@@ -71,6 +71,7 @@ jobs:
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/.env.local
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/.gradle
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/.daml
+            ${{ github.workspace }}/libs/cn-quickstart/quickstart/daml/licensing/.daml/dist
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/.config
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/.cache
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/frontend/node_modules
@@ -161,6 +162,7 @@ jobs:
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/.env.local
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/.gradle
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/.daml
+            ${{ github.workspace }}/libs/cn-quickstart/quickstart/daml/licensing/.daml/dist
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/.config
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/.cache
             ${{ github.workspace }}/libs/cn-quickstart/quickstart/frontend/node_modules
