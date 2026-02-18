@@ -679,14 +679,12 @@ function normalizeStockConversionQuantityConverted<T extends Record<string, unkn
       throw new Error(`Invalid stock conversion quantity: expected string or number, got ${typeof legacyQuantity}`);
     }
     const normalizedLegacyQuantity = normalizeNumericString(legacyQuantity);
-
     if (quantityConverted !== undefined) {
       if (typeof quantityConverted !== 'string' && typeof quantityConverted !== 'number') {
         throw new Error(
           `Invalid stock conversion quantity_converted: expected string or number, got ${typeof quantityConverted}`
         );
       }
-
       const normalizedCanonicalQuantity = normalizeNumericString(quantityConverted);
       if (normalizedCanonicalQuantity !== normalizedLegacyQuantity) {
         throw new Error(

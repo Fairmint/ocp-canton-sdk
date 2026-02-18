@@ -43,7 +43,6 @@ export function convertibleConversionDataToDaml(d: OcfConvertibleConversion): Re
       receivedValue: d.trigger_id,
     });
   }
-
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),

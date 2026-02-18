@@ -40,7 +40,7 @@ export function equityCompensationReleaseDataToDaml(d: OcfEquityCompensationRele
   }
   const releasePrice: unknown = d.release_price;
   if (releasePrice === undefined || releasePrice === null) {
-    throw new OcpValidationError('equityCompensationRelease.release_price', 'Required field is missing', {
+    throw new OcpValidationError('equityCompensationRelease.release_price', 'Required field is missing or empty', {
       expectedType: 'Monetary',
       receivedValue: releasePrice,
     });
@@ -51,7 +51,6 @@ export function equityCompensationReleaseDataToDaml(d: OcfEquityCompensationRele
       receivedValue: d.settlement_date,
     });
   }
-
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
