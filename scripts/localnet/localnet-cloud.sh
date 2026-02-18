@@ -475,9 +475,13 @@ status_localnet() {
   run_docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
   echo
 
-  keycloak_ok="no"
-  validator_ok="no"
-  scan_ok="no"
+  local keycloak_ok="no"
+  local validator_ok="no"
+  local scan_ok="no"
+  local ledger_ok="no"
+  local validator_code=""
+  local ledger_code=""
+
   if curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsS http://localhost:8082/realms/AppProvider >/dev/null 2>&1; then
     keycloak_ok="yes"
   fi
@@ -488,10 +492,15 @@ status_localnet() {
   if curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsS http://scan.localhost:4000/api/scan/v0/dso-party-id >/dev/null 2>&1; then
     scan_ok="yes"
   fi
+  ledger_code="$(curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -sS -o /dev/null -w '%{http_code}' http://localhost:3975/v2/version || true)"
+  if [[ "${ledger_code}" == "200" || "${ledger_code}" == "401" ]]; then
+    ledger_ok="yes"
+  fi
 
   printf 'Keycloak ready: %s\n' "${keycloak_ok}"
   printf 'Validator ready: %s (HTTP %s)\n' "${validator_ok}" "${validator_code:-n/a}"
   printf 'Scan ready: %s\n' "${scan_ok}"
+  printf 'Ledger JSON API ready: %s (HTTP %s)\n' "${ledger_ok}" "${ledger_code:-n/a}"
 }
 
 run_smoke() {
@@ -556,8 +565,9 @@ Commands:
   verify   Run setup + start + smoke + test
 
 Environment:
-  CANTON_LOCALNET_FAST_START=true|false       Enable fast startup path (default: true)
+  CANTON_LOCALNET_FAST_START=true|false        Enable fast startup path (default: true)
   CANTON_LOCALNET_FORCE_FULL_START=true|false  Force full startup with rebuild
+  CANTON_LOCALNET_TEST_CMD='<command>'         Override default integration test command
 USAGE
 }
 
