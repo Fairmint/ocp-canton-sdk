@@ -611,6 +611,52 @@ describe('PlanSecurity alias utilities', () => {
       expect(resultRecord).not.toHaveProperty('quantity');
     });
 
+    it('canonicalizes stock class split legacy ratio fields to split_ratio', async () => {
+      const input = {
+        object_type: 'TX_STOCK_CLASS_SPLIT',
+        id: 'stock-class-split-1',
+        date: '2024-01-15',
+        stock_class_id: 'sc-1',
+        split_ratio_numerator: '3',
+        split_ratio_denominator: '2',
+      };
+
+      const result = normalizeOcfData(input);
+      const resultRecord = result as Record<string, unknown>;
+      await validateOcfObject(resultRecord);
+
+      expect(resultRecord.split_ratio).toEqual({
+        numerator: '3',
+        denominator: '2',
+      });
+      expect(resultRecord).not.toHaveProperty('split_ratio_numerator');
+      expect(resultRecord).not.toHaveProperty('split_ratio_denominator');
+    });
+
+    it('canonicalizes stock class conversion ratio legacy fields to conversion mechanism', async () => {
+      const input = {
+        object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+        id: 'stock-class-ratio-adj-1',
+        date: '2024-01-15',
+        stock_class_id: 'sc-1',
+        new_ratio_numerator: '11',
+        new_ratio_denominator: '10',
+      };
+
+      const result = normalizeOcfData(input);
+      const resultRecord = result as Record<string, unknown>;
+      await validateOcfObject(resultRecord);
+
+      expect(resultRecord.new_ratio_conversion_mechanism).toEqual({
+        type: 'RATIO_CONVERSION',
+        conversion_price: { amount: '0', currency: 'USD' },
+        ratio: { numerator: '11', denominator: '10' },
+        rounding_type: 'NORMAL',
+      });
+      expect(resultRecord).not.toHaveProperty('new_ratio_numerator');
+      expect(resultRecord).not.toHaveProperty('new_ratio_denominator');
+    });
+
     it('strips null split_transaction_id from stock reissuance', async () => {
       const input = {
         object_type: 'TX_STOCK_REISSUANCE',

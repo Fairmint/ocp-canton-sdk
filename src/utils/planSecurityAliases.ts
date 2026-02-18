@@ -675,6 +675,97 @@ function normalizeStockConversionQuantityConverted<T extends Record<string, unkn
 }
 
 /**
+ * Canonicalize stock class split ratio fields.
+ *
+ * OCF now uses nested `split_ratio`, while legacy payloads may still send
+ * `split_ratio_numerator` / `split_ratio_denominator`.
+ */
+function normalizeStockClassSplitRatio<T extends Record<string, unknown>>(data: T): T {
+  if (data.object_type !== 'TX_STOCK_CLASS_SPLIT') return data;
+
+  const result: Record<string, unknown> = { ...data };
+  const splitRatio = result.split_ratio;
+  const legacyNumerator = result.split_ratio_numerator;
+  const legacyDenominator = result.split_ratio_denominator;
+
+  if (legacyNumerator !== undefined || legacyDenominator !== undefined) {
+    if (legacyNumerator === undefined || legacyDenominator === undefined) {
+      throw new Error(
+        'Invalid stock class split legacy ratio fields: both split_ratio_numerator and split_ratio_denominator are required'
+      );
+    }
+    if (
+      (typeof legacyNumerator !== 'string' && typeof legacyNumerator !== 'number') ||
+      (typeof legacyDenominator !== 'string' && typeof legacyDenominator !== 'number')
+    ) {
+      throw new Error(
+        `Invalid stock class split legacy ratio fields: expected string or number values, got numerator=${typeof legacyNumerator}, denominator=${typeof legacyDenominator}`
+      );
+    }
+
+    if (splitRatio === undefined) {
+      result.split_ratio = {
+        numerator: normalizeNumericString(legacyNumerator),
+        denominator: normalizeNumericString(legacyDenominator),
+      };
+    }
+
+    delete result.split_ratio_numerator;
+    delete result.split_ratio_denominator;
+  }
+
+  return result as T;
+}
+
+/**
+ * Canonicalize stock class conversion ratio adjustment fields.
+ *
+ * OCF now uses `new_ratio_conversion_mechanism`, while legacy payloads may still send
+ * `new_ratio_numerator` / `new_ratio_denominator`.
+ */
+function normalizeStockClassConversionRatioAdjustmentMechanism<T extends Record<string, unknown>>(data: T): T {
+  if (data.object_type !== 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT') return data;
+
+  const result: Record<string, unknown> = { ...data };
+  const ratioMechanism = result.new_ratio_conversion_mechanism;
+  const legacyNumerator = result.new_ratio_numerator;
+  const legacyDenominator = result.new_ratio_denominator;
+
+  if (legacyNumerator !== undefined || legacyDenominator !== undefined) {
+    if (legacyNumerator === undefined || legacyDenominator === undefined) {
+      throw new Error(
+        'Invalid stock class conversion ratio legacy fields: both new_ratio_numerator and new_ratio_denominator are required'
+      );
+    }
+    if (
+      (typeof legacyNumerator !== 'string' && typeof legacyNumerator !== 'number') ||
+      (typeof legacyDenominator !== 'string' && typeof legacyDenominator !== 'number')
+    ) {
+      throw new Error(
+        `Invalid stock class conversion ratio legacy fields: expected string or number values, got numerator=${typeof legacyNumerator}, denominator=${typeof legacyDenominator}`
+      );
+    }
+
+    if (ratioMechanism === undefined) {
+      result.new_ratio_conversion_mechanism = {
+        type: 'RATIO_CONVERSION',
+        conversion_price: { amount: '0', currency: 'USD' },
+        ratio: {
+          numerator: normalizeNumericString(legacyNumerator),
+          denominator: normalizeNumericString(legacyDenominator),
+        },
+        rounding_type: 'NORMAL',
+      };
+    }
+
+    delete result.new_ratio_numerator;
+    delete result.new_ratio_denominator;
+  }
+
+  return result as T;
+}
+
+/**
  * Canonicalize stock reissuance optional split transaction identifier.
  *
  * Legacy exports may provide explicit `null` for omitted optional fields; convert to absent.
@@ -698,6 +789,8 @@ function normalizeStockReissuanceSplitTransactionId<T extends Record<string, unk
  * 5. Canonicalizes Stakeholder relationships (`current_relationship` -> `current_relationships`)
  * 6. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
  * 7. Canonicalizes StockConversion quantity (`quantity` -> `quantity_converted`)
+ * 8. Canonicalizes StockClassSplit legacy ratio fields
+ * 9. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -750,6 +843,12 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
 
   // Canonicalize deprecated stock conversion quantity field
   result = normalizeStockConversionQuantityConverted(result);
+
+  // Canonicalize deprecated stock class split ratio fields
+  result = normalizeStockClassSplitRatio(result);
+
+  // Canonicalize deprecated stock class conversion ratio adjustment fields
+  result = normalizeStockClassConversionRatioAdjustmentMechanism(result);
 
   // Canonicalize stock reissuance optional fields exported as explicit nulls
   result = normalizeStockReissuanceSplitTransactionId(result);

@@ -2,7 +2,12 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
-import type { OcfStakeholder, OcfStockClass } from '../../src/types';
+import type {
+  OcfStakeholder,
+  OcfStockClass,
+  OcfStockClassConversionRatioAdjustment,
+  OcfStockClassSplit,
+} from '../../src/types';
 
 describe('CapTableBatch', () => {
   describe('fluent builder API', () => {
@@ -66,6 +71,58 @@ describe('CapTableBatch', () => {
 
       expect(() => batch.create('stakeholder', stakeholderWithDeprecatedField as OcfStakeholder)).not.toThrow();
       expect(batch.size).toBe(1);
+    });
+
+    it('should accept legacy stock class split ratio fields via canonicalization', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      const legacySplitData: OcfStockClassSplit = {
+        id: 'split-123',
+        date: '2024-01-15',
+        stock_class_id: 'sc-123',
+        split_ratio_numerator: '2',
+        split_ratio_denominator: '1',
+      };
+
+      expect(() => batch.create('stockClassSplit', legacySplitData)).not.toThrow();
+      const { command } = batch.build();
+      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+
+      const choiceArg = command.ExerciseCommand.choiceArgument as {
+        creates: Array<{ tag: string; value: Record<string, unknown> }>;
+      };
+      expect(choiceArg.creates[0].value.split_ratio).toEqual({ numerator: '2', denominator: '1' });
+    });
+
+    it('should accept legacy stock class conversion ratio fields via canonicalization', () => {
+      const batch = new CapTableBatch({
+        capTableContractId: 'cap-table-123',
+        actAs: ['party-1'],
+      });
+
+      const legacyRatioData: OcfStockClassConversionRatioAdjustment = {
+        id: 'ratio-123',
+        date: '2024-01-15',
+        stock_class_id: 'sc-123',
+        new_ratio_numerator: '11',
+        new_ratio_denominator: '10',
+      };
+
+      expect(() => batch.create('stockClassConversionRatioAdjustment', legacyRatioData)).not.toThrow();
+      const { command } = batch.build();
+      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
+
+      const choiceArg = command.ExerciseCommand.choiceArgument as {
+        creates: Array<{ tag: string; value: Record<string, unknown> }>;
+      };
+      expect(choiceArg.creates[0].value.new_ratio_conversion_mechanism).toEqual({
+        conversion_price: { amount: '0', currency: 'USD' },
+        ratio: { numerator: '11', denominator: '10' },
+        rounding_type: 'OcfRoundingNormal',
+      });
     });
 
     it('should chain multiple operations', () => {

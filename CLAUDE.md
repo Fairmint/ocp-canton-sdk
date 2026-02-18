@@ -496,22 +496,23 @@ and field.
 
 ### Ambiguous legacy stakeholder relationship events (`new_relationships`)
 
-**Symptom:** Legacy stakeholder relationship payloads with multi-value
-`new_relationships` can be misinterpreted when mapped to canonical
-`relationship_started` / `relationship_ended`.
+**Symptom:** Legacy stakeholder relationship payloads with multi-value `new_relationships` can be
+misinterpreted when mapped to canonical `relationship_started` / `relationship_ended`.
 
 **Rule:** Treat multi-value `new_relationships` as **ambiguous** and fail fast.
 
 - If canonical `relationship_started` / `relationship_ended` are present, use them.
 - If only legacy `new_relationships` is present:
   - single value can map to `relationship_started`
-  - multiple values must throw a clear validation error instructing callers to send canonical fields.
+  - multiple values must throw a clear validation error instructing callers to send canonical
+    fields.
 
 This prevents silent semantic corruption during legacy data migration.
 
 ### Stakeholder event wrapper compatibility (`event_data`)
 
-**Symptom:** Generic read dispatcher (`getEntityAsOcf`) fails to extract stakeholder event payloads from contracts that use `event_data` wrapper, even though type-specific getters support it.
+**Symptom:** Generic read dispatcher (`getEntityAsOcf`) fails to extract stakeholder event payloads
+from contracts that use `event_data` wrapper, even though type-specific getters support it.
 
 **Fix:** Keep `ENTITY_DATA_FIELD_MAP` canonical and add `ENTITY_DATA_FIELD_FALLBACK_MAP` entries:
 
@@ -527,7 +528,8 @@ For `stockClassConversionRatioAdjustmentDataToDaml`:
 - Always convert `conversion_price` via `monetaryToDaml(...)`
 - Always normalize ratio numerator/denominator via `normalizeNumericString(...)`
 
-Do **not** pass these fields through raw. This keeps converter behavior consistent with all other OCF→DAML converters and prevents hidden shape/precision drift.
+Do **not** pass these fields through raw. This keeps converter behavior consistent with all other
+OCF→DAML converters and prevents hidden shape/precision drift.
 
 ---
 
