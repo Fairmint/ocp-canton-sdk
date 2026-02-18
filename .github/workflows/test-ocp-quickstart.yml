@@ -21,8 +21,8 @@ jobs:
         id: submodule-cache-key
         run: |
           set -euo pipefail
-          key="$(cat .gitmodules | sha256sum | cut -d' ' -f1)"
-          echo "value=$key" >> $GITHUB_OUTPUT
+          key="$(git ls-tree HEAD -- libs/ | sha256sum | cut -d' ' -f1)"
+          echo "value=$key" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -87,21 +87,21 @@ jobs:
           set -euo pipefail
 
           if [ -d "node_modules" ]; then
-            echo "has_node_modules=true" >> $GITHUB_OUTPUT
+            echo "has_node_modules=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_node_modules=false" >> $GITHUB_OUTPUT
+            echo "has_node_modules=false" >> "$GITHUB_OUTPUT"
           fi
 
           if [ -f "libs/cn-quickstart/quickstart/.env.local" ]; then
-            echo "has_quickstart_env=true" >> $GITHUB_OUTPUT
+            echo "has_quickstart_env=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_quickstart_env=false" >> $GITHUB_OUTPUT
+            echo "has_quickstart_env=false" >> "$GITHUB_OUTPUT"
           fi
 
           if [ -x "$HOME/.daml/bin/daml" ]; then
-            echo "has_daml=true" >> $GITHUB_OUTPUT
+            echo "has_daml=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_daml=false" >> $GITHUB_OUTPUT
+            echo "has_daml=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install Dependencies
