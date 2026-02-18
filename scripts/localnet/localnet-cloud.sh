@@ -344,16 +344,19 @@ wait_for_services() {
   local code=""
   local ledger_code=""
 
-  log "Waiting for Keycloak..."
-  for _ in $(seq 1 30); do
+  log "Checking Keycloak (optional in shared-secret mode)..."
+  local keycloak_ready="no"
+  for _ in $(seq 1 10); do
     if curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsS http://localhost:8082/realms/AppProvider >/dev/null 2>&1; then
+      keycloak_ready="yes"
       break
     fi
     sleep 2
   done
-  if ! curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsS http://localhost:8082/realms/AppProvider >/dev/null 2>&1; then
-    log "Keycloak did not become ready."
-    exit 1
+  if [[ "${keycloak_ready}" == "yes" ]]; then
+    log "Keycloak is ready."
+  else
+    log "Keycloak not detected (expected in shared-secret mode)."
   fi
 
   log "Waiting for Validator API..."
@@ -522,9 +525,10 @@ run_smoke() {
 
   log "Running localnet smoke checks..."
 
-  if ! curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsS http://localhost:8082/realms/AppProvider >/dev/null 2>&1; then
-    log "Keycloak is not reachable."
-    exit 1
+  if curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -fsS http://localhost:8082/realms/AppProvider >/dev/null 2>&1; then
+    log "Keycloak is reachable."
+  else
+    log "Keycloak not detected (expected in shared-secret mode)."
   fi
 
   validator_code="$(curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -sS -o /dev/null -w '%{http_code}' http://localhost:3903/api/validator/v0/wallet/user-status || true)"
