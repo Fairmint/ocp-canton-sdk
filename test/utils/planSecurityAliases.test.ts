@@ -449,6 +449,24 @@ describe('PlanSecurity alias utilities', () => {
       expect(result).not.toHaveProperty('option_grant_type');
     });
 
+    it('canonicalizes deprecated plan_security_type to compensation_type', () => {
+      const input = {
+        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+        id: 'eq-1',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        stakeholder_id: 'stakeholder-1',
+        stock_class_id: 'sc-1',
+        quantity: '100',
+        plan_security_type: 'OPTION',
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result.compensation_type).toBe('OPTION');
+      expect(result).not.toHaveProperty('plan_security_type');
+    });
+
     it('throws when option_grant_type conflicts with compensation_type', () => {
       const input = {
         object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',

@@ -132,6 +132,7 @@ export function normalizeObjectType<T extends string>(objectType: T): string {
 
 type OptionGrantType = 'NSO' | 'ISO' | 'INTL';
 type CompensationType = 'OPTION_NSO' | 'OPTION_ISO' | 'OPTION' | 'RSU' | 'CSAR' | 'SSAR';
+type PlanSecurityType = 'OPTION' | 'RSU' | 'OTHER';
 
 function mapOptionGrantTypeToCompensationType(optionGrantType: OptionGrantType): CompensationType {
   switch (optionGrantType) {
@@ -141,6 +142,17 @@ function mapOptionGrantTypeToCompensationType(optionGrantType: OptionGrantType):
       return 'OPTION_ISO';
     case 'INTL':
       return 'OPTION';
+  }
+}
+
+function mapPlanSecurityTypeToCompensationType(planSecurityType: PlanSecurityType): CompensationType | undefined {
+  switch (planSecurityType) {
+    case 'OPTION':
+      return 'OPTION';
+    case 'RSU':
+      return 'RSU';
+    case 'OTHER':
+      return undefined;
   }
 }
 
@@ -199,6 +211,48 @@ function normalizeOptionGrantType<T extends Record<string, unknown>>(data: T): T
   }
 
   const { option_grant_type: _, ...rest } = data;
+  return {
+    ...rest,
+    compensation_type: derivedCompensationType,
+  } as unknown as T;
+}
+
+/**
+ * Canonicalize deprecated `plan_security_type` to `compensation_type`.
+ *
+ * Behavior:
+ * - If only `plan_security_type` exists, derive `compensation_type` for supported values.
+ * - Always strip deprecated `plan_security_type` from canonical output.
+ */
+function normalizePlanSecurityType<T extends Record<string, unknown>>(data: T): T {
+  if (!isObjectTypeEquityCompensationIssuance(data.object_type)) return data;
+
+  const planSecurityTypeValue = data.plan_security_type;
+  if (planSecurityTypeValue === undefined || planSecurityTypeValue === null) return data;
+  if (typeof planSecurityTypeValue !== 'string') {
+    throw new Error(`Invalid plan_security_type: expected string, got ${typeof planSecurityTypeValue}`);
+  }
+
+  const normalizedPlanSecurityType = planSecurityTypeValue.trim().toUpperCase();
+  if (
+    normalizedPlanSecurityType !== 'OPTION' &&
+    normalizedPlanSecurityType !== 'RSU' &&
+    normalizedPlanSecurityType !== 'OTHER'
+  ) {
+    throw new Error(`Invalid plan_security_type: unsupported value "${planSecurityTypeValue}"`);
+  }
+
+  const { plan_security_type: _, ...rest } = data;
+  const compensationTypeValue = data.compensation_type;
+  if (compensationTypeValue !== undefined && compensationTypeValue !== null) {
+    return rest as unknown as T;
+  }
+
+  const derivedCompensationType = mapPlanSecurityTypeToCompensationType(normalizedPlanSecurityType);
+  if (!derivedCompensationType) {
+    return rest as unknown as T;
+  }
+
   return {
     ...rest,
     compensation_type: derivedCompensationType,
@@ -502,8 +556,9 @@ function normalizeStockPlanClassIds<T extends Record<string, unknown>>(data: T):
  * 1. Converts PlanSecurity object_type to EquityCompensation equivalent
  * 2. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
  * 3. Strips Document fields that the DAML contract does not model (e.g. `date`)
- * 4. Canonicalizes Stakeholder relationships (`current_relationship` -> `current_relationships`)
- * 5. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
+ * 4. Canonicalizes deprecated issuance aliases (`plan_security_type`/`option_grant_type`)
+ * 5. Canonicalizes Stakeholder relationships (`current_relationship` -> `current_relationships`)
+ * 6. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -538,6 +593,9 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
 
   // Strip Document fields that DAML cannot store (e.g. `date`)
   result = stripDocumentNonDamlFields(result);
+
+  // Canonicalize deprecated plan_security_type to compensation_type
+  result = normalizePlanSecurityType(result);
 
   // Canonicalize deprecated option_grant_type to compensation_type
   result = normalizeOptionGrantType(result);

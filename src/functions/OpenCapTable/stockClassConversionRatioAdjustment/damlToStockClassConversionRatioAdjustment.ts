@@ -3,7 +3,7 @@
  */
 
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { damlMonetaryToNative, normalizeNumericString } from '../../../utils/typeConversions';
 
 /** DAML StockClassConversionRatioAdjustmentOcfData structure */
 export interface DamlStockClassConversionRatioAdjustmentData {
@@ -44,7 +44,7 @@ export function damlStockClassConversionRatioAdjustmentToNative(
     stock_class_id: d.stock_class_id,
     new_ratio_conversion_mechanism: {
       type: 'RATIO_CONVERSION',
-      conversion_price: d.new_ratio_conversion_mechanism.conversion_price,
+      conversion_price: damlMonetaryToNative(d.new_ratio_conversion_mechanism.conversion_price),
       ratio: {
         numerator: normalizeNumericString(numeratorStr),
         denominator: normalizeNumericString(denominatorStr),

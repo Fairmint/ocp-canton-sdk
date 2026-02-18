@@ -312,7 +312,7 @@ describe('Stock Class Adjustment Converters', () => {
           date: '2024-02-01T00:00:00.000Z',
           stock_class_id: 'class-002',
           new_ratio_conversion_mechanism: {
-            conversion_price: { amount: '0', currency: 'USD' },
+            conversion_price: { amount: '0.0000000000', currency: 'USD' },
             ratio: {
               numerator: '3.0000000000',
               denominator: '2.0000000000',

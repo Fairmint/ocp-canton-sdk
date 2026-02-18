@@ -61,6 +61,27 @@ describe('ocfZodSchemas', () => {
     expect(parsedRecord).not.toHaveProperty('option_grant_type');
   });
 
+  itIfSchemas('canonicalizes legacy plan security issuance + plan_security_type before validation', () => {
+    const fixture = stripSourceMetadata(
+      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-nso')
+    );
+    const legacyFixture: Record<string, unknown> = {
+      ...fixture,
+      object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+      plan_security_type: 'OPTION',
+    };
+    delete legacyFixture.compensation_type;
+    delete legacyFixture.option_grant_type;
+    delete legacyFixture.quantity_source;
+
+    const parsed = parseOcfEntityInput('planSecurityIssuance', legacyFixture);
+    const parsedRecord = parsed as unknown as Record<string, unknown>;
+
+    expect(parsedRecord.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
+    expect(parsedRecord.compensation_type).toBe('OPTION');
+    expect(parsedRecord).not.toHaveProperty('plan_security_type');
+  });
+
   itIfSchemas('canonicalizes legacy stakeholder status change event object_type + reason_text', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
     const legacyFixture = {

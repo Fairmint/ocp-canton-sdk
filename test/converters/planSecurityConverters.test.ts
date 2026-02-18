@@ -81,6 +81,35 @@ describe('PlanSecurity Type Converters', () => {
         expect(result.termination_exercise_windows).toEqual([]);
       });
 
+      it('preserves supported equity-compensation fields when provided', () => {
+        const input: OcfPlanSecurityIssuance = {
+          id: 'psi-extended',
+          date: '2025-01-15',
+          security_id: 'sec-extended',
+          custom_id: 'custom-extended',
+          stakeholder_id: 'stakeholder-extended',
+          compensation_type: 'OPTION',
+          quantity: '100',
+          exercise_price: { amount: '0.5000000000', currency: 'USD' },
+          base_price: { amount: '0.2500000000', currency: 'USD' },
+          early_exercisable: true,
+          vestings: [{ date: '2025-06-01', amount: '10.0000000000' }],
+          expiration_date: '2030-01-01',
+          termination_exercise_windows: [{ reason: 'VOLUNTARY_OTHER', period: 90, period_type: 'DAYS' }],
+          security_law_exemptions: [],
+        };
+
+        const result = convertToDaml('planSecurityIssuance', input);
+
+        expect(result.base_price).toEqual({ amount: '0.2500000000', currency: 'USD' });
+        expect(result.early_exercisable).toBe(true);
+        expect(result.vestings).toEqual([{ date: '2025-06-01T00:00:00.000Z', amount: '10' }]);
+        expect(result.expiration_date).toBe('2030-01-01T00:00:00.000Z');
+        expect(result.termination_exercise_windows).toEqual([
+          { reason: 'OcfTermVoluntaryOther', period: '90', period_type: 'OcfPeriodDays' },
+        ]);
+      });
+
       it('converts RSU plan security type to OcfCompensationTypeRSU', () => {
         const input: OcfPlanSecurityIssuance = {
           id: 'psi-002',

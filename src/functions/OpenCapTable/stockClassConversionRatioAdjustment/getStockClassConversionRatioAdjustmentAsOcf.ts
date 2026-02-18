@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { damlMonetaryToNative, normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface OcfStockClassConversionRatioAdjustmentEvent {
   object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT';
@@ -58,7 +58,7 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
     stock_class_id: data.stock_class_id,
     new_ratio_conversion_mechanism: {
       type: 'RATIO_CONVERSION',
-      conversion_price: data.new_ratio_conversion_mechanism.conversion_price as { amount: string; currency: string },
+      conversion_price: damlMonetaryToNative(data.new_ratio_conversion_mechanism.conversion_price),
       ratio: {
         numerator: normalizeNumericString(newRatioNumeratorStr),
         denominator: normalizeNumericString(newRatioDenominatorStr),

@@ -6,7 +6,7 @@
  */
 
 import { OcpValidationError } from '../../../errors';
-import type { CompensationType, OcfPlanSecurityIssuance } from '../../../types';
+import type { CompensationType, OcfPlanSecurityIssuance, TerminationWindow } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -32,6 +32,21 @@ const COMPENSATION_TYPE_TO_DAML: Record<CompensationType, string> = {
   RSU: 'OcfCompensationTypeRSU',
   CSAR: 'OcfCompensationTypeCSAR',
   SSAR: 'OcfCompensationTypeSSAR',
+};
+
+const terminationWindowReasonMap: Record<TerminationWindow['reason'], string> = {
+  VOLUNTARY_OTHER: 'OcfTermVoluntaryOther',
+  VOLUNTARY_GOOD_CAUSE: 'OcfTermVoluntaryGoodCause',
+  VOLUNTARY_RETIREMENT: 'OcfTermVoluntaryRetirement',
+  INVOLUNTARY_OTHER: 'OcfTermInvoluntaryOther',
+  INVOLUNTARY_DEATH: 'OcfTermInvoluntaryDeath',
+  INVOLUNTARY_DISABILITY: 'OcfTermInvoluntaryDisability',
+  INVOLUNTARY_WITH_CAUSE: 'OcfTermInvoluntaryWithCause',
+};
+
+const terminationWindowPeriodTypeMap: Record<TerminationWindow['period_type'], string> = {
+  DAYS: 'OcfPeriodDays',
+  MONTHS: 'OcfPeriodMonths',
 };
 
 /**
@@ -101,11 +116,18 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
     compensation_type: COMPENSATION_TYPE_TO_DAML[compensationType],
     quantity: normalizeNumericString(d.quantity),
     exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
-    base_price: null, // PlanSecurity doesn't have base_price
-    early_exercisable: null, // PlanSecurity doesn't have early_exercisable
-    vestings: [], // PlanSecurity doesn't have inline vestings
-    expiration_date: null, // PlanSecurity doesn't have expiration_date
-    termination_exercise_windows: [], // PlanSecurity doesn't have termination_exercise_windows
+    base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
+    early_exercisable: d.early_exercisable ?? null,
+    vestings: (d.vestings ?? []).map((v) => ({
+      date: dateStringToDAMLTime(v.date),
+      amount: normalizeNumericString(v.amount),
+    })),
+    expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
+    termination_exercise_windows: (d.termination_exercise_windows ?? []).map((w) => ({
+      reason: terminationWindowReasonMap[w.reason],
+      period: w.period.toString(),
+      period_type: terminationWindowPeriodTypeMap[w.period_type],
+    })),
     comments: cleanComments(d.comments),
   };
 }
