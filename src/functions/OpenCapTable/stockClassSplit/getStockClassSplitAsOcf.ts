@@ -8,8 +8,7 @@ export interface OcfStockClassSplitEvent {
   id: string;
   date: string;
   stock_class_id: string;
-  split_ratio_numerator: string;
-  split_ratio_denominator: string;
+  split_ratio: { numerator: string; denominator: string };
   comments?: string[];
 }
 
@@ -52,8 +51,10 @@ export async function getStockClassSplitAsOcf(
     id: data.id,
     date: data.date.split('T')[0],
     stock_class_id: data.stock_class_id,
-    split_ratio_numerator: normalizeNumericString(splitRatioNumeratorStr),
-    split_ratio_denominator: normalizeNumericString(splitRatioDenominatorStr),
+    split_ratio: {
+      numerator: normalizeNumericString(splitRatioNumeratorStr),
+      denominator: normalizeNumericString(splitRatioDenominatorStr),
+    },
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
   return { event, contractId: params.contractId };

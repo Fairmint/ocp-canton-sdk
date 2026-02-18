@@ -120,7 +120,12 @@ import {
   type MintWithRateLimitResult,
   type WaitUntilCanMintOptions,
 } from './functions/CouponMinter';
-import { CapTableBatch } from './functions/OpenCapTable/capTable';
+import {
+  archiveCapTable,
+  CapTableBatch,
+  type ArchiveCapTableParams,
+  type ArchiveCapTableResult,
+} from './functions/OpenCapTable/capTable';
 import type { CommandWithDisclosedContracts } from './types';
 import type { ContractResult, GetByContractIdParams } from './types/common';
 import type {
@@ -696,9 +701,10 @@ export class OcpClient {
         withdraw: async (params: WithdrawAuthorizationParams) => withdrawAuthorization(client, params),
       },
 
-      // ===== Batch Updates =====
+      // ===== Batch Updates & Lifecycle =====
       capTable: {
         update: (params: CapTableUpdateParams) => new CapTableBatch(params, client),
+        archive: async (params: ArchiveCapTableParams) => archiveCapTable(client, params),
       },
     };
   }
@@ -842,10 +848,12 @@ interface OpenCapTableMethods {
     withdraw: (params: WithdrawAuthorizationParams) => Promise<WithdrawAuthorizationResult>;
   };
 
-  // Batch Updates
+  // Batch Updates & Lifecycle
   capTable: {
     /** Create a batch builder for atomic cap table updates */
     update: (params: CapTableUpdateParams) => CapTableBatch;
+    /** Archive a cap table (system_operator only, requires empty entity maps) */
+    archive: (params: ArchiveCapTableParams) => Promise<ArchiveCapTableResult>;
   };
 }
 

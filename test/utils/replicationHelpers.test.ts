@@ -13,6 +13,7 @@ import {
   mapCategorizedTypeToEntityType,
   TRANSACTION_SUBTYPE_MAP,
 } from '../../src/utils/replicationHelpers';
+import { validateOcfObject } from './ocfSchemaValidator';
 
 // ============================================================================
 // TRANSACTION_SUBTYPE_MAP Tests
@@ -20,8 +21,9 @@ import {
 
 describe('TRANSACTION_SUBTYPE_MAP', () => {
   it('has correct count of transaction types', () => {
-    // 9 stock + 8 equity comp + 6 convertible + 6 warrant + 4 stock class adj + 2 stock plan + 3 vesting + 2 stakeholder = 40
-    expect(Object.keys(TRANSACTION_SUBTYPE_MAP)).toHaveLength(40);
+    // 9 stock + 8 equity comp + 6 convertible + 6 warrant + 4 stock class adj + 2 stock plan + 3 vesting + 2 stakeholder
+    // + 2 legacy stakeholder aliases = 42
+    expect(Object.keys(TRANSACTION_SUBTYPE_MAP)).toHaveLength(42);
   });
 
   describe('Stock Transactions (9 types)', () => {
@@ -125,10 +127,12 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     });
   });
 
-  describe('Stakeholder Events (2 types)', () => {
+  describe('Stakeholder Events (canonical + legacy aliases)', () => {
     const stakeholderTypes: Array<[string, OcfEntityType]> = [
-      ['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'stakeholderRelationshipChangeEvent'],
-      ['TX_STAKEHOLDER_STATUS_CHANGE_EVENT', 'stakeholderStatusChangeEvent'],
+      ['CE_STAKEHOLDER_RELATIONSHIP', 'stakeholderRelationshipChangeEvent'],
+      ['CE_STAKEHOLDER_STATUS', 'stakeholderStatusChangeEvent'],
+      ['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'stakeholderRelationshipChangeEvent'], // legacy
+      ['TX_STAKEHOLDER_STATUS_CHANGE_EVENT', 'stakeholderStatusChangeEvent'], // legacy
     ];
 
     it.each(stakeholderTypes)('maps %s to %s', (objectType, entityType) => {
@@ -218,6 +222,12 @@ describe('mapCategorizedTypeToEntityType', () => {
 
     it('maps TRANSACTION/TX_CONVERTIBLE_ISSUANCE to convertibleIssuance', () => {
       expect(mapCategorizedTypeToEntityType('TRANSACTION', 'TX_CONVERTIBLE_ISSUANCE')).toBe('convertibleIssuance');
+    });
+
+    it('maps TRANSACTION/CE_STAKEHOLDER_STATUS to stakeholderStatusChangeEvent', () => {
+      expect(mapCategorizedTypeToEntityType('TRANSACTION', 'CE_STAKEHOLDER_STATUS')).toBe(
+        'stakeholderStatusChangeEvent'
+      );
     });
 
     it('returns null for unknown TRANSACTION subtype', () => {
@@ -618,6 +628,120 @@ describe('computeReplicationDiff', () => {
 
       // ocfDeepEqual considers "10.00" and "10" equal
       expect(diff.edits).toHaveLength(0);
+    });
+
+    it('detects reason_text changes for non-deprecated entities', async () => {
+      const sourceData = {
+        id: 'tx-1',
+        object_type: 'TX_STOCK_CANCELLATION',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        quantity: '100',
+        reason_text: 'Corrected reason',
+        comments: [],
+      };
+      const cantonData = {
+        id: 'tx-1',
+        object_type: 'TX_STOCK_CANCELLATION',
+        date: '2024-01-15',
+        security_id: 'sec-1',
+        quantity: '100',
+        reason_text: 'Original reason',
+        comments: [],
+      };
+      await validateOcfObject(sourceData);
+      await validateOcfObject(cantonData);
+
+      const sourceItems = [
+        {
+          ocfId: 'tx-1',
+          entityType: 'stockCancellation' as OcfEntityType,
+          data: sourceData,
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stockCancellation', new Set(['tx-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([['stockCancellation', new Map([['tx-1', cantonData]])]]);
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+
+      expect(diff.edits).toHaveLength(1);
+      expect(diff.edits[0].ocfId).toBe('tx-1');
+    });
+
+    it('treats stakeholder current_relationship as equivalent to current_relationships', async () => {
+      const sourceStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'INVESTOR',
+      };
+      const cantonStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR'],
+      };
+      await validateOcfObject(sourceStakeholder);
+      await validateOcfObject(cantonStakeholder);
+
+      const sourceItems = [
+        {
+          ocfId: 'sh-1',
+          entityType: 'stakeholder' as OcfEntityType,
+          data: sourceStakeholder,
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stakeholder', new Set(['sh-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', cantonStakeholder]])]]);
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+
+      expect(diff.creates).toHaveLength(0);
+      expect(diff.edits).toHaveLength(0);
+      expect(diff.total).toBe(0);
+    });
+
+    it('treats stakeholder current_relationships with different order as equivalent', async () => {
+      const sourceStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR', 'FOUNDER'],
+      };
+      const cantonStakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Alice Doe' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['FOUNDER', 'INVESTOR'],
+      };
+      await validateOcfObject(sourceStakeholder);
+      await validateOcfObject(cantonStakeholder);
+
+      const sourceItems = [
+        {
+          ocfId: 'sh-1',
+          entityType: 'stakeholder' as OcfEntityType,
+          data: sourceStakeholder,
+        },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.entities.set('stakeholder', new Set(['sh-1']));
+
+      const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', cantonStakeholder]])]]);
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
+
+      expect(diff.creates).toHaveLength(0);
+      expect(diff.edits).toHaveLength(0);
+      expect(diff.total).toBe(0);
     });
 
     it('throws when cantonOcfData is incomplete', () => {

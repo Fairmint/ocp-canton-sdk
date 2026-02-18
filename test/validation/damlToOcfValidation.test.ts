@@ -8,10 +8,13 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpValidationError } from '../../src/errors';
 import { getEquityCompensationIssuanceAsOcf } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
+import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
+import { getStakeholderStatusChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
 import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { getStockPlanAsOcf } from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
 import { getVestingTermsAsOcf } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
+import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
 /**
  * Creates a mock LedgerJsonApiClient with the given createArgument data
@@ -28,6 +31,10 @@ function createMockClient(dataKey: string, data: Record<string, unknown>): Ledge
       },
     }),
   } as unknown as LedgerJsonApiClient;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value as Record<string, unknown>;
 }
 
 describe('DAML to OCF Validation', () => {
@@ -286,6 +293,72 @@ describe('DAML to OCF Validation', () => {
       const result = await getStockPlanAsOcf(client, { contractId: 'test-contract' });
       expect(result.stockPlan.id).toBe('sp-001');
       expect(result.stockPlan.plan_name).toBe('2024 Equity Incentive Plan');
+    });
+  });
+
+  describe('stakeholder change-event getters', () => {
+    test('reads relationship change event from canonical event_data field', async () => {
+      const client = createMockClient('event_data', {
+        id: 'rel-001',
+        date: '2024-01-15T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        relationship_started: 'OcfRelAdvisor',
+        relationship_ended: null,
+        comments: ['Relationship changed'],
+      });
+
+      const result = await getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'test-contract' });
+      await validateOcfObject(asRecord(result.event));
+      expect(result.event.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
+      expect(result.event.relationship_started).toBe('ADVISOR');
+      expect(result.event.relationship_ended).toBeUndefined();
+    });
+
+    test('reads relationship change event from legacy relationship_change_data field', async () => {
+      const client = createMockClient('relationship_change_data', {
+        id: 'rel-legacy-001',
+        date: '2024-01-15T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        relationship_started: null,
+        relationship_ended: 'OcfRelEmployee',
+        comments: [],
+      });
+
+      const result = await getStakeholderRelationshipChangeEventAsOcf(client, { contractId: 'test-contract' });
+      await validateOcfObject(asRecord(result.event));
+      expect(result.event.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
+      expect(result.event.relationship_started).toBeUndefined();
+      expect(result.event.relationship_ended).toBe('EMPLOYEE');
+    });
+
+    test('reads status change event from canonical event_data field', async () => {
+      const client = createMockClient('event_data', {
+        id: 'status-001',
+        date: '2024-01-15T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        new_status: 'OcfStakeholderStatusActive',
+        comments: [],
+      });
+
+      const result = await getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' });
+      await validateOcfObject(asRecord(result.event));
+      expect(result.event.object_type).toBe('CE_STAKEHOLDER_STATUS');
+      expect(result.event.new_status).toBe('ACTIVE');
+    });
+
+    test('reads status change event from legacy status_change_data field', async () => {
+      const client = createMockClient('status_change_data', {
+        id: 'status-legacy-001',
+        date: '2024-01-15T00:00:00.000Z',
+        stakeholder_id: 'stakeholder-1',
+        new_status: 'OcfStakeholderStatusLeaveOfAbsence',
+        comments: ['Leave'],
+      });
+
+      const result = await getStakeholderStatusChangeEventAsOcf(client, { contractId: 'test-contract' });
+      await validateOcfObject(asRecord(result.event));
+      expect(result.event.object_type).toBe('CE_STAKEHOLDER_STATUS');
+      expect(result.event.new_status).toBe('LEAVE_OF_ABSENCE');
     });
   });
 });

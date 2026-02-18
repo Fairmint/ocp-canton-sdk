@@ -33,6 +33,7 @@ import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stock
 import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
+import { LEGACY_OBJECT_TYPE_MAP } from './planSecurityAliases';
 import { TRANSACTION_SUBTYPE_MAP } from './replicationHelpers';
 
 // ===== Transaction Sorting =====
@@ -164,8 +165,10 @@ export function txWeight(tx: Record<string, unknown>): number {
       return 40;
 
     // Stakeholder events - process after transactions that might create/modify stakes
-    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT':
-    case 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT':
+    case 'CE_STAKEHOLDER_RELATIONSHIP':
+    case 'CE_STAKEHOLDER_STATUS':
+    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT': // legacy alias
+    case 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT': // legacy alias
       return 45;
 
     // Unknown types at the end
@@ -298,7 +301,9 @@ const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
  * duplicate inverse mappings that could drift out of sync.
  */
 const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = Object.fromEntries(
-  Object.entries(TRANSACTION_SUBTYPE_MAP).map(([objectType, entityType]) => [entityType, objectType])
+  Object.entries(TRANSACTION_SUBTYPE_MAP)
+    .filter(([objectType]) => !Object.prototype.hasOwnProperty.call(LEGACY_OBJECT_TYPE_MAP, objectType))
+    .map(([objectType, entityType]) => [entityType, objectType])
 );
 
 /**
@@ -373,6 +378,11 @@ export interface ExtractCantonOcfOptions {
   verbose?: boolean;
   /** Callback for logging (defaults to console.log when verbose) */
   logger?: (message: string) => void;
+  /**
+   * Throw when one or more contracts fail to extract.
+   * Default: true (fail fast instead of returning partial manifests).
+   */
+  failOnReadErrors?: boolean;
 }
 
 /**
@@ -402,9 +412,10 @@ export async function extractCantonOcfManifest(
   cantonState: CapTableState,
   options: ExtractCantonOcfOptions = {}
 ): Promise<OcfManifest> {
-  const { verbose = false } = options;
+  const { verbose = false, failOnReadErrors = true } = options;
   // eslint-disable-next-line no-console
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
+  const extractionFailures: Array<{ entityType: string; ocfId: string; contractId: string; message: string }> = [];
 
   const result: OcfManifest = {
     issuer: null,
@@ -428,6 +439,12 @@ export async function extractCantonOcfManifest(
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       log(`  ⚠️ Failed to fetch issuer: ${msg}`);
+      extractionFailures.push({
+        entityType: 'issuer',
+        ocfId: 'issuer',
+        contractId: cantonState.issuerContractId,
+        message: msg,
+      });
     }
   }
 
@@ -513,8 +530,30 @@ export async function extractCantonOcfManifest(
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         log(`  ⚠️ Failed to fetch ${entityType}/${ocfId}: ${msg}`);
+        extractionFailures.push({
+          entityType,
+          ocfId,
+          contractId,
+          message: msg,
+        });
       }
     }
+  }
+
+  if (failOnReadErrors && extractionFailures.length > 0) {
+    const maxFailuresToReport = 10;
+    const failureSummary = extractionFailures
+      .slice(0, maxFailuresToReport)
+      .map((failure) => `${failure.entityType}/${failure.ocfId} (contractId=${failure.contractId}): ${failure.message}`)
+      .join('\n');
+    const extraCount = extractionFailures.length - maxFailuresToReport;
+    const extraSuffix = extraCount > 0 ? `\n... and ${extraCount} more` : '';
+
+    throw new Error(
+      `Failed to extract ${extractionFailures.length} Canton object(s) while building manifest. ` +
+        'Extraction returned partial data; aborting to avoid inconsistent diffs.\n' +
+        `${failureSummary}${extraSuffix}`
+    );
   }
 
   // Sort transactions by date with domain-aware same-day ordering

@@ -4,7 +4,12 @@
 
 import { OcpValidationError } from '../../../errors';
 import type { OcfConvertibleConversion } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, optionalString } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  normalizeNumericString,
+  optionalString,
+} from '../../../utils/typeConversions';
 
 /**
  * Convert native OCF ConvertibleConversion data to DAML format.
@@ -23,10 +28,13 @@ export function convertibleConversionDataToDaml(d: OcfConvertibleConversion): Re
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
+    reason_text: d.reason_text,
     security_id: d.security_id,
+    trigger_id: d.trigger_id,
     resulting_security_ids: d.resulting_security_ids,
     balance_security_id: optionalString(d.balance_security_id),
-    trigger_id: optionalString(d.trigger_id),
+    capitalization_definition: d.capitalization_definition ?? null,
+    quantity_converted: d.quantity_converted ? normalizeNumericString(d.quantity_converted) : null,
     comments: cleanComments(d.comments),
   };
 }

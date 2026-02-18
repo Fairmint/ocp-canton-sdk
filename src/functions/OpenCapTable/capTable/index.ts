@@ -1,6 +1,14 @@
 export * from './buildCapTableCommand';
 export * from './types';
 
+// Archive operation
+export {
+  archiveCapTable,
+  buildArchiveCapTableCommand,
+  type ArchiveCapTableParams,
+  type ArchiveCapTableResult,
+} from './archiveCapTable';
+
 // Batch API exports
 export * from './batchTypes';
 export {

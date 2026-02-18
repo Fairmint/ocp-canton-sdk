@@ -6,6 +6,7 @@ import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts, OcfIssuer } from '../../../types';
 import { validateIssuerData } from '../../../utils/entityValidators';
 import { emailTypeToDaml, phoneTypeToDaml } from '../../../utils/enumConversions';
+import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import {
   addressToDaml,
   cleanComments,
@@ -55,6 +56,19 @@ export function normalizeIssuerData(data: IssuerDataInput): OcfIssuer {
 }
 
 /**
+ * Prepare issuer input for strict schema parsing.
+ *
+ * OCF schema allows omitted `tax_ids` but rejects explicit `null`.
+ * For SDK compatibility we accept `null` and normalize to `[]` after parsing.
+ */
+function prepareIssuerDataForSchemaParse(data: IssuerDataInput): IssuerDataInput {
+  if (data.tax_ids !== null) return data;
+
+  const { tax_ids: _, ...rest } = data;
+  return rest;
+}
+
+/**
  * Convert native OCF Issuer data to DAML format.
  *
  * Used by both createIssuer (via IssuerAuthorization) and batch issuer edits (via UpdateCapTable).
@@ -62,9 +76,28 @@ export function normalizeIssuerData(data: IssuerDataInput): OcfIssuer {
  * @param issuerData - Native OCF issuer data
  * @returns DAML-formatted issuer data
  */
-export function issuerDataToDaml(issuerData: IssuerDataInput): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
-  // Normalize input data to ensure array fields are arrays
-  const normalizedData = normalizeIssuerData(issuerData);
+export function issuerDataToDaml(
+  issuerData: IssuerDataInput,
+  options?: { skipSchemaParse?: boolean }
+): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
+  return issuerDataToDamlInternal(issuerData, options?.skipSchemaParse ?? false);
+}
+
+function issuerDataToDamlInternal(
+  issuerData: IssuerDataInput,
+  skipSchemaParse: boolean
+): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
+  let parsedData: IssuerDataInput;
+  if (skipSchemaParse) {
+    parsedData = issuerData;
+  } else {
+    const schemaParseInput = prepareIssuerDataForSchemaParse(issuerData);
+    // Parse against strict OCF schema and canonicalize deprecated aliases/defaults.
+    parsedData = parseOcfEntityInput('issuer', schemaParseInput);
+  }
+
+  // Normalize once at boundary to enforce OcfIssuer runtime invariant: tax_ids is always an array.
+  const normalizedData: OcfIssuer = normalizeIssuerData(parsedData);
 
   // Validate input data using the entity validator
   validateIssuerData(normalizedData, 'issuer');

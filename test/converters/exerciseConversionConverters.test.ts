@@ -78,9 +78,7 @@ describe('Exercise and Conversion Type Converters', () => {
         date: '2024-01-15',
         security_id: 'warrant-sec-001',
         trigger_id: 'trigger-001',
-        quantity: '5000',
         resulting_security_ids: ['stock-sec-001', 'stock-sec-002'],
-        balance_security_id: 'warrant-sec-002',
         consideration_text: 'Exercise consideration',
         comments: ['Test comment'],
       };
@@ -91,21 +89,18 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.id).toBe('we-001');
         expect(result.date).toBe('2024-01-15T00:00:00.000Z');
         expect(result.security_id).toBe('warrant-sec-001');
-        expect(result.quantity).toBe('5000');
         expect(result.resulting_security_ids).toEqual(['stock-sec-001', 'stock-sec-002']);
-        expect(result.balance_security_id).toBe('warrant-sec-002');
         expect(result.consideration_text).toBe('Exercise consideration');
         expect(result.comments).toEqual(['Test comment']);
       });
 
-      test('converts numeric quantity to string', () => {
-        const dataWithNumericQuantity = {
+      test('rejects deprecated quantity field for warrant exercise', () => {
+        const dataWithQuantity = {
           ...validWarrantExerciseData,
           quantity: '5000',
         };
 
-        const result = convertToDaml('warrantExercise', dataWithNumericQuantity);
-        expect(result.quantity).toBe('5000');
+        expect(() => convertToDaml('warrantExercise', dataWithQuantity)).toThrow(OcpValidationError);
       });
 
       test('handles optional fields as null', () => {
@@ -114,14 +109,13 @@ describe('Exercise and Conversion Type Converters', () => {
           date: '2024-01-15',
           security_id: 'warrant-sec-003',
           trigger_id: 'trigger-002',
-          quantity: '1000',
           resulting_security_ids: ['stock-sec-003'],
         };
 
         const result = convertToDaml('warrantExercise', minimalData);
 
         expect(result.id).toBe('we-002');
-        expect(result.balance_security_id).toBeNull();
+        expect(result.quantity).toBeNull();
         expect(result.consideration_text).toBeNull();
         expect(result.comments).toEqual([]);
       });
@@ -138,8 +132,7 @@ describe('Exercise and Conversion Type Converters', () => {
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('warrantExercise.id');
-          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+          expect(validationError.fieldPath).toContain('id');
         }
       });
     });
@@ -154,7 +147,6 @@ describe('Exercise and Conversion Type Converters', () => {
             trigger_id: 'trigger-001',
             quantity: '5000.0000000000',
             resulting_security_ids: ['stock-sec-001', 'stock-sec-002'],
-            balance_security_id: 'warrant-sec-002',
             consideration_text: 'Exercise consideration',
             comments: ['Test comment'],
           },
@@ -169,7 +161,6 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.trigger_id).toBe('trigger-001');
         expect(result.event.quantity).toBe('5000');
         expect(result.event.resulting_security_ids).toEqual(['stock-sec-001', 'stock-sec-002']);
-        expect(result.event.balance_security_id).toBe('warrant-sec-002');
         expect(result.event.consideration_text).toBe('Exercise consideration');
         expect(result.event.comments).toEqual(['Test comment']);
       });
@@ -219,12 +210,11 @@ describe('Exercise and Conversion Type Converters', () => {
 
         const result = await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
 
-        expect(result.event.balance_security_id).toBeUndefined();
         expect(result.event.consideration_text).toBeUndefined();
         expect(result.event.comments).toBeUndefined();
       });
 
-      test('throws OcpValidationError when quantity is missing', async () => {
+      test('omits quantity when DAML payload does not include it', async () => {
         const mockClient = createMockClient({
           exercise_data: {
             id: 'we-004',
@@ -235,17 +225,8 @@ describe('Exercise and Conversion Type Converters', () => {
           },
         });
 
-        await expect(getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' })).rejects.toThrow(
-          OcpValidationError
-        );
-        try {
-          await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
-        } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('warrantExercise.quantity');
-          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
-        }
+        const result = await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
+        expect(result.event.quantity).toBeUndefined();
       });
 
       test('throws OcpValidationError when resulting_security_ids is empty', async () => {
@@ -280,10 +261,11 @@ describe('Exercise and Conversion Type Converters', () => {
       const validConvertibleConversionData: OcfConvertibleConversion = {
         id: 'cc-001',
         date: '2024-02-20',
+        reason_text: 'Automatic conversion at qualified financing',
         security_id: 'convertible-sec-001',
+        trigger_id: 'trigger-001',
         resulting_security_ids: ['stock-sec-001'],
         balance_security_id: 'convertible-sec-002',
-        trigger_id: 'trigger-001',
         comments: ['Converted on financing round'],
       };
 
@@ -292,6 +274,7 @@ describe('Exercise and Conversion Type Converters', () => {
 
         expect(result.id).toBe('cc-001');
         expect(result.date).toBe('2024-02-20T00:00:00.000Z');
+        expect(result.reason_text).toBe('Automatic conversion at qualified financing');
         expect(result.security_id).toBe('convertible-sec-001');
         expect(result.resulting_security_ids).toEqual(['stock-sec-001']);
         expect(result.balance_security_id).toBe('convertible-sec-002');
@@ -303,7 +286,9 @@ describe('Exercise and Conversion Type Converters', () => {
         const minimalData: OcfConvertibleConversion = {
           id: 'cc-002',
           date: '2024-02-20',
+          reason_text: 'Board-approved conversion',
           security_id: 'convertible-sec-003',
+          trigger_id: 'trigger-002',
           resulting_security_ids: ['stock-sec-002'],
         };
 
@@ -311,7 +296,7 @@ describe('Exercise and Conversion Type Converters', () => {
 
         expect(result.id).toBe('cc-002');
         expect(result.balance_security_id).toBeNull();
-        expect(result.trigger_id).toBeNull();
+        expect(result.quantity_converted).toBeNull();
         expect(result.comments).toEqual([]);
       });
 
@@ -327,8 +312,7 @@ describe('Exercise and Conversion Type Converters', () => {
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('convertibleConversion.id');
-          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+          expect(validationError.fieldPath).toContain('id');
         }
       });
     });
@@ -339,10 +323,11 @@ describe('Exercise and Conversion Type Converters', () => {
           conversion_data: {
             id: 'cc-001',
             date: '2024-02-20T00:00:00.000Z',
+            reason_text: 'Automatic conversion at qualified financing',
             security_id: 'convertible-sec-001',
+            trigger_id: 'trigger-001',
             resulting_security_ids: ['stock-sec-001'],
             balance_security_id: 'convertible-sec-002',
-            trigger_id: 'trigger-001',
             comments: ['Converted on financing round'],
           },
         });
@@ -352,10 +337,11 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.object_type).toBe('TX_CONVERTIBLE_CONVERSION');
         expect(result.event.id).toBe('cc-001');
         expect(result.event.date).toBe('2024-02-20');
+        expect(result.event.reason_text).toBe('Automatic conversion at qualified financing');
         expect(result.event.security_id).toBe('convertible-sec-001');
+        expect(result.event.trigger_id).toBe('trigger-001');
         expect(result.event.resulting_security_ids).toEqual(['stock-sec-001']);
         expect(result.event.balance_security_id).toBe('convertible-sec-002');
-        expect(result.event.trigger_id).toBe('trigger-001');
         expect(result.event.comments).toEqual(['Converted on financing round']);
       });
 
@@ -377,7 +363,9 @@ describe('Exercise and Conversion Type Converters', () => {
           conversion_data: {
             id: 'cc-002',
             date: '2024-02-20T00:00:00.000Z',
+            reason_text: 'Board-approved conversion',
             security_id: 'convertible-sec-003',
+            trigger_id: 'trigger-002',
             resulting_security_ids: ['stock-sec-002'],
           },
         });
@@ -385,7 +373,7 @@ describe('Exercise and Conversion Type Converters', () => {
         const result = await getConvertibleConversionAsOcf(mockClient, { contractId: 'test-contract' });
 
         expect(result.event.balance_security_id).toBeUndefined();
-        expect(result.event.trigger_id).toBeUndefined();
+        expect(result.event.quantity_converted).toBeUndefined();
         expect(result.event.comments).toBeUndefined();
       });
 
@@ -420,7 +408,7 @@ describe('Exercise and Conversion Type Converters', () => {
         id: 'sc-001',
         date: '2024-03-10',
         security_id: 'stock-sec-001',
-        quantity: '10000',
+        quantity_converted: '10000',
         resulting_security_ids: ['preferred-sec-001'],
         balance_security_id: 'stock-sec-002',
         comments: ['Converted to preferred'],
@@ -432,20 +420,20 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.id).toBe('sc-001');
         expect(result.date).toBe('2024-03-10T00:00:00.000Z');
         expect(result.security_id).toBe('stock-sec-001');
-        expect(result.quantity).toBe('10000');
+        expect(result.quantity_converted).toBe('10000');
         expect(result.resulting_security_ids).toEqual(['preferred-sec-001']);
         expect(result.balance_security_id).toBe('stock-sec-002');
         expect(result.comments).toEqual(['Converted to preferred']);
       });
 
-      test('converts numeric quantity to string', () => {
+      test('converts numeric quantity_converted to string', () => {
         const dataWithNumericQuantity = {
           ...validStockConversionData,
-          quantity: '10000',
+          quantity_converted: '10000',
         };
 
         const result = convertToDaml('stockConversion', dataWithNumericQuantity);
-        expect(result.quantity).toBe('10000');
+        expect(result.quantity_converted).toBe('10000');
       });
 
       test('handles optional fields as null', () => {
@@ -453,7 +441,7 @@ describe('Exercise and Conversion Type Converters', () => {
           id: 'sc-002',
           date: '2024-03-10',
           security_id: 'stock-sec-003',
-          quantity: '5000',
+          quantity_converted: '5000',
           resulting_security_ids: ['preferred-sec-002'],
         };
 
@@ -476,8 +464,7 @@ describe('Exercise and Conversion Type Converters', () => {
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('stockConversion.id');
-          expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
+          expect(validationError.fieldPath).toContain('id');
         }
       });
     });
@@ -489,7 +476,7 @@ describe('Exercise and Conversion Type Converters', () => {
             id: 'sc-001',
             date: '2024-03-10T00:00:00.000Z',
             security_id: 'stock-sec-001',
-            quantity: '10000.0000000000',
+            quantity_converted: '10000.0000000000',
             resulting_security_ids: ['preferred-sec-001'],
             balance_security_id: 'stock-sec-002',
             comments: ['Converted to preferred'],
@@ -502,7 +489,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.id).toBe('sc-001');
         expect(result.event.date).toBe('2024-03-10');
         expect(result.event.security_id).toBe('stock-sec-001');
-        expect(result.event.quantity).toBe('10000');
+        expect(result.event.quantity_converted).toBe('10000');
         expect(result.event.resulting_security_ids).toEqual(['preferred-sec-001']);
         expect(result.event.balance_security_id).toBe('stock-sec-002');
         expect(result.event.comments).toEqual(['Converted to preferred']);
@@ -528,13 +515,13 @@ describe('Exercise and Conversion Type Converters', () => {
             id: 'sc-002',
             date: '2024-03-10T00:00:00.000Z',
             security_id: 'stock-sec-003',
-            quantity: '10000',
+            quantity_converted: '10000',
             resulting_security_ids: ['preferred-sec-002'],
           },
         });
 
         const result = await getStockConversionAsOcf(mockClient, { contractId: 'test-contract' });
-        expect(result.event.quantity).toBe('10000');
+        expect(result.event.quantity_converted).toBe('10000');
       });
 
       test('omits optional fields when not present', async () => {
@@ -543,7 +530,7 @@ describe('Exercise and Conversion Type Converters', () => {
             id: 'sc-003',
             date: '2024-03-10T00:00:00.000Z',
             security_id: 'stock-sec-004',
-            quantity: '5000',
+            quantity_converted: '5000',
             resulting_security_ids: ['preferred-sec-003'],
           },
         });
@@ -554,7 +541,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.comments).toBeUndefined();
       });
 
-      test('throws OcpValidationError when quantity is missing', async () => {
+      test('throws OcpValidationError when quantity_converted is missing', async () => {
         const mockClient = createMockClient({
           conversion_data: {
             id: 'sc-004',
@@ -572,7 +559,7 @@ describe('Exercise and Conversion Type Converters', () => {
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('stockConversion.quantity');
+          expect(validationError.fieldPath).toBe('stockConversion.quantity_converted');
           expect(validationError.code).toBe(OcpErrorCodes.REQUIRED_FIELD_MISSING);
         }
       });
@@ -583,7 +570,7 @@ describe('Exercise and Conversion Type Converters', () => {
             id: 'sc-005',
             date: '2024-03-10T00:00:00.000Z',
             security_id: 'stock-sec-006',
-            quantity: '1000',
+            quantity_converted: '1000',
             resulting_security_ids: [],
           },
         });

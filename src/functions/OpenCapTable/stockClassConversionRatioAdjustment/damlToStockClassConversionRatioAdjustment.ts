@@ -3,7 +3,7 @@
  */
 
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { damlMonetaryToNative, normalizeNumericString } from '../../../utils/typeConversions';
 
 /** DAML StockClassConversionRatioAdjustmentOcfData structure */
 export interface DamlStockClassConversionRatioAdjustmentData {
@@ -42,8 +42,20 @@ export function damlStockClassConversionRatioAdjustmentToNative(
     id: d.id,
     date: d.date.split('T')[0],
     stock_class_id: d.stock_class_id,
-    new_ratio_numerator: normalizeNumericString(numeratorStr),
-    new_ratio_denominator: normalizeNumericString(denominatorStr),
+    new_ratio_conversion_mechanism: {
+      type: 'RATIO_CONVERSION',
+      conversion_price: damlMonetaryToNative(d.new_ratio_conversion_mechanism.conversion_price),
+      ratio: {
+        numerator: normalizeNumericString(numeratorStr),
+        denominator: normalizeNumericString(denominatorStr),
+      },
+      rounding_type:
+        d.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingCeiling'
+          ? 'CEILING'
+          : d.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingFloor'
+            ? 'FLOOR'
+            : 'NORMAL',
+    },
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };
 }

@@ -7,6 +7,7 @@ import type { OcfEquityCompensationRelease } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
+  monetaryToDaml,
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
@@ -30,9 +31,9 @@ export function equityCompensationReleaseDataToDaml(d: OcfEquityCompensationRele
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
+    release_price: monetaryToDaml(d.release_price),
+    settlement_date: dateStringToDAMLTime(d.settlement_date),
     resulting_security_ids: d.resulting_security_ids,
-    balance_security_id: optionalString(d.balance_security_id),
-    settlement_date: d.settlement_date ? dateStringToDAMLTime(d.settlement_date) : null,
     consideration_text: optionalString(d.consideration_text),
     comments: cleanComments(d.comments),
   };

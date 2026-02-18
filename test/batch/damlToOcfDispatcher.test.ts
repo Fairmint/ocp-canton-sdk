@@ -80,6 +80,158 @@ describe('damlToOcf dispatcher', () => {
       expect(result).toEqual({ id: 'acc-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1' });
     });
 
+    it('extracts stakeholderRelationshipChangeEvent data from canonical event_data key', () => {
+      const createArgument = {
+        event_data: {
+          id: 'rce-1',
+          date: '2025-01-01T00:00:00Z',
+          stakeholder_id: 'sh-1',
+          relationship_started: 'OcfRelAdvisor',
+          relationship_ended: null,
+          comments: [],
+        },
+      };
+
+      const result = extractEntityData('stakeholderRelationshipChangeEvent', createArgument);
+      expect(result).toEqual({
+        id: 'rce-1',
+        date: '2025-01-01T00:00:00Z',
+        stakeholder_id: 'sh-1',
+        relationship_started: 'OcfRelAdvisor',
+        relationship_ended: null,
+        comments: [],
+      });
+    });
+
+    it('extracts stakeholderStatusChangeEvent data from canonical event_data key', () => {
+      const createArgument = {
+        event_data: {
+          id: 'sce-1',
+          date: '2025-01-01T00:00:00Z',
+          stakeholder_id: 'sh-1',
+          new_status: 'OcfStakeholderStatusActive',
+          comments: [],
+        },
+      };
+
+      const result = extractEntityData('stakeholderStatusChangeEvent', createArgument);
+      expect(result).toEqual({
+        id: 'sce-1',
+        date: '2025-01-01T00:00:00Z',
+        stakeholder_id: 'sh-1',
+        new_status: 'OcfStakeholderStatusActive',
+        comments: [],
+      });
+    });
+
+    it('extracts vestingStart data from canonical vesting_data key', () => {
+      const createArgument = {
+        vesting_data: { id: 'vs-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1', vesting_condition_id: 'vc-1' },
+      };
+
+      const result = extractEntityData('vestingStart', createArgument);
+      expect(result).toEqual({
+        id: 'vs-1',
+        date: '2025-01-01T00:00:00Z',
+        security_id: 'sec-1',
+        vesting_condition_id: 'vc-1',
+      });
+    });
+
+    it('extracts vestingStart data from legacy vesting_start_data key', () => {
+      const createArgument = {
+        vesting_start_data: {
+          id: 'vs-legacy-1',
+          date: '2025-01-01T00:00:00Z',
+          security_id: 'sec-1',
+          vesting_condition_id: 'vc-1',
+        },
+      };
+
+      const result = extractEntityData('vestingStart', createArgument);
+      expect(result).toEqual({
+        id: 'vs-legacy-1',
+        date: '2025-01-01T00:00:00Z',
+        security_id: 'sec-1',
+        vesting_condition_id: 'vc-1',
+      });
+    });
+
+    it('extracts vestingEvent data from canonical vesting_data key', () => {
+      const createArgument = {
+        vesting_data: { id: 've-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1', vesting_condition_id: 'vc-1' },
+      };
+
+      const result = extractEntityData('vestingEvent', createArgument);
+      expect(result).toEqual({
+        id: 've-1',
+        date: '2025-01-01T00:00:00Z',
+        security_id: 'sec-1',
+        vesting_condition_id: 'vc-1',
+      });
+    });
+
+    it('extracts vestingEvent data from legacy vesting_event_data key', () => {
+      const createArgument = {
+        vesting_event_data: {
+          id: 've-legacy-1',
+          date: '2025-01-01T00:00:00Z',
+          security_id: 'sec-1',
+          vesting_condition_id: 'vc-1',
+        },
+      };
+
+      const result = extractEntityData('vestingEvent', createArgument);
+      expect(result).toEqual({
+        id: 've-legacy-1',
+        date: '2025-01-01T00:00:00Z',
+        security_id: 'sec-1',
+        vesting_condition_id: 'vc-1',
+      });
+    });
+
+    it('extracts vestingAcceleration data from canonical acceleration_data key', () => {
+      const createArgument = {
+        acceleration_data: {
+          id: 'va-1',
+          date: '2025-01-01T00:00:00Z',
+          security_id: 'sec-1',
+          quantity: '10',
+          reason_text: 'Acceleration trigger',
+        },
+      };
+
+      const result = extractEntityData('vestingAcceleration', createArgument);
+      expect(result).toEqual({
+        id: 'va-1',
+        date: '2025-01-01T00:00:00Z',
+        security_id: 'sec-1',
+        quantity: '10',
+        reason_text: 'Acceleration trigger',
+      });
+    });
+
+    it('extracts vestingAcceleration data from legacy vesting_acceleration_data key', () => {
+      const createArgument = {
+        vesting_acceleration_data: {
+          id: 'va-legacy-1',
+          date: '2025-01-01T00:00:00Z',
+          security_id: 'sec-1',
+          quantity: '10',
+          reason_text: 'Acceleration trigger',
+        },
+      };
+
+      const result = extractEntityData('vestingAcceleration', createArgument);
+      expect(result).toEqual({
+        id: 'va-legacy-1',
+        date: '2025-01-01T00:00:00Z',
+        security_id: 'sec-1',
+        quantity: '10',
+        reason_text: 'Acceleration trigger',
+      });
+    });
+
     it('throws when createArgument is not an object', () => {
       expect(() => extractEntityData('stakeholder', null)).toThrow(OcpParseError);
       expect(() => extractEntityData('stakeholder', 'string')).toThrow(OcpParseError);
@@ -130,6 +282,12 @@ describe('damlToOcf dispatcher', () => {
       expect(ENTITY_DATA_FIELD_MAP.convertibleAcceptance).toBe('acceptance_data');
       expect(ENTITY_DATA_FIELD_MAP.warrantAcceptance).toBe('acceptance_data');
       expect(ENTITY_DATA_FIELD_MAP.equityCompensationAcceptance).toBe('acceptance_data');
+    });
+
+    it('maps vesting types to deployed DAML wrapper keys', () => {
+      expect(ENTITY_DATA_FIELD_MAP.vestingStart).toBe('vesting_data');
+      expect(ENTITY_DATA_FIELD_MAP.vestingEvent).toBe('vesting_data');
+      expect(ENTITY_DATA_FIELD_MAP.vestingAcceleration).toBe('acceleration_data');
     });
   });
 
@@ -314,9 +472,10 @@ describe('damlToOcf dispatcher', () => {
 
         expect(result.id).toBe('split-1');
         expect(result.stock_class_id).toBe('sc-1');
-        // Split ratio is flattened to separate fields
-        expect(result.split_ratio_numerator).toBe('2');
-        expect(result.split_ratio_denominator).toBe('1');
+        expect((result as { split_ratio: { numerator: string; denominator: string } }).split_ratio).toEqual({
+          numerator: '2',
+          denominator: '1',
+        });
       });
     });
 

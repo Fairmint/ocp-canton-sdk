@@ -3,7 +3,9 @@
  */
 
 import type { OcfEquityCompensationRelease } from '../../../types';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+
+type DamlMonetary = Parameters<typeof damlMonetaryToNative>[0];
 
 /**
  * DAML EquityCompensationRelease data structure.
@@ -14,9 +16,9 @@ export interface DamlEquityCompensationReleaseData {
   date: string;
   security_id: string;
   quantity: string;
+  release_price: DamlMonetary;
   resulting_security_ids: string[];
-  balance_security_id?: string | null;
-  settlement_date?: string | null;
+  settlement_date: string;
   consideration_text?: string | null;
   comments: string[];
 }
@@ -35,9 +37,9 @@ export function damlEquityCompensationReleaseToNative(
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
+    release_price: damlMonetaryToNative(d.release_price),
+    settlement_date: damlTimeToDateString(d.settlement_date),
     resulting_security_ids: d.resulting_security_ids,
-    ...(d.balance_security_id && { balance_security_id: d.balance_security_id }),
-    ...(d.settlement_date && { settlement_date: damlTimeToDateString(d.settlement_date) }),
     ...(d.consideration_text && { consideration_text: d.consideration_text }),
     ...(d.comments.length > 0 && { comments: d.comments }),
   };

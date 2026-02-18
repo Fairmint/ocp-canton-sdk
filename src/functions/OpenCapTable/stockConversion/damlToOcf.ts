@@ -13,7 +13,7 @@ export interface DamlStockConversionData {
   id: string;
   date: string;
   security_id: string;
-  quantity: string;
+  quantity_converted: string;
   resulting_security_ids: string[];
   balance_security_id?: string | null;
   comments: string[];
@@ -30,7 +30,7 @@ export function damlStockConversionToNative(d: DamlStockConversionData): OcfStoc
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,
-    quantity: normalizeNumericString(d.quantity),
+    quantity_converted: normalizeNumericString(d.quantity_converted),
     resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id && { balance_security_id: d.balance_security_id }),
     ...(d.comments.length > 0 && { comments: d.comments }),

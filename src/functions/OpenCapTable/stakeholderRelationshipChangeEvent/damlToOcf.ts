@@ -17,7 +17,8 @@ export interface DamlStakeholderRelationshipChangeData {
   id: string;
   date: string;
   stakeholder_id: string;
-  new_relationships: string[];
+  relationship_started: DamlStakeholderRelationshipType | null;
+  relationship_ended: DamlStakeholderRelationshipType | null;
   comments?: string[];
 }
 
@@ -31,12 +32,14 @@ export function damlStakeholderRelationshipChangeEventToNative(
   d: DamlStakeholderRelationshipChangeData
 ): OcfStakeholderRelationshipChangeEvent {
   return {
+    object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: d.id,
     date: damlTimeToDateString(d.date),
     stakeholder_id: d.stakeholder_id,
-    new_relationships: d.new_relationships.map((rel) =>
-      damlStakeholderRelationshipToNative(rel as DamlStakeholderRelationshipType)
-    ),
+    ...(d.relationship_started
+      ? { relationship_started: damlStakeholderRelationshipToNative(d.relationship_started) }
+      : {}),
+    ...(d.relationship_ended ? { relationship_ended: damlStakeholderRelationshipToNative(d.relationship_ended) } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }
