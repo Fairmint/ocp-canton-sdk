@@ -1115,4 +1115,80 @@ describe('PlanSecurity alias utilities', () => {
       });
     });
   });
+
+  describe('vesting terms defaults', () => {
+    const makeVestingTerms = (overrides: Record<string, unknown> = {}) => ({
+      object_type: 'VESTING_TERMS',
+      id: 'vt-001',
+      name: 'Standard Vesting',
+      description: '4-year vesting with cliff',
+      allocation_type: 'CUMULATIVE_ROUNDING',
+      vesting_conditions: [
+        {
+          id: 'start',
+          trigger: { type: 'VESTING_START_DATE' },
+          next_condition_ids: ['cliff'],
+        },
+        {
+          id: 'cliff',
+          portion: { numerator: '12', denominator: '48', remainder: false },
+          trigger: { type: 'VESTING_SCHEDULE_RELATIVE' },
+          next_condition_ids: ['monthly'],
+        },
+        {
+          id: 'monthly',
+          portion: { numerator: '1', denominator: '48', remainder: false },
+          trigger: { type: 'VESTING_SCHEDULE_RELATIVE' },
+          next_condition_ids: [],
+        },
+      ],
+      comments: [],
+      ...overrides,
+    });
+
+    it('strips remainder: false from vesting condition portions', () => {
+      const result = normalizeOcfData(makeVestingTerms());
+      const conditions = result.vesting_conditions as Array<{ portion?: Record<string, unknown> }>;
+      expect(conditions[1].portion).toBeDefined();
+      expect('remainder' in conditions[1].portion!).toBe(false);
+      expect(conditions[2].portion).toBeDefined();
+      expect('remainder' in conditions[2].portion!).toBe(false);
+    });
+
+    it('preserves remainder: true', () => {
+      const input = makeVestingTerms({
+        vesting_conditions: [
+          {
+            id: 'vc-1',
+            portion: { numerator: '1', denominator: '4', remainder: true },
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: [],
+          },
+        ],
+      });
+      const result = normalizeOcfData(input);
+      const conditions = result.vesting_conditions as Array<{ portion?: Record<string, unknown> }>;
+      expect(conditions[0].portion!.remainder).toBe(true);
+    });
+
+    it('strips empty comments array', () => {
+      const result = normalizeOcfData(makeVestingTerms({ comments: [] }));
+      expect('comments' in result).toBe(false);
+    });
+
+    it('preserves non-empty comments', () => {
+      const result = normalizeOcfData(makeVestingTerms({ comments: ['Board note'] }));
+      expect(result.comments).toEqual(['Board note']);
+    });
+
+    it('does not affect non-VESTING_TERMS objects', () => {
+      const stakeholder = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        comments: [],
+      };
+      const result = normalizeOcfData(stakeholder);
+      expect(result.comments).toEqual([]);
+    });
+  });
 });

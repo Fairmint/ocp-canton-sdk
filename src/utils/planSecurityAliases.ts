@@ -905,7 +905,42 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
   result = normalizeStakeholderRelationshipChangeEvent(result);
   result = normalizeStakeholderStatusChangeEvent(result);
 
+  result = normalizeVestingTermsDefaults(result);
+
   result = deepNormalizeNumericStrings(result);
 
   return result as T;
+}
+
+/**
+ * Strip OCF schema-default values from VESTING_TERMS objects so that both DB-sourced
+ * and Canton-sourced manifests compare identically after normalization.
+ *
+ * - `portion.remainder` defaults to `false` in the OCF schema; omitting it is equivalent.
+ * - `comments` defaults to absent; an empty array is equivalent to omission.
+ */
+function normalizeVestingTermsDefaults(data: Record<string, unknown>): Record<string, unknown> {
+  if (data.object_type !== 'VESTING_TERMS') return data;
+  const result = { ...data };
+
+  if (Array.isArray(result.comments) && (result.comments as unknown[]).length === 0) {
+    delete result.comments;
+  }
+
+  if (Array.isArray(result.vesting_conditions)) {
+    result.vesting_conditions = (result.vesting_conditions as Array<Record<string, unknown>>).map((vc) => {
+      const condition = { ...vc };
+      const { portion } = condition;
+      if (portion && typeof portion === 'object' && !Array.isArray(portion)) {
+        const p = { ...(portion as Record<string, unknown>) };
+        if (p.remainder === false) {
+          delete p.remainder;
+        }
+        condition.portion = p;
+      }
+      return condition;
+    });
+  }
+
+  return result;
 }
