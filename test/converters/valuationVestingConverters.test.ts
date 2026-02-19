@@ -31,6 +31,7 @@ import {
   type DamlVestingStartData,
 } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
 import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
+import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import type {
   OcfValuation,
   OcfVestingAcceleration,
@@ -584,6 +585,121 @@ describe('VestingAcceleration Converters', () => {
       expect(roundTrippedOcf.reason_text).toBe(originalOcf.reason_text);
       expect(roundTrippedOcf.comments).toEqual(originalOcf.comments);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Drift regression: remainder / comments defaults (reproduces Slack alerts)
+// ---------------------------------------------------------------------------
+
+describe('VestingTerms drift regression', () => {
+  /**
+   * Minimal DAML-shaped vesting terms payload for testing damlVestingTermsDataToNative.
+   * Mirrors the structure returned by the Canton Ledger JSON API.
+   */
+  function makeDamlVestingTerms(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'vt-drift-001',
+      name: 'Standard Vesting',
+      description: '4-year vesting with cliff',
+      allocation_type: 'OcfAllocationCumulativeRounding',
+      vesting_conditions: [
+        {
+          id: 'start',
+          description: null,
+          quantity: null,
+          portion: {
+            numerator: '1',
+            denominator: '4',
+            remainder: false,
+          },
+          trigger: 'OcfVestingStartTrigger',
+          next_condition_ids: [],
+        },
+      ],
+      comments: [],
+      ...overrides,
+    } as unknown as Parameters<typeof damlVestingTermsDataToNative>[0];
+  }
+
+  test('strips remainder: false (schema default) from portion', () => {
+    const result = damlVestingTermsDataToNative(makeDamlVestingTerms());
+    expect(result.vesting_conditions[0].portion).toBeDefined();
+    expect(result.vesting_conditions[0].portion!.numerator).toBe('1');
+    expect(result.vesting_conditions[0].portion!.denominator).toBe('4');
+    expect(result.vesting_conditions[0].portion!.remainder).toBeUndefined();
+    expect('remainder' in result.vesting_conditions[0].portion!).toBe(false);
+  });
+
+  test('preserves remainder: true', () => {
+    const daml = makeDamlVestingTerms();
+    (
+      daml as unknown as { vesting_conditions: Array<{ portion: { remainder: boolean } }> }
+    ).vesting_conditions[0].portion.remainder = true;
+    const result = damlVestingTermsDataToNative(daml);
+    expect(result.vesting_conditions[0].portion!.remainder).toBe(true);
+  });
+
+  test('strips empty comments array', () => {
+    const result = damlVestingTermsDataToNative(makeDamlVestingTerms({ comments: [] }));
+    expect(result.comments).toBeUndefined();
+    expect('comments' in result).toBe(false);
+  });
+
+  test('preserves non-empty comments', () => {
+    const result = damlVestingTermsDataToNative(makeDamlVestingTerms({ comments: ['Board note'] }));
+    expect(result.comments).toEqual(['Board note']);
+  });
+
+  test('round-trip OCF → DAML → OCF preserves omitted remainder', () => {
+    const ocfInput: OcfVestingTerms = {
+      id: 'vt-rt-001',
+      name: 'Standard Vesting',
+      description: '4-year vesting with cliff',
+      allocation_type: 'CUMULATIVE_ROUNDING',
+      vesting_conditions: [
+        {
+          id: 'start',
+          portion: { numerator: '1', denominator: '4' },
+          trigger: { type: 'VESTING_START_DATE' },
+          next_condition_ids: [],
+        },
+      ],
+    };
+
+    const damlData = convertToDaml('vestingTerms', ocfInput);
+    const roundTripped = damlVestingTermsDataToNative(
+      damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
+    );
+
+    expect(roundTripped.vesting_conditions[0].portion).toBeDefined();
+    expect(roundTripped.vesting_conditions[0].portion!.remainder).toBeUndefined();
+    expect('remainder' in roundTripped.vesting_conditions[0].portion!).toBe(false);
+  });
+
+  test('round-trip OCF → DAML → OCF preserves omitted comments', () => {
+    const ocfInput: OcfVestingTerms = {
+      id: 'vt-rt-002',
+      name: 'Standard Vesting',
+      description: '4-year vesting with cliff',
+      allocation_type: 'CUMULATIVE_ROUNDING',
+      vesting_conditions: [
+        {
+          id: 'start',
+          portion: { numerator: '1', denominator: '4' },
+          trigger: { type: 'VESTING_START_DATE' },
+          next_condition_ids: [],
+        },
+      ],
+    };
+
+    const damlData = convertToDaml('vestingTerms', ocfInput);
+    const roundTripped = damlVestingTermsDataToNative(
+      damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
+    );
+
+    expect(roundTripped.comments).toBeUndefined();
+    expect('comments' in roundTripped).toBe(false);
   });
 });
 

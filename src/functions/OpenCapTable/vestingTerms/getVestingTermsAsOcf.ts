@@ -256,7 +256,7 @@ function damlVestingConditionPortionToNative(
   return {
     numerator: normalizeNumericString(p.numerator),
     denominator: normalizeNumericString(p.denominator),
-    remainder: p.remainder,
+    ...(p.remainder ? { remainder: p.remainder } : {}),
   };
 }
 
@@ -313,15 +313,17 @@ export function damlVestingTermsDataToNative(
     });
   }
 
+  const comments = Array.isArray((d as unknown as { comments?: unknown }).comments)
+    ? (d as unknown as { comments: string[] }).comments
+    : [];
+
   return {
     id: dataWithId.id,
     name: d.name,
     description: d.description,
     allocation_type: damlAllocationTypeToNative(d.allocation_type),
     vesting_conditions: d.vesting_conditions.map(damlVestingConditionToNative),
-    comments: Array.isArray((d as unknown as { comments?: unknown }).comments)
-      ? (d as unknown as { comments: string[] }).comments
-      : [],
+    ...(comments.length > 0 ? { comments } : {}),
   };
 }
 
