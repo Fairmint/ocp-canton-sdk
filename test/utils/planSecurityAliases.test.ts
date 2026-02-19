@@ -216,6 +216,96 @@ describe('PlanSecurity alias utilities', () => {
       expect(result).toMatchObject({ current_relationships: ['INVESTOR'] });
     });
 
+    it('strips legacy current_relationship after migrating to current_relationships', () => {
+      const input = {
+        object_type: 'STAKEHOLDER',
+        id: 'sh-1',
+        name: { legal_name: 'Bella Hadid' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'INVESTOR',
+      };
+
+      const result = normalizeOcfData(input) as Record<string, unknown>;
+
+      expect(result.current_relationships).toEqual(['INVESTOR']);
+      expect(result).not.toHaveProperty('current_relationship');
+    });
+
+    it('produces identical output for DB-style and Canton-style stakeholders (Diamond drift)', () => {
+      const dbStyle = {
+        object_type: 'STAKEHOLDER',
+        id: 'stk-001',
+        name: { legal_name: 'Victor Mangini' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'INVESTOR',
+      };
+      const cantonStyle = {
+        object_type: 'STAKEHOLDER',
+        id: 'stk-001',
+        name: { legal_name: 'Victor Mangini' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['INVESTOR'],
+      };
+
+      const dbResult = normalizeOcfData(dbStyle);
+      const cantonResult = normalizeOcfData(cantonStyle);
+
+      expect(JSON.stringify(dbResult)).toBe(JSON.stringify(cantonResult));
+    });
+
+    it('produces identical output for multiple INVESTOR stakeholders (Fairbnb drift)', () => {
+      const stakeholders = [
+        { name: 'Stakeholder A', rel: 'INVESTOR' },
+        { name: 'Stakeholder B', rel: 'INVESTOR' },
+        { name: 'Stakeholder C', rel: 'FOUNDER' },
+        { name: 'Stakeholder D', rel: 'INVESTOR' },
+      ];
+
+      for (const { name, rel } of stakeholders) {
+        const dbStyle = {
+          object_type: 'STAKEHOLDER' as const,
+          id: `stk-${name}`,
+          name: { legal_name: name },
+          stakeholder_type: 'INDIVIDUAL',
+          current_relationship: rel,
+        };
+        const cantonStyle = {
+          object_type: 'STAKEHOLDER' as const,
+          id: `stk-${name}`,
+          name: { legal_name: name },
+          stakeholder_type: 'INDIVIDUAL',
+          current_relationships: [rel],
+        };
+
+        const dbResult = normalizeOcfData(dbStyle);
+        const cantonResult = normalizeOcfData(cantonStyle);
+
+        expect(JSON.stringify(dbResult)).toBe(JSON.stringify(cantonResult));
+      }
+    });
+
+    it('produces identical output for FOUNDER relationship (Protelicious drift)', () => {
+      const dbStyle = {
+        object_type: 'STAKEHOLDER',
+        id: 'stk-founder',
+        name: { legal_name: 'William Strat' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationship: 'FOUNDER',
+      };
+      const cantonStyle = {
+        object_type: 'STAKEHOLDER',
+        id: 'stk-founder',
+        name: { legal_name: 'William Strat' },
+        stakeholder_type: 'INDIVIDUAL',
+        current_relationships: ['FOUNDER'],
+      };
+
+      const dbResult = normalizeOcfData(dbStyle);
+      const cantonResult = normalizeOcfData(cantonStyle);
+
+      expect(JSON.stringify(dbResult)).toBe(JSON.stringify(cantonResult));
+    });
+
     it('keeps explicit stakeholder current_relationships authoritative over legacy field', async () => {
       const input = {
         object_type: 'STAKEHOLDER',
