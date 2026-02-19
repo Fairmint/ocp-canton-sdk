@@ -157,7 +157,7 @@ export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
 
 export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.Monetary.OcfMonetary {
   return {
-    amount: monetary.amount,
+    amount: normalizeNumericString(monetary.amount),
     currency: monetary.currency,
   };
 }

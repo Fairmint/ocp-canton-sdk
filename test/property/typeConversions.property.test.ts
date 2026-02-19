@@ -286,9 +286,9 @@ describe('Property-based tests: Type Conversions', () => {
     });
 
     /**
-     * Monetary with string amounts: Should pass through string amounts.
+     * Monetary with string amounts: Should normalize string amounts (strip trailing zeros).
      */
-    test('preserves string amounts', () => {
+    test('normalizes string amounts', () => {
       fc.assert(
         fc.property(
           fc.record({
@@ -297,7 +297,7 @@ describe('Property-based tests: Type Conversions', () => {
           }),
           (monetary) => {
             const daml = monetaryToDaml(monetary);
-            expect(daml.amount).toBe(monetary.amount);
+            expect(daml.amount).toBe(normalizeNumericString(monetary.amount));
             expect(daml.currency).toBe(monetary.currency);
           }
         ),

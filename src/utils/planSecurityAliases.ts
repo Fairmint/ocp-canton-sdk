@@ -789,6 +789,40 @@ function normalizeStockReissuanceSplitTransactionId<T extends Record<string, unk
   return rest as T;
 }
 
+/** Matches a well-formed decimal number (no backtracking risk). */
+const DECIMAL_NUMBER_PATTERN = /^-?\d+\.\d+$/;
+
+function hasTrailingDecimalZeros(value: string): boolean {
+  return value.endsWith('0') && DECIMAL_NUMBER_PATTERN.test(value);
+}
+
+/**
+ * Recursively normalize numeric strings with trailing zeros in an OCF data object.
+ *
+ * Strips trailing zeros from decimal strings (e.g., "100000.00" -> "100000",
+ * "0.10" -> "0.1") so semantically equivalent values compare as equal regardless
+ * of source formatting.
+ *
+ * Only modifies string values that are decimal numbers ending in '0'.
+ * Non-numeric strings (IDs, dates, enums, names) are never touched.
+ */
+export function deepNormalizeNumericStrings<T>(value: T): T {
+  if (typeof value === 'string' && hasTrailingDecimalZeros(value)) {
+    return normalizeNumericString(value) as T;
+  }
+  if (Array.isArray(value)) {
+    const mapped = value.map(deepNormalizeNumericStrings);
+    return (mapped.some((item, i) => item !== value[i]) ? mapped : value) as T;
+  }
+  if (typeof value === 'object' && value !== null) {
+    const entries = Object.entries(value as Record<string, unknown>);
+    const normalized = entries.map(([k, v]) => [k, deepNormalizeNumericStrings(v)] as const);
+    if (normalized.every(([, v], i) => v === entries[i][1])) return value;
+    return Object.fromEntries(normalized) as T;
+  }
+  return value;
+}
+
 /**
  * Normalize OCF data for consistent comparison.
  *
@@ -802,6 +836,7 @@ function normalizeStockReissuanceSplitTransactionId<T extends Record<string, unk
  * 7. Canonicalizes StockConversion quantity (`quantity` -> `quantity_converted`)
  * 8. Canonicalizes StockClassSplit legacy ratio fields
  * 9. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
+ * 10. Normalizes numeric string formatting (strips trailing zeros from decimals)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -868,6 +903,8 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
   // This ordering ensures TX_STAKEHOLDER_* aliases are converted before field upgrades.
   result = normalizeStakeholderRelationshipChangeEvent(result);
   result = normalizeStakeholderStatusChangeEvent(result);
+
+  result = deepNormalizeNumericStrings(result);
 
   return result as T;
 }

@@ -682,6 +682,313 @@ describe('PlanSecurity alias utilities', () => {
 
       expect(result).not.toHaveProperty('split_transaction_id');
     });
+
+    describe('normalizeOcfData - numeric string normalization', () => {
+      describe('trailing zero stripping', () => {
+        it('strips trailing zeros from nested monetary amount', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'x',
+            investment_amount: { amount: '100000.00', currency: 'USD' },
+          } as Record<string, unknown>);
+          expect((result.investment_amount as Record<string, unknown>).amount).toBe('100000');
+        });
+
+        it('normalizes "0.00" to "0"', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'x',
+            some_rate: '0.00',
+          } as Record<string, unknown>);
+          expect(result.some_rate).toBe('0');
+        });
+
+        it('normalizes "0.10" to "0.1"', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'x',
+            some_rate: '0.10',
+          } as Record<string, unknown>);
+          expect(result.some_rate).toBe('0.1');
+        });
+
+        it('normalizes "1.00" to "1"', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'x',
+            value: '1.00',
+          } as Record<string, unknown>);
+          expect(result.value).toBe('1');
+        });
+
+        it('normalizes "123.4500" to "123.45"', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'x',
+            value: '123.4500',
+          } as Record<string, unknown>);
+          expect(result.value).toBe('123.45');
+        });
+
+        it('normalizes negative decimal "-100.00" to "-100"', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'x',
+            value: '-100.00',
+          } as Record<string, unknown>);
+          expect(result.value).toBe('-100');
+        });
+
+        it('normalizes negative decimal "-0.10" to "-0.1"', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'x',
+            value: '-0.10',
+          } as Record<string, unknown>);
+          expect(result.value).toBe('-0.1');
+        });
+
+        it('normalizes "0.0" to "0"', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'x',
+            value: '0.0',
+          } as Record<string, unknown>);
+          expect(result.value).toBe('0');
+        });
+      });
+
+      describe('already-normalized values unchanged', () => {
+        it('leaves integer string "100000" unchanged', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'x',
+            quantity: '100000',
+          } as Record<string, unknown>);
+          expect(result.quantity).toBe('100000');
+        });
+
+        it('leaves "0.1" unchanged', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'x',
+            rate: '0.1',
+          } as Record<string, unknown>);
+          expect(result.rate).toBe('0.1');
+        });
+
+        it('leaves "123.456" unchanged', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'x',
+            amount: '123.456',
+          } as Record<string, unknown>);
+          expect(result.amount).toBe('123.456');
+        });
+
+        it('leaves "0" unchanged', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'x',
+            value: '0',
+          } as Record<string, unknown>);
+          expect(result.value).toBe('0');
+        });
+      });
+
+      describe('non-numeric strings not touched', () => {
+        it('does not touch IDs or names', () => {
+          const result = normalizeOcfData({
+            object_type: 'STAKEHOLDER',
+            id: 'stk_000001',
+            name: { legal_name: 'Alice Doe' },
+            stakeholder_type: 'INDIVIDUAL',
+          } as Record<string, unknown>);
+          expect(result.id).toBe('stk_000001');
+          expect((result.name as Record<string, unknown>).legal_name).toBe('Alice Doe');
+        });
+
+        it('does not touch date strings', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'x',
+            date: '2024-01-15',
+          } as Record<string, unknown>);
+          expect(result.date).toBe('2024-01-15');
+        });
+
+        it('does not touch enum strings', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'x',
+            status: 'ACTIVE',
+          } as Record<string, unknown>);
+          expect(result.status).toBe('ACTIVE');
+        });
+
+        it('does not touch IDs or empty strings', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'abc-123-def',
+            custom_id: '',
+          } as Record<string, unknown>);
+          expect(result.id).toBe('abc-123-def');
+          expect(result.custom_id).toBe('');
+        });
+      });
+
+      describe('nested object and array normalization', () => {
+        it('normalizes nested monetary amount but leaves currency', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'x',
+            investment_amount: { amount: '100000.00', currency: 'USD' },
+          } as Record<string, unknown>);
+          const investmentAmount = result.investment_amount as Record<string, unknown>;
+          expect(investmentAmount.amount).toBe('100000');
+          expect(investmentAmount.currency).toBe('USD');
+        });
+
+        it('normalizes values inside arrays of objects', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'x',
+            items: [{ rate: '0.10' }, { rate: '5.00' }],
+          } as Record<string, unknown>);
+          const items = result.items as Array<Record<string, unknown>>;
+          expect(items[0].rate).toBe('0.1');
+          expect(items[1].rate).toBe('5');
+        });
+
+        it('normalizes values three levels deep', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'x',
+            conversion_triggers: [
+              {
+                conversion_right: {
+                  conversion_mechanism: {
+                    interest_rates: [{ rate: '0.10' }],
+                  },
+                },
+              },
+            ],
+          } as Record<string, unknown>);
+          const triggers = result.conversion_triggers as Array<Record<string, unknown>>;
+          const right = triggers[0].conversion_right as Record<string, unknown>;
+          const mechanism = right.conversion_mechanism as Record<string, unknown>;
+          const rates = mechanism.interest_rates as Array<Record<string, unknown>>;
+          expect(rates[0].rate).toBe('0.1');
+        });
+      });
+
+      describe('real-world OCF object scenarios', () => {
+        it('normalizes a convertible issuance with nested interest rates', () => {
+          const input = {
+            object_type: 'TX_CONVERTIBLE_ISSUANCE',
+            id: 'ci-001',
+            date: '2024-01-15',
+            security_id: 'sec-001',
+            stakeholder_id: 'stk-001',
+            investment_amount: { amount: '100000.00', currency: 'USD' },
+            conversion_triggers: [
+              {
+                trigger_id: 'trig-1',
+                conversion_right: {
+                  conversion_mechanism: {
+                    type: 'CONVERTIBLE_NOTE_CONVERSION',
+                    interest_rates: [
+                      { rate: '0.00', accrual_start_date: '2024-01-15' },
+                      { rate: '0.10', accrual_start_date: '2024-06-15' },
+                    ],
+                  },
+                },
+              },
+            ],
+          } as Record<string, unknown>;
+
+          const result = normalizeOcfData(input);
+
+          expect((result.investment_amount as Record<string, unknown>).amount).toBe('100000');
+          const triggers = result.conversion_triggers as Array<Record<string, unknown>>;
+          const right = triggers[0].conversion_right as Record<string, unknown>;
+          const mechanism = right.conversion_mechanism as Record<string, unknown>;
+          const rates = mechanism.interest_rates as Array<Record<string, unknown>>;
+          expect(rates[0].rate).toBe('0');
+          expect(rates[0].accrual_start_date).toBe('2024-01-15');
+          expect(rates[1].rate).toBe('0.1');
+          expect(rates[1].accrual_start_date).toBe('2024-06-15');
+          expect(result.date).toBe('2024-01-15');
+          expect(result.id).toBe('ci-001');
+          expect(result.security_id).toBe('sec-001');
+          expect(result.stakeholder_id).toBe('stk-001');
+        });
+
+        it('applies relationship normalization without touching non-numeric fields', () => {
+          const input = {
+            object_type: 'STAKEHOLDER',
+            id: 'stk_000001',
+            name: { legal_name: 'Alice Doe' },
+            stakeholder_type: 'INDIVIDUAL',
+            current_relationship: 'INVESTOR',
+          } as Record<string, unknown>;
+
+          const result = normalizeOcfData(input);
+
+          expect(result.id).toBe('stk_000001');
+          expect((result.name as Record<string, unknown>).legal_name).toBe('Alice Doe');
+          expect(result.current_relationships).toEqual(['INVESTOR']);
+          expect(result.stakeholder_type).toBe('INDIVIDUAL');
+        });
+      });
+
+      describe('edge cases', () => {
+        it('preserves null values', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'x',
+            optional_field: null,
+          } as Record<string, unknown>);
+          expect(result.optional_field).toBeNull();
+        });
+
+        it('does not touch boolean values', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'x',
+            flag: true,
+          } as Record<string, unknown>);
+          expect(result.flag).toBe(true);
+        });
+
+        it('does not touch number values', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'x',
+            count: 42,
+          } as Record<string, unknown>);
+          expect(result.count).toBe(42);
+        });
+
+        it('passes through empty objects', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'x',
+            metadata: {},
+          } as Record<string, unknown>);
+          expect(result.metadata).toEqual({});
+        });
+
+        it('passes through empty arrays', () => {
+          const result = normalizeOcfData({
+            object_type: 'TX_STOCK_ISSUANCE',
+            id: 'x',
+            items: [],
+          } as Record<string, unknown>);
+          expect(result.items).toEqual([]);
+        });
+      });
+    });
   });
 
   describe('alias mappings', () => {
