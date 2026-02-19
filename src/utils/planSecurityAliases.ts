@@ -555,10 +555,11 @@ function normalizeStakeholderRelationships<T extends Record<string, unknown>>(da
     throw new Error('Invalid stakeholder current_relationship: empty string');
   }
 
+  const { current_relationship: _, ...rest } = data;
   return {
-    ...data,
+    ...rest,
     current_relationships: [legacyRelationship],
-  };
+  } as T;
 }
 
 /**
