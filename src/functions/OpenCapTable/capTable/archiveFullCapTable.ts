@@ -91,7 +91,7 @@ export async function getSystemOperatorPartyId(client: LedgerJsonApiClient, issu
  * Delete all non-issuer entities and archive the CapTable contract.
  *
  * @param deleteClient - LedgerJsonApiClient for entity deletes (must have issuer party credentials, typically 5n)
- * @param archiveClient - LedgerJsonApiClient for archive + system_operator read (must have system_operator credentials, typically intellect)
+ * @param archiveClient - LedgerJsonApiClient for archive (must have system_operator credentials, typically intellect)
  * @param issuerPartyId - The issuer party ID that controls UpdateCapTable
  * @param cantonState - Current cap table state with entity maps
  * @param options - Optional overrides (e.g., pre-resolved systemOperatorPartyId)
@@ -137,7 +137,7 @@ export async function archiveFullCapTable(
 
   // Step 2: Archive the empty CapTable
   const systemOperatorPartyId =
-    options.systemOperatorPartyId ?? (await getSystemOperatorPartyId(archiveClient, issuerPartyId));
+    options.systemOperatorPartyId ?? (await getSystemOperatorPartyId(deleteClient, issuerPartyId));
 
   const { updateId } = await archiveCapTable(archiveClient, {
     capTableContractId: currentCapTableCid,
