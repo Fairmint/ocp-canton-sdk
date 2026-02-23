@@ -82,6 +82,10 @@ function buildCapTableState(overrides: Partial<CapTableState> = {}): CapTableSta
 }
 
 describe('extractCantonOcfManifest', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('stale issuer contract reference', () => {
     it('should not attempt fetch when issuerContractId is stale (not in contractIds)', async () => {
       const state = buildCapTableState({

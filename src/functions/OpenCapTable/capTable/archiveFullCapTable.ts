@@ -24,7 +24,7 @@ import { CapTableBatch } from './CapTableBatch';
 /** Minimal contract state needed for the archive operation. */
 export interface ArchiveCapTableEntities {
   capTableContractId: string;
-  entities: Map<string, Set<string>>;
+  entities: Map<OcfEntityType, Set<string>>;
 }
 
 /** Result of archiving a CapTable. */
@@ -124,7 +124,7 @@ export async function archiveFullCapTable(
     for (const [entityType, ids] of cantonState.entities.entries()) {
       if (entityType === 'issuer') continue;
       for (const ocfId of ids) {
-        batch.delete(entityType as OcfEntityType, ocfId);
+        batch.delete(entityType, ocfId);
       }
     }
 
