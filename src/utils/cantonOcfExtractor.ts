@@ -429,11 +429,16 @@ export async function extractCantonOcfManifest(
     stockLegendTemplates: [],
   };
 
-  // Fetch issuer
-  if (cantonState.issuerContractId) {
+  // Fetch issuer — only if getCapTableState confirmed the contract is alive
+  // (i.e., issuer is present in contractIds). A stale issuerContractId (contract
+  // archived/not visible) is excluded from contractIds by getCapTableState, so
+  // we skip it here to avoid a redundant 404 that would abort extraction.
+  const issuerContractEntry = cantonState.contractIds.get('issuer');
+  if (issuerContractEntry && issuerContractEntry.size > 0) {
+    const [[issuerOcfId, issuerCid]] = issuerContractEntry;
     try {
       const issuerResult = await getIssuerAsOcf(client, {
-        contractId: cantonState.issuerContractId,
+        contractId: issuerCid,
       });
       result.issuer = issuerResult.data as unknown as Record<string, unknown>;
     } catch (error) {
@@ -441,15 +446,18 @@ export async function extractCantonOcfManifest(
       log(`  ⚠️ Failed to fetch issuer: ${msg}`);
       extractionFailures.push({
         entityType: 'issuer',
-        ocfId: 'issuer',
-        contractId: cantonState.issuerContractId,
+        ocfId: issuerOcfId,
+        contractId: issuerCid,
         message: msg,
       });
     }
+  } else if (cantonState.issuerContractId) {
+    log(`  ⚠️ Skipping issuer fetch: contract ${cantonState.issuerContractId} not in contractIds (likely archived)`);
   }
 
-  // Process each entity type from the cap table
+  // Process each entity type from the cap table (issuer handled above)
   for (const [entityType, ocfIdToContractId] of cantonState.contractIds) {
+    if (entityType === 'issuer') continue;
     for (const [ocfId, contractId] of ocfIdToContractId) {
       try {
         // Handle core objects with their specific functions
