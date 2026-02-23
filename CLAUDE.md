@@ -561,6 +561,34 @@ For `stockClassConversionRatioAdjustmentDataToDaml`:
 Do **not** pass these fields through raw. This keeps converter behavior consistent with all other
 OCF→DAML converters and prevents hidden shape/precision drift.
 
+### Stale issuer contract reference (`CONTRACT_EVENTS_NOT_FOUND` during extraction)
+
+**Symptom:** `extractCantonOcfManifest` throws
+`Failed to extract 1 Canton object(s) ... issuer/issuer ... HTTP 404: CONTRACT_EVENTS_NOT_FOUND`
+even though `cantonCount` reports 0 Canton objects.
+
+**Root cause:** The CapTable contract stores the issuer as a single `contractId` in `payload.issuer`
+(not in entity maps like other types). `getCapTableState` handles a stale reference gracefully
+(catches 404, excludes issuer from `entities`/`contractIds`), but `extractCantonOcfManifest` used to
+read `cantonState.issuerContractId` directly, bypassing that validation.
+
+**Fix:** The extractor now only fetches the issuer from `cantonState.contractIds` (validated by
+`getCapTableState`). If the issuer is not in `contractIds`, it logs a warning and skips the fetch.
+
+**Key design rule:** When `getCapTableState` and `extractCantonOcfManifest` both touch the same
+contract reference, the extractor must respect the state validation already performed by
+`getCapTableState` rather than re-reading raw contract IDs.
+
+### Multi-repo SDK sharing (archiveFullCapTable)
+
+When adding functions to `ocp-canton-sdk` that are consumed by both `canton` and `canton-explorer`:
+
+- Accept `LedgerJsonApiClient` (not full `OcpClient`) to maximize reusability across callers
+- Use optional parameters for values callers may already have (e.g., `systemOperatorPartyId` from a
+  DB query vs reading from the live contract)
+- Consumers can't use new SDK exports until the SDK is published — plan multi-repo PRs accordingly
+  (SDK PR merges first, then consumer PRs)
+
 ---
 
 ## Living Document
