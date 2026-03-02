@@ -1,4 +1,4 @@
-import type { ConversionTrigger, OcfStockClass, StockClassConversionRight } from '../../../types';
+import type { ConversionMechanism, ConversionTrigger, OcfStockClass, StockClassConversionRight } from '../../../types';
 import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
@@ -9,9 +9,7 @@ import {
   normalizeNumericString,
 } from '../../../utils/typeConversions';
 
-type StockClassTriggerType = ConversionTrigger | 'ELECTIVE_IN_RANGE' | 'UNSPECIFIED';
-
-function triggerTypeToDamlEnum(t: StockClassTriggerType): string {
+function triggerTypeToDamlEnum(t: ConversionTrigger): string {
   switch (t) {
     case 'AUTOMATIC_ON_CONDITION':
       return 'OcfTriggerTypeTypeAutomaticOnCondition';
@@ -23,19 +21,15 @@ function triggerTypeToDamlEnum(t: StockClassTriggerType): string {
       return 'OcfTriggerTypeTypeElectiveOnCondition';
     case 'ELECTIVE_ON_DATE':
       return 'OcfTriggerTypeTypeElectiveOnDate';
-    case 'ELECTIVE_IN_RANGE':
-      return 'OcfTriggerTypeTypeElectiveInRange';
-    case 'UNSPECIFIED':
-      return 'OcfTriggerTypeTypeUnspecified';
     default: {
       const _exhaustive: never = t;
-      throw new Error(`Unknown stock class conversion trigger type: ${_exhaustive as string}`);
+      throw new Error(`Unknown stock class conversion trigger type: ${String(_exhaustive)}`);
     }
   }
 }
 
 function conversionMechanismToDaml(
-  mechanism: string
+  mechanism: ConversionMechanism
 ):
   | 'OcfConversionMechanismRatioConversion'
   | 'OcfConversionMechanismPercentCapitalizationConversion'
@@ -47,8 +41,10 @@ function conversionMechanismToDaml(
       return 'OcfConversionMechanismPercentCapitalizationConversion';
     case 'FIXED_AMOUNT_CONVERSION':
       return 'OcfConversionMechanismFixedAmountConversion';
-    default:
-      throw new Error(`Unknown stock class conversion mechanism: ${mechanism}`);
+    default: {
+      const _exhaustive: never = mechanism;
+      throw new Error(`Unknown stock class conversion mechanism: ${String(_exhaustive)}`);
+    }
   }
 }
 
@@ -65,7 +61,7 @@ function buildStockClassTrigger(
   stockClassId: string,
   index: number
 ): Record<string, unknown> {
-  const triggerType = right.conversion_trigger as StockClassTriggerType;
+  const triggerType = right.conversion_trigger;
   const typeEnum = triggerTypeToDamlEnum(triggerType);
 
   return {
