@@ -22,7 +22,7 @@ function triggerTypeToDamlEnum(t: StockClassTriggerType): string {
     case 'ELECTIVE_ON_CONDITION':
       return 'OcfTriggerTypeTypeElectiveOnCondition';
     case 'ELECTIVE_ON_DATE':
-      return 'OcfTriggerTypeTypeElectiveAtWill';
+      return 'OcfTriggerTypeTypeElectiveOnDate';
     case 'ELECTIVE_IN_RANGE':
       return 'OcfTriggerTypeTypeElectiveInRange';
     case 'UNSPECIFIED':
