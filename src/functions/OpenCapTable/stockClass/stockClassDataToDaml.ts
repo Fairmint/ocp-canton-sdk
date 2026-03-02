@@ -1,4 +1,4 @@
-import type { OcfStockClass } from '../../../types';
+import type { ConversionTrigger, OcfStockClass, StockClassConversionRight } from '../../../types';
 import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
@@ -9,18 +9,94 @@ import {
   normalizeNumericString,
 } from '../../../utils/typeConversions';
 
+type StockClassTriggerType = ConversionTrigger | 'ELECTIVE_IN_RANGE' | 'UNSPECIFIED';
+
+function triggerTypeToDamlEnum(t: StockClassTriggerType): string {
+  switch (t) {
+    case 'AUTOMATIC_ON_CONDITION':
+      return 'OcfTriggerTypeTypeAutomaticOnCondition';
+    case 'AUTOMATIC_ON_DATE':
+      return 'OcfTriggerTypeTypeAutomaticOnDate';
+    case 'ELECTIVE_AT_WILL':
+      return 'OcfTriggerTypeTypeElectiveAtWill';
+    case 'ELECTIVE_ON_CONDITION':
+      return 'OcfTriggerTypeTypeElectiveOnCondition';
+    case 'ELECTIVE_ON_DATE':
+      return 'OcfTriggerTypeTypeElectiveAtWill';
+    case 'ELECTIVE_IN_RANGE':
+      return 'OcfTriggerTypeTypeElectiveInRange';
+    case 'UNSPECIFIED':
+      return 'OcfTriggerTypeTypeUnspecified';
+    default: {
+      const _exhaustive: never = t;
+      throw new Error(`Unknown stock class conversion trigger type: ${_exhaustive as string}`);
+    }
+  }
+}
+
+function conversionMechanismToDaml(
+  mechanism: string
+):
+  | 'OcfConversionMechanismRatioConversion'
+  | 'OcfConversionMechanismPercentCapitalizationConversion'
+  | 'OcfConversionMechanismFixedAmountConversion' {
+  switch (mechanism) {
+    case 'RATIO_CONVERSION':
+      return 'OcfConversionMechanismRatioConversion';
+    case 'PERCENT_CONVERSION':
+      return 'OcfConversionMechanismPercentCapitalizationConversion';
+    case 'FIXED_AMOUNT_CONVERSION':
+      return 'OcfConversionMechanismFixedAmountConversion';
+    default:
+      throw new Error(`Unknown stock class conversion mechanism: ${mechanism}`);
+  }
+}
+
+/**
+ * Build an OcfConversionTrigger record for a stock class conversion right.
+ *
+ * DAML expects conversion_trigger to be a full OcfConversionTrigger record
+ * (not a plain string). The trigger's conversion_right field uses the
+ * OcfRightConvertible variant to avoid circular nesting with
+ * OcfRightStockClass (which itself requires a conversion_trigger).
+ */
+function buildStockClassTrigger(
+  right: StockClassConversionRight,
+  stockClassId: string,
+  index: number
+): Record<string, unknown> {
+  const triggerType = right.conversion_trigger as StockClassTriggerType;
+  const typeEnum = triggerTypeToDamlEnum(triggerType);
+
+  return {
+    trigger_id: `${stockClassId}-trigger-${index}`,
+    type_: typeEnum,
+    conversion_right: {
+      tag: 'OcfRightConvertible',
+      value: {
+        type_: right.type,
+        conversion_mechanism: {
+          tag: 'OcfConvMechCustom',
+          value: { custom_conversion_description: 'Stock class conversion' },
+        },
+        converts_to_future_round: null,
+        converts_to_stock_class_id: right.converts_to_stock_class_id,
+      },
+    },
+    nickname: null,
+    trigger_condition: null,
+    trigger_date: null,
+    trigger_description: null,
+  };
+}
+
 /**
  * Convert native OcfStockClass to DAML StockClassOcfData format.
- *
- * Note: Return type is Record<string, unknown> because the conversion_rights
- * structure in the SDK differs from the current DAML schema, which uses nested
- * OcfConversionTrigger objects. This is tracked for future alignment.
  *
  * @param stockClassData - Native stock class data
  * @returns DAML-formatted stock class data
  */
 export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<string, unknown> {
-  // Validate input data using the entity validator
   validateStockClassData(stockClassData, 'stockClass');
 
   const d = stockClassData;
@@ -36,37 +112,8 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     par_value: d.par_value ? monetaryToDaml(d.par_value) : null,
     price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share) : null,
-    conversion_rights: (d.conversion_rights ?? []).map((right) => {
-      const mechanism:
-        | 'OcfConversionMechanismRatioConversion'
-        | 'OcfConversionMechanismPercentCapitalizationConversion'
-        | 'OcfConversionMechanismFixedAmountConversion' =
-        right.conversion_mechanism === 'RATIO_CONVERSION'
-          ? 'OcfConversionMechanismRatioConversion'
-          : right.conversion_mechanism === 'PERCENT_CONVERSION'
-            ? 'OcfConversionMechanismPercentCapitalizationConversion'
-            : 'OcfConversionMechanismFixedAmountConversion';
-
-      const trigger:
-        | 'OcfTriggerTypeAutomaticOnCondition'
-        | 'OcfTriggerTypeAutomaticOnDate'
-        | 'OcfTriggerTypeElectiveAtWill'
-        | 'OcfTriggerTypeElectiveOnCondition' = (() => {
-        switch (right.conversion_trigger) {
-          case 'AUTOMATIC_ON_CONDITION':
-            return 'OcfTriggerTypeAutomaticOnCondition';
-          case 'AUTOMATIC_ON_DATE':
-            return 'OcfTriggerTypeAutomaticOnDate';
-          case 'ELECTIVE_AT_WILL':
-            return 'OcfTriggerTypeElectiveAtWill';
-          case 'ELECTIVE_ON_CONDITION':
-            return 'OcfTriggerTypeElectiveOnCondition';
-          case 'ELECTIVE_ON_DATE':
-            return 'OcfTriggerTypeElectiveAtWill';
-          default:
-            return 'OcfTriggerTypeAutomaticOnCondition';
-        }
-      })();
+    conversion_rights: (d.conversion_rights ?? []).map((right, index) => {
+      const mechanism = conversionMechanismToDaml(right.conversion_mechanism);
 
       let ratio: { numerator: string; denominator: string } | null = null;
       if (right.ratio_numerator !== undefined && right.ratio_denominator !== undefined) {
@@ -79,7 +126,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
       return {
         type_: right.type,
         conversion_mechanism: mechanism,
-        conversion_trigger: trigger,
+        conversion_trigger: buildStockClassTrigger(right, d.id, index),
         converts_to_stock_class_id: right.converts_to_stock_class_id,
         ratio: ratio ? { tag: 'Some', value: ratio } : null,
         percent_of_capitalization:
