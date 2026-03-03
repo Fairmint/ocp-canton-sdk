@@ -922,6 +922,12 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
  * with ratio and conversion_price as separate top-level optional fields.
  * Fields like rounding_type exist in the OCF schema but are not stored in
  * the DAML contract, so they cannot survive the round-trip.
+ *
+ * Schema-default equivalence: When conversion_rights has exactly one
+ * RATIO_CONVERSION right with ratio 1:1, normalize to empty. The OCP Canton
+ * SDK reader (getStockClassAsOcf) fills in { numerator: '1', denominator: '1' }
+ * when DAML has no explicit ratio, while the DB omits conversion_rights for
+ * 1:1 preferred stock. Both are semantically equivalent.
  */
 function normalizeConversionMechanismRoundTrip(data: Record<string, unknown>): Record<string, unknown> {
   if (data.object_type !== 'STOCK_CLASS') return data;
@@ -937,6 +943,20 @@ function normalizeConversionMechanismRoundTrip(data: Record<string, unknown>): R
 
     return { ...right, conversion_mechanism: mech };
   });
+
+  // Schema-default: single 1:1 RATIO_CONVERSION → empty (matches DB omission)
+  if (normalized.length === 1) {
+    const mech = normalized[0].conversion_mechanism as Record<string, unknown> | undefined;
+    if (mech?.type === 'RATIO_CONVERSION') {
+      const ratio = mech.ratio as { numerator?: string | number; denominator?: string | number } | undefined;
+      const num = ratio?.numerator;
+      const den = ratio?.denominator;
+      const isOneToOne = (num === '1' || num === 1) && (den === '1' || den === 1);
+      if (isOneToOne) {
+        return { ...data, conversion_rights: [] };
+      }
+    }
+  }
 
   return { ...data, conversion_rights: normalized };
 }

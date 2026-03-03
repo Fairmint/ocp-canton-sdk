@@ -1191,4 +1191,69 @@ describe('PlanSecurity alias utilities', () => {
       expect(result.comments).toEqual([]);
     });
   });
+
+  describe('stock class conversion rights 1:1 schema-default', () => {
+    it('normalizes single 1:1 RATIO_CONVERSION to empty conversion_rights', () => {
+      const cantonStyle = {
+        object_type: 'STOCK_CLASS',
+        id: 'sc-preferred',
+        name: 'Preferred',
+        class_type: 'PREFERRED',
+        initial_shares_authorized: '1000000',
+        conversion_rights: [
+          {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION',
+              ratio: { numerator: '1', denominator: '1' },
+              conversion_price: { amount: '0', currency: 'USD' },
+            },
+            converts_to_stock_class_id: 'common',
+          },
+        ],
+      } as Record<string, unknown>;
+      const result = normalizeOcfData(cantonStyle);
+      expect(result.conversion_rights).toEqual([]);
+    });
+
+    it('preserves non-1:1 conversion rights', () => {
+      const stockClass = {
+        object_type: 'STOCK_CLASS',
+        id: 'sc-preferred',
+        name: 'Preferred',
+        class_type: 'PREFERRED',
+        initial_shares_authorized: '1000000',
+        conversion_rights: [
+          {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT',
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION',
+              ratio: { numerator: '2', denominator: '1' },
+              conversion_price: { amount: '0', currency: 'USD' },
+            },
+            converts_to_stock_class_id: 'common',
+          },
+        ],
+      } as Record<string, unknown>;
+      const result = normalizeOcfData(stockClass);
+      expect(result.conversion_rights).toHaveLength(1);
+      expect((result.conversion_rights as Array<Record<string, unknown>>)[0].conversion_mechanism).toMatchObject({
+        type: 'RATIO_CONVERSION',
+        ratio: { numerator: '2', denominator: '1' },
+      });
+    });
+
+    it('preserves empty conversion_rights unchanged', () => {
+      const dbStyle = {
+        object_type: 'STOCK_CLASS',
+        id: 'sc-preferred',
+        name: 'Preferred',
+        class_type: 'PREFERRED',
+        initial_shares_authorized: '1000000',
+        conversion_rights: [],
+      } as Record<string, unknown>;
+      const result = normalizeOcfData(dbStyle);
+      expect(result.conversion_rights).toEqual([]);
+    });
+  });
 });
