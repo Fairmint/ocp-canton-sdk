@@ -432,7 +432,7 @@ export interface StockClassConversionRight {
   /** Mechanism by which conversion occurs */
   conversion_mechanism: ConversionMechanism | ConversionMechanismObject;
   /** Trigger that would cause conversion */
-  conversion_trigger: ConversionTrigger;
+  conversion_trigger?: ConversionTrigger;
   /** Identifier of stock class to which this converts */
   converts_to_stock_class_id: string;
   /** Ratio components for RATIO_CONVERSION (decimal string) */

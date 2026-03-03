@@ -87,9 +87,36 @@ function extractMechanismDetails(mechanism: ConversionMechanism | ConversionMech
 function buildStockClassTrigger(
   right: StockClassConversionRight,
   stockClassId: string,
-  index: number
+  index: number,
+  convertedMechanism: string
 ): Record<string, unknown> {
   const triggerType = right.conversion_trigger;
+
+  // When conversion_trigger is absent from the OCF data, produce a default
+  // unspecified trigger so the DAML contract still receives a valid record.
+  if (triggerType === undefined) {
+    return {
+      trigger_id: `default-${stockClassId}-${index}`,
+      type_: 'OcfTriggerTypeTypeUnspecified',
+      conversion_right: {
+        tag: 'OcfRightConvertible',
+        value: {
+          type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+          conversion_mechanism: {
+            tag: 'OcfConvMechCustom',
+            value: { custom_conversion_description: convertedMechanism },
+          },
+          converts_to_future_round: null,
+          converts_to_stock_class_id: right.converts_to_stock_class_id,
+        },
+      },
+      nickname: null,
+      trigger_condition: null,
+      trigger_date: null,
+      trigger_description: null,
+    };
+  }
+
   const typeEnum = triggerTypeToDamlEnum(triggerType);
 
   return {
@@ -158,7 +185,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
       return {
         type_: right.type,
         conversion_mechanism: mechanism,
-        conversion_trigger: buildStockClassTrigger(right, d.id, index),
+        conversion_trigger: buildStockClassTrigger(right, d.id, index, mechanism),
         converts_to_stock_class_id: right.converts_to_stock_class_id,
         ratio: ratio ? { tag: 'Some', value: ratio } : null,
         percent_of_capitalization:
