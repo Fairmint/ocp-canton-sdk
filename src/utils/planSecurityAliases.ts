@@ -907,9 +907,38 @@ export function normalizeOcfData<T extends Record<string, unknown>>(data: T): T 
 
   result = normalizeVestingTermsDefaults(result);
 
+  result = normalizeConversionMechanismRoundTrip(result);
+
   result = deepNormalizeNumericStrings(result);
 
   return result as T;
+}
+
+/**
+ * Strip fields from conversion_mechanism objects that DAML does not store,
+ * so DB-sourced and Canton-sourced data compare identically.
+ *
+ * The DAML StockClass contract stores conversion_mechanism as an enum string
+ * with ratio and conversion_price as separate top-level optional fields.
+ * Fields like rounding_type exist in the OCF schema but are not stored in
+ * the DAML contract, so they cannot survive the round-trip.
+ */
+function normalizeConversionMechanismRoundTrip(data: Record<string, unknown>): Record<string, unknown> {
+  if (data.object_type !== 'STOCK_CLASS') return data;
+  const rights = data.conversion_rights;
+  if (!Array.isArray(rights) || rights.length === 0) return data;
+
+  const normalized = (rights as Array<Record<string, unknown>>).map((right) => {
+    const mechanism = right.conversion_mechanism;
+    if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return right;
+
+    const mech = { ...(mechanism as Record<string, unknown>) };
+    delete mech.rounding_type;
+
+    return { ...right, conversion_mechanism: mech };
+  });
+
+  return { ...data, conversion_rights: normalized };
 }
 
 /**
