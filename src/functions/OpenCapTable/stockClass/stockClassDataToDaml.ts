@@ -13,6 +13,7 @@ import {
   initialSharesAuthorizedToDaml,
   monetaryToDaml,
   normalizeNumericString,
+  optionalString,
 } from '../../../utils/typeConversions';
 
 function triggerTypeToDamlEnum(t: ConversionTrigger): string {
@@ -87,8 +88,7 @@ function extractMechanismDetails(mechanism: ConversionMechanism | ConversionMech
 function buildStockClassTrigger(
   right: StockClassConversionRight,
   stockClassId: string,
-  index: number,
-  convertedMechanism: string
+  index: number
 ): Record<string, unknown> {
   const triggerType = right.conversion_trigger;
 
@@ -101,10 +101,10 @@ function buildStockClassTrigger(
       conversion_right: {
         tag: 'OcfRightConvertible',
         value: {
-          type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+          type_: right.type,
           conversion_mechanism: {
             tag: 'OcfConvMechCustom',
-            value: { custom_conversion_description: convertedMechanism },
+            value: { custom_conversion_description: 'Stock class conversion' },
           },
           converts_to_future_round: null,
           converts_to_stock_class_id: right.converts_to_stock_class_id,
@@ -185,7 +185,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
       return {
         type_: right.type,
         conversion_mechanism: mechanism,
-        conversion_trigger: buildStockClassTrigger(right, d.id, index, mechanism),
+        conversion_trigger: buildStockClassTrigger(right, d.id, index),
         converts_to_stock_class_id: right.converts_to_stock_class_id,
         ratio: ratio ?? null,
         percent_of_capitalization:
@@ -194,6 +194,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
             : null,
         conversion_price: conversionPrice ? monetaryToDaml(conversionPrice) : null,
         reference_share_price: right.reference_share_price ? monetaryToDaml(right.reference_share_price) : null,
+
         reference_valuation_price_per_share: right.reference_valuation_price_per_share
           ? monetaryToDaml(right.reference_valuation_price_per_share)
           : null,
@@ -201,7 +202,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
         valuation_cap: right.valuation_cap ? monetaryToDaml(right.valuation_cap) : null,
         floor_price_per_share: right.floor_price_per_share ? monetaryToDaml(right.floor_price_per_share) : null,
         ceiling_price_per_share: right.ceiling_price_per_share ? monetaryToDaml(right.ceiling_price_per_share) : null,
-        custom_description: right.custom_description ?? null,
+        custom_description: optionalString(right.custom_description),
         expires_at: right.expires_at ? dateStringToDAMLTime(right.expires_at) : null,
       };
     }),

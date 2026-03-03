@@ -63,7 +63,7 @@ export type ConversionMechanism = 'RATIO_CONVERSION' | 'PERCENT_CONVERSION' | 'F
 export interface ConversionMechanismObject {
   type: ConversionMechanism;
   ratio?: { numerator: string; denominator: string };
-  conversion_price?: { amount: string; currency: string };
+  conversion_price?: Monetary;
 }
 
 /**
