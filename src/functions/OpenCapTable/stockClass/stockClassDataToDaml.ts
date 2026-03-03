@@ -187,30 +187,21 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
         conversion_mechanism: mechanism,
         conversion_trigger: buildStockClassTrigger(right, d.id, index, mechanism),
         converts_to_stock_class_id: right.converts_to_stock_class_id,
-        ratio: ratio ? { tag: 'Some', value: ratio } : null,
+        ratio: ratio ?? null,
         percent_of_capitalization:
           right.percent_of_capitalization !== undefined
-            ? { tag: 'Some', value: normalizeNumericString(right.percent_of_capitalization) }
+            ? normalizeNumericString(right.percent_of_capitalization)
             : null,
-        conversion_price: conversionPrice ? { tag: 'Some', value: monetaryToDaml(conversionPrice) } : null,
-        reference_share_price: right.reference_share_price
-          ? { tag: 'Some', value: monetaryToDaml(right.reference_share_price) }
-          : null,
+        conversion_price: conversionPrice ? monetaryToDaml(conversionPrice) : null,
+        reference_share_price: right.reference_share_price ? monetaryToDaml(right.reference_share_price) : null,
         reference_valuation_price_per_share: right.reference_valuation_price_per_share
-          ? { tag: 'Some', value: monetaryToDaml(right.reference_valuation_price_per_share) }
+          ? monetaryToDaml(right.reference_valuation_price_per_share)
           : null,
-        discount_rate:
-          right.discount_rate !== undefined
-            ? { tag: 'Some', value: normalizeNumericString(right.discount_rate) }
-            : null,
-        valuation_cap: right.valuation_cap ? { tag: 'Some', value: monetaryToDaml(right.valuation_cap) } : null,
-        floor_price_per_share: right.floor_price_per_share
-          ? { tag: 'Some', value: monetaryToDaml(right.floor_price_per_share) }
-          : null,
-        ceiling_price_per_share: right.ceiling_price_per_share
-          ? { tag: 'Some', value: monetaryToDaml(right.ceiling_price_per_share) }
-          : null,
-        custom_description: right.custom_description ? { tag: 'Some', value: right.custom_description } : null,
+        discount_rate: right.discount_rate !== undefined ? normalizeNumericString(right.discount_rate) : null,
+        valuation_cap: right.valuation_cap ? monetaryToDaml(right.valuation_cap) : null,
+        floor_price_per_share: right.floor_price_per_share ? monetaryToDaml(right.floor_price_per_share) : null,
+        ceiling_price_per_share: right.ceiling_price_per_share ? monetaryToDaml(right.ceiling_price_per_share) : null,
+        custom_description: right.custom_description ?? null,
         expires_at: right.expires_at ? dateStringToDAMLTime(right.expires_at) : null,
       };
     }),
