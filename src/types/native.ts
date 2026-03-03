@@ -57,6 +57,16 @@ export type StockClassType = 'PREFERRED' | 'COMMON';
 export type ConversionMechanism = 'RATIO_CONVERSION' | 'PERCENT_CONVERSION' | 'FIXED_AMOUNT_CONVERSION';
 
 /**
+ * OCF may encode conversion_mechanism as an object with a `type` discriminator
+ * and optional detail fields (ratio, conversion_price) instead of a plain string.
+ */
+export interface ConversionMechanismObject {
+  type: ConversionMechanism;
+  ratio?: { numerator: string; denominator: string };
+  conversion_price?: { amount: string; currency: string };
+}
+
+/**
  * Enum - Conversion Trigger Type Type of conversion trigger OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/ConversionTriggerType.schema.json
  */
@@ -420,7 +430,7 @@ export interface StockClassConversionRight {
   /** Type descriptor of conversion right */
   type: string;
   /** Mechanism by which conversion occurs */
-  conversion_mechanism: ConversionMechanism;
+  conversion_mechanism: ConversionMechanism | ConversionMechanismObject;
   /** Trigger that would cause conversion */
   conversion_trigger: ConversionTrigger;
   /** Identifier of stock class to which this converts */

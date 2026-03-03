@@ -1,4 +1,10 @@
-import type { ConversionMechanism, ConversionTrigger, OcfStockClass, StockClassConversionRight } from '../../../types';
+import type {
+  ConversionMechanism,
+  ConversionMechanismObject,
+  ConversionTrigger,
+  OcfStockClass,
+  StockClassConversionRight,
+} from '../../../types';
 import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
@@ -28,13 +34,18 @@ function triggerTypeToDamlEnum(t: ConversionTrigger): string {
   }
 }
 
+/**
+ * Normalize a ConversionMechanism (string) or ConversionMechanismObject
+ * ({ type, ratio?, conversion_price? }) to the DAML enum string.
+ */
 function conversionMechanismToDaml(
-  mechanism: ConversionMechanism
+  mechanism: ConversionMechanism | ConversionMechanismObject
 ):
   | 'OcfConversionMechanismRatioConversion'
   | 'OcfConversionMechanismPercentCapitalizationConversion'
   | 'OcfConversionMechanismFixedAmountConversion' {
-  switch (mechanism) {
+  const type: ConversionMechanism = typeof mechanism === 'string' ? mechanism : mechanism.type;
+  switch (type) {
     case 'RATIO_CONVERSION':
       return 'OcfConversionMechanismRatioConversion';
     case 'PERCENT_CONVERSION':
@@ -42,10 +53,27 @@ function conversionMechanismToDaml(
     case 'FIXED_AMOUNT_CONVERSION':
       return 'OcfConversionMechanismFixedAmountConversion';
     default: {
-      const _exhaustive: never = mechanism;
+      const _exhaustive: never = type;
       throw new Error(`Unknown stock class conversion mechanism: ${String(_exhaustive)}`);
     }
   }
+}
+
+/**
+ * Extract ratio and conversion_price from a ConversionMechanismObject.
+ * Returns nulls when mechanism is a plain string.
+ */
+function extractMechanismDetails(mechanism: ConversionMechanism | ConversionMechanismObject): {
+  ratio: { numerator: string; denominator: string } | null;
+  conversion_price: { amount: string; currency: string } | null;
+} {
+  if (typeof mechanism === 'string') {
+    return { ratio: null, conversion_price: null };
+  }
+  return {
+    ratio: mechanism.ratio ?? null,
+    conversion_price: mechanism.conversion_price ?? null,
+  };
 }
 
 /**
@@ -110,6 +138,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
     price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share) : null,
     conversion_rights: (d.conversion_rights ?? []).map((right, index) => {
       const mechanism = conversionMechanismToDaml(right.conversion_mechanism);
+      const mechDetails = extractMechanismDetails(right.conversion_mechanism);
 
       let ratio: { numerator: string; denominator: string } | null = null;
       if (right.ratio_numerator !== undefined && right.ratio_denominator !== undefined) {
@@ -117,7 +146,14 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
           numerator: normalizeNumericString(right.ratio_numerator),
           denominator: normalizeNumericString(right.ratio_denominator),
         };
+      } else if (mechDetails.ratio) {
+        ratio = {
+          numerator: normalizeNumericString(mechDetails.ratio.numerator),
+          denominator: normalizeNumericString(mechDetails.ratio.denominator),
+        };
       }
+
+      const conversionPrice = right.conversion_price ?? mechDetails.conversion_price;
 
       return {
         type_: right.type,
@@ -129,9 +165,7 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
           right.percent_of_capitalization !== undefined
             ? { tag: 'Some', value: normalizeNumericString(right.percent_of_capitalization) }
             : null,
-        conversion_price: right.conversion_price
-          ? { tag: 'Some', value: monetaryToDaml(right.conversion_price) }
-          : null,
+        conversion_price: conversionPrice ? { tag: 'Some', value: monetaryToDaml(conversionPrice) } : null,
         reference_share_price: right.reference_share_price
           ? { tag: 'Some', value: monetaryToDaml(right.reference_share_price) }
           : null,
