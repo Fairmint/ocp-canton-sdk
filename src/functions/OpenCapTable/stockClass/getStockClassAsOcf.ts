@@ -138,55 +138,99 @@ export function damlStockClassDataToNative(
     }),
     ...(damlData.conversion_rights.length > 0 && {
       conversion_rights: damlData.conversion_rights.map((right) => {
+        // conversion_mechanism: handle both string enum and record object (DAML variant)
+        const mechRaw = (right as unknown as Record<string, unknown>).conversion_mechanism;
+        let mechanismTag: string;
+        if (typeof mechRaw === 'string') {
+          mechanismTag = mechRaw;
+        } else if (mechRaw && typeof mechRaw === 'object' && 'tag' in mechRaw) {
+          mechanismTag = (mechRaw as { tag: string }).tag;
+        } else {
+          mechanismTag = '';
+        }
         const mechanism: ConversionMechanism =
-          right.conversion_mechanism === 'OcfConversionMechanismRatioConversion'
+          mechanismTag === 'OcfConversionMechanismRatioConversion'
             ? 'RATIO_CONVERSION'
-            : right.conversion_mechanism === 'OcfConversionMechanismPercentCapitalizationConversion'
+            : mechanismTag === 'OcfConversionMechanismPercentCapitalizationConversion'
               ? 'PERCENT_CONVERSION'
               : 'FIXED_AMOUNT_CONVERSION';
-        const rt = right.conversion_trigger as unknown;
-        let tag: string | undefined;
+
+        // conversion_trigger: handle record object with type_ (OcfTriggerTypeType*) or legacy tag
+        const rt = (right as unknown as Record<string, unknown>).conversion_trigger;
+        let triggerTag: string | undefined;
         if (typeof rt === 'string') {
-          tag = rt;
-        } else if (rt && typeof rt === 'object' && 'tag' in rt) {
-          const { tag: tagValue } = rt as { tag: string };
-          tag = tagValue;
+          triggerTag = rt;
+        } else if (rt && typeof rt === 'object') {
+          const rec = rt as Record<string, unknown>;
+          const typeVal = rec.type_;
+          const tagVal = rec.tag;
+          triggerTag = typeof typeVal === 'string' ? typeVal : typeof tagVal === 'string' ? tagVal : undefined;
         }
         const trigger: ConversionTrigger =
-          tag === 'OcfTriggerTypeAutomaticOnDate'
+          triggerTag === 'OcfTriggerTypeTypeAutomaticOnDate' || triggerTag === 'OcfTriggerTypeAutomaticOnDate'
             ? 'AUTOMATIC_ON_DATE'
-            : tag === 'OcfTriggerTypeElectiveAtWill'
+            : triggerTag === 'OcfTriggerTypeTypeElectiveAtWill' || triggerTag === 'OcfTriggerTypeElectiveAtWill'
               ? 'ELECTIVE_AT_WILL'
-              : tag === 'OcfTriggerTypeElectiveOnCondition'
+              : triggerTag === 'OcfTriggerTypeTypeElectiveOnCondition' ||
+                  triggerTag === 'OcfTriggerTypeElectiveOnCondition'
                 ? 'ELECTIVE_ON_CONDITION'
-                : tag === 'OcfTriggerTypeElectiveInRange'
+                : triggerTag === 'OcfTriggerTypeTypeElectiveInRange' || triggerTag === 'OcfTriggerTypeElectiveInRange'
                   ? 'ELECTIVE_ON_CONDITION'
-                  : tag === 'OcfTriggerTypeUnspecified'
+                  : triggerTag === 'OcfTriggerTypeTypeUnspecified' || triggerTag === 'OcfTriggerTypeUnspecified'
                     ? 'ELECTIVE_AT_WILL'
-                    : 'AUTOMATIC_ON_CONDITION';
+                    : triggerTag === 'OcfTriggerTypeTypeAutomaticOnCondition' ||
+                        triggerTag === 'OcfTriggerTypeAutomaticOnCondition'
+                      ? 'AUTOMATIC_ON_CONDITION'
+                      : 'AUTOMATIC_ON_CONDITION';
 
-        let ratioValue: number | undefined;
-        const ratioRaw = (right as unknown as { ratio?: unknown }).ratio;
+        // ratio: extract from Optional(OcfRatio) - top level or nested in mechanism value
+        let ratioNumerator: string | undefined;
+        let ratioDenominator: string | undefined;
+        const ratioRaw = (right as unknown as Record<string, unknown>).ratio;
+        const extractRatioFromValue = (val: unknown): void => {
+          if (!val || typeof val !== 'object') return;
+          const r = val as Record<string, unknown>;
+          if ('numerator' in r && 'denominator' in r) {
+            const num = r.numerator;
+            const den = r.denominator;
+            if (num == null || den == null) return;
+            const numStr = typeof num === 'string' ? num : typeof num === 'number' ? num.toString() : null;
+            const denStr = typeof den === 'string' ? den : typeof den === 'number' ? den.toString() : null;
+            if (numStr !== null && denStr !== null) {
+              ratioNumerator = normalizeNumericString(numStr);
+              ratioDenominator = normalizeNumericString(denStr);
+            }
+          }
+        };
         if (ratioRaw && typeof ratioRaw === 'object') {
           if ('tag' in ratioRaw && (ratioRaw as { tag: unknown }).tag === 'Some' && 'value' in ratioRaw) {
-            const r = (ratioRaw as { value: { numerator?: string; denominator?: string } }).value;
-            const num = parseFloat((r.numerator as string) || '1');
-            const den = parseFloat((r.denominator as string) || '1');
-            ratioValue = den !== 0 ? num / den : undefined;
-          } else if ('numerator' in ratioRaw && 'denominator' in ratioRaw) {
-            const r = ratioRaw as { numerator?: string; denominator?: string };
-            const num = parseFloat((r.numerator as string) || '1');
-            const den = parseFloat((r.denominator as string) || '1');
-            ratioValue = den !== 0 ? num / den : undefined;
+            extractRatioFromValue((ratioRaw as { value: unknown }).value);
+          } else {
+            extractRatioFromValue(ratioRaw);
           }
         }
+        // Fallback: ratio may be nested inside conversion_mechanism when it's a variant (e.g. OcfConvMechRatio)
+        if (
+          (ratioNumerator === undefined || ratioDenominator === undefined) &&
+          mechRaw &&
+          typeof mechRaw === 'object' &&
+          'value' in mechRaw
+        ) {
+          extractRatioFromValue((mechRaw as { value: unknown }).value);
+        }
+
+        const ratioExtras: Record<string, unknown> =
+          ratioNumerator !== undefined && ratioDenominator !== undefined
+            ? { ratio_numerator: ratioNumerator, ratio_denominator: ratioDenominator }
+            : {};
 
         return {
           type: right.type_,
           conversion_mechanism: mechanism,
           conversion_trigger: trigger,
           converts_to_stock_class_id: right.converts_to_stock_class_id,
-          ...(ratioValue !== undefined ? { ratio: ratioValue } : {}),
+          ...(ratioExtras.ratio_numerator !== undefined ? { ratio_numerator: ratioExtras.ratio_numerator } : {}),
+          ...(ratioExtras.ratio_denominator !== undefined ? { ratio_denominator: ratioExtras.ratio_denominator } : {}),
           ...((): Record<string, unknown> => {
             const out: Record<string, unknown> = {};
             const cv = (right as unknown as Record<string, unknown>).conversion_price;
