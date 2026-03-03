@@ -3,6 +3,7 @@ import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type {
   ConversionMechanism,
+  ConversionMechanismObject,
   ConversionTrigger,
   Monetary,
   StockClassConversionRight,
@@ -138,8 +139,10 @@ export function damlStockClassDataToNative(
     }),
     ...(damlData.conversion_rights.length > 0 && {
       conversion_rights: damlData.conversion_rights.map((right) => {
-        // conversion_mechanism: handle both string enum and record object (DAML variant)
-        const mechRaw = (right as unknown as Record<string, unknown>).conversion_mechanism;
+        const rec = right as unknown as Record<string, unknown>;
+
+        // --- conversion_mechanism: build as OCF-compliant object ---
+        const mechRaw = rec.conversion_mechanism;
         let mechanismTag: string;
         if (typeof mechRaw === 'string') {
           mechanismTag = mechRaw;
@@ -148,197 +151,140 @@ export function damlStockClassDataToNative(
         } else {
           mechanismTag = '';
         }
-        const mechanism: ConversionMechanism =
+        const mechanismType: ConversionMechanism =
           mechanismTag === 'OcfConversionMechanismRatioConversion'
             ? 'RATIO_CONVERSION'
             : mechanismTag === 'OcfConversionMechanismPercentCapitalizationConversion'
               ? 'PERCENT_CONVERSION'
               : 'FIXED_AMOUNT_CONVERSION';
 
-        // conversion_trigger: handle record object with type_ (OcfTriggerTypeType*) or legacy tag
-        const rt = (right as unknown as Record<string, unknown>).conversion_trigger;
+        // Extract ratio from DAML Optional(OcfRatio)
+        const extractRatio = (raw: unknown): { numerator: string; denominator: string } | undefined => {
+          if (!raw || typeof raw !== 'object') return undefined;
+          let val: unknown = raw;
+          if ('tag' in (val as Record<string, unknown>)) {
+            const tagged = val as { tag: string; value?: unknown };
+            if (tagged.tag !== 'Some' || !tagged.value) return undefined;
+            val = tagged.value;
+          }
+          const r = val as Record<string, unknown>;
+          if (!('numerator' in r) || !('denominator' in r)) return undefined;
+          const num = r.numerator;
+          const den = r.denominator;
+          if (num == null || den == null) return undefined;
+          const numStr = typeof num === 'string' ? num : typeof num === 'number' ? num.toString() : null;
+          const denStr = typeof den === 'string' ? den : typeof den === 'number' ? den.toString() : null;
+          if (numStr === null || denStr === null) return undefined;
+          return { numerator: normalizeNumericString(numStr), denominator: normalizeNumericString(denStr) };
+        };
+
+        let ratio = extractRatio(rec.ratio);
+        if (!ratio && mechRaw && typeof mechRaw === 'object' && 'value' in mechRaw) {
+          ratio = extractRatio((mechRaw as { value: unknown }).value);
+        }
+
+        // Extract optional monetary from DAML Optional(OcfMonetary)
+        const extractOptionalMonetary = (raw: unknown): Monetary | undefined => {
+          if (
+            raw &&
+            typeof raw === 'object' &&
+            'tag' in raw &&
+            (raw as { tag: unknown }).tag === 'Some' &&
+            'value' in raw
+          ) {
+            return damlMonetaryToNative((raw as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value);
+          }
+          return undefined;
+        };
+
+        const conversionPrice = extractOptionalMonetary(rec.conversion_price);
+
+        // Build the mechanism as a full OCF object (matches DB/OCF schema format)
+        const mechanismObj: ConversionMechanismObject = {
+          type: mechanismType,
+          ...(ratio ? { ratio } : {}),
+          ...(conversionPrice ? { conversion_price: conversionPrice } : {}),
+        };
+
+        // --- conversion_trigger: only include if DAML has a real (non-default) trigger ---
+        const rt = rec.conversion_trigger;
         let triggerTag: string | undefined;
         if (typeof rt === 'string') {
           triggerTag = rt;
         } else if (rt && typeof rt === 'object') {
-          const rec = rt as Record<string, unknown>;
-          const typeVal = rec.type_;
-          const tagVal = rec.tag;
+          const triggerRec = rt as Record<string, unknown>;
+          const typeVal = triggerRec.type_;
+          const tagVal = triggerRec.tag;
           triggerTag = typeof typeVal === 'string' ? typeVal : typeof tagVal === 'string' ? tagVal : undefined;
         }
-        const trigger: ConversionTrigger =
-          triggerTag === 'OcfTriggerTypeTypeAutomaticOnDate' || triggerTag === 'OcfTriggerTypeAutomaticOnDate'
-            ? 'AUTOMATIC_ON_DATE'
-            : triggerTag === 'OcfTriggerTypeTypeElectiveAtWill' || triggerTag === 'OcfTriggerTypeElectiveAtWill'
-              ? 'ELECTIVE_AT_WILL'
-              : triggerTag === 'OcfTriggerTypeTypeElectiveOnCondition' ||
-                  triggerTag === 'OcfTriggerTypeElectiveOnCondition'
-                ? 'ELECTIVE_ON_CONDITION'
-                : triggerTag === 'OcfTriggerTypeTypeElectiveInRange' || triggerTag === 'OcfTriggerTypeElectiveInRange'
+
+        const isDefaultTrigger =
+          triggerTag === undefined ||
+          triggerTag === 'OcfTriggerTypeTypeUnspecified' ||
+          triggerTag === 'OcfTriggerTypeUnspecified';
+
+        let trigger: ConversionTrigger | undefined;
+        if (!isDefaultTrigger) {
+          trigger =
+            triggerTag === 'OcfTriggerTypeTypeAutomaticOnDate' || triggerTag === 'OcfTriggerTypeAutomaticOnDate'
+              ? 'AUTOMATIC_ON_DATE'
+              : triggerTag === 'OcfTriggerTypeTypeElectiveAtWill' || triggerTag === 'OcfTriggerTypeElectiveAtWill'
+                ? 'ELECTIVE_AT_WILL'
+                : triggerTag === 'OcfTriggerTypeTypeElectiveOnCondition' ||
+                    triggerTag === 'OcfTriggerTypeElectiveOnCondition'
                   ? 'ELECTIVE_ON_CONDITION'
-                  : triggerTag === 'OcfTriggerTypeTypeUnspecified' || triggerTag === 'OcfTriggerTypeUnspecified'
-                    ? 'ELECTIVE_AT_WILL'
+                  : triggerTag === 'OcfTriggerTypeTypeElectiveInRange' || triggerTag === 'OcfTriggerTypeElectiveInRange'
+                    ? 'ELECTIVE_ON_CONDITION'
                     : triggerTag === 'OcfTriggerTypeTypeAutomaticOnCondition' ||
                         triggerTag === 'OcfTriggerTypeAutomaticOnCondition'
                       ? 'AUTOMATIC_ON_CONDITION'
                       : 'AUTOMATIC_ON_CONDITION';
-
-        // ratio: extract from Optional(OcfRatio) - top level or nested in mechanism value
-        let ratioNumerator: string | undefined;
-        let ratioDenominator: string | undefined;
-        const ratioRaw = (right as unknown as Record<string, unknown>).ratio;
-        const extractRatioFromValue = (val: unknown): void => {
-          if (!val || typeof val !== 'object') return;
-          const r = val as Record<string, unknown>;
-          if ('numerator' in r && 'denominator' in r) {
-            const num = r.numerator;
-            const den = r.denominator;
-            if (num == null || den == null) return;
-            const numStr = typeof num === 'string' ? num : typeof num === 'number' ? num.toString() : null;
-            const denStr = typeof den === 'string' ? den : typeof den === 'number' ? den.toString() : null;
-            if (numStr !== null && denStr !== null) {
-              ratioNumerator = normalizeNumericString(numStr);
-              ratioDenominator = normalizeNumericString(denStr);
-            }
-          }
-        };
-        if (ratioRaw && typeof ratioRaw === 'object') {
-          if ('tag' in ratioRaw && (ratioRaw as { tag: unknown }).tag === 'Some' && 'value' in ratioRaw) {
-            extractRatioFromValue((ratioRaw as { value: unknown }).value);
-          } else {
-            extractRatioFromValue(ratioRaw);
-          }
-        }
-        // Fallback: ratio may be nested inside conversion_mechanism when it's a variant (e.g. OcfConvMechRatio)
-        if (
-          (ratioNumerator === undefined || ratioDenominator === undefined) &&
-          mechRaw &&
-          typeof mechRaw === 'object' &&
-          'value' in mechRaw
-        ) {
-          extractRatioFromValue((mechRaw as { value: unknown }).value);
         }
 
-        const ratioExtras: Record<string, unknown> =
-          ratioNumerator !== undefined && ratioDenominator !== undefined
-            ? { ratio_numerator: ratioNumerator, ratio_denominator: ratioDenominator }
-            : {};
+        // --- Extract remaining optional fields ---
+        const refSharePrice = extractOptionalMonetary(rec.reference_share_price);
+        const refValuationPrice = extractOptionalMonetary(rec.reference_valuation_price_per_share);
+        const valuationCap = extractOptionalMonetary(rec.valuation_cap);
+        const floorPrice = extractOptionalMonetary(rec.floor_price_per_share);
+        const ceilingPrice = extractOptionalMonetary(rec.ceiling_price_per_share);
 
-        return {
+        const poc = rec.percent_of_capitalization;
+        const parsedPoc =
+          poc && typeof poc === 'object' && 'tag' in poc && (poc as { tag: unknown }).tag === 'Some' && 'value' in poc
+            ? parseFloat((poc as { value: string }).value).toString()
+            : undefined;
+
+        const dr = rec.discount_rate;
+        const parsedDr =
+          dr && typeof dr === 'object' && 'tag' in dr && (dr as { tag: unknown }).tag === 'Some' && 'value' in dr
+            ? parseFloat((dr as { value: string }).value).toString()
+            : undefined;
+
+        const cd = rec.custom_description;
+        const parsedCd =
+          cd && typeof cd === 'object' && 'tag' in cd && (cd as { tag: unknown }).tag === 'Some' && 'value' in cd
+            ? (cd as { value: string }).value
+            : undefined;
+
+        const expiresAt = right.expires_at ? damlTimeToDateString(right.expires_at) : undefined;
+
+        const convRight: StockClassConversionRight = {
           type: right.type_,
-          conversion_mechanism: mechanism,
-          conversion_trigger: trigger,
+          conversion_mechanism: mechanismObj,
           converts_to_stock_class_id: right.converts_to_stock_class_id,
-          ...(ratioExtras.ratio_numerator !== undefined ? { ratio_numerator: ratioExtras.ratio_numerator } : {}),
-          ...(ratioExtras.ratio_denominator !== undefined ? { ratio_denominator: ratioExtras.ratio_denominator } : {}),
-          ...((): Record<string, unknown> => {
-            const out: Record<string, unknown> = {};
-            const cv = (right as unknown as Record<string, unknown>).conversion_price;
-            if (
-              cv &&
-              typeof cv === 'object' &&
-              'tag' in cv &&
-              (cv as { tag: unknown }).tag === 'Some' &&
-              'value' in cv
-            ) {
-              out.conversion_price = damlMonetaryToNative(
-                (cv as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
-              );
-            }
-            const rsp = (right as unknown as Record<string, unknown>).reference_share_price;
-            if (
-              rsp &&
-              typeof rsp === 'object' &&
-              'tag' in rsp &&
-              (rsp as { tag: unknown }).tag === 'Some' &&
-              'value' in rsp
-            ) {
-              out.reference_share_price = damlMonetaryToNative(
-                (rsp as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
-              );
-            }
-            const rvps = (right as unknown as Record<string, unknown>).reference_valuation_price_per_share;
-            if (
-              rvps &&
-              typeof rvps === 'object' &&
-              'tag' in rvps &&
-              (rvps as { tag: unknown }).tag === 'Some' &&
-              'value' in rvps
-            ) {
-              out.reference_valuation_price_per_share = damlMonetaryToNative(
-                (rvps as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
-              );
-            }
-            const poc = (right as unknown as Record<string, unknown>).percent_of_capitalization;
-            if (
-              poc &&
-              typeof poc === 'object' &&
-              'tag' in poc &&
-              (poc as { tag: unknown }).tag === 'Some' &&
-              'value' in poc
-            ) {
-              out.percent_of_capitalization = parseFloat((poc as { value: string }).value);
-            }
-            const dr = (right as unknown as Record<string, unknown>).discount_rate;
-            if (
-              dr &&
-              typeof dr === 'object' &&
-              'tag' in dr &&
-              (dr as { tag: unknown }).tag === 'Some' &&
-              'value' in dr
-            ) {
-              out.discount_rate = parseFloat((dr as { value: string }).value);
-            }
-            const vc = (right as unknown as Record<string, unknown>).valuation_cap;
-            if (
-              vc &&
-              typeof vc === 'object' &&
-              'tag' in vc &&
-              (vc as { tag: unknown }).tag === 'Some' &&
-              'value' in vc
-            ) {
-              out.valuation_cap = damlMonetaryToNative(
-                (vc as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
-              );
-            }
-            const fps = (right as unknown as Record<string, unknown>).floor_price_per_share;
-            if (
-              fps &&
-              typeof fps === 'object' &&
-              'tag' in fps &&
-              (fps as { tag: unknown }).tag === 'Some' &&
-              'value' in fps
-            ) {
-              out.floor_price_per_share = damlMonetaryToNative(
-                (fps as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
-              );
-            }
-            const cps = (right as unknown as Record<string, unknown>).ceiling_price_per_share;
-            if (
-              cps &&
-              typeof cps === 'object' &&
-              'tag' in cps &&
-              (cps as { tag: unknown }).tag === 'Some' &&
-              'value' in cps
-            ) {
-              out.ceiling_price_per_share = damlMonetaryToNative(
-                (cps as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value
-              );
-            }
-            const cd = (right as unknown as Record<string, unknown>).custom_description;
-            if (
-              cd &&
-              typeof cd === 'object' &&
-              'tag' in cd &&
-              (cd as { tag: unknown }).tag === 'Some' &&
-              'value' in cd
-            ) {
-              out.custom_description = (cd as { value: string }).value;
-            }
-            return out;
-          })(),
-          ...(right.expires_at && { expires_at: damlTimeToDateString(right.expires_at) }),
-        } as StockClassConversionRight;
+          ...(trigger !== undefined ? { conversion_trigger: trigger } : {}),
+          ...(refSharePrice ? { reference_share_price: refSharePrice } : {}),
+          ...(refValuationPrice ? { reference_valuation_price_per_share: refValuationPrice } : {}),
+          ...(parsedPoc !== undefined ? { percent_of_capitalization: parsedPoc } : {}),
+          ...(parsedDr !== undefined ? { discount_rate: parsedDr } : {}),
+          ...(valuationCap ? { valuation_cap: valuationCap } : {}),
+          ...(floorPrice ? { floor_price_per_share: floorPrice } : {}),
+          ...(ceilingPrice ? { ceiling_price_per_share: ceilingPrice } : {}),
+          ...(parsedCd ? { custom_description: parsedCd } : {}),
+          ...(expiresAt ? { expires_at: expiresAt } : {}),
+        };
+
+        return convRight;
       }),
     }),
     ...(damlData.liquidation_preference_multiple && {

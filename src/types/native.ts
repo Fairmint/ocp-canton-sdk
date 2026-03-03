@@ -64,6 +64,7 @@ export interface ConversionMechanismObject {
   type: ConversionMechanism;
   ratio?: { numerator: string; denominator: string };
   conversion_price?: Monetary;
+  rounding_type?: RoundingType;
 }
 
 /**
