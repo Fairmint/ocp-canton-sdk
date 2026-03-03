@@ -4,7 +4,6 @@ import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } fr
 import type {
   ConversionMechanism,
   ConversionMechanismObject,
-  ConversionTrigger,
   Monetary,
   StockClassConversionRight,
   StockClassType,
@@ -141,7 +140,9 @@ export function damlStockClassDataToNative(
       conversion_rights: damlData.conversion_rights.map((right) => {
         const rec = right as unknown as Record<string, unknown>;
 
-        // --- conversion_mechanism: build as OCF-compliant object ---
+        // --- conversion_mechanism: build as OCF RatioConversionMechanism ---
+        // OCF StockClassConversionRight only allows RatioConversionMechanism, which requires:
+        // type, ratio, conversion_price, rounding_type (all required)
         const mechRaw = rec.conversion_mechanism;
         let mechanismTag: string;
         if (typeof mechRaw === 'string') {
@@ -199,89 +200,41 @@ export function damlStockClassDataToNative(
 
         const conversionPrice = extractOptionalMonetary(rec.conversion_price);
 
-        // Build the mechanism as a full OCF object (matches DB/OCF schema format)
+        // Extract rounding_type from DAML Optional(OcfRoundingType)
+        const extractRoundingType = (raw: unknown): 'CEILING' | 'FLOOR' | 'NORMAL' => {
+          if (!raw || typeof raw !== 'object') return 'NORMAL';
+          const tag =
+            'tag' in (raw as Record<string, unknown>)
+              ? (raw as { tag: string }).tag
+              : 'value' in (raw as Record<string, unknown>)
+                ? (raw as { value: unknown } as Record<string, unknown>).tag
+                : null;
+          if (tag === 'OcfRoundingCeiling') return 'CEILING';
+          if (tag === 'OcfRoundingFloor') return 'FLOOR';
+          if (tag === 'OcfRoundingNormal') return 'NORMAL';
+          return 'NORMAL';
+        };
+        const roundingType = extractRoundingType(rec.rounding_type);
+
+        // Build OCF RatioConversionMechanism (required: type, ratio, conversion_price, rounding_type)
+        // StockClassConversionRight schema only allows RatioConversionMechanism; additionalProperties: false
         const mechanismObj: ConversionMechanismObject = {
           type: mechanismType,
-          ...(ratio ? { ratio } : {}),
-          ...(conversionPrice ? { conversion_price: conversionPrice } : {}),
+          ratio: ratio ?? { numerator: '1', denominator: '1' },
+          conversion_price: conversionPrice ?? { amount: '0', currency: 'USD' },
+          rounding_type: roundingType as ConversionMechanismObject['rounding_type'],
         };
 
-        // --- conversion_trigger: only include if DAML has a real (non-default) trigger ---
-        const rt = rec.conversion_trigger;
-        let triggerTag: string | undefined;
-        if (typeof rt === 'string') {
-          triggerTag = rt;
-        } else if (rt && typeof rt === 'object') {
-          const triggerRec = rt as Record<string, unknown>;
-          const typeVal = triggerRec.type_;
-          const tagVal = triggerRec.tag;
-          triggerTag = typeof typeVal === 'string' ? typeVal : typeof tagVal === 'string' ? tagVal : undefined;
-        }
-
-        const isDefaultTrigger =
-          triggerTag === undefined ||
-          triggerTag === 'OcfTriggerTypeTypeUnspecified' ||
-          triggerTag === 'OcfTriggerTypeUnspecified';
-
-        let trigger: ConversionTrigger | undefined;
-        if (!isDefaultTrigger) {
-          trigger =
-            triggerTag === 'OcfTriggerTypeTypeAutomaticOnDate' || triggerTag === 'OcfTriggerTypeAutomaticOnDate'
-              ? 'AUTOMATIC_ON_DATE'
-              : triggerTag === 'OcfTriggerTypeTypeElectiveAtWill' || triggerTag === 'OcfTriggerTypeElectiveAtWill'
-                ? 'ELECTIVE_AT_WILL'
-                : triggerTag === 'OcfTriggerTypeTypeElectiveOnCondition' ||
-                    triggerTag === 'OcfTriggerTypeElectiveOnCondition'
-                  ? 'ELECTIVE_ON_CONDITION'
-                  : triggerTag === 'OcfTriggerTypeTypeElectiveInRange' || triggerTag === 'OcfTriggerTypeElectiveInRange'
-                    ? 'ELECTIVE_ON_CONDITION'
-                    : triggerTag === 'OcfTriggerTypeTypeAutomaticOnCondition' ||
-                        triggerTag === 'OcfTriggerTypeAutomaticOnCondition'
-                      ? 'AUTOMATIC_ON_CONDITION'
-                      : 'AUTOMATIC_ON_CONDITION';
-        }
-
-        // --- Extract remaining optional fields ---
-        const refSharePrice = extractOptionalMonetary(rec.reference_share_price);
-        const refValuationPrice = extractOptionalMonetary(rec.reference_valuation_price_per_share);
-        const valuationCap = extractOptionalMonetary(rec.valuation_cap);
-        const floorPrice = extractOptionalMonetary(rec.floor_price_per_share);
-        const ceilingPrice = extractOptionalMonetary(rec.ceiling_price_per_share);
-
-        const poc = rec.percent_of_capitalization;
-        const parsedPoc =
-          poc && typeof poc === 'object' && 'tag' in poc && (poc as { tag: unknown }).tag === 'Some' && 'value' in poc
-            ? parseFloat((poc as { value: string }).value).toString()
-            : undefined;
-
-        const dr = rec.discount_rate;
-        const parsedDr =
-          dr && typeof dr === 'object' && 'tag' in dr && (dr as { tag: unknown }).tag === 'Some' && 'value' in dr
-            ? parseFloat((dr as { value: string }).value).toString()
-            : undefined;
-
-        const cd = rec.custom_description;
-        const parsedCd =
-          cd && typeof cd === 'object' && 'tag' in cd && (cd as { tag: unknown }).tag === 'Some' && 'value' in cd
-            ? (cd as { value: string }).value
-            : undefined;
-
-        const expiresAt = right.expires_at ? damlTimeToDateString(right.expires_at) : undefined;
-
+        // OCF StockClassConversionRight schema allows ONLY: type, conversion_mechanism,
+        // converts_to_future_round, converts_to_stock_class_id. No conversion_trigger or other fields.
+        const convertsToFutureRound = rec.converts_to_future_round;
         const convRight: StockClassConversionRight = {
-          type: right.type_,
+          type: 'STOCK_CLASS_CONVERSION_RIGHT',
           conversion_mechanism: mechanismObj,
           converts_to_stock_class_id: right.converts_to_stock_class_id,
-          ...(trigger !== undefined ? { conversion_trigger: trigger } : {}),
-          ...(refSharePrice ? { reference_share_price: refSharePrice } : {}),
-          ...(refValuationPrice ? { reference_valuation_price_per_share: refValuationPrice } : {}),
-          ...(parsedPoc !== undefined ? { percent_of_capitalization: parsedPoc } : {}),
-          ...(parsedDr !== undefined ? { discount_rate: parsedDr } : {}),
-          ...(valuationCap ? { valuation_cap: valuationCap } : {}),
-          ...(floorPrice ? { floor_price_per_share: floorPrice } : {}),
-          ...(ceilingPrice ? { ceiling_price_per_share: ceilingPrice } : {}),
-          ...(parsedCd ? { custom_description: parsedCd } : {}),
-          ...(expiresAt ? { expires_at: expiresAt } : {}),
+          ...(convertsToFutureRound !== undefined && convertsToFutureRound !== null
+            ? { converts_to_future_round: Boolean(convertsToFutureRound) }
+            : {}),
         };
 
         return convRight;
