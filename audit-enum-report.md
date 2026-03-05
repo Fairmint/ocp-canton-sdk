@@ -153,10 +153,11 @@ FIXED_AMOUNT_CONVERSION
 | VALUATION_BASED_CONVERSION                 | ❌ (convertible only)          | OcfConversionMechanismValuationBasedConversion        | ✅                           | ✅       |
 | CONVERTIBLE_NOTE_CONVERSION                | ❌ (convertible only)          | OcfConvMechNote (tag)                                 | ✅                           | ✅       |
 | CUSTOM_CONVERSION                          | ❌ (convertible only)          | OcfConversionMechanismCustomConversion                | ✅                           | ✅       |
-| PPS_BASED_CONVERSION                       | ❌ MISSING                     | ❌ MISSING in DAML                                    | N/A                          | N/A      |
+| PPS_BASED_CONVERSION                       | ❌ (convertible only)          | ⚠️ OcfConversionMechanismPpsBasedConversion (naming)  | ✅                           | ✅       |
 
 **Status:** ⚠️ SDK `ConversionMechanism` is a subset for stock class. Convertible mechanisms use
-different DAML tagged unions. PPS_BASED_CONVERSION is in OCF but not in SDK or DAML.
+different DAML tagged unions. PPS_BASED_CONVERSION is mapped to DAML as
+`OcfConversionMechanismPpsBasedConversion` / `OcfConvMechPpsBased`; the difference is naming only.
 
 ---
 

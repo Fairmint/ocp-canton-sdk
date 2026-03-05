@@ -153,7 +153,7 @@ export interface WarrantMechanismValuationBased {
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-/** Warrant Conversion Mechanism - Share Price Based Conversion based on share price with optional discount */
+/** Warrant Conversion Mechanism - PPS-based (price-per-share-based) conversion with optional discount */
 export interface WarrantMechanismPpsBased {
   type: 'PPS_BASED_CONVERSION';
   /** Description of the share price basis */
@@ -268,7 +268,7 @@ export interface ConvertibleMechanismValuationBased {
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-/** Convertible Conversion Mechanism - Share Price Based */
+/** Convertible Conversion Mechanism - PPS-based (price-per-share-based) */
 export interface ConvertibleMechanismPpsBased {
   type: 'PPS_BASED_CONVERSION';
   /** Description of the share price basis */

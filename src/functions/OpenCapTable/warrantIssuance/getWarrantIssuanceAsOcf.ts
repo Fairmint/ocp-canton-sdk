@@ -312,9 +312,8 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
     ...(exercise_price ? { exercise_price } : {}),
     purchase_price,
     exercise_triggers,
-    // Include quantity_source based on quantity presence and DAML data.
-    // When quantity is present: always include quantity_source (default UNSPECIFIED).
-    // When quantity is absent: only include if DAML explicitly has a non-default value
+    // Include quantity_source only when DAML explicitly provides a value.
+    // We do not manufacture defaults -- if DAML has no quantity_source, omit it.
     // (the OCF-to-DAML converter can set quantity_source independently of quantity).
     ...(() => {
       const mappedQuantitySource =

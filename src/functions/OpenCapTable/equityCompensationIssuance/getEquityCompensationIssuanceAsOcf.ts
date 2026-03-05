@@ -99,7 +99,17 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
             }
             return {
               reason,
-              period: typeof w.period === 'string' ? Number(w.period) : w.period,
+              period: (() => {
+                const p = typeof w.period === 'string' ? Number(w.period) : w.period;
+                if (!Number.isFinite(p)) {
+                  throw new OcpValidationError('termination_exercise_window.period', `Invalid period: ${w.period}`, {
+                    code: OcpErrorCodes.INVALID_FORMAT,
+                    expectedType: 'finite number',
+                    receivedValue: w.period,
+                  });
+                }
+                return p;
+              })(),
               period_type: periodType,
             };
           }
