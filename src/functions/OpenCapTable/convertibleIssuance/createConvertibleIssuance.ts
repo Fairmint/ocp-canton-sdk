@@ -327,7 +327,7 @@ function mechanismInputToDamlEnum(
           );
         }
         return {
-          tag: 'OcfConvMechSharePriceBased',
+          tag: 'OcfConvMechPpsBased',
           value: {
             description: anyM.description,
             discount: Boolean(anyM.discount),

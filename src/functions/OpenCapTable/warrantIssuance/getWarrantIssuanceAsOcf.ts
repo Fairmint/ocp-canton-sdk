@@ -9,7 +9,7 @@ import type {
   WarrantMechanismCustom,
   WarrantMechanismFixedAmount,
   WarrantMechanismPercentCapitalization,
-  WarrantMechanismSharePriceBased,
+  WarrantMechanismPpsBased,
   WarrantMechanismValuationBased,
 } from '../../../types/native';
 import {
@@ -113,7 +113,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
           : {}),
       } as WarrantMechanismValuationBased;
     }
-    case 'OcfWarrantMechanismSharePriceBased': {
+    case 'OcfWarrantMechanismPpsBased': {
       const discountAmount = damlMonetaryToNativeWithValidation(value.discount_amount as Record<string, unknown>);
       if (typeof value.description !== 'string' || !value.description) {
         throw new OcpValidationError(
@@ -138,7 +138,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
             }
           : {}),
         ...(discountAmount ? { discount_amount: discountAmount } : {}),
-      } as WarrantMechanismSharePriceBased;
+      } as WarrantMechanismPpsBased;
     }
     case 'OcfWarrantMechanismCustom':
       if (typeof value.custom_conversion_description !== 'string' || !value.custom_conversion_description) {

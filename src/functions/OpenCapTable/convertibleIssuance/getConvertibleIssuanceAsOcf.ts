@@ -49,7 +49,7 @@ interface ValuationBasedMechanism {
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-interface SharePriceBasedMechanism {
+interface PpsBasedMechanism {
   type: 'PPS_BASED_CONVERSION';
   description?: string;
   discount: boolean;
@@ -84,7 +84,7 @@ interface ConvertibleConversionRight {
     | PercentCapitalizationMechanism
     | FixedAmountMechanism
     | ValuationBasedMechanism
-    | SharePriceBasedMechanism
+    | PpsBasedMechanism
     | NoteConversionMechanism;
   converts_to_future_round?: boolean;
   converts_to_stock_class_id?: string;
@@ -293,8 +293,8 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
           } as ValuationBasedMechanism;
           return mech;
         }
-        case 'OcfConvMechSharePriceBased': {
-          const mech: SharePriceBasedMechanism = {
+        case 'OcfConvMechPpsBased': {
+          const mech: PpsBasedMechanism = {
             type: 'PPS_BASED_CONVERSION',
             description: value.description,
             discount: Boolean(value.discount),
@@ -336,7 +336,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
                   })(),
                 }
               : {}),
-          } as SharePriceBasedMechanism;
+          } as PpsBasedMechanism;
           return mech;
         }
         case 'OcfConvMechNote': {
