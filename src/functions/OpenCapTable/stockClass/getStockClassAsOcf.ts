@@ -102,7 +102,7 @@ export function damlStockClassDataToNative(
     if (tagged.tag === 'OcfInitialSharesNumeric' && typeof tagged.value === 'string') {
       initialShares = normalizeNumericString(tagged.value);
     } else if (tagged.tag === 'OcfInitialSharesEnum' && typeof tagged.value === 'string') {
-      initialShares = tagged.value === 'OcfAuthorizedSharesUnlimited' ? 'Unlimited' : 'N/A';
+      initialShares = tagged.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT_APPLICABLE';
     } else {
       throw new OcpValidationError('stockClass.initial_shares_authorized', 'Invalid initial_shares_authorized format', {
         code: OcpErrorCodes.INVALID_FORMAT,
