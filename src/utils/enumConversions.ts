@@ -255,16 +255,28 @@ export function stakeholderRelationshipTypeToDaml(
   relationship: StakeholderRelationshipType
 ): DamlStakeholderRelationshipType {
   switch (relationship) {
-    case 'EMPLOYEE':
-      return 'OcfRelEmployee';
     case 'ADVISOR':
       return 'OcfRelAdvisor';
-    case 'INVESTOR':
-      return 'OcfRelInvestor';
-    case 'FOUNDER':
-      return 'OcfRelFounder';
     case 'BOARD_MEMBER':
       return 'OcfRelBoardMember';
+    case 'CONSULTANT':
+      return 'OcfRelConsultant';
+    case 'EMPLOYEE':
+      return 'OcfRelEmployee';
+    case 'EX_ADVISOR':
+      return 'OcfRelExAdvisor';
+    case 'EX_CONSULTANT':
+      return 'OcfRelExConsultant';
+    case 'EX_EMPLOYEE':
+      return 'OcfRelExEmployee';
+    case 'EXECUTIVE':
+      return 'OcfRelExecutive';
+    case 'FOUNDER':
+      return 'OcfRelFounder';
+    case 'INVESTOR':
+      return 'OcfRelInvestor';
+    case 'NON_US_EMPLOYEE':
+      return 'OcfRelNonUsEmployee';
     case 'OFFICER':
       return 'OcfRelOfficer';
     case 'OTHER':
@@ -290,12 +302,15 @@ export function damlStakeholderRelationshipToNative(
 ): StakeholderRelationshipType {
   switch (damlType) {
     case 'OcfRelEmployee':
-    case 'OcfRelExEmployee':
-    case 'OcfRelNonUsEmployee':
       return 'EMPLOYEE';
+    case 'OcfRelExEmployee':
+      return 'EX_EMPLOYEE';
+    case 'OcfRelNonUsEmployee':
+      return 'NON_US_EMPLOYEE';
     case 'OcfRelAdvisor':
-    case 'OcfRelExAdvisor':
       return 'ADVISOR';
+    case 'OcfRelExAdvisor':
+      return 'EX_ADVISOR';
     case 'OcfRelInvestor':
       return 'INVESTOR';
     case 'OcfRelFounder':
@@ -303,10 +318,13 @@ export function damlStakeholderRelationshipToNative(
     case 'OcfRelBoardMember':
       return 'BOARD_MEMBER';
     case 'OcfRelOfficer':
-    case 'OcfRelExecutive':
       return 'OFFICER';
+    case 'OcfRelExecutive':
+      return 'EXECUTIVE';
     case 'OcfRelConsultant':
+      return 'CONSULTANT';
     case 'OcfRelExConsultant':
+      return 'EX_CONSULTANT';
     case 'OcfRelOther':
       return 'OTHER';
     default: {

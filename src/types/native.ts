@@ -74,9 +74,10 @@ export interface ConversionMechanismObject {
 export type ConversionTrigger =
   | 'AUTOMATIC_ON_CONDITION'
   | 'AUTOMATIC_ON_DATE'
+  | 'ELECTIVE_IN_RANGE'
   | 'ELECTIVE_ON_CONDITION'
-  | 'ELECTIVE_ON_DATE'
-  | 'ELECTIVE_AT_WILL';
+  | 'ELECTIVE_AT_WILL'
+  | 'UNSPECIFIED';
 
 /**
  * Extended Conversion Trigger Type for Warrants and Convertibles Includes additional trigger types used by these
@@ -154,7 +155,7 @@ export interface WarrantMechanismValuationBased {
 
 /** Warrant Conversion Mechanism - Share Price Based Conversion based on share price with optional discount */
 export interface WarrantMechanismSharePriceBased {
-  type: 'SHARE_PRICE_BASED_CONVERSION';
+  type: 'PPS_BASED_CONVERSION';
   /** Description of the share price basis */
   description?: string;
   /** Whether a discount applies */
@@ -269,7 +270,7 @@ export interface ConvertibleMechanismValuationBased {
 
 /** Convertible Conversion Mechanism - Share Price Based */
 export interface ConvertibleMechanismSharePriceBased {
-  type: 'SHARE_PRICE_BASED_CONVERSION';
+  type: 'PPS_BASED_CONVERSION';
   /** Description of the share price basis */
   description?: string;
   /** Whether a discount applies */
@@ -360,7 +361,7 @@ export interface ConvertibleConversionTrigger {
  * Enum - Rounding Type Rounding method for numeric values OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/RoundingType.schema.json
  */
-export type RoundingType = 'DOWN' | 'UP' | 'NEAREST' | 'NORMAL';
+export type RoundingType = 'CEILING' | 'FLOOR' | 'NORMAL';
 
 /**
  * Enum - Authorized Shares Enumeration of special values for authorized shares when not using a numeric value OCF:
@@ -816,8 +817,8 @@ export type AllocationType =
   | 'CUMULATIVE_ROUND_DOWN'
   | 'FRONT_LOADED'
   | 'BACK_LOADED'
-  | 'FRONT_LOADED_SINGLE_TRANCHE'
-  | 'BACK_LOADED_SINGLE_TRANCHE'
+  | 'FRONT_LOADED_TO_SINGLE_TRANCHE'
+  | 'BACK_LOADED_TO_SINGLE_TRANCHE'
   | 'FRACTIONAL';
 
 /**
@@ -1042,7 +1043,7 @@ export interface OcfEquityCompensationIssuance {
 
 // ===== Convertible & Warrant Issuance Types =====
 
-export type ConvertibleType = 'NOTE' | 'SAFE' | 'SECURITY';
+export type ConvertibleType = 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY';
 export type SimpleTrigger = 'AUTOMATIC' | 'OPTIONAL';
 
 /**
@@ -2019,11 +2020,17 @@ export interface OcfFinancing {
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StakeholderRelationshipType.schema.json
  */
 export type StakeholderRelationshipType =
-  | 'EMPLOYEE'
   | 'ADVISOR'
-  | 'INVESTOR'
-  | 'FOUNDER'
   | 'BOARD_MEMBER'
+  | 'CONSULTANT'
+  | 'EMPLOYEE'
+  | 'EX_ADVISOR'
+  | 'EX_CONSULTANT'
+  | 'EX_EMPLOYEE'
+  | 'EXECUTIVE'
+  | 'FOUNDER'
+  | 'INVESTOR'
+  | 'NON_US_EMPLOYEE'
   | 'OFFICER'
   | 'OTHER';
 

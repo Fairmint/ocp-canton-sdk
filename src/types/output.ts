@@ -28,15 +28,27 @@ import type {
   OcfConvertibleCancellation,
   OcfConvertibleConversion,
   OcfConvertibleIssuance,
+  OcfConvertibleRetraction,
   OcfConvertibleTransfer,
   OcfDocument,
   OcfEquityCompensationAcceptance,
   OcfEquityCompensationCancellation,
   OcfEquityCompensationExercise,
   OcfEquityCompensationIssuance,
+  OcfEquityCompensationRelease,
+  OcfEquityCompensationRepricing,
+  OcfEquityCompensationRetraction,
   OcfEquityCompensationTransfer,
+  OcfFinancing,
   OcfIssuer,
   OcfIssuerAuthorizedSharesAdjustment,
+  OcfPlanSecurityAcceptance,
+  OcfPlanSecurityCancellation,
+  OcfPlanSecurityExercise,
+  OcfPlanSecurityIssuance,
+  OcfPlanSecurityRelease,
+  OcfPlanSecurityRetraction,
+  OcfPlanSecurityTransfer,
   OcfStakeholder,
   OcfStakeholderRelationshipChangeEvent,
   OcfStakeholderStatusChangeEvent,
@@ -52,8 +64,10 @@ import type {
   OcfStockLegendTemplate,
   OcfStockPlan,
   OcfStockPlanPoolAdjustment,
+  OcfStockPlanReturnToPool,
   OcfStockReissuance,
   OcfStockRepurchase,
+  OcfStockRetraction,
   OcfStockTransfer,
   OcfValuation,
   OcfVestingAcceleration,
@@ -64,6 +78,7 @@ import type {
   OcfWarrantCancellation,
   OcfWarrantExercise,
   OcfWarrantIssuance,
+  OcfWarrantRetraction,
   OcfWarrantTransfer,
 } from './native';
 
@@ -92,6 +107,9 @@ export type OcfValuationOutput = WithObjectType<OcfValuation, 'VALUATION'>;
 
 /** Document output with `object_type: 'DOCUMENT'` discriminant */
 export type OcfDocumentOutput = WithObjectType<OcfDocument, 'DOCUMENT'>;
+
+/** Financing output with `object_type: 'FINANCING'` discriminant */
+export type OcfFinancingOutput = WithObjectType<OcfFinancing, 'FINANCING'>;
 
 // ===== Transaction Types (issuances) =====
 
@@ -158,6 +176,12 @@ export type OcfEquityCompensationExerciseOutput = WithObjectType<
 /** Warrant Exercise output */
 export type OcfWarrantExerciseOutput = WithObjectType<OcfWarrantExercise, 'TX_WARRANT_EXERCISE'>;
 
+/** Equity Compensation Release output */
+export type OcfEquityCompensationReleaseOutput = WithObjectType<
+  OcfEquityCompensationRelease,
+  'TX_EQUITY_COMPENSATION_RELEASE'
+>;
+
 // ===== Transaction Types (conversions) =====
 
 /** Stock Conversion output */
@@ -181,6 +205,31 @@ export type OcfConvertibleAcceptanceOutput = WithObjectType<OcfConvertibleAccept
 export type OcfEquityCompensationAcceptanceOutput = WithObjectType<
   OcfEquityCompensationAcceptance,
   'TX_EQUITY_COMPENSATION_ACCEPTANCE'
+>;
+
+// ===== Transaction Types (retractions) =====
+
+/** Stock Retraction output */
+export type OcfStockRetractionOutput = WithObjectType<OcfStockRetraction, 'TX_STOCK_RETRACTION'>;
+
+/** Warrant Retraction output */
+export type OcfWarrantRetractionOutput = WithObjectType<OcfWarrantRetraction, 'TX_WARRANT_RETRACTION'>;
+
+/** Convertible Retraction output */
+export type OcfConvertibleRetractionOutput = WithObjectType<OcfConvertibleRetraction, 'TX_CONVERTIBLE_RETRACTION'>;
+
+/** Equity Compensation Retraction output */
+export type OcfEquityCompensationRetractionOutput = WithObjectType<
+  OcfEquityCompensationRetraction,
+  'TX_EQUITY_COMPENSATION_RETRACTION'
+>;
+
+// ===== Transaction Types (repricing) =====
+
+/** Equity Compensation Repricing output */
+export type OcfEquityCompensationRepricingOutput = WithObjectType<
+  OcfEquityCompensationRepricing,
+  'TX_EQUITY_COMPENSATION_REPRICING'
 >;
 
 // ===== Transaction Types (adjustments) =====
@@ -211,6 +260,35 @@ export type OcfStockPlanPoolAdjustmentOutput = WithObjectType<
   OcfStockPlanPoolAdjustment,
   'TX_STOCK_PLAN_POOL_ADJUSTMENT'
 >;
+
+/** Stock Plan Return To Pool output */
+export type OcfStockPlanReturnToPoolOutput = WithObjectType<OcfStockPlanReturnToPool, 'TX_STOCK_PLAN_RETURN_TO_POOL'>;
+
+// ===== Transaction Types (plan security) =====
+
+/** Plan Security Issuance output */
+export type OcfPlanSecurityIssuanceOutput = WithObjectType<OcfPlanSecurityIssuance, 'TX_PLAN_SECURITY_ISSUANCE'>;
+
+/** Plan Security Exercise output */
+export type OcfPlanSecurityExerciseOutput = WithObjectType<OcfPlanSecurityExercise, 'TX_PLAN_SECURITY_EXERCISE'>;
+
+/** Plan Security Cancellation output */
+export type OcfPlanSecurityCancellationOutput = WithObjectType<
+  OcfPlanSecurityCancellation,
+  'TX_PLAN_SECURITY_CANCELLATION'
+>;
+
+/** Plan Security Acceptance output */
+export type OcfPlanSecurityAcceptanceOutput = WithObjectType<OcfPlanSecurityAcceptance, 'TX_PLAN_SECURITY_ACCEPTANCE'>;
+
+/** Plan Security Release output */
+export type OcfPlanSecurityReleaseOutput = WithObjectType<OcfPlanSecurityRelease, 'TX_PLAN_SECURITY_RELEASE'>;
+
+/** Plan Security Retraction output */
+export type OcfPlanSecurityRetractionOutput = WithObjectType<OcfPlanSecurityRetraction, 'TX_PLAN_SECURITY_RETRACTION'>;
+
+/** Plan Security Transfer output */
+export type OcfPlanSecurityTransferOutput = WithObjectType<OcfPlanSecurityTransfer, 'TX_PLAN_SECURITY_TRANSFER'>;
 
 // ===== Transaction Types (other) =====
 
@@ -280,6 +358,7 @@ export type OcfObject =
   | OcfVestingTermsOutput
   | OcfValuationOutput
   | OcfDocumentOutput
+  | OcfFinancingOutput
   // Issuances
   | OcfStockIssuanceOutput
   | OcfEquityCompensationIssuanceOutput
@@ -298,6 +377,7 @@ export type OcfObject =
   // Exercises
   | OcfEquityCompensationExerciseOutput
   | OcfWarrantExerciseOutput
+  | OcfEquityCompensationReleaseOutput
   // Conversions
   | OcfStockConversionOutput
   | OcfConvertibleConversionOutput
@@ -306,12 +386,28 @@ export type OcfObject =
   | OcfWarrantAcceptanceOutput
   | OcfConvertibleAcceptanceOutput
   | OcfEquityCompensationAcceptanceOutput
+  // Retractions
+  | OcfStockRetractionOutput
+  | OcfWarrantRetractionOutput
+  | OcfConvertibleRetractionOutput
+  | OcfEquityCompensationRetractionOutput
+  // Repricing
+  | OcfEquityCompensationRepricingOutput
   // Adjustments
   | OcfIssuerAuthorizedSharesAdjustmentOutput
   | OcfStockClassAuthorizedSharesAdjustmentOutput
   | OcfStockClassConversionRatioAdjustmentOutput
   | OcfStockClassSplitOutput
   | OcfStockPlanPoolAdjustmentOutput
+  | OcfStockPlanReturnToPoolOutput
+  // Plan Security
+  | OcfPlanSecurityIssuanceOutput
+  | OcfPlanSecurityExerciseOutput
+  | OcfPlanSecurityCancellationOutput
+  | OcfPlanSecurityAcceptanceOutput
+  | OcfPlanSecurityReleaseOutput
+  | OcfPlanSecurityRetractionOutput
+  | OcfPlanSecurityTransferOutput
   // Other
   | OcfStockRepurchaseOutput
   | OcfStockConsolidationOutput

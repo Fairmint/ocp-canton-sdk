@@ -22,9 +22,9 @@ function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.Oc
     case 'OcfAllocationBackLoaded':
       return 'BACK_LOADED';
     case 'OcfAllocationFrontLoadedToSingleTranche':
-      return 'FRONT_LOADED_SINGLE_TRANCHE';
+      return 'FRONT_LOADED_TO_SINGLE_TRANCHE';
     case 'OcfAllocationBackLoadedToSingleTranche':
-      return 'BACK_LOADED_SINGLE_TRANCHE';
+      return 'BACK_LOADED_TO_SINGLE_TRANCHE';
     case 'OcfAllocationFractional':
       return 'FRACTIONAL';
     default: {
