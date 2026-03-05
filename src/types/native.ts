@@ -1993,36 +1993,19 @@ export interface OcfPlanSecurityTransfer {
 /**
  * Object - Financing Object describing a financing round OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Financing.schema.json
+ *
+ * Note: The OCF schema has additionalProperties: false. The only allowed fields
+ * are id, name, issuance_ids, date, and comments.
  */
 export interface OcfFinancing {
   /** Identifier for the object */
   id: string;
-  /** Name of the financing round */
-  round_name: string;
-  /** Date the financing round was announced or closed */
-  financing_date: string;
-  /** Type of financing round */
-  financing_type?:
-    | 'PRE_SEED'
-    | 'SEED'
-    | 'SERIES_A'
-    | 'SERIES_B'
-    | 'SERIES_C'
-    | 'SERIES_D'
-    | 'SERIES_E'
-    | 'SERIES_F'
-    | 'BRIDGE'
-    | 'CONVERTIBLE_NOTE'
-    | 'SAFE'
-    | 'OTHER';
-  /** Total amount raised in this financing round */
-  amount_raised?: Monetary;
-  /** Pre-money valuation */
-  pre_money_valuation?: Monetary;
-  /** Post-money valuation */
-  post_money_valuation?: Monetary;
-  /** Identifier for the stock class created or used in this financing */
-  stock_class_id?: string;
+  /** Name for the financing */
+  name: string;
+  /** Array of issuance IDs associated with the financing (minItems: 1) */
+  issuance_ids: string[];
+  /** Date on which the financing event occurred (YYYY-MM-DD) */
+  date: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

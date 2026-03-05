@@ -102,6 +102,12 @@ const SCHEMA_MAPPINGS: SchemaMapping[] = [
     requiredFields: ['id', 'md5'],
     optionalFields: ['comments', 'path', 'uri', 'related_objects'],
   },
+  {
+    schemaFile: 'Financing.schema.json',
+    sdkInterface: 'OcfFinancing',
+    requiredFields: ['id', 'name', 'issuance_ids', 'date'],
+    optionalFields: ['comments'],
+  },
   // Transaction mappings
   {
     schemaFile: 'transactions/issuance/StockIssuance.schema.json',

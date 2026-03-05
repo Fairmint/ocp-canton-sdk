@@ -198,9 +198,7 @@ const SCHEMA_TO_SDK: Record<string, string> = {
 };
 
 /** OCF field name to SDK field name mappings (for known renames) */
-const FIELD_ALIASES: Record<string, Record<string, string>> = {
-  OcfFinancing: { name: 'round_name', date: 'financing_date' },
-};
+const FIELD_ALIASES: Record<string, Record<string, string>> = {};
 
 function findSdkField(
   sdkFields: Map<string, { type: string; required: boolean }>,
@@ -274,9 +272,7 @@ function main(): void {
   report.push(
     '- Most discrepancies fall into: (1) **MISSING** - OCF field not in SDK, (2) **EXTRA** - SDK field not in OCF (potential `additionalProperties: false` violation), (3) **MISMATCH** - required/optional or type differences'
   );
-  report.push(
-    '- **Financing**: OCF uses `name` and `date`; SDK uses `round_name` and `financing_date`. OCF requires `issuance_ids`; SDK omits it. SDK adds `financing_type`, `amount_raised`, `pre_money_valuation`, `post_money_valuation`, `stock_class_id`.'
-  );
+  report.push('- **Financing** has been aligned with OCF schema (id, name, issuance_ids, date, comments).');
   report.push(
     '- **PlanSecurity*** schemas inherit from EquityCompensation equivalents; base fields (id, date, security_id) come from Transaction/SecurityTransaction.'
   );
