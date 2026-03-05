@@ -829,7 +829,7 @@ export type AllocationType =
  * OCF (months):
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/vesting/VestingPeriodInMonths.schema.json
  */
-export type PeriodType = 'DAYS' | 'MONTHS';
+export type PeriodType = 'DAYS' | 'MONTHS' | 'YEARS';
 
 /**
  * Allowed OCF day_of_month values for monthly vesting periods.

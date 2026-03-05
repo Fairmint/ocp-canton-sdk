@@ -42,6 +42,7 @@ const twMapReason: Record<string, TerminationWindowReason> = {
 const twMapPeriodType: Record<string, PeriodType> = {
   OcfPeriodDays: 'DAYS',
   OcfPeriodMonths: 'MONTHS',
+  OcfPeriodYears: 'YEARS',
 };
 
 /**

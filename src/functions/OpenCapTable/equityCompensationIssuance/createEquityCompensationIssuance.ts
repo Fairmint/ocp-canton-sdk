@@ -52,6 +52,7 @@ export const terminationWindowPeriodTypeMap: Record<
 > = {
   DAYS: 'OcfPeriodDays',
   MONTHS: 'OcfPeriodMonths',
+  YEARS: 'OcfPeriodYears',
 };
 
 export function equityCompensationIssuanceDataToDaml(
