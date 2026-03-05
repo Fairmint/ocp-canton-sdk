@@ -312,16 +312,13 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
     ...(exercise_price ? { exercise_price } : {}),
     purchase_price,
     exercise_triggers,
-    // Include quantity_source only when DAML explicitly provides a value.
-    // We do not manufacture defaults -- if DAML has no quantity_source, omit it.
-    // (the OCF-to-DAML converter can set quantity_source independently of quantity).
+    // Include quantity_source only when DAML explicitly provides a mappable value.
     ...(() => {
       const mappedQuantitySource =
         d.quantity_source !== null && d.quantity_source !== undefined
           ? mapQuantitySource(d.quantity_source)
           : undefined;
 
-      // Fail fast: if DAML has a quantity_source value but we can't map it, throw
       if (d.quantity_source !== null && d.quantity_source !== undefined && !mappedQuantitySource) {
         throw new OcpValidationError('warrantIssuance.quantity_source', 'Invalid quantity_source value', {
           code: OcpErrorCodes.INVALID_TYPE,
@@ -330,9 +327,6 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
         });
       }
 
-      if (d.quantity !== null && d.quantity !== undefined && mappedQuantitySource) {
-        return { quantity_source: mappedQuantitySource };
-      }
       if (mappedQuantitySource) {
         return { quantity_source: mappedQuantitySource };
       }
