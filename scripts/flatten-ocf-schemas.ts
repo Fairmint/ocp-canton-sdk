@@ -17,7 +17,7 @@ import path from 'path';
 
 // Base paths
 const REPO_ROOT = path.resolve(__dirname, '..');
-const OCF_SCHEMA_ROOT = path.join(REPO_ROOT, 'Open-Cap-Format-OCF', 'schema');
+const OCF_SCHEMA_ROOT = path.join(REPO_ROOT, 'libs', 'Open-Cap-Format-OCF', 'schema');
 const OBJECTS_DIR = path.join(OCF_SCHEMA_ROOT, 'objects');
 const OUTPUT_DIR = path.join(REPO_ROOT, 'generated', 'ocf-schema');
 
@@ -209,7 +209,7 @@ function removeEmptyProperties(schema: JsonSchema): JsonSchema {
 function urlToLocalPath(url: string): string {
   if (url.startsWith(GITHUB_RAW_BASE)) {
     const relativePath = url.slice(GITHUB_RAW_BASE.length);
-    return path.join(REPO_ROOT, 'Open-Cap-Format-OCF', relativePath);
+    return path.join(REPO_ROOT, 'libs', 'Open-Cap-Format-OCF', relativePath);
   }
   if (url.startsWith('file://')) {
     return url.slice(7);
