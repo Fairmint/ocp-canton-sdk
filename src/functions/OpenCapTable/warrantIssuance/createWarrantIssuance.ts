@@ -39,7 +39,7 @@ type WarrantConversionMechanismInput =
       capitalization_definition_rules?: Record<string, unknown> | null;
     }
   | {
-      type: 'SHARE_PRICE_BASED_CONVERSION';
+      type: 'PPS_BASED_CONVERSION';
       description: string;
       discount: boolean;
       discount_percentage?: string | null;
@@ -136,7 +136,7 @@ function warrantMechanismToDamlVariant(
             null) as Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules | null,
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
-    case 'SHARE_PRICE_BASED_CONVERSION':
+    case 'PPS_BASED_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismSharePriceBased',
         value: {

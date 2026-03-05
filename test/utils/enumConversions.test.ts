@@ -153,6 +153,30 @@ describe('enumConversions', () => {
       expect(stakeholderRelationshipTypeToDaml('OTHER')).toBe('OcfRelOther');
     });
 
+    test('converts CONSULTANT to OcfRelConsultant', () => {
+      expect(stakeholderRelationshipTypeToDaml('CONSULTANT')).toBe('OcfRelConsultant');
+    });
+
+    test('converts EX_ADVISOR to OcfRelExAdvisor', () => {
+      expect(stakeholderRelationshipTypeToDaml('EX_ADVISOR')).toBe('OcfRelExAdvisor');
+    });
+
+    test('converts EX_CONSULTANT to OcfRelExConsultant', () => {
+      expect(stakeholderRelationshipTypeToDaml('EX_CONSULTANT')).toBe('OcfRelExConsultant');
+    });
+
+    test('converts EX_EMPLOYEE to OcfRelExEmployee', () => {
+      expect(stakeholderRelationshipTypeToDaml('EX_EMPLOYEE')).toBe('OcfRelExEmployee');
+    });
+
+    test('converts EXECUTIVE to OcfRelExecutive', () => {
+      expect(stakeholderRelationshipTypeToDaml('EXECUTIVE')).toBe('OcfRelExecutive');
+    });
+
+    test('converts NON_US_EMPLOYEE to OcfRelNonUsEmployee', () => {
+      expect(stakeholderRelationshipTypeToDaml('NON_US_EMPLOYEE')).toBe('OcfRelNonUsEmployee');
+    });
+
     test('throws for unknown values', () => {
       // @ts-expect-error Testing runtime behavior with invalid input
       expect(() => stakeholderRelationshipTypeToDaml('UNKNOWN')).toThrow();
@@ -164,20 +188,20 @@ describe('enumConversions', () => {
       expect(damlStakeholderRelationshipToNative('OcfRelEmployee')).toBe('EMPLOYEE');
     });
 
-    test('converts OcfRelExEmployee to EMPLOYEE', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelExEmployee')).toBe('EMPLOYEE');
+    test('converts OcfRelExEmployee to EX_EMPLOYEE', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelExEmployee')).toBe('EX_EMPLOYEE');
     });
 
-    test('converts OcfRelNonUsEmployee to EMPLOYEE', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelNonUsEmployee')).toBe('EMPLOYEE');
+    test('converts OcfRelNonUsEmployee to NON_US_EMPLOYEE', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelNonUsEmployee')).toBe('NON_US_EMPLOYEE');
     });
 
     test('converts OcfRelAdvisor to ADVISOR', () => {
       expect(damlStakeholderRelationshipToNative('OcfRelAdvisor')).toBe('ADVISOR');
     });
 
-    test('converts OcfRelExAdvisor to ADVISOR', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelExAdvisor')).toBe('ADVISOR');
+    test('converts OcfRelExAdvisor to EX_ADVISOR', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelExAdvisor')).toBe('EX_ADVISOR');
     });
 
     test('converts OcfRelInvestor to INVESTOR', () => {
@@ -196,16 +220,16 @@ describe('enumConversions', () => {
       expect(damlStakeholderRelationshipToNative('OcfRelOfficer')).toBe('OFFICER');
     });
 
-    test('converts OcfRelExecutive to OFFICER', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelExecutive')).toBe('OFFICER');
+    test('converts OcfRelExecutive to EXECUTIVE', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelExecutive')).toBe('EXECUTIVE');
     });
 
-    test('converts OcfRelConsultant to OTHER', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelConsultant')).toBe('OTHER');
+    test('converts OcfRelConsultant to CONSULTANT', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelConsultant')).toBe('CONSULTANT');
     });
 
-    test('converts OcfRelExConsultant to OTHER', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelExConsultant')).toBe('OTHER');
+    test('converts OcfRelExConsultant to EX_CONSULTANT', () => {
+      expect(damlStakeholderRelationshipToNative('OcfRelExConsultant')).toBe('EX_CONSULTANT');
     });
 
     test('converts OcfRelOther to OTHER', () => {

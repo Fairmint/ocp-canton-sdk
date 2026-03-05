@@ -74,9 +74,10 @@ export interface ConversionMechanismObject {
 export type ConversionTrigger =
   | 'AUTOMATIC_ON_CONDITION'
   | 'AUTOMATIC_ON_DATE'
+  | 'ELECTIVE_IN_RANGE'
   | 'ELECTIVE_ON_CONDITION'
-  | 'ELECTIVE_ON_DATE'
-  | 'ELECTIVE_AT_WILL';
+  | 'ELECTIVE_AT_WILL'
+  | 'UNSPECIFIED';
 
 /**
  * Extended Conversion Trigger Type for Warrants and Convertibles Includes additional trigger types used by these
@@ -154,7 +155,7 @@ export interface WarrantMechanismValuationBased {
 
 /** Warrant Conversion Mechanism - Share Price Based Conversion based on share price with optional discount */
 export interface WarrantMechanismSharePriceBased {
-  type: 'SHARE_PRICE_BASED_CONVERSION';
+  type: 'PPS_BASED_CONVERSION';
   /** Description of the share price basis */
   description?: string;
   /** Whether a discount applies */
@@ -269,7 +270,7 @@ export interface ConvertibleMechanismValuationBased {
 
 /** Convertible Conversion Mechanism - Share Price Based */
 export interface ConvertibleMechanismSharePriceBased {
-  type: 'SHARE_PRICE_BASED_CONVERSION';
+  type: 'PPS_BASED_CONVERSION';
   /** Description of the share price basis */
   description?: string;
   /** Whether a discount applies */
@@ -360,7 +361,7 @@ export interface ConvertibleConversionTrigger {
  * Enum - Rounding Type Rounding method for numeric values OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/RoundingType.schema.json
  */
-export type RoundingType = 'DOWN' | 'UP' | 'NEAREST' | 'NORMAL';
+export type RoundingType = 'CEILING' | 'FLOOR' | 'NORMAL';
 
 /**
  * Enum - Authorized Shares Enumeration of special values for authorized shares when not using a numeric value OCF:
@@ -426,40 +427,54 @@ export interface TaxId {
 /**
  * Stock Class Conversion Right (shared) OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/conversion_rights/StockClassConversionRight.schema.json
+ *
+ * OCF-compliant fields: type, conversion_mechanism, converts_to_future_round, converts_to_stock_class_id.
+ * The OCF schema has additionalProperties: false — no other fields are allowed in OCF output.
+ *
+ * The remaining fields below are DAML-internal passthrough fields. The DAML contract
+ * `OcfStockClassConversionRight` stores conversion details flat (ratio, conversion_price, etc.)
+ * rather than nested inside the conversion_mechanism object. These fields are accepted on write
+ * for backwards compatibility but are NOT included in OCF-compliant reader output.
  */
 export interface StockClassConversionRight {
-  /** Type descriptor of conversion right */
+  /** Type descriptor — must be 'STOCK_CLASS_CONVERSION_RIGHT' per OCF schema */
   type: string;
-  /** Mechanism by which conversion occurs */
+  /** Mechanism by which conversion occurs (OCF: RatioConversionMechanism only) */
   conversion_mechanism: ConversionMechanism | ConversionMechanismObject;
-  /** Trigger that would cause conversion */
-  conversion_trigger?: ConversionTrigger;
   /** Identifier of stock class to which this converts */
   converts_to_stock_class_id: string;
-  /** Ratio components for RATIO_CONVERSION (decimal string) */
+  /** Is this potentially convertible into a future, as-yet undetermined stock class? */
+  converts_to_future_round?: boolean;
+
+  // ----- DAML-internal passthrough fields (not in OCF output) -----
+
+  /** @internal DAML passthrough — trigger that would cause conversion */
+  conversion_trigger?: ConversionTrigger;
+  /** @internal DAML passthrough — ratio numerator for RATIO_CONVERSION */
   ratio_numerator?: string;
+  /** @internal DAML passthrough — ratio denominator for RATIO_CONVERSION */
   ratio_denominator?: string;
-  /** Percent of capitalization this converts to ("0" < p <= "1", decimal string) */
+  /** @internal DAML passthrough — percent of capitalization */
   percent_of_capitalization?: string;
-  /** Conversion price per share for fixed-amount conversion */
+  /** @internal DAML passthrough — conversion price per share */
   conversion_price?: Monetary;
-  /** Reference share price */
+  /** @internal DAML passthrough — reference share price */
   reference_share_price?: Monetary;
-  /** Reference valuation price per share */
+  /** @internal DAML passthrough — reference valuation price per share */
   reference_valuation_price_per_share?: Monetary;
-  /** Discount rate (0-1 decimal string) */
+  /** @internal DAML passthrough — discount rate */
   discount_rate?: string;
-  /** Valuation cap */
+  /** @internal DAML passthrough — valuation cap */
   valuation_cap?: Monetary;
-  /** Floor price per share */
+  /** @internal DAML passthrough — floor price per share */
   floor_price_per_share?: Monetary;
-  /** Ceiling price per share */
+  /** @internal DAML passthrough — ceiling price per share */
   ceiling_price_per_share?: Monetary;
-  /** Custom description of conversion mechanics */
+  /** @internal DAML passthrough — custom description */
   custom_description?: string;
-  /** How should fractional shares be rounded? */
+  /** @internal DAML passthrough — rounding type for fractional shares */
   rounding_type?: RoundingType;
-  /** Expiration date for this conversion right (YYYY-MM-DD) */
+  /** @internal DAML passthrough — expiration date (YYYY-MM-DD) */
   expires_at?: string;
 }
 
@@ -816,8 +831,8 @@ export type AllocationType =
   | 'CUMULATIVE_ROUND_DOWN'
   | 'FRONT_LOADED'
   | 'BACK_LOADED'
-  | 'FRONT_LOADED_SINGLE_TRANCHE'
-  | 'BACK_LOADED_SINGLE_TRANCHE'
+  | 'FRONT_LOADED_TO_SINGLE_TRANCHE'
+  | 'BACK_LOADED_TO_SINGLE_TRANCHE'
   | 'FRACTIONAL';
 
 /**
@@ -1042,7 +1057,7 @@ export interface OcfEquityCompensationIssuance {
 
 // ===== Convertible & Warrant Issuance Types =====
 
-export type ConvertibleType = 'NOTE' | 'SAFE' | 'SECURITY';
+export type ConvertibleType = 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY';
 export type SimpleTrigger = 'AUTOMATIC' | 'OPTIONAL';
 
 /**
@@ -1978,36 +1993,19 @@ export interface OcfPlanSecurityTransfer {
 /**
  * Object - Financing Object describing a financing round OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Financing.schema.json
+ *
+ * Note: The OCF schema has additionalProperties: false. The only allowed fields
+ * are id, name, issuance_ids, date, and comments.
  */
 export interface OcfFinancing {
   /** Identifier for the object */
   id: string;
-  /** Name of the financing round */
-  round_name: string;
-  /** Date the financing round was announced or closed */
-  financing_date: string;
-  /** Type of financing round */
-  financing_type?:
-    | 'PRE_SEED'
-    | 'SEED'
-    | 'SERIES_A'
-    | 'SERIES_B'
-    | 'SERIES_C'
-    | 'SERIES_D'
-    | 'SERIES_E'
-    | 'SERIES_F'
-    | 'BRIDGE'
-    | 'CONVERTIBLE_NOTE'
-    | 'SAFE'
-    | 'OTHER';
-  /** Total amount raised in this financing round */
-  amount_raised?: Monetary;
-  /** Pre-money valuation */
-  pre_money_valuation?: Monetary;
-  /** Post-money valuation */
-  post_money_valuation?: Monetary;
-  /** Identifier for the stock class created or used in this financing */
-  stock_class_id?: string;
+  /** Name for the financing */
+  name: string;
+  /** Array of issuance IDs associated with the financing (minItems: 1) */
+  issuance_ids: string[];
+  /** Date on which the financing event occurred (YYYY-MM-DD) */
+  date: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -2019,11 +2017,17 @@ export interface OcfFinancing {
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/StakeholderRelationshipType.schema.json
  */
 export type StakeholderRelationshipType =
-  | 'EMPLOYEE'
   | 'ADVISOR'
-  | 'INVESTOR'
-  | 'FOUNDER'
   | 'BOARD_MEMBER'
+  | 'CONSULTANT'
+  | 'EMPLOYEE'
+  | 'EX_ADVISOR'
+  | 'EX_CONSULTANT'
+  | 'EX_EMPLOYEE'
+  | 'EXECUTIVE'
+  | 'FOUNDER'
+  | 'INVESTOR'
+  | 'NON_US_EMPLOYEE'
   | 'OFFICER'
   | 'OTHER';
 

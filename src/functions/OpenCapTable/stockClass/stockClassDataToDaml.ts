@@ -26,8 +26,10 @@ function triggerTypeToDamlEnum(t: ConversionTrigger): string {
       return 'OcfTriggerTypeTypeElectiveAtWill';
     case 'ELECTIVE_ON_CONDITION':
       return 'OcfTriggerTypeTypeElectiveOnCondition';
-    case 'ELECTIVE_ON_DATE':
-      return 'OcfTriggerTypeTypeElectiveOnDate';
+    case 'ELECTIVE_IN_RANGE':
+      return 'OcfTriggerTypeTypeElectiveInRange';
+    case 'UNSPECIFIED':
+      return 'OcfTriggerTypeTypeUnspecified';
     default: {
       const _exhaustive: never = t;
       throw new Error(`Unknown stock class conversion trigger type: ${String(_exhaustive)}`);

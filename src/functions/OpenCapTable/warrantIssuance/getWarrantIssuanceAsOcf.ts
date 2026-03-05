@@ -123,7 +123,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
         );
       }
       return {
-        type: 'SHARE_PRICE_BASED_CONVERSION',
+        type: 'PPS_BASED_CONVERSION',
         description: value.description,
         discount: Boolean(value.discount),
         ...(value.discount_percentage !== undefined &&

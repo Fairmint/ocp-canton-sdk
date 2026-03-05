@@ -50,7 +50,7 @@ interface ValuationBasedMechanism {
 }
 
 interface SharePriceBasedMechanism {
-  type: 'SHARE_PRICE_BASED_CONVERSION';
+  type: 'PPS_BASED_CONVERSION';
   description?: string;
   discount: boolean;
   discount_percentage?: string;
@@ -112,7 +112,7 @@ export interface OcfConvertibleIssuanceEvent {
   stockholder_approval_date?: string;
   investment_amount: { amount: string; currency: string };
   consideration_text?: string;
-  convertible_type: 'NOTE' | 'SAFE' | 'SECURITY';
+  convertible_type: 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY';
   conversion_triggers: ConversionTrigger[];
   pro_rata?: string;
   seniority: number;
@@ -129,10 +129,10 @@ export interface GetConvertibleIssuanceAsOcfResult {
   contractId: string;
 }
 
-const typeMap: Record<string, 'NOTE' | 'SAFE' | 'SECURITY'> = {
+const typeMap: Record<string, 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY'> = {
   OcfConvertibleNote: 'NOTE',
   OcfConvertibleSafe: 'SAFE',
-  OcfConvertibleSecurity: 'SECURITY',
+  OcfConvertibleSecurity: 'CONVERTIBLE_SECURITY',
 };
 
 const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): ConversionTrigger[] => {
@@ -295,7 +295,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
         }
         case 'OcfConvMechSharePriceBased': {
           const mech: SharePriceBasedMechanism = {
-            type: 'SHARE_PRICE_BASED_CONVERSION',
+            type: 'PPS_BASED_CONVERSION',
             description: value.description,
             discount: Boolean(value.discount),
             ...(value.discount_percentage !== undefined && value.discount_percentage !== null

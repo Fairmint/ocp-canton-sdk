@@ -25,7 +25,7 @@ type ConvertibleConversionMechanismInput =
   | 'FIXED_AMOUNT_CONVERSION'
   | 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION'
   | 'VALUATION_BASED_CONVERSION'
-  | 'SHARE_PRICE_BASED_CONVERSION';
+  | 'PPS_BASED_CONVERSION';
 
 export type ConversionTriggerInput =
   | ConversionTriggerTypeInput
@@ -44,14 +44,14 @@ export type ConversionTriggerInput =
     };
 
 function convertibleTypeToDaml(
-  t: 'NOTE' | 'SAFE' | 'SECURITY'
+  t: 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY'
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleType {
   switch (t) {
     case 'NOTE':
       return 'OcfConvertibleNote';
     case 'SAFE':
       return 'OcfConvertibleSafe';
-    case 'SECURITY':
+    case 'CONVERTIBLE_SECURITY':
       return 'OcfConvertibleSecurity';
   }
 }
@@ -317,12 +317,12 @@ function mechanismInputToDamlEnum(
           },
         } as Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;
       }
-      case 'SHARE_PRICE_BASED_CONVERSION': {
+      case 'PPS_BASED_CONVERSION': {
         const anyM = m as Record<string, unknown>;
         if (!anyM.description || typeof anyM.description !== 'string') {
           throw new OcpValidationError(
             'conversion_mechanism.description',
-            'SHARE_PRICE_BASED_CONVERSION requires description',
+            'PPS_BASED_CONVERSION requires description',
             { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
           );
         }
@@ -426,7 +426,7 @@ export function convertibleIssuanceDataToDaml(d: {
   consideration_text?: string;
   security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
   investment_amount: Monetary;
-  convertible_type: 'NOTE' | 'SAFE' | 'SECURITY';
+  convertible_type: 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY';
   conversion_triggers: ConversionTriggerInput[];
   pro_rata?: string;
   seniority: number;

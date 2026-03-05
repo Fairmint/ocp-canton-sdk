@@ -25,9 +25,9 @@ function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.Vest
       return 'OcfAllocationFrontLoaded';
     case 'BACK_LOADED':
       return 'OcfAllocationBackLoaded';
-    case 'FRONT_LOADED_SINGLE_TRANCHE':
+    case 'FRONT_LOADED_TO_SINGLE_TRANCHE':
       return 'OcfAllocationFrontLoadedToSingleTranche';
-    case 'BACK_LOADED_SINGLE_TRANCHE':
+    case 'BACK_LOADED_TO_SINGLE_TRANCHE':
       return 'OcfAllocationBackLoadedToSingleTranche';
     case 'FRACTIONAL':
       return 'OcfAllocationFractional';
