@@ -146,11 +146,15 @@ export function safeString(value: unknown): string {
  */
 export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
   if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
+  if (tag === 'OcfTriggerTypeTypeAutomaticOnCondition') return 'AUTOMATIC_ON_CONDITION';
   if (tag === 'OcfTriggerTypeTypeElectiveInRange') return 'ELECTIVE_IN_RANGE';
   if (tag === 'OcfTriggerTypeTypeElectiveOnCondition') return 'ELECTIVE_ON_CONDITION';
   if (tag === 'OcfTriggerTypeTypeElectiveAtWill') return 'ELECTIVE_AT_WILL';
   if (tag === 'OcfTriggerTypeTypeUnspecified') return 'UNSPECIFIED';
-  return 'AUTOMATIC_ON_CONDITION';
+  throw new OcpParseError(`Unknown trigger type tag: ${tag}`, {
+    source: 'triggerType.tag',
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+  });
 }
 
 // ===== Monetary Value Conversions =====

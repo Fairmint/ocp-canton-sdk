@@ -28,7 +28,7 @@ const compMap: Partial<Record<string, CompensationType>> = {
 };
 
 // Termination window reason DAML→OCF mapping
-const twMapReason: Record<string, TerminationWindowReason> = {
+const twMapReason: Partial<Record<string, TerminationWindowReason>> = {
   OcfTermVoluntaryOther: 'VOLUNTARY_OTHER',
   OcfTermVoluntaryGoodCause: 'VOLUNTARY_GOOD_CAUSE',
   OcfTermVoluntaryRetirement: 'VOLUNTARY_RETIREMENT',
@@ -39,7 +39,7 @@ const twMapReason: Record<string, TerminationWindowReason> = {
 };
 
 // Termination window period type DAML→OCF mapping
-const twMapPeriodType: Record<string, PeriodType> = {
+const twMapPeriodType: Partial<Record<string, PeriodType>> = {
   OcfPeriodDays: 'DAYS',
   OcfPeriodMonths: 'MONTHS',
   OcfPeriodYears: 'YEARS',
@@ -78,11 +78,31 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
   const termination_exercise_windows =
     Array.isArray(d.termination_exercise_windows) && d.termination_exercise_windows.length > 0
       ? (d.termination_exercise_windows as Array<{ reason: string; period: string | number; period_type: string }>).map(
-          (w) => ({
-            reason: twMapReason[w.reason] ?? 'VOLUNTARY_OTHER',
-            period: typeof w.period === 'string' ? Number(w.period) : w.period,
-            period_type: twMapPeriodType[w.period_type],
-          })
+          (w) => {
+            const reason = twMapReason[w.reason];
+            if (!reason) {
+              throw new OcpValidationError('termination_exercise_window.reason', `Unknown reason: ${w.reason}`, {
+                code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+                receivedValue: w.reason,
+              });
+            }
+            const periodType = twMapPeriodType[w.period_type];
+            if (!periodType) {
+              throw new OcpValidationError(
+                'termination_exercise_window.period_type',
+                `Unknown period_type: ${w.period_type}`,
+                {
+                  code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+                  receivedValue: w.period_type,
+                }
+              );
+            }
+            return {
+              reason,
+              period: typeof w.period === 'string' ? Number(w.period) : w.period,
+              period_type: periodType,
+            };
+          }
         )
       : undefined;
 

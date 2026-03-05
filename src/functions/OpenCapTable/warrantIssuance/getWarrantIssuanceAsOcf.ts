@@ -331,8 +331,8 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
         });
       }
 
-      if (d.quantity !== null && d.quantity !== undefined) {
-        return { quantity_source: mappedQuantitySource ?? 'UNSPECIFIED' };
+      if (d.quantity !== null && d.quantity !== undefined && mappedQuantitySource) {
+        return { quantity_source: mappedQuantitySource };
       }
       if (mappedQuantitySource) {
         return { quantity_source: mappedQuantitySource };
