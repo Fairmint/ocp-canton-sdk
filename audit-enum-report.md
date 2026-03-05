@@ -602,3 +602,98 @@ explicitly.
 5. **Consider adding StakeholderRelationshipType values:** CONSULTANT, EX\_\*, EXECUTIVE,
    NON_US_EMPLOYEE for full OCF support.
 6. **Document ConvertibleType alias:** SECURITY ↔ CONVERTIBLE_SECURITY is intentional.
+
+---
+
+## DAML Gaps and Known Findings
+
+This section documents OCF enum vs DAML TypeScript declaration alignment, focusing on DAML-specific
+gaps and structural differences.
+
+### Known Structural Limitations (Not Bugs)
+
+#### OcfVestingPeriod — No Years Variant
+
+**OCF PeriodType** has: `DAYS`, `MONTHS`, `YEARS`.
+
+**DAML OcfPeriodType** (used for termination windows) has: `OcfPeriodDays`, `OcfPeriodMonths`,
+`OcfPeriodYears` — full coverage.
+
+**DAML OcfVestingPeriod** (used for vesting schedule relative triggers) is a sum type with only:
+
+- `OcfVestingPeriodDays`
+- `OcfVestingPeriodMonths`
+
+There is **no `OcfVestingPeriodYears`** variant. This is a **DAML structural limitation**: vesting
+periods in the DAML contract only support days and months as period types. Years is supported via
+`OcfPeriodType` for termination windows. The VestingPeriod is a discriminated union, not an enum.
+This is by design in the DAML contract model.
+
+#### PPS_BASED_CONVERSION — Naming Convention Difference
+
+**OCF ConversionMechanismType** uses: `PPS_BASED_CONVERSION` (abbreviated).
+
+**DAML** uses: `OcfConversionMechanismSharePriceBasedConversion` (descriptive) for stock class, and
+`OcfConvMechSharePriceBased` (tag) for convertibles.
+
+Functionally mapped correctly in SDK converters (`createWarrantIssuance`,
+`createConvertibleIssuance`, `getWarrantIssuanceAsOcf`, `getConvertibleIssuanceAsOcf`). OCF
+`PPS_BASED_CONVERSION` ↔ DAML `OcfConversionMechanismSharePriceBasedConversion` /
+`OcfConvMechSharePriceBased` is a naming convention difference only.
+
+### OCF Enums Without Direct DAML Enum Counterpart
+
+| OCF Enum                    | DAML Location                        | Notes                                                                                                                               |
+| --------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| OptionType (NSO, ISO, INTL) | N/A                                  | Option type expressed via CompensationType (OPTION_NSO, OPTION_ISO, OPTION). No standalone OptionType in DAML.                      |
+| ConversionRightType         | Tagged union `OcfAnyConversionRight` | OcfRightConvertible, OcfRightWarrant, OcfRightStockClass — not an enum.                                                             |
+| VestingTriggerType          | Tagged union `OcfVestingTrigger`     | OcfVestingStartTrigger, OcfVestingScheduleAbsoluteTrigger, OcfVestingScheduleRelativeTrigger, OcfVestingEventTrigger — not an enum. |
+| ConversionTimingType        | String in OcfSAFEConversionMechanism | PRE_MONEY, POST_MONEY stored as string, not enum.                                                                                   |
+| ObjectType                  | Various OcfObj\* in Document         | 62 values; DAML uses template/contract types, not a single enum.                                                                    |
+
+---
+
+## DAML Alignment Summary
+
+| OCF Enum                          | DAML Type                                                                                  | DAML Coverage | Notes                                                                                |
+| --------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ------------------------------------------------------------------------------------ |
+| ConversionTriggerType             | OcfConversionTriggerType                                                                   | ✅ Full       | 6/6 values                                                                           |
+| ConvertibleType                   | OcfConvertibleType                                                                         | ✅ Full       | 3/3 values                                                                           |
+| ConversionMechanismType           | OcfConversionMechanism / OcfConvertibleConversionMechanism / OcfWarrantConversionMechanism | ✅ Full       | 8/8 values; PPS_BASED→SharePriceBased (naming diff)                                  |
+| RoundingType                      | OcfRoundingType                                                                            | ✅ Full       | 3/3 values                                                                           |
+| AccrualPeriodType                 | OcfAccrualPeriodType                                                                       | ✅ Full       | 5/5 values                                                                           |
+| DayCountType                      | OcfDayCountType                                                                            | ✅ Full       | 2/2 values                                                                           |
+| CompoundingType                   | OcfCompoundingType                                                                         | ✅ Full       | 2/2 values                                                                           |
+| InterestPayoutType                | OcfInterestPayoutType                                                                      | ✅ Full       | 2/2 values                                                                           |
+| ValuationBasedFormulaType         | OcfValuationBasedFormulaType                                                               | ✅ Full       | 3/3 values (FIXED→OcfValuationFixed, ACTUAL→OcfValuationActual, CAP→OcfValuationCap) |
+| StakeholderRelationshipType       | OcfStakeholderRelationshipType                                                             | ✅ Full       | 13/13 values                                                                         |
+| StockClassType                    | OcfStockClassType                                                                          | ✅ Full       | 2/2 values                                                                           |
+| AuthorizedShares                  | OcfAuthorizedShares                                                                        | ✅ Full       | 2/2 values (OCF "NOT APPLICABLE" vs DAML OcfAuthorizedSharesNotApplicable)           |
+| QuantitySourceType                | OcfQuantitySourceType                                                                      | ✅ Full       | 6/6 values                                                                           |
+| ParentSecurityType                | OcfParentSecurityType                                                                      | ✅ Full       | 4/4 values                                                                           |
+| FileType                          | OcfFileType                                                                                | ✅ Full       | 10/10 values                                                                         |
+| EmailType                         | OcfEmailType                                                                               | ✅ Full       | 3/3 values                                                                           |
+| PhoneType                         | OcfPhoneType                                                                               | ✅ Full       | 4/4 values                                                                           |
+| CompensationType                  | OcfCompensationType                                                                        | ✅ Full       | 6/6 values                                                                           |
+| TerminationWindowType             | OcfTerminationWindowType                                                                   | ✅ Full       | 7/7 values                                                                           |
+| PeriodType                        | OcfPeriodType                                                                              | ✅ Full       | 3/3 values                                                                           |
+| AddressType                       | OcfAddressType                                                                             | ✅ Full       | 3/3 values                                                                           |
+| StakeholderStatusType             | OcfStakeholderStatusType                                                                   | ✅ Full       | 9/9 values                                                                           |
+| StakeholderType                   | OcfStakeholderType                                                                         | ✅ Full       | 2/2 values                                                                           |
+| AllocationType                    | OcfAllocationType                                                                          | ✅ Full       | 7/7 values                                                                           |
+| VestingDayOfMonth                 | OcfVestingDayOfMonth                                                                       | ✅ Full       | 33/33 values                                                                         |
+| OptionType                        | —                                                                                          | ⚠️ No enum    | Expressed via CompensationType                                                       |
+| ConversionRightType               | OcfAnyConversionRight (tags)                                                               | ✅ Full       | Tagged union, not enum                                                               |
+| VestingTriggerType                | OcfVestingTrigger (tags)                                                                   | ✅ Full       | Tagged union, not enum                                                               |
+| ConversionTimingType              | string in OcfSAFEConversionMechanism                                                       | ✅ Full       | PRE_MONEY, POST_MONEY                                                                |
+| StockPlanCancellationBehaviorType | OcfPlanCancel\*                                                                            | ✅ Full       | 4/4 values (in Stock module)                                                         |
+| ValuationType                     | OcfValuationType409A                                                                       | ✅ Full       | 1/1 value                                                                            |
+| StockIssuanceType                 | OcfStockIssuance\*                                                                         | ✅ Full       | 2/2 values                                                                           |
+| ObjectType                        | Various OcfObj\*                                                                           | ✅ Full       | Template/contract types                                                              |
+| PeriodType (Vesting)              | OcfVestingPeriod                                                                           | ⚠️ Partial    | Days + Months only; no Years (structural limitation)                                 |
+
+**Summary:** All OCF enum schemas that have direct DAML enum counterparts are fully covered. The
+only DAML structural gap is **OcfVestingPeriod** (no Years variant), which is a design choice in the
+vesting contract model. **PPS_BASED_CONVERSION** is correctly mapped to DAML
+`OcfConversionMechanismSharePriceBasedConversion` / `OcfConvMechSharePriceBased`; the difference is
+naming only.
