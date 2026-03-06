@@ -110,7 +110,7 @@ function issuerDataToDamlInternal(
     formation_date: dateStringToDAMLTime(normalizedData.formation_date),
     country_subdivision_of_formation: optionalString(normalizedData.country_subdivision_of_formation),
     country_subdivision_name_of_formation: optionalString(normalizedData.country_subdivision_name_of_formation),
-    tax_ids: normalizedData.tax_ids,
+    tax_ids: normalizedData.tax_ids ?? [],
     email: normalizedData.email ? emailToDaml(normalizedData.email) : null,
     phone: normalizedData.phone ? phoneToDaml(normalizedData.phone) : null,
     address: normalizedData.address ? addressToDaml(normalizedData.address) : null,

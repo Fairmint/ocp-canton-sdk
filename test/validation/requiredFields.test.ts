@@ -56,6 +56,8 @@ describe('Required Field Validation', () => {
       date: '2024-01-15',
       share_price: { amount: '1.00', currency: 'USD' },
       quantity: '1000',
+      security_law_exemptions: [] as Array<{ description: string; jurisdiction: string }>,
+      stock_legend_ids: [] as string[],
     };
 
     test('throws OcpValidationError when id is missing', () => {

@@ -205,8 +205,8 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
     stakeholder_id: d.stakeholder_id,
     compensation_type: compensationType,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
-    ...(d.expiration_date ? { expiration_date: (d.expiration_date as string).split('T')[0] } : {}),
-    ...(termination_exercise_windows ? { termination_exercise_windows } : {}),
+    expiration_date: d.expiration_date ? (d.expiration_date as string).split('T')[0] : null,
+    termination_exercise_windows: termination_exercise_windows ?? [],
     ...(exercise_price ? { exercise_price } : {}),
     ...(base_price ? { base_price } : {}),
     ...(d.early_exercisable !== null && d.early_exercisable !== undefined
@@ -222,7 +222,7 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
     ...(typeof d.vesting_terms_id === 'string' && d.vesting_terms_id ? { vesting_terms_id: d.vesting_terms_id } : {}),
     ...(typeof d.stock_class_id === 'string' && d.stock_class_id ? { stock_class_id: d.stock_class_id } : {}),
     ...(typeof d.stock_plan_id === 'string' && d.stock_plan_id ? { stock_plan_id: d.stock_plan_id } : {}),
-    ...(security_law_exemptions ? { security_law_exemptions } : {}),
+    security_law_exemptions: security_law_exemptions ?? [],
     ...(vestings ? { vestings } : {}),
     ...(comments ? { comments } : {}),
   };

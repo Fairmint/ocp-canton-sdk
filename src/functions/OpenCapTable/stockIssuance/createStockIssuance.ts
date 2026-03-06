@@ -56,7 +56,7 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: optionalString(d.consideration_text),
-    security_law_exemptions: (d.security_law_exemptions ?? []).map((e) => ({
+    security_law_exemptions: d.security_law_exemptions.map((e) => ({
       description: e.description,
       jurisdiction: e.jurisdiction,
     })),
@@ -81,7 +81,7 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
         amount: normalizeNumericString(v.amount),
       })),
     cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,
-    stock_legend_ids: d.stock_legend_ids ?? [],
+    stock_legend_ids: d.stock_legend_ids,
     issuance_type: getIssuanceType(d.issuance_type),
     comments: cleanComments(d.comments),
   };

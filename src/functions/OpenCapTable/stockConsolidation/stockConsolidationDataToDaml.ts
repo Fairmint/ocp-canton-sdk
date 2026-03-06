@@ -19,27 +19,12 @@ export function stockConsolidationDataToDaml(d: OcfStockConsolidation): Record<s
       receivedValue: d.id,
     });
   }
-  const resultingSecurityId =
-    d.resulting_security_id ??
-    (Array.isArray(d.resulting_security_ids) && d.resulting_security_ids.length > 0
-      ? d.resulting_security_ids[0]
-      : undefined);
-  if (!resultingSecurityId) {
-    throw new OcpValidationError(
-      'stockConsolidation.resulting_security_id',
-      'Required resulting security identifier is missing',
-      {
-        expectedType: 'string',
-        receivedValue: d.resulting_security_id ?? d.resulting_security_ids,
-      }
-    );
-  }
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_ids: d.security_ids,
-    resulting_security_id: resultingSecurityId,
-    reason_text: optionalString(d.reason_text ?? null),
+    resulting_security_id: d.resulting_security_id,
+    reason_text: optionalString(d.reason_text),
     comments: cleanComments(d.comments),
   };
 }

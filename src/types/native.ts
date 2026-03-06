@@ -490,7 +490,7 @@ export interface OcfIssuer {
   /** Optional comments related to the issuer */
   comments?: string[];
   /** The tax ids for this issuer company */
-  tax_ids: TaxId[];
+  tax_ids?: TaxId[];
   /** The headquarters address of the issuing company */
   address?: Address;
   /** The code for the state, province, or subdivision where the issuer company was legally formed */
@@ -795,7 +795,7 @@ export interface OcfStockIssuance {
   /** Unstructured text description of consideration provided in exchange for security issuance */
   consideration_text?: string;
   /** List of security law exemptions (and applicable jurisdictions) for this security */
-  security_law_exemptions?: SecurityExemption[];
+  security_law_exemptions: SecurityExemption[];
   /** Identifier of the stock class of the issued security */
   stock_class_id: string;
   /** Identifier for the stock plan, if applicable */
@@ -813,7 +813,7 @@ export interface OcfStockIssuance {
   /** Cost basis for the shares issued */
   cost_basis?: Monetary;
   /** Stock legends that apply to this issuance (schema minItems: 1; implementation may allow empty) */
-  stock_legend_ids?: string[];
+  stock_legend_ids: string[];
   /** Type of stock issuance (e.g., RSA, Founders) */
   issuance_type?: StockIssuanceType;
   /** Unstructured text comments related to and stored for the object */
@@ -992,6 +992,9 @@ export interface OcfStockPlan {
 
 export type CompensationType = 'OPTION_NSO' | 'OPTION_ISO' | 'OPTION' | 'RSU' | 'CSAR' | 'SSAR';
 
+/** @deprecated OCF OptionType (NSO, ISO, INTL). Prefer CompensationType for option grants. */
+export type OptionType = 'NSO' | 'ISO' | 'INTL';
+
 export interface Vesting {
   /** Date when vesting occurs */
   date: string; // YYYY-MM-DD
@@ -1031,6 +1034,8 @@ export interface OcfEquityCompensationIssuance {
   vesting_terms_id?: string;
   /** Type of equity compensation instrument */
   compensation_type: CompensationType;
+  /** @deprecated Use compensation_type instead. OCF option grant type (NSO, ISO, INTL). */
+  option_grant_type?: OptionType;
   /** Quantity granted/issued (decimal string) */
   quantity: string;
   /** Exercise price per share/unit */
@@ -1040,13 +1045,13 @@ export interface OcfEquityCompensationIssuance {
   /** Whether early exercise is permitted */
   early_exercisable?: boolean;
   /** List of security law exemptions (and applicable jurisdictions) for this security */
-  security_law_exemptions?: SecurityExemption[];
+  security_law_exemptions: SecurityExemption[];
   /** Vesting events for the grant */
   vestings?: Vesting[];
   /** Expiration date of instrument */
-  expiration_date?: string;
+  expiration_date: string | null;
   /** Termination exercise windows after termination events */
-  termination_exercise_windows?: TerminationWindow[];
+  termination_exercise_windows: TerminationWindow[];
   /** Unstructured text comments */
   comments?: string[];
 }
@@ -1054,6 +1059,18 @@ export interface OcfEquityCompensationIssuance {
 // ===== Convertible & Warrant Issuance Types =====
 
 export type ConvertibleType = 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY';
+
+/**
+ * Enum - Quantity Source Type Source of quantity for warrant/convertible instruments OCF:
+ * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/QuantitySourceType.schema.json
+ */
+export type QuantitySourceType =
+  | 'HUMAN_ESTIMATED'
+  | 'MACHINE_ESTIMATED'
+  | 'UNSPECIFIED'
+  | 'INSTRUMENT_FIXED'
+  | 'INSTRUMENT_MAX'
+  | 'INSTRUMENT_MIN';
 
 /**
  * Object - Convertible Issuance Transaction (native subset) Object describing convertible instrument issuance
@@ -1101,15 +1118,13 @@ export interface OcfWarrantIssuance {
   security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
   /** Quantity of shares the warrant is exercisable for (decimal string) */
   quantity?: string;
-  quantity_source?:
-    | 'UNSPECIFIED'
-    | 'HUMAN_ESTIMATED'
-    | 'MACHINE_ESTIMATED'
-    | 'INSTRUMENT_FIXED'
-    | 'INSTRUMENT_MAX'
-    | 'INSTRUMENT_MIN';
+  /** Source of quantity (human/machine estimated, instrument-derived, etc.) */
+  quantity_source?: QuantitySourceType;
+  /** @internal DAML pass-through — not in OCF schema */
   ratio_numerator?: string;
+  /** @internal DAML pass-through — not in OCF schema */
   ratio_denominator?: string;
+  /** @internal DAML pass-through — not in OCF schema */
   percent_of_outstanding?: string;
   /** The exercise price of the warrant */
   exercise_price?: Monetary;
@@ -1121,7 +1136,9 @@ export interface OcfWarrantIssuance {
   warrant_expiration_date?: string;
   /** Identifier of the VestingTerms to which this security is subject */
   vesting_terms_id?: string;
-  /** Conversion triggers for automatic warrant conversion */
+  /** Vesting schedule entries associated directly with this issuance */
+  vestings?: VestingSimple[];
+  /** @internal DAML pass-through — not in OCF schema */
   conversion_triggers?: WarrantExerciseTrigger[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
@@ -1507,11 +1524,11 @@ export interface OcfWarrantExercise {
   security_id: string;
   /** Identifier for the warrant's exercise trigger that resulted in this exercise */
   trigger_id: string;
-  /** Deprecated legacy quantity field (optional in current schema/DAML) */
+  /** @internal DAML pass-through — not in OCF schema */
   quantity?: string;
   /** Array of identifiers for new securities resulting from the exercise */
   resulting_security_ids: string[];
-  /** Deprecated legacy remainder security field (not in current schema) */
+  /** @internal DAML pass-through — not in OCF schema */
   balance_security_id?: string;
   /** Unstructured text description of consideration provided in exchange for security exercise */
   consideration_text?: string;
@@ -1534,7 +1551,7 @@ export interface OcfStockConversion {
   security_id: string;
   /** Quantity of stock being converted (canonical field) */
   quantity_converted: string;
-  /** Deprecated legacy quantity field */
+  /** @internal DAML pass-through — not in OCF schema */
   quantity?: string;
   /** Array of identifiers for new securities resulting from the conversion */
   resulting_security_ids: string[];
@@ -1592,7 +1609,7 @@ export interface OcfEquityCompensationRelease {
   settlement_date: string;
   /** Array of identifiers for new securities resulting from the release */
   resulting_security_ids: string[];
-  /** Identifier for the security that holds the remainder balance (for partial releases) */
+  /** @internal DAML pass-through — not in OCF schema */
   balance_security_id?: string;
   /** Unstructured text description of consideration provided */
   consideration_text?: string;
@@ -1674,14 +1691,14 @@ export interface OcfStockClassSplit {
   /** Identifier for the stock class being split */
   stock_class_id: string;
   /** Canonical split ratio object */
-  split_ratio?: { numerator: string; denominator: string };
-  /** Deprecated legacy split ratio numerator (must be paired with split_ratio_denominator) */
+  split_ratio: { numerator: string; denominator: string };
+  /** @internal DAML pass-through — not in OCF schema */
   split_ratio_numerator?: string;
-  /** Deprecated legacy split ratio denominator (must be paired with split_ratio_numerator) */
+  /** @internal DAML pass-through — not in OCF schema */
   split_ratio_denominator?: string;
-  /** Date on which the board approved the split */
+  /** @internal Extension field — not in OCF schema */
   board_approval_date?: string;
-  /** Date on which stockholders approved the split */
+  /** @internal Extension field — not in OCF schema */
   stockholder_approval_date?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
@@ -1705,13 +1722,13 @@ export interface OcfStockClassConversionRatioAdjustment {
     ratio: { numerator: string; denominator: string };
     rounding_type: 'NORMAL' | 'CEILING' | 'FLOOR';
   };
-  /** Deprecated legacy ratio numerator (converted to mechanism form) */
+  /** @internal DAML pass-through — not in OCF schema */
   new_ratio_numerator?: string;
-  /** Deprecated legacy ratio denominator (converted to mechanism form) */
+  /** @internal DAML pass-through — not in OCF schema */
   new_ratio_denominator?: string;
-  /** Date on which the board approved the adjustment */
+  /** @internal Extension field — not in OCF schema */
   board_approval_date?: string;
-  /** Date on which stockholders approved the adjustment */
+  /** @internal Extension field — not in OCF schema */
   stockholder_approval_date?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
@@ -1773,7 +1790,7 @@ export interface OcfStockConsolidation {
   /** Array of identifiers for securities being consolidated */
   security_ids: string[];
   /** Identifier for the new consolidated security (canonical field) */
-  resulting_security_id?: string;
+  resulting_security_id: string;
   /** Deprecated legacy array form of resulting security ids */
   resulting_security_ids?: string[];
   /** Reason for the consolidation */
@@ -1798,7 +1815,7 @@ export interface OcfEquityCompensationRepricing {
   security_id: string;
   /** Updated exercise price after repricing */
   new_exercise_price: Monetary;
-  /** Deprecated legacy resulting security IDs field (not in canonical schema) */
+  /** @internal DAML pass-through — not in OCF schema */
   resulting_security_ids?: string[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
@@ -1826,8 +1843,10 @@ export interface OcfPlanSecurityIssuance {
   /** Identifier for the stock class */
   stock_class_id?: string;
   /** Canonical compensation type */
-  compensation_type?: CompensationType;
-  /** Deprecated legacy plan security type alias */
+  compensation_type: CompensationType;
+  /** @deprecated Use compensation_type instead */
+  option_grant_type?: OptionType;
+  /** @internal Extension field — not in OCF schema */
   plan_security_type?: 'OPTION' | 'RSU' | 'OTHER';
   /** Quantity of plan securities being issued */
   quantity: string;
@@ -1840,9 +1859,9 @@ export interface OcfPlanSecurityIssuance {
   /** Inline vesting installments */
   vestings?: Vesting[];
   /** Expiration date for this security */
-  expiration_date?: string | null;
+  expiration_date: string | null;
   /** Termination exercise windows */
-  termination_exercise_windows?: TerminationWindow[];
+  termination_exercise_windows: TerminationWindow[];
   /** Identifier for the vesting terms */
   vesting_terms_id?: string;
   /** Date on which the board approved the issuance */
@@ -1852,7 +1871,7 @@ export interface OcfPlanSecurityIssuance {
   /** Unstructured text description of consideration */
   consideration_text?: string;
   /** Security law exemptions */
-  security_law_exemptions?: SecurityExemption[];
+  security_law_exemptions: SecurityExemption[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1872,7 +1891,7 @@ export interface OcfPlanSecurityExercise {
   quantity: string;
   /** Array of identifiers for new securities resulting from the exercise */
   resulting_security_ids: string[];
-  /** Deprecated legacy remainder security field (not in canonical schema) */
+  /** @internal DAML pass-through — not in OCF schema */
   balance_security_id?: string;
   /** Unstructured text description of consideration */
   consideration_text?: string;
@@ -1933,7 +1952,7 @@ export interface OcfPlanSecurityRelease {
   release_price: Monetary;
   /** Array of identifiers for new securities resulting from the release */
   resulting_security_ids: string[];
-  /** Identifier for the security that holds the remainder balance (for partial releases) */
+  /** @internal DAML pass-through — not in OCF schema */
   balance_security_id?: string;
   /** Settlement date for the release */
   settlement_date: string;
@@ -2059,10 +2078,7 @@ export interface OcfStakeholderRelationshipChangeEvent {
   relationship_started?: StakeholderRelationshipType;
   /** Relationship that ended on this change date */
   relationship_ended?: StakeholderRelationshipType;
-  /**
-   * Deprecated legacy relationship list.
-   * Canonical format uses relationship_started/relationship_ended.
-   */
+  /** @deprecated Legacy field — not in current OCF schema */
   new_relationships?: StakeholderRelationshipType[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
@@ -2083,7 +2099,7 @@ export interface OcfStakeholderStatusChangeEvent {
   stakeholder_id: string;
   /** New status for the stakeholder */
   new_status: StakeholderStatus;
-  /** Deprecated legacy free-text reason (not part of canonical schema) */
+  /** @internal Extension field — not in OCF schema */
   reason_text?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
