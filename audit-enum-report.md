@@ -153,10 +153,11 @@ FIXED_AMOUNT_CONVERSION
 | VALUATION_BASED_CONVERSION                 | ❌ (convertible only)          | OcfConversionMechanismValuationBasedConversion        | ✅                           | ✅       |
 | CONVERTIBLE_NOTE_CONVERSION                | ❌ (convertible only)          | OcfConvMechNote (tag)                                 | ✅                           | ✅       |
 | CUSTOM_CONVERSION                          | ❌ (convertible only)          | OcfConversionMechanismCustomConversion                | ✅                           | ✅       |
-| PPS_BASED_CONVERSION                       | ❌ MISSING                     | ❌ MISSING in DAML                                    | N/A                          | N/A      |
+| PPS_BASED_CONVERSION                       | ❌ (convertible only)          | ⚠️ OcfConversionMechanismPpsBasedConversion (naming)  | ✅                           | ✅       |
 
 **Status:** ⚠️ SDK `ConversionMechanism` is a subset for stock class. Convertible mechanisms use
-different DAML tagged unions. PPS_BASED_CONVERSION is in OCF but not in SDK or DAML.
+different DAML tagged unions. PPS_BASED_CONVERSION is mapped to DAML as
+`OcfConversionMechanismPpsBasedConversion` / `OcfConvMechPpsBased`; the difference is naming only.
 
 ---
 
@@ -633,13 +634,13 @@ This is by design in the DAML contract model.
 
 **OCF ConversionMechanismType** uses: `PPS_BASED_CONVERSION` (abbreviated).
 
-**DAML** uses: `OcfConversionMechanismSharePriceBasedConversion` (descriptive) for stock class, and
-`OcfConvMechSharePriceBased` (tag) for convertibles.
+**DAML** uses: `OcfConversionMechanismPpsBasedConversion` (descriptive) for stock class, and
+`OcfConvMechPpsBased` (tag) for convertibles.
 
 Functionally mapped correctly in SDK converters (`createWarrantIssuance`,
 `createConvertibleIssuance`, `getWarrantIssuanceAsOcf`, `getConvertibleIssuanceAsOcf`). OCF
-`PPS_BASED_CONVERSION` ↔ DAML `OcfConversionMechanismSharePriceBasedConversion` /
-`OcfConvMechSharePriceBased` is a naming convention difference only.
+`PPS_BASED_CONVERSION` ↔ DAML `OcfConversionMechanismPpsBasedConversion` / `OcfConvMechPpsBased` is
+a naming convention difference only.
 
 ### OCF Enums Without Direct DAML Enum Counterpart
 
@@ -659,7 +660,7 @@ Functionally mapped correctly in SDK converters (`createWarrantIssuance`,
 | --------------------------------- | ------------------------------------------------------------------------------------------ | ------------- | ------------------------------------------------------------------------------------ |
 | ConversionTriggerType             | OcfConversionTriggerType                                                                   | ✅ Full       | 6/6 values                                                                           |
 | ConvertibleType                   | OcfConvertibleType                                                                         | ✅ Full       | 3/3 values                                                                           |
-| ConversionMechanismType           | OcfConversionMechanism / OcfConvertibleConversionMechanism / OcfWarrantConversionMechanism | ✅ Full       | 8/8 values; PPS_BASED→SharePriceBased (naming diff)                                  |
+| ConversionMechanismType           | OcfConversionMechanism / OcfConvertibleConversionMechanism / OcfWarrantConversionMechanism | ✅ Full       | 8/8 values; PPS_BASED→PpsBased (naming diff)                                         |
 | RoundingType                      | OcfRoundingType                                                                            | ✅ Full       | 3/3 values                                                                           |
 | AccrualPeriodType                 | OcfAccrualPeriodType                                                                       | ✅ Full       | 5/5 values                                                                           |
 | DayCountType                      | OcfDayCountType                                                                            | ✅ Full       | 2/2 values                                                                           |
@@ -695,5 +696,4 @@ Functionally mapped correctly in SDK converters (`createWarrantIssuance`,
 **Summary:** All OCF enum schemas that have direct DAML enum counterparts are fully covered. The
 only DAML structural gap is **OcfVestingPeriod** (no Years variant), which is a design choice in the
 vesting contract model. **PPS_BASED_CONVERSION** is correctly mapped to DAML
-`OcfConversionMechanismSharePriceBasedConversion` / `OcfConvMechSharePriceBased`; the difference is
-naming only.
+`OcfConversionMechanismPpsBasedConversion` / `OcfConvMechPpsBased`; the difference is naming only.

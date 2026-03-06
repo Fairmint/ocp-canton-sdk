@@ -9,7 +9,7 @@ import type {
   WarrantMechanismCustom,
   WarrantMechanismFixedAmount,
   WarrantMechanismPercentCapitalization,
-  WarrantMechanismSharePriceBased,
+  WarrantMechanismPpsBased,
   WarrantMechanismValuationBased,
 } from '../../../types/native';
 import {
@@ -113,7 +113,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
           : {}),
       } as WarrantMechanismValuationBased;
     }
-    case 'OcfWarrantMechanismSharePriceBased': {
+    case 'OcfWarrantMechanismPpsBased': {
       const discountAmount = damlMonetaryToNativeWithValidation(value.discount_amount as Record<string, unknown>);
       if (typeof value.description !== 'string' || !value.description) {
         throw new OcpValidationError(
@@ -138,7 +138,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
             }
           : {}),
         ...(discountAmount ? { discount_amount: discountAmount } : {}),
-      } as WarrantMechanismSharePriceBased;
+      } as WarrantMechanismPpsBased;
     }
     case 'OcfWarrantMechanismCustom':
       if (typeof value.custom_conversion_description !== 'string' || !value.custom_conversion_description) {
@@ -312,17 +312,13 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
     ...(exercise_price ? { exercise_price } : {}),
     purchase_price,
     exercise_triggers,
-    // Include quantity_source based on quantity presence and DAML data.
-    // When quantity is present: always include quantity_source (default UNSPECIFIED).
-    // When quantity is absent: only include if DAML explicitly has a non-default value
-    // (the OCF-to-DAML converter can set quantity_source independently of quantity).
+    // Include quantity_source only when DAML explicitly provides a mappable value.
     ...(() => {
       const mappedQuantitySource =
         d.quantity_source !== null && d.quantity_source !== undefined
           ? mapQuantitySource(d.quantity_source)
           : undefined;
 
-      // Fail fast: if DAML has a quantity_source value but we can't map it, throw
       if (d.quantity_source !== null && d.quantity_source !== undefined && !mappedQuantitySource) {
         throw new OcpValidationError('warrantIssuance.quantity_source', 'Invalid quantity_source value', {
           code: OcpErrorCodes.INVALID_TYPE,
@@ -331,9 +327,6 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
         });
       }
 
-      if (d.quantity !== null && d.quantity !== undefined) {
-        return { quantity_source: mappedQuantitySource ?? 'UNSPECIFIED' };
-      }
       if (mappedQuantitySource) {
         return { quantity_source: mappedQuantitySource };
       }

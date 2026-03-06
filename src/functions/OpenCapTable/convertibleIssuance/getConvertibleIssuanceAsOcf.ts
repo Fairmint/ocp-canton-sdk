@@ -49,7 +49,7 @@ interface ValuationBasedMechanism {
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-interface SharePriceBasedMechanism {
+interface PpsBasedMechanism {
   type: 'PPS_BASED_CONVERSION';
   description?: string;
   discount: boolean;
@@ -84,7 +84,7 @@ interface ConvertibleConversionRight {
     | PercentCapitalizationMechanism
     | FixedAmountMechanism
     | ValuationBasedMechanism
-    | SharePriceBasedMechanism
+    | PpsBasedMechanism
     | NoteConversionMechanism;
   converts_to_future_round?: boolean;
   converts_to_stock_class_id?: string;
@@ -129,7 +129,7 @@ export interface GetConvertibleIssuanceAsOcfResult {
   contractId: string;
 }
 
-const typeMap: Record<string, 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY'> = {
+const typeMap: Partial<Record<string, 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY'>> = {
   OcfConvertibleNote: 'NOTE',
   OcfConvertibleSafe: 'SAFE',
   OcfConvertibleSecurity: 'CONVERTIBLE_SECURITY',
@@ -293,8 +293,8 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
           } as ValuationBasedMechanism;
           return mech;
         }
-        case 'OcfConvMechSharePriceBased': {
-          const mech: SharePriceBasedMechanism = {
+        case 'OcfConvMechPpsBased': {
+          const mech: PpsBasedMechanism = {
             type: 'PPS_BASED_CONVERSION',
             description: value.description,
             discount: Boolean(value.discount),
@@ -336,7 +336,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
                   })(),
                 }
               : {}),
-          } as SharePriceBasedMechanism;
+          } as PpsBasedMechanism;
           return mech;
         }
         case 'OcfConvMechNote': {
@@ -642,7 +642,21 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
     ...(typeof d.consideration_text === 'string' && d.consideration_text.length
       ? { consideration_text: d.consideration_text }
       : {}),
-    convertible_type: typeMap[(d.convertible_type as string) || 'OcfConvertibleNote'],
+    convertible_type: (() => {
+      const ct = typeof d.convertible_type === 'string' ? d.convertible_type : '';
+      const mapped = typeMap[ct];
+      if (!mapped) {
+        throw new OcpValidationError(
+          'convertibleIssuance.convertible_type',
+          `Unknown or missing convertible_type: ${ct}`,
+          {
+            code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+            receivedValue: d.convertible_type,
+          }
+        );
+      }
+      return mapped;
+    })(),
     conversion_triggers: convertTriggers(d.conversion_triggers as unknown[], d.id),
     ...(typeof d.pro_rata === 'number' || typeof d.pro_rata === 'string'
       ? {

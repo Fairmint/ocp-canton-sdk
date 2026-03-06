@@ -153,8 +153,8 @@ export interface WarrantMechanismValuationBased {
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-/** Warrant Conversion Mechanism - Share Price Based Conversion based on share price with optional discount */
-export interface WarrantMechanismSharePriceBased {
+/** Warrant Conversion Mechanism - PPS-based (price-per-share-based) conversion with optional discount */
+export interface WarrantMechanismPpsBased {
   type: 'PPS_BASED_CONVERSION';
   /** Description of the share price basis */
   description?: string;
@@ -172,7 +172,7 @@ export type WarrantConversionMechanism =
   | WarrantMechanismPercentCapitalization
   | WarrantMechanismFixedAmount
   | WarrantMechanismValuationBased
-  | WarrantMechanismSharePriceBased;
+  | WarrantMechanismPpsBased;
 
 /** Warrant Conversion Right Describes the conversion rights associated with a warrant */
 export interface WarrantConversionRight {
@@ -268,8 +268,8 @@ export interface ConvertibleMechanismValuationBased {
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-/** Convertible Conversion Mechanism - Share Price Based */
-export interface ConvertibleMechanismSharePriceBased {
+/** Convertible Conversion Mechanism - PPS-based (price-per-share-based) */
+export interface ConvertibleMechanismPpsBased {
   type: 'PPS_BASED_CONVERSION';
   /** Description of the share price basis */
   description?: string;
@@ -325,7 +325,7 @@ export type ConvertibleConversionMechanism =
   | ConvertibleMechanismPercentCapitalization
   | ConvertibleMechanismFixedAmount
   | ConvertibleMechanismValuationBased
-  | ConvertibleMechanismSharePriceBased
+  | ConvertibleMechanismPpsBased
   | ConvertibleMechanismNote;
 
 /** Convertible Conversion Right Describes the conversion rights associated with a convertible instrument */

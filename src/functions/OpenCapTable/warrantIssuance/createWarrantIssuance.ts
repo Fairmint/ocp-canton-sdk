@@ -138,7 +138,7 @@ function warrantMechanismToDamlVariant(
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
     case 'PPS_BASED_CONVERSION':
       return {
-        tag: 'OcfWarrantMechanismSharePriceBased',
+        tag: 'OcfWarrantMechanismPpsBased',
         value: {
           description: m.description,
           discount: m.discount,

@@ -22,7 +22,7 @@ export interface DeploymentResult {
 }
 
 /** Current OCP version - only the latest is supported. */
-const OCP_VERSION = 'v31';
+const OCP_VERSION = 'v32';
 
 /**
  * Find the OCP DAML DAR file path.
@@ -38,7 +38,7 @@ function findDarFilePath(): string | null {
   // From npm package - DAR file included in package
   const npmPath = path.join(
     nodeModulesPath,
-    `OpenCapTable-${OCP_VERSION}/.daml/dist/OpenCapTable-${OCP_VERSION}-0.0.2.dar`
+    `OpenCapTable-${OCP_VERSION}/.daml/dist/OpenCapTable-${OCP_VERSION}-0.0.1.dar`
   );
   if (fs.existsSync(npmPath)) {
     return npmPath;
@@ -47,7 +47,7 @@ function findDarFilePath(): string | null {
   // From sibling directory (local development in monorepo)
   const localPath = path.join(
     siblingPath,
-    `OpenCapTable-${OCP_VERSION}/.daml/dist/OpenCapTable-${OCP_VERSION}-0.0.2.dar`
+    `OpenCapTable-${OCP_VERSION}/.daml/dist/OpenCapTable-${OCP_VERSION}-0.0.1.dar`
   );
   if (fs.existsSync(localPath)) {
     return localPath;
