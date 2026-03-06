@@ -28,7 +28,10 @@ function damlStockIssuanceTypeToNative(t: string): StockIssuanceType | undefined
     case 'OcfStockIssuanceFounders':
       return 'FOUNDERS_STOCK';
     default:
-      return undefined;
+      throw new OcpParseError(`Unknown DAML stock issuance type: ${t}`, {
+        source: 'stockIssuance.issuance_type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
   }
 }
 

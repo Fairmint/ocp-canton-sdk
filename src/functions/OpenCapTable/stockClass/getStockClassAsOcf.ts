@@ -152,12 +152,21 @@ export function damlStockClassDataToNative(
         } else {
           mechanismTag = '';
         }
-        const mechanismType: ConversionMechanism =
-          mechanismTag === 'OcfConversionMechanismRatioConversion'
-            ? 'RATIO_CONVERSION'
-            : mechanismTag === 'OcfConversionMechanismPercentCapitalizationConversion'
-              ? 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION'
-              : 'FIXED_AMOUNT_CONVERSION';
+        const mechanismType: ConversionMechanism = (() => {
+          switch (mechanismTag) {
+            case 'OcfConversionMechanismRatioConversion':
+              return 'RATIO_CONVERSION';
+            case 'OcfConversionMechanismPercentCapitalizationConversion':
+              return 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
+            case 'OcfConversionMechanismFixedAmountConversion':
+              return 'FIXED_AMOUNT_CONVERSION';
+            default:
+              throw new OcpParseError(`Unknown stock class conversion mechanism: ${mechanismTag}`, {
+                source: 'conversion_right.conversion_mechanism',
+                code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+              });
+          }
+        })();
 
         // Extract ratio from DAML Optional(OcfRatio)
         const extractRatio = (raw: unknown): { numerator: string; denominator: string } | undefined => {

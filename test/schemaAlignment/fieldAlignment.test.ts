@@ -14,7 +14,7 @@ const SCHEMA_MAPPINGS: SchemaMapping[] = [
   {
     schemaFile: 'Issuer.schema.json',
     sdkInterface: 'OcfIssuer',
-    requiredFields: ['id', 'legal_name', 'formation_date', 'country_of_formation', 'tax_ids'],
+    requiredFields: ['id', 'legal_name', 'formation_date', 'country_of_formation'],
     optionalFields: [
       'comments',
       'address',
@@ -24,6 +24,7 @@ const SCHEMA_MAPPINGS: SchemaMapping[] = [
       'email',
       'initial_shares_authorized',
       'phone',
+      'tax_ids',
     ],
   },
   {
@@ -159,6 +160,46 @@ const SCHEMA_MAPPINGS: SchemaMapping[] = [
     ],
   },
   {
+    schemaFile: 'transactions/issuance/PlanSecurityIssuance.schema.json',
+    sdkInterface: 'OcfPlanSecurityIssuance',
+    requiredFields: ['id', 'date', 'security_id', 'custom_id', 'stakeholder_id', 'compensation_type', 'quantity'],
+    optionalFields: [
+      'stock_plan_id',
+      'stock_class_id',
+      'option_grant_type',
+      'board_approval_date',
+      'stockholder_approval_date',
+      'consideration_text',
+      'vesting_terms_id',
+      'exercise_price',
+      'base_price',
+      'early_exercisable',
+      'security_law_exemptions',
+      'vestings',
+      'expiration_date',
+      'termination_exercise_windows',
+      'comments',
+    ],
+  },
+  {
+    schemaFile: 'transactions/issuance/WarrantIssuance.schema.json',
+    sdkInterface: 'OcfWarrantIssuance',
+    requiredFields: ['id', 'date', 'security_id', 'custom_id', 'stakeholder_id', 'exercise_triggers', 'purchase_price'],
+    optionalFields: [
+      'quantity',
+      'quantity_source',
+      'board_approval_date',
+      'stockholder_approval_date',
+      'consideration_text',
+      'security_law_exemptions',
+      'exercise_price',
+      'warrant_expiration_date',
+      'vesting_terms_id',
+      'vestings',
+      'comments',
+    ],
+  },
+  {
     schemaFile: 'transactions/issuance/ConvertibleIssuance.schema.json',
     sdkInterface: 'OcfConvertibleIssuance',
     requiredFields: [
@@ -208,6 +249,12 @@ function hasField(body: string, field: string): boolean {
   return fieldRegex.test(body);
 }
 
+/** Check if a field is declared as optional (has ? before :) in the interface body. */
+function isFieldOptional(body: string, field: string): boolean {
+  const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b${escaped}\\s*\\?\\s*:`).test(body);
+}
+
 describe('OCF Object Schema Field Alignment', () => {
   const nativeSource = fs.readFileSync(NATIVE_TS_PATH, 'utf-8');
 
@@ -224,6 +271,9 @@ describe('OCF Object Schema Field Alignment', () => {
           it(`has required field: ${field}`, () => {
             expect(hasField(body, field)).toBe(true);
           });
+          it(`required field ${field} is not optional (no ?)`, () => {
+            expect(isFieldOptional(body, field)).toBe(false);
+          });
         }
 
         for (const field of mapping.optionalFields) {
@@ -234,4 +284,17 @@ describe('OCF Object Schema Field Alignment', () => {
       }
     });
   }
+
+  describe('newly added fields and types', () => {
+    it('OcfPlanSecurityIssuance has option_grant_type', () => {
+      const body = extractInterfaceBody(nativeSource, 'OcfPlanSecurityIssuance');
+      expect(body).not.toBeNull();
+      expect(body && hasField(body, 'option_grant_type')).toBe(true);
+    });
+
+    it('QuantitySourceType is defined in native.ts', () => {
+      expect(nativeSource).toMatch(/\bQuantitySourceType\b/);
+      expect(nativeSource).toMatch(/QuantitySourceType\s*=\s*\|/);
+    });
+  });
 });
