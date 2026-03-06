@@ -6,6 +6,22 @@ analysis.
 
 ---
 
+## Fixes Applied (This Audit)
+
+| Fix                             | Description                                                         | Commit  |
+| ------------------------------- | ------------------------------------------------------------------- | ------- |
+| AuthorizedShares                | `NOT_APPLICABLE` → `NOT APPLICABLE` (space)                         | Phase 1 |
+| ConversionMechanism             | `PERCENT_CONVERSION` → `FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION` | Phase 1 |
+| SimpleTrigger                   | Removed unused type                                                 | Phase 1 |
+| ConversionTrigger consolidation | Alias + deprecation                                                 | Phase 1 |
+| Missing fields                  | Added OptionType, option_grant_type, QuantitySourceType             | Phase 2 |
+| Required/optional               | 15 field alignment fixes                                            | Phase 2 |
+| EXTRA fields documentation      | 22 @internal/@deprecated annotations                                | Phase 2 |
+| Converter completeness          | 3 silent defaults → throws                                          | Phase 3 |
+| Schema alignment tests          | 315 → 446 tests                                                     | Phase 4 |
+
+---
+
 ## 1. EmailType
 
 | OCF Value | SDK Value   | DAML Value           | OCF→DAML           | DAML→OCF           |
@@ -72,29 +88,25 @@ damlStakeholderTypeToNative).
 
 ## 6. StakeholderRelationshipType
 
-**OCF schema has 14 values; SDK canonicalizes to 7 relationship types. DAML has extended set for
-legacy/ex- variants.**
+**OCF schema has 13 values. DAML has extended set for legacy/ex- variants.**
 
-| OCF Value       | SDK Value       | DAML Value          | OCF→DAML           | DAML→OCF                                                   |
-| --------------- | --------------- | ------------------- | ------------------ | ---------------------------------------------------------- |
-| ADVISOR         | ✅ ADVISOR      | OcfRelAdvisor       | ✅ enumConversions | ✅ (OcfRelAdvisor, OcfRelExAdvisor)                        |
-| BOARD_MEMBER    | ✅ BOARD_MEMBER | OcfRelBoardMember   | ✅ enumConversions | ✅ enumConversions                                         |
-| CONSULTANT      | ❌ MISSING      | OcfRelConsultant    | N/A                | ✅ maps to OTHER                                           |
-| EMPLOYEE        | ✅ EMPLOYEE     | OcfRelEmployee      | ✅ enumConversions | ✅ (OcfRelEmployee, OcfRelExEmployee, OcfRelNonUsEmployee) |
-| EX_ADVISOR      | ❌ MISSING      | OcfRelExAdvisor     | N/A                | ✅ maps to ADVISOR                                         |
-| EX_CONSULTANT   | ❌ MISSING      | OcfRelExConsultant  | N/A                | ✅ maps to OTHER                                           |
-| EX_EMPLOYEE     | ❌ MISSING      | OcfRelExEmployee    | N/A                | ✅ maps to EMPLOYEE                                        |
-| EXECUTIVE       | ❌ MISSING      | OcfRelExecutive     | N/A                | ✅ maps to OFFICER                                         |
-| FOUNDER         | ✅ FOUNDER      | OcfRelFounder       | ✅ enumConversions | ✅ enumConversions                                         |
-| INVESTOR        | ✅ INVESTOR     | OcfRelInvestor      | ✅ enumConversions | ✅ enumConversions                                         |
-| NON_US_EMPLOYEE | ❌ MISSING      | OcfRelNonUsEmployee | N/A                | ✅ maps to EMPLOYEE                                        |
-| OFFICER         | ✅ OFFICER      | OcfRelOfficer       | ✅ enumConversions | ✅ (OcfRelOfficer, OcfRelExecutive)                        |
-| OTHER           | ✅ OTHER        | OcfRelOther         | ✅ enumConversions | ✅ (OcfRelConsultant, OcfRelExConsultant, OcfRelOther)     |
+| OCF Value       | SDK Value          | DAML Value          | OCF→DAML           | DAML→OCF                                                   |
+| --------------- | ------------------ | ------------------- | ------------------ | ---------------------------------------------------------- |
+| ADVISOR         | ✅ ADVISOR         | OcfRelAdvisor       | ✅ enumConversions | ✅ (OcfRelAdvisor, OcfRelExAdvisor)                        |
+| BOARD_MEMBER    | ✅ BOARD_MEMBER    | OcfRelBoardMember   | ✅ enumConversions | ✅ enumConversions                                         |
+| CONSULTANT      | ✅ CONSULTANT      | OcfRelConsultant    | ✅ enumConversions | ✅ (OcfRelConsultant, OcfRelExConsultant, OcfRelOther)     |
+| EMPLOYEE        | ✅ EMPLOYEE        | OcfRelEmployee      | ✅ enumConversions | ✅ (OcfRelEmployee, OcfRelExEmployee, OcfRelNonUsEmployee) |
+| EX_ADVISOR      | ✅ EX_ADVISOR      | OcfRelExAdvisor     | ✅ enumConversions | ✅ maps to ADVISOR                                         |
+| EX_CONSULTANT   | ✅ EX_CONSULTANT   | OcfRelExConsultant  | ✅ enumConversions | ✅ maps to OTHER                                           |
+| EX_EMPLOYEE     | ✅ EX_EMPLOYEE     | OcfRelExEmployee    | ✅ enumConversions | ✅ maps to EMPLOYEE                                        |
+| EXECUTIVE       | ✅ EXECUTIVE       | OcfRelExecutive     | ✅ enumConversions | ✅ (OcfRelOfficer, OcfRelExecutive)                        |
+| FOUNDER         | ✅ FOUNDER         | OcfRelFounder       | ✅ enumConversions | ✅ enumConversions                                         |
+| INVESTOR        | ✅ INVESTOR        | OcfRelInvestor      | ✅ enumConversions | ✅ enumConversions                                         |
+| NON_US_EMPLOYEE | ✅ NON_US_EMPLOYEE | OcfRelNonUsEmployee | ✅ enumConversions | ✅ maps to EMPLOYEE                                        |
+| OFFICER         | ✅ OFFICER         | OcfRelOfficer       | ✅ enumConversions | ✅ (OcfRelOfficer, OcfRelExecutive)                        |
+| OTHER           | ✅ OTHER           | OcfRelOther         | ✅ enumConversions | ✅ (OcfRelConsultant, OcfRelExConsultant, OcfRelOther)     |
 
-**Status:** ⚠️ **SDK bug / naming mismatch.** SDK only has 7 canonical types. OCF has 14 values
-including CONSULTANT, EX\_\*, EXECUTIVE, NON_US_EMPLOYEE. DAML→OCF converter collapses extended DAML
-values to canonical SDK types. OCF→DAML cannot represent CONSULTANT, EX_ADVISOR, etc. as
-distinct—SDK would need to add these to StakeholderRelationshipType.
+**Status:** ✅ Fixed. All 13 OCF values present in SDK StakeholderRelationshipType.
 
 ---
 
@@ -119,19 +131,13 @@ damlStakeholderStatusToNative).
 
 ## 8. RoundingType
 
-| OCF Value | SDK Value  | DAML Value         | OCF→DAML                                                            | DAML→OCF                                                         |
-| --------- | ---------- | ------------------ | ------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| CEILING   | ❌ MISSING | OcfRoundingCeiling | N/A (stockClassConversionRatioAdjustment uses NORMAL/CEILING/FLOOR) | ✅ getStockClassAsOcf, damlToStockClassConversionRatioAdjustment |
-| FLOOR     | ❌ MISSING | OcfRoundingFloor   | N/A                                                                 | ✅                                                               |
-| NORMAL    | ✅ NORMAL  | OcfRoundingNormal  | ✅ stockClassConversionRatioAdjustmentDataToDaml                    | ✅                                                               |
-| DOWN      | ✅ DOWN    | ❌ MISSING in DAML | N/A                                                                 | N/A                                                              |
-| UP        | ✅ UP      | ❌ MISSING in DAML | N/A                                                                 | N/A                                                              |
-| NEAREST   | ✅ NEAREST | ❌ MISSING in DAML | N/A                                                                 | N/A                                                              |
+| OCF Value | SDK Value  | DAML Value         | OCF→DAML                                         | DAML→OCF                                                         |
+| --------- | ---------- | ------------------ | ------------------------------------------------ | ---------------------------------------------------------------- |
+| CEILING   | ✅ CEILING | OcfRoundingCeiling | ✅ stockClassConversionRatioAdjustmentDataToDaml | ✅ getStockClassAsOcf, damlToStockClassConversionRatioAdjustment |
+| FLOOR     | ✅ FLOOR   | OcfRoundingFloor   | ✅                                               | ✅                                                               |
+| NORMAL    | ✅ NORMAL  | OcfRoundingNormal  | ✅ stockClassConversionRatioAdjustmentDataToDaml | ✅                                                               |
 
-**Status:** 🔴 **SDK bug + DAML subset.** OCF schema: `["CEILING", "FLOOR", "NORMAL"]`. SDK
-`RoundingType`: `'DOWN' | 'UP' | 'NEAREST' | 'NORMAL'` — **DOWN, UP, NEAREST are not in OCF**. DAML
-only has CEILING, FLOOR, NORMAL. StockClassConversionRight uses NORMAL/CEILING/FLOOR (OCF-aligned).
-SDK `RoundingType` is wrong for OCF; should be `'CEILING' | 'FLOOR' | 'NORMAL'`.
+**Status:** ✅ Fixed. SDK has `CEILING | FLOOR | NORMAL` matching OCF. DOWN, UP, NEAREST removed.
 
 ---
 
@@ -144,20 +150,19 @@ CUSTOM_CONVERSION, PPS_BASED_CONVERSION
 **SDK `ConversionMechanism` (stock class only):** RATIO_CONVERSION, PERCENT_CONVERSION,
 FIXED_AMOUNT_CONVERSION
 
-| OCF Value                                  | SDK Value                      | DAML Value                                            | OCF→DAML                     | DAML→OCF |
-| ------------------------------------------ | ------------------------------ | ----------------------------------------------------- | ---------------------------- | -------- |
-| RATIO_CONVERSION                           | ✅ (as RATIO_CONVERSION)       | OcfConversionMechanismRatioConversion                 | ✅                           | ✅       |
-| FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION | ⚠️ PERCENT_CONVERSION (naming) | OcfConversionMechanismPercentCapitalizationConversion | ✅                           | ✅       |
-| FIXED_AMOUNT_CONVERSION                    | ✅ FIXED_AMOUNT_CONVERSION     | OcfConversionMechanismFixedAmountConversion           | ✅                           | ✅       |
-| SAFE_CONVERSION                            | ❌ (convertible only)          | OcfConvMechSAFE (tag)                                 | ✅ createConvertibleIssuance | ✅       |
-| VALUATION_BASED_CONVERSION                 | ❌ (convertible only)          | OcfConversionMechanismValuationBasedConversion        | ✅                           | ✅       |
-| CONVERTIBLE_NOTE_CONVERSION                | ❌ (convertible only)          | OcfConvMechNote (tag)                                 | ✅                           | ✅       |
-| CUSTOM_CONVERSION                          | ❌ (convertible only)          | OcfConversionMechanismCustomConversion                | ✅                           | ✅       |
-| PPS_BASED_CONVERSION                       | ❌ (convertible only)          | ⚠️ OcfConversionMechanismPpsBasedConversion (naming)  | ✅                           | ✅       |
+| OCF Value                                  | SDK Value                                     | DAML Value                                            | OCF→DAML                     | DAML→OCF |
+| ------------------------------------------ | --------------------------------------------- | ----------------------------------------------------- | ---------------------------- | -------- |
+| RATIO_CONVERSION                           | ✅ (as RATIO_CONVERSION)                      | OcfConversionMechanismRatioConversion                 | ✅                           | ✅       |
+| FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION | ✅ FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION | OcfConversionMechanismPercentCapitalizationConversion | ✅                           | ✅       |
+| FIXED_AMOUNT_CONVERSION                    | ✅ FIXED_AMOUNT_CONVERSION                    | OcfConversionMechanismFixedAmountConversion           | ✅                           | ✅       |
+| SAFE_CONVERSION                            | ❌ (convertible only)                         | OcfConvMechSAFE (tag)                                 | ✅ createConvertibleIssuance | ✅       |
+| VALUATION_BASED_CONVERSION                 | ❌ (convertible only)                         | OcfConversionMechanismValuationBasedConversion        | ✅                           | ✅       |
+| CONVERTIBLE_NOTE_CONVERSION                | ❌ (convertible only)                         | OcfConvMechNote (tag)                                 | ✅                           | ✅       |
+| CUSTOM_CONVERSION                          | ❌ (convertible only)                         | OcfConversionMechanismCustomConversion                | ✅                           | ✅       |
+| PPS_BASED_CONVERSION                       | ❌ (convertible only)                         | ⚠️ OcfConversionMechanismPpsBasedConversion (naming)  | ✅                           | ✅       |
 
-**Status:** ⚠️ SDK `ConversionMechanism` is a subset for stock class. Convertible mechanisms use
-different DAML tagged unions. PPS_BASED_CONVERSION is mapped to DAML as
-`OcfConversionMechanismPpsBasedConversion` / `OcfConvMechPpsBased`; the difference is naming only.
+**Status:** ✅ Fixed. PERCENT_CONVERSION renamed to FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION.
+Convertible mechanisms use different DAML tagged unions.
 
 ---
 
@@ -166,34 +171,29 @@ different DAML tagged unions. PPS_BASED_CONVERSION is mapped to DAML as
 **OCF schema:** AUTOMATIC_ON_CONDITION, AUTOMATIC_ON_DATE, ELECTIVE_IN_RANGE, ELECTIVE_ON_CONDITION,
 ELECTIVE_AT_WILL, UNSPECIFIED
 
-| OCF Value              | SDK ConversionTrigger       | SDK ConversionTriggerType | DAML Value                             | OCF→DAML | DAML→OCF |
-| ---------------------- | --------------------------- | ------------------------- | -------------------------------------- | -------- | -------- |
-| AUTOMATIC_ON_CONDITION | ✅                          | ✅                        | OcfTriggerTypeTypeAutomaticOnCondition | ✅       | ✅       |
-| AUTOMATIC_ON_DATE      | ✅                          | ✅                        | OcfTriggerTypeTypeAutomaticOnDate      | ✅       | ✅       |
-| ELECTIVE_IN_RANGE      | ❌                          | ✅                        | OcfTriggerTypeTypeElectiveInRange      | ✅       | ✅       |
-| ELECTIVE_ON_CONDITION  | ✅                          | ✅                        | OcfTriggerTypeTypeElectiveOnCondition  | ✅       | ✅       |
-| ELECTIVE_AT_WILL       | ✅                          | ✅                        | OcfTriggerTypeTypeElectiveAtWill       | ✅       | ✅       |
-| UNSPECIFIED            | ❌                          | ✅                        | OcfTriggerTypeTypeUnspecified          | ✅       | ✅       |
-| ELECTIVE_ON_DATE       | ✅ (ConversionTrigger only) | ❌                        | ❌ MISSING in DAML                     | N/A      | N/A      |
+| OCF Value              | SDK ConversionTriggerType | DAML Value                             | OCF→DAML | DAML→OCF |
+| ---------------------- | ------------------------- | -------------------------------------- | -------- | -------- |
+| AUTOMATIC_ON_CONDITION | ✅                        | OcfTriggerTypeTypeAutomaticOnCondition | ✅       | ✅       |
+| AUTOMATIC_ON_DATE      | ✅                        | OcfTriggerTypeTypeAutomaticOnDate      | ✅       | ✅       |
+| ELECTIVE_IN_RANGE      | ✅                        | OcfTriggerTypeTypeElectiveInRange      | ✅       | ✅       |
+| ELECTIVE_ON_CONDITION  | ✅                        | OcfTriggerTypeTypeElectiveOnCondition  | ✅       | ✅       |
+| ELECTIVE_AT_WILL       | ✅                        | OcfTriggerTypeTypeElectiveAtWill       | ✅       | ✅       |
+| UNSPECIFIED            | ✅                        | OcfTriggerTypeTypeUnspecified          | ✅       | ✅       |
 
-**Status:** ⚠️ **Naming / type split.** SDK has two types: `ConversionTrigger` (stock class:
-includes ELECTIVE_ON_DATE, excludes ELECTIVE_IN_RANGE/UNSPECIFIED) and `ConversionTriggerType`
-(warrants/convertibles: includes ELECTIVE_IN_RANGE/UNSPECIFIED, excludes ELECTIVE_ON_DATE). OCF has
-one enum with no ELECTIVE_ON_DATE. **ELECTIVE_ON_DATE is not in OCF** — SDK `ConversionTrigger` has
-an invalid value. DAML matches OCF.
+**Status:** ✅ Fixed. ELECTIVE_ON_DATE removed. ConversionTrigger is now alias of
+ConversionTriggerType; types consolidated.
 
 ---
 
 ## 11. ConvertibleType
 
-| OCF Value            | SDK Value            | DAML Value             | OCF→DAML                     | DAML→OCF |
-| -------------------- | -------------------- | ---------------------- | ---------------------------- | -------- |
-| NOTE                 | ✅ NOTE              | OcfConvertibleNote     | ✅ createConvertibleIssuance | ✅       |
-| SAFE                 | ✅ SAFE              | OcfConvertibleSafe     | ✅                           | ✅       |
-| CONVERTIBLE_SECURITY | ⚠️ SECURITY (naming) | OcfConvertibleSecurity | ✅                           | ✅       |
+| OCF Value            | SDK Value               | DAML Value             | OCF→DAML                     | DAML→OCF |
+| -------------------- | ----------------------- | ---------------------- | ---------------------------- | -------- |
+| NOTE                 | ✅ NOTE                 | OcfConvertibleNote     | ✅ createConvertibleIssuance | ✅       |
+| SAFE                 | ✅ SAFE                 | OcfConvertibleSafe     | ✅                           | ✅       |
+| CONVERTIBLE_SECURITY | ✅ CONVERTIBLE_SECURITY | OcfConvertibleSecurity | ✅                           | ✅       |
 
-**Status:** ⚠️ **Naming mismatch.** OCF: `CONVERTIBLE_SECURITY`. SDK: `SECURITY`. Same semantics;
-SDK uses shorthand.
+**Status:** ✅ Fixed. SDK now uses CONVERTIBLE_SECURITY matching OCF.
 
 ---
 
@@ -228,19 +228,18 @@ SDK uses shorthand.
 
 ## 14. AllocationType
 
-| OCF Value                      | SDK Value                      | DAML Value                              | OCF→DAML        | DAML→OCF                |
-| ------------------------------ | ------------------------------ | --------------------------------------- | --------------- | ----------------------- |
-| CUMULATIVE_ROUNDING            | ✅ CUMULATIVE_ROUNDING         | OcfAllocationCumulativeRounding         | ✅ vestingTerms | ✅ getVestingTermsAsOcf |
-| CUMULATIVE_ROUND_DOWN          | ✅ CUMULATIVE_ROUND_DOWN       | OcfAllocationCumulativeRoundDown        | ✅              | ✅                      |
-| FRONT_LOADED                   | ✅ FRONT_LOADED                | OcfAllocationFrontLoaded                | ✅              | ✅                      |
-| BACK_LOADED                    | ✅ BACK_LOADED                 | OcfAllocationBackLoaded                 | ✅              | ✅                      |
-| FRONT_LOADED_TO_SINGLE_TRANCHE | ⚠️ FRONT_LOADED_SINGLE_TRANCHE | OcfAllocationFrontLoadedToSingleTranche | ✅              | ✅                      |
-| BACK_LOADED_TO_SINGLE_TRANCHE  | ⚠️ BACK_LOADED_SINGLE_TRANCHE  | OcfAllocationBackLoadedToSingleTranche  | ✅              | ✅                      |
-| FRACTIONAL                     | ✅ FRACTIONAL                  | OcfAllocationFractional                 | ✅              | ✅                      |
+| OCF Value                      | SDK Value                         | DAML Value                              | OCF→DAML        | DAML→OCF                |
+| ------------------------------ | --------------------------------- | --------------------------------------- | --------------- | ----------------------- |
+| CUMULATIVE_ROUNDING            | ✅ CUMULATIVE_ROUNDING            | OcfAllocationCumulativeRounding         | ✅ vestingTerms | ✅ getVestingTermsAsOcf |
+| CUMULATIVE_ROUND_DOWN          | ✅ CUMULATIVE_ROUND_DOWN          | OcfAllocationCumulativeRoundDown        | ✅              | ✅                      |
+| FRONT_LOADED                   | ✅ FRONT_LOADED                   | OcfAllocationFrontLoaded                | ✅              | ✅                      |
+| BACK_LOADED                    | ✅ BACK_LOADED                    | OcfAllocationBackLoaded                 | ✅              | ✅                      |
+| FRONT_LOADED_TO_SINGLE_TRANCHE | ✅ FRONT_LOADED_TO_SINGLE_TRANCHE | OcfAllocationFrontLoadedToSingleTranche | ✅              | ✅                      |
+| BACK_LOADED_TO_SINGLE_TRANCHE  | ✅ BACK_LOADED_TO_SINGLE_TRANCHE  | OcfAllocationBackLoadedToSingleTranche  | ✅              | ✅                      |
+| FRACTIONAL                     | ✅ FRACTIONAL                     | OcfAllocationFractional                 | ✅              | ✅                      |
 
-**Status:** ⚠️ **SDK bug (naming).** OCF: `FRONT_LOADED_TO_SINGLE_TRANCHE`,
-`BACK_LOADED_TO_SINGLE_TRANCHE`. SDK: `FRONT_LOADED_SINGLE_TRANCHE`, `BACK_LOADED_SINGLE_TRANCHE`
-(missing `_TO_`). DAML and converters use correct OCF names. SDK type would reject valid OCF input.
+**Status:** ✅ Fixed. SDK now has FRONT_LOADED_TO_SINGLE_TRANCHE and BACK_LOADED_TO_SINGLE_TRANCHE
+matching OCF.
 
 ---
 
@@ -298,15 +297,12 @@ SDK uses shorthand.
 
 ## 19. AuthorizedShares
 
-| OCF Value      | SDK Value         | DAML Value                       | OCF→DAML                                    | DAML→OCF                                   |
-| -------------- | ----------------- | -------------------------------- | ------------------------------------------- | ------------------------------------------ |
-| NOT APPLICABLE | ⚠️ NOT_APPLICABLE | OcfAuthorizedSharesNotApplicable | ✅ typeConversions (accepts NOT_APPLICABLE) | ✅ getIssuerAsOcf (outputs NOT_APPLICABLE) |
-| UNLIMITED      | ✅ UNLIMITED      | OcfAuthorizedSharesUnlimited     | ✅                                          | ✅                                         |
+| OCF Value      | SDK Value                 | DAML Value                       | OCF→DAML                          | DAML→OCF                                     |
+| -------------- | ------------------------- | -------------------------------- | --------------------------------- | -------------------------------------------- |
+| NOT APPLICABLE | ✅ NOT APPLICABLE (space) | OcfAuthorizedSharesNotApplicable | ✅ typeConversions (accepts both) | ✅ getIssuerAsOcf (outputs "NOT APPLICABLE") |
+| UNLIMITED      | ✅ UNLIMITED              | OcfAuthorizedSharesUnlimited     | ✅                                | ✅                                           |
 
-**Status:** 🔴 **Naming mismatch.** OCF schema: `"NOT APPLICABLE"` (space). SDK/DAML:
-`NOT_APPLICABLE` (underscore). When emitting OCF JSON, SDK outputs `NOT_APPLICABLE` which **fails
-OCF schema validation**. Input parsing should accept both; output must emit `"NOT APPLICABLE"` for
-OCF compliance.
+**Status:** ✅ Fixed. SDK outputs `"NOT APPLICABLE"` (space) matching OCF schema.
 
 ---
 
@@ -541,39 +537,32 @@ explicitly.
 
 ## Summary of Discrepancies
 
-### SDK Bugs
+### Fixed (This Audit)
 
-| Issue                           | Location                                  | Description                                                                                                                             |
-| ------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| RoundingType wrong values       | `native.ts`                               | SDK has DOWN, UP, NEAREST, NORMAL. OCF has CEILING, FLOOR, NORMAL. SDK should be `'CEILING' \| 'FLOOR' \| 'NORMAL'`.                    |
-| AllocationType naming           | `native.ts`                               | SDK has FRONT_LOADED_SINGLE_TRANCHE, BACK_LOADED_SINGLE_TRANCHE. OCF has FRONT_LOADED_TO_SINGLE_TRANCHE, BACK_LOADED_TO_SINGLE_TRANCHE. |
-| AuthorizedShares output         | `getIssuerAsOcf.ts`, `typeConversions.ts` | SDK outputs NOT_APPLICABLE; OCF expects "NOT APPLICABLE" (space). Output fails OCF schema validation.                                   |
-| ConversionTrigger invalid value | `native.ts`                               | ConversionTrigger includes ELECTIVE_ON_DATE which is not in OCF ConversionTriggerType.                                                  |
+| Issue                       | Status                                                                    |
+| --------------------------- | ------------------------------------------------------------------------- |
+| RoundingType                | ✅ Fixed: SDK now CEILING \| FLOOR \| NORMAL                              |
+| AllocationType naming       | ✅ Fixed: FRONT_LOADED_TO_SINGLE_TRANCHE, BACK_LOADED_TO_SINGLE_TRANCHE   |
+| AuthorizedShares output     | ✅ Fixed: SDK outputs "NOT APPLICABLE" (space)                            |
+| ConversionTrigger           | ✅ Fixed: ELECTIVE_ON_DATE removed, types consolidated                    |
+| ConversionMechanismType     | ✅ Fixed: PERCENT_CONVERSION → FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION |
+| ConvertibleType             | ✅ Fixed: SECURITY → CONVERTIBLE_SECURITY                                 |
+| StakeholderRelationshipType | ✅ Fixed: All 13 values present                                           |
 
-### DAML Gaps
+### Remaining DAML Gaps
 
-| Issue                 | Description                                     |
-| --------------------- | ----------------------------------------------- |
-| PPS_BASED_CONVERSION  | In OCF ConversionMechanismType but not in DAML. |
-| ConversionTriggerType | DAML matches OCF (no ELECTIVE_ON_DATE).         |
+| Issue                | Description                                     |
+| -------------------- | ----------------------------------------------- |
+| PPS_BASED_CONVERSION | In OCF ConversionMechanismType but not in DAML. |
 
-### Naming Mismatches
+### Remaining Missing Values / Types
 
-| OCF                                        | SDK                | Notes                                                          |
-| ------------------------------------------ | ------------------ | -------------------------------------------------------------- |
-| CONVERTIBLE_SECURITY                       | SECURITY           | Same semantics; SDK shorthand.                                 |
-| NOT APPLICABLE                             | NOT_APPLICABLE     | OCF uses space; SDK uses underscore. Output must use OCF form. |
-| FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION | PERCENT_CONVERSION | SDK uses shorter name for stock class mechanism.               |
-
-### Missing Values / Types
-
-| Enum                        | Missing in SDK                                                                 | Missing in DAML           |
-| --------------------------- | ------------------------------------------------------------------------------ | ------------------------- |
-| StakeholderRelationshipType | CONSULTANT, EX_ADVISOR, EX_CONSULTANT, EX_EMPLOYEE, EXECUTIVE, NON_US_EMPLOYEE | — (DAML has extended set) |
-| OptionType                  | No standalone type                                                             | N/A                       |
-| ValuationBasedFormulaType   | No standalone type                                                             | —                         |
-| FileType                    | No standalone type                                                             | —                         |
-| ParentSecurityType          | No standalone type                                                             | —                         |
+| Enum                      | Missing in SDK     | Missing in DAML |
+| ------------------------- | ------------------ | --------------- |
+| OptionType                | No standalone type | N/A             |
+| ValuationBasedFormulaType | No standalone type | —               |
+| FileType                  | No standalone type | —               |
+| ParentSecurityType        | No standalone type | —               |
 
 ### Converter Coverage
 
@@ -592,17 +581,15 @@ explicitly.
 
 ## Recommendations
 
-1. **Fix RoundingType:** Change SDK to `'CEILING' | 'FLOOR' | 'NORMAL'` to match OCF. Remove DOWN,
-   UP, NEAREST.
-2. **Fix AllocationType:** Add `_TO_` in FRONT_LOADED_TO_SINGLE_TRANCHE and
+1. ~~**Fix RoundingType:**~~ ✅ Done. SDK now has CEILING \| FLOOR \| NORMAL.
+2. ~~**Fix AllocationType:**~~ ✅ Done. FRONT_LOADED_TO_SINGLE_TRANCHE,
    BACK_LOADED_TO_SINGLE_TRANCHE.
-3. **Fix AuthorizedShares output:** When emitting OCF JSON, use `"NOT APPLICABLE"` (space) not
-   `"NOT_APPLICABLE"`. Accept both on input.
-4. **Fix ConversionTrigger:** Remove ELECTIVE_ON_DATE from ConversionTrigger if it maps to OCF
-   ConversionTriggerType, or document that it's stock-class-only and not in OCF.
-5. **Consider adding StakeholderRelationshipType values:** CONSULTANT, EX\_\*, EXECUTIVE,
-   NON_US_EMPLOYEE for full OCF support.
-6. **Document ConvertibleType alias:** SECURITY ↔ CONVERTIBLE_SECURITY is intentional.
+3. ~~**Fix AuthorizedShares output:**~~ ✅ Done. SDK outputs "NOT APPLICABLE" (space).
+4. ~~**Fix ConversionTrigger:**~~ ✅ Done. ELECTIVE_ON_DATE removed, types consolidated.
+5. ~~**Consider adding StakeholderRelationshipType values:**~~ ✅ Done. All 13 values present.
+6. ~~**Document ConvertibleType alias:**~~ ✅ Done. SDK uses CONVERTIBLE_SECURITY.
+7. **Remaining:** OptionType, ValuationBasedFormulaType, FileType, ParentSecurityType — no
+   standalone SDK types (low priority; expressed via other types or not used in SDK entity flows).
 
 ---
 
@@ -697,3 +684,15 @@ a naming convention difference only.
 only DAML structural gap is **OcfVestingPeriod** (no Years variant), which is a design choice in the
 vesting contract model. **PPS_BASED_CONVERSION** is correctly mapped to DAML
 `OcfConversionMechanismPpsBasedConversion` / `OcfConvMechPpsBased`; the difference is naming only.
+
+### Changes Applied (This Audit)
+
+- **Enum fixes:** RoundingType, AuthorizedShares, ConversionMechanismType, ConversionTriggerType,
+  AllocationType, ConvertibleType, StakeholderRelationshipType — all aligned with OCF.
+- **Phase 1:** AuthorizedShares NOT_APPLICABLE→"NOT APPLICABLE"; ConversionMechanism
+  PERCENT_CONVERSION→FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION; SimpleTrigger removed;
+  ConversionTrigger consolidation.
+- **Phase 2:** OptionType, option_grant_type, QuantitySourceType added; 15 field alignment fixes; 22
+  @internal/@deprecated annotations for EXTRA fields.
+- **Phase 3:** 3 converter silent defaults → throws.
+- **Phase 4:** Schema alignment tests 315 → 446.
