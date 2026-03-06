@@ -54,7 +54,10 @@ export type StockClassType = 'PREFERRED' | 'COMMON';
  * Conversion Mechanisms (shared) Mechanism by which conversion occurs (see schema for full list) OCF (primitive):
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/primitives/types/conversion_mechanisms/ConversionMechanism.schema.json
  */
-export type ConversionMechanism = 'RATIO_CONVERSION' | 'PERCENT_CONVERSION' | 'FIXED_AMOUNT_CONVERSION';
+export type ConversionMechanism =
+  | 'RATIO_CONVERSION'
+  | 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION'
+  | 'FIXED_AMOUNT_CONVERSION';
 
 /**
  * OCF may encode conversion_mechanism as an object with a `type` discriminator
@@ -71,7 +74,7 @@ export interface ConversionMechanismObject {
  * Enum - Conversion Trigger Type Type of conversion trigger OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/ConversionTriggerType.schema.json
  */
-export type ConversionTrigger =
+export type ConversionTriggerType =
   | 'AUTOMATIC_ON_CONDITION'
   | 'AUTOMATIC_ON_DATE'
   | 'ELECTIVE_IN_RANGE'
@@ -80,16 +83,9 @@ export type ConversionTrigger =
   | 'UNSPECIFIED';
 
 /**
- * Extended Conversion Trigger Type for Warrants and Convertibles Includes additional trigger types used by these
- * instruments
+ * @deprecated Use ConversionTriggerType instead. Alias kept for backward compatibility.
  */
-export type ConversionTriggerType =
-  | 'AUTOMATIC_ON_CONDITION'
-  | 'AUTOMATIC_ON_DATE'
-  | 'ELECTIVE_IN_RANGE'
-  | 'ELECTIVE_ON_CONDITION'
-  | 'ELECTIVE_AT_WILL'
-  | 'UNSPECIFIED';
+export type ConversionTrigger = ConversionTriggerType;
 
 // ===== Capitalization Definition Rules =====
 
@@ -367,7 +363,7 @@ export type RoundingType = 'CEILING' | 'FLOOR' | 'NORMAL';
  * Enum - Authorized Shares Enumeration of special values for authorized shares when not using a numeric value OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/AuthorizedShares.schema.json
  */
-export type AuthorizedShares = 'NOT_APPLICABLE' | 'UNLIMITED';
+export type AuthorizedShares = 'NOT APPLICABLE' | 'UNLIMITED';
 
 /**
  * Initial shares authorized type (can be either numeric or enum) Type representing the number of shares initially
@@ -525,7 +521,7 @@ export interface OcfStockClass {
    * the prefix should end in the dash like CS-
    */
   default_id_prefix: string;
-  /** The initial number of shares authorized for this stock class (numeric string or "UNLIMITED"/"NOT_APPLICABLE") */
+  /** The initial number of shares authorized for this stock class (numeric string or "UNLIMITED"/"NOT APPLICABLE") */
   initial_shares_authorized: string;
   /** Name for the stock type (e.g. Series A Preferred or Class A Common) */
   name: string;
@@ -1058,7 +1054,6 @@ export interface OcfEquityCompensationIssuance {
 // ===== Convertible & Warrant Issuance Types =====
 
 export type ConvertibleType = 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY';
-export type SimpleTrigger = 'AUTOMATIC' | 'OPTIONAL';
 
 /**
  * Object - Convertible Issuance Transaction (native subset) Object describing convertible instrument issuance

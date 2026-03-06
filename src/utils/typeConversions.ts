@@ -224,9 +224,9 @@ type DamlInitialSharesAuthorized = Fairmint.OpenCapTable.Types.Stock.OcfInitialS
  * Convert initial_shares_authorized value to DAML tagged union format.
  * V30 DAML contracts use OcfInitialSharesAuthorized union type:
  * - OcfInitialSharesNumeric Decimal - for numeric values
- * - OcfInitialSharesEnum - for "UNLIMITED" or "NOT_APPLICABLE"
+ * - OcfInitialSharesEnum - for "UNLIMITED" or "NOT APPLICABLE"
  *
- * @param value - Numeric string, or "UNLIMITED"/"NOT_APPLICABLE"
+ * @param value - Numeric string, or "UNLIMITED"/"NOT APPLICABLE"
  * @returns DAML-formatted discriminated union
  */
 export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesAuthorized {
@@ -239,15 +239,15 @@ export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesA
   if (value === 'UNLIMITED') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
   }
-  if (value === 'NOT_APPLICABLE') {
+  if (value === 'NOT APPLICABLE') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
   }
   throw new OcpValidationError(
     'initial_shares_authorized',
-    `Expected numeric string, "UNLIMITED", or "NOT_APPLICABLE", got "${value}"`,
+    `Expected numeric string, "UNLIMITED", or "NOT APPLICABLE", got "${value}"`,
     {
       code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'numeric string | "UNLIMITED" | "NOT_APPLICABLE"',
+      expectedType: 'numeric string | "UNLIMITED" | "NOT APPLICABLE"',
       receivedValue: value,
     }
   );

@@ -66,7 +66,7 @@ const STAKEHOLDER_RELATIONSHIPS = [
 
 /**
  * Validate an initial_shares_authorized value.
- * Accepts numeric strings, "UNLIMITED", or "NOT_APPLICABLE".
+ * Accepts numeric strings, "UNLIMITED", or "NOT APPLICABLE".
  *
  * @param value - The value to validate
  * @param fieldPath - Dot-notation path for error messages
@@ -80,7 +80,7 @@ function validateInitialSharesAuthorized(
   if (value === undefined || value === null) {
     if (options.required) {
       throw new OcpValidationError(fieldPath, 'Required field is missing', {
-        expectedType: 'numeric string or "UNLIMITED"/"NOT_APPLICABLE"',
+        expectedType: 'numeric string or "UNLIMITED"/"NOT APPLICABLE"',
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       });
     }
@@ -88,14 +88,14 @@ function validateInitialSharesAuthorized(
   }
   if (typeof value !== 'string') {
     throw new OcpValidationError(fieldPath, 'Must be a string', {
-      expectedType: 'numeric string or "UNLIMITED"/"NOT_APPLICABLE"',
+      expectedType: 'numeric string or "UNLIMITED"/"NOT APPLICABLE"',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_TYPE,
     });
   }
-  if (!/^\d+(\.\d+)?$/.test(value) && value !== 'UNLIMITED' && value !== 'NOT_APPLICABLE') {
-    throw new OcpValidationError(fieldPath, 'Must be a numeric string, "UNLIMITED", or "NOT_APPLICABLE"', {
-      expectedType: 'numeric string or "UNLIMITED"/"NOT_APPLICABLE"',
+  if (!/^\d+(\.\d+)?$/.test(value) && value !== 'UNLIMITED' && value !== 'NOT APPLICABLE') {
+    throw new OcpValidationError(fieldPath, 'Must be a numeric string, "UNLIMITED", or "NOT APPLICABLE"', {
+      expectedType: 'numeric string or "UNLIMITED"/"NOT APPLICABLE"',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,
     });

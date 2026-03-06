@@ -7,7 +7,7 @@
  * These tests ensure V30 DAML contract compatibility, which requires
  * initial_shares_authorized to be a tagged union type:
  * - OcfInitialSharesNumeric for numeric values
- * - OcfInitialSharesEnum for "UNLIMITED" or "NOT_APPLICABLE"
+ * - OcfInitialSharesEnum for "UNLIMITED" or "NOT APPLICABLE"
  */
 
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
@@ -52,8 +52,8 @@ describe('StockClass Converters', () => {
       });
     });
 
-    test('encodes NOT_APPLICABLE as OcfInitialSharesEnum', () => {
-      const result = initialSharesAuthorizedToDaml('NOT_APPLICABLE');
+    test('encodes NOT APPLICABLE as OcfInitialSharesEnum', () => {
+      const result = initialSharesAuthorizedToDaml('NOT APPLICABLE');
 
       expect(result).toEqual({
         tag: 'OcfInitialSharesEnum',
@@ -63,7 +63,7 @@ describe('StockClass Converters', () => {
 
     test('throws for unknown string values', () => {
       expect(() => initialSharesAuthorizedToDaml('UNKNOWN_VALUE')).toThrow(
-        'Expected numeric string, "UNLIMITED", or "NOT_APPLICABLE"'
+        'Expected numeric string, "UNLIMITED", or "NOT APPLICABLE"'
       );
     });
   });

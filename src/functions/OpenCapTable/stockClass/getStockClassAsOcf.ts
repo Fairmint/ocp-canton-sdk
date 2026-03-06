@@ -102,7 +102,7 @@ export function damlStockClassDataToNative(
     if (tagged.tag === 'OcfInitialSharesNumeric' && typeof tagged.value === 'string') {
       initialShares = normalizeNumericString(tagged.value);
     } else if (tagged.tag === 'OcfInitialSharesEnum' && typeof tagged.value === 'string') {
-      initialShares = tagged.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT_APPLICABLE';
+      initialShares = tagged.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
     } else {
       throw new OcpValidationError('stockClass.initial_shares_authorized', 'Invalid initial_shares_authorized format', {
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -156,7 +156,7 @@ export function damlStockClassDataToNative(
           mechanismTag === 'OcfConversionMechanismRatioConversion'
             ? 'RATIO_CONVERSION'
             : mechanismTag === 'OcfConversionMechanismPercentCapitalizationConversion'
-              ? 'PERCENT_CONVERSION'
+              ? 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION'
               : 'FIXED_AMOUNT_CONVERSION';
 
         // Extract ratio from DAML Optional(OcfRatio)

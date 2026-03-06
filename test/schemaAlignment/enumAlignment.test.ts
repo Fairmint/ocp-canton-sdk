@@ -48,11 +48,7 @@ const ENUM_MAPPINGS: Record<
       'FRACTIONAL',
     ],
   },
-  AuthorizedShares: {
-    sdkValues: ['NOT_APPLICABLE', 'UNLIMITED'],
-    ocfToSdkNormalize: (v) => (v === 'NOT APPLICABLE' ? 'NOT_APPLICABLE' : v),
-    notes: 'OCF uses space (NOT APPLICABLE), SDK normalizes to underscore',
-  },
+  AuthorizedShares: { sdkValues: ['NOT APPLICABLE', 'UNLIMITED'] },
   EmailType: { sdkValues: ['PERSONAL', 'BUSINESS', 'OTHER'] },
   AddressType: { sdkValues: ['LEGAL', 'CONTACT', 'OTHER'] },
   PhoneType: { sdkValues: ['HOME', 'MOBILE', 'BUSINESS', 'OTHER'] },

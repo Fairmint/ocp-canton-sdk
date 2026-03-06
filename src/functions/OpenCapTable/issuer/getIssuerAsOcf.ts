@@ -28,7 +28,7 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
       const i = v as { tag: 'OcfInitialSharesNumeric' | 'OcfInitialSharesEnum'; value?: unknown };
       if (i.tag === 'OcfInitialSharesNumeric' && typeof i.value === 'string') return normalizeNumericString(i.value);
       if (i.tag === 'OcfInitialSharesEnum' && typeof i.value === 'string') {
-        return i.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT_APPLICABLE';
+        return i.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
       }
     }
     return undefined;
