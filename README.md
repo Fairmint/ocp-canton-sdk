@@ -123,8 +123,8 @@ report flow:
 - `test/schemaAlignment/*` guards SDK type/interface + enum alignment with OCF schemas, including
   converter coverage for mapped enums.
 - `test/validation/*` verifies fail-fast required-field validation and converter output validity.
-- `scripts/audit-ocf-schema-alignment.ts` regenerates `audit-field-report.md` from current SDK
-  types vs OCF schema definitions.
+- `scripts/audit-ocf-schema-alignment.ts` regenerates `audit-field-report.md` from current SDK types
+  vs OCF schema definitions.
 
 **Schema-alignment workflow:**
 

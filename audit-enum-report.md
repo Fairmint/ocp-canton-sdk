@@ -22,8 +22,8 @@ Primary sources:
   - `ConversionMechanismType`: includes `FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION`.
   - `RoundingType`: `CEILING | FLOOR | NORMAL`.
   - `StakeholderRelationshipType`: all 13 OCF values are covered.
-- Converter coverage tests exercise mapped enum values in both directions (OCF->DAML and
-  DAML->OCF) for implemented converter paths.
+- Converter coverage tests exercise mapped enum values in both directions (OCF->DAML and DAML->OCF)
+  for implemented converter paths.
 
 ## Important Notes
 
