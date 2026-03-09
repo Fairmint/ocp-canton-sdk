@@ -79,13 +79,13 @@ describe('CapTableBatch', () => {
         actAs: ['party-1'],
       });
 
-      const legacySplitData: OcfStockClassSplit = {
+      const legacySplitData = {
         id: 'split-123',
         date: '2024-01-15',
         stock_class_id: 'sc-123',
         split_ratio_numerator: '2',
         split_ratio_denominator: '1',
-      };
+      } as unknown as OcfStockClassSplit;
 
       expect(() => batch.create('stockClassSplit', legacySplitData)).not.toThrow();
       const { command } = batch.build();

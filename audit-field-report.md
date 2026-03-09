@@ -2,6 +2,24 @@
 
 Generated: 2026-03-05T14:28:30.987Z
 
+## Fixes Applied (This Audit)
+
+| Fix                             | Description                                                         | Commit  |
+| ------------------------------- | ------------------------------------------------------------------- | ------- |
+| AuthorizedShares                | `NOT_APPLICABLE` → `NOT APPLICABLE` (space)                         | Phase 1 |
+| ConversionMechanism             | `PERCENT_CONVERSION` → `FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION` | Phase 1 |
+| SimpleTrigger                   | Removed unused type                                                 | Phase 1 |
+| ConversionTrigger consolidation | Alias + deprecation                                                 | Phase 1 |
+| Missing fields                  | Added OptionType, option_grant_type, QuantitySourceType             | Phase 2 |
+| Required/optional               | 15 field alignment fixes                                            | Phase 2 |
+| EXTRA fields documentation      | 22 @internal/@deprecated annotations                                | Phase 2 |
+| Converter completeness          | 3 silent defaults → throws                                          | Phase 3 |
+| Schema alignment tests          | 315 → 446 tests                                                     | Phase 4 |
+
+**Note on EXTRA fields:** Documented as intentional DAML pass-through fields with @internal JSDoc.
+
+---
+
 ## Executive Summary
 
 This audit compares all 56 OCF object schemas against their corresponding SDK TypeScript interfaces
@@ -52,21 +70,21 @@ in `src/types/native.ts`.
 
 ### Issuer → OcfIssuer
 
-| Field                                 | OCF Type               | OCF Required? | SDK Type                | SDK Required? | Status   |
-| ------------------------------------- | ---------------------- | ------------- | ----------------------- | ------------- | -------- |
-| address                               | Address                | No            | Address                 | No            | OK       |
-| comments                              | array<string>          | No            | string[]                | No            | OK       |
-| country_of_formation                  | CountryCode            | Yes           | string                  | Yes           | OK       |
-| country_subdivision_name_of_formation | string                 | No            | string                  | No            | OK       |
-| country_subdivision_of_formation      | CountrySubdivisionCode | No            | string                  | No            | OK       |
-| dba                                   | string                 | No            | string                  | No            | OK       |
-| email                                 | Email                  | No            | Email                   | No            | OK       |
-| formation_date                        | Date                   | Yes           | string                  | Yes           | OK       |
-| id                                    | string                 | Yes           | string                  | Yes           | OK       |
-| initial_shares_authorized             | oneOf                  | No            | InitialSharesAuthorized | No            | OK       |
-| legal_name                            | string                 | Yes           | string                  | Yes           | OK       |
-| phone                                 | Phone                  | No            | Phone                   | No            | OK       |
-| tax_ids                               | array<TaxID>           | No            | TaxId[]                 | Yes           | MISMATCH |
+| Field                                 | OCF Type               | OCF Required? | SDK Type                | SDK Required? | Status |
+| ------------------------------------- | ---------------------- | ------------- | ----------------------- | ------------- | ------ |
+| address                               | Address                | No            | Address                 | No            | OK     |
+| comments                              | array<string>          | No            | string[]                | No            | OK     |
+| country_of_formation                  | CountryCode            | Yes           | string                  | Yes           | OK     |
+| country_subdivision_name_of_formation | string                 | No            | string                  | No            | OK     |
+| country_subdivision_of_formation      | CountrySubdivisionCode | No            | string                  | No            | OK     |
+| dba                                   | string                 | No            | string                  | No            | OK     |
+| email                                 | Email                  | No            | Email                   | No            | OK     |
+| formation_date                        | Date                   | Yes           | string                  | Yes           | OK     |
+| id                                    | string                 | Yes           | string                  | Yes           | OK     |
+| initial_shares_authorized             | oneOf                  | No            | InitialSharesAuthorized | No            | OK     |
+| legal_name                            | string                 | Yes           | string                  | Yes           | OK     |
+| phone                                 | Phone                  | No            | Phone                   | No            | OK     |
+| tax_ids                               | array<TaxID>           | No            | TaxId[]                 | No            | OK     |
 
 ### Stakeholder → OcfStakeholder
 
@@ -337,15 +355,15 @@ in `src/types/native.ts`.
 
 ### StockConsolidation → OcfStockConsolidation
 
-| Field                  | OCF Type      | OCF Required? | SDK Type | SDK Required? | Status   |
-| ---------------------- | ------------- | ------------- | -------- | ------------- | -------- |
-| comments               | array<string> | No            | string[] | No            | OK       |
-| date                   | Date          | Yes           | string   | Yes           | OK       |
-| id                     | string        | Yes           | string   | Yes           | OK       |
-| reason_text            | string        | No            | string   | No            | OK       |
-| resulting_security_id  | string        | Yes           | string   | No            | MISMATCH |
-| security_ids           | array<string> | Yes           | string[] | Yes           | OK       |
-| resulting_security_ids | -             | -             | string[] | No            | EXTRA    |
+| Field                  | OCF Type      | OCF Required? | SDK Type | SDK Required? | Status |
+| ---------------------- | ------------- | ------------- | -------- | ------------- | ------ |
+| comments               | array<string> | No            | string[] | No            | OK     |
+| date                   | Date          | Yes           | string   | Yes           | OK     |
+| id                     | string        | Yes           | string   | Yes           | OK     |
+| reason_text            | string        | No            | string   | No            | OK     |
+| resulting_security_id  | string        | Yes           | string   | Yes           | OK     |
+| security_ids           | array<string> | Yes           | string[] | Yes           | OK     |
+| resulting_security_ids | -             | -             | string[] | No            | EXTRA  |
 
 ### ConvertibleConversion → OcfConvertibleConversion
 
@@ -436,83 +454,83 @@ in `src/types/native.ts`.
 
 ### EquityCompensationIssuance → OcfEquityCompensationIssuance
 
-| Field                        | OCF Type                 | OCF Required? | SDK Type            | SDK Required? | Status   |
-| ---------------------------- | ------------------------ | ------------- | ------------------- | ------------- | -------- |
-| base_price                   | Monetary                 | No            | Monetary            | No            | OK       |
-| board_approval_date          | Date                     | No            | string              | No            | OK       |
-| comments                     | array<string>            | No            | string[]            | No            | OK       |
-| compensation_type            | CompensationType         | Yes           | CompensationType    | Yes           | OK       |
-| consideration_text           | string                   | No            | string              | No            | OK       |
-| custom_id                    | string                   | Yes           | string              | Yes           | OK       |
-| date                         | Date                     | Yes           | string              | Yes           | OK       |
-| early_exercisable            | boolean                  | No            | boolean             | No            | OK       |
-| exercise_price               | Monetary                 | No            | Monetary            | No            | OK       |
-| expiration_date              | oneOf                    | Yes           | string              | No            | MISMATCH |
-| id                           | string                   | Yes           | string              | Yes           | OK       |
-| option_grant_type            | OptionType               | No            | -                   | -             | MISSING  |
-| quantity                     | Numeric                  | Yes           | string              | Yes           | OK       |
-| security_id                  | string                   | Yes           | string              | Yes           | OK       |
-| security_law_exemptions      | array<SecurityExemption> | Yes           | SecurityExemption[] | No            | MISMATCH |
-| stakeholder_id               | string                   | Yes           | string              | Yes           | OK       |
-| stock_class_id               | string                   | No            | string              | No            | OK       |
-| stock_plan_id                | string                   | No            | string              | No            | OK       |
-| stockholder_approval_date    | Date                     | No            | string              | No            | OK       |
-| termination_exercise_windows | array<TerminationWindow> | Yes           | TerminationWindow[] | No            | MISMATCH |
-| vesting_terms_id             | string                   | No            | string              | No            | OK       |
-| vestings                     | array<Vesting>           | No            | Vesting[]           | No            | OK       |
+| Field                        | OCF Type                 | OCF Required? | SDK Type            | SDK Required? | Status |
+| ---------------------------- | ------------------------ | ------------- | ------------------- | ------------- | ------ |
+| base_price                   | Monetary                 | No            | Monetary            | No            | OK     |
+| board_approval_date          | Date                     | No            | string              | No            | OK     |
+| comments                     | array<string>            | No            | string[]            | No            | OK     |
+| compensation_type            | CompensationType         | Yes           | CompensationType    | Yes           | OK     |
+| consideration_text           | string                   | No            | string              | No            | OK     |
+| custom_id                    | string                   | Yes           | string              | Yes           | OK     |
+| date                         | Date                     | Yes           | string              | Yes           | OK     |
+| early_exercisable            | boolean                  | No            | boolean             | No            | OK     |
+| exercise_price               | Monetary                 | No            | Monetary            | No            | OK     |
+| expiration_date              | oneOf                    | Yes           | string              | Yes           | OK     |
+| id                           | string                   | Yes           | string              | Yes           | OK     |
+| option_grant_type            | OptionType               | No            | OptionType          | No            | OK     |
+| quantity                     | Numeric                  | Yes           | string              | Yes           | OK     |
+| security_id                  | string                   | Yes           | string              | Yes           | OK     |
+| security_law_exemptions      | array<SecurityExemption> | Yes           | SecurityExemption[] | Yes           | OK     |
+| stakeholder_id               | string                   | Yes           | string              | Yes           | OK     |
+| stock_class_id               | string                   | No            | string              | No            | OK     |
+| stock_plan_id                | string                   | No            | string              | No            | OK     |
+| stockholder_approval_date    | Date                     | No            | string              | No            | OK     |
+| termination_exercise_windows | array<TerminationWindow> | Yes           | TerminationWindow[] | Yes           | OK     |
+| vesting_terms_id             | string                   | No            | string              | No            | OK     |
+| vestings                     | array<Vesting>           | No            | Vesting[]           | No            | OK     |
 
 ### PlanSecurityIssuance → OcfPlanSecurityIssuance
 
-| Field                        | OCF Type                 | OCF Required? | SDK Type            | SDK Required? | Status   |
-| ---------------------------- | ------------------------ | ------------- | ------------------- | ------------- | -------- | -------- | ----- |
-| base_price                   | Monetary                 | No            | Monetary            | No            | OK       |
-| board_approval_date          | Date                     | No            | string              | No            | OK       |
-| comments                     | array<string>            | No            | string[]            | No            | OK       |
-| compensation_type            | CompensationType         | Yes           | CompensationType    | No            | MISMATCH |
-| consideration_text           | string                   | No            | string              | No            | OK       |
-| custom_id                    | string                   | Yes           | string              | Yes           | OK       |
-| date                         | Date                     | Yes           | string              | Yes           | OK       |
-| early_exercisable            | boolean                  | No            | boolean             | No            | OK       |
-| exercise_price               | Monetary                 | No            | Monetary            | No            | OK       |
-| expiration_date              | oneOf                    | Yes           | string              | null          | No       | MISMATCH |
-| id                           | string                   | Yes           | string              | Yes           | OK       |
-| option_grant_type            | OptionType               | No            | -                   | -             | MISSING  |
-| quantity                     | Numeric                  | Yes           | string              | Yes           | OK       |
-| security_id                  | string                   | Yes           | string              | Yes           | OK       |
-| security_law_exemptions      | array<SecurityExemption> | Yes           | SecurityExemption[] | No            | MISMATCH |
-| stakeholder_id               | string                   | Yes           | string              | Yes           | OK       |
-| stock_class_id               | string                   | No            | string              | No            | OK       |
-| stock_plan_id                | string                   | No            | string              | No            | OK       |
-| stockholder_approval_date    | Date                     | No            | string              | No            | OK       |
-| termination_exercise_windows | array<TerminationWindow> | Yes           | TerminationWindow[] | No            | MISMATCH |
-| vesting_terms_id             | string                   | No            | string              | No            | OK       |
-| vestings                     | array<Vesting>           | No            | Vesting[]           | No            | OK       |
-| plan_security_type           | -                        | -             | 'OPTION'            | 'RSU'         | 'OTHER'  | No       | EXTRA |
+| Field                        | OCF Type                 | OCF Required? | SDK Type                     | SDK Required? | Status |
+| ---------------------------- | ------------------------ | ------------- | ---------------------------- | ------------- | ------ |
+| base_price                   | Monetary                 | No            | Monetary                     | No            | OK     |
+| board_approval_date          | Date                     | No            | string                       | No            | OK     |
+| comments                     | array<string>            | No            | string[]                     | No            | OK     |
+| compensation_type            | CompensationType         | Yes           | CompensationType             | Yes           | OK     |
+| consideration_text           | string                   | No            | string                       | No            | OK     |
+| custom_id                    | string                   | Yes           | string                       | Yes           | OK     |
+| date                         | Date                     | Yes           | string                       | Yes           | OK     |
+| early_exercisable            | boolean                  | No            | boolean                      | No            | OK     |
+| exercise_price               | Monetary                 | No            | Monetary                     | No            | OK     |
+| expiration_date              | oneOf                    | Yes           | string                       | Yes           | OK     |
+| id                           | string                   | Yes           | string                       | Yes           | OK     |
+| option_grant_type            | OptionType               | No            | OptionType                   | No            | OK     |
+| quantity                     | Numeric                  | Yes           | string                       | Yes           | OK     |
+| security_id                  | string                   | Yes           | string                       | Yes           | OK     |
+| security_law_exemptions      | array<SecurityExemption> | Yes           | SecurityExemption[]          | Yes           | OK     |
+| stakeholder_id               | string                   | Yes           | string                       | Yes           | OK     |
+| stock_class_id               | string                   | No            | string                       | No            | OK     |
+| stock_plan_id                | string                   | No            | string                       | No            | OK     |
+| stockholder_approval_date    | Date                     | No            | string                       | No            | OK     |
+| termination_exercise_windows | array<TerminationWindow> | Yes           | TerminationWindow[]          | Yes           | OK     |
+| vesting_terms_id             | string                   | No            | string                       | No            | OK     |
+| vestings                     | array<Vesting>           | No            | Vesting[]                    | No            | OK     |
+| plan_security_type           | -                        | -             | 'OPTION' \| 'RSU' \| 'OTHER' | No            | EXTRA  |
 
 ### StockIssuance → OcfStockIssuance
 
-| Field                     | OCF Type                 | OCF Required? | SDK Type              | SDK Required? | Status   |
-| ------------------------- | ------------------------ | ------------- | --------------------- | ------------- | -------- |
-| board_approval_date       | Date                     | No            | string                | No            | OK       |
-| comments                  | array<string>            | No            | string[]              | No            | OK       |
-| consideration_text        | string                   | No            | string                | No            | OK       |
-| cost_basis                | Monetary                 | No            | Monetary              | No            | OK       |
-| custom_id                 | string                   | Yes           | string                | Yes           | OK       |
-| date                      | Date                     | Yes           | string; // YYYY-MM-DD | Yes           | OK       |
-| id                        | string                   | Yes           | string                | Yes           | OK       |
-| issuance_type             | StockIssuanceType        | No            | StockIssuanceType     | No            | OK       |
-| quantity                  | Numeric                  | Yes           | string                | Yes           | OK       |
-| security_id               | string                   | Yes           | string                | Yes           | OK       |
-| security_law_exemptions   | array<SecurityExemption> | Yes           | SecurityExemption[]   | No            | MISMATCH |
-| share_numbers_issued      | array<ShareNumberRange>  | No            | ShareNumberRange[]    | No            | OK       |
-| share_price               | Monetary                 | Yes           | Monetary              | Yes           | OK       |
-| stakeholder_id            | string                   | Yes           | string                | Yes           | OK       |
-| stock_class_id            | string                   | Yes           | string                | Yes           | OK       |
-| stock_legend_ids          | array<string>            | Yes           | string[]              | No            | MISMATCH |
-| stock_plan_id             | string                   | No            | string                | No            | OK       |
-| stockholder_approval_date | Date                     | No            | string                | No            | OK       |
-| vesting_terms_id          | string                   | No            | string                | No            | OK       |
-| vestings                  | array<Vesting>           | No            | VestingSimple[]       | No            | OK       |
+| Field                     | OCF Type                 | OCF Required? | SDK Type              | SDK Required? | Status |
+| ------------------------- | ------------------------ | ------------- | --------------------- | ------------- | ------ |
+| board_approval_date       | Date                     | No            | string                | No            | OK     |
+| comments                  | array<string>            | No            | string[]              | No            | OK     |
+| consideration_text        | string                   | No            | string                | No            | OK     |
+| cost_basis                | Monetary                 | No            | Monetary              | No            | OK     |
+| custom_id                 | string                   | Yes           | string                | Yes           | OK     |
+| date                      | Date                     | Yes           | string; // YYYY-MM-DD | Yes           | OK     |
+| id                        | string                   | Yes           | string                | Yes           | OK     |
+| issuance_type             | StockIssuanceType        | No            | StockIssuanceType     | No            | OK     |
+| quantity                  | Numeric                  | Yes           | string                | Yes           | OK     |
+| security_id               | string                   | Yes           | string                | Yes           | OK     |
+| security_law_exemptions   | array<SecurityExemption> | Yes           | SecurityExemption[]   | Yes           | OK     |
+| share_numbers_issued      | array<ShareNumberRange>  | No            | ShareNumberRange[]    | No            | OK     |
+| share_price               | Monetary                 | Yes           | Monetary              | Yes           | OK     |
+| stakeholder_id            | string                   | Yes           | string                | Yes           | OK     |
+| stock_class_id            | string                   | Yes           | string                | Yes           | OK     |
+| stock_legend_ids          | array<string>            | Yes           | string[]              | Yes           | OK     |
+| stock_plan_id             | string                   | No            | string                | No            | OK     |
+| stockholder_approval_date | Date                     | No            | string                | No            | OK     |
+| vesting_terms_id          | string                   | No            | string                | No            | OK     |
+| vestings                  | array<Vesting>           | No            | VestingSimple[]       | No            | OK     |
 
 ### WarrantIssuance → OcfWarrantIssuance
 
@@ -671,17 +689,17 @@ in `src/types/native.ts`.
 
 ### StockClassSplit → OcfStockClassSplit
 
-| Field                     | OCF Type      | OCF Required? | SDK Type                                   | SDK Required? | Status   |
-| ------------------------- | ------------- | ------------- | ------------------------------------------ | ------------- | -------- |
-| comments                  | array<string> | No            | string[]                                   | No            | OK       |
-| date                      | Date          | Yes           | string                                     | Yes           | OK       |
-| id                        | string        | Yes           | string                                     | Yes           | OK       |
-| split_ratio               | Ratio         | Yes           | { numerator: string; denominator: string } | No            | MISMATCH |
-| stock_class_id            | string        | Yes           | string                                     | Yes           | OK       |
-| split_ratio_numerator     | -             | -             | string                                     | No            | EXTRA    |
-| split_ratio_denominator   | -             | -             | string                                     | No            | EXTRA    |
-| board_approval_date       | -             | -             | string                                     | No            | EXTRA    |
-| stockholder_approval_date | -             | -             | string                                     | No            | EXTRA    |
+| Field                     | OCF Type      | OCF Required? | SDK Type                                   | SDK Required? | Status |
+| ------------------------- | ------------- | ------------- | ------------------------------------------ | ------------- | ------ |
+| comments                  | array<string> | No            | string[]                                   | No            | OK     |
+| date                      | Date          | Yes           | string                                     | Yes           | OK     |
+| id                        | string        | Yes           | string                                     | Yes           | OK     |
+| split_ratio               | Ratio         | Yes           | { numerator: string; denominator: string } | Yes           | OK     |
+| stock_class_id            | string        | Yes           | string                                     | Yes           | OK     |
+| split_ratio_numerator     | -             | -             | string                                     | No            | EXTRA  |
+| split_ratio_denominator   | -             | -             | string                                     | No            | EXTRA  |
+| board_approval_date       | -             | -             | string                                     | No            | EXTRA  |
+| stockholder_approval_date | -             | -             | string                                     | No            | EXTRA  |
 
 ### ConvertibleTransfer → OcfConvertibleTransfer
 
@@ -784,60 +802,85 @@ in `src/types/native.ts`.
 | Schema                              | Field                          | Status   | Detail                                                                                         |
 | ----------------------------------- | ------------------------------ | -------- | ---------------------------------------------------------------------------------------------- |
 | Financing                           | issuance_ids                   | MISSING  | Field in OCF schema but not in SDK                                                             |
-| Financing                           | amount_raised                  | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| Financing                           | pre_money_valuation            | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| Financing                           | post_money_valuation           | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| Financing                           | stock_class_id                 | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| Issuer                              | tax_ids                        | MISMATCH | OCF optional but SDK required                                                                  |
+| Financing                           | amount_raised                  | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| Financing                           | pre_money_valuation            | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| Financing                           | post_money_valuation           | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| Financing                           | stock_class_id                 | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| Issuer                              | tax_ids                        | ✅ Fixed | Now optional in SDK per OCF schema                                                             |
 | StockClassConversionRatioAdjustment | new_ratio_conversion_mechanism | MISMATCH | OCF required but SDK optional                                                                  |
-| StockClassConversionRatioAdjustment | type                           | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockClassConversionRatioAdjustment | conversion_price               | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockClassConversionRatioAdjustment | ratio                          | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockClassConversionRatioAdjustment | rounding_type                  | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockClassConversionRatioAdjustment | new_ratio_numerator            | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockClassConversionRatioAdjustment | new_ratio_denominator          | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockClassConversionRatioAdjustment | board_approval_date            | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockClassConversionRatioAdjustment | stockholder_approval_date      | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StakeholderRelationshipChangeEvent  | new_relationships              | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StakeholderStatusChangeEvent        | reason_text                    | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockConsolidation                  | resulting_security_id          | MISMATCH | OCF required but SDK optional                                                                  |
-| StockConsolidation                  | resulting_security_ids         | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockConversion                     | quantity                       | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| PlanSecurityExercise                | balance_security_id            | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| WarrantExercise                     | quantity                       | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| WarrantExercise                     | balance_security_id            | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
+| StockClassConversionRatioAdjustment | type                           | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockClassConversionRatioAdjustment | conversion_price               | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockClassConversionRatioAdjustment | ratio                          | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockClassConversionRatioAdjustment | rounding_type                  | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockClassConversionRatioAdjustment | new_ratio_numerator            | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockClassConversionRatioAdjustment | new_ratio_denominator          | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockClassConversionRatioAdjustment | board_approval_date            | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockClassConversionRatioAdjustment | stockholder_approval_date      | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StakeholderRelationshipChangeEvent  | new_relationships              | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StakeholderStatusChangeEvent        | reason_text                    | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockConsolidation                  | resulting_security_id          | ✅ Fixed | Now required in SDK per OCF schema                                                             |
+| StockConsolidation                  | resulting_security_ids         | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockConversion                     | quantity                       | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| PlanSecurityExercise                | balance_security_id            | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| WarrantExercise                     | quantity                       | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| WarrantExercise                     | balance_security_id            | EXTRA    | Documented as intentional DAML pass-through fields                                             |
 | ConvertibleIssuance                 | security_law_exemptions        | MISMATCH | Type: OCF array<SecurityExemption> vs SDK Array<{ description: string; jurisdiction: string }> |
-| EquityCompensationIssuance          | expiration_date                | MISMATCH | OCF required but SDK optional                                                                  |
-| EquityCompensationIssuance          | option_grant_type              | MISSING  | Field in OCF schema but not in SDK                                                             |
-| EquityCompensationIssuance          | security_law_exemptions        | MISMATCH | OCF required but SDK optional                                                                  |
-| EquityCompensationIssuance          | termination_exercise_windows   | MISMATCH | OCF required but SDK optional                                                                  |
-| PlanSecurityIssuance                | compensation_type              | MISMATCH | OCF required but SDK optional                                                                  |
-| PlanSecurityIssuance                | expiration_date                | MISMATCH | OCF required but SDK optional                                                                  |
-| PlanSecurityIssuance                | option_grant_type              | MISSING  | Field in OCF schema but not in SDK                                                             |
-| PlanSecurityIssuance                | security_law_exemptions        | MISMATCH | OCF required but SDK optional                                                                  |
-| PlanSecurityIssuance                | termination_exercise_windows   | MISMATCH | OCF required but SDK optional                                                                  |
-| PlanSecurityIssuance                | plan_security_type             | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockIssuance                       | security_law_exemptions        | MISMATCH | OCF required but SDK optional                                                                  |
-| StockIssuance                       | stock_legend_ids               | MISMATCH | OCF required but SDK optional                                                                  |
+| EquityCompensationIssuance          | expiration_date                | ✅ Fixed | Now required in SDK per OCF schema                                                             |
+| EquityCompensationIssuance          | option_grant_type              | ✅ Fixed | Added as deprecated optional field                                                             |
+| EquityCompensationIssuance          | security_law_exemptions        | ✅ Fixed | Now required in SDK per OCF schema                                                             |
+| EquityCompensationIssuance          | termination_exercise_windows   | ✅ Fixed | Now required in SDK per OCF schema                                                             |
+| PlanSecurityIssuance                | compensation_type              | ✅ Fixed | Now required in SDK per OCF schema                                                             |
+| PlanSecurityIssuance                | expiration_date                | ✅ Fixed | Now required in SDK per OCF schema                                                             |
+| PlanSecurityIssuance                | option_grant_type              | ✅ Fixed | Added as deprecated optional field                                                             |
+| PlanSecurityIssuance                | security_law_exemptions        | ✅ Fixed | Now required in SDK per OCF schema                                                             |
+| PlanSecurityIssuance                | termination_exercise_windows   | ✅ Fixed | Now required in SDK per OCF schema                                                             |
+| PlanSecurityIssuance                | plan_security_type             | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockIssuance                       | security_law_exemptions        | ✅ Fixed | Now required in SDK per OCF schema                                                             |
+| StockIssuance                       | stock_legend_ids               | ✅ Fixed | Now required in SDK per OCF schema                                                             |
 | WarrantIssuance                     | quantity_source                | MISSING  | Field in OCF schema but not in SDK                                                             |
 | WarrantIssuance                     | security_law_exemptions        | MISMATCH | Type: OCF array<SecurityExemption> vs SDK Array<{ description: string; jurisdiction: string }> |
 | WarrantIssuance                     | vestings                       | MISSING  | Field in OCF schema but not in SDK                                                             |
-| WarrantIssuance                     | ratio_numerator                | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| WarrantIssuance                     | ratio_denominator              | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| WarrantIssuance                     | percent_of_outstanding         | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| WarrantIssuance                     | conversion_triggers            | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| EquityCompensationRelease           | balance_security_id            | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| PlanSecurityRelease                 | balance_security_id            | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| EquityCompensationRepricing         | resulting_security_ids         | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockClassSplit                     | split_ratio                    | MISMATCH | OCF required but SDK optional                                                                  |
-| StockClassSplit                     | split_ratio_numerator          | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockClassSplit                     | split_ratio_denominator        | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockClassSplit                     | board_approval_date            | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
-| StockClassSplit                     | stockholder_approval_date      | EXTRA    | Field in SDK but not in OCF schema (additionalProperties: false)                               |
+| WarrantIssuance                     | ratio_numerator                | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| WarrantIssuance                     | ratio_denominator              | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| WarrantIssuance                     | percent_of_outstanding         | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| WarrantIssuance                     | conversion_triggers            | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| EquityCompensationRelease           | balance_security_id            | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| PlanSecurityRelease                 | balance_security_id            | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| EquityCompensationRepricing         | resulting_security_ids         | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockClassSplit                     | split_ratio                    | ✅ Fixed | Now required in SDK per OCF schema                                                             |
+| StockClassSplit                     | split_ratio_numerator          | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockClassSplit                     | split_ratio_denominator        | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockClassSplit                     | board_approval_date            | EXTRA    | Documented as intentional DAML pass-through fields                                             |
+| StockClassSplit                     | stockholder_approval_date      | EXTRA    | Documented as intentional DAML pass-through fields                                             |
 
 ## Counts
 
-- **OK**: 423
-- **MISSING** (in SDK): 5
-- **EXTRA** (in SDK, schema has additionalProperties: false): 31
-- **MISMATCH**: 15
+- **OK**: 438 (423 + 15 fixed)
+- **MISSING** (in SDK): 3 (Financing issuance_ids, WarrantIssuance quantity_source, vestings)
+- **EXTRA** (in SDK, documented as DAML pass-through): 31
+- **MISMATCH**: 2 (StockClassConversionRatioAdjustment new_ratio_conversion_mechanism,
+  ConvertibleIssuance/WarrantIssuance security_law_exemptions type)
+- **✅ Fixed**: 15 (Issuer tax_ids, StockConsolidation resulting_security_id, StockClassSplit
+  split_ratio, EquityCompensationIssuance x4, PlanSecurityIssuance x5, StockIssuance x2)
+
+## Recommendations
+
+**Completed (this audit):**
+
+- ~~Issuer tax_ids optional~~ ✅ Done
+- ~~StockClassSplit split_ratio required~~ ✅ Done
+- ~~StockConsolidation resulting_security_id required~~ ✅ Done
+- ~~EquityCompensationIssuance expiration_date, security_law_exemptions,
+  termination_exercise_windows required~~ ✅ Done
+- ~~PlanSecurityIssuance compensation_type, expiration_date, security_law_exemptions,
+  termination_exercise_windows required~~ ✅ Done
+- ~~PlanSecurityIssuance option_grant_type~~ ✅ Done (added as deprecated optional)
+- ~~StockIssuance security_law_exemptions, stock_legend_ids required~~ ✅ Done
+- ~~EXTRA fields documentation~~ ✅ Done (22 @internal/@deprecated annotations)
+
+**Remaining:**
+
+- Financing issuance_ids: Add to SDK if OCF bundle support is needed
+- WarrantIssuance quantity_source, vestings: Add if full OCF support required
+- StockClassConversionRatioAdjustment new_ratio_conversion_mechanism: Make required or document
+- ConvertibleIssuance/WarrantIssuance security_law_exemptions: Align type with SecurityExemption

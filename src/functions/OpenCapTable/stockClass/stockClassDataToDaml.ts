@@ -51,7 +51,7 @@ function conversionMechanismToDaml(
   switch (type) {
     case 'RATIO_CONVERSION':
       return 'OcfConversionMechanismRatioConversion';
-    case 'PERCENT_CONVERSION':
+    case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION':
       return 'OcfConversionMechanismPercentCapitalizationConversion';
     case 'FIXED_AMOUNT_CONVERSION':
       return 'OcfConversionMechanismFixedAmountConversion';

@@ -6,7 +6,7 @@
  */
 
 import { OcpValidationError } from '../../../errors';
-import type { CompensationType, OcfPlanSecurityIssuance } from '../../../types';
+import type { OcfPlanSecurityIssuance } from '../../../types';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -19,16 +19,6 @@ import {
   terminationWindowPeriodTypeMap,
   terminationWindowReasonMap,
 } from '../equityCompensationIssuance/createEquityCompensationIssuance';
-
-/**
- * Map PlanSecurity type to EquityCompensation type for DAML.
- * PlanSecurity types are aliases that map to EquityCompensation DAML contracts.
- * Note: 'OTHER' is not included because DAML has no equivalent type - it must be handled explicitly.
- */
-const PLAN_SECURITY_TO_COMPENSATION_TYPE: Record<'OPTION' | 'RSU', CompensationType> = {
-  OPTION: 'OPTION',
-  RSU: 'RSU',
-};
 
 /**
  * Convert native OCF PlanSecurityIssuance data to DAML format.
@@ -46,37 +36,7 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
     });
   }
 
-  const compensationTypeInput = (d as OcfPlanSecurityIssuance & { compensation_type?: CompensationType })
-    .compensation_type;
-  let compensationType: CompensationType | undefined = compensationTypeInput;
-
-  if (!compensationType) {
-    // Validate legacy plan_security_type - 'OTHER' is not supported because DAML has no equivalent type
-    if (d.plan_security_type === 'OTHER') {
-      throw new OcpValidationError(
-        'planSecurityIssuance.plan_security_type',
-        "plan_security_type 'OTHER' is not supported. DAML only supports 'OPTION' and 'RSU' types. Use EquityCompensationIssuance with a specific compensation_type instead.",
-        {
-          expectedType: "'OPTION' | 'RSU'",
-          receivedValue: d.plan_security_type,
-        }
-      );
-    }
-
-    compensationType =
-      d.plan_security_type === undefined ? undefined : PLAN_SECURITY_TO_COMPENSATION_TYPE[d.plan_security_type];
-  }
-
-  if (!compensationType) {
-    throw new OcpValidationError(
-      'planSecurityIssuance.compensation_type',
-      "compensation_type is required (or provide legacy plan_security_type as 'OPTION' or 'RSU').",
-      {
-        expectedType: "CompensationType or legacy 'OPTION' | 'RSU'",
-        receivedValue: compensationTypeInput ?? d.plan_security_type,
-      }
-    );
-  }
+  const compensationType = d.compensation_type;
 
   const filteredVestings = (d.vestings ?? []).filter((v) => {
     const normalized = normalizeNumericString(v.amount);
@@ -92,7 +52,7 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
     board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
     stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
     consideration_text: optionalString(d.consideration_text),
-    security_law_exemptions: (d.security_law_exemptions ?? []).map((e) => ({
+    security_law_exemptions: d.security_law_exemptions.map((e) => ({
       description: e.description,
       jurisdiction: e.jurisdiction,
     })),
@@ -109,7 +69,7 @@ export function planSecurityIssuanceDataToDaml(d: OcfPlanSecurityIssuance): Reco
       amount: normalizeNumericString(v.amount),
     })),
     expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
-    termination_exercise_windows: (d.termination_exercise_windows ?? []).map((w) => ({
+    termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
       reason: terminationWindowReasonMap[w.reason],
       period: w.period.toString(),
       period_type: terminationWindowPeriodTypeMap[w.period_type],

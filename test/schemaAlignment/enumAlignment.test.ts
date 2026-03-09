@@ -48,11 +48,7 @@ const ENUM_MAPPINGS: Record<
       'FRACTIONAL',
     ],
   },
-  AuthorizedShares: {
-    sdkValues: ['NOT_APPLICABLE', 'UNLIMITED'],
-    ocfToSdkNormalize: (v) => (v === 'NOT APPLICABLE' ? 'NOT_APPLICABLE' : v),
-    notes: 'OCF uses space (NOT APPLICABLE), SDK normalizes to underscore',
-  },
+  AuthorizedShares: { sdkValues: ['NOT APPLICABLE', 'UNLIMITED'] },
   EmailType: { sdkValues: ['PERSONAL', 'BUSINESS', 'OTHER'] },
   AddressType: { sdkValues: ['LEGAL', 'CONTACT', 'OTHER'] },
   PhoneType: { sdkValues: ['HOME', 'MOBILE', 'BUSINESS', 'OTHER'] },
@@ -193,6 +189,28 @@ function getOcfEnumValues(schemaPath: string): string[] {
 }
 
 describe('OCF Enum Schema Alignment', () => {
+  it('AuthorizedShares values use OCF-canonical space form', () => {
+    const mapping = ENUM_MAPPINGS['AuthorizedShares'];
+    expect(mapping.sdkValues).toContain('NOT APPLICABLE');
+    expect(mapping.sdkValues).not.toContain('NOT_APPLICABLE');
+  });
+
+  it('ConversionMechanismType covers all 8 OCF values', () => {
+    const mapping = ENUM_MAPPINGS['ConversionMechanismType'];
+    const expected = [
+      'FIXED_AMOUNT_CONVERSION',
+      'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+      'RATIO_CONVERSION',
+      'SAFE_CONVERSION',
+      'VALUATION_BASED_CONVERSION',
+      'CONVERTIBLE_NOTE_CONVERSION',
+      'CUSTOM_CONVERSION',
+      'PPS_BASED_CONVERSION',
+    ];
+    expect(mapping.sdkValues).toEqual(expect.arrayContaining(expected));
+    expect(mapping.sdkValues).toHaveLength(expected.length);
+  });
+
   it('every non-skipped OCF enum schema has a mapping', () => {
     const schemaFiles = getEnumSchemaFiles();
     const unmapped: string[] = [];
@@ -246,6 +264,15 @@ describe('OCF Enum Schema Alignment', () => {
 
         expect(extra).toEqual([]);
       });
+
+      if (enumName === 'AuthorizedShares') {
+        it('OCF schema value "NOT APPLICABLE" (space) matches SDK type exactly', () => {
+          const ocfValues = getOcfEnumValues(schemaPath);
+          expect(ocfValues).toContain('NOT APPLICABLE');
+          expect(mapping.sdkValues).toContain('NOT APPLICABLE');
+          expect(mapping.sdkValues).not.toContain('NOT_APPLICABLE');
+        });
+      }
     });
   }
 });

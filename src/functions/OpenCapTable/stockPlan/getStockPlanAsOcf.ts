@@ -15,7 +15,10 @@ function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehav
     case 'OcfPlanCancelDefinedPerPlanSecurity':
       return 'DEFINED_PER_PLAN_SECURITY';
     default:
-      return undefined;
+      throw new OcpParseError(`Unknown DAML cancellation behavior: ${b}`, {
+        source: 'stockPlan.default_cancellation_behavior',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
   }
 }
 

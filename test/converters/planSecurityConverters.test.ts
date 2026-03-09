@@ -143,7 +143,7 @@ describe('PlanSecurity Type Converters', () => {
       });
 
       it('throws OcpValidationError when compensation_type is missing', () => {
-        const input: OcfPlanSecurityIssuance = {
+        const input = {
           id: 'psi-003',
           date: '2025-03-01',
           security_id: 'sec-003',
@@ -154,7 +154,7 @@ describe('PlanSecurity Type Converters', () => {
           expiration_date: null,
           termination_exercise_windows: [],
           security_law_exemptions: [],
-        };
+        } as unknown as OcfPlanSecurityIssuance;
 
         expect(() => convertToDaml('planSecurityIssuance', input)).toThrow(OcpValidationError);
 
@@ -195,7 +195,7 @@ describe('PlanSecurity Type Converters', () => {
           expiration_date: null,
           termination_exercise_windows: [],
           security_law_exemptions: [],
-        } as OcfPlanSecurityIssuance;
+        } as unknown as OcfPlanSecurityIssuance;
 
         expect(() => convertToDaml('planSecurityIssuance', input)).toThrow(OcpValidationError);
 

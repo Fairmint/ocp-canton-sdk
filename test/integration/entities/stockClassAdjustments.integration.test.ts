@@ -56,8 +56,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         id: splitId,
         date: generateDateString(0),
         stock_class_id: stockClassId,
-        split_ratio_numerator: '2',
-        split_ratio_denominator: '1',
+        split_ratio: { numerator: '2', denominator: '1' },
         comments: ['2-for-1 stock split'],
       })
       .execute();
@@ -384,8 +383,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         id: generateTestId('split-with-dates'),
         date: generateDateString(0),
         stock_class_id: generateTestId('class-with-dates'),
-        split_ratio_numerator: '4',
-        split_ratio_denominator: '1',
+        split_ratio: { numerator: '4', denominator: '1' },
         board_approval_date: generateDateString(-5),
         stockholder_approval_date: generateDateString(-2),
         comments: ['Split with full approval chain'],

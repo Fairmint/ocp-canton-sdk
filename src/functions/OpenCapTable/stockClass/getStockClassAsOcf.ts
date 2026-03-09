@@ -102,7 +102,7 @@ export function damlStockClassDataToNative(
     if (tagged.tag === 'OcfInitialSharesNumeric' && typeof tagged.value === 'string') {
       initialShares = normalizeNumericString(tagged.value);
     } else if (tagged.tag === 'OcfInitialSharesEnum' && typeof tagged.value === 'string') {
-      initialShares = tagged.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT_APPLICABLE';
+      initialShares = tagged.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
     } else {
       throw new OcpValidationError('stockClass.initial_shares_authorized', 'Invalid initial_shares_authorized format', {
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -152,12 +152,21 @@ export function damlStockClassDataToNative(
         } else {
           mechanismTag = '';
         }
-        const mechanismType: ConversionMechanism =
-          mechanismTag === 'OcfConversionMechanismRatioConversion'
-            ? 'RATIO_CONVERSION'
-            : mechanismTag === 'OcfConversionMechanismPercentCapitalizationConversion'
-              ? 'PERCENT_CONVERSION'
-              : 'FIXED_AMOUNT_CONVERSION';
+        const mechanismType: ConversionMechanism = (() => {
+          switch (mechanismTag) {
+            case 'OcfConversionMechanismRatioConversion':
+              return 'RATIO_CONVERSION';
+            case 'OcfConversionMechanismPercentCapitalizationConversion':
+              return 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
+            case 'OcfConversionMechanismFixedAmountConversion':
+              return 'FIXED_AMOUNT_CONVERSION';
+            default:
+              throw new OcpParseError(`Unknown stock class conversion mechanism: ${mechanismTag}`, {
+                source: 'conversion_right.conversion_mechanism',
+                code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+              });
+          }
+        })();
 
         // Extract ratio from DAML Optional(OcfRatio)
         const extractRatio = (raw: unknown): { numerator: string; denominator: string } | undefined => {

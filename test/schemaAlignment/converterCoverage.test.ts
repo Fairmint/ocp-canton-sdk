@@ -21,7 +21,7 @@ import {
   stockClassTypeToDaml,
 } from '../../src/utils/enumConversions';
 
-import { mapDamlTriggerTypeToOcf } from '../../src/utils/typeConversions';
+import { initialSharesAuthorizedToDaml, mapDamlTriggerTypeToOcf } from '../../src/utils/typeConversions';
 
 describe('converterCoverage', () => {
   describe('emailTypeToDaml', () => {
@@ -192,6 +192,20 @@ describe('converterCoverage', () => {
     });
   });
 
+  describe('initialSharesAuthorizedToDaml', () => {
+    test.each(['UNLIMITED', 'NOT APPLICABLE'] as const)('converts %s without throwing', (value) => {
+      expect(() => initialSharesAuthorizedToDaml(value)).not.toThrow();
+      const result = initialSharesAuthorizedToDaml(value);
+      expect(result).toHaveProperty('tag', 'OcfInitialSharesEnum');
+      expect(result).toHaveProperty('value');
+    });
+
+    test('AuthorizedShares space form NOT APPLICABLE returns correct DAML value', () => {
+      const result = initialSharesAuthorizedToDaml('NOT APPLICABLE');
+      expect(result).toEqual({ tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' });
+    });
+  });
+
   describe('mapDamlTriggerTypeToOcf', () => {
     const values = [
       'OcfTriggerTypeTypeAutomaticOnDate',
@@ -206,6 +220,18 @@ describe('converterCoverage', () => {
       const result = mapDamlTriggerTypeToOcf(value);
       expect(typeof result).toBe('string');
       expect(result.length).toBeGreaterThan(0);
+    });
+
+    const triggerMappings: Array<{ daml: (typeof values)[number]; ocf: string }> = [
+      { daml: 'OcfTriggerTypeTypeAutomaticOnDate', ocf: 'AUTOMATIC_ON_DATE' },
+      { daml: 'OcfTriggerTypeTypeAutomaticOnCondition', ocf: 'AUTOMATIC_ON_CONDITION' },
+      { daml: 'OcfTriggerTypeTypeElectiveInRange', ocf: 'ELECTIVE_IN_RANGE' },
+      { daml: 'OcfTriggerTypeTypeElectiveOnCondition', ocf: 'ELECTIVE_ON_CONDITION' },
+      { daml: 'OcfTriggerTypeTypeElectiveAtWill', ocf: 'ELECTIVE_AT_WILL' },
+      { daml: 'OcfTriggerTypeTypeUnspecified', ocf: 'UNSPECIFIED' },
+    ];
+    test.each(triggerMappings)('maps $daml to $ocf', ({ daml, ocf }) => {
+      expect(mapDamlTriggerTypeToOcf(daml)).toBe(ocf);
     });
   });
 
@@ -263,6 +289,14 @@ describe('converterCoverage', () => {
       'OFFICER',
       'OTHER',
     ] as const;
+    test('all 13 stakeholder relationship types survive round-trip', () => {
+      expect(values).toHaveLength(13);
+      for (const value of values) {
+        const daml = stakeholderRelationshipTypeToDaml(value);
+        const native = damlStakeholderRelationshipToNative(daml);
+        expect(native).toBe(value);
+      }
+    });
     test.each(values)('%s survives round-trip', (value) => {
       const daml = stakeholderRelationshipTypeToDaml(value);
       const native = damlStakeholderRelationshipToNative(daml);
