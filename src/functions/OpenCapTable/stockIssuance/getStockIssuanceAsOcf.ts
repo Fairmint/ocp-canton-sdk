@@ -21,7 +21,8 @@ function damlShareNumberRangeToNative(r: Fairmint.OpenCapTable.Types.Stock.OcfSh
   };
 }
 
-function damlStockIssuanceTypeToNative(t: string): StockIssuanceType | undefined {
+function damlStockIssuanceTypeToNative(t: string | null): StockIssuanceType | undefined {
+  if (t === null) return undefined;
   switch (t) {
     case 'OcfStockIssuanceRSA':
       return 'RSA';
@@ -78,8 +79,10 @@ export function damlStockIssuanceDataToNative(
     stock_legend_ids: Array.isArray((d as unknown as { stock_legend_ids?: unknown }).stock_legend_ids)
       ? (d as unknown as { stock_legend_ids: string[] }).stock_legend_ids
       : [],
-    ...((anyD as { issuance_type?: unknown }).issuance_type !== undefined && {
-      issuance_type: damlStockIssuanceTypeToNative((anyD as { issuance_type?: unknown }).issuance_type as string),
+    ...((anyD as { issuance_type?: unknown }).issuance_type != null && {
+      issuance_type: damlStockIssuanceTypeToNative(
+        (anyD as { issuance_type?: unknown }).issuance_type as string | null
+      ),
     }),
     comments:
       (anyD as { comments?: unknown }).comments !== undefined &&
