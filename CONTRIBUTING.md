@@ -43,7 +43,8 @@ if (isCreatedEvent(event)) {
 
 Use the type conversion utilities from `src/utils/typeConversions.ts`:
 
-- `numberToString(value)` - Convert number or string to string for DAML numeric fields
+- `normalizeNumericString(value)` - Normalize and validate DAML numeric string fields
+- `optionalNumberToString(value)` - Pass through optional numeric strings, null for absent values
 - `optionalString(value)` - Convert empty strings or undefined to null
 - `cleanComments(comments)` - Filter and clean comments arrays
 - `dateStringToDAMLTime(date)` - Convert date strings to DAML time format
@@ -68,7 +69,7 @@ export function buildCreate{Entity}Command(
       id: d.id,
       security_id: d.security_id,
       date: dateStringToDAMLTime(d.date),
-      quantity: numberToString(d.quantity),
+      quantity: normalizeNumericString(d.quantity),
       optional_field: optionalString(d.optional_field),
       comments: cleanComments(d.comments),
     },
@@ -109,7 +110,7 @@ const choiceArguments: Fairmint.OpenCapTable.Issuer.CreateStockCancellation = {
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     reason_text: d.reason_text,
-    quantity: numberToString(d.quantity),
+    quantity: normalizeNumericString(d.quantity),
     balance_security_id: d.balance_security_id ?? null,
     comments: cleanComments(d.comments),
   },
@@ -153,7 +154,7 @@ quantity: typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity,
 optional_text: d.optional_text === '' ? null : (d.optional_text ?? null),
 
 // Use utilities instead
-quantity: numberToString(d.quantity),
+quantity: normalizeNumericString(d.quantity),
 optional_text: optionalString(d.optional_text),
 ```
 
@@ -176,7 +177,7 @@ const value = d.optional_field || null;
 ```typescript
 // ✅ Good - explicit handling
 comments: cleanComments(d.comments),
-items: (d.items || []).map(transform),
+items: (d.items ?? []).map(transform),
 
 // ❌ Bad - implicit coercion
 comments: d.comments || [],
@@ -203,7 +204,7 @@ import {
   dateStringToDAMLTime,
   monetaryToDaml,
   cleanComments,
-  numberToString,
+  normalizeNumericString,
   optionalString,
 } from '../../utils/typeConversions';
 

@@ -117,36 +117,28 @@ Environment toggles: `CANTON_LOCALNET_FAST_START` (default: true),
 
 ### OCF Schema Validation
 
-This SDK includes automated validation of all OCF data against the official
-[Open Cap Format JSON schemas](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF).
+The SDK enforces schema alignment and validation through dedicated test suites and an auditable
+report flow:
 
-**Setup:**
+- `test/schemaAlignment/*` guards SDK type/interface + enum alignment with OCF schemas, including
+  converter coverage for mapped enums.
+- `test/validation/*` verifies fail-fast required-field validation and converter output validity.
+- `scripts/audit-ocf-schema-alignment.ts` regenerates `audit-field-report.md` from current SDK types
+  vs OCF schema definitions.
+
+**Schema-alignment workflow:**
 
 ```bash
-# Initialize/update the OCF schema submodule
 git submodule update --init --recursive
+npx jest test/schemaAlignment --runInBand
+npx jest test/validation --runInBand
+npx ts-node scripts/audit-ocf-schema-alignment.ts
 ```
 
-**Usage in tests:**
+**Validation guarantee:**
 
-```typescript
-import { validateOcfObject } from './test/utils/ocfSchemaValidator';
-
-// Validate any OCF object
-await validateOcfObject({
-  object_type: 'ISSUER',
-  id: '...',
-  legal_name: 'Example Inc.',
-  // ... other fields
-});
-```
-
-The validator automatically validates both:
-
-- Input fixtures (`fixture.db`) - Data being sent to Canton
-- Output results - Data returned from `get*AsOcf` methods
-
-All 78+ test fixtures pass validation for both input and output data.
+- Invalid or incomplete payloads should fail with explicit validation errors.
+- OCF-facing outputs are continuously checked against official OCF schemas in test suites.
 
 ### LocalNet
 

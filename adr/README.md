@@ -6,7 +6,7 @@ This directory contains Architecture Decision Records for the OCP Canton SDK.
 
 | ADR                                         | Status   | Date       | Summary                                                  |
 | ------------------------------------------- | -------- | ---------- | -------------------------------------------------------- |
-| [ADR-001](./001-batch-cap-table-updates.md) | Proposed | 2026-01-12 | Batch Cap Table Updates API using fluent builder pattern |
+| [ADR-001](./001-batch-cap-table-updates.md) | Accepted | 2026-01-12 | Batch Cap Table Updates API using fluent builder pattern |
 
 ## What is an ADR?
 
