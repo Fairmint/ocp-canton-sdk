@@ -25,9 +25,10 @@ This README is for SDK contributors and AI assistants. For end users/consumers, 
 - `src/functions/<domain>/...`: one operation per file; export `Params`/`Result`
 - `src/OcpClient.ts`: grouped facade that wires functions to a `LedgerJsonApiClient`
 - `src/types/native.ts`: ergonomic OCF-native types for inputs/outputs
-- `src/types/contractDetails.ts`: `ContractDetails` for disclosed cross-domain references
+- `src/types/common.ts`: shared params/results and re-exported Canton command/disclosure types
 - `src/utils/typeConversions.ts`: conversions between DAML types and native OCF types
-- `src/utils/TransactionBatch.ts`: typed batch submission helper
+- `OcpClient.createBatch()`: typed batch submission via `TransactionBatch` from
+  `@fairmint/canton-node-sdk`
 
 ### Function design
 
@@ -85,8 +86,7 @@ This README is for SDK contributors and AI assistants. For end users/consumers, 
 - Contributor guidance lives here
 - End-user/API docs: [Open Cap Table Protocol Canton SDK](https://ocp.canton.fairmint.com/)
 - Internal API docs can be generated locally with `npm run docs` into `docs/`
-- AI context (single source of truth): `CLAUDE.md` (agent entrypoints: `CLAUDE.md`, `AGENTS.md`,
-  `GEMINI.md`)
+- AI context (single source of truth): `CLAUDE.md`
 
 ### Contribution checklist
 
@@ -123,8 +123,8 @@ report flow:
 - `test/schemaAlignment/*` guards SDK type/interface + enum alignment with OCF schemas, including
   converter coverage for mapped enums.
 - `test/validation/*` verifies fail-fast required-field validation and converter output validity.
-- `scripts/audit-ocf-schema-alignment.ts` regenerates `audit-field-report.md` from current SDK types
-  vs OCF schema definitions.
+- `scripts/audit-ocf-schema-alignment.ts` runs schema-alignment audit checks against current SDK
+  types and OCF schema definitions.
 
 **Schema-alignment workflow:**
 

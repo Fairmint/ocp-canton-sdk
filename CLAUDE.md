@@ -254,12 +254,13 @@ import {
 When you discover areas for improvement that are **unrelated to the current task**:
 
 1. **Don't fix inline** - Keep PRs focused on the task at hand
-2. **Document as backlog** - Create or update an improvement ideas file in the task directory
-3. **Reference from main task** - Ensure the parent task links to improvement subtasks
-4. **Address before marking complete** - Main tasks should not be closed until improvement items are
-   resolved
+2. **Document as backlog** - Create follow-up Linear issues under the same initiative/task
+3. **Reference from main task** - Link follow-up issues from the parent Linear task
+4. **Address before marking complete** - Parent tasks should not be closed until follow-up items are
+   triaged
 
-**Location:** `canton/tasks/YYYY/MM/{task-name}/sdk-improvement-ideas.md`
+**Optional artifact:** If a task directory exists for local notes, use
+`tasks/YYYY/MM/{task-name}/sdk-improvement-ideas.md` and link it from the Linear task.
 
 **Example items:**
 
@@ -608,7 +609,8 @@ Be concise in all communications:
 
 - **PR reviews**: Lead with issues, collapse detailed analysis in `<details>`
 - **Commits**: One-line summary, optional bullet points for details
-- **PR descriptions**: Brief summary, link to task file for context
+- **PR descriptions**: Brief summary, link to the relevant Linear task (and local task artifact, if
+  any)
 - **Comments**: Direct and actionable, skip pleasantries
 
 Include all necessary information, but keep it brief and scannable.
@@ -651,9 +653,9 @@ ADRs document significant architectural decisions. They live in the `adr/` direc
 
 1. Create the ADR file: `adr/NNN-short-title.md` (NNN = next sequential number)
 2. **ALWAYS update `adr/README.md`** to add the new ADR to the index table
-3. Link the ADR from any related task files
+3. Link the ADR from related Linear tasks (and local task artifacts, if any)
 
-**ADR Status Values:** Proposed → Accepted → (Superseded/Rejected)
+**ADR Status Values:** Proposed, Accepted, Rejected, Superseded
 
 ## Tasks
 
@@ -669,4 +671,4 @@ for the full Linear workflow documentation.
 - TypeDoc: `npm run docs` → `docs/`
 - Implementation guide: `README.md`
 - Code style: `CONTRIBUTING.md`
-- Lint config: `LINTING.md`
+- Lint config: `eslint.config.mjs`

@@ -126,31 +126,30 @@ export class CapTableBatch {
 1. **Atomic transactions**: Multiple operations in one ledger command
 2. **Type-safe**: TypeScript discriminated unions provide compile-time checks
 3. **Extensible**: Adding new entity types requires only adding to the union
-4. **DRY**: Single `convertToDaml()` dispatch instead of 48 converter files
+4. **DRY + discoverable**: dispatcher-based routing with entity-local `*DataToDaml` converters
 5. **Matches DAML**: Direct mapping to the `UpdateCapTable` choice
 
 ### Data Conversion Strategy
 
-Instead of 48 separate `*DataToDaml.ts` files, use a centralized converter:
+Use dispatcher-only files in `capTable/` that route to entity-local converters:
 
 ```typescript
-// src/utils/ocfToDaml.ts
-export function convertToDaml<T extends OcfEntityType>(
-  type: T,
-  data: OcfDataTypeFor<T>
-): DamlDataTypeFor<T> {
+// src/functions/OpenCapTable/capTable/ocfToDaml.ts
+import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
+import { stockClassDataToDaml } from '../stockClass/stockClassDataToDaml';
+
+export function convertToDaml(type: OcfEntityType, data: OcfEntityData): unknown {
   switch (type) {
     case 'stakeholder':
-      return stakeholderToDaml(data as OcfStakeholder);
+      return stakeholderDataToDaml(data);
     case 'stockClass':
-      return stockClassToDaml(data as OcfStockClass);
-    // ... all 48 types
+      return stockClassDataToDaml(data);
+    // ... routes for supported entity types
   }
 }
 ```
 
-The individual converter functions (`stakeholderToDaml`, `stockClassToDaml`, etc.) can be extracted
-from existing code.
+This keeps implementation code discoverable by entity while preserving centralized dispatch.
 
 ### Read Operations
 
@@ -166,19 +165,20 @@ src/
 │   │   ├── CapTableBatch.ts        # New batch builder
 │   │   ├── buildUpdateCommand.ts   # Builds UpdateCapTable choice
 │   │   └── types.ts                # Batch-related types
-│   ├── converters/                  # Extracted from existing code
-│   │   ├── stakeholderToDaml.ts
-│   │   ├── stockClassToDaml.ts
+│   ├── stakeholder/
+│   │   ├── stakeholderDataToDaml.ts
+│   │   ├── getStakeholderAsOcf.ts
 │   │   └── ...
-│   └── readers/                     # get*AsOcf functions (unchanged)
-│       ├── getStakeholderAsOcf.ts
-│       └── ...
+│   ├── stockClass/
+│   │   ├── stockClassDataToDaml.ts
+│   │   ├── getStockClassAsOcf.ts
+│   │   └── ...
+│   └── ...
 ├── types/
-│   ├── ocfEntities.ts               # All 48 OCF entity types
-│   └── native.ts                    # Native TypeScript interfaces
-└── utils/
-    ├── ocfToDaml.ts                 # Centralized conversion
-    └── ocfMetadata.ts               # Entity type registry
+│   ├── native.ts                    # Native TypeScript interfaces
+│   ├── output.ts                    # OCF output shapes
+│   └── common.ts                    # Shared operation types
+└── OcpClient.ts
 ```
 
 ## Migration Path
@@ -234,4 +234,4 @@ src/
 
 - [DAML CapTable Contract](https://www.npmjs.com/package/@fairmint/open-captable-protocol-daml-js)
 - [OCF Specification](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF)
-- [Milestone 2 Task](../tasks/2025/12/2025.12.17-milestone-2-ocp-sdk-implementation.md)
+- Milestone 2 tracking work (Linear, Eng team)
