@@ -4,7 +4,8 @@ import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } fr
 import type { StockPlanCancellationBehavior } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
-function damlCancellationBehaviorToNative(b: string): StockPlanCancellationBehavior | undefined {
+function damlCancellationBehaviorToNative(b: string | null): StockPlanCancellationBehavior | undefined {
+  if (b === null) return undefined;
   switch (b) {
     case 'OcfPlanCancelRetire':
       return 'RETIRE';
