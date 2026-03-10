@@ -463,7 +463,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
                   },
                 }
               : {}),
-            ...(value.conversion_mfn ? { conversion_mfn: Boolean(value.conversion_mfn) } : {}),
+            ...(value.conversion_mfn != null ? { conversion_mfn: Boolean(value.conversion_mfn) } : {}),
           } as NoteConversionMechanism;
           return mech;
         }
