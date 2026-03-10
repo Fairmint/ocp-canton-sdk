@@ -249,12 +249,12 @@ export function damlStockClassDataToNative(
         return convRight;
       }),
     }),
-    ...(damlData.liquidation_preference_multiple && {
-      liquidation_preference_multiple: normalizeNumericString(damlData.liquidation_preference_multiple),
-    }),
-    ...(damlData.participation_cap_multiple && {
-      participation_cap_multiple: normalizeNumericString(damlData.participation_cap_multiple),
-    }),
+    ...(damlData.liquidation_preference_multiple != null
+      ? { liquidation_preference_multiple: normalizeNumericString(damlData.liquidation_preference_multiple) }
+      : {}),
+    ...(damlData.participation_cap_multiple != null
+      ? { participation_cap_multiple: normalizeNumericString(damlData.participation_cap_multiple) }
+      : {}),
     ...(Array.isArray(damlRecord.comments) ? { comments: damlRecord.comments as string[] } : {}),
   };
 }
@@ -437,8 +437,8 @@ export async function getStockClassAsOcf(
     // Add optional monetary fields with proper string conversion
     ...(par_value && { par_value: ensureStringAmount(par_value) }),
     ...(price_per_share && { price_per_share: ensureStringAmount(price_per_share) }),
-    ...(liquidation_preference_multiple && { liquidation_preference_multiple }),
-    ...(participation_cap_multiple && { participation_cap_multiple }),
+    ...(liquidation_preference_multiple != null ? { liquidation_preference_multiple } : {}),
+    ...(participation_cap_multiple != null ? { participation_cap_multiple } : {}),
     ...(conversion_rights.length > 0 ? { conversion_rights } : {}),
   };
 
