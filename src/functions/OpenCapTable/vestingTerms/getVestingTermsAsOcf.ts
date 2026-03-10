@@ -256,7 +256,8 @@ function damlVestingConditionPortionToNative(
   return {
     numerator: normalizeNumericString(p.numerator),
     denominator: normalizeNumericString(p.denominator),
-    ...(p.remainder ? { remainder: p.remainder } : {}),
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- DAML Optional may serialize as undefined; include false
+    ...(p.remainder != null ? { remainder: p.remainder } : {}),
   };
 }
 

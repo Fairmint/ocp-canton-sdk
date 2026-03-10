@@ -622,13 +622,12 @@ describe('VestingTerms drift regression', () => {
     } as unknown as Parameters<typeof damlVestingTermsDataToNative>[0];
   }
 
-  test('strips remainder: false (schema default) from portion', () => {
+  test('preserves remainder: false when explicitly set (truthiness fix)', () => {
     const result = damlVestingTermsDataToNative(makeDamlVestingTerms());
     expect(result.vesting_conditions[0].portion).toBeDefined();
     expect(result.vesting_conditions[0].portion!.numerator).toBe('1');
     expect(result.vesting_conditions[0].portion!.denominator).toBe('4');
-    expect(result.vesting_conditions[0].portion!.remainder).toBeUndefined();
-    expect('remainder' in result.vesting_conditions[0].portion!).toBe(false);
+    expect(result.vesting_conditions[0].portion!.remainder).toBe(false);
   });
 
   test('preserves remainder: true', () => {
@@ -651,7 +650,7 @@ describe('VestingTerms drift regression', () => {
     expect(result.comments).toEqual(['Board note']);
   });
 
-  test('round-trip OCF → DAML → OCF preserves omitted remainder', () => {
+  test('round-trip OCF → DAML → OCF preserves remainder when DAML has it', () => {
     const ocfInput: OcfVestingTerms = {
       id: 'vt-rt-001',
       name: 'Standard Vesting',
@@ -673,8 +672,8 @@ describe('VestingTerms drift regression', () => {
     );
 
     expect(roundTripped.vesting_conditions[0].portion).toBeDefined();
-    expect(roundTripped.vesting_conditions[0].portion!.remainder).toBeUndefined();
-    expect('remainder' in roundTripped.vesting_conditions[0].portion!).toBe(false);
+    // When OCF omits remainder, convertToDaml may add false as DAML default; we preserve it (truthiness fix)
+    expect(roundTripped.vesting_conditions[0].portion!.remainder).toBe(false);
   });
 
   test('round-trip OCF → DAML → OCF preserves omitted comments', () => {

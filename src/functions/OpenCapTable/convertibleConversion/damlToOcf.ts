@@ -38,7 +38,7 @@ export function damlConvertibleConversionToNative(d: DamlConvertibleConversionDa
     resulting_security_ids: d.resulting_security_ids,
     ...(d.balance_security_id && { balance_security_id: d.balance_security_id }),
     ...(d.capitalization_definition ? { capitalization_definition: d.capitalization_definition } : {}),
-    ...(d.quantity_converted ? { quantity_converted: normalizeNumericString(d.quantity_converted) } : {}),
+    ...(d.quantity_converted != null ? { quantity_converted: normalizeNumericString(d.quantity_converted) } : {}),
     ...(d.comments.length > 0 && { comments: d.comments }),
   };
 }
