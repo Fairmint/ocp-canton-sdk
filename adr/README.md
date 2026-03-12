@@ -30,7 +30,7 @@ An Architecture Decision Record (ADR) documents a significant architectural deci
 1. Create a new file: `adr/NNN-short-title.md` (NNN = next number)
 2. Use the template structure from existing ADRs
 3. **Update this README** to add the ADR to the index table above
-4. Link from relevant task files
+4. Link from the relevant Linear task (and local task artifact, if one exists)
 
 ## Template
 

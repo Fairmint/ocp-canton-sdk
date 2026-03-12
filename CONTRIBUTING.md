@@ -338,7 +338,7 @@ Examples:
 ```
 feat(stock-cancellation): add support for optional comments
 fix(type-conversions): handle empty strings in optionalString
-refactor(create-commands): use spread operator for cleaner code
+refactor(create-commands): extract shared validation helper
 ```
 
 ## Architecture
@@ -347,10 +347,13 @@ refactor(create-commands): use spread operator for cleaner code
 
 ```
 src/
-├── functions/           # Grouped by entity type
-│   ├── stockCancellation/
-│   │   ├── createStockCancellation.ts
-│   │   └── getStockCancellation.ts
+├── functions/               # Grouped by domain/entity
+│   ├── OpenCapTable/
+│   │   ├── stockCancellation/
+│   │   │   ├── createStockCancellation.ts
+│   │   │   ├── getStockCancellationAsOcf.ts
+│   │   │   └── index.ts
+│   │   └── ...
 │   └── ...
 ├── types/              # Shared TypeScript types
 ├── utils/              # Shared utilities
