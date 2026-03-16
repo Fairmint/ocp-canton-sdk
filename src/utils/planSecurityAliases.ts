@@ -955,10 +955,10 @@ function normalizeCapitalizationDefinitionRules<T extends Record<string, unknown
   if (!Array.isArray(triggers) || triggers.length === 0) return data;
 
   const normalizedTriggers = triggers.map((trigger: unknown) => {
-    if (!trigger || typeof trigger !== 'object') return trigger;
+    if (!trigger || typeof trigger !== 'object' || Array.isArray(trigger)) return trigger;
     const t = trigger as Record<string, unknown>;
     const right = t.conversion_right;
-    if (!right || typeof right !== 'object') return trigger;
+    if (!right || typeof right !== 'object' || Array.isArray(right)) return trigger;
     const r = right as Record<string, unknown>;
     const mechanism = r.conversion_mechanism;
     if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return trigger;
