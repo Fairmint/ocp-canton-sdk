@@ -1,17 +1,16 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type { ConversionTriggerType, OcfConvertibleIssuance } from '../../../types/native';
+import type {
+  CapitalizationDefinitionRules,
+  ConversionTriggerType,
+  OcfConvertibleIssuance,
+} from '../../../types/native';
 import {
   damlMonetaryToNativeWithValidation,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
   safeString,
 } from '../../../utils/typeConversions';
-
-interface CapitalizationDefinitionRules {
-  exclude_external_entities?: boolean;
-  include_capital_in_ratio?: boolean;
-}
 
 interface CustomConversionMechanism {
   type: 'CUSTOM_CONVERSION';

@@ -1192,6 +1192,104 @@ describe('PlanSecurity alias utilities', () => {
     });
   });
 
+  describe('capitalisation definition rules normalization', () => {
+    const makeConvertibleIssuance = (triggers: unknown[]) =>
+      ({
+        object_type: 'TX_CONVERTIBLE_ISSUANCE',
+        id: 'ci-001',
+        date: '2024-01-15',
+        security_id: 'sec-001',
+        conversion_triggers: triggers,
+      }) as Record<string, unknown>;
+
+    it('fills missing boolean fields with false (partial 6/8 → full 8/8)', () => {
+      const partialRules = {
+        include_outstanding_shares: true,
+        include_outstanding_options: true,
+        include_outstanding_unissued_options: false,
+        include_this_security: true,
+        include_other_converting_securities: false,
+        include_option_pool_topup_for_promised_options: true,
+        // missing: include_additional_option_pool_topup, include_new_money
+      };
+
+      const input = makeConvertibleIssuance([
+        {
+          conversion_right: {
+            conversion_mechanism: {
+              capitalization_definition_rules: partialRules,
+            },
+          },
+        },
+      ]);
+
+      const result = normalizeOcfData(input);
+      const triggers = result.conversion_triggers as Array<Record<string, unknown>>;
+      const right = triggers[0].conversion_right as Record<string, unknown>;
+      const mechanism = right.conversion_mechanism as Record<string, unknown>;
+      const rules = mechanism.capitalization_definition_rules as Record<string, boolean>;
+
+      expect(Object.keys(rules)).toHaveLength(8);
+      expect(rules.include_additional_option_pool_topup).toBe(false);
+      expect(rules.include_new_money).toBe(false);
+      expect(rules.include_outstanding_shares).toBe(true);
+      expect(rules.include_option_pool_topup_for_promised_options).toBe(true);
+    });
+
+    it('is idempotent (running twice produces the same result)', () => {
+      const partialRules = {
+        include_outstanding_shares: true,
+        include_outstanding_options: false,
+        include_this_security: true,
+        include_other_converting_securities: false,
+        include_option_pool_topup_for_promised_options: true,
+        include_new_money: false,
+      };
+
+      const input = makeConvertibleIssuance([
+        {
+          conversion_right: {
+            conversion_mechanism: {
+              capitalization_definition_rules: partialRules,
+            },
+          },
+        },
+      ]);
+
+      const first = normalizeOcfData(input);
+      const second = normalizeOcfData(first);
+
+      expect(JSON.stringify(first)).toBe(JSON.stringify(second));
+    });
+
+    it('does not affect non-TX_CONVERTIBLE_ISSUANCE objects', () => {
+      const input = {
+        object_type: 'TX_STOCK_ISSUANCE',
+        id: 'si-001',
+        conversion_triggers: [
+          {
+            conversion_right: {
+              conversion_mechanism: {
+                capitalization_definition_rules: {
+                  include_outstanding_shares: true,
+                },
+              },
+            },
+          },
+        ],
+      } as Record<string, unknown>;
+
+      const result = normalizeOcfData(input);
+      const triggers = result.conversion_triggers as Array<Record<string, unknown>>;
+      const right = triggers[0].conversion_right as Record<string, unknown>;
+      const mechanism = right.conversion_mechanism as Record<string, unknown>;
+      const rules = mechanism.capitalization_definition_rules as Record<string, unknown>;
+
+      expect(Object.keys(rules)).toHaveLength(1);
+      expect(rules.include_outstanding_shares).toBe(true);
+    });
+  });
+
   describe('stock class conversion rights 1:1 schema-default', () => {
     it('normalizes single 1:1 RATIO_CONVERSION to empty conversion_rights', () => {
       const cantonStyle = {
