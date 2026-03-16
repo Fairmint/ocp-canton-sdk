@@ -9,8 +9,14 @@ import {
 } from '../../../utils/typeConversions';
 
 interface CapitalizationDefinitionRules {
-  exclude_external_entities?: boolean;
-  include_capital_in_ratio?: boolean;
+  include_outstanding_shares?: boolean;
+  include_outstanding_options?: boolean;
+  include_outstanding_unissued_options?: boolean;
+  include_this_security?: boolean;
+  include_other_converting_securities?: boolean;
+  include_option_pool_topup_for_promised_options?: boolean;
+  include_additional_option_pool_topup?: boolean;
+  include_new_money?: boolean;
 }
 
 interface CustomConversionMechanism {
