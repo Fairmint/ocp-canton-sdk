@@ -36,6 +36,8 @@ export type ConversionTriggerInput =
       trigger_description?: string;
       trigger_date?: string; // YYYY-MM-DD or ISO datetime
       trigger_condition?: string;
+      start_date?: string; // YYYY-MM-DD or ISO datetime (ELECTIVE_IN_RANGE)
+      end_date?: string; // YYYY-MM-DD or ISO datetime (ELECTIVE_IN_RANGE)
       conversion_right?: {
         conversion_mechanism?: ConvertibleConversionMechanismInput;
         converts_to_future_round?: boolean;
@@ -404,6 +406,8 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
   const trigger_dateStr = typeof t === 'object' && t.trigger_date ? t.trigger_date : undefined;
   const trigger_condition = typeof t === 'object' && t.trigger_condition ? t.trigger_condition : null;
   const conversion_right = buildConvertibleRight(t);
+  const start_date = typeof t === 'object' && t.start_date ? dateStringToDAMLTime(t.start_date) : null;
+  const end_date = typeof t === 'object' && t.end_date ? dateStringToDAMLTime(t.end_date) : null;
   return {
     type_: typeEnum,
     trigger_id,
@@ -412,6 +416,8 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
     conversion_right,
     trigger_date: trigger_dateStr ? dateStringToDAMLTime(trigger_dateStr) : null,
     trigger_condition,
+    start_date,
+    end_date,
   };
 }
 

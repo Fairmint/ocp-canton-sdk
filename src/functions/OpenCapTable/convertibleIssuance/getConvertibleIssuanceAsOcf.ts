@@ -98,6 +98,8 @@ interface ConversionTrigger {
   // Optional fields for specific trigger subtypes
   trigger_date?: string;
   trigger_condition?: string;
+  start_date?: string;
+  end_date?: string;
 }
 
 export interface OcfConvertibleIssuanceEvent {
@@ -508,6 +510,10 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
       typeof r.trigger_date === 'string' && r.trigger_date.length ? r.trigger_date.split('T')[0] : undefined;
     const trigger_condition: string | undefined =
       typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
+    const start_date: string | undefined =
+      typeof r.start_date === 'string' && r.start_date.length ? r.start_date.split('T')[0] : undefined;
+    const end_date: string | undefined =
+      typeof r.end_date === 'string' && r.end_date.length ? r.end_date.split('T')[0] : undefined;
 
     // Parse conversion_right if present and convertible variant is used
     let conversion_right: ConvertibleConversionRight | undefined;
@@ -559,6 +565,8 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
       ...(trigger_description ? { trigger_description } : {}),
       ...(trigger_date ? { trigger_date } : {}),
       ...(trigger_condition ? { trigger_condition } : {}),
+      ...(start_date ? { start_date } : {}),
+      ...(end_date ? { end_date } : {}),
     };
     return trigger;
   });
