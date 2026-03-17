@@ -197,6 +197,10 @@ export interface WarrantExerciseTrigger {
   trigger_date?: string;
   /** Condition that activates the trigger */
   trigger_condition?: string;
+  /** Start date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
+  start_date?: string;
+  /** End date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
+  end_date?: string;
 }
 
 // ===== Convertible Conversion Mechanism Types =====
@@ -351,6 +355,10 @@ export interface ConvertibleConversionTrigger {
   trigger_date?: string;
   /** Condition that activates the trigger */
   trigger_condition?: string;
+  /** Start date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
+  start_date?: string;
+  /** End date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
+  end_date?: string;
 }
 
 /**
