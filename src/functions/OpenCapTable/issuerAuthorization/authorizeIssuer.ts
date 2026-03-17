@@ -8,6 +8,10 @@ import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../er
 
 export interface AuthorizeIssuerParams {
   issuer: string; // Party ID of the issuer to authorize
+  /** Override: factory contract ID (e.g. for staging). Requires factoryTemplateId. */
+  factoryContractId?: string;
+  /** Override: factory template ID (e.g. for staging). Required when factoryContractId is set. */
+  factoryTemplateId?: string;
 }
 
 export interface AuthorizeIssuerResult extends DisclosedContract {
@@ -26,18 +30,37 @@ export async function authorizeIssuer(
   client: LedgerJsonApiClient,
   params: AuthorizeIssuerParams
 ): Promise<AuthorizeIssuerResult> {
-  // Get the current network from the client
-  const network = client.getNetwork();
-
-  // Select the appropriate contract ID based on the network
-  const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData] as
-    | (typeof factoryContractIdData)[keyof typeof factoryContractIdData]
-    | undefined;
-  if (!networkData) {
-    throw new OcpValidationError('network', `Unsupported network: ${network}`, {
+  if (params.factoryTemplateId != null && params.factoryContractId == null) {
+    throw new OcpValidationError(
+      'factoryContractId',
+      'factoryContractId is required when factoryTemplateId is provided',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
+  }
+  if (params.factoryContractId != null && params.factoryTemplateId == null) {
+    throw new OcpValidationError('factoryTemplateId', 'factoryTemplateId is required when factoryContractId is set', {
       code: OcpErrorCodes.INVALID_FORMAT,
-      receivedValue: network,
     });
+  }
+
+  let templateId: string;
+  let contractId: string;
+
+  if (params.factoryContractId != null && params.factoryTemplateId != null) {
+    templateId = params.factoryTemplateId;
+    contractId = params.factoryContractId;
+  } else {
+    const network = client.getNetwork();
+    const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData] as
+      | (typeof factoryContractIdData)[keyof typeof factoryContractIdData]
+      | undefined;
+    if (!networkData) {
+      throw new OcpValidationError('network', `Unsupported network: ${network}`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: network,
+      });
+    }
+    ({ ocpFactoryContractId: contractId, templateId } = networkData);
   }
 
   // Create the choice arguments for AuthorizeIssuer
@@ -50,8 +73,8 @@ export async function authorizeIssuer(
     commands: [
       {
         ExerciseCommand: {
-          templateId: networkData.templateId,
-          contractId: networkData.ocpFactoryContractId,
+          templateId,
+          contractId,
           choice: 'AuthorizeIssuer',
           choiceArgument: choiceArguments,
         },
