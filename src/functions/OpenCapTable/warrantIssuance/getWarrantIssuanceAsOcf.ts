@@ -230,6 +230,10 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
           typeof r.trigger_date === 'string' && r.trigger_date.length ? r.trigger_date.split('T')[0] : undefined;
         const trigger_condition: string | undefined =
           typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
+        const start_date: string | undefined =
+          typeof r.start_date === 'string' && r.start_date.length ? r.start_date.split('T')[0] : undefined;
+        const end_date: string | undefined =
+          typeof r.end_date === 'string' && r.end_date.length ? r.end_date.split('T')[0] : undefined;
 
         const conversion_right: WarrantConversionRight = mapAnyRightToWarrantRight(r.conversion_right);
 
@@ -241,6 +245,8 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
           ...(trigger_description ? { trigger_description } : {}),
           ...(trigger_date ? { trigger_date } : {}),
           ...(trigger_condition ? { trigger_condition } : {}),
+          ...(start_date ? { start_date } : {}),
+          ...(end_date ? { end_date } : {}),
         };
         return t;
       })
