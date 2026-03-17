@@ -204,6 +204,8 @@ export function stockClassDataToDaml(stockClassData: OcfStockClass): Record<stri
         valuation_cap: right.valuation_cap ? monetaryToDaml(right.valuation_cap) : null,
         floor_price_per_share: right.floor_price_per_share ? monetaryToDaml(right.floor_price_per_share) : null,
         ceiling_price_per_share: right.ceiling_price_per_share ? monetaryToDaml(right.ceiling_price_per_share) : null,
+        converts_to_future_round:
+          typeof right.converts_to_future_round === 'boolean' ? right.converts_to_future_round : null,
         custom_description: optionalString(right.custom_description),
         expires_at: right.expires_at ? dateStringToDAMLTime(right.expires_at) : null,
       };
