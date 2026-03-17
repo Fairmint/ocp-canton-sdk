@@ -1026,7 +1026,11 @@ function normalizeConversionMechanismRoundTrip(data: Record<string, unknown>): R
 
   // Schema-default: single 1:1 RATIO_CONVERSION → empty (matches DB omission)
   if (normalized.length === 1) {
-    const mech = normalized[0].conversion_mechanism as Record<string, unknown> | undefined;
+    const right = normalized[0];
+    if (right.converts_to_future_round === true) {
+      return { ...data, conversion_rights: normalized };
+    }
+    const mech = right.conversion_mechanism as Record<string, unknown> | undefined;
     if (mech?.type === 'RATIO_CONVERSION') {
       const ratio = mech.ratio as { numerator?: string | number; denominator?: string | number } | undefined;
       const num = ratio?.numerator;

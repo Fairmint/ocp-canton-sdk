@@ -55,6 +55,10 @@ export type WarrantExerciseTriggerInput =
       trigger_description?: string;
       trigger_date?: string; // YYYY-MM-DD or ISO datetime
       trigger_condition?: string;
+      /** Start of elective conversion date range (YYYY-MM-DD) — for ELECTIVE_IN_RANGE */
+      start_date?: string;
+      /** End of elective conversion date range (YYYY-MM-DD) — for ELECTIVE_IN_RANGE */
+      end_date?: string;
       conversion_right?: {
         conversion_mechanism?: WarrantConversionMechanismInput;
         converts_to_future_round?: boolean;
@@ -223,6 +227,8 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
   const trigger_description = typeof t.trigger_description === 'string' ? t.trigger_description : null;
   const trigger_dateStr = typeof t.trigger_date === 'string' ? t.trigger_date : undefined;
   const trigger_condition = typeof t.trigger_condition === 'string' ? t.trigger_condition : null;
+  const start_dateStr = typeof t.start_date === 'string' ? t.start_date : undefined;
+  const end_dateStr = typeof t.end_date === 'string' ? t.end_date : undefined;
   const conversion_right = buildWarrantRight(t);
   return {
     type_: typeEnum,
@@ -232,6 +238,8 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
     conversion_right,
     trigger_date: trigger_dateStr ? dateStringToDAMLTime(trigger_dateStr) : null,
     trigger_condition,
+    start_date: start_dateStr ? dateStringToDAMLTime(start_dateStr) : null,
+    end_date: end_dateStr ? dateStringToDAMLTime(end_dateStr) : null,
   };
 }
 

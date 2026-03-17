@@ -197,6 +197,10 @@ export interface WarrantExerciseTrigger {
   trigger_date?: string;
   /** Condition that activates the trigger */
   trigger_condition?: string;
+  /** Start of elective conversion date range (YYYY-MM-DD) */
+  start_date?: string;
+  /** End of elective conversion date range (YYYY-MM-DD) */
+  end_date?: string;
 }
 
 // ===== Convertible Conversion Mechanism Types =====
@@ -351,6 +355,10 @@ export interface ConvertibleConversionTrigger {
   trigger_date?: string;
   /** Condition that activates the trigger */
   trigger_condition?: string;
+  /** Start of elective conversion date range (YYYY-MM-DD) */
+  start_date?: string;
+  /** End of elective conversion date range (YYYY-MM-DD) */
+  end_date?: string;
 }
 
 /**

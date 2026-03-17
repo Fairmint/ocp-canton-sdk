@@ -30,6 +30,13 @@ export async function authorizeIssuer(
   client: LedgerJsonApiClient,
   params: AuthorizeIssuerParams
 ): Promise<AuthorizeIssuerResult> {
+  if (params.factoryTemplateId != null && params.factoryContractId == null) {
+    throw new OcpValidationError(
+      'factoryContractId',
+      'factoryContractId is required when factoryTemplateId is provided',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
+  }
   if (params.factoryContractId != null && params.factoryTemplateId == null) {
     throw new OcpValidationError('factoryTemplateId', 'factoryTemplateId is required when factoryContractId is set', {
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -53,8 +60,7 @@ export async function authorizeIssuer(
         receivedValue: network,
       });
     }
-    templateId = networkData.templateId;
-    contractId = networkData.ocpFactoryContractId;
+    ({ ocpFactoryContractId: contractId, templateId } = networkData);
   }
 
   // Create the choice arguments for AuthorizeIssuer
