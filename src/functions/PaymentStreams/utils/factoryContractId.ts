@@ -4,7 +4,7 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import paymentStreamsFactoryConfig from '@fairmint/open-captable-protocol-daml-js/paymentStreams-factory-contract-id.json';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 
-export type Network = 'devnet' | 'mainnet';
+export type Network = 'devnet' | 'mainnet' | 'staging';
 
 export interface FactoryContractInfo {
   paymentStreamsFactoryContractId: string;
@@ -15,12 +15,14 @@ export interface FactoryContractInfo {
 /**
  * Get the paymentStream factory contract ID for a given network
  *
- * @param network - The network to get the factory contract ID for ('devnet' or 'mainnet')
+ * @param network - The network to get the factory contract ID for ('devnet', 'mainnet', or 'staging')
  * @returns The factory contract information including contract ID and template ID
  * @throws Error if the network is not found in the configuration
  */
 export function getFactoryContractId(network: Network): FactoryContractInfo {
-  const config = paymentStreamsFactoryConfig[network] as FactoryContractInfo | undefined;
+  const config = (paymentStreamsFactoryConfig as Record<string, FactoryContractInfo>)[network] as
+    | FactoryContractInfo
+    | undefined;
 
   if (!config) {
     throw new OcpValidationError('network', `PaymentStream factory contract ID not found for network: ${network}`, {
