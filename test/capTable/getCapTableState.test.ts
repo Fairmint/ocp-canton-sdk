@@ -206,7 +206,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: 'OpenCapTable-v32',
+                packageName: 'OpenCapTable-v33',
                 offset: 2000,
                 nodeId: 1,
                 contractKey: null,
