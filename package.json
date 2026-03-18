@@ -50,8 +50,8 @@
   "devDependencies": {
     "@apidevtools/json-schema-ref-parser": "15.3.1",
     "@eslint/eslintrc": "3.3.5",
-    "@fairmint/canton-node-sdk": "0.0.189",
-    "@fairmint/open-captable-protocol-daml-js": "0.2.139",
+    "@fairmint/canton-node-sdk": "0.0.191",
+    "@fairmint/open-captable-protocol-daml-js": "0.2.142",
     "@types/jest": "30.0.0",
     "@types/jsonwebtoken": "9.0.10",
     "@types/node": "25.3.5",
