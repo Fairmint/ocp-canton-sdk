@@ -22,7 +22,7 @@ export interface DeploymentResult {
 }
 
 /** Current OCP version - only the latest is supported. */
-const OCP_VERSION = 'v33';
+const OCP_VERSION = 'v34';
 
 /**
  * Find the OCP DAML DAR file path.
