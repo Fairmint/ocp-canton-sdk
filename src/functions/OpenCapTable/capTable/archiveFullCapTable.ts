@@ -123,8 +123,8 @@ export async function archiveFullCapTable(
 
     for (const [entityType, ids] of cantonState.entities.entries()) {
       if (entityType === 'issuer') continue;
-      for (const ocfId of ids) {
-        batch.delete(entityType, ocfId);
+      for (const id of ids) {
+        batch.delete(entityType, id);
       }
     }
 

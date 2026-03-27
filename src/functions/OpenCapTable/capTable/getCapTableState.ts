@@ -79,7 +79,7 @@ function isJsActiveContractItem(item: JsGetActiveContractsResponseItem): item is
 /**
  * Mapping from CapTable contract field names (snake_case) to OcfEntityType (camelCase).
  *
- * Each field in the CapTable DAML contract is a Map from OCF ID (Text) to ContractId.
+ * Each field in the CapTable DAML contract is a Map from canonical object ID (Text) to ContractId.
  * This mapping allows extraction of entity inventories from the contract payload.
  *
  * Note: planSecurity* types (7 total) are intentionally omitted from this mapping.
@@ -157,7 +157,7 @@ export const FIELD_TO_ENTITY_TYPE: Record<string, OcfEntityType> = {
  * Mapping from CapTable `*_by_security_id` fields to OcfEntityType.
  *
  * These maps track security_id uniqueness for issuance types. The keys are
- * security_id values (not OCF IDs), and the values are ContractIds.
+ * security_id values (not canonical object IDs), and the values are ContractIds.
  *
  * Used by the replication diff to detect duplicate security_id conflicts
  * before submitting to DAML (which would fail with "security_id already exists").
@@ -170,7 +170,7 @@ export const SECURITY_ID_FIELD_TO_ENTITY_TYPE: Record<string, OcfEntityType> = {
 };
 
 /**
- * Current state of a CapTable on Canton, with all OCF IDs grouped by entity type.
+ * Current state of a CapTable on Canton, with all canonical object IDs grouped by entity type.
  */
 export interface CapTableState {
   /** Contract ID of the CapTable contract. */
@@ -180,13 +180,13 @@ export interface CapTableState {
   issuerContractId: string;
 
   /**
-   * Map of entity type to OCF IDs currently on-chain.
-   * Each entry contains all OCF object IDs of that type in the CapTable.
+   * Map of entity type to canonical object IDs currently on-chain.
+   * Each entry contains all object IDs of that type in the CapTable.
    */
   entities: Map<OcfEntityType, Set<string>>;
 
   /**
-   * Map of entity type to (OCF ID → Contract ID) for fetching individual contracts.
+   * Map of entity type to (canonical object ID → Contract ID) for fetching individual contracts.
    * Useful for deep verification where contract data needs to be compared.
    */
   contractIds: Map<OcfEntityType, Map<string, string>>;
@@ -216,7 +216,7 @@ export interface CapTableState {
  *
  * @param client - LedgerJsonApiClient instance
  * @param issuerPartyId - Party ID of the issuer
- * @returns CapTableState with all OCF IDs on-chain, or null if no CapTable exists
+ * @returns CapTableState with all canonical object IDs on-chain, or null if no CapTable exists
  *
  * @example
  * ```typescript
@@ -266,8 +266,8 @@ export async function getCapTableState(
       const entries = parseDamlMap<string, string>(fieldData);
 
       if (entries.length > 0) {
-        const ocfIds = new Set(entries.map(([key]) => key));
-        entities.set(entityType, ocfIds);
+        const objectIds = new Set(entries.map(([key]) => key));
+        entities.set(entityType, objectIds);
         contractIds.set(entityType, new Map(entries));
       }
     }
@@ -292,7 +292,7 @@ export async function getCapTableState(
   // Extract issuer contract ID from payload
   const issuerContractId = typeof payload.issuer === 'string' ? payload.issuer : '';
 
-  // Fetch issuer contract to get OCF ID
+  // Fetch issuer contract to get the canonical object ID
   // (issuer is stored as a single contract reference, not a map like other entities)
   if (issuerContractId) {
     try {
@@ -303,12 +303,12 @@ export async function getCapTableState(
         | Record<string, unknown>
         | undefined;
       const issuerData = createArgument?.issuer_data as Record<string, unknown> | undefined;
-      const issuerOcfId = issuerData?.id;
+      const issuerId = issuerData?.id;
 
-      // Only add issuer if we got a valid non-empty OCF ID
-      if (typeof issuerOcfId === 'string' && issuerOcfId.length > 0) {
-        entities.set('issuer', new Set([issuerOcfId]));
-        contractIds.set('issuer', new Map([[issuerOcfId, issuerContractId]]));
+      // Only add issuer if we got a valid non-empty canonical object ID
+      if (typeof issuerId === 'string' && issuerId.length > 0) {
+        entities.set('issuer', new Set([issuerId]));
+        contractIds.set('issuer', new Map([[issuerId, issuerContractId]]));
       }
     } catch (error: unknown) {
       // Differentiate between expected and unexpected failures for better debugging
