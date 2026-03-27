@@ -365,7 +365,7 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
  * that can be used for efficient lookup during replication diff computation.
  *
  * @param manifest - OCF manifest from extractCantonOcfManifest
- * @returns Map of entityType → Map of ocfId → OCF data object
+ * @returns Map of entityType → Map of canonical object ID → OCF data object
  * @throws Error if any object is missing a valid 'id' field or has an unsupported object_type
  *
  * @example
@@ -468,8 +468,8 @@ const ISSUANCE_ENTITY_TYPES: ReadonlySet<OcfEntityType> = new Set([
  * A single item to be synced to Canton.
  */
 export interface ReplicationItem {
-  /** OCF object ID */
-  ocfId: string;
+  /** Canonical OCF object ID */
+  id: string;
   /** Entity type (SDK format) */
   entityType: OcfEntityType;
   /** Operation to perform */
@@ -479,13 +479,25 @@ export interface ReplicationItem {
 }
 
 /**
+ * A source item representing the desired OCF state.
+ *
+ * Canonical identity is derived from `data.id`, not passed separately.
+ */
+export interface SourceReplicationItem {
+  /** Entity type (SDK format) */
+  entityType: OcfEntityType;
+  /** OCF data containing the canonical object ID at `data.id` */
+  data: unknown;
+}
+
+/**
  * A security_id conflict detected during diff computation.
  * This occurs when a proposed CREATE has a security_id that already exists
  * on Canton under a different object ID.
  */
 export interface SecurityIdConflict {
-  /** The OCF ID of the source item that would conflict */
-  ocfId: string;
+  /** The canonical OCF object ID of the source item that would conflict */
+  id: string;
   /** The entity type of the conflicting item */
   entityType: OcfEntityType;
   /** The security_id value that already exists on Canton */
@@ -518,7 +530,7 @@ export interface ReplicationDiff {
 
 /**
  * Canton OCF data map for deep comparison.
- * Maps entityType to a map of ocfId to OCF data object.
+ * Maps entityType to a map of canonical object ID to OCF data object.
  */
 export type CantonOcfDataMap = Map<OcfEntityType, Map<string, Record<string, unknown>>>;
 
@@ -532,7 +544,7 @@ export interface ComputeReplicationDiffOptions {
    * semantic OCF equality (ocfDeepEqual). Only items with actual data differences
    * are marked for edit.
    *
-   * The map should be structured as: Map<OcfEntityType, Map<ocfId, ocfDataObject>>
+   * The map should be structured as: Map<OcfEntityType, Map<objectId, ocfDataObject>>
    *
    * This enables propagating database corrections to Canton without blindly updating
    * all existing items.
@@ -574,8 +586,8 @@ export interface ComputeReplicationDiffOptions {
  * @example
  * ```typescript
  * const sourceItems = [
- *   { ocfId: 'stakeholder-1', entityType: 'stakeholder', data: {...} },
- *   { ocfId: 'stock-class-1', entityType: 'stockClass', data: {...} },
+ *   { entityType: 'stakeholder', data: { id: 'stakeholder-1', ... } },
+ *   { entityType: 'stockClass', data: { id: 'stock-class-1', ... } },
  * ];
  * const cantonState = await getCapTableState(client, issuerPartyId);
  * const diff = computeReplicationDiff(sourceItems, cantonState);
@@ -585,8 +597,40 @@ export interface ComputeReplicationDiffOptions {
  * ```
  */
 
+function describeSourceValue(value: unknown): string {
+  if (value === null) {
+    return 'null';
+  }
+  if (Array.isArray(value)) {
+    return 'array';
+  }
+  return typeof value;
+}
+
+function getSourceDataObject(item: SourceReplicationItem): Record<string, unknown> {
+  if (typeof item.data !== 'object' || item.data === null || Array.isArray(item.data)) {
+    throw new Error(
+      `Invalid source data for entityType="${item.entityType}": expected object, got ${describeSourceValue(item.data)}`
+    );
+  }
+
+  return item.data as Record<string, unknown>;
+}
+
+function getSourceObjectId(item: SourceReplicationItem, data: Record<string, unknown>): string {
+  const { id } = data;
+
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new Error(
+      `Invalid source data for entityType="${item.entityType}": missing or invalid canonical object id at "data.id"`
+    );
+  }
+
+  return id;
+}
+
 export function computeReplicationDiff(
-  sourceItems: Array<{ ocfId: string; entityType: OcfEntityType; data: unknown }>,
+  sourceItems: SourceReplicationItem[],
   cantonState: CapTableState,
   options: ComputeReplicationDiffOptions = {}
 ): ReplicationDiff {
@@ -612,14 +656,17 @@ export function computeReplicationDiff(
 
   // Process each source item
   for (const item of sourceItems) {
+    const sourceData = getSourceDataObject(item);
+    const objectId = getSourceObjectId(item, sourceData);
+
     // Normalize planSecurity types to equityCompensation for Canton lookup
     // Canton stores planSecurity items under equity_compensation_* fields
     const normalizedType = normalizeEntityType(item.entityType) as OcfEntityType;
 
-    // Skip duplicate items (same ocfId + normalized entityType)
+    // Skip duplicate items (same canonical object ID + normalized entityType)
     // Use normalized type because aliased types (e.g., planSecurityIssuance and
     // equityCompensationIssuance) map to the same Canton entity
-    const itemKey = `${normalizedType}:${item.ocfId}`;
+    const itemKey = `${normalizedType}:${objectId}`;
     if (seenItems.has(itemKey)) {
       continue;
     }
@@ -631,16 +678,16 @@ export function computeReplicationDiff(
       typeIds = new Set();
       sourceIdsByType.set(normalizedType, typeIds);
     }
-    typeIds.add(item.ocfId);
+    typeIds.add(objectId);
 
     // Check if exists in Canton (using normalized type)
     const cantonIds = cantonState.entities.get(normalizedType) ?? new Set();
-    const existsInCanton = cantonIds.has(item.ocfId);
+    const existsInCanton = cantonIds.has(objectId);
 
     if (!existsInCanton) {
       // Item in source but not Canton → CREATE
       creates.push({
-        ocfId: item.ocfId,
+        id: objectId,
         entityType: item.entityType,
         operation: 'create',
         data: item.data,
@@ -651,17 +698,16 @@ export function computeReplicationDiff(
       // If the source has a new object ID but reuses a security_id already on Canton,
       // the create will be rejected. Detect this early with an actionable message.
       if (securityIds && ISSUANCE_ENTITY_TYPES.has(normalizedType)) {
-        const dataObj = item.data as Record<string, unknown> | null | undefined;
-        const securityId = typeof dataObj?.security_id === 'string' ? dataObj.security_id : undefined;
+        const securityId = typeof sourceData.security_id === 'string' ? sourceData.security_id : undefined;
         if (securityId) {
           const cantonSecurityIds = securityIds.get(normalizedType);
           if (cantonSecurityIds?.has(securityId)) {
             conflicts.push({
-              ocfId: item.ocfId,
-              entityType: normalizedType,
+              id: objectId,
+              entityType: item.entityType,
               securityId,
               message:
-                `${getEntityTypeLabel(normalizedType, 1)} id="${item.ocfId}" has ` +
+                `${getEntityTypeLabel(item.entityType, 1)} id="${objectId}" has ` +
                 `security_id="${securityId}" which already exists on Canton under a different ` +
                 `object ID. This indicates duplicate security_id values in the source data.`,
             });
@@ -671,30 +717,22 @@ export function computeReplicationDiff(
     } else if (cantonOcfData) {
       // Deep comparison: compare actual OCF data to detect changes
       const cantonTypeData = cantonOcfData.get(normalizedType);
-      const cantonItemData = cantonTypeData?.get(item.ocfId);
+      const cantonItemData = cantonTypeData?.get(objectId);
 
       if (cantonItemData === undefined) {
         // cantonOcfData was provided but this item's data wasn't found
         // This indicates cantonOcfData is incomplete or inconsistent with cantonState.entities
         throw new Error(
           `Inconsistent cantonOcfData: missing OCF data for entityType="${normalizedType}", ` +
-            `ocfId="${item.ocfId}" even though the ID exists in cantonState.entities. ` +
+            `id="${objectId}" even though the ID exists in cantonState.entities. ` +
             `Ensure cantonOcfData is built from the same Canton state.`
-        );
-      }
-
-      // Validate item.data is a proper object before comparison (fail-fast)
-      if (typeof item.data !== 'object' || item.data === null || Array.isArray(item.data)) {
-        throw new Error(
-          `Invalid source data for entityType="${item.entityType}", ocfId="${item.ocfId}": ` +
-            `expected object, got ${item.data === null ? 'null' : Array.isArray(item.data) ? 'array' : typeof item.data}`
         );
       }
 
       // Normalize both objects before comparison:
       // - object_type aliases (TX_PLAN_SECURITY_* → TX_EQUITY_COMPENSATION_*)
       // - quantity_source defaults (add/strip UNSPECIFIED based on quantity presence)
-      const normalizedSourceData = normalizeOcfData(item.data as Record<string, unknown>);
+      const normalizedSourceData = normalizeOcfData(sourceData);
       const normalizedCantonData = normalizeOcfData(cantonItemData);
 
       // Compare source data with Canton data using semantic OCF equality
@@ -703,7 +741,7 @@ export function computeReplicationDiff(
       if (!isEqual) {
         // Data differs → EDIT
         edits.push({
-          ocfId: item.ocfId,
+          id: objectId,
           entityType: item.entityType,
           operation: 'edit',
           data: item.data,
@@ -722,7 +760,7 @@ export function computeReplicationDiff(
       if (!sourceIds.has(cantonId)) {
         // Item in Canton but not source → DELETE
         deletes.push({
-          ocfId: cantonId,
+          id: cantonId,
           entityType,
           operation: 'delete',
         });

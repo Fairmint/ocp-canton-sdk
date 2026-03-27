@@ -38,8 +38,8 @@ export interface CapTableBatchParams {
 export interface BatchItemMeta {
   /** The OCF entity type (e.g., 'stockIssuance', 'stakeholder') */
   entityType: string;
-  /** The OCF object ID */
-  ocfId: string;
+  /** The canonical OCF object ID */
+  id: string;
   /** The security_id for issuance types (stockIssuance, convertibleIssuance, etc.) */
   securityId?: string;
 }
@@ -139,7 +139,7 @@ export class CapTableBatch {
       });
     }
     this.deletes.push({ tag, value: id } as unknown as OcfDeleteData);
-    this.deleteMetas.push({ entityType: type, ocfId: id });
+    this.deleteMetas.push({ entityType: type, id });
     return this;
   }
 
@@ -296,7 +296,7 @@ export class CapTableBatch {
     if (undefinedPath) {
       // Try to correlate with batch item metadata for richer diagnostics
       const meta = this.correlatePathToMeta(undefinedPath);
-      const metaSuffix = meta ? ` (entity: ${meta.entityType}, ocfId: ${meta.ocfId})` : '';
+      const metaSuffix = meta ? ` (entity: ${meta.entityType}, id: ${meta.id})` : '';
       throw new OcpValidationError(
         'batch.payload',
         `Converter produced non-JSON-safe payload: undefined value at "${undefinedPath}"${metaSuffix}. ` +
@@ -374,7 +374,7 @@ export class CapTableBatch {
   /**
    * Get detailed per-item metadata for all operations in the batch.
    *
-   * Useful for error reporting and debugging - includes OCF IDs, entity types,
+   * Useful for error reporting and debugging - includes canonical object IDs, entity types,
    * and key fields like security_id for issuance types.
    */
   getDetailedSummary(): BatchItemDetails {
@@ -419,8 +419,8 @@ const ISSUANCE_ENTITY_TYPES = new Set([
  */
 function extractBatchItemMeta(entityType: string, data: unknown): BatchItemMeta {
   const obj = data as Record<string, unknown> | undefined;
-  const ocfId = typeof obj?.id === 'string' ? obj.id : 'unknown';
-  const meta: BatchItemMeta = { entityType, ocfId };
+  const id = typeof obj?.id === 'string' ? obj.id : 'unknown';
+  const meta: BatchItemMeta = { entityType, id };
   if (ISSUANCE_ENTITY_TYPES.has(entityType)) {
     const securityId = obj?.security_id;
     if (typeof securityId === 'string') {

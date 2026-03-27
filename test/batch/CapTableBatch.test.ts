@@ -524,7 +524,7 @@ describe('JSON-safety guard', () => {
     (batch as unknown as { creates: unknown[]; createMetas: unknown[] }).creates.push(poisonedCreate);
     (batch as unknown as { creates: unknown[]; createMetas: unknown[] }).createMetas.push({
       entityType: 'stockPlan',
-      ocfId: 'stock-plan_eca1ad4ba4d9',
+      id: 'stock-plan_eca1ad4ba4d9',
     });
 
     expect(() => batch.build()).toThrow(OcpValidationError);
@@ -569,7 +569,7 @@ describe('JSON-safety guard', () => {
     (batch as unknown as { creates: unknown[]; createMetas: unknown[] }).creates.push(poisonedCreate);
     (batch as unknown as { creates: unknown[]; createMetas: unknown[] }).createMetas.push({
       entityType: 'stakeholder',
-      ocfId: 'sh-123',
+      id: 'sh-123',
     });
 
     expect(() => batch.build()).toThrow(OcpValidationError);

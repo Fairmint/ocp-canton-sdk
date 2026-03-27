@@ -427,7 +427,7 @@ export async function extractCantonOcfManifest(
   const { verbose = false, failOnReadErrors = true } = options;
   // eslint-disable-next-line no-console
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
-  const extractionFailures: Array<{ entityType: string; ocfId: string; contractId: string; message: string }> = [];
+  const extractionFailures: Array<{ entityType: string; id: string; contractId: string; message: string }> = [];
 
   const result: OcfManifest = {
     issuer: null,
@@ -447,7 +447,7 @@ export async function extractCantonOcfManifest(
   // we skip it here to avoid a redundant 404 that would abort extraction.
   const issuerContractEntry = cantonState.contractIds.get('issuer');
   if (issuerContractEntry && issuerContractEntry.size > 0) {
-    const [[issuerOcfId, issuerCid]] = issuerContractEntry;
+    const [[issuerId, issuerCid]] = issuerContractEntry;
     let issuerLastError: Error | null = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -460,7 +460,7 @@ export async function extractCantonOcfManifest(
       } catch (error) {
         issuerLastError = error instanceof Error ? error : new Error(String(error));
         if (attempt === 0 && isTransientHttpError(error)) {
-          log(`  ⏳ Transient error fetching issuer/${issuerOcfId}, retrying in 2s...`);
+          log(`  ⏳ Transient error fetching issuer/${issuerId}, retrying in 2s...`);
           await sleep(2000);
           continue;
         }
@@ -471,7 +471,7 @@ export async function extractCantonOcfManifest(
       log(`  ⚠️ Failed to fetch issuer: ${issuerLastError.message}`);
       extractionFailures.push({
         entityType: 'issuer',
-        ocfId: issuerOcfId,
+        id: issuerId,
         contractId: issuerCid,
         message: issuerLastError.message,
       });
@@ -481,9 +481,9 @@ export async function extractCantonOcfManifest(
   }
 
   // Process each entity type from the cap table (issuer handled above)
-  for (const [entityType, ocfIdToContractId] of cantonState.contractIds) {
+  for (const [entityType, idToContractId] of cantonState.contractIds) {
     if (entityType === 'issuer') continue;
-    for (const [ocfId, contractId] of ocfIdToContractId) {
+    for (const [objectId, contractId] of idToContractId) {
       let lastError: Error | null = null;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
@@ -567,7 +567,7 @@ export async function extractCantonOcfManifest(
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error));
           if (attempt === 0 && isTransientHttpError(error)) {
-            log(`  ⏳ Transient error fetching ${entityType}/${ocfId}, retrying in 2s...`);
+            log(`  ⏳ Transient error fetching ${entityType}/${objectId}, retrying in 2s...`);
             await sleep(2000);
             continue;
           }
@@ -575,10 +575,10 @@ export async function extractCantonOcfManifest(
         }
       }
       if (lastError) {
-        log(`  ⚠️ Failed to fetch ${entityType}/${ocfId}: ${lastError.message}`);
+        log(`  ⚠️ Failed to fetch ${entityType}/${objectId}: ${lastError.message}`);
         extractionFailures.push({
           entityType,
-          ocfId,
+          id: objectId,
           contractId,
           message: lastError.message,
         });
@@ -590,7 +590,7 @@ export async function extractCantonOcfManifest(
     const maxFailuresToReport = 10;
     const failureSummary = extractionFailures
       .slice(0, maxFailuresToReport)
-      .map((failure) => `${failure.entityType}/${failure.ocfId} (contractId=${failure.contractId}): ${failure.message}`)
+      .map((failure) => `${failure.entityType}/${failure.id} (contractId=${failure.contractId}): ${failure.message}`)
       .join('\n');
     const extraCount = extractionFailures.length - maxFailuresToReport;
     const extraSuffix = extraCount > 0 ? `\n... and ${extraCount} more` : '';

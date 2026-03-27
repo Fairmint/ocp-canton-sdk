@@ -11,6 +11,7 @@ import {
   computeReplicationDiff,
   getEntityTypeLabel,
   mapCategorizedTypeToEntityType,
+  type SourceReplicationItem,
   TRANSACTION_SUBTYPE_MAP,
 } from '../../src/utils/replicationHelpers';
 import { validateOcfObject } from './ocfSchemaValidator';
@@ -533,9 +534,9 @@ describe('computeReplicationDiff', () => {
 
   describe('create detection', () => {
     it('detects items in source but not in Canton as creates', () => {
-      const sourceItems = [
-        { ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1', name: 'Alice' } },
-        { ocfId: 'sc-1', entityType: 'stockClass' as OcfEntityType, data: { id: 'sc-1', name: 'Common' } },
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'stakeholder', data: { id: 'sh-1', name: 'Alice' } },
+        { entityType: 'stockClass', data: { id: 'sc-1', name: 'Common' } },
       ];
       const cantonState = createEmptyCantonState();
 
@@ -543,7 +544,7 @@ describe('computeReplicationDiff', () => {
 
       expect(diff.creates).toHaveLength(2);
       expect(diff.creates[0]).toEqual({
-        ocfId: 'sh-1',
+        id: 'sh-1',
         entityType: 'stakeholder',
         operation: 'create',
         data: { id: 'sh-1', name: 'Alice' },
@@ -554,7 +555,7 @@ describe('computeReplicationDiff', () => {
     });
 
     it('skips items that already exist in Canton (no cantonOcfData)', () => {
-      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1' } }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: { id: 'sh-1' } }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
@@ -568,8 +569,8 @@ describe('computeReplicationDiff', () => {
 
   describe('edit detection with cantonOcfData', () => {
     it('detects edits when data differs', () => {
-      const sourceItems = [
-        { ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1', name: 'Alice Updated' } },
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'stakeholder', data: { id: 'sh-1', name: 'Alice Updated' } },
       ];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
@@ -583,7 +584,7 @@ describe('computeReplicationDiff', () => {
       expect(diff.creates).toHaveLength(0);
       expect(diff.edits).toHaveLength(1);
       expect(diff.edits[0]).toEqual({
-        ocfId: 'sh-1',
+        id: 'sh-1',
         entityType: 'stakeholder',
         operation: 'edit',
         data: { id: 'sh-1', name: 'Alice Updated' },
@@ -591,9 +592,7 @@ describe('computeReplicationDiff', () => {
     });
 
     it('skips items when data is equal', () => {
-      const sourceItems = [
-        { ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1', name: 'Alice' } },
-      ];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: { id: 'sh-1', name: 'Alice' } }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
@@ -609,13 +608,7 @@ describe('computeReplicationDiff', () => {
     });
 
     it('handles semantic equality (numeric precision with trailing zeros)', () => {
-      const sourceItems = [
-        {
-          ocfId: 'val-1',
-          entityType: 'valuation' as OcfEntityType,
-          data: { id: 'val-1', price: '10.00' },
-        },
-      ];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'valuation', data: { id: 'val-1', price: '10.00' } }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('valuation', new Set(['val-1']));
 
@@ -652,13 +645,7 @@ describe('computeReplicationDiff', () => {
       await validateOcfObject(sourceData);
       await validateOcfObject(cantonData);
 
-      const sourceItems = [
-        {
-          ocfId: 'tx-1',
-          entityType: 'stockCancellation' as OcfEntityType,
-          data: sourceData,
-        },
-      ];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stockCancellation', data: sourceData }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stockCancellation', new Set(['tx-1']));
 
@@ -667,7 +654,7 @@ describe('computeReplicationDiff', () => {
       const diff = computeReplicationDiff(sourceItems, cantonState, { cantonOcfData });
 
       expect(diff.edits).toHaveLength(1);
-      expect(diff.edits[0].ocfId).toBe('tx-1');
+      expect(diff.edits[0].id).toBe('tx-1');
     });
 
     it('treats stakeholder current_relationship as equivalent to current_relationships', async () => {
@@ -688,13 +675,7 @@ describe('computeReplicationDiff', () => {
       await validateOcfObject(sourceStakeholder);
       await validateOcfObject(cantonStakeholder);
 
-      const sourceItems = [
-        {
-          ocfId: 'sh-1',
-          entityType: 'stakeholder' as OcfEntityType,
-          data: sourceStakeholder,
-        },
-      ];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: sourceStakeholder }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
@@ -725,13 +706,7 @@ describe('computeReplicationDiff', () => {
       await validateOcfObject(sourceStakeholder);
       await validateOcfObject(cantonStakeholder);
 
-      const sourceItems = [
-        {
-          ocfId: 'sh-1',
-          entityType: 'stakeholder' as OcfEntityType,
-          data: sourceStakeholder,
-        },
-      ];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: sourceStakeholder }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
@@ -745,7 +720,7 @@ describe('computeReplicationDiff', () => {
     });
 
     it('throws when cantonOcfData is incomplete', () => {
-      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1' } }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: { id: 'sh-1' } }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
@@ -758,7 +733,7 @@ describe('computeReplicationDiff', () => {
     });
 
     it('throws when cantonOcfData is missing specific item', () => {
-      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1' } }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: { id: 'sh-1' } }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
@@ -766,62 +741,71 @@ describe('computeReplicationDiff', () => {
       const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-other', { id: 'sh-other' }]])]]);
 
       expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
-        'Inconsistent cantonOcfData: missing OCF data for entityType="stakeholder", ocfId="sh-1"'
+        'Inconsistent cantonOcfData: missing OCF data for entityType="stakeholder", id="sh-1"'
       );
     });
 
     it('throws when source item data is null', () => {
-      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: null as unknown }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: null as unknown }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
       const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', { id: 'sh-1' }]])]]);
 
       expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
-        'Invalid source data for entityType="stakeholder", ocfId="sh-1": expected object, got null'
+        'Invalid source data for entityType="stakeholder": expected object, got null'
       );
     });
 
     it('throws when source item data is undefined', () => {
-      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: undefined as unknown }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: undefined as unknown }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
       const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', { id: 'sh-1' }]])]]);
 
       expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
-        'Invalid source data for entityType="stakeholder", ocfId="sh-1": expected object, got undefined'
+        'Invalid source data for entityType="stakeholder": expected object, got undefined'
       );
     });
 
     it('throws when source item data is an array', () => {
-      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: [] as unknown }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: [] as unknown }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
       const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', { id: 'sh-1' }]])]]);
 
       expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
-        'Invalid source data for entityType="stakeholder", ocfId="sh-1": expected object, got array'
+        'Invalid source data for entityType="stakeholder": expected object, got array'
       );
     });
 
     it('throws when source item data is a primitive', () => {
-      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: 'string' as unknown }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: 'string' as unknown }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
       const cantonOcfData: CantonOcfDataMap = new Map([['stakeholder', new Map([['sh-1', { id: 'sh-1' }]])]]);
 
       expect(() => computeReplicationDiff(sourceItems, cantonState, { cantonOcfData })).toThrow(
-        'Invalid source data for entityType="stakeholder", ocfId="sh-1": expected object, got string'
+        'Invalid source data for entityType="stakeholder": expected object, got string'
+      );
+    });
+
+    it('throws when source data.id is missing', () => {
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: { name: 'Alice' } }];
+      const cantonState = createEmptyCantonState();
+
+      expect(() => computeReplicationDiff(sourceItems, cantonState)).toThrow(
+        'Invalid source data for entityType="stakeholder": missing or invalid canonical object id at "data.id"'
       );
     });
   });
 
   describe('delete detection', () => {
     it('detects items in Canton but not in source as deletes', () => {
-      const sourceItems: Array<{ ocfId: string; entityType: OcfEntityType; data: unknown }> = [];
+      const sourceItems: SourceReplicationItem[] = [];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1', 'sh-2']));
 
@@ -829,34 +813,34 @@ describe('computeReplicationDiff', () => {
 
       expect(diff.deletes).toHaveLength(2);
       expect(diff.deletes).toContainEqual({
-        ocfId: 'sh-1',
+        id: 'sh-1',
         entityType: 'stakeholder',
         operation: 'delete',
       });
       expect(diff.deletes).toContainEqual({
-        ocfId: 'sh-2',
+        id: 'sh-2',
         entityType: 'stakeholder',
         operation: 'delete',
       });
     });
 
     it('only deletes items not in source', () => {
-      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1' } }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: { id: 'sh-1' } }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1', 'sh-2']));
 
       const diff = computeReplicationDiff(sourceItems, cantonState);
 
       expect(diff.deletes).toHaveLength(1);
-      expect(diff.deletes[0].ocfId).toBe('sh-2');
+      expect(diff.deletes[0].id).toBe('sh-2');
     });
   });
 
   describe('duplicate handling', () => {
     it('skips duplicate source items', () => {
-      const sourceItems = [
-        { ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1', version: 1 } },
-        { ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1', version: 2 } },
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'stakeholder', data: { id: 'sh-1', version: 1 } },
+        { entityType: 'stakeholder', data: { id: 'sh-1', version: 2 } },
       ];
       const cantonState = createEmptyCantonState();
 
@@ -869,12 +853,8 @@ describe('computeReplicationDiff', () => {
 
   describe('planSecurity normalization', () => {
     it('normalizes planSecurity types to equityCompensation for Canton lookup', () => {
-      const sourceItems = [
-        {
-          ocfId: 'ps-1',
-          entityType: 'planSecurityIssuance' as OcfEntityType,
-          data: { id: 'ps-1', date: '2024-01-01' },
-        },
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'planSecurityIssuance', data: { id: 'ps-1', date: '2024-01-01' } },
       ];
       const cantonState = createEmptyCantonState();
       // Canton stores under equityCompensation (normalized name)
@@ -894,12 +874,8 @@ describe('computeReplicationDiff', () => {
     });
 
     it('detects edits for planSecurity items with data changes', () => {
-      const sourceItems = [
-        {
-          ocfId: 'ps-1',
-          entityType: 'planSecurityIssuance' as OcfEntityType,
-          data: { id: 'ps-1', date: '2024-02-01' }, // Updated date
-        },
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'planSecurityIssuance', data: { id: 'ps-1', date: '2024-02-01' } }, // Updated date
       ];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('equityCompensationIssuance', new Set(['ps-1']));
@@ -912,19 +888,15 @@ describe('computeReplicationDiff', () => {
 
       expect(diff.creates).toHaveLength(0);
       expect(diff.edits).toHaveLength(1);
-      expect(diff.edits[0].ocfId).toBe('ps-1');
+      expect(diff.edits[0].id).toBe('ps-1');
       expect(diff.edits[0].entityType).toBe('planSecurityIssuance'); // Original type preserved
     });
   });
 
   describe('security_id conflict detection', () => {
     it('detects conflict when issuance create has security_id already on Canton', () => {
-      const sourceItems = [
-        {
-          ocfId: 'tx-new',
-          entityType: 'stockIssuance' as OcfEntityType,
-          data: { id: 'tx-new', security_id: 'sec-existing', stakeholder_id: 'sh-1' },
-        },
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'stockIssuance', data: { id: 'tx-new', security_id: 'sec-existing', stakeholder_id: 'sh-1' } },
       ];
       const cantonState = createEmptyCantonState();
       // Canton already has a different StockIssuance with the same security_id
@@ -934,12 +906,12 @@ describe('computeReplicationDiff', () => {
         securityIds: cantonState.securityIds,
       });
 
-      // Item still appears in creates (the ocfId IS missing from Canton)
+      // Item still appears in creates (the canonical object ID is missing from Canton)
       expect(diff.creates).toHaveLength(1);
-      expect(diff.creates[0].ocfId).toBe('tx-new');
+      expect(diff.creates[0].id).toBe('tx-new');
       // But conflict is flagged
       expect(diff.conflicts).toHaveLength(1);
-      expect(diff.conflicts[0].ocfId).toBe('tx-new');
+      expect(diff.conflicts[0].id).toBe('tx-new');
       expect(diff.conflicts[0].securityId).toBe('sec-existing');
       expect(diff.conflicts[0].entityType).toBe('stockIssuance');
       expect(diff.conflicts[0].message).toContain('security_id="sec-existing"');
@@ -947,12 +919,8 @@ describe('computeReplicationDiff', () => {
     });
 
     it('detects conflict for convertibleIssuance', () => {
-      const sourceItems = [
-        {
-          ocfId: 'tx-conv',
-          entityType: 'convertibleIssuance' as OcfEntityType,
-          data: { id: 'tx-conv', security_id: 'sec-dup' },
-        },
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'convertibleIssuance', data: { id: 'tx-conv', security_id: 'sec-dup' } },
       ];
       const cantonState = createEmptyCantonState();
       cantonState.securityIds.set('convertibleIssuance', new Set(['sec-dup']));
@@ -965,13 +933,25 @@ describe('computeReplicationDiff', () => {
       expect(diff.conflicts[0].entityType).toBe('convertibleIssuance');
     });
 
+    it('preserves the source entity type for planSecurity conflicts', () => {
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'planSecurityIssuance', data: { id: 'ps-dup', security_id: 'sec-dup' } },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.securityIds.set('equityCompensationIssuance', new Set(['sec-dup']));
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, {
+        securityIds: cantonState.securityIds,
+      });
+
+      expect(diff.conflicts).toHaveLength(1);
+      expect(diff.conflicts[0].entityType).toBe('planSecurityIssuance');
+      expect(diff.conflicts[0].message).toContain('Plan Security Issuance');
+    });
+
     it('no conflict when security_id is new', () => {
-      const sourceItems = [
-        {
-          ocfId: 'tx-new',
-          entityType: 'stockIssuance' as OcfEntityType,
-          data: { id: 'tx-new', security_id: 'sec-new' },
-        },
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'stockIssuance', data: { id: 'tx-new', security_id: 'sec-new' } },
       ];
       const cantonState = createEmptyCantonState();
       cantonState.securityIds.set('stockIssuance', new Set(['sec-other']));
@@ -985,12 +965,8 @@ describe('computeReplicationDiff', () => {
     });
 
     it('no conflict check for non-issuance types', () => {
-      const sourceItems = [
-        {
-          ocfId: 'tx-transfer',
-          entityType: 'stockTransfer' as OcfEntityType,
-          data: { id: 'tx-transfer', security_id: 'sec-existing' },
-        },
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'stockTransfer', data: { id: 'tx-transfer', security_id: 'sec-existing' } },
       ];
       const cantonState = createEmptyCantonState();
       // Even if securityIds has this value, transfers don't enforce uniqueness
@@ -1005,12 +981,8 @@ describe('computeReplicationDiff', () => {
     });
 
     it('no conflict check when securityIds option not provided', () => {
-      const sourceItems = [
-        {
-          ocfId: 'tx-new',
-          entityType: 'stockIssuance' as OcfEntityType,
-          data: { id: 'tx-new', security_id: 'sec-existing' },
-        },
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'stockIssuance', data: { id: 'tx-new', security_id: 'sec-existing' } },
       ];
       const cantonState = createEmptyCantonState();
       cantonState.securityIds.set('stockIssuance', new Set(['sec-existing']));
@@ -1023,7 +995,7 @@ describe('computeReplicationDiff', () => {
     });
 
     it('returns empty conflicts array when no conflicts exist', () => {
-      const sourceItems = [{ ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1' } }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: { id: 'sh-1' } }];
       const cantonState = createEmptyCantonState();
 
       const diff = computeReplicationDiff(sourceItems, cantonState);
@@ -1037,10 +1009,9 @@ describe('computeReplicationDiff', () => {
       // Reproduces: DB stores OCF Document with `date` field, but DAML Document
       // contract has no `date` field. Canton readback omits `date`, causing a
       // persistent diff on every replication run.
-      const sourceItems = [
+      const sourceItems: SourceReplicationItem[] = [
         {
-          ocfId: 'doc-1',
-          entityType: 'document' as OcfEntityType,
+          entityType: 'document',
           data: {
             id: 'doc-1',
             object_type: 'DOCUMENT',
@@ -1085,10 +1056,9 @@ describe('computeReplicationDiff', () => {
 
     it('does not emit edit when transaction dates differ only by ISO format', () => {
       // DB may store full ISO timestamps while Canton returns date-only strings.
-      const sourceItems = [
+      const sourceItems: SourceReplicationItem[] = [
         {
-          ocfId: 'tx-1',
-          entityType: 'stockIssuance' as OcfEntityType,
+          entityType: 'stockIssuance',
           data: {
             id: 'tx-1',
             object_type: 'TX_STOCK_ISSUANCE',
@@ -1126,10 +1096,9 @@ describe('computeReplicationDiff', () => {
     });
 
     it('still detects real edits on document fields other than date', () => {
-      const sourceItems = [
+      const sourceItems: SourceReplicationItem[] = [
         {
-          ocfId: 'doc-1',
-          entityType: 'document' as OcfEntityType,
+          entityType: 'document',
           data: {
             id: 'doc-1',
             object_type: 'DOCUMENT',
@@ -1167,15 +1136,15 @@ describe('computeReplicationDiff', () => {
 
       // md5 actually changed → should detect an edit
       expect(diff.edits).toHaveLength(1);
-      expect(diff.edits[0].ocfId).toBe('doc-1');
+      expect(diff.edits[0].id).toBe('doc-1');
     });
   });
 
   describe('total calculation', () => {
     it('calculates total correctly', () => {
-      const sourceItems = [
-        { ocfId: 'sh-1', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-1', name: 'New' } },
-        { ocfId: 'sh-2', entityType: 'stakeholder' as OcfEntityType, data: { id: 'sh-2', name: 'Updated' } },
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'stakeholder', data: { id: 'sh-1', name: 'New' } },
+        { entityType: 'stakeholder', data: { id: 'sh-2', name: 'Updated' } },
       ];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-2', 'sh-3']));
