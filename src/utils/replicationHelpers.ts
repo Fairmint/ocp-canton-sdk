@@ -704,10 +704,10 @@ export function computeReplicationDiff(
           if (cantonSecurityIds?.has(securityId)) {
             conflicts.push({
               id: objectId,
-              entityType: normalizedType,
+              entityType: item.entityType,
               securityId,
               message:
-                `${getEntityTypeLabel(normalizedType, 1)} id="${objectId}" has ` +
+                `${getEntityTypeLabel(item.entityType, 1)} id="${objectId}" has ` +
                 `security_id="${securityId}" which already exists on Canton under a different ` +
                 `object ID. This indicates duplicate security_id values in the source data.`,
             });

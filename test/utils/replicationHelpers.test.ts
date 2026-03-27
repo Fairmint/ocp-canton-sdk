@@ -933,6 +933,22 @@ describe('computeReplicationDiff', () => {
       expect(diff.conflicts[0].entityType).toBe('convertibleIssuance');
     });
 
+    it('preserves the source entity type for planSecurity conflicts', () => {
+      const sourceItems: SourceReplicationItem[] = [
+        { entityType: 'planSecurityIssuance', data: { id: 'ps-dup', security_id: 'sec-dup' } },
+      ];
+      const cantonState = createEmptyCantonState();
+      cantonState.securityIds.set('equityCompensationIssuance', new Set(['sec-dup']));
+
+      const diff = computeReplicationDiff(sourceItems, cantonState, {
+        securityIds: cantonState.securityIds,
+      });
+
+      expect(diff.conflicts).toHaveLength(1);
+      expect(diff.conflicts[0].entityType).toBe('planSecurityIssuance');
+      expect(diff.conflicts[0].message).toContain('Plan Security Issuance');
+    });
+
     it('no conflict when security_id is new', () => {
       const sourceItems: SourceReplicationItem[] = [
         { entityType: 'stockIssuance', data: { id: 'tx-new', security_id: 'sec-new' } },
