@@ -397,7 +397,9 @@ describe('POST_MONEY SAFE – production fixture round-trip', () => {
       }>;
     }>('convertibleIssuance', 'safe-post-money');
 
-    const daml = convertibleIssuanceDataToDaml(fixture as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]);
+    const daml = convertibleIssuanceDataToDaml(
+      fixture as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]
+    );
     const result = damlConvertibleIssuanceDataToNative(daml as unknown as Record<string, unknown>);
 
     const trigger = result.conversion_triggers[0];
