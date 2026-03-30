@@ -25,7 +25,8 @@ type ConvertibleConversionMechanismInput =
   | 'FIXED_AMOUNT_CONVERSION'
   | 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION'
   | 'VALUATION_BASED_CONVERSION'
-  | 'PPS_BASED_CONVERSION';
+  | 'PPS_BASED_CONVERSION'
+  | (Record<string, unknown> & { type: string });
 
 export type ConversionTriggerInput =
   | ConversionTriggerTypeInput
@@ -130,10 +131,10 @@ function mechanismInputToDamlEnum(
       } as Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules;
     };
 
-    const safeTiming = (v: unknown): string | null => {
+    const safeTiming = (v: unknown): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTimingType | null => {
       const s = safeString(v).toUpperCase();
-      if (s === 'PRE_MONEY') return 'OcfConversionTimingPreMoney';
-      if (s === 'POST_MONEY') return 'OcfConversionTimingPostMoney';
+      if (s === 'PRE_MONEY') return 'OcfConvTimingPreMoney';
+      if (s === 'POST_MONEY') return 'OcfConvTimingPostMoney';
       return null;
     };
 
