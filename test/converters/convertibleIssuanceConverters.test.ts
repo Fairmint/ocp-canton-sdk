@@ -113,6 +113,49 @@ describe('SAFE conversion_timing DAML constructor names', () => {
     expect(mech.tag).toBe('OcfConvMechSAFE');
     expect(mech.value.conversion_timing).toBeNull();
   });
+
+  it('throws OcpParseError for an unrecognized non-null conversion_timing', () => {
+    const input = {
+      ...BASE_INPUT,
+      conversion_triggers: [
+        {
+          ...SAFE_TRIGGER_BASE,
+          conversion_right: {
+            ...SAFE_TRIGGER_BASE.conversion_right,
+            conversion_mechanism: {
+              ...SAFE_TRIGGER_BASE.conversion_right.conversion_mechanism,
+              conversion_timing: 'POSTMONEY',
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => convertibleIssuanceDataToDaml(input)).toThrow('Unknown conversion_timing: POSTMONEY');
+  });
+});
+
+describe('ConvertibleConversionMechanismInput bare string handling', () => {
+  it('accepts bare string SAFE_CONVERSION and treats it as an empty SAFE mechanism', () => {
+    const input = {
+      ...BASE_INPUT,
+      conversion_triggers: [
+        {
+          ...SAFE_TRIGGER_BASE,
+          conversion_right: {
+            ...SAFE_TRIGGER_BASE.conversion_right,
+            conversion_mechanism: 'SAFE_CONVERSION' as const,
+          },
+        },
+      ],
+    };
+
+    const daml = convertibleIssuanceDataToDaml(input);
+    const trigger = daml.conversion_triggers[0];
+    const mech = (trigger.conversion_right as { conversion_mechanism: { tag: string } }).conversion_mechanism;
+
+    expect(mech.tag).toBe('OcfConvMechSAFE');
+  });
 });
 
 // ---------------------------------------------------------------------------

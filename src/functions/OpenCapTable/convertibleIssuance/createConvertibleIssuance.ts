@@ -92,6 +92,10 @@ function triggerTypeToDamlEnum(
 function mechanismInputToDamlEnum(
   m: ConvertibleConversionMechanismInput | (Record<string, unknown> & { type?: string }) | undefined
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism {
+  // Normalize bare string shorthand (e.g. 'SAFE_CONVERSION') to object form
+  if (typeof m === 'string') {
+    m = { type: m };
+  }
   const dayCountToDaml = (v: unknown): Fairmint.OpenCapTable.Types.Conversion.OcfDayCountType => {
     const s = safeString(v).toUpperCase();
     if (s === 'ACTUAL_365') return 'OcfDayCountActual365';
@@ -133,9 +137,13 @@ function mechanismInputToDamlEnum(
 
     const safeTiming = (v: unknown): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTimingType | null => {
       const s = safeString(v).toUpperCase();
+      if (s === '' ) return null;
       if (s === 'PRE_MONEY') return 'OcfConvTimingPreMoney';
       if (s === 'POST_MONEY') return 'OcfConvTimingPostMoney';
-      return null;
+      throw new OcpParseError(`Unknown conversion_timing: ${safeString(v)}`, {
+        source: 'conversion_mechanism.conversion_timing',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     };
 
     switch (typeStr) {
