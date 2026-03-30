@@ -143,9 +143,18 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
     // Handle both string enum and DAML variant { tag, value }
     const mapTiming = (t: unknown): 'PRE_MONEY' | 'POST_MONEY' | undefined => {
       const s = safeString(t);
-      if (s.endsWith('PreMoney')) return 'PRE_MONEY';
-      if (s.endsWith('PostMoney')) return 'POST_MONEY';
-      return undefined;
+      if (!s) return undefined;
+      // Canonical DAML constructors (current schema)
+      if (s === 'OcfConvTimingPreMoney') return 'PRE_MONEY';
+      if (s === 'OcfConvTimingPostMoney') return 'POST_MONEY';
+      // Legacy long-form aliases kept for backward-compatibility with persisted/live
+      // ledger contracts that were written before the constructor names were shortened.
+      if (s === 'OcfConversionTimingPreMoney') return 'PRE_MONEY';
+      if (s === 'OcfConversionTimingPostMoney') return 'POST_MONEY';
+      throw new OcpParseError(`Unknown conversion_timing: ${s}`, {
+        source: 'conversionMechanism.conversion_timing',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     };
 
     if (typeof m === 'string') {
@@ -408,14 +417,28 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
             interest_rates,
             ...(value.day_count_convention
               ? {
-                  day_count_convention: safeString(value.day_count_convention).endsWith('Actual365')
-                    ? 'ACTUAL_365'
-                    : '30_360',
+                  day_count_convention: (() => {
+                    const s = safeString(value.day_count_convention);
+                    if (s === 'OcfDayCountActual365') return 'ACTUAL_365' as const;
+                    if (s === 'OcfDayCount30_360') return '30_360' as const;
+                    throw new OcpParseError(`Unknown day_count_convention: ${s}`, {
+                      source: 'conversionMechanism.day_count_convention',
+                      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+                    });
+                  })(),
                 }
               : {}),
             ...(value.interest_payout
               ? {
-                  interest_payout: safeString(value.interest_payout).endsWith('Deferred') ? 'DEFERRED' : 'CASH',
+                  interest_payout: (() => {
+                    const s = safeString(value.interest_payout);
+                    if (s === 'OcfInterestPayoutDeferred') return 'DEFERRED' as const;
+                    if (s === 'OcfInterestPayoutCash') return 'CASH' as const;
+                    throw new OcpParseError(`Unknown interest_payout: ${s}`, {
+                      source: 'conversionMechanism.interest_payout',
+                      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+                    });
+                  })(),
                 }
               : {}),
             ...(value.interest_accrual_period
