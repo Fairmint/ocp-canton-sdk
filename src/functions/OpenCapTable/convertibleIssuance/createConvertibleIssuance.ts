@@ -137,7 +137,7 @@ function mechanismInputToDamlEnum(
 
     const safeTiming = (v: unknown): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTimingType | null => {
       const s = safeString(v).toUpperCase();
-      if (s === '' ) return null;
+      if (s === '') return null;
       if (s === 'PRE_MONEY') return 'OcfConvTimingPreMoney';
       if (s === 'POST_MONEY') return 'OcfConvTimingPostMoney';
       throw new OcpParseError(`Unknown conversion_timing: ${safeString(v)}`, {
