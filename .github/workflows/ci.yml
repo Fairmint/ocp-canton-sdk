@@ -21,6 +21,12 @@ jobs:
         with:
           node-version: '21'
 
+      - name: Upgrade npm
+        run: npm install --global npm@11.10.0
+
+      - name: Check pinned dependencies
+        run: npx --yes --package @hardlydifficult/ci-scripts@1.0.85 check-pinned-deps
+
       - name: Initialize required submodules
         run: git submodule update --init --recursive libs/Open-Cap-Format-OCF
 
