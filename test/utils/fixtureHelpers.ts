@@ -119,5 +119,5 @@ export function validateRequestMatchesFixture(actualRequest: Record<string, unkn
  */
 export function configureClientWithFixture(client: unknown): jest.SpyInstance {
   const clientWithPrivateAccess = client as any;
-  return jest.spyOn(clientWithPrivateAccess.client, 'submitAndWaitForTransactionTree');
+  return jest.spyOn(clientWithPrivateAccess.ledger, 'submitAndWaitForTransactionTree');
 }

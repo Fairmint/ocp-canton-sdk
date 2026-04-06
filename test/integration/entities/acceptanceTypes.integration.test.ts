@@ -114,7 +114,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
     const updatedCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -162,7 +162,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
     const updatedCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -210,7 +210,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({
+    const events = await ctx.ocp.ledger.getEventsByContractId({
       contractId: convertibleSecurity.capTableContractId,
     });
     const updatedCapTableDetails = events.created?.createdEvent
@@ -260,7 +260,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
     const updatedCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -313,7 +313,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     });
 
     // Get updated cap table details after stock security
-    let events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    let events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
     let currentCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -330,7 +330,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       capTableContractDetails: currentCapTableDetails,
     });
 
-    events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+    events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
     currentCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -347,7 +347,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       capTableContractDetails: currentCapTableDetails,
     });
 
-    events = await ctx.ocp.client.getEventsByContractId({ contractId: convertibleSecurity.capTableContractId });
+    events = await ctx.ocp.ledger.getEventsByContractId({ contractId: convertibleSecurity.capTableContractId });
     currentCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -364,7 +364,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       capTableContractDetails: currentCapTableDetails,
     });
 
-    events = await ctx.ocp.client.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+    events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
     const finalCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -430,7 +430,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
     const updatedCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -482,7 +482,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     });
 
     // Get updated cap table contract details after security setup
-    let events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    let events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
     const currentCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -511,7 +511,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     // Get updated CapTable contract details for the edit operation
     const newCapTableContractId = createResult.updatedCapTableCid;
-    events = await ctx.ocp.client.getEventsByContractId({
+    events = await ctx.ocp.ledger.getEventsByContractId({
       contractId: newCapTableContractId,
     });
     if (!events.created?.createdEvent) {
@@ -565,7 +565,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     });
 
     // Get updated cap table contract details after security setup
-    let events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    let events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
     const currentCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -593,7 +593,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     // Get updated CapTable contract details for the delete operation
     const newCapTableContractId = createResult.updatedCapTableCid;
-    events = await ctx.ocp.client.getEventsByContractId({
+    events = await ctx.ocp.ledger.getEventsByContractId({
       contractId: newCapTableContractId,
     });
     if (!events.created?.createdEvent) {

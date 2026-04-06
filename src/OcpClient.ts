@@ -11,8 +11,13 @@
  * @example
  * ```typescript
  * import { OcpClient, toContractId, toPartyId } from '@open-captable-protocol/canton';
+ * import { Canton } from '@fairmint/canton-node-sdk';
  *
- * const ocp = new OcpClient({ baseUrl: 'http://localhost:3975' });
+ * const canton = new Canton({ network: 'localnet' });
+ * const ocp = new OcpClient({
+ *   ledger: canton.ledger,
+ *   validator: canton.validator,
+ * });
  *
  * // Set context once to cache common parameters
  * ocp.context.setFeaturedAppRight(appRightContract);
@@ -39,8 +44,7 @@
  * @module
  */
 
-import type { ClientConfig, ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
+import type { LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
 import { OcpErrorCodes, OcpValidationError } from './errors';
@@ -208,7 +212,11 @@ function toContractResult<T>(data: unknown, contractId: string): ContractResult<
  *
  * @example
  * ```typescript
- * const ocp = new OcpClient({ network: 'localnet' });
+ * const canton = new Canton({ network: 'localnet' });
+ * const ocp = new OcpClient({
+ *   ledger: canton.ledger,
+ *   validator: canton.validator,
+ * });
  *
  * // Set context once after initial setup
  * ocp.context.setFeaturedAppRight(featuredAppRightDetails);
@@ -361,8 +369,13 @@ export class OcpContextManager implements OcpContext {
  * @example
  * ```typescript
  * import { OcpClient, toContractId } from '@open-captable-protocol/canton';
+ * import { Canton } from '@fairmint/canton-node-sdk';
  *
- * const ocp = new OcpClient({ baseUrl: 'http://localhost:3975' });
+ * const canton = new Canton({ network: 'localnet' });
+ * const ocp = new OcpClient({
+ *   ledger: canton.ledger,
+ *   validator: canton.validator,
+ * });
  *
  * // Read an issuer - all get() methods return { data, contractId }
  * const { data: issuer } = await ocp.OpenCapTable.issuer.get({
@@ -373,8 +386,11 @@ export class OcpContextManager implements OcpContext {
  * ```
  */
 export class OcpClient {
-  /** The underlying LedgerJsonApiClient for direct ledger access */
-  public readonly client: LedgerJsonApiClient;
+  /** The injected Ledger JSON API client for direct ledger access */
+  public readonly ledger: LedgerJsonApiClient;
+
+  /** Optional injected Validator API client for validator-backed workflows */
+  public readonly validator?: ValidatorApiClient;
 
   /**
    * Context manager for caching commonly used values.
@@ -399,8 +415,9 @@ export class OcpClient {
   /** Recurring payment stream management */
   public readonly PaymentStreams: PaymentStreamsMethodsWithClient;
 
-  constructor(config?: ClientConfig) {
-    this.client = new LedgerJsonApiClient(config);
+  constructor(dependencies: OcpClientDependencies) {
+    this.ledger = dependencies.ledger;
+    this.validator = dependencies.validator;
 
     this.OpenCapTable = this.createOpenCapTableMethods();
     this.OpenCapTableReports = this.createOpenCapTableReportsMethods();
@@ -423,11 +440,11 @@ export class OcpClient {
 
   /** Create a new transaction batch for submitting multiple commands atomically */
   public createBatch(params: { actAs: string[]; readAs?: string[] }): TransactionBatch {
-    return new TransactionBatch(this.client, params.actAs, params.readAs);
+    return new TransactionBatch(this.ledger, params.actAs, params.readAs);
   }
 
   private createOpenCapTableMethods(): OpenCapTableMethods {
-    const { client } = this;
+    const client = this.ledger;
     return {
       // ===== Objects =====
       issuer: {
@@ -710,7 +727,7 @@ export class OcpClient {
   }
 
   private createOpenCapTableReportsMethods(): OpenCapTableReportsMethods {
-    const { client } = this;
+    const client = this.ledger;
     return {
       companyValuationReport: {
         buildCreate: (params: CreateCompanyValuationReportParams) =>
@@ -724,7 +741,7 @@ export class OcpClient {
   }
 
   private createPaymentStreamsMethods(): PaymentStreamsMethodsWithClient {
-    const { client } = this;
+    const client = this.ledger;
     const baseExtension = createPaymentStreamsExtension();
 
     return {
@@ -747,6 +764,17 @@ export class OcpClient {
 }
 
 // ===== Type Definitions =====
+
+/**
+ * Runtime-derived clients consumed by `OcpClient`.
+ *
+ * These are typically derived from a shared runtime such as `new Canton(...)`,
+ * then injected into `OcpClient` explicitly as `{ ledger, validator }`.
+ */
+export interface OcpClientDependencies {
+  readonly ledger: LedgerJsonApiClient;
+  readonly validator?: ValidatorApiClient;
+}
 
 /** Parameters for creating a batch cap table update */
 interface CapTableUpdateParams {

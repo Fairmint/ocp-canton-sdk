@@ -28,7 +28,7 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
     // Use authorizeIssuerWithFactory which uses the dynamically deployed factory
     // The SDK's authorizeIssuer would fail with "Unsupported network: localnet"
     const authResult = await authorizeIssuerWithFactory(
-      ctx.ocp.client,
+      ctx.ocp.ledger,
       ctx.ocpFactoryContractId,
       ctx.systemOperatorParty,
       ctx.issuerParty
@@ -45,7 +45,7 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
 
     // First authorize using the harness factory
     const authResult = await authorizeIssuerWithFactory(
-      ctx.ocp.client,
+      ctx.ocp.ledger,
       ctx.ocpFactoryContractId,
       ctx.systemOperatorParty,
       ctx.issuerParty
@@ -65,7 +65,7 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
 
     // Authorize using the harness factory
     const authResult1 = await authorizeIssuerWithFactory(
-      ctx.ocp.client,
+      ctx.ocp.ledger,
       ctx.ocpFactoryContractId,
       ctx.systemOperatorParty,
       ctx.issuerParty
@@ -79,7 +79,7 @@ createIntegrationTestSuite('IssuerAuthorization operations', (getContext) => {
 
     // Re-authorize using the harness factory
     const authResult2 = await authorizeIssuerWithFactory(
-      ctx.ocp.client,
+      ctx.ocp.ledger,
       ctx.ocpFactoryContractId,
       ctx.systemOperatorParty,
       ctx.issuerParty

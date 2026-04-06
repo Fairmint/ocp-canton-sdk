@@ -602,7 +602,7 @@ async function extractNewCapTableDetails(
     throw new Error('Failed to extract new CapTable contract ID from transaction result');
   }
 
-  const events = await ocp.client.getEventsByContractId({ contractId });
+  const events = await ocp.ledger.getEventsByContractId({ contractId });
   if (!events.created?.createdEvent) {
     throw new Error('Failed to get new CapTable contract created event');
   }
@@ -633,7 +633,7 @@ async function getOrCreateIssuerAuthorization(
 
   if (options.ocpFactoryContractId && options.systemOperatorParty) {
     const authResult = await authorizeIssuerWithFactory(
-      ocp.client,
+      ocp.ledger,
       options.ocpFactoryContractId,
       options.systemOperatorParty,
       options.issuerParty
@@ -682,7 +682,7 @@ export async function setupTestIssuer(
     (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
   );
 
-  const result = await ocp.client.submitAndWaitForTransactionTree({
+  const result = await ocp.ledger.submitAndWaitForTransactionTree({
     commands: [createIssuerCmd.command],
     actAs: [options.issuerParty],
     disclosedContracts: validDisclosedContracts,
@@ -698,7 +698,7 @@ export async function setupTestIssuer(
     throw new Error('Failed to extract CapTable contract ID from transaction result');
   }
 
-  const capTableEvents = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+  const capTableEvents = await ocp.ledger.getEventsByContractId({ contractId: capTableContractId });
   if (!capTableEvents.created?.createdEvent) {
     throw new Error('Failed to get CapTable contract created event');
   }
@@ -745,7 +745,7 @@ export async function setupTestStakeholder(
     (dc) => dc.createdEventBlob && dc.createdEventBlob.length > 0
   );
 
-  const result = await ocp.client.submitAndWaitForTransactionTree({
+  const result = await ocp.ledger.submitAndWaitForTransactionTree({
     commands: [cmd.command],
     actAs: [options.issuerParty],
     disclosedContracts: validDisclosedContracts,
@@ -996,7 +996,7 @@ export async function setupStockSecurity(
     capTableContractId = result1.updatedCapTableCid;
 
     // Get updated cap table contract details
-    const events1 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    const events1 = await ocp.ledger.getEventsByContractId({ contractId: capTableContractId });
     if (events1.created?.createdEvent) {
       capTableContractDetails = {
         templateId: events1.created.createdEvent.templateId,
@@ -1022,7 +1022,7 @@ export async function setupStockSecurity(
     capTableContractId = result2.updatedCapTableCid;
 
     // Get updated cap table contract details
-    const events2 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    const events2 = await ocp.ledger.getEventsByContractId({ contractId: capTableContractId });
     if (events2.created?.createdEvent) {
       capTableContractDetails = {
         templateId: events2.created.createdEvent.templateId,
@@ -1097,7 +1097,7 @@ export async function setupWarrantSecurity(
     capTableContractId = result1.updatedCapTableCid;
 
     // Get updated cap table contract details
-    const events1 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    const events1 = await ocp.ledger.getEventsByContractId({ contractId: capTableContractId });
     if (events1.created?.createdEvent) {
       capTableContractDetails = {
         templateId: events1.created.createdEvent.templateId,
@@ -1172,7 +1172,7 @@ export async function setupEquityCompensationSecurity(
     capTableContractId = result1.updatedCapTableCid;
 
     // Get updated cap table contract details
-    const events1 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    const events1 = await ocp.ledger.getEventsByContractId({ contractId: capTableContractId });
     if (events1.created?.createdEvent) {
       capTableContractDetails = {
         templateId: events1.created.createdEvent.templateId,
@@ -1198,7 +1198,7 @@ export async function setupEquityCompensationSecurity(
     capTableContractId = result2.updatedCapTableCid;
 
     // Get updated cap table contract details
-    const events2 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    const events2 = await ocp.ledger.getEventsByContractId({ contractId: capTableContractId });
     if (events2.created?.createdEvent) {
       capTableContractDetails = {
         templateId: events2.created.createdEvent.templateId,
@@ -1276,7 +1276,7 @@ export async function setupConvertibleSecurity(
     capTableContractId = result1.updatedCapTableCid;
 
     // Get updated cap table contract details
-    const events1 = await ocp.client.getEventsByContractId({ contractId: capTableContractId });
+    const events1 = await ocp.ledger.getEventsByContractId({ contractId: capTableContractId });
     if (events1.created?.createdEvent) {
       capTableContractDetails = {
         templateId: events1.created.createdEvent.templateId,

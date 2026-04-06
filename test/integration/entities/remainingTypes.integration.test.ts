@@ -54,7 +54,7 @@ createIntegrationTestSuite('Remaining OCF Types via Batch API', (getContext) => 
     expect(stakeholderResult.createdCids).toHaveLength(1);
 
     // Get updated cap table details
-    const capTableEvents = await ctx.ocp.client.getEventsByContractId({
+    const capTableEvents = await ctx.ocp.ledger.getEventsByContractId({
       contractId: stakeholderResult.updatedCapTableCid,
     });
     if (!capTableEvents.created?.createdEvent) {

@@ -413,7 +413,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       };
 
       // Get updated cap table contract details after security setup
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -456,7 +456,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       };
 
       // Get updated cap table contract details after security setup
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -499,7 +499,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       };
 
       // Get updated cap table contract details after security setup
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -628,7 +628,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       };
 
       // Get updated cap table contract details after security setup
-      const events = await ctx.ocp.client.getEventsByContractId({
+      const events = await ctx.ocp.ledger.getEventsByContractId({
         contractId: convertibleSecurity.capTableContractId,
       });
       const updatedCapTableDetails = events.created?.createdEvent
@@ -706,7 +706,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       };
 
       // Get updated cap table contract details after security setup
-      const events = await ctx.ocp.client.getEventsByContractId({
+      const events = await ctx.ocp.ledger.getEventsByContractId({
         contractId: eqCompSecurity.capTableContractId,
       });
       const updatedCapTableDetails = events.created?.createdEvent
@@ -751,7 +751,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       };
 
       // Get updated cap table contract details after security setup
-      const events = await ctx.ocp.client.getEventsByContractId({
+      const events = await ctx.ocp.ledger.getEventsByContractId({
         contractId: eqCompSecurity.capTableContractId,
       });
       const updatedCapTableDetails = events.created?.createdEvent
@@ -942,7 +942,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       };
 
       // Get updated cap table contract details after security setup
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -990,7 +990,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: stockSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1032,7 +1032,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: stockSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1100,7 +1100,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: stockSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1143,7 +1143,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_ids: [stockSecurity.securityId],
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1187,7 +1187,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: convertibleSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({
+      const events = await ctx.ocp.ledger.getEventsByContractId({
         contractId: convertibleSecurity.capTableContractId,
       });
       const updatedCapTableDetails = events.created?.createdEvent
@@ -1231,7 +1231,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: convertibleSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({
+      const events = await ctx.ocp.ledger.getEventsByContractId({
         contractId: convertibleSecurity.capTableContractId,
       });
       const updatedCapTableDetails = events.created?.createdEvent
@@ -1277,7 +1277,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: eqCompSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1319,7 +1319,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: eqCompSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1361,7 +1361,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: eqCompSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1457,7 +1457,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: warrantSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1499,7 +1499,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: warrantSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1541,7 +1541,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: warrantSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1609,7 +1609,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: warrantSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1653,7 +1653,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: stockSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
@@ -1695,7 +1695,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         security_id: stockSecurity.securityId,
       };
 
-      const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+      const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
       const updatedCapTableDetails = events.created?.createdEvent
         ? {
             templateId: events.created.createdEvent.templateId,
