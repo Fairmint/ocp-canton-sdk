@@ -8,3 +8,6 @@ docs/
 coverage/
 .backup-*/
 generated/
+
+# Local clone of GitHub wiki (see CLAUDE.md / wiki Home.md)
+wiki/
