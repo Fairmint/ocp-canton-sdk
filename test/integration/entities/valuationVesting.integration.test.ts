@@ -81,7 +81,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
     const updatedCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -142,7 +142,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
     const updatedCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -203,7 +203,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
     const updatedCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -262,7 +262,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
-    let events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity1.capTableContractId });
+    let events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity1.capTableContractId });
     const currentCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -278,7 +278,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       capTableContractDetails: currentCapTableDetails,
     });
 
-    events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
+    events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
     const finalCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,

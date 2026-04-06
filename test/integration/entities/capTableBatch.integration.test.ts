@@ -138,7 +138,7 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
     const newCapTableContractId = createResult.updatedCapTableCid;
 
     // Get updated CapTable contract details
-    const capTableEvents = await ctx.ocp.client.getEventsByContractId({
+    const capTableEvents = await ctx.ocp.ledger.getEventsByContractId({
       contractId: newCapTableContractId,
     });
     if (!capTableEvents.created?.createdEvent) {
@@ -196,7 +196,7 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
       .execute();
 
     const newCapTableContractId = setupResult.updatedCapTableCid;
-    const capTableEvents2 = await ctx.ocp.client.getEventsByContractId({
+    const capTableEvents2 = await ctx.ocp.ledger.getEventsByContractId({
       contractId: newCapTableContractId,
     });
     if (!capTableEvents2.created?.createdEvent) {

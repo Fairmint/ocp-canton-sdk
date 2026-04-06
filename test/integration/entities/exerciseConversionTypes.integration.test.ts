@@ -72,7 +72,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     const newCapTableCid = stakeholderResult.updatedCapTableCid;
 
     // Get updated cap table details
-    const capTableEvents = await ctx.ocp.client.getEventsByContractId({ contractId: newCapTableCid });
+    const capTableEvents = await ctx.ocp.ledger.getEventsByContractId({ contractId: newCapTableCid });
     if (!capTableEvents.created?.createdEvent) {
       throw new Error('Failed to get CapTable created event');
     }
@@ -363,7 +363,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     const newCapTableCid = stakeholderResult.updatedCapTableCid;
 
     // Get updated cap table details
-    const capTableEvents = await ctx.ocp.client.getEventsByContractId({ contractId: newCapTableCid });
+    const capTableEvents = await ctx.ocp.ledger.getEventsByContractId({ contractId: newCapTableCid });
     if (!capTableEvents.created?.createdEvent) {
       throw new Error('Failed to get CapTable created event');
     }

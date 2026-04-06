@@ -136,7 +136,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     });
 
     // Get updated cap table details for next security
-    let events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity1.capTableContractId });
+    let events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity1.capTableContractId });
     let currentCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -152,7 +152,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       capTableContractDetails: currentCapTableDetails,
     });
 
-    events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
+    events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
     currentCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -168,7 +168,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       capTableContractDetails: currentCapTableDetails,
     });
 
-    events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity3.capTableContractId });
+    events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity3.capTableContractId });
     const finalCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -224,7 +224,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
     const updatedCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -281,7 +281,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
 
-    let events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity1.capTableContractId });
+    let events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity1.capTableContractId });
     let currentCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -297,7 +297,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       capTableContractDetails: currentCapTableDetails,
     });
 
-    events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
+    events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
     currentCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -313,7 +313,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       capTableContractDetails: currentCapTableDetails,
     });
 
-    events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity3.capTableContractId });
+    events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity3.capTableContractId });
     const finalCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,

@@ -1,17 +1,17 @@
 /** Utilities for handling disclosed contracts in paymentStream workflows */
 
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import paymentStreamsFactoryConfig from '@fairmint/open-captable-protocol-daml-js/paymentStreams-factory-contract-id.json';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
-import type { OcpClient } from '../../../OcpClient';
 import type { FactoryContractInfo } from './factoryContractId';
 
 /**
  * Get disclosed contracts for the factory contract Reads from the pre-generated factory contract data for the client's
  * network This allows parties that don't directly see the factory to exercise it
  */
-export function getFactoryDisclosedContracts(client: OcpClient): DisclosedContract[] {
-  const network = client.client.getNetwork();
+export function getFactoryDisclosedContracts(ledgerClient: LedgerJsonApiClient): DisclosedContract[] {
+  const network = ledgerClient.getNetwork();
   const networkData = paymentStreamsFactoryConfig[network as keyof typeof paymentStreamsFactoryConfig] as
     | FactoryContractInfo
     | undefined;
@@ -42,13 +42,13 @@ export function getFactoryDisclosedContracts(client: OcpClient): DisclosedContra
  * when needed
  */
 export async function getProposedPaymentStreamDisclosedContracts(
-  client: OcpClient,
+  ledgerClient: LedgerJsonApiClient,
   proposedPaymentStreamContractId: string,
   readAs?: string[]
 ): Promise<DisclosedContract[]> {
-  const proposalEventsResponse = await client.client.getEventsByContractId({
+  const proposalEventsResponse = await ledgerClient.getEventsByContractId({
     contractId: proposedPaymentStreamContractId,
-    readAs: readAs ?? [client.client.getPartyId()],
+    readAs: readAs ?? [ledgerClient.getPartyId()],
   });
 
   const createdEvent = proposalEventsResponse.created?.createdEvent;

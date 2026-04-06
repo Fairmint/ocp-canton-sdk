@@ -13,7 +13,7 @@
  * factory created. Use createIntegrationTestSuite() to wrap your test describe block.
  */
 
-import { ValidatorApiClient } from '@fairmint/canton-node-sdk';
+import { LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../../src/OcpClient';
 import { buildIntegrationTestClientConfig } from '../../utils/testConfig';
@@ -91,7 +91,12 @@ async function initializeHarness(): Promise<void> {
     console.log('\n🔧 Initializing integration test harness...\n');
 
     const config = buildIntegrationTestClientConfig();
-    state.ocp = new OcpClient(config);
+    const ledgerClient = new LedgerJsonApiClient(config);
+    const validatorClient = new ValidatorApiClient(config);
+    state.ocp = new OcpClient({
+      ledger: ledgerClient,
+      validator: validatorClient,
+    });
 
     // Discover the party we're authenticated as from the ledger
     // In cn-quickstart LocalNet with OAuth2, we're authenticated as the app_provider party
@@ -99,7 +104,7 @@ async function initializeHarness(): Promise<void> {
 
     // Use listParties to find which parties we have access to
     // The first party returned should be the one we're authenticated as
-    const partiesResponse = await state.ocp.client.listParties({});
+    const partiesResponse = await state.ocp.ledger.listParties({});
     const partyDetails = partiesResponse.partyDetails ?? [];
 
     if (partyDetails.length === 0) {
@@ -122,7 +127,7 @@ async function initializeHarness(): Promise<void> {
 
     // Set the party ID on the client for operations that need it
     // (e.g., getEventsByContractId uses partyId for visibility filtering)
-    state.ocp.client.setPartyId(authenticatedParty);
+    state.ocp.ledger.setPartyId(authenticatedParty);
 
     // In shared-secret mode, we need to ensure the ledger-api-user has CanActAs rights
     // for the app_provider party. This is done automatically in OAuth2 mode but not
@@ -133,7 +138,7 @@ async function initializeHarness(): Promise<void> {
       const userId = 'ledger-api-user';
 
       // Check current rights
-      const rightsResponse = await state.ocp.client.listUserRights({ userId });
+      const rightsResponse = await state.ocp.ledger.listUserRights({ userId });
       const currentRights = rightsResponse.rights ?? [];
       const hasActAs = currentRights.some(
         (r) => 'CanActAs' in r.kind && r.kind.CanActAs.value.party === authenticatedParty
@@ -141,7 +146,7 @@ async function initializeHarness(): Promise<void> {
 
       if (!hasActAs) {
         console.log(`   Granting CanActAs for ${authenticatedParty.split('::')[0]}...`);
-        await state.ocp.client.grantUserRights({
+        await state.ocp.ledger.grantUserRights({
           userId,
           rights: [{ kind: { CanActAs: { value: { party: authenticatedParty } } } }],
         });
@@ -154,7 +159,6 @@ async function initializeHarness(): Promise<void> {
     // Get DSO party ID and synchronizer ID from Validator API
     // Pass the same config to ensure auth mode consistency
     console.log('🔍 Getting DSO party ID and synchronizer ID...');
-    const validatorClient = new ValidatorApiClient(config);
     const dsoResponse = await validatorClient.getDsoPartyId();
     const dsoPartyId = dsoResponse.dso_party_id;
     const amuletRules = await validatorClient.getAmuletRules();
@@ -167,7 +171,7 @@ async function initializeHarness(): Promise<void> {
     console.log(`📋 Creating fresh FeaturedAppRight for ${state.issuerParty}...`);
     let featuredAppRightResult: Awaited<ReturnType<typeof createFeaturedAppRight>>;
     try {
-      featuredAppRightResult = await createFeaturedAppRight(state.ocp.client, state.issuerParty, validatorClient);
+      featuredAppRightResult = await createFeaturedAppRight(state.ocp.ledger, state.issuerParty, validatorClient);
       console.log(`   Created FeaturedAppRight: ${featuredAppRightResult.contractId}`);
     } catch (createErr) {
       // FeaturedAppRight creation failed
@@ -190,7 +194,7 @@ async function initializeHarness(): Promise<void> {
 
     // Deploy contracts and create factory
     console.log('📦 Deploying contracts and creating OcpFactory...');
-    state.deployment = await deployAndCreateFactory(state.ocp.client, state.issuerParty);
+    state.deployment = await deployAndCreateFactory(state.ocp.ledger, state.issuerParty);
     state.ocpFactoryContractId = state.deployment.ocpFactoryContractId;
     console.log(`   OcpFactory contract: ${state.ocpFactoryContractId}`);
     console.log(`   Packages deployed: ${state.deployment.packageIds.length}`);
@@ -213,7 +217,7 @@ async function initializeHarness(): Promise<void> {
  */
 async function _discoverParties(ocp: OcpClient): Promise<{ issuerParty: string; systemOperatorParty: string }> {
   // Try to find parties from LocalNet
-  const response = await ocp.client.listParties({});
+  const response = await ocp.ledger.listParties({});
   const partyDetails = response.partyDetails ?? [];
 
   if (partyDetails.length === 0) {

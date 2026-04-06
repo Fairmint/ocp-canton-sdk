@@ -390,7 +390,7 @@ async function getUpdatedCapTableDetails(
   capTableContractId: string,
   synchronizerId: string
 ): Promise<DisclosedContract> {
-  const capTableEvents = await ocp.client.getEventsByContractId({
+  const capTableEvents = await ocp.ledger.getEventsByContractId({
     contractId: capTableContractId,
   });
   if (!capTableEvents.created?.createdEvent) {

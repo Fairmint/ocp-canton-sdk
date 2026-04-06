@@ -83,7 +83,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
     const updatedCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -115,7 +115,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.client.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,
@@ -162,7 +162,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({
+    const events = await ctx.ocp.ledger.getEventsByContractId({
       contractId: convertibleSecurity.capTableContractId,
     });
     const updatedCapTableDetails = events.created?.createdEvent
@@ -193,7 +193,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.client.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,
@@ -236,7 +236,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
     const updatedCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -266,7 +266,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.client.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,
@@ -309,7 +309,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     });
 
     // Get updated cap table contract details
-    const events = await ctx.ocp.client.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
+    const events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
     const updatedCapTableDetails = events.created?.createdEvent
       ? {
           templateId: events.created.createdEvent.templateId,
@@ -338,7 +338,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.client.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,

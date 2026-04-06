@@ -84,7 +84,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const result = await ctx.ocp.client.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
       commands: [cmd1.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDisclosedContracts,
@@ -145,7 +145,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const stakeholderResult = await ctx.ocp.client.submitAndWaitForTransactionTree({
+    const stakeholderResult = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
       commands: [stakeholderCmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validStakeholderDC,
@@ -158,7 +158,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     const newCapTableContractId = extractContractIdFromResponse(stakeholderResult, 'CapTable');
     expect(newCapTableContractId).toBeTruthy();
 
-    const newCapTableEvents = await ctx.ocp.client.getEventsByContractId({ contractId: newCapTableContractId! });
+    const newCapTableEvents = await ctx.ocp.ledger.getEventsByContractId({ contractId: newCapTableContractId! });
     const newCapTableContractDetails = {
       templateId: newCapTableEvents.created!.createdEvent.templateId,
       contractId: newCapTableContractId!,
@@ -184,7 +184,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       (dc: DisclosedContract) => dc.createdEventBlob && dc.createdEventBlob.length > 0
     );
 
-    const legendResult = await ctx.ocp.client.submitAndWaitForTransactionTree({
+    const legendResult = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
       commands: [legendCmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validLegendDC,
@@ -326,7 +326,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
     );
 
     // Submit using direct client API (TransactionBatch API is for more advanced use cases)
-    const result = await ctx.ocp.client.submitAndWaitForTransactionTree({
+    const result = await ctx.ocp.ledger.submitAndWaitForTransactionTree({
       commands: [cmd.command],
       actAs: [ctx.issuerParty],
       disclosedContracts: validDC,
