@@ -41,7 +41,7 @@
     "typecheck": "tsc -p tsconfig.tests.json --noEmit"
   },
   "dependencies": {
-    "@daml/ledger": "2.10.3",
+    "@daml/ledger": "2.10.4",
     "@daml/types": "3.4.11",
     "ajv": "8.18.0",
     "ajv-formats": "3.0.1",
@@ -50,8 +50,8 @@
   "devDependencies": {
     "@apidevtools/json-schema-ref-parser": "15.3.1",
     "@eslint/eslintrc": "3.3.5",
-    "@fairmint/canton-node-sdk": "0.0.191",
-    "@fairmint/open-captable-protocol-daml-js": "0.2.144",
+    "@fairmint/canton-node-sdk": "0.0.195",
+    "@fairmint/open-captable-protocol-daml-js": "0.2.147",
     "@types/jest": "30.0.0",
     "@types/jsonwebtoken": "9.0.10",
     "@types/node": "25.3.5",
@@ -74,8 +74,8 @@
     "typescript": "5.9.3"
   },
   "peerDependencies": {
-    "@fairmint/canton-node-sdk": ">=0.0.183 <0.1.0",
-    "@fairmint/open-captable-protocol-daml-js": ">=0.2.138 <0.3.0"
+    "@fairmint/canton-node-sdk": ">=0.0.195 <0.1.0",
+    "@fairmint/open-captable-protocol-daml-js": ">=0.2.147 <0.3.0"
   },
   "publishConfig": {
     "access": "public"
