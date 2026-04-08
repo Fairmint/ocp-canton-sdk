@@ -6,7 +6,6 @@
  */
 
 import { getFeaturedAppRightContractDetails } from '@fairmint/canton-node-sdk';
-import { createValidatorApiClient } from '../../utils/cantonNodeSdkCompat';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
@@ -44,6 +43,7 @@ import type {
   OcfWarrantRetraction,
   OcfWarrantTransfer,
 } from '../../../src/types/native';
+import { createValidatorApiClient } from '../../utils/cantonNodeSdkCompat';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 
 /** Result from setting up a test issuer. */

@@ -11,7 +11,7 @@ function loadActualCantonSdkModule(): typeof import('@fairmint/canton-node-sdk')
   if (typeof jest !== 'undefined' && typeof jest.requireActual === 'function') {
     return jest.requireActual<typeof import('@fairmint/canton-node-sdk')>('@fairmint/canton-node-sdk');
   }
-  // eslint-disable-next-line @typescript-eslint/no-require-imports -- runtime fallback outside Jest
+
   return require('@fairmint/canton-node-sdk') as typeof import('@fairmint/canton-node-sdk');
 }
 

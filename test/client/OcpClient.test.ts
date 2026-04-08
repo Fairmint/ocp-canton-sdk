@@ -1,10 +1,7 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';
 import { OcpClient } from '../../src/OcpClient';
-import {
-  createLedgerJsonApiClient,
-  createLedgerAndValidatorClients,
-} from '../utils/cantonNodeSdkCompat';
+import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 jest.mock('@fairmint/canton-node-sdk');
 

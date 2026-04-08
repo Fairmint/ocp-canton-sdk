@@ -15,8 +15,8 @@
 
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../../src/OcpClient';
-import { buildIntegrationTestClientConfig } from '../../utils/testConfig';
 import { createLedgerAndValidatorClients } from '../../utils/cantonNodeSdkCompat';
+import { buildIntegrationTestClientConfig } from '../../utils/testConfig';
 import { createFeaturedAppRight, deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
 
 /** Shared context available to all integration tests. */
