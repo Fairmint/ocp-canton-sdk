@@ -1,12 +1,18 @@
 /**
- * Query Canton for the current state of a CapTable contract.
+ * Query Canton for the state of a CapTable on **this SDK’s pinned template** (`OCP_TEMPLATES.capTable`).
  *
- * Provides a snapshot of all OCF entities currently on-chain for an issuer,
- * enabling stateless replication by comparing against a source of truth.
+ * This is **not** a global “does this issuer have any CapTable on any package line?” API. Ledger filters use
+ * that template id; contracts on other OpenCapTable package versions are outside this query and are neither
+ * loaded nor classified here.
  *
- * CapTable discovery queries `OCP_TEMPLATES.capTable` directly. Any returned
- * row must still carry a non-empty `createdEvent.templateId` string that
- * exactly matches that template ID, or it is treated as a schema violation.
+ * `classifyIssuerCapTables` / `getCapTableState` therefore answer only: “is there an active CapTable **on the
+ * current template** for this issuer?” A `none` / `null` result means the filtered query returned no matching row,
+ * not that the issuer has zero CapTable-shaped contracts in Canton overall. Whether it is safe to create a new
+ * CapTable is a separate DAML / operations concern.
+ *
+ * Any row returned for the filtered query must carry a non-empty `createdEvent.templateId` that **exactly**
+ * matches `OCP_TEMPLATES.capTable`; otherwise the SDK throws `SCHEMA_MISMATCH` (including when the participant
+ * returns an unexpected template id for the same filter).
  *
  * @module getCapTableState
  */
@@ -221,12 +227,15 @@ export interface CapTableWithArchiveContext extends CapTableState {
   systemOperatorPartyId: string;
 }
 
-/** Whether the issuer has a CapTable on the current template. */
+/**
+ * CapTable presence **for the pinned template only** (`OCP_TEMPLATES.capTable`).
+ * `none` means the filtered ledger query found no row on that template, not “no CapTable exists on any package.”
+ */
 export type IssuerCapTableStatus = 'current' | 'none';
 
 export interface IssuerCapTableClassification {
   status: IssuerCapTableStatus;
-  /** Set when `status` is `current` (exactly one CapTable on the current template). */
+  /** Populated when `status` is `current` (exactly one CapTable on the pinned template). */
   current: CapTableWithArchiveContext | null;
 }
 
@@ -305,15 +314,15 @@ async function buildCapTableStateFromCreatedEvent(
       const isNotFoundError =
         errorMessage.toLowerCase().includes('not found') || errorMessage.toLowerCase().includes('archived');
 
+      const issuerWarnTitle = isNotFoundError
+        ? 'Issuer contract not found (may be archived)'
+        : 'Failed to fetch issuer contract events';
       // eslint-disable-next-line no-console -- Intentional warning for operational visibility
-      console.warn(
-        `[getCapTableState] ${isNotFoundError ? 'Issuer contract not found (may be archived)' : 'Failed to fetch issuer contract events'}`,
-        {
-          issuerContractId,
-          errorMessage,
-          stack: error instanceof Error ? error.stack : undefined,
-        }
-      );
+      console.warn(`[getCapTableState] ${issuerWarnTitle}`, {
+        issuerContractId,
+        errorMessage,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
 
       // Continue without adding issuer to entities - issuerContractId is still available
     }
@@ -402,7 +411,10 @@ async function loadCurrentCapTables(
   return out;
 }
 
-/** Whether the issuer has exactly one active CapTable on the current template. */
+/**
+ * Classifies whether the issuer has an active CapTable **on the pinned template** (see module doc).
+ * Other package lines are out of scope and do not affect `status`.
+ */
 export async function classifyIssuerCapTables(
   client: LedgerJsonApiClient,
   issuerPartyId: string
@@ -414,7 +426,10 @@ export async function classifyIssuerCapTables(
   return { status: 'current', current: currentRows[0] };
 }
 
-/** Read the CapTable for an issuer on the current template, or `null` if none exists there. */
+/**
+ * Reads CapTable state **on the pinned template only**, or `null` if the filtered query finds no such contract.
+ * This does not imply the issuer has no CapTable on other templates.
+ */
 export async function getCapTableState(
   client: LedgerJsonApiClient,
   issuerPartyId: string

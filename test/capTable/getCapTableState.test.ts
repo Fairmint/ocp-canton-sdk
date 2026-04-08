@@ -77,7 +77,9 @@ function buildMockCapTableContract(params: {
     params.packageName === OPEN_CAP_TABLE_V34
       ? CURRENT_CAP_TABLE_TEMPLATE_ID
       : `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`;
-  const templateId = Object.prototype.hasOwnProperty.call(params, 'templateId') ? params.templateId : defaultTemplateId;
+  const templateId = Object.prototype.hasOwnProperty.call(params, 'templateId')
+    ? params.templateId
+    : defaultTemplateId;
   return {
     contractEntry: {
       JsActiveContract: {
