@@ -4,8 +4,9 @@
  * Provides a snapshot of all OCF entities currently on-chain for an issuer,
  * enabling stateless replication by comparing against a source of truth.
  *
- * CapTable discovery only accepts rows whose `createdEvent.templateId` exactly
- * matches `OCP_TEMPLATES.capTable`. Rows on other templates are ignored.
+ * CapTable discovery queries `OCP_TEMPLATES.capTable` directly. Any returned
+ * row must still carry a non-empty `createdEvent.templateId` string that
+ * exactly matches that template ID, or it is treated as a schema violation.
  *
  * @module getCapTableState
  */
@@ -337,16 +338,28 @@ function requireCapTableTemplateIdString(templateId: unknown, contractId: string
   return templateId;
 }
 
+function requireCurrentCapTableTemplateId(templateId: unknown, contractId: string): string {
+  const currentTemplateId = requireCapTableTemplateIdString(templateId, contractId);
+  if (currentTemplateId !== CURRENT_CAP_TABLE_TEMPLATE_ID) {
+    throw new OcpContractError('CapTable contract templateId did not match requested template scope', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId,
+      templateId: currentTemplateId,
+    });
+  }
+  return currentTemplateId;
+}
+
 async function capTableWithArchiveContext(
   client: LedgerJsonApiClient,
   createdEvent: {
     contractId: string;
     createArgument: Record<string, unknown>;
     templateId?: unknown;
-  }
+  },
+  templateId: string
 ): Promise<CapTableWithArchiveContext> {
   const base = await buildCapTableStateFromCreatedEvent(client, createdEvent);
-  const templateId = requireCapTableTemplateIdString(createdEvent.templateId, base.capTableContractId);
   const ctx = createdEvent.createArgument.context as Record<string, unknown> | undefined;
   const systemOperatorPartyId = typeof ctx?.system_operator === 'string' ? ctx.system_operator : '';
   if (!systemOperatorPartyId) {
@@ -377,10 +390,8 @@ async function loadCurrentCapTables(
       });
     }
     const { createdEvent } = contract.contractEntry.JsActiveContract;
-    if (createdEvent.templateId !== CURRENT_CAP_TABLE_TEMPLATE_ID) {
-      continue;
-    }
-    out.push(await capTableWithArchiveContext(client, createdEvent));
+    const templateId = requireCurrentCapTableTemplateId(createdEvent.templateId, createdEvent.contractId);
+    out.push(await capTableWithArchiveContext(client, createdEvent, templateId));
   }
   if (out.length > 1) {
     throw new OcpContractError('Multiple active CapTable contracts for issuer', {
