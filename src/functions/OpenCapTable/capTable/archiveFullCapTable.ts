@@ -14,12 +14,12 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes } from '../../../errors/codes';
 import { OcpContractError } from '../../../errors/OcpContractError';
 import { archiveCapTable } from './archiveCapTable';
 import type { OcfEntityType } from './batchTypes';
 import { CapTableBatch } from './CapTableBatch';
+import { discoverCapTables, type DiscoveredCapTableState } from './getCapTableState';
 
 /** Minimal contract state needed for the archive operation. */
 export interface ArchiveCapTableEntities {
@@ -42,6 +42,83 @@ export interface ArchiveFullCapTableOptions {
   systemOperatorPartyId?: string;
 }
 
+interface ResolvedArchiveCapTableContext {
+  readonly templateId: string;
+  readonly systemOperatorPartyId: string;
+}
+
+function getArchiveMatchByContractId(
+  matches: readonly DiscoveredCapTableState[],
+  expectedCapTableContractId?: string
+): DiscoveredCapTableState | null {
+  if (!expectedCapTableContractId) {
+    return null;
+  }
+
+  const matchedContracts = matches.filter((match) => match.capTableContractId === expectedCapTableContractId);
+  return matchedContracts.length === 1 ? matchedContracts[0] : null;
+}
+
+function getSingletonArchiveMatch(discovery: {
+  status: 'target' | 'legacy-only' | 'none' | 'multiple';
+  targetMatch: DiscoveredCapTableState | null;
+  legacyMatch: DiscoveredCapTableState | null;
+}): DiscoveredCapTableState | null {
+  if (discovery.status === 'target') {
+    return discovery.targetMatch;
+  }
+
+  if (discovery.status === 'legacy-only') {
+    return discovery.legacyMatch;
+  }
+
+  return null;
+}
+
+async function resolveArchiveCapTableContext(
+  client: LedgerJsonApiClient,
+  issuerPartyId: string,
+  expectedCapTableContractId?: string
+): Promise<ResolvedArchiveCapTableContext> {
+  const discovery = await discoverCapTables(client, { issuerPartyId });
+  const matchedContract =
+    getArchiveMatchByContractId(discovery.matches, expectedCapTableContractId) ?? getSingletonArchiveMatch(discovery);
+
+  if (!matchedContract) {
+    if (discovery.status === 'none') {
+      throw new OcpContractError('No CapTable contract found when reading archive context', {
+        code: OcpErrorCodes.CONTRACT_NOT_FOUND,
+        contractId: expectedCapTableContractId ?? 'unknown',
+      });
+    }
+
+    throw new OcpContractError('Expected exactly one CapTable contract when reading archive context', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: expectedCapTableContractId ?? 'unknown',
+    });
+  }
+
+  if (matchedContract.templateId.length === 0) {
+    throw new OcpContractError('CapTable contract missing templateId when reading archive context', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: matchedContract.capTableContractId,
+    });
+  }
+
+  if (typeof matchedContract.systemOperatorPartyId !== 'string' || matchedContract.systemOperatorPartyId.length === 0) {
+    throw new OcpContractError('CapTable contract missing context.system_operator', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: matchedContract.capTableContractId,
+      templateId: matchedContract.templateId,
+    });
+  }
+
+  return {
+    templateId: matchedContract.templateId,
+    systemOperatorPartyId: matchedContract.systemOperatorPartyId,
+  };
+}
+
 /**
  * Read the system_operator party ID from the live CapTable contract on Canton.
  *
@@ -50,41 +127,8 @@ export interface ArchiveFullCapTableOptions {
  * CLI script and replication loop use this function.
  */
 export async function getSystemOperatorPartyId(client: LedgerJsonApiClient, issuerPartyId: string): Promise<string> {
-  const contracts = await client.getActiveContracts({
-    parties: [issuerPartyId],
-    templateIds: [Fairmint.OpenCapTable.CapTable.CapTable.templateId],
-  });
-
-  if (contracts.length === 0) {
-    throw new OcpContractError('No CapTable contract found when reading system_operator party', {
-      code: OcpErrorCodes.CONTRACT_NOT_FOUND,
-      contractId: 'unknown',
-    });
-  }
-
-  const contract = contracts[0];
-  const contractEntry = contract.contractEntry as Record<string, unknown>;
-  const jsActiveContract = (contractEntry as { JsActiveContract?: Record<string, unknown> }).JsActiveContract;
-  if (!jsActiveContract) {
-    throw new OcpContractError('Invalid CapTable contract response: missing JsActiveContract', {
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      contractId: 'unknown',
-    });
-  }
-
-  const createdEvent = jsActiveContract.createdEvent as Record<string, unknown> | undefined;
-  const createArgument = createdEvent?.createArgument as Record<string, unknown> | undefined;
-  const context = createArgument?.context as Record<string, unknown> | undefined;
-  const systemOperator = context?.system_operator;
-
-  if (typeof systemOperator !== 'string') {
-    throw new OcpContractError(`CapTable contract missing context.system_operator (got ${typeof systemOperator})`, {
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      contractId: 'unknown',
-    });
-  }
-
-  return systemOperator;
+  const archiveContext = await resolveArchiveCapTableContext(client, issuerPartyId);
+  return archiveContext.systemOperatorPartyId;
 }
 
 /**
@@ -103,6 +147,7 @@ export async function archiveFullCapTable(
   cantonState: ArchiveCapTableEntities,
   options: ArchiveFullCapTableOptions = {}
 ): Promise<ArchiveFullCapTableResult> {
+  const archiveContext = await resolveArchiveCapTableContext(deleteClient, issuerPartyId, cantonState.capTableContractId);
   let deletableEntityCount = 0;
   for (const [entityType, ids] of cantonState.entities.entries()) {
     if (entityType === 'issuer') continue;
@@ -116,6 +161,7 @@ export async function archiveFullCapTable(
     const batch = new CapTableBatch(
       {
         capTableContractId: currentCapTableCid,
+        capTableContractDetails: { templateId: archiveContext.templateId },
         actAs: [issuerPartyId],
       },
       deleteClient
@@ -136,11 +182,11 @@ export async function archiveFullCapTable(
   }
 
   // Step 2: Archive the empty CapTable
-  const systemOperatorPartyId =
-    options.systemOperatorPartyId ?? (await getSystemOperatorPartyId(deleteClient, issuerPartyId));
+  const systemOperatorPartyId = options.systemOperatorPartyId ?? archiveContext.systemOperatorPartyId;
 
   const { updateId } = await archiveCapTable(archiveClient, {
     capTableContractId: currentCapTableCid,
+    capTableContractDetails: { templateId: archiveContext.templateId },
     actAs: [systemOperatorPartyId],
   });
 

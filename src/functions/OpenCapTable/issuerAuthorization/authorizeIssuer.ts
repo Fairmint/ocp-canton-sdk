@@ -5,6 +5,7 @@ import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/sr
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { getOpenCapTableIssuerAuthorizationTemplateId } from './issuerAuthorizationRegistry';
 
 export interface AuthorizeIssuerParams {
   issuer: string; // Party ID of the issuer to authorize
@@ -82,13 +83,11 @@ export async function authorizeIssuer(
     ],
   })) as SubmitAndWaitForTransactionTreeResponse;
 
-  const created = findCreatedEventByTemplateId(
-    response,
-    Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId
-  );
+  const issuerAuthorizationTemplateId = getOpenCapTableIssuerAuthorizationTemplateId();
+  const created = findCreatedEventByTemplateId(response, issuerAuthorizationTemplateId);
   if (!created) {
     throw new OcpContractError('Expected CreatedTreeEvent not found for IssuerAuthorization', {
-      templateId: Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId,
+      templateId: issuerAuthorizationTemplateId,
       choice: 'AuthorizeIssuer',
       code: OcpErrorCodes.RESULT_NOT_FOUND,
     });

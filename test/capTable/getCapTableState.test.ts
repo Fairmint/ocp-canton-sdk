@@ -7,7 +7,13 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { getCapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
+import {
+  CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+  discoverCapTables,
+  getOpenCapTableCapTableTemplateIds,
+  getCapTableState,
+  KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES,
+} from '../../src/functions/OpenCapTable/capTable';
 
 // Mock the canton-node-sdk
 jest.mock('@fairmint/canton-node-sdk');
@@ -39,6 +45,53 @@ function buildMockIssuerEventsResponse(contractId: string, issuerData: TestIssue
   };
 }
 
+function buildMockCapTableContract(params: {
+  contractId: string;
+  issuerContractId: string;
+  packageName: string;
+  createArgument?: Record<string, unknown>;
+  templateId?: string;
+}) {
+  return {
+    contractEntry: {
+      JsActiveContract: {
+        createdEvent: {
+          contractId: params.contractId,
+          templateId:
+            params.templateId ?? `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`,
+          createArgument: {
+            issuer: params.issuerContractId,
+            ...params.createArgument,
+          },
+          createdEventBlob: 'blob-data',
+          witnessParties: ['party-1'],
+          signatories: ['party-1'],
+          observers: [],
+          createdAt: '2024-01-01T00:00:00Z',
+          packageName: params.packageName,
+          offset: 1000,
+          nodeId: 1,
+          contractKey: null,
+          interfaceViews: [],
+        },
+        synchronizerId: 'sync-1',
+        reassignmentCounter: 0,
+      },
+    },
+  };
+}
+
+const LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE = KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES.find(
+  (packageLine) => packageLine !== CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE
+);
+const CURRENT_CAP_TABLE_TEMPLATE_ID = getOpenCapTableCapTableTemplateIds([
+  CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+])[0];
+
+if (!LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE) {
+  throw new Error('Expected at least one legacy OpenCapTable package line in test fixtures');
+}
+
 describe('getCapTableState', () => {
   let mockClient: jest.Mocked<LedgerJsonApiClient>;
 
@@ -65,7 +118,7 @@ describe('getCapTableState', () => {
             JsActiveContract: {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
-                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 // This is the correct field name per Canton JSON API v2
                 createArgument: {
                   issuer: 'issuer-contract-456',
@@ -89,7 +142,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: 'OpenCapTable-v30',
+                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -184,7 +237,7 @@ describe('getCapTableState', () => {
             JsActiveContract: {
               createdEvent: {
                 contractId: 'cap-table-contract-array-format',
-                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-789',
                   // Array-of-tuples format for DAML Maps
@@ -206,7 +259,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: 'OpenCapTable-v34',
+                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
                 offset: 2000,
                 nodeId: 1,
                 contractKey: null,
@@ -268,7 +321,7 @@ describe('getCapTableState', () => {
             JsActiveContract: {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
-                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-456',
                   stakeholders: [],
@@ -281,7 +334,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: 'OpenCapTable-v30',
+                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -321,7 +374,7 @@ describe('getCapTableState', () => {
             JsActiveContract: {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
-                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-456',
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
@@ -331,7 +384,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: 'OpenCapTable-v30',
+                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -370,7 +423,7 @@ describe('getCapTableState', () => {
             JsActiveContract: {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
-                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-456',
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
@@ -380,7 +433,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: 'OpenCapTable-v30',
+                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -436,7 +489,7 @@ describe('getCapTableState', () => {
             JsActiveContract: {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
-                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-456',
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
@@ -446,7 +499,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: 'OpenCapTable-v30',
+                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -502,7 +555,7 @@ describe('getCapTableState', () => {
             JsActiveContract: {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
-                templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+                templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-456',
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
@@ -512,7 +565,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: 'OpenCapTable-v30',
+                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -620,6 +673,119 @@ describe('getCapTableState', () => {
         /Invalid CapTable contract response/
       );
       expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('version-aware discovery', () => {
+    it('should classify a single current-package match as target', async () => {
+      mockClient.getActiveContracts.mockResolvedValue([
+        buildMockCapTableContract({
+          contractId: 'cap-table-v34',
+          issuerContractId: 'issuer-contract-456',
+          packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+          createArgument: {
+            stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
+          },
+        }),
+      ] as never);
+      mockClient.getEventsByContractId.mockResolvedValue(
+        buildMockIssuerEventsResponse('issuer-contract-456', {
+          id: 'issuer-ocf-id-123',
+          legal_name: 'Target Corp',
+          country_of_formation: 'US',
+          formation_date: '2024-01-01T00:00:00Z',
+        }) as never
+      );
+
+      const result = await discoverCapTables(mockClient, { issuerPartyId: 'issuer::party-123' });
+
+      expect(result.status).toBe('target');
+      expect(result.targetMatch?.packageLine).toBe(CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE);
+      expect(result.targetMatches).toHaveLength(1);
+      expect(result.legacyMatches).toHaveLength(0);
+      expect(result.matchesByPackageLine.get(CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE)).toHaveLength(1);
+      expect(mockClient.getActiveContracts).toHaveBeenCalledWith({
+        parties: ['issuer::party-123'],
+        templateIds: expect.arrayContaining(getOpenCapTableCapTableTemplateIds()),
+      });
+    });
+
+    it('should classify a single legacy-package match as legacy-only', async () => {
+      mockClient.getActiveContracts.mockResolvedValue([
+        buildMockCapTableContract({
+          contractId: 'cap-table-legacy',
+          issuerContractId: 'issuer-contract-456',
+          packageName: LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE,
+          templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
+          createArgument: {
+            stakeholders: [['legacy-stakeholder', 'legacy-stakeholder-contract']],
+          },
+        }),
+      ] as never);
+      mockClient.getEventsByContractId.mockResolvedValue(
+        buildMockIssuerEventsResponse('issuer-contract-456', {
+          id: 'issuer-legacy-id',
+          legal_name: 'Legacy Corp',
+          country_of_formation: 'US',
+          formation_date: '2024-01-01T00:00:00Z',
+        }) as never
+      );
+
+      const result = await discoverCapTables(mockClient, {
+        issuerPartyId: 'issuer::party-123',
+        targetPackageLine: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+      });
+
+      expect(result.status).toBe('legacy-only');
+      expect(result.targetMatches).toHaveLength(0);
+      expect(result.legacyMatch?.packageLine).toBe(LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE);
+      expect(result.legacyMatches).toHaveLength(1);
+    });
+
+    it('should classify mixed current and legacy matches as multiple', async () => {
+      mockClient.getActiveContracts.mockResolvedValue([
+        buildMockCapTableContract({
+          contractId: 'cap-table-current',
+          issuerContractId: 'issuer-contract-456',
+          packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+        }),
+        buildMockCapTableContract({
+          contractId: 'cap-table-legacy',
+          issuerContractId: 'issuer-contract-456',
+          packageName: LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE,
+        }),
+      ] as never);
+      mockClient.getEventsByContractId.mockResolvedValue(
+        buildMockIssuerEventsResponse('issuer-contract-456', {
+          id: 'issuer-mixed-id',
+          legal_name: 'Mixed Corp',
+          country_of_formation: 'US',
+          formation_date: '2024-01-01T00:00:00Z',
+        }) as never
+      );
+
+      const result = await discoverCapTables(mockClient, {
+        issuerPartyId: 'issuer::party-123',
+        targetPackageLine: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+      });
+
+      expect(result.status).toBe('multiple');
+      expect(result.targetMatches).toHaveLength(1);
+      expect(result.legacyMatches).toHaveLength(1);
+      expect(result.targetMatch?.packageLine).toBe(CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE);
+      expect(result.legacyMatch?.packageLine).toBe(LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE);
+    });
+
+    it('should keep getCapTableState current-version-only when only legacy exists', async () => {
+      mockClient.getActiveContracts.mockResolvedValue([] as never);
+
+      const result = await getCapTableState(mockClient, 'issuer::party-123');
+
+      expect(result).toBeNull();
+      expect(mockClient.getActiveContracts).toHaveBeenCalledWith({
+        parties: ['issuer::party-123'],
+        templateIds: getOpenCapTableCapTableTemplateIds([CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE]),
+      });
     });
   });
 });
