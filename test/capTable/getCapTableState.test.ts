@@ -14,9 +14,9 @@ import { classifyIssuerCapTables, getCapTableState } from '../../src/functions/O
 jest.mock('@fairmint/canton-node-sdk');
 
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
-const LEGACY_CAP_TABLE_TEMPLATE_ID = '#OpenCapTable-v33:Fairmint.OpenCapTable.CapTable:CapTable';
+const NON_CURRENT_CAP_TABLE_TEMPLATE_ID = '#OpenCapTable-other:Fairmint.OpenCapTable.CapTable:CapTable';
 const OPEN_CAP_TABLE_V34 = 'OpenCapTable-v34';
-const OPEN_CAP_TABLE_V33 = 'OpenCapTable-v33';
+const NON_CURRENT_CAP_TABLE_PACKAGE_NAME = 'OpenCapTable-other';
 
 function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
   return templateIds?.length === 1 && templateIds[0] === CURRENT_CAP_TABLE_TEMPLATE_ID;
@@ -243,20 +243,20 @@ describe('getCapTableState', () => {
       expect(result).toBeNull();
     });
 
-    it('should ignore leaked legacy-template rows when a current-template CapTable is also returned', async () => {
+    it('should ignore rows on non-current templates when a current-template CapTable is also returned', async () => {
       mockActiveContractsForCapTableState(mockClient, {
         current: [
           buildMockCapTableContract({
-            contractId: 'cap-table-v33',
-            issuerContractId: 'issuer-contract-legacy',
-            packageName: OPEN_CAP_TABLE_V33,
-            templateId: LEGACY_CAP_TABLE_TEMPLATE_ID,
+            contractId: 'cap-table-other',
+            issuerContractId: 'issuer-contract-other',
+            packageName: NON_CURRENT_CAP_TABLE_PACKAGE_NAME,
+            templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
             createArgument: {
-              stakeholders: [['legacy-stakeholder', 'legacy-stakeholder-contract']],
+              stakeholders: [['other-stakeholder', 'other-stakeholder-contract']],
             },
           }),
           buildMockCapTableContract({
-            contractId: 'cap-table-v34',
+            contractId: 'cap-table-current',
             issuerContractId: 'issuer-contract-456',
             packageName: OPEN_CAP_TABLE_V34,
             createArgument: {
@@ -277,10 +277,10 @@ describe('getCapTableState', () => {
       const result = await getCapTableState(mockClient, 'issuer::party-123');
 
       expect(result).not.toBeNull();
-      expect(result!.capTableContractId).toBe('cap-table-v34');
+      expect(result!.capTableContractId).toBe('cap-table-current');
       expect(result!.issuerContractId).toBe('issuer-contract-456');
       expect(result!.entities.get('stakeholder')?.has('current-stakeholder')).toBe(true);
-      expect(result!.entities.get('stakeholder')?.has('legacy-stakeholder')).toBe(false);
+      expect(result!.entities.get('stakeholder')?.has('other-stakeholder')).toBe(false);
       expect(mockClient.getEventsByContractId).toHaveBeenCalledTimes(1);
       expect(mockClient.getEventsByContractId).toHaveBeenCalledWith({
         contractId: 'issuer-contract-456',
@@ -721,17 +721,17 @@ describe('getCapTableState', () => {
       });
     });
 
-    it('should ignore a leaked v33 row and still classify the exact current template as current', async () => {
+    it('should ignore a non-current row and still classify the exact current template as current', async () => {
       mockActiveContractsForCapTableState(mockClient, {
         current: [
           buildMockCapTableContract({
-            contractId: 'cap-table-v33',
-            issuerContractId: 'issuer-contract-legacy',
-            packageName: OPEN_CAP_TABLE_V33,
-            templateId: LEGACY_CAP_TABLE_TEMPLATE_ID,
+            contractId: 'cap-table-other',
+            issuerContractId: 'issuer-contract-other',
+            packageName: NON_CURRENT_CAP_TABLE_PACKAGE_NAME,
+            templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
           }),
           buildMockCapTableContract({
-            contractId: 'cap-table-v34',
+            contractId: 'cap-table-current',
             issuerContractId: 'issuer-contract-456',
             packageName: OPEN_CAP_TABLE_V34,
           }),
@@ -749,16 +749,14 @@ describe('getCapTableState', () => {
       const result = await classifyIssuerCapTables(mockClient, 'issuer::party-123');
 
       expect(result.status).toBe('current');
-      expect(result.current?.capTableContractId).toBe('cap-table-v34');
+      expect(result.current?.capTableContractId).toBe('cap-table-current');
       expect(mockClient.getEventsByContractId).toHaveBeenCalledTimes(1);
       expect(mockClient.getEventsByContractId).toHaveBeenCalledWith({
         contractId: 'issuer-contract-456',
       });
     });
 
-    it('should classify as none when the pinned template has no CapTable (legacy v33+ packages are off-query)', async () => {
-      // Ledger only returns contracts matching templateIds. Older OpenCapTable package lines are never
-      // passed here, so they are invisible — same as “no row” for discovery purposes.
+    it('should classify as none when the current template has no CapTable', async () => {
       mockActiveContractsForCapTableState(mockClient, { current: [] });
 
       const result = await classifyIssuerCapTables(mockClient, 'issuer::party-123');
@@ -771,14 +769,14 @@ describe('getCapTableState', () => {
       });
     });
 
-    it('should classify as none when only a leaked legacy-template row is returned', async () => {
+    it('should classify as none when only a non-current row is returned', async () => {
       mockActiveContractsForCapTableState(mockClient, {
         current: [
           buildMockCapTableContract({
-            contractId: 'cap-table-v33',
-            issuerContractId: 'issuer-contract-legacy',
-            packageName: OPEN_CAP_TABLE_V33,
-            templateId: LEGACY_CAP_TABLE_TEMPLATE_ID,
+            contractId: 'cap-table-other',
+            issuerContractId: 'issuer-contract-other',
+            packageName: NON_CURRENT_CAP_TABLE_PACKAGE_NAME,
+            templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
           }),
         ],
       });
