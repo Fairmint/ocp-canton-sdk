@@ -40,9 +40,9 @@ export {
 
 // CapTable state reader (for replication)
 export {
-  classifyIssuerCapTables,
   FIELD_TO_ENTITY_TYPE,
   SECURITY_ID_FIELD_TO_ENTITY_TYPE,
+  classifyIssuerCapTables,
   getCapTableState,
   type CapTableState,
   type CapTableWithArchiveContext,

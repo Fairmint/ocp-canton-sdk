@@ -186,8 +186,7 @@ export class CapTableBatch {
 
     // Use the templateId from capTableContractDetails when provided (from actual ledger),
     // otherwise fall back to the DAML-JS package's hardcoded templateId.
-    const capTableTemplateId =
-      this.params.capTableContractDetails?.templateId ?? OCP_TEMPLATES.capTable;
+    const capTableTemplateId = this.params.capTableContractDetails?.templateId ?? OCP_TEMPLATES.capTable;
 
     const command: Command = {
       ExerciseCommand: {

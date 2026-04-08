@@ -1,10 +1,10 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
-import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
   archiveFullCapTable,
   getSystemOperatorPartyId,
 } from '../../src/functions/OpenCapTable/capTable/archiveFullCapTable';
+import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 
 const mockArchiveCapTable = jest.fn();
 const mockBatchDelete = jest.fn();
@@ -189,18 +189,13 @@ describe('archiveFullCapTable', () => {
       ],
     });
 
-    const result = await archiveFullCapTable(
-      mockClient,
-      mockClient,
-      'issuer::party-123',
-      {
-        capTableContractId: 'cap-table-v34',
-        entities: new Map<OcfEntityType, Set<string>>([
-          ['issuer', new Set(['issuer-ocf-id-123'])],
-          ['stakeholder', new Set(['stakeholder-1'])],
-        ]),
-      }
-    );
+    const result = await archiveFullCapTable(mockClient, mockClient, 'issuer::party-123', {
+      capTableContractId: 'cap-table-v34',
+      entities: new Map<OcfEntityType, Set<string>>([
+        ['issuer', new Set(['issuer-ocf-id-123'])],
+        ['stakeholder', new Set(['stakeholder-1'])],
+      ]),
+    });
 
     expect(mockCapTableBatch).toHaveBeenCalledWith(
       {
