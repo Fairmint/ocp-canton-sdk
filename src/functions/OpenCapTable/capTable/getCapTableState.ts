@@ -351,6 +351,10 @@ function requireCapTableTemplateIdString(templateId: unknown, contractId: string
   return templateId;
 }
 
+function isCurrentCapTableTemplateId(templateId: unknown): templateId is string {
+  return templateId === CURRENT_CAP_TABLE_TEMPLATE_ID;
+}
+
 async function capTableWithArchiveContext(
   client: LedgerJsonApiClient,
   createdEvent: {
@@ -391,6 +395,9 @@ async function loadCurrentCapTables(
       });
     }
     const { createdEvent } = contract.contractEntry.JsActiveContract;
+    if (!isCurrentCapTableTemplateId(createdEvent.templateId)) {
+      continue;
+    }
     out.push(await capTableWithArchiveContext(client, createdEvent));
   }
   if (out.length > 1) {
