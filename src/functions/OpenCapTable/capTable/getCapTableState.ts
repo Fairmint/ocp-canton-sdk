@@ -9,11 +9,14 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import { parseDamlMap } from '../../../utils/typeConversions';
 import type { OcfEntityType } from './batchTypes';
+
+/** CapTable template from the pinned daml-js package (single supported line). */
+const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
 
 /**
  * Type guard to check if a contract entry is a JsActiveContract with complete structure.
@@ -30,7 +33,12 @@ import type { OcfEntityType } from './batchTypes';
 function isJsActiveContractItem(item: JsGetActiveContractsResponseItem): item is JsGetActiveContractsResponseItem & {
   contractEntry: {
     JsActiveContract: {
-      createdEvent: { contractId: string; createArgument: Record<string, unknown> };
+      createdEvent: {
+        contractId: string;
+        createArgument: Record<string, unknown>;
+        templateId?: string;
+        packageName?: string;
+      };
     };
   };
 } {
@@ -203,55 +211,28 @@ export interface CapTableState {
   securityIds: Map<OcfEntityType, Set<string>>;
 }
 
-/**
- * Query Canton for the current state of a CapTable.
- *
- * Uses getActiveContracts filtered by party to efficiently retrieve only
- * the CapTable contract for the specified issuer.
- *
- * Note: In the standard deployment model, each issuer party has exactly one
- * active CapTable contract. If multiple CapTable contracts exist for the same
- * party (which would indicate a configuration issue), this function returns
- * the first one found. The system design ensures this is a 1:1 relationship.
- *
- * @param client - LedgerJsonApiClient instance
- * @param issuerPartyId - Party ID of the issuer
- * @returns CapTableState with all canonical object IDs on-chain, or null if no CapTable exists
- *
- * @example
- * ```typescript
- * const state = await getCapTableState(client, 'issuer::party123');
- * if (state) {
- *   const stakeholderIds = state.entities.get('stakeholder') ?? new Set();
- *   console.log(`${stakeholderIds.size} stakeholders on-chain`);
- * }
- * ```
- */
-export async function getCapTableState(
+/** CapTable state plus fields needed for ArchiveCapTable / batch commands. */
+export interface CapTableWithArchiveContext extends CapTableState {
+  templateId: string;
+  systemOperatorPartyId: string;
+}
+
+export type IssuerCapTableStatus = 'current' | 'none';
+
+export interface IssuerCapTableClassification {
+  status: IssuerCapTableStatus;
+  /** Set when status is `current` (exactly one CapTable on the supported template). */
+  current: CapTableWithArchiveContext | null;
+}
+
+async function buildCapTableStateFromCreatedEvent(
   client: LedgerJsonApiClient,
-  issuerPartyId: string
-): Promise<CapTableState | null> {
-  // Query for CapTable contract by party
-  // Use the DAML-JS package's templateId for compatibility with deployed packages.
-  const contracts = await client.getActiveContracts({
-    parties: [issuerPartyId],
-    templateIds: [Fairmint.OpenCapTable.CapTable.CapTable.templateId],
-  });
-
-  if (contracts.length === 0) {
-    return null;
+  createdEvent: {
+    contractId: string;
+    createArgument: Record<string, unknown>;
+    templateId?: unknown;
   }
-
-  // Extract payload from the first matching contract
-  const capTableContract = contracts[0];
-
-  if (!isJsActiveContractItem(capTableContract)) {
-    throw new OcpContractError('Invalid CapTable contract response: expected JsActiveContract entry', {
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-      contractId: 'unknown',
-    });
-  }
-  const { createdEvent } = capTableContract.contractEntry.JsActiveContract;
+): Promise<CapTableState> {
   const { contractId, createArgument: payload } = createdEvent;
 
   // Build entity maps from payload fields
@@ -340,4 +321,94 @@ export async function getCapTableState(
     contractIds,
     securityIds,
   };
+}
+
+function requireCapTableTemplateIdString(templateId: unknown, contractId: string): string {
+  if (typeof templateId !== 'string' || templateId.length === 0) {
+    throw new OcpContractError('CapTable contract templateId must be a non-empty string', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId,
+    });
+  }
+  return templateId;
+}
+
+async function capTableWithArchiveContext(
+  client: LedgerJsonApiClient,
+  createdEvent: {
+    contractId: string;
+    createArgument: Record<string, unknown>;
+    templateId?: unknown;
+  }
+): Promise<CapTableWithArchiveContext> {
+  const base = await buildCapTableStateFromCreatedEvent(client, createdEvent);
+  const templateId = requireCapTableTemplateIdString(createdEvent.templateId, base.capTableContractId);
+  const ctx = createdEvent.createArgument.context as Record<string, unknown> | undefined;
+  const systemOperatorPartyId = typeof ctx?.system_operator === 'string' ? ctx.system_operator : '';
+  if (!systemOperatorPartyId) {
+    throw new OcpContractError('CapTable contract missing context.system_operator', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: base.capTableContractId,
+      templateId,
+    });
+  }
+  return { ...base, templateId, systemOperatorPartyId };
+}
+
+async function loadCurrentCapTables(
+  client: LedgerJsonApiClient,
+  issuerPartyId: string
+): Promise<CapTableWithArchiveContext[]> {
+  const contracts = await client.getActiveContracts({
+    parties: [issuerPartyId],
+    templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
+  });
+  const out: CapTableWithArchiveContext[] = [];
+  for (const contract of contracts) {
+    if (!isJsActiveContractItem(contract)) {
+      throw new OcpContractError('Invalid CapTable contract response: expected JsActiveContract entry', {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'unknown',
+      });
+    }
+    const { createdEvent } = contract.contractEntry.JsActiveContract;
+    out.push(await capTableWithArchiveContext(client, createdEvent));
+  }
+  if (out.length > 1) {
+    throw new OcpContractError('Multiple active CapTable contracts for issuer', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: out.map((m) => m.capTableContractId).join(','),
+    });
+  }
+  return out;
+}
+
+/**
+ * Whether the issuer has exactly one active CapTable on the SDK’s supported template.
+ */
+export async function classifyIssuerCapTables(
+  client: LedgerJsonApiClient,
+  issuerPartyId: string
+): Promise<IssuerCapTableClassification> {
+  const currentRows = await loadCurrentCapTables(client, issuerPartyId);
+  if (currentRows.length === 0) {
+    return { status: 'none', current: null };
+  }
+  return { status: 'current', current: currentRows[0] };
+}
+
+/**
+ * Read the CapTable for an issuer using the SDK’s supported template, or null if none.
+ * Throws if more than one active CapTable exists for that template.
+ */
+export async function getCapTableState(
+  client: LedgerJsonApiClient,
+  issuerPartyId: string
+): Promise<CapTableState | null> {
+  const c = await classifyIssuerCapTables(client, issuerPartyId);
+  if (c.status !== 'current' || !c.current) {
+    return null;
+  }
+  const { templateId: _tid, systemOperatorPartyId: _op, ...state } = c.current;
+  return state;
 }

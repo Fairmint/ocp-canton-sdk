@@ -42,6 +42,10 @@ export {
 export {
   FIELD_TO_ENTITY_TYPE,
   SECURITY_ID_FIELD_TO_ENTITY_TYPE,
+  classifyIssuerCapTables,
   getCapTableState,
   type CapTableState,
+  type CapTableWithArchiveContext,
+  type IssuerCapTableClassification,
+  type IssuerCapTableStatus,
 } from './getCapTableState';

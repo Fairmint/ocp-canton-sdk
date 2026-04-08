@@ -1,5 +1,5 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts } from '../../../types';
 
 /**
@@ -27,12 +27,8 @@ export function buildCapTableCommand(params: {
   // This is safe because all our DAML choice arguments are serializable JSON structures
   const choiceArg = params.choiceArgument as JsonRecord;
 
-  // Use the templateId from capTableContractDetails when provided (from actual ledger),
-  // otherwise fall back to the DAML-JS package's hardcoded templateId.
-  // This prevents WRONGLY_TYPED_CONTRACT errors when the deployed packages have
-  // different package IDs than the DAML-JS package.
-  const capTableTemplateId =
-    params.capTableContractDetails?.templateId ?? Fairmint.OpenCapTable.CapTable.CapTable.templateId;
+  // Prefer templateId from ledger; fall back to daml-js canonical id (same module:entity, current package).
+  const capTableTemplateId = params.capTableContractDetails?.templateId ?? OCP_TEMPLATES.capTable;
 
   const command: Command = {
     ExerciseCommand: {

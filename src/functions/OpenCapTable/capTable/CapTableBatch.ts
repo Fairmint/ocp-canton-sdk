@@ -7,7 +7,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CommandWithDisclosedContracts } from '../../../types';
 import {
@@ -186,8 +186,7 @@ export class CapTableBatch {
 
     // Use the templateId from capTableContractDetails when provided (from actual ledger),
     // otherwise fall back to the DAML-JS package's hardcoded templateId.
-    const capTableTemplateId =
-      this.params.capTableContractDetails?.templateId ?? Fairmint.OpenCapTable.CapTable.CapTable.templateId;
+    const capTableTemplateId = this.params.capTableContractDetails?.templateId ?? OCP_TEMPLATES.capTable;
 
     const command: Command = {
       ExerciseCommand: {

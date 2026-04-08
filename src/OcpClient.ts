@@ -127,8 +127,12 @@ import {
 import {
   archiveCapTable,
   CapTableBatch,
+  classifyIssuerCapTables,
+  getCapTableState,
   type ArchiveCapTableParams,
   type ArchiveCapTableResult,
+  type CapTableState,
+  type IssuerCapTableClassification,
 } from './functions/OpenCapTable/capTable';
 import type { CommandWithDisclosedContracts } from './types';
 import type { ContractResult, GetByContractIdParams } from './types/common';
@@ -720,6 +724,8 @@ export class OcpClient {
 
       // ===== Batch Updates & Lifecycle =====
       capTable: {
+        classify: async (issuerPartyId: string) => classifyIssuerCapTables(client, issuerPartyId),
+        getState: async (issuerPartyId: string) => getCapTableState(client, issuerPartyId),
         update: (params: CapTableUpdateParams) => new CapTableBatch(params, client),
         archive: async (params: ArchiveCapTableParams) => archiveCapTable(client, params),
       },
@@ -878,6 +884,10 @@ interface OpenCapTableMethods {
 
   // Batch Updates & Lifecycle
   capTable: {
+    /** Current-line CapTable (SDK template) vs none for an issuer. */
+    classify: (issuerPartyId: string) => Promise<IssuerCapTableClassification>;
+    /** Read CapTable state for an issuer (SDK-supported template). */
+    getState: (issuerPartyId: string) => Promise<CapTableState | null>;
     /** Create a batch builder for atomic cap table updates */
     update: (params: CapTableUpdateParams) => CapTableBatch;
     /** Archive a cap table (system_operator only, requires empty entity maps) */
