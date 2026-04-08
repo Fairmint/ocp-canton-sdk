@@ -5,7 +5,8 @@
  * LocalNet environment.
  */
 
-import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
+import { getFeaturedAppRightContractDetails } from '@fairmint/canton-node-sdk';
+import { createValidatorApiClient } from '../../utils/cantonNodeSdkCompat';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import type { OcpClient } from '../../../src/OcpClient';
@@ -550,7 +551,7 @@ export function createTestStakeholderStatusChangeData(
  * Canton Network.
  */
 export async function getFeaturedAppRightDetails(): Promise<DisclosedContract> {
-  const validatorClient = new ValidatorApiClient({ network: 'localnet' });
+  const validatorClient = createValidatorApiClient({ network: 'localnet' });
   try {
     const details = await getFeaturedAppRightContractDetails(validatorClient);
     return {

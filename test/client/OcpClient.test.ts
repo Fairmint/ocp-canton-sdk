@@ -1,7 +1,10 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
-import { LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';
 import { OcpClient } from '../../src/OcpClient';
+import {
+  createLedgerJsonApiClient,
+  createLedgerAndValidatorClients,
+} from '../utils/cantonNodeSdkCompat';
 
 jest.mock('@fairmint/canton-node-sdk');
 
@@ -9,8 +12,7 @@ describe('OcpClient', () => {
   const config: ClientConfig = { network: 'devnet' };
 
   it('reuses injected runtime clients instead of constructing hidden ones', () => {
-    const ledger = new LedgerJsonApiClient(config);
-    const validator = new ValidatorApiClient(config);
+    const { ledger, validator } = createLedgerAndValidatorClients(config);
 
     const ocp = new OcpClient({ ledger, validator });
 
@@ -19,7 +21,7 @@ describe('OcpClient', () => {
   });
 
   it('supports ledger-only dependencies', () => {
-    const ledger = new LedgerJsonApiClient(config);
+    const ledger = createLedgerJsonApiClient(config);
 
     const ocp = new OcpClient({ ledger });
 
@@ -48,7 +50,7 @@ describe('OcpClient OpenCapTable.capTable facade', () => {
   });
 
   it('forwards capTable.classify to classifyIssuerCapTables with the injected ledger', async () => {
-    const ledger = new LedgerJsonApiClient(config);
+    const ledger = createLedgerJsonApiClient(config);
     const ocp = new OcpClient({ ledger });
 
     await ocp.OpenCapTable.capTable.classify('issuer::party-1');
@@ -58,7 +60,7 @@ describe('OcpClient OpenCapTable.capTable facade', () => {
   });
 
   it('forwards capTable.getState to getCapTableState with the injected ledger', async () => {
-    const ledger = new LedgerJsonApiClient(config);
+    const ledger = createLedgerJsonApiClient(config);
     const ocp = new OcpClient({ ledger });
 
     await ocp.OpenCapTable.capTable.getState('issuer::party-2');

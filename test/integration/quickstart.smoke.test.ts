@@ -5,18 +5,18 @@
  * environment. Run with: npm run test:integration
  */
 
-import { LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { OcpClient } from '../../src/OcpClient';
+import { createLedgerAndValidatorClients } from '../utils/cantonNodeSdkCompat';
 import { buildIntegrationTestClientConfig } from '../utils/testConfig';
 
 describe('quickstart smoke', () => {
   jest.setTimeout(120_000);
 
   test('connects and returns /v2/version', async () => {
-    const config = buildIntegrationTestClientConfig();
+    const { ledger, validator } = createLedgerAndValidatorClients(buildIntegrationTestClientConfig());
     const ocp = new OcpClient({
-      ledger: new LedgerJsonApiClient(config),
-      validator: new ValidatorApiClient(config),
+      ledger,
+      validator,
     });
 
     const version = await ocp.ledger.getVersion();

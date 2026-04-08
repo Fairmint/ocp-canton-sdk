@@ -8,7 +8,7 @@
  * or debugging.
  */
 
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
+import { createLedgerJsonApiClient } from '../../test/utils/cantonNodeSdkCompat';
 import * as fs from 'fs';
 import { createRequire } from 'node:module';
 import * as path from 'path';
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
 
   await waitForLedgerJsonApiReady();
 
-  const client = new LedgerJsonApiClient(buildQuickstartClientConfig());
+  const client = createLedgerJsonApiClient(buildQuickstartClientConfig());
 
   for (const filePath of filePaths) {
     console.log(`Uploading DAR: ${filePath}`);
