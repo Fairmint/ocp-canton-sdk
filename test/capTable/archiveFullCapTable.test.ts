@@ -4,11 +4,11 @@ import {
   KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES,
   getOpenCapTableCapTableTemplateIds,
 } from '../../src/functions/OpenCapTable/capTable';
-import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
   archiveFullCapTable,
   getSystemOperatorPartyId,
 } from '../../src/functions/OpenCapTable/capTable/archiveFullCapTable';
+import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 
 const mockArchiveCapTable = jest.fn();
 const mockBatchDelete = jest.fn();
@@ -60,8 +60,7 @@ function buildMockCapTableContract(params: {
       JsActiveContract: {
         createdEvent: {
           contractId: params.contractId,
-          templateId:
-            params.templateId ?? `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`,
+          templateId: params.templateId ?? `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`,
           createArgument: {
             issuer: params.issuerContractId,
             context: {
@@ -172,18 +171,13 @@ describe('archiveFullCapTable version-aware archive support', () => {
     ] as never);
     mockBatchExecute.mockResolvedValue({ updatedCapTableCid: 'cap-table-legacy-updated' });
 
-    const result = await archiveFullCapTable(
-      mockClient,
-      mockClient,
-      'issuer::party-123',
-      {
-        capTableContractId: 'cap-table-legacy',
-        entities: new Map<OcfEntityType, Set<string>>([
-          ['issuer', new Set(['issuer-ocf-id-123'])],
-          ['stakeholder', new Set(['stakeholder-1'])],
-        ]),
-      }
-    );
+    const result = await archiveFullCapTable(mockClient, mockClient, 'issuer::party-123', {
+      capTableContractId: 'cap-table-legacy',
+      entities: new Map<OcfEntityType, Set<string>>([
+        ['issuer', new Set(['issuer-ocf-id-123'])],
+        ['stakeholder', new Set(['stakeholder-1'])],
+      ]),
+    });
 
     expect(mockCapTableBatch).toHaveBeenCalledWith(
       {

@@ -147,7 +147,11 @@ export async function archiveFullCapTable(
   cantonState: ArchiveCapTableEntities,
   options: ArchiveFullCapTableOptions = {}
 ): Promise<ArchiveFullCapTableResult> {
-  const archiveContext = await resolveArchiveCapTableContext(deleteClient, issuerPartyId, cantonState.capTableContractId);
+  const archiveContext = await resolveArchiveCapTableContext(
+    deleteClient,
+    issuerPartyId,
+    cantonState.capTableContractId
+  );
   let deletableEntityCount = 0;
   for (const [entityType, ids] of cantonState.entities.entries()) {
     if (entityType === 'issuer') continue;

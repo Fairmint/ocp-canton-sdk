@@ -17,8 +17,8 @@ import {
   CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
   KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES,
   getOpenCapTableCapTableTemplateIds,
-  type OpenCapTablePackageLine,
   resolveOpenCapTablePackageLine,
+  type OpenCapTablePackageLine,
 } from './capTableRegistry';
 
 /**
@@ -463,7 +463,8 @@ export async function discoverCapTables(
       packageLine,
       templateId: createdEvent.templateId ?? '',
       systemOperatorPartyId:
-        typeof (createdEvent.createArgument.context as Record<string, unknown> | undefined)?.system_operator === 'string'
+        typeof (createdEvent.createArgument.context as Record<string, unknown> | undefined)?.system_operator ===
+        'string'
           ? ((createdEvent.createArgument.context as Record<string, unknown>).system_operator as string)
           : undefined,
       isTargetPackageLine: packageLine === targetPackageLine,

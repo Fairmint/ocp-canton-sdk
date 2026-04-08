@@ -22,36 +22,33 @@ function buildIssuerAuthorizationTemplateId(packageLine: OpenCapTablePackageLine
 export const CURRENT_OPEN_CAP_TABLE_ISSUER_AUTHORIZATION_TEMPLATE_ID =
   Fairmint.OpenCapTable.IssuerAuthorization.IssuerAuthorization.templateId;
 
-export const OPEN_CAP_TABLE_ISSUER_AUTHORIZATION_REGISTRY: readonly OpenCapTableIssuerAuthorizationRegistryEntry[] =
-  [
-    {
-      packageLine: 'OpenCapTable-v25',
-      templateId: buildIssuerAuthorizationTemplateId('OpenCapTable-v25'),
-      isCurrent: false,
-    },
-    {
-      packageLine: 'OpenCapTable-v30',
-      templateId: buildIssuerAuthorizationTemplateId('OpenCapTable-v30'),
-      isCurrent: false,
-    },
-    {
-      packageLine: 'OpenCapTable-v33',
-      templateId: buildIssuerAuthorizationTemplateId('OpenCapTable-v33'),
-      isCurrent: false,
-    },
-    {
-      packageLine: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-      templateId: CURRENT_OPEN_CAP_TABLE_ISSUER_AUTHORIZATION_TEMPLATE_ID,
-      isCurrent: true,
-    },
-  ] as const;
+export const OPEN_CAP_TABLE_ISSUER_AUTHORIZATION_REGISTRY: readonly OpenCapTableIssuerAuthorizationRegistryEntry[] = [
+  {
+    packageLine: 'OpenCapTable-v25',
+    templateId: buildIssuerAuthorizationTemplateId('OpenCapTable-v25'),
+    isCurrent: false,
+  },
+  {
+    packageLine: 'OpenCapTable-v30',
+    templateId: buildIssuerAuthorizationTemplateId('OpenCapTable-v30'),
+    isCurrent: false,
+  },
+  {
+    packageLine: 'OpenCapTable-v33',
+    templateId: buildIssuerAuthorizationTemplateId('OpenCapTable-v33'),
+    isCurrent: false,
+  },
+  {
+    packageLine: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+    templateId: CURRENT_OPEN_CAP_TABLE_ISSUER_AUTHORIZATION_TEMPLATE_ID,
+    isCurrent: true,
+  },
+] as const;
 
 export function getOpenCapTableIssuerAuthorizationRegistryEntry(
   packageLine: OpenCapTablePackageLine
 ): OpenCapTableIssuerAuthorizationRegistryEntry {
-  const entry = OPEN_CAP_TABLE_ISSUER_AUTHORIZATION_REGISTRY.find(
-    (candidate) => candidate.packageLine === packageLine
-  );
+  const entry = OPEN_CAP_TABLE_ISSUER_AUTHORIZATION_REGISTRY.find((candidate) => candidate.packageLine === packageLine);
 
   if (!entry) {
     throw new Error(`Unsupported OpenCapTable package line: ${packageLine}`);

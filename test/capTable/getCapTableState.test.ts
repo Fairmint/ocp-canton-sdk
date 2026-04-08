@@ -10,8 +10,8 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import {
   CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
   discoverCapTables,
-  getOpenCapTableCapTableTemplateIds,
   getCapTableState,
+  getOpenCapTableCapTableTemplateIds,
   KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES,
 } from '../../src/functions/OpenCapTable/capTable';
 
@@ -57,8 +57,7 @@ function buildMockCapTableContract(params: {
       JsActiveContract: {
         createdEvent: {
           contractId: params.contractId,
-          templateId:
-            params.templateId ?? `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`,
+          templateId: params.templateId ?? `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`,
           createArgument: {
             issuer: params.issuerContractId,
             ...params.createArgument,
@@ -84,9 +83,7 @@ function buildMockCapTableContract(params: {
 const LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE = KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES.find(
   (packageLine) => packageLine !== CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE
 );
-const CURRENT_CAP_TABLE_TEMPLATE_ID = getOpenCapTableCapTableTemplateIds([
-  CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-])[0];
+const CURRENT_CAP_TABLE_TEMPLATE_ID = getOpenCapTableCapTableTemplateIds([CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE])[0];
 
 if (!LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE) {
   throw new Error('Expected at least one legacy OpenCapTable package line in test fixtures');
