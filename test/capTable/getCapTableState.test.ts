@@ -675,13 +675,19 @@ describe('getCapTableState', () => {
       });
     });
 
-    it('should classify as none when no CapTable exists', async () => {
+    it('should classify as none when the pinned template has no CapTable (legacy v33+ packages are off-query)', async () => {
+      // Ledger only returns contracts matching templateIds. Older OpenCapTable package lines are never
+      // passed here, so they are invisible — same as “no row” for discovery purposes.
       mockActiveContractsForCapTableState(mockClient, { current: [] });
 
       const result = await classifyIssuerCapTables(mockClient, 'issuer::party-123');
 
       expect(result.status).toBe('none');
       expect(result.current).toBeNull();
+      expect(mockClient.getActiveContracts).toHaveBeenCalledWith({
+        parties: ['issuer::party-123'],
+        templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
+      });
     });
 
     it('should reject multiple active CapTables on the current template', async () => {

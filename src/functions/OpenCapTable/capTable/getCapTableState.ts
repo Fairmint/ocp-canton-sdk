@@ -1,8 +1,16 @@
 /**
- * Query Canton for the current state of a CapTable contract.
+ * Query Canton for the current state of a CapTable contract on the **SDK’s single supported package line**.
  *
  * Provides a snapshot of all OCF entities currently on-chain for an issuer,
  * enabling stateless replication by comparing against a source of truth.
+ *
+ * **Legacy OpenCapTable packages are intentionally invisible.** CapTable discovery uses
+ * `getActiveContracts` with `templateIds: [OCP_TEMPLATES.capTable]` from the pinned
+ * `@fairmint/open-captable-protocol-daml-js` version (e.g. OpenCapTable-v34 only for that release).
+ * Older package lines (v33 and earlier) may still have active contracts on the same issuer party;
+ * they are **not** returned and **must not** be inferred from unfiltered party queries.
+ * Callers that need “is there a CapTable for this issuer?” should use {@link classifyIssuerCapTables}
+ * or {@link getCapTableState} — not ad-hoc scans across template IDs.
  *
  * @module getCapTableState
  */
@@ -15,7 +23,10 @@ import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import { parseDamlMap } from '../../../utils/typeConversions';
 import type { OcfEntityType } from './batchTypes';
 
-/** CapTable template from the pinned daml-js package (single supported line). */
+/**
+ * CapTable template ID for the **only** package line this SDK treats as the active CapTable.
+ * Matches the daml-js pin; older lines (different `#OpenCapTable-vNN:…` prefixes) are never queried here.
+ */
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
 
 /**
@@ -217,11 +228,18 @@ export interface CapTableWithArchiveContext extends CapTableState {
   systemOperatorPartyId: string;
 }
 
+/**
+ * Whether the issuer has a CapTable on the **current** daml-js template.
+ * `none` means no contract on that template — not “issuer has no CapTable on any historical package line.”
+ */
 export type IssuerCapTableStatus = 'current' | 'none';
 
 export interface IssuerCapTableClassification {
   status: IssuerCapTableStatus;
-  /** Set when status is `current` (exactly one CapTable on the supported template). */
+  /**
+   * When `status` is `current`: exactly one active CapTable on the pinned template (`OCP_TEMPLATES.capTable`).
+   * When `none`: no row on that template (older OpenCapTable packages are ignored by design).
+   */
   current: CapTableWithArchiveContext | null;
 }
 
@@ -355,6 +373,7 @@ async function capTableWithArchiveContext(
   return { ...base, templateId, systemOperatorPartyId };
 }
 
+/** Active CapTable contracts for the issuer on the pinned template only (`OCP_TEMPLATES.capTable`; legacy packages excluded). */
 async function loadCurrentCapTables(
   client: LedgerJsonApiClient,
   issuerPartyId: string
@@ -384,7 +403,11 @@ async function loadCurrentCapTables(
 }
 
 /**
- * Whether the issuer has exactly one active CapTable on the SDK’s supported template.
+ * Whether the issuer has exactly one active CapTable on the SDK’s **pinned** CapTable template.
+ *
+ * OpenCapTable contracts on other package versions (e.g. v33 while this SDK targets v34) do not appear
+ * in the ledger query and therefore yield `none` here — no archival of legacy contracts is implied or required
+ * for that scoping.
  */
 export async function classifyIssuerCapTables(
   client: LedgerJsonApiClient,
@@ -398,8 +421,10 @@ export async function classifyIssuerCapTables(
 }
 
 /**
- * Read the CapTable for an issuer using the SDK’s supported template, or null if none.
- * Throws if more than one active CapTable exists for that template.
+ * Read the CapTable for an issuer using the SDK’s pinned template only, or `null` if none on that line.
+ *
+ * Returns `null` when only legacy-package CapTables exist (they are filtered out by template ID).
+ * Throws if more than one active CapTable exists for the current template.
  */
 export async function getCapTableState(
   client: LedgerJsonApiClient,
