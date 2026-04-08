@@ -1,14 +1,10 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import {
-  CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-  KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES,
-  getOpenCapTableCapTableTemplateIds,
-} from '../../src/functions/OpenCapTable/capTable';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
   archiveFullCapTable,
   getSystemOperatorPartyId,
 } from '../../src/functions/OpenCapTable/capTable/archiveFullCapTable';
-import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 
 const mockArchiveCapTable = jest.fn();
 const mockBatchDelete = jest.fn();
@@ -27,6 +23,28 @@ jest.mock('../../src/functions/OpenCapTable/capTable/CapTableBatch', () => ({
     return mockCapTableBatch(...args);
   },
 }));
+
+const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
+const OPEN_CAP_TABLE_V34 = 'OpenCapTable-v34';
+
+function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
+  return templateIds?.length === 1 && templateIds[0] === CURRENT_CAP_TABLE_TEMPLATE_ID;
+}
+
+function mockActiveContractsForCapTableState(
+  mockClient: jest.Mocked<Pick<LedgerJsonApiClient, 'getActiveContracts'>>,
+  responses: { current?: unknown[] }
+): void {
+  const current = responses.current ?? [];
+  mockClient.getActiveContracts.mockImplementation(async (req: { templateIds?: string[] }) => {
+    await Promise.resolve();
+    const ids = req.templateIds;
+    if (isCurrentTemplateQuery(ids)) {
+      return current as never;
+    }
+    throw new Error(`Unexpected getActiveContracts templateIds in test: ${JSON.stringify(ids)}`);
+  });
+}
 
 interface TestIssuerData {
   id: string;
@@ -55,12 +73,17 @@ function buildMockCapTableContract(params: {
   systemOperatorPartyId: string;
   templateId?: string;
 }) {
+  const templateId =
+    params.templateId ??
+    (params.packageName === OPEN_CAP_TABLE_V34
+      ? CURRENT_CAP_TABLE_TEMPLATE_ID
+      : `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`);
   return {
     contractEntry: {
       JsActiveContract: {
         createdEvent: {
           contractId: params.contractId,
-          templateId: params.templateId ?? `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`,
+          templateId,
           createArgument: {
             issuer: params.issuerContractId,
             context: {
@@ -86,17 +109,7 @@ function buildMockCapTableContract(params: {
   };
 }
 
-const LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE = KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES.find(
-  (packageLine) => packageLine !== CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE
-);
-
-if (!LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE) {
-  throw new Error('Expected at least one legacy OpenCapTable package line in test fixtures');
-}
-
-const LEGACY_CAP_TABLE_TEMPLATE_ID = getOpenCapTableCapTableTemplateIds([LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE])[0];
-
-describe('archiveFullCapTable version-aware archive support', () => {
+describe('archiveFullCapTable', () => {
   let mockClient: jest.Mocked<LedgerJsonApiClient>;
 
   beforeEach(() => {
@@ -120,78 +133,88 @@ describe('archiveFullCapTable version-aware archive support', () => {
     );
   });
 
-  it('reads system_operator from a legacy CapTable package line', async () => {
-    mockClient.getActiveContracts.mockResolvedValue([
-      buildMockCapTableContract({
-        contractId: 'cap-table-legacy',
-        issuerContractId: 'issuer-contract-456',
-        packageName: LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE,
-        systemOperatorPartyId: 'legacy-system-operator',
-      }),
-    ] as never);
+  it('reads system_operator from the CapTable', async () => {
+    mockActiveContractsForCapTableState(mockClient, {
+      current: [
+        buildMockCapTableContract({
+          contractId: 'cap-table-v34',
+          issuerContractId: 'issuer-contract-456',
+          packageName: OPEN_CAP_TABLE_V34,
+          systemOperatorPartyId: 'current-system-operator',
+        }),
+      ],
+    });
 
     const result = await getSystemOperatorPartyId(mockClient, 'issuer::party-123');
 
-    expect(result).toBe('legacy-system-operator');
+    expect(result).toBe('current-system-operator');
     expect(mockClient.getActiveContracts).toHaveBeenCalledWith({
       parties: ['issuer::party-123'],
-      templateIds: getOpenCapTableCapTableTemplateIds(),
+      templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
     });
   });
 
-  it('fails explicitly when issuer has multiple CapTable matches and no contract id hint', async () => {
-    mockClient.getActiveContracts.mockResolvedValue([
-      buildMockCapTableContract({
-        contractId: 'cap-table-current',
-        issuerContractId: 'issuer-contract-456',
-        packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-        systemOperatorPartyId: 'current-system-operator',
-      }),
-      buildMockCapTableContract({
-        contractId: 'cap-table-legacy',
-        issuerContractId: 'issuer-contract-456',
-        packageName: LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE,
-        systemOperatorPartyId: 'legacy-system-operator',
-      }),
-    ] as never);
+  it('fails when issuer has multiple CapTables', async () => {
+    mockActiveContractsForCapTableState(mockClient, {
+      current: [
+        buildMockCapTableContract({
+          contractId: 'cap-table-a',
+          issuerContractId: 'issuer-contract-456',
+          packageName: OPEN_CAP_TABLE_V34,
+          systemOperatorPartyId: 'op-a',
+        }),
+        buildMockCapTableContract({
+          contractId: 'cap-table-b',
+          issuerContractId: 'issuer-contract-456',
+          packageName: OPEN_CAP_TABLE_V34,
+          systemOperatorPartyId: 'op-b',
+        }),
+      ],
+    });
 
     await expect(getSystemOperatorPartyId(mockClient, 'issuer::party-123')).rejects.toThrow(
-      'Expected exactly one CapTable contract when reading archive context'
+      /Multiple active CapTable contracts/
     );
   });
 
-  it('uses discovered legacy template id for both delete and archive steps', async () => {
-    mockClient.getActiveContracts.mockResolvedValue([
-      buildMockCapTableContract({
-        contractId: 'cap-table-legacy',
-        issuerContractId: 'issuer-contract-456',
-        packageName: LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE,
-        systemOperatorPartyId: 'legacy-system-operator',
-      }),
-    ] as never);
-    mockBatchExecute.mockResolvedValue({ updatedCapTableCid: 'cap-table-legacy-updated' });
-
-    const result = await archiveFullCapTable(mockClient, mockClient, 'issuer::party-123', {
-      capTableContractId: 'cap-table-legacy',
-      entities: new Map<OcfEntityType, Set<string>>([
-        ['issuer', new Set(['issuer-ocf-id-123'])],
-        ['stakeholder', new Set(['stakeholder-1'])],
-      ]),
+  it('uses discovered template id for delete and archive steps', async () => {
+    mockActiveContractsForCapTableState(mockClient, {
+      current: [
+        buildMockCapTableContract({
+          contractId: 'cap-table-v34',
+          issuerContractId: 'issuer-contract-456',
+          packageName: OPEN_CAP_TABLE_V34,
+          systemOperatorPartyId: 'current-system-operator',
+        }),
+      ],
     });
+
+    const result = await archiveFullCapTable(
+      mockClient,
+      mockClient,
+      'issuer::party-123',
+      {
+        capTableContractId: 'cap-table-v34',
+        entities: new Map<OcfEntityType, Set<string>>([
+          ['issuer', new Set(['issuer-ocf-id-123'])],
+          ['stakeholder', new Set(['stakeholder-1'])],
+        ]),
+      }
+    );
 
     expect(mockCapTableBatch).toHaveBeenCalledWith(
       {
-        capTableContractId: 'cap-table-legacy',
-        capTableContractDetails: { templateId: LEGACY_CAP_TABLE_TEMPLATE_ID },
+        capTableContractId: 'cap-table-v34',
+        capTableContractDetails: { templateId: CURRENT_CAP_TABLE_TEMPLATE_ID },
         actAs: ['issuer::party-123'],
       },
       mockClient
     );
     expect(mockBatchDelete).toHaveBeenCalledWith('stakeholder', 'stakeholder-1');
     expect(mockArchiveCapTable).toHaveBeenCalledWith(mockClient, {
-      capTableContractId: 'cap-table-legacy-updated',
-      capTableContractDetails: { templateId: LEGACY_CAP_TABLE_TEMPLATE_ID },
-      actAs: ['legacy-system-operator'],
+      capTableContractId: 'cap-table-updated',
+      capTableContractDetails: { templateId: CURRENT_CAP_TABLE_TEMPLATE_ID },
+      actAs: ['current-system-operator'],
     });
     expect(result).toEqual({
       archiveUpdateId: 'archive-update-123',
@@ -199,28 +222,24 @@ describe('archiveFullCapTable version-aware archive support', () => {
     });
   });
 
-  it('can disambiguate multiple matches with cantonState contract id while keeping caller override simple', async () => {
-    mockClient.getActiveContracts.mockResolvedValue([
-      buildMockCapTableContract({
-        contractId: 'cap-table-current',
-        issuerContractId: 'issuer-contract-456',
-        packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-        systemOperatorPartyId: 'current-system-operator',
-      }),
-      buildMockCapTableContract({
-        contractId: 'cap-table-legacy',
-        issuerContractId: 'issuer-contract-456',
-        packageName: LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE,
-        systemOperatorPartyId: 'legacy-system-operator',
-      }),
-    ] as never);
+  it('uses options.systemOperatorPartyId and skips batch when entities are issuer-only', async () => {
+    mockActiveContractsForCapTableState(mockClient, {
+      current: [
+        buildMockCapTableContract({
+          contractId: 'cap-table-v34',
+          issuerContractId: 'issuer-contract-456',
+          packageName: OPEN_CAP_TABLE_V34,
+          systemOperatorPartyId: 'ledger-system-operator',
+        }),
+      ],
+    });
 
     await archiveFullCapTable(
       mockClient,
       mockClient,
       'issuer::party-123',
       {
-        capTableContractId: 'cap-table-legacy',
+        capTableContractId: 'cap-table-v34',
         entities: new Map<OcfEntityType, Set<string>>([['issuer', new Set(['issuer-ocf-id-123'])]]),
       },
       { systemOperatorPartyId: 'db-system-operator' }
@@ -228,8 +247,8 @@ describe('archiveFullCapTable version-aware archive support', () => {
 
     expect(mockCapTableBatch).not.toHaveBeenCalled();
     expect(mockArchiveCapTable).toHaveBeenCalledWith(mockClient, {
-      capTableContractId: 'cap-table-legacy',
-      capTableContractDetails: { templateId: LEGACY_CAP_TABLE_TEMPLATE_ID },
+      capTableContractId: 'cap-table-v34',
+      capTableContractDetails: { templateId: CURRENT_CAP_TABLE_TEMPLATE_ID },
       actAs: ['db-system-operator'],
     });
   });

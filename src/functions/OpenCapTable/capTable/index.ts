@@ -1,5 +1,4 @@
 export * from './buildCapTableCommand';
-export * from './capTableRegistry';
 export * from './types';
 
 // Archive operations
@@ -41,13 +40,12 @@ export {
 
 // CapTable state reader (for replication)
 export {
+  classifyIssuerCapTables,
   FIELD_TO_ENTITY_TYPE,
   SECURITY_ID_FIELD_TO_ENTITY_TYPE,
-  discoverCapTables,
   getCapTableState,
-  type CapTableDiscoveryResult,
-  type CapTableDiscoveryStatus,
   type CapTableState,
-  type DiscoverCapTablesParams,
-  type DiscoveredCapTableState,
+  type CapTableWithArchiveContext,
+  type IssuerCapTableClassification,
+  type IssuerCapTableStatus,
 } from './getCapTableState';

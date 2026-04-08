@@ -7,16 +7,34 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import {
-  CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-  discoverCapTables,
-  getCapTableState,
-  getOpenCapTableCapTableTemplateIds,
-  KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES,
-} from '../../src/functions/OpenCapTable/capTable';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import { classifyIssuerCapTables, getCapTableState } from '../../src/functions/OpenCapTable/capTable';
 
 // Mock the canton-node-sdk
 jest.mock('@fairmint/canton-node-sdk');
+
+const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
+const OPEN_CAP_TABLE_V34 = 'OpenCapTable-v34';
+
+function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
+  return templateIds?.length === 1 && templateIds[0] === CURRENT_CAP_TABLE_TEMPLATE_ID;
+}
+
+/** `classifyIssuerCapTables` / `getCapTableState` query only the SDK’s current CapTable template. */
+function mockActiveContractsForCapTableState(
+  mockClient: jest.Mocked<Pick<LedgerJsonApiClient, 'getActiveContracts'>>,
+  responses: { current?: unknown[] }
+): void {
+  const current = responses.current ?? [];
+  mockClient.getActiveContracts.mockImplementation(async (req: { templateIds?: string[] }) => {
+    await Promise.resolve();
+    const ids = req.templateIds;
+    if (isCurrentTemplateQuery(ids)) {
+      return current as never;
+    }
+    throw new Error(`Unexpected getActiveContracts templateIds in test: ${JSON.stringify(ids)}`);
+  });
+}
 
 /**
  * Issuer data type for test fixtures.
@@ -52,14 +70,20 @@ function buildMockCapTableContract(params: {
   createArgument?: Record<string, unknown>;
   templateId?: string;
 }) {
+  const templateId =
+    params.templateId ??
+    (params.packageName === OPEN_CAP_TABLE_V34
+      ? CURRENT_CAP_TABLE_TEMPLATE_ID
+      : `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`);
   return {
     contractEntry: {
       JsActiveContract: {
         createdEvent: {
           contractId: params.contractId,
-          templateId: params.templateId ?? `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`,
+          templateId,
           createArgument: {
             issuer: params.issuerContractId,
+            context: { system_operator: 'system-op::party' },
             ...params.createArgument,
           },
           createdEventBlob: 'blob-data',
@@ -78,15 +102,6 @@ function buildMockCapTableContract(params: {
       },
     },
   };
-}
-
-const LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE = KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES.find(
-  (packageLine) => packageLine !== CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE
-);
-const CURRENT_CAP_TABLE_TEMPLATE_ID = getOpenCapTableCapTableTemplateIds([CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE])[0];
-
-if (!LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE) {
-  throw new Error('Expected at least one legacy OpenCapTable package line in test fixtures');
 }
 
 describe('getCapTableState', () => {
@@ -119,6 +134,7 @@ describe('getCapTableState', () => {
                 // This is the correct field name per Canton JSON API v2
                 createArgument: {
                   issuer: 'issuer-contract-456',
+                  context: { system_operator: 'system-op::party' },
                   stakeholders: [
                     ['stakeholder-1', 'stakeholder-contract-1'],
                     ['stakeholder-2', 'stakeholder-contract-2'],
@@ -139,7 +155,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+                packageName: OPEN_CAP_TABLE_V34,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -160,15 +176,14 @@ describe('getCapTableState', () => {
         formation_date: '2024-01-01T00:00:00Z',
       });
 
-      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
 
-      // Verify the function was called
       expect(mockClient.getActiveContracts).toHaveBeenCalledWith({
         parties: ['issuer::party-123'],
-        templateIds: expect.any(Array),
+        templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
       });
 
       // Verify issuer contract was fetched
@@ -219,7 +234,7 @@ describe('getCapTableState', () => {
     });
 
     it('should return null when no cap table exists', async () => {
-      mockClient.getActiveContracts.mockResolvedValue([]);
+      mockActiveContractsForCapTableState(mockClient, {});
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
 
@@ -237,6 +252,7 @@ describe('getCapTableState', () => {
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-789',
+                  context: { system_operator: 'system-op::party' },
                   // Array-of-tuples format for DAML Maps
                   stakeholders: [
                     ['stakeholder-a', 'stakeholder-contract-a'],
@@ -256,7 +272,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+                packageName: OPEN_CAP_TABLE_V34,
                 offset: 2000,
                 nodeId: 1,
                 contractKey: null,
@@ -277,7 +293,7 @@ describe('getCapTableState', () => {
         formation_date: '2024-01-01T00:00:00Z',
       });
 
-      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-456');
@@ -321,6 +337,7 @@ describe('getCapTableState', () => {
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-456',
+                  context: { system_operator: 'system-op::party' },
                   stakeholders: [],
                   stock_classes: [],
                   stock_plans: [],
@@ -331,7 +348,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+                packageName: OPEN_CAP_TABLE_V34,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -352,7 +369,7 @@ describe('getCapTableState', () => {
         formation_date: '2024-01-01T00:00:00Z',
       });
 
-      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
@@ -374,6 +391,7 @@ describe('getCapTableState', () => {
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-456',
+                  context: { system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
                 },
                 createdEventBlob: 'blob-data',
@@ -381,7 +399,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+                packageName: OPEN_CAP_TABLE_V34,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -394,7 +412,7 @@ describe('getCapTableState', () => {
         },
       ];
 
-      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
       // Simulate issuer fetch failure
       mockClient.getEventsByContractId.mockRejectedValue(new Error('Contract not found'));
 
@@ -423,6 +441,7 @@ describe('getCapTableState', () => {
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-456',
+                  context: { system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
                 },
                 createdEventBlob: 'blob-data',
@@ -430,7 +449,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+                packageName: OPEN_CAP_TABLE_V34,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -460,7 +479,7 @@ describe('getCapTableState', () => {
         },
       };
 
-      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
@@ -489,6 +508,7 @@ describe('getCapTableState', () => {
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-456',
+                  context: { system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
                 },
                 createdEventBlob: 'blob-data',
@@ -496,7 +516,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+                packageName: OPEN_CAP_TABLE_V34,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -526,7 +546,7 @@ describe('getCapTableState', () => {
         },
       };
 
-      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
@@ -555,6 +575,7 @@ describe('getCapTableState', () => {
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 createArgument: {
                   issuer: 'issuer-contract-456',
+                  context: { system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
                 },
                 createdEventBlob: 'blob-data',
@@ -562,7 +583,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
+                packageName: OPEN_CAP_TABLE_V34,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -582,7 +603,7 @@ describe('getCapTableState', () => {
         },
       };
 
-      mockClient.getActiveContracts.mockResolvedValue(mockCapTableResponse);
+      mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
@@ -612,7 +633,7 @@ describe('getCapTableState', () => {
         },
       ];
 
-      mockClient.getActiveContracts.mockResolvedValue(mockMalformedResponse as unknown as never);
+      mockActiveContractsForCapTableState(mockClient, { current: mockMalformedResponse as unknown[] });
 
       await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toThrow(
         /Invalid CapTable contract response/
@@ -621,70 +642,20 @@ describe('getCapTableState', () => {
     });
   });
 
-  describe('Strict response format enforcement', () => {
-    it('should reject legacy top-level payload format', async () => {
-      const mockLegacyResponse = [
-        {
-          contractEntry: {
-            // No JsActiveContract - empty or different union variant
-          },
-          contractId: 'legacy-cap-table-789',
-          payload: {
-            issuer: 'legacy-issuer-contract',
-            stakeholders: [
-              ['sh-1', 'sh-contract-1'],
-              ['sh-2', 'sh-contract-2'],
-            ],
-            stock_classes: [['sc-1', 'sc-contract-1']],
-            stock_issuances: [],
-          },
-        },
-      ];
-
-      mockClient.getActiveContracts.mockResolvedValue(mockLegacyResponse as unknown as never);
-
-      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toThrow(
-        /Invalid CapTable contract response/
-      );
-      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
-    });
-
-    it('should reject legacy nested contract.payload format', async () => {
-      const mockNestedLegacyResponse = [
-        {
-          contractEntry: {},
-          contract_id: 'nested-legacy-cap-table',
-          contract: {
-            payload: {
-              issuer: 'nested-legacy-issuer',
-              stakeholders: [['nested-sh-1', 'nested-sh-contract-1']],
-              stock_plans: [['plan-1', 'plan-contract-1']],
+  describe('classifyIssuerCapTables', () => {
+    it('should classify a single CapTable as current', async () => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-v34',
+            issuerContractId: 'issuer-contract-456',
+            packageName: OPEN_CAP_TABLE_V34,
+            createArgument: {
+              stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
             },
-          },
-        },
-      ];
-
-      mockClient.getActiveContracts.mockResolvedValue(mockNestedLegacyResponse as unknown as never);
-
-      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toThrow(
-        /Invalid CapTable contract response/
-      );
-      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('version-aware discovery', () => {
-    it('should classify a single current-package match as target', async () => {
-      mockClient.getActiveContracts.mockResolvedValue([
-        buildMockCapTableContract({
-          contractId: 'cap-table-v34',
-          issuerContractId: 'issuer-contract-456',
-          packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-          createArgument: {
-            stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-          },
-        }),
-      ] as never);
+          }),
+        ],
+      });
       mockClient.getEventsByContractId.mockResolvedValue(
         buildMockIssuerEventsResponse('issuer-contract-456', {
           id: 'issuer-ocf-id-123',
@@ -694,94 +665,63 @@ describe('getCapTableState', () => {
         }) as never
       );
 
-      const result = await discoverCapTables(mockClient, { issuerPartyId: 'issuer::party-123' });
+      const result = await classifyIssuerCapTables(mockClient, 'issuer::party-123');
 
-      expect(result.status).toBe('target');
-      expect(result.targetMatch?.packageLine).toBe(CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE);
-      expect(result.targetMatches).toHaveLength(1);
-      expect(result.legacyMatches).toHaveLength(0);
-      expect(result.matchesByPackageLine.get(CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE)).toHaveLength(1);
+      expect(result.status).toBe('current');
+      expect(result.current?.capTableContractId).toBe('cap-table-v34');
       expect(mockClient.getActiveContracts).toHaveBeenCalledWith({
         parties: ['issuer::party-123'],
-        templateIds: expect.arrayContaining(getOpenCapTableCapTableTemplateIds()),
+        templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
       });
     });
 
-    it('should classify a single legacy-package match as legacy-only', async () => {
-      mockClient.getActiveContracts.mockResolvedValue([
-        buildMockCapTableContract({
-          contractId: 'cap-table-legacy',
-          issuerContractId: 'issuer-contract-456',
-          packageName: LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE,
-          templateId: 'pkg:Fairmint.OpenCapTable.CapTable:CapTable',
-          createArgument: {
-            stakeholders: [['legacy-stakeholder', 'legacy-stakeholder-contract']],
-          },
-        }),
-      ] as never);
+    it('should classify as none when no CapTable exists', async () => {
+      mockActiveContractsForCapTableState(mockClient, { current: [] });
+
+      const result = await classifyIssuerCapTables(mockClient, 'issuer::party-123');
+
+      expect(result.status).toBe('none');
+      expect(result.current).toBeNull();
+    });
+
+    it('should reject multiple active CapTables on the current template', async () => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-a',
+            issuerContractId: 'issuer-contract-456',
+            packageName: OPEN_CAP_TABLE_V34,
+          }),
+          buildMockCapTableContract({
+            contractId: 'cap-table-b',
+            issuerContractId: 'issuer-contract-456',
+            packageName: OPEN_CAP_TABLE_V34,
+          }),
+        ],
+      });
       mockClient.getEventsByContractId.mockResolvedValue(
         buildMockIssuerEventsResponse('issuer-contract-456', {
-          id: 'issuer-legacy-id',
-          legal_name: 'Legacy Corp',
+          id: 'issuer-ocf-id-123',
+          legal_name: 'Dup Corp',
           country_of_formation: 'US',
           formation_date: '2024-01-01T00:00:00Z',
         }) as never
       );
 
-      const result = await discoverCapTables(mockClient, {
-        issuerPartyId: 'issuer::party-123',
-        targetPackageLine: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-      });
-
-      expect(result.status).toBe('legacy-only');
-      expect(result.targetMatches).toHaveLength(0);
-      expect(result.legacyMatch?.packageLine).toBe(LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE);
-      expect(result.legacyMatches).toHaveLength(1);
-    });
-
-    it('should classify mixed current and legacy matches as multiple', async () => {
-      mockClient.getActiveContracts.mockResolvedValue([
-        buildMockCapTableContract({
-          contractId: 'cap-table-current',
-          issuerContractId: 'issuer-contract-456',
-          packageName: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-        }),
-        buildMockCapTableContract({
-          contractId: 'cap-table-legacy',
-          issuerContractId: 'issuer-contract-456',
-          packageName: LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE,
-        }),
-      ] as never);
-      mockClient.getEventsByContractId.mockResolvedValue(
-        buildMockIssuerEventsResponse('issuer-contract-456', {
-          id: 'issuer-mixed-id',
-          legal_name: 'Mixed Corp',
-          country_of_formation: 'US',
-          formation_date: '2024-01-01T00:00:00Z',
-        }) as never
+      await expect(classifyIssuerCapTables(mockClient, 'issuer::party-123')).rejects.toThrow(
+        /Multiple active CapTable contracts/
       );
-
-      const result = await discoverCapTables(mockClient, {
-        issuerPartyId: 'issuer::party-123',
-        targetPackageLine: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-      });
-
-      expect(result.status).toBe('multiple');
-      expect(result.targetMatches).toHaveLength(1);
-      expect(result.legacyMatches).toHaveLength(1);
-      expect(result.targetMatch?.packageLine).toBe(CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE);
-      expect(result.legacyMatch?.packageLine).toBe(LEGACY_OPEN_CAP_TABLE_PACKAGE_LINE);
     });
 
-    it('should keep getCapTableState current-version-only when only legacy exists', async () => {
-      mockClient.getActiveContracts.mockResolvedValue([] as never);
+    it('should return null from getCapTableState when no CapTable exists', async () => {
+      mockActiveContractsForCapTableState(mockClient, { current: [] });
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
 
       expect(result).toBeNull();
       expect(mockClient.getActiveContracts).toHaveBeenCalledWith({
         parties: ['issuer::party-123'],
-        templateIds: getOpenCapTableCapTableTemplateIds([CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE]),
+        templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
       });
     });
   });

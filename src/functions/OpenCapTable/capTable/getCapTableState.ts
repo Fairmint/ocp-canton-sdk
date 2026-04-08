@@ -9,17 +9,14 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import { parseDamlMap } from '../../../utils/typeConversions';
 import type { OcfEntityType } from './batchTypes';
-import {
-  CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-  KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES,
-  getOpenCapTableCapTableTemplateIds,
-  resolveOpenCapTablePackageLine,
-  type OpenCapTablePackageLine,
-} from './capTableRegistry';
+
+/** CapTable template from the pinned daml-js package (single supported line). */
+const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
 
 /**
  * Type guard to check if a contract entry is a JsActiveContract with complete structure.
@@ -214,95 +211,18 @@ export interface CapTableState {
   securityIds: Map<OcfEntityType, Set<string>>;
 }
 
-export interface DiscoveredCapTableState extends CapTableState {
-  /** OpenCapTable package line for the matched CapTable contract. */
-  packageLine: OpenCapTablePackageLine;
-
-  /** Template ID reported by Canton for the matched CapTable contract. */
+/** CapTable state plus fields needed for ArchiveCapTable / batch commands. */
+export interface CapTableWithArchiveContext extends CapTableState {
   templateId: string;
-
-  /** `context.system_operator` party ID when present on the matched CapTable contract. */
-  systemOperatorPartyId?: string;
-
-  /** Whether this match belongs to the requested target package line. */
-  isTargetPackageLine: boolean;
+  systemOperatorPartyId: string;
 }
 
-export type CapTableDiscoveryStatus = 'target' | 'legacy-only' | 'none' | 'multiple';
+export type IssuerCapTableStatus = 'current' | 'none';
 
-export interface DiscoverCapTablesParams {
-  /** Party ID of the issuer. */
-  issuerPartyId: string;
-
-  /**
-   * Package line the caller wants to treat as current.
-   * Defaults to the SDK's current OpenCapTable line.
-   */
-  targetPackageLine?: OpenCapTablePackageLine;
-
-  /**
-   * Package lines to include in discovery.
-   * Defaults to all known SDK registry entries.
-   */
-  packageLines?: readonly OpenCapTablePackageLine[];
-}
-
-export interface CapTableDiscoveryResult {
-  /** Issuer party used for discovery. */
-  issuerPartyId: string;
-
-  /** Package line treated as current for status evaluation. */
-  targetPackageLine: OpenCapTablePackageLine;
-
-  /**
-   * Status summary for caller branching:
-   * - `target`: exactly one target match, no legacy matches
-   * - `legacy-only`: exactly one legacy match, no target matches
-   * - `none`: no known CapTable matches
-   * - `multiple`: any mixed or duplicate match scenario
-   */
-  status: CapTableDiscoveryStatus;
-
-  /** All discovered CapTable contracts across requested package lines. */
-  matches: DiscoveredCapTableState[];
-
-  /** Discovered CapTable contracts for the requested target package line. */
-  targetMatches: DiscoveredCapTableState[];
-
-  /** Discovered CapTable contracts for known non-target package lines. */
-  legacyMatches: DiscoveredCapTableState[];
-
-  /** Convenience singleton when exactly one target match exists. */
-  targetMatch: DiscoveredCapTableState | null;
-
-  /** Convenience singleton when exactly one legacy match exists. */
-  legacyMatch: DiscoveredCapTableState | null;
-
-  /** All matches grouped by package line. */
-  matchesByPackageLine: Map<OpenCapTablePackageLine, DiscoveredCapTableState[]>;
-}
-
-function resolveCapTableDiscoveryStatus(
-  targetMatches: readonly DiscoveredCapTableState[],
-  legacyMatches: readonly DiscoveredCapTableState[]
-): CapTableDiscoveryStatus {
-  if (targetMatches.length === 0 && legacyMatches.length === 0) {
-    return 'none';
-  }
-
-  if (targetMatches.length === 1 && legacyMatches.length === 0) {
-    return 'target';
-  }
-
-  if (targetMatches.length === 0 && legacyMatches.length === 1) {
-    return 'legacy-only';
-  }
-
-  return 'multiple';
-}
-
-function getSingleMatch(matches: readonly DiscoveredCapTableState[]): DiscoveredCapTableState | null {
-  return matches.length === 1 ? matches[0] : null;
+export interface IssuerCapTableClassification {
+  status: IssuerCapTableStatus;
+  /** Set when status is `current` (exactly one CapTable on the supported template). */
+  current: CapTableWithArchiveContext | null;
 }
 
 async function buildCapTableStateFromCreatedEvent(
@@ -310,6 +230,7 @@ async function buildCapTableStateFromCreatedEvent(
   createdEvent: {
     contractId: string;
     createArgument: Record<string, unknown>;
+    templateId?: unknown;
   }
 ): Promise<CapTableState> {
   const { contractId, createArgument: payload } = createdEvent;
@@ -402,40 +323,47 @@ async function buildCapTableStateFromCreatedEvent(
   };
 }
 
-export async function discoverCapTables(
-  client: LedgerJsonApiClient,
-  params: DiscoverCapTablesParams
-): Promise<CapTableDiscoveryResult> {
-  const targetPackageLine = params.targetPackageLine ?? CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE;
-  const requestedPackageLines = (params.packageLines ?? KNOWN_OPEN_CAP_TABLE_PACKAGE_LINES).filter(
-    (packageLine, index, packageLines) => packageLines.indexOf(packageLine) === index
-  );
-
-  if (requestedPackageLines.length === 0) {
-    return {
-      issuerPartyId: params.issuerPartyId,
-      targetPackageLine,
-      status: 'none',
-      matches: [],
-      targetMatches: [],
-      legacyMatches: [],
-      targetMatch: null,
-      legacyMatch: null,
-      matchesByPackageLine: new Map<OpenCapTablePackageLine, DiscoveredCapTableState[]>(),
-    };
+function requireCapTableTemplateIdString(templateId: unknown, contractId: string): string {
+  if (typeof templateId !== 'string' || templateId.length === 0) {
+    throw new OcpContractError('CapTable contract templateId must be a non-empty string', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId,
+    });
   }
+  return templateId;
+}
 
-  const matchesByPackageLine = new Map<OpenCapTablePackageLine, DiscoveredCapTableState[]>(
-    requestedPackageLines.map((packageLine) => [packageLine, [] as DiscoveredCapTableState[]] as const)
-  );
+async function capTableWithArchiveContext(
+  client: LedgerJsonApiClient,
+  createdEvent: {
+    contractId: string;
+    createArgument: Record<string, unknown>;
+    templateId?: unknown;
+  }
+): Promise<CapTableWithArchiveContext> {
+  const base = await buildCapTableStateFromCreatedEvent(client, createdEvent);
+  const templateId = requireCapTableTemplateIdString(createdEvent.templateId, base.capTableContractId);
+  const ctx = createdEvent.createArgument.context as Record<string, unknown> | undefined;
+  const systemOperatorPartyId = typeof ctx?.system_operator === 'string' ? ctx.system_operator : '';
+  if (!systemOperatorPartyId) {
+    throw new OcpContractError('CapTable contract missing context.system_operator', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: base.capTableContractId,
+      templateId,
+    });
+  }
+  return { ...base, templateId, systemOperatorPartyId };
+}
 
+async function loadCurrentCapTables(
+  client: LedgerJsonApiClient,
+  issuerPartyId: string
+): Promise<CapTableWithArchiveContext[]> {
   const contracts = await client.getActiveContracts({
-    parties: [params.issuerPartyId],
-    templateIds: getOpenCapTableCapTableTemplateIds(requestedPackageLines),
+    parties: [issuerPartyId],
+    templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
   });
-
-  const matches: DiscoveredCapTableState[] = [];
-
+  const out: CapTableWithArchiveContext[] = [];
   for (const contract of contracts) {
     if (!isJsActiveContractItem(contract)) {
       throw new OcpContractError('Invalid CapTable contract response: expected JsActiveContract entry', {
@@ -443,92 +371,44 @@ export async function discoverCapTables(
         contractId: 'unknown',
       });
     }
-
     const { createdEvent } = contract.contractEntry.JsActiveContract;
-    const packageLine = resolveOpenCapTablePackageLine({
-      packageName: createdEvent.packageName,
-      templateId: createdEvent.templateId,
-    });
-
-    if (!packageLine) {
-      throw new OcpContractError('Unable to resolve OpenCapTable package line from CapTable contract response', {
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        contractId: createdEvent.contractId,
-        templateId: createdEvent.templateId,
-      });
-    }
-
-    const match: DiscoveredCapTableState = {
-      ...(await buildCapTableStateFromCreatedEvent(client, createdEvent)),
-      packageLine,
-      templateId: createdEvent.templateId ?? '',
-      systemOperatorPartyId:
-        typeof (createdEvent.createArgument.context as Record<string, unknown> | undefined)?.system_operator ===
-        'string'
-          ? ((createdEvent.createArgument.context as Record<string, unknown>).system_operator as string)
-          : undefined,
-      isTargetPackageLine: packageLine === targetPackageLine,
-    };
-
-    matches.push(match);
-    const packageLineMatches = matchesByPackageLine.get(packageLine);
-
-    if (packageLineMatches) {
-      packageLineMatches.push(match);
-    } else {
-      matchesByPackageLine.set(packageLine, [match]);
-    }
+    out.push(await capTableWithArchiveContext(client, createdEvent));
   }
-
-  const targetMatches = matches.filter((match) => match.packageLine === targetPackageLine);
-  const legacyMatches = matches.filter((match) => match.packageLine !== targetPackageLine);
-
-  return {
-    issuerPartyId: params.issuerPartyId,
-    targetPackageLine,
-    status: resolveCapTableDiscoveryStatus(targetMatches, legacyMatches),
-    matches,
-    targetMatches,
-    legacyMatches,
-    targetMatch: getSingleMatch(targetMatches),
-    legacyMatch: getSingleMatch(legacyMatches),
-    matchesByPackageLine,
-  };
+  if (out.length > 1) {
+    throw new OcpContractError('Multiple active CapTable contracts for issuer', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: out.map((m) => m.capTableContractId).join(','),
+    });
+  }
+  return out;
 }
 
 /**
- * Query Canton for the current state of a CapTable.
- *
- * Uses getActiveContracts filtered by party to efficiently retrieve only
- * the CapTable contract for the specified issuer.
- *
- * Note: In the standard deployment model, each issuer party has exactly one
- * active CapTable contract. If multiple CapTable contracts exist for the same
- * party (which would indicate a configuration issue), this function returns
- * the first one found. The system design ensures this is a 1:1 relationship.
- *
- * @param client - LedgerJsonApiClient instance
- * @param issuerPartyId - Party ID of the issuer
- * @returns CapTableState with all canonical object IDs on-chain, or null if no CapTable exists
- *
- * @example
- * ```typescript
- * const state = await getCapTableState(client, 'issuer::party123');
- * if (state) {
- *   const stakeholderIds = state.entities.get('stakeholder') ?? new Set();
- *   console.log(`${stakeholderIds.size} stakeholders on-chain`);
- * }
- * ```
+ * Whether the issuer has exactly one active CapTable on the SDK’s supported template.
+ */
+export async function classifyIssuerCapTables(
+  client: LedgerJsonApiClient,
+  issuerPartyId: string
+): Promise<IssuerCapTableClassification> {
+  const currentRows = await loadCurrentCapTables(client, issuerPartyId);
+  if (currentRows.length === 0) {
+    return { status: 'none', current: null };
+  }
+  return { status: 'current', current: currentRows[0] };
+}
+
+/**
+ * Read the CapTable for an issuer using the SDK’s supported template, or null if none.
+ * Throws if more than one active CapTable exists for that template.
  */
 export async function getCapTableState(
   client: LedgerJsonApiClient,
   issuerPartyId: string
 ): Promise<CapTableState | null> {
-  const discovery = await discoverCapTables(client, {
-    issuerPartyId,
-    targetPackageLine: CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE,
-    packageLines: [CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE],
-  });
-
-  return discovery.targetMatches[0] ?? null;
+  const c = await classifyIssuerCapTables(client, issuerPartyId);
+  if (c.status !== 'current' || !c.current) {
+    return null;
+  }
+  const { templateId: _tid, systemOperatorPartyId: _op, ...state } = c.current;
+  return state;
 }

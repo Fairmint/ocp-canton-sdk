@@ -1,60 +1,49 @@
 /**
  * Deploy DAML contracts to LocalNet.
  *
- * This script auto-discovers DAR files from standard locations:
+ * DAR is read only from the installed @fairmint/open-captable-protocol-daml-js package (bundled under
+ * OpenCapTable-v34/.daml/dist).
  *
- * 1. @fairmint/open-captable-protocol-daml-js npm package
- * 2. Sibling open-captable-protocol-daml directory (monorepo)
- *
- * Note: The integration test harness handles contract deployment automatically. This script is provided for manual
- * deployment or debugging purposes.
+ * Note: The integration test harness handles contract deployment automatically. This script is for manual deployment
+ * or debugging.
  */
 
 import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import * as fs from 'fs';
+import { createRequire } from 'node:module';
 import * as path from 'path';
 
-import { CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE } from '../../src/functions/OpenCapTable/capTable';
 import { buildQuickstartClientConfig, waitForLedgerJsonApiReady } from './waitForReady';
 
-/**
- * Find DAR files to deploy by auto-discovering from standard locations.
- *
- * Searched locations:
- *
- * 1. @fairmint/open-captable-protocol-daml-js npm package
- * 2. Sibling open-captable-protocol-daml directory (monorepo)
- */
+const require = createRequire(__filename);
+
+/** Must match the OpenCapTable line shipped inside @fairmint/open-captable-protocol-daml-js. */
+const OPEN_CAP_TABLE_PACKAGE_LINE = 'OpenCapTable-v34';
+
 function findDarFiles(): string[] {
-  const possibleDistDirectories = [
-    // From npm package - DAR file included in package
-    path.resolve(
-      __dirname,
-      `../../node_modules/@fairmint/open-captable-protocol-daml-js/${CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE}/.daml/dist`
-    ),
-    // From sibling directory (local development in monorepo)
-    path.resolve(__dirname, `../../open-captable-protocol-daml/${CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE}/.daml/dist`),
-  ];
+  const packageRoot = path.resolve(path.dirname(require.resolve('@fairmint/open-captable-protocol-daml-js')), '..');
+  const distDir = path.join(packageRoot, OPEN_CAP_TABLE_PACKAGE_LINE, '.daml', 'dist');
 
-  for (const distDirectory of possibleDistDirectories) {
-    if (!fs.existsSync(distDirectory)) {
-      continue;
-    }
-
-    const darFile = fs
-      .readdirSync(distDirectory)
-      .find((entry) => entry.endsWith('.dar') && entry.startsWith(`${CURRENT_OPEN_CAP_TABLE_PACKAGE_LINE}-`));
-
-    if (darFile) {
-      return [path.join(distDirectory, darFile)];
-    }
+  if (!fs.existsSync(distDir)) {
+    throw new Error(
+      `Could not find OCP DAR directory.\n` +
+        `Expected: ${distDir}\n` +
+        `Install or upgrade @fairmint/open-captable-protocol-daml-js so it includes the bundled DAR.`
+    );
   }
 
-  throw new Error(
-    `Could not find OCP DAML DAR file.\n` +
-      `Ensure @fairmint/open-captable-protocol-daml-js is installed.\n` +
-      `Searched locations:\n${possibleDistDirectories.map((p) => `  - ${p}`).join('\n')}`
-  );
+  const darFile = fs
+    .readdirSync(distDir)
+    .find((entry) => entry.endsWith('.dar') && entry.startsWith(`${OPEN_CAP_TABLE_PACKAGE_LINE}-`));
+
+  if (!darFile) {
+    throw new Error(
+      `No ${OPEN_CAP_TABLE_PACKAGE_LINE}-*.dar under ${distDir}.\n` +
+        `Install or upgrade @fairmint/open-captable-protocol-daml-js.`
+    );
+  }
+
+  return [path.join(distDir, darFile)];
 }
 
 async function main(): Promise<void> {

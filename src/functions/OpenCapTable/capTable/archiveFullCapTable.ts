@@ -19,7 +19,7 @@ import { OcpContractError } from '../../../errors/OcpContractError';
 import { archiveCapTable } from './archiveCapTable';
 import type { OcfEntityType } from './batchTypes';
 import { CapTableBatch } from './CapTableBatch';
-import { discoverCapTables, type DiscoveredCapTableState } from './getCapTableState';
+import { classifyIssuerCapTables, type CapTableWithArchiveContext } from './getCapTableState';
 
 /** Minimal contract state needed for the archive operation. */
 export interface ArchiveCapTableEntities {
@@ -48,31 +48,22 @@ interface ResolvedArchiveCapTableContext {
 }
 
 function getArchiveMatchByContractId(
-  matches: readonly DiscoveredCapTableState[],
+  candidates: readonly CapTableWithArchiveContext[],
   expectedCapTableContractId?: string
-): DiscoveredCapTableState | null {
+): CapTableWithArchiveContext | null {
   if (!expectedCapTableContractId) {
     return null;
   }
 
-  const matchedContracts = matches.filter((match) => match.capTableContractId === expectedCapTableContractId);
+  const matchedContracts = candidates.filter((match) => match.capTableContractId === expectedCapTableContractId);
   return matchedContracts.length === 1 ? matchedContracts[0] : null;
 }
 
-function getSingletonArchiveMatch(discovery: {
-  status: 'target' | 'legacy-only' | 'none' | 'multiple';
-  targetMatch: DiscoveredCapTableState | null;
-  legacyMatch: DiscoveredCapTableState | null;
-}): DiscoveredCapTableState | null {
-  if (discovery.status === 'target') {
-    return discovery.targetMatch;
-  }
-
-  if (discovery.status === 'legacy-only') {
-    return discovery.legacyMatch;
-  }
-
-  return null;
+function getSingletonArchiveMatch(classification: {
+  status: 'current' | 'none';
+  current: CapTableWithArchiveContext | null;
+}): CapTableWithArchiveContext | null {
+  return classification.status === 'current' ? classification.current : null;
 }
 
 async function resolveArchiveCapTableContext(
@@ -80,12 +71,14 @@ async function resolveArchiveCapTableContext(
   issuerPartyId: string,
   expectedCapTableContractId?: string
 ): Promise<ResolvedArchiveCapTableContext> {
-  const discovery = await discoverCapTables(client, { issuerPartyId });
+  const classification = await classifyIssuerCapTables(client, issuerPartyId);
+  const candidates = classification.current ? [classification.current] : [];
   const matchedContract =
-    getArchiveMatchByContractId(discovery.matches, expectedCapTableContractId) ?? getSingletonArchiveMatch(discovery);
+    getArchiveMatchByContractId(candidates, expectedCapTableContractId) ??
+    (expectedCapTableContractId ? null : getSingletonArchiveMatch(classification));
 
   if (!matchedContract) {
-    if (discovery.status === 'none') {
+    if (classification.status === 'none') {
       throw new OcpContractError('No CapTable contract found when reading archive context', {
         code: OcpErrorCodes.CONTRACT_NOT_FOUND,
         contractId: expectedCapTableContractId ?? 'unknown',

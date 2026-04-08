@@ -136,11 +136,7 @@ export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
 };
 
 /**
- * Backward-compatible fallback wrappers for entity data extraction.
- *
- * These are checked only when the canonical field in ENTITY_DATA_FIELD_MAP
- * is missing. This keeps reads compatible with legacy deployed wrappers
- * while preserving canonical output mapping.
+ * Alternate DAML field names used when the canonical field in ENTITY_DATA_FIELD_MAP is missing.
  */
 export const ENTITY_DATA_FIELD_FALLBACK_MAP: Partial<Record<OcfEntityType, readonly string[]>> = {
   stakeholderRelationshipChangeEvent: ['event_data'],

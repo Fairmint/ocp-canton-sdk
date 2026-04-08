@@ -127,13 +127,12 @@ import {
 import {
   archiveCapTable,
   CapTableBatch,
-  discoverCapTables,
+  classifyIssuerCapTables,
   getCapTableState,
   type ArchiveCapTableParams,
   type ArchiveCapTableResult,
-  type CapTableDiscoveryResult,
   type CapTableState,
-  type DiscoverCapTablesParams,
+  type IssuerCapTableClassification,
 } from './functions/OpenCapTable/capTable';
 import type { CommandWithDisclosedContracts } from './types';
 import type { ContractResult, GetByContractIdParams } from './types/common';
@@ -725,7 +724,7 @@ export class OcpClient {
 
       // ===== Batch Updates & Lifecycle =====
       capTable: {
-        discover: async (params: DiscoverCapTablesParams) => discoverCapTables(client, params),
+        classify: async (issuerPartyId: string) => classifyIssuerCapTables(client, issuerPartyId),
         getState: async (issuerPartyId: string) => getCapTableState(client, issuerPartyId),
         update: (params: CapTableUpdateParams) => new CapTableBatch(params, client),
         archive: async (params: ArchiveCapTableParams) => archiveCapTable(client, params),
@@ -885,9 +884,9 @@ interface OpenCapTableMethods {
 
   // Batch Updates & Lifecycle
   capTable: {
-    /** Discover CapTable contracts across known package lines. */
-    discover: (params: DiscoverCapTablesParams) => Promise<CapTableDiscoveryResult>;
-    /** Read current-package CapTable state for an issuer party. */
+    /** Current-line CapTable (SDK template) vs none for an issuer. */
+    classify: (issuerPartyId: string) => Promise<IssuerCapTableClassification>;
+    /** Read CapTable state for an issuer (SDK-supported template). */
     getState: (issuerPartyId: string) => Promise<CapTableState | null>;
     /** Create a batch builder for atomic cap table updates */
     update: (params: CapTableUpdateParams) => CapTableBatch;
