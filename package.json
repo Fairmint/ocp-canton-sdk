@@ -3,6 +3,10 @@
   "version": "0.2.290",
   "description": "A TypeScript SDK for interacting with the Open CapTable Protocol (OCP) Factory contract on Canton blockchain",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Fairmint/ocp-canton-sdk.git"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
