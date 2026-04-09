@@ -6,8 +6,8 @@
  * @see Fairmint/open-captable-protocol-daml GitHub Wiki for usage docs (not in-repo markdown).
  */
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const MIN_EXACT_DEV = '0.2.158';
 const MIN_PEER_PREFIX = '>=0.2.158';
