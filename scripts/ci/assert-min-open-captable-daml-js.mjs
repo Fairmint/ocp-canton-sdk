@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 /**
  * CI guard: keep @fairmint/open-captable-protocol-daml-js at the minimum that ships the DAR resolver API
- * (resolveOpenCapTableDarPath, OPEN_CAP_TABLE_DAR_PATH_ENV, root re-exports). Bump MIN when the API changes.
+ * on the `openCapTableDarPath` subpath (resolveOpenCapTableDarPath, OPEN_CAP_TABLE_DAR_PATH_ENV). Root entry is
+ * browser-safe (no fs). Bump MIN when the API changes.
  *
  * @see Fairmint/open-captable-protocol-daml GitHub Wiki for usage docs (not in-repo markdown).
  */
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
-const MIN_EXACT_DEV = '0.2.158';
-const MIN_PEER_PREFIX = '>=0.2.158';
+const MIN_EXACT_DEV = '0.2.159';
+const MIN_PEER_PREFIX = '>=0.2.159';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
