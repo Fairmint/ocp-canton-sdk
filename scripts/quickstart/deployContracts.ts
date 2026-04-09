@@ -1,22 +1,26 @@
 /**
  * Deploy DAML contracts to LocalNet.
  *
- * DAR: `@fairmint/open-captable-protocol-daml-js/opencaptable.dar`.
+ * DAR path from `@fairmint/open-captable-protocol-daml-js/openCapTableDarPath` (single source of truth).
  *
  * Note: The integration test harness handles contract deployment automatically. This script is for manual deployment
  * or debugging.
  */
 
-import { createRequire } from 'node:module';
+import { getOpenCapTableDarPath } from '@fairmint/open-captable-protocol-daml-js/openCapTableDarPath';
 import { createLedgerJsonApiClient } from '../../test/utils/cantonNodeSdkCompat';
-import { requireOpenCapTableDarPath } from '../lib/resolveOpenCapTableDar';
 
 import { buildQuickstartClientConfig, waitForLedgerJsonApiReady } from './waitForReady';
 
-const resolveFrom = createRequire(__filename);
-
 function findDarFiles(): string[] {
-  return [requireOpenCapTableDarPath(resolveFrom)];
+  try {
+    return [getOpenCapTableDarPath()];
+  } catch {
+    throw new Error(
+      'Could not find OCP DAML DAR file. ' +
+        'Ensure @fairmint/open-captable-protocol-daml-js >= 0.2.154 is installed or run `daml build` in open-captable-protocol-daml.'
+    );
+  }
 }
 
 async function main(): Promise<void> {
