@@ -16,7 +16,8 @@ jest.mock('@fairmint/canton-node-sdk');
 
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
 const NON_CURRENT_CAP_TABLE_TEMPLATE_ID = '#OpenCapTable-other:Fairmint.OpenCapTable.CapTable:CapTable';
-const OPEN_CAP_TABLE_V34 = 'OpenCapTable-v34';
+/** Package segment from the pinned CapTable template (tracks daml-js upgrades). */
+const CURRENT_OCP_PACKAGE_NAME = CURRENT_CAP_TABLE_TEMPLATE_ID.replace(/^#/, '').split(':')[0];
 const NON_CURRENT_CAP_TABLE_PACKAGE_NAME = 'OpenCapTable-other';
 
 function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
@@ -74,7 +75,7 @@ function buildMockCapTableContract(params: {
   templateId?: unknown;
 }) {
   const defaultTemplateId =
-    params.packageName === OPEN_CAP_TABLE_V34
+    params.packageName === CURRENT_OCP_PACKAGE_NAME
       ? CURRENT_CAP_TABLE_TEMPLATE_ID
       : `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`;
   const templateId = Object.prototype.hasOwnProperty.call(params, 'templateId') ? params.templateId : defaultTemplateId;
@@ -158,7 +159,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: OPEN_CAP_TABLE_V34,
+                packageName: CURRENT_OCP_PACKAGE_NAME,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -253,7 +254,7 @@ describe('getCapTableState', () => {
           buildMockCapTableContract({
             contractId: 'cap-table-current',
             issuerContractId: 'issuer-contract-456',
-            packageName: OPEN_CAP_TABLE_V34,
+            packageName: CURRENT_OCP_PACKAGE_NAME,
             templateId,
           }),
         ],
@@ -282,7 +283,7 @@ describe('getCapTableState', () => {
           buildMockCapTableContract({
             contractId: 'cap-table-current',
             issuerContractId: 'issuer-contract-456',
-            packageName: OPEN_CAP_TABLE_V34,
+            packageName: CURRENT_OCP_PACKAGE_NAME,
             createArgument: {
               stakeholders: [['current-stakeholder', 'current-stakeholder-contract']],
             },
@@ -330,7 +331,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: OPEN_CAP_TABLE_V34,
+                packageName: CURRENT_OCP_PACKAGE_NAME,
                 offset: 2000,
                 nodeId: 1,
                 contractKey: null,
@@ -406,7 +407,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: OPEN_CAP_TABLE_V34,
+                packageName: CURRENT_OCP_PACKAGE_NAME,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -457,7 +458,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: OPEN_CAP_TABLE_V34,
+                packageName: CURRENT_OCP_PACKAGE_NAME,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -507,7 +508,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: OPEN_CAP_TABLE_V34,
+                packageName: CURRENT_OCP_PACKAGE_NAME,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -574,7 +575,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: OPEN_CAP_TABLE_V34,
+                packageName: CURRENT_OCP_PACKAGE_NAME,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -641,7 +642,7 @@ describe('getCapTableState', () => {
                 signatories: ['party-1'],
                 observers: [],
                 createdAt: '2024-01-01T00:00:00Z',
-                packageName: OPEN_CAP_TABLE_V34,
+                packageName: CURRENT_OCP_PACKAGE_NAME,
                 offset: 1000,
                 nodeId: 1,
                 contractKey: null,
@@ -707,7 +708,7 @@ describe('getCapTableState', () => {
           buildMockCapTableContract({
             contractId: 'cap-table-v34',
             issuerContractId: 'issuer-contract-456',
-            packageName: OPEN_CAP_TABLE_V34,
+            packageName: CURRENT_OCP_PACKAGE_NAME,
             createArgument: {
               stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
             },
@@ -745,7 +746,7 @@ describe('getCapTableState', () => {
           buildMockCapTableContract({
             contractId: 'cap-table-current',
             issuerContractId: 'issuer-contract-456',
-            packageName: OPEN_CAP_TABLE_V34,
+            packageName: CURRENT_OCP_PACKAGE_NAME,
           }),
         ],
       });
@@ -799,12 +800,12 @@ describe('getCapTableState', () => {
           buildMockCapTableContract({
             contractId: 'cap-table-a',
             issuerContractId: 'issuer-contract-456',
-            packageName: OPEN_CAP_TABLE_V34,
+            packageName: CURRENT_OCP_PACKAGE_NAME,
           }),
           buildMockCapTableContract({
             contractId: 'cap-table-b',
             issuerContractId: 'issuer-contract-456',
-            packageName: OPEN_CAP_TABLE_V34,
+            packageName: CURRENT_OCP_PACKAGE_NAME,
           }),
         ],
       });

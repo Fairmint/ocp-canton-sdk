@@ -25,7 +25,7 @@ jest.mock('../../src/functions/OpenCapTable/capTable/CapTableBatch', () => ({
 }));
 
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
-const OPEN_CAP_TABLE_V34 = 'OpenCapTable-v34';
+const CURRENT_OCP_PACKAGE_NAME = CURRENT_CAP_TABLE_TEMPLATE_ID.replace(/^#/, '').split(':')[0];
 
 function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
   return templateIds?.length === 1 && templateIds[0] === CURRENT_CAP_TABLE_TEMPLATE_ID;
@@ -75,7 +75,7 @@ function buildMockCapTableContract(params: {
 }) {
   const templateId =
     params.templateId ??
-    (params.packageName === OPEN_CAP_TABLE_V34
+    (params.packageName === CURRENT_OCP_PACKAGE_NAME
       ? CURRENT_CAP_TABLE_TEMPLATE_ID
       : `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`);
   return {
@@ -139,7 +139,7 @@ describe('archiveFullCapTable', () => {
         buildMockCapTableContract({
           contractId: 'cap-table-v34',
           issuerContractId: 'issuer-contract-456',
-          packageName: OPEN_CAP_TABLE_V34,
+          packageName: CURRENT_OCP_PACKAGE_NAME,
           systemOperatorPartyId: 'current-system-operator',
         }),
       ],
@@ -160,13 +160,13 @@ describe('archiveFullCapTable', () => {
         buildMockCapTableContract({
           contractId: 'cap-table-a',
           issuerContractId: 'issuer-contract-456',
-          packageName: OPEN_CAP_TABLE_V34,
+          packageName: CURRENT_OCP_PACKAGE_NAME,
           systemOperatorPartyId: 'op-a',
         }),
         buildMockCapTableContract({
           contractId: 'cap-table-b',
           issuerContractId: 'issuer-contract-456',
-          packageName: OPEN_CAP_TABLE_V34,
+          packageName: CURRENT_OCP_PACKAGE_NAME,
           systemOperatorPartyId: 'op-b',
         }),
       ],
@@ -183,7 +183,7 @@ describe('archiveFullCapTable', () => {
         buildMockCapTableContract({
           contractId: 'cap-table-v34',
           issuerContractId: 'issuer-contract-456',
-          packageName: OPEN_CAP_TABLE_V34,
+          packageName: CURRENT_OCP_PACKAGE_NAME,
           systemOperatorPartyId: 'current-system-operator',
         }),
       ],
@@ -223,7 +223,7 @@ describe('archiveFullCapTable', () => {
         buildMockCapTableContract({
           contractId: 'cap-table-v34',
           issuerContractId: 'issuer-contract-456',
-          packageName: OPEN_CAP_TABLE_V34,
+          packageName: CURRENT_OCP_PACKAGE_NAME,
           systemOperatorPartyId: 'ledger-system-operator',
         }),
       ],
