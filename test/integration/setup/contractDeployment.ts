@@ -8,8 +8,8 @@ import { type LedgerJsonApiClient, type ValidatorApiClient } from '@fairmint/can
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { resolveOpenCapTableDarPath } from '@fairmint/open-captable-protocol-daml-js/openCapTableDarPath';
-import * as path from 'path';
+
+import { resolveOpenCapTableDarForOcpSdkRepo } from '../../../scripts/lib/resolveOpenCapTableDarForOcpSdkRepo';
 
 /** Result of deploying contracts and creating the factory. */
 export interface DeploymentResult {
@@ -39,9 +39,7 @@ async function arePackagesDeployed(client: LedgerJsonApiClient): Promise<boolean
 
 /** Deploy OCP DAML contracts to the ledger. */
 async function deployContracts(client: LedgerJsonApiClient): Promise<string[]> {
-  const darPath = resolveOpenCapTableDarPath({
-    siblingSearchFrom: path.resolve(__dirname, '../../..'),
-  });
+  const darPath = resolveOpenCapTableDarForOcpSdkRepo();
 
   console.log(`Uploading DAR file: ${darPath}`);
 

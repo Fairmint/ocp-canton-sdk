@@ -1,20 +1,14 @@
 /**
  * Deploy DAML contracts to LocalNet (manual / debugging). Integration tests deploy via the harness.
- *
- * DAR: `@fairmint/open-captable-protocol-daml-js/openCapTableDarPath` — packaged file, or sibling daml repo
- * when `siblingSearchFrom` is this repo root.
  */
 
-import * as path from 'path';
-
-import { resolveOpenCapTableDarPath } from '@fairmint/open-captable-protocol-daml-js/openCapTableDarPath';
 import { createLedgerJsonApiClient } from '../../test/utils/cantonNodeSdkCompat';
+import { resolveOpenCapTableDarForOcpSdkRepo } from '../lib/resolveOpenCapTableDarForOcpSdkRepo';
 
 import { buildQuickstartClientConfig, waitForLedgerJsonApiReady } from './waitForReady';
 
 async function main(): Promise<void> {
-  const repoRoot = path.resolve(__dirname, '../..');
-  const darPath = resolveOpenCapTableDarPath({ siblingSearchFrom: repoRoot });
+  const darPath = resolveOpenCapTableDarForOcpSdkRepo();
   console.log(`DAR to deploy: ${darPath}`);
 
   await waitForLedgerJsonApiReady();
