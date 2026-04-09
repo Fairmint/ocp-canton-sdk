@@ -6,5 +6,5 @@ All documentation lives in the [GitHub wiki](https://github.com/fairmint/ocp-can
 Before doing any work in this repository, clone or update the local copy and read `Home.md`:
 
 ```bash
-if [ -d wiki/.git ]; then git -C wiki pull; else git clone https://github.com/fairmint/ocp-canton-sdk.wiki.git wiki; fi
+if [ -d wiki/.git ]; then git -C wiki pull; else git clone https://github.com/Fairmint/ocp-canton-sdk.wiki.git wiki; fi
 ```
