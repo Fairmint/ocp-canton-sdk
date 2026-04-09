@@ -27,6 +27,9 @@ jobs:
       - name: Check pinned dependencies
         run: npx --yes --package @hardlydifficult/ci-scripts@1.0.85 check-pinned-deps
 
+      - name: Assert minimum open-captable-protocol-daml-js (DAR resolver API)
+        run: node scripts/ci/assert-min-open-captable-daml-js.mjs
+
       - name: Initialize required submodules
         run: git submodule update --init --recursive libs/Open-Cap-Format-OCF
 
