@@ -8,13 +8,15 @@ import { type LedgerJsonApiClient, type ValidatorApiClient } from '@fairmint/can
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import * as fs from 'fs';
 import { createRequire } from 'node:module';
 import * as path from 'path';
 
-const resolveFrom = createRequire(__filename);
+import {
+  openCapTableDarNotFoundHelp,
+  tryOpenCapTableDarPath,
+} from '../../../scripts/lib/resolveOpenCapTableDar';
 
-const OCP_DAR_EXPORT = '@fairmint/open-captable-protocol-daml-js/opencaptable.dar';
+const resolveFrom = createRequire(__filename);
 
 /** Result of deploying contracts and creating the factory. */
 export interface DeploymentResult {
@@ -26,29 +28,10 @@ export interface DeploymentResult {
   packageIds: string[];
 }
 
-/**
- * Find the OCP DAML DAR file path.
- *
- * 1. npm export `opencaptable.dar`
- * 2. Sibling `open-captable-protocol-daml/published-dars/OpenCapTable.dar` (local monorepo after `npm run codegen`)
- */
+/** Find the OCP DAML DAR (npm export or sibling daml repo). */
 function findDarFilePath(): string | null {
-  try {
-    const exported = resolveFrom.resolve(OCP_DAR_EXPORT);
-    if (fs.existsSync(exported)) {
-      return exported;
-    }
-  } catch {
-    // e.g. yarn link / unpublished checkout
-  }
-
   const projectRoot = path.resolve(__dirname, '../../..');
-  const siblingPublished = path.join(projectRoot, '../open-captable-protocol-daml/published-dars/OpenCapTable.dar');
-  if (fs.existsSync(siblingPublished)) {
-    return siblingPublished;
-  }
-
-  return null;
+  return tryOpenCapTableDarPath(resolveFrom, projectRoot);
 }
 
 /** Check if the OCP packages are already deployed on the ledger. */
@@ -71,10 +54,7 @@ async function arePackagesDeployed(client: LedgerJsonApiClient): Promise<boolean
 async function deployContracts(client: LedgerJsonApiClient): Promise<string[]> {
   const darPath = findDarFilePath();
   if (!darPath) {
-    throw new Error(
-      'Could not find OCP DAML DAR. Install @fairmint/open-captable-protocol-daml-js >= 0.2.152, ' +
-        'or run `npm run codegen` in a sibling open-captable-protocol-daml clone (published-dars/OpenCapTable.dar).'
-    );
+    throw new Error(openCapTableDarNotFoundHelp());
   }
 
   console.log(`Uploading DAR file: ${darPath}`);
