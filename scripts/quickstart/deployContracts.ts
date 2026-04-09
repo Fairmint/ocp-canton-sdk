@@ -9,7 +9,6 @@
 
 import * as fs from 'fs';
 import { createRequire } from 'node:module';
-import * as path from 'path';
 import { createLedgerJsonApiClient } from '../../test/utils/cantonNodeSdkCompat';
 
 import { buildQuickstartClientConfig, waitForLedgerJsonApiReady } from './waitForReady';
