@@ -53,7 +53,7 @@ async function deployContracts(client: LedgerJsonApiClient): Promise<string[]> {
   if (!darPath) {
     throw new Error(
       'Could not find OCP DAML DAR file. ' +
-        'Ensure @fairmint/open-captable-protocol-daml-js is installed or run `daml build` in open-captable-protocol-daml.'
+        'Ensure @fairmint/open-captable-protocol-daml-js >= 0.2.154 is installed or run `daml build` in open-captable-protocol-daml.'
     );
   }
 
