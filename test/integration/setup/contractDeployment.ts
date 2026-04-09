@@ -43,10 +43,7 @@ function findDarFilePath(): string | null {
   }
 
   const projectRoot = path.resolve(__dirname, '../../..');
-  const siblingPublished = path.join(
-    projectRoot,
-    '../open-captable-protocol-daml/published-dars/OpenCapTable.dar'
-  );
+  const siblingPublished = path.join(projectRoot, '../open-captable-protocol-daml/published-dars/OpenCapTable.dar');
   if (fs.existsSync(siblingPublished)) {
     return siblingPublished;
   }

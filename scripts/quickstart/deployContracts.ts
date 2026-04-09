@@ -22,10 +22,7 @@ function findDarFiles(): string[] {
   try {
     darPath = resolveFrom.resolve(OCP_DAR);
   } catch {
-    throw new Error(
-      `Could not resolve ${OCP_DAR}.\n` +
-        'Install @fairmint/open-captable-protocol-daml-js >= 0.2.152.'
-    );
+    throw new Error(`Could not resolve ${OCP_DAR}.\n` + 'Install @fairmint/open-captable-protocol-daml-js >= 0.2.152.');
   }
 
   if (!fs.existsSync(darPath)) {
