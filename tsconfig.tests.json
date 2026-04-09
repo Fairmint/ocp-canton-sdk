@@ -5,5 +5,5 @@
     "types": ["jest", "node"]
   },
   "extends": "./tsconfig.json",
-  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "types/**/*.d.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"]
 }

@@ -112,6 +112,9 @@ jobs:
         if: steps.verify-cache.outputs.has_node_modules != 'true'
         run: npm install
 
+      - name: Assert minimum open-captable-protocol-daml-js (DAR resolver API)
+        run: node scripts/ci/assert-min-open-captable-daml-js.mjs
+
       - name: Build Package
         run: npm run build
 
