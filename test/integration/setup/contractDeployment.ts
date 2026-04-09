@@ -9,7 +9,12 @@ import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import * as fs from 'fs';
+import { createRequire } from 'node:module';
 import * as path from 'path';
+
+const resolveFrom = createRequire(__filename);
+
+const OCP_DAR_EXPORT = '@fairmint/open-captable-protocol-daml-js/opencaptable.dar';
 
 /** Result of deploying contracts and creating the factory. */
 export interface DeploymentResult {
@@ -21,36 +26,29 @@ export interface DeploymentResult {
   packageIds: string[];
 }
 
-/** Current OCP version - only the latest is supported. */
-const OCP_VERSION = 'v34';
-
 /**
  * Find the OCP DAML DAR file path.
  *
- * Looks in common locations relative to the project root.
+ * 1. npm export `opencaptable.dar`
+ * 2. Sibling `open-captable-protocol-daml/published-dars/OpenCapTable.dar` (local monorepo after `npm run codegen`)
  */
 function findDarFilePath(): string | null {
-  // __dirname is test/integration/setup/, so ../../../ gets to project root
-  const projectRoot = path.resolve(__dirname, '../../..');
-  const nodeModulesPath = path.join(projectRoot, 'node_modules/@fairmint/open-captable-protocol-daml-js');
-  const siblingPath = path.join(projectRoot, '../open-captable-protocol-daml');
-
-  // From npm package - DAR file included in package
-  const npmPath = path.join(
-    nodeModulesPath,
-    `OpenCapTable-${OCP_VERSION}/.daml/dist/OpenCapTable-${OCP_VERSION}-0.0.1.dar`
-  );
-  if (fs.existsSync(npmPath)) {
-    return npmPath;
+  try {
+    const exported = resolveFrom.resolve(OCP_DAR_EXPORT);
+    if (fs.existsSync(exported)) {
+      return exported;
+    }
+  } catch {
+    // e.g. yarn link / unpublished checkout
   }
 
-  // From sibling directory (local development in monorepo)
-  const localPath = path.join(
-    siblingPath,
-    `OpenCapTable-${OCP_VERSION}/.daml/dist/OpenCapTable-${OCP_VERSION}-0.0.1.dar`
+  const projectRoot = path.resolve(__dirname, '../../..');
+  const siblingPublished = path.join(
+    projectRoot,
+    '../open-captable-protocol-daml/published-dars/OpenCapTable.dar'
   );
-  if (fs.existsSync(localPath)) {
-    return localPath;
+  if (fs.existsSync(siblingPublished)) {
+    return siblingPublished;
   }
 
   return null;
@@ -77,8 +75,8 @@ async function deployContracts(client: LedgerJsonApiClient): Promise<string[]> {
   const darPath = findDarFilePath();
   if (!darPath) {
     throw new Error(
-      'Could not find OCP DAML DAR file. ' +
-        'Ensure @fairmint/open-captable-protocol-daml-js is installed or run `daml build` in open-captable-protocol-daml.'
+      'Could not find OCP DAML DAR. Install @fairmint/open-captable-protocol-daml-js >= 0.2.152, ' +
+        'or run `npm run codegen` in a sibling open-captable-protocol-daml clone (published-dars/OpenCapTable.dar).'
     );
   }
 

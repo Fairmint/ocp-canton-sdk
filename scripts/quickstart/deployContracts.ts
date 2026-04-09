@@ -1,8 +1,7 @@
 /**
  * Deploy DAML contracts to LocalNet.
  *
- * DAR is read only from the installed @fairmint/open-captable-protocol-daml-js package (bundled under
- * OpenCapTable-v34/.daml/dist).
+ * DAR: `@fairmint/open-captable-protocol-daml-js/opencaptable.dar`.
  *
  * Note: The integration test harness handles contract deployment automatically. This script is for manual deployment
  * or debugging.
@@ -15,35 +14,26 @@ import { createLedgerJsonApiClient } from '../../test/utils/cantonNodeSdkCompat'
 
 import { buildQuickstartClientConfig, waitForLedgerJsonApiReady } from './waitForReady';
 
-const require = createRequire(__filename);
+const resolveFrom = createRequire(__filename);
 
-/** Must match the OpenCapTable line shipped inside @fairmint/open-captable-protocol-daml-js. */
-const OPEN_CAP_TABLE_PACKAGE_LINE = 'OpenCapTable-v34';
+const OCP_DAR = '@fairmint/open-captable-protocol-daml-js/opencaptable.dar';
 
 function findDarFiles(): string[] {
-  const packageRoot = path.resolve(path.dirname(require.resolve('@fairmint/open-captable-protocol-daml-js')), '..');
-  const distDir = path.join(packageRoot, OPEN_CAP_TABLE_PACKAGE_LINE, '.daml', 'dist');
-
-  if (!fs.existsSync(distDir)) {
+  let darPath: string;
+  try {
+    darPath = resolveFrom.resolve(OCP_DAR);
+  } catch {
     throw new Error(
-      `Could not find OCP DAR directory.\n` +
-        `Expected: ${distDir}\n` +
-        `Install or upgrade @fairmint/open-captable-protocol-daml-js so it includes the bundled DAR.`
+      `Could not resolve ${OCP_DAR}.\n` +
+        'Install @fairmint/open-captable-protocol-daml-js >= 0.2.152.'
     );
   }
 
-  const darFile = fs
-    .readdirSync(distDir)
-    .find((entry) => entry.endsWith('.dar') && entry.startsWith(`${OPEN_CAP_TABLE_PACKAGE_LINE}-`));
-
-  if (!darFile) {
-    throw new Error(
-      `No ${OPEN_CAP_TABLE_PACKAGE_LINE}-*.dar under ${distDir}.\n` +
-        `Install or upgrade @fairmint/open-captable-protocol-daml-js.`
-    );
+  if (!fs.existsSync(darPath)) {
+    throw new Error(`OpenCapTable DAR missing on disk: ${darPath}`);
   }
 
-  return [path.join(distDir, darFile)];
+  return [darPath];
 }
 
 async function main(): Promise<void> {
