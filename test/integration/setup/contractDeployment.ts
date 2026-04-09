@@ -11,10 +11,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { createRequire } from 'node:module';
 import * as path from 'path';
 
-import {
-  openCapTableDarNotFoundHelp,
-  tryOpenCapTableDarPath,
-} from '../../../scripts/lib/resolveOpenCapTableDar';
+import { openCapTableDarNotFoundHelp, tryOpenCapTableDarPath } from '../../../scripts/lib/resolveOpenCapTableDar';
 
 const resolveFrom = createRequire(__filename);
 
