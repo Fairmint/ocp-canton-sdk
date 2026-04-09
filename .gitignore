@@ -1,4 +1,6 @@
 node_modules/
+# Local clone of https://github.com/Fairmint/ocp-canton-sdk.wiki (see CLAUDE.md)
+wiki/
 yarn.lock
 dist/
 package-lock.json
