@@ -1,5 +1,6 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
-import { getFeaturedAppRightContractDetails, ValidatorApiClient } from '@fairmint/canton-node-sdk';
+import { getFeaturedAppRightContractDetails } from '@fairmint/canton-node-sdk';
+import { createValidatorApiClient } from './cantonNodeSdkCompat';
 
 describe('getFeaturedAppRightContractDetails', () => {
   test('returns mocked featured app right details', async () => {
@@ -7,7 +8,7 @@ describe('getFeaturedAppRightContractDetails', () => {
       network: 'devnet',
     };
 
-    const validatorApi = new ValidatorApiClient(config);
+    const validatorApi = createValidatorApiClient(config);
     const featured = await getFeaturedAppRightContractDetails(validatorApi);
 
     expect(featured).toEqual({

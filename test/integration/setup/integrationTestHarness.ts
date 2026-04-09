@@ -13,9 +13,9 @@
  * factory created. Use createIntegrationTestSuite() to wrap your test describe block.
  */
 
-import { LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../../src/OcpClient';
+import { createLedgerAndValidatorClients } from '../../utils/cantonNodeSdkCompat';
 import { buildIntegrationTestClientConfig } from '../../utils/testConfig';
 import { createFeaturedAppRight, deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
 
@@ -90,9 +90,9 @@ async function initializeHarness(): Promise<void> {
   try {
     console.log('\n🔧 Initializing integration test harness...\n');
 
-    const config = buildIntegrationTestClientConfig();
-    const ledgerClient = new LedgerJsonApiClient(config);
-    const validatorClient = new ValidatorApiClient(config);
+    const { ledger: ledgerClient, validator: validatorClient } = createLedgerAndValidatorClients(
+      buildIntegrationTestClientConfig()
+    );
     state.ocp = new OcpClient({
       ledger: ledgerClient,
       validator: validatorClient,

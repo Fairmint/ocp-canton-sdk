@@ -8,13 +8,16 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes } from '../../src/errors';
 import { classifyIssuerCapTables, getCapTableState } from '../../src/functions/OpenCapTable/capTable';
 
 // Mock the canton-node-sdk
 jest.mock('@fairmint/canton-node-sdk');
 
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
+const NON_CURRENT_CAP_TABLE_TEMPLATE_ID = '#OpenCapTable-other:Fairmint.OpenCapTable.CapTable:CapTable';
 const OPEN_CAP_TABLE_V34 = 'OpenCapTable-v34';
+const NON_CURRENT_CAP_TABLE_PACKAGE_NAME = 'OpenCapTable-other';
 
 function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
   return templateIds?.length === 1 && templateIds[0] === CURRENT_CAP_TABLE_TEMPLATE_ID;
@@ -68,13 +71,13 @@ function buildMockCapTableContract(params: {
   issuerContractId: string;
   packageName: string;
   createArgument?: Record<string, unknown>;
-  templateId?: string;
+  templateId?: unknown;
 }) {
-  const templateId =
-    params.templateId ??
-    (params.packageName === OPEN_CAP_TABLE_V34
+  const defaultTemplateId =
+    params.packageName === OPEN_CAP_TABLE_V34
       ? CURRENT_CAP_TABLE_TEMPLATE_ID
-      : `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`);
+      : `#${params.packageName}:Fairmint.OpenCapTable.CapTable:CapTable`;
+  const templateId = Object.prototype.hasOwnProperty.call(params, 'templateId') ? params.templateId : defaultTemplateId;
   return {
     contractEntry: {
       JsActiveContract: {
@@ -239,6 +242,61 @@ describe('getCapTableState', () => {
       const result = await getCapTableState(mockClient, 'issuer::party-123');
 
       expect(result).toBeNull();
+    });
+
+    it.each([
+      ['missing', undefined],
+      ['empty', ''],
+    ])('should reject returned CapTable rows with a %s templateId', async (_case, templateId) => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-current',
+            issuerContractId: 'issuer-contract-456',
+            packageName: OPEN_CAP_TABLE_V34,
+            templateId,
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'cap-table-current',
+        message: 'CapTable contract templateId must be a non-empty string',
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('should reject returned rows whose templateId does not match the requested current template', async () => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-other',
+            issuerContractId: 'issuer-contract-other',
+            packageName: NON_CURRENT_CAP_TABLE_PACKAGE_NAME,
+            templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
+            createArgument: {
+              stakeholders: [['other-stakeholder', 'other-stakeholder-contract']],
+            },
+          }),
+          buildMockCapTableContract({
+            contractId: 'cap-table-current',
+            issuerContractId: 'issuer-contract-456',
+            packageName: OPEN_CAP_TABLE_V34,
+            createArgument: {
+              stakeholders: [['current-stakeholder', 'current-stakeholder-contract']],
+            },
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'cap-table-other',
+        message: 'CapTable contract templateId did not match requested template scope',
+        templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
     });
 
     it('should parse DAML maps in array-of-tuples format (JSON API v2)', async () => {
@@ -675,13 +733,64 @@ describe('getCapTableState', () => {
       });
     });
 
-    it('should classify as none when no CapTable exists', async () => {
+    it('should reject a returned row whose templateId does not match the requested current template', async () => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-other',
+            issuerContractId: 'issuer-contract-other',
+            packageName: NON_CURRENT_CAP_TABLE_PACKAGE_NAME,
+            templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
+          }),
+          buildMockCapTableContract({
+            contractId: 'cap-table-current',
+            issuerContractId: 'issuer-contract-456',
+            packageName: OPEN_CAP_TABLE_V34,
+          }),
+        ],
+      });
+
+      await expect(classifyIssuerCapTables(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'cap-table-other',
+        message: 'CapTable contract templateId did not match requested template scope',
+        templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('should classify as none when the current template has no CapTable', async () => {
       mockActiveContractsForCapTableState(mockClient, { current: [] });
 
       const result = await classifyIssuerCapTables(mockClient, 'issuer::party-123');
 
       expect(result.status).toBe('none');
       expect(result.current).toBeNull();
+      expect(mockClient.getActiveContracts).toHaveBeenCalledWith({
+        parties: ['issuer::party-123'],
+        templateIds: [CURRENT_CAP_TABLE_TEMPLATE_ID],
+      });
+    });
+
+    it('should reject when a mismatched template row is returned', async () => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-other',
+            issuerContractId: 'issuer-contract-other',
+            packageName: NON_CURRENT_CAP_TABLE_PACKAGE_NAME,
+            templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
+          }),
+        ],
+      });
+
+      await expect(classifyIssuerCapTables(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'cap-table-other',
+        message: 'CapTable contract templateId did not match requested template scope',
+        templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
     });
 
     it('should reject multiple active CapTables on the current template', async () => {

@@ -7,7 +7,7 @@
  * Run with: npx ts-node scripts/quickstart/waitForReady.ts
  */
 
-import { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
+import { createLedgerJsonApiClient } from '../../test/utils/cantonNodeSdkCompat';
 import { buildIntegrationTestClientConfig, retry } from '../../test/utils/testConfig';
 
 /**
@@ -28,7 +28,7 @@ export async function waitForLedgerJsonApiReady(params?: {
   const timeoutMs = params?.timeoutMs ?? 120_000;
   const pollIntervalMs = params?.pollIntervalMs ?? 2_000;
 
-  const client = new LedgerJsonApiClient(buildIntegrationTestClientConfig());
+  const client = createLedgerJsonApiClient(buildIntegrationTestClientConfig());
 
   await retry(async () => client.getVersion(), {
     timeoutMs,
