@@ -10,8 +10,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const MIN_EXACT_DEV = '0.2.159';
-const MIN_PEER_PREFIX = '>=0.2.159';
+const MIN_EXACT_DEV = '0.2.160';
+const MIN_PEER_PREFIX = '>=0.2.160';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
