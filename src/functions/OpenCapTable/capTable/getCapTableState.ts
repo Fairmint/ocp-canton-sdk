@@ -382,14 +382,27 @@ function damlTemplateModuleEntityPath(templateId: string, contractId: string): s
       templateId,
     });
   }
-  return templateId.slice(i + 1);
+  const path = templateId.slice(i + 1);
+  if (path.length === 0) {
+    throw new OcpContractError('CapTable contract templateId is missing module path after package reference', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId,
+      templateId,
+    });
+  }
+  return path;
 }
 
-function requireCapTablePackageNameString(packageName: unknown, contractId: string): string {
+function requireCapTablePackageNameString(
+  packageName: unknown,
+  contractId: string,
+  templateIdForDiagnostics?: string
+): string {
   if (typeof packageName !== 'string' || packageName.length === 0) {
     throw new OcpContractError('CapTable contract packageName must be a non-empty string', {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       contractId,
+      ...(templateIdForDiagnostics ? { templateId: templateIdForDiagnostics } : {}),
     });
   }
   return packageName;
@@ -406,7 +419,11 @@ function requirePinnedCapTableCreatedEvent(createdEvent: {
   packageName?: unknown;
 }): string {
   const templateId = requireCapTableTemplateIdString(createdEvent.templateId, createdEvent.contractId);
-  const packageName = requireCapTablePackageNameString(createdEvent.packageName, createdEvent.contractId);
+  const packageName = requireCapTablePackageNameString(
+    createdEvent.packageName,
+    createdEvent.contractId,
+    templateId
+  );
 
   if (packageName !== PINNED_CAP_TABLE_PACKAGE_LINE.packageName) {
     throw new OcpContractError('CapTable contract packageName does not match pinned OpenCapTable package line', {
@@ -450,7 +467,7 @@ async function capTableWithArchiveContext(
   return { ...base, templateId, systemOperatorPartyId };
 }
 
-/** Active CapTable contracts for the issuer on the current template only. */
+/** Active CapTable contracts for the issuer on the current pinned package line only. */
 async function loadCurrentCapTables(
   client: LedgerJsonApiClient,
   issuerPartyId: string

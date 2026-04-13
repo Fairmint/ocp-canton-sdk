@@ -28,7 +28,10 @@ function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
   return templateIds?.length === 1 && templateIds[0] === CURRENT_CAP_TABLE_TEMPLATE_ID;
 }
 
-/** `classifyIssuerCapTables` / `getCapTableState` query only the SDK’s current CapTable package line. */
+/**
+ * Test mock: `getActiveContracts` must be called with `templateIds: [OCP_TEMPLATES.capTable]` (package-name symbolic
+ * id). The SDK validates each returned row using `packageName` plus the module/entity suffix of `templateId`.
+ */
 function mockActiveContractsForCapTableState(
   mockClient: jest.Mocked<Pick<LedgerJsonApiClient, 'getActiveContracts'>>,
   responses: { current?: unknown[] }
@@ -333,6 +336,29 @@ describe('getCapTableState', () => {
       expect(result!.capTableContractId).toBe('cap-table-hash-id');
     });
 
+    it('should reject templateId with empty module path after package reference', async () => {
+      const badTemplateId = `${HASH_FORM_CAP_TABLE_TEMPLATE_ID.split(':')[0]}:`;
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-bad-suffix',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            templateId: badTemplateId,
+            createArgument: { stakeholders: [['s', 'c']] },
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'cap-table-bad-suffix',
+        message: 'CapTable contract templateId is missing module path after package reference',
+        templateId: badTemplateId,
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
     it.each([
       ['missing', undefined],
       ['empty', ''],
@@ -357,6 +383,7 @@ describe('getCapTableState', () => {
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         contractId: 'cap-table-bad-pkg',
         message: 'CapTable contract packageName must be a non-empty string',
+        templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
       });
       expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
     });
