@@ -8,9 +8,11 @@ interface PartyScopedRight {
 
 function hasPartyRight(rights: unknown[], rightName: 'CanActAs' | 'CanReadAs', party: string): boolean {
   return rights.some((right) => {
+    if (!right || typeof right !== 'object' || !('kind' in right)) return false;
     const { kind } = right as PartyScopedRight;
-    const entry = kind[rightName];
-    const inner = entry.value;
+    const entry = (kind as Record<string, unknown>)[rightName];
+    if (entry == null || typeof entry !== 'object' || Array.isArray(entry)) return false;
+    const inner = (entry as { value?: { party?: string } }).value;
     return inner?.party === party;
   });
 }
@@ -38,9 +40,7 @@ async function ensurePartyReadRights(ocp: OcpClient, party: string): Promise<voi
 
 async function pickAlternateIssuerParty(ocp: OcpClient, authenticatedParty: string): Promise<string> {
   const partiesResponse = await ocp.ledger.listParties({});
-  const alternateParty = (partiesResponse.partyDetails ?? [])
-    .map((p) => p.party)
-    .find((party) => party !== authenticatedParty);
+  const alternateParty = (partiesResponse.partyDetails ?? []).map((p) => p.party).find((party) => party !== authenticatedParty);
   if (!alternateParty) {
     throw new Error('Expected LocalNet to expose at least two parties for readAs integration coverage');
   }
