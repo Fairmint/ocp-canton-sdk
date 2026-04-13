@@ -1,7 +1,7 @@
 import { OcpErrorCodes } from '../../src/errors/codes';
 import { OcpContractError } from '../../src/errors/OcpContractError';
 import { OcpParseError } from '../../src/errors/OcpParseError';
-import { classifyContractReadFailure } from '../../src/utils/contractReadDiagnostics';
+import { classifyContractReadFailure, createDiagnosedContractReadError } from '../../src/utils/contractReadDiagnostics';
 
 describe('contractReadDiagnostics', () => {
   describe('classifyContractReadFailure', () => {
@@ -25,6 +25,39 @@ describe('contractReadDiagnostics', () => {
     it('classifies OcpContractError CONTRACT_NOT_FOUND as not_found', () => {
       const err = new OcpContractError('missing', { code: OcpErrorCodes.CONTRACT_NOT_FOUND });
       expect(classifyContractReadFailure(err)).toBe('not_found');
+    });
+  });
+
+  describe('createDiagnosedContractReadError', () => {
+    it('sets classification, context, and diagnostics on the thrown contract error', () => {
+      const cause = new Error('ledger boom');
+      const err = createDiagnosedContractReadError({
+        message: 'Failed to fetch issuer (visibility)',
+        code: OcpErrorCodes.AUTHORIZATION_FAILED,
+        contractId: 'cid-1',
+        cause,
+        diagnostics: {
+          classification: 'visibility',
+          operation: 'getEventsByContractId',
+          contractId: 'cid-1',
+          entityType: 'issuer',
+          issuerPartyId: 'alice::issuer',
+        },
+      });
+
+      expect(err).toBeInstanceOf(OcpContractError);
+      expect(err.message).toBe('Failed to fetch issuer (visibility)');
+      expect(err.code).toBe(OcpErrorCodes.AUTHORIZATION_FAILED);
+      expect(err.cause).toBe(cause);
+      expect(err.classification).toBe('visibility');
+      expect(err.context).toEqual({
+        classification: 'visibility',
+        operation: 'getEventsByContractId',
+        contractId: 'cid-1',
+        entityType: 'issuer',
+        issuerPartyId: 'alice::issuer',
+      });
+      expect(err.diagnostics.entityType).toBe('issuer');
     });
   });
 });

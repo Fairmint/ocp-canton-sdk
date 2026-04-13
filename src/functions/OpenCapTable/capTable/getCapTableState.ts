@@ -30,9 +30,8 @@ import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import {
   classifyContractReadFailure,
-  contractReadDiagnosticsToOcpContext,
   contractReadFailureCode,
-  type ContractReadFailureKind,
+  createDiagnosedContractReadError,
 } from '../../../utils/contractReadDiagnostics';
 import { ledgerReadScope } from '../../../utils/readScope';
 import { parseDamlMap } from '../../../utils/typeConversions';
@@ -269,39 +268,6 @@ export interface IssuerCapTableClassification {
   status: IssuerCapTableStatus;
   /** Populated when `status` is `current` (exactly one CapTable on the pinned package line). */
   current: CapTableWithArchiveContext | null;
-}
-
-interface ContractReadDiagnostics {
-  classification: ContractReadFailureKind;
-  operation: 'getEventsByContractId';
-  entityType: 'issuer';
-  contractId: string;
-  issuerPartyId?: string;
-}
-
-function createDiagnosedContractReadError(params: {
-  message: string;
-  code: (typeof OcpErrorCodes)[keyof typeof OcpErrorCodes];
-  contractId: string;
-  cause: Error;
-  diagnostics: ContractReadDiagnostics;
-}): OcpContractError & { diagnostics: ContractReadDiagnostics } {
-  return Object.assign(
-    new OcpContractError(params.message, {
-      code: params.code,
-      contractId: params.contractId,
-      cause: params.cause,
-      classification: params.diagnostics.classification,
-      context: contractReadDiagnosticsToOcpContext({
-        classification: params.diagnostics.classification,
-        operation: params.diagnostics.operation,
-        contractId: params.diagnostics.contractId,
-        entityType: params.diagnostics.entityType,
-        issuerPartyId: params.diagnostics.issuerPartyId,
-      }),
-    }),
-    { diagnostics: params.diagnostics }
-  );
 }
 
 function requireObjectRecord(value: unknown, message: string, contractId: string): Record<string, unknown> {

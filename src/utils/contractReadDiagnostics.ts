@@ -8,6 +8,7 @@
  */
 
 import { OcpErrorCodes, type OcpErrorCode } from '../errors/codes';
+import { OcpContractError } from '../errors/OcpContractError';
 import { OcpError, type OcpErrorContext } from '../errors/OcpError';
 
 export type ContractReadFailureKind = 'not_found' | 'visibility' | 'auth' | 'schema' | 'network' | 'unknown';
@@ -212,6 +213,29 @@ export function contractReadDiagnosticsToOcpContext(input: ContractReadDiagnosti
     ctx.readAs = input.readAs;
   }
   return ctx;
+}
+
+/**
+ * Wraps an underlying ledger read failure in `OcpContractError` with
+ * `classification`, structured `context`, and a typed `diagnostics` attachment.
+ */
+export function createDiagnosedContractReadError<D extends ContractReadDiagnosticsOcpContextInput>(params: {
+  message: string;
+  code: (typeof OcpErrorCodes)[keyof typeof OcpErrorCodes];
+  contractId: string;
+  cause: Error;
+  diagnostics: D;
+}): OcpContractError & { diagnostics: D } {
+  return Object.assign(
+    new OcpContractError(params.message, {
+      code: params.code,
+      contractId: params.contractId,
+      cause: params.cause,
+      classification: params.diagnostics.classification,
+      context: contractReadDiagnosticsToOcpContext(params.diagnostics),
+    }),
+    { diagnostics: params.diagnostics }
+  );
 }
 
 export function isRetryableContractReadFailure(error: unknown): boolean {

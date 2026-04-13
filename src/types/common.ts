@@ -30,6 +30,12 @@ export type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
  * Pass `readAs` when the authenticated Ledger API party differs from the
  * party that can see the contract (for example a portal client reading
  * issuer-scoped contracts).
+ *
+ * Callers should treat this as a **hint**: it is forwarded wherever reads go
+ * through `readSingleContract` / `ledgerReadScope` (most `get*AsOcf` readers and
+ * `getEntityAsOcf`). A few flows still call the ledger directly without accepting
+ * `readAs`; if you rely on issuer-scoped visibility there, confirm that entrypoint
+ * documents read-scope support or extend it.
  */
 export interface ReadScopeParams {
   /** Optional Canton read scope for contract event visibility */
@@ -39,8 +45,10 @@ export interface ReadScopeParams {
 /**
  * Standard params for retrieving an entity by its contract ID.
  *
- * Used by all `OpenCapTable.*.get()` operations and by `get*AsOcf` readers that
- * load a single contract via `getEventsByContractId`.
+ * Used by `OpenCapTable.*.get()` operations and by `get*AsOcf` readers that load a
+ * single contract. Optional `readAs` is applied on code paths that delegate to
+ * `readSingleContract` (the common case for entity OCF readers); verify the
+ * specific function you call forwards read scope if you depend on it.
  *
  * @example
  * ```typescript

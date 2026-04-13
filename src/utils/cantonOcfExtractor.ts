@@ -12,7 +12,6 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
-import { OcpContractError } from '../errors/OcpContractError';
 import { OcpValidationError } from '../errors/OcpValidationError';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
@@ -36,9 +35,8 @@ import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
 import {
   analyzeContractReadFailure,
-  contractReadDiagnosticsToOcpContext,
   contractReadFailureCode,
-  type ContractReadFailureKind,
+  createDiagnosedContractReadError,
 } from './contractReadDiagnostics';
 import { LEGACY_OBJECT_TYPE_MAP } from './planSecurityAliases';
 import { ledgerReadScope } from './readScope';
@@ -399,43 +397,6 @@ export interface ExtractCantonOcfOptions {
    * throwing, returning a partial manifest.
    */
   failOnReadErrors?: boolean;
-}
-
-interface ContractReadDiagnostics {
-  classification: ContractReadFailureKind;
-  operation: 'extractCantonOcfManifest';
-  entityType: string;
-  objectId: string;
-  contractId: string;
-  attempts: number;
-  readAs?: string[];
-}
-
-function createDiagnosedContractReadError(params: {
-  message: string;
-  code: (typeof OcpErrorCodes)[keyof typeof OcpErrorCodes];
-  contractId: string;
-  cause: Error;
-  diagnostics: ContractReadDiagnostics;
-}): OcpContractError & { diagnostics: ContractReadDiagnostics } {
-  return Object.assign(
-    new OcpContractError(params.message, {
-      contractId: params.contractId,
-      code: params.code,
-      cause: params.cause,
-      classification: params.diagnostics.classification,
-      context: contractReadDiagnosticsToOcpContext({
-        classification: params.diagnostics.classification,
-        operation: params.diagnostics.operation,
-        contractId: params.diagnostics.contractId,
-        entityType: params.diagnostics.entityType,
-        objectId: params.diagnostics.objectId,
-        attempts: params.diagnostics.attempts,
-        readAs: params.diagnostics.readAs,
-      }),
-    }),
-    { diagnostics: params.diagnostics }
-  );
 }
 
 async function sleep(ms: number): Promise<void> {
