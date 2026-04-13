@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 
 export interface OcfStockReissuanceEvent {
   object_type: 'TX_STOCK_REISSUANCE';
@@ -13,9 +14,7 @@ export interface OcfStockReissuanceEvent {
   comments?: string[];
 }
 
-export interface GetStockReissuanceAsOcfParams {
-  contractId: string;
-}
+export type GetStockReissuanceAsOcfParams = GetByContractIdParams;
 export interface GetStockReissuanceAsOcfResult {
   event: OcfStockReissuanceEvent;
   contractId: string;
@@ -28,7 +27,10 @@ export async function getStockReissuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockReissuanceAsOcfParams
 ): Promise<GetStockReissuanceAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!res.created?.createdEvent.createArgument) {
     throw new OcpContractError('Missing createArgument', {
       contractId: params.contractId,

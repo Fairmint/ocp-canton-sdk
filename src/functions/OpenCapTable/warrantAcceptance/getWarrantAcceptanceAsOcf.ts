@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfWarrantAcceptance } from '../../../types';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 
@@ -10,9 +11,7 @@ export interface OcfWarrantAcceptanceEvent extends OcfWarrantAcceptance {
   object_type: 'TX_WARRANT_ACCEPTANCE';
 }
 
-export interface GetWarrantAcceptanceAsOcfParams {
-  contractId: string;
-}
+export type GetWarrantAcceptanceAsOcfParams = GetByContractIdParams;
 
 export interface GetWarrantAcceptanceAsOcfResult {
   event: OcfWarrantAcceptanceEvent;
@@ -42,7 +41,10 @@ export async function getWarrantAcceptanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetWarrantAcceptanceAsOcfParams
 ): Promise<GetWarrantAcceptanceAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!res.created) {
     throw new OcpContractError('Missing created event', {
       contractId: params.contractId,

@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfWarrantExercise } from '../../../types/native';
 import { isRecord } from '../../../utils/typeConversions';
 import { damlWarrantExerciseToNative } from './damlToOcf';
@@ -12,9 +13,7 @@ export interface OcfWarrantExerciseEvent extends OcfWarrantExercise {
   object_type: 'TX_WARRANT_EXERCISE';
 }
 
-export interface GetWarrantExerciseAsOcfParams {
-  contractId: string;
-}
+export type GetWarrantExerciseAsOcfParams = GetByContractIdParams;
 
 export interface GetWarrantExerciseAsOcfResult {
   event: OcfWarrantExerciseEvent;
@@ -29,7 +28,10 @@ export async function getWarrantExerciseAsOcf(
   client: LedgerJsonApiClient,
   params: GetWarrantExerciseAsOcfParams
 ): Promise<GetWarrantExerciseAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
+  const eventsResponse = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
       contractId: params.contractId,

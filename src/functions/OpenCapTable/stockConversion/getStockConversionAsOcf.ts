@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockConversion } from '../../../types/native';
 import { isRecord, normalizeNumericString } from '../../../utils/typeConversions';
 import type { DamlStockConversionData } from './damlToOcf';
@@ -34,9 +35,7 @@ export interface OcfStockConversionEvent extends Omit<OcfStockConversion, 'quant
   quantity_converted: string;
 }
 
-export interface GetStockConversionAsOcfParams {
-  contractId: string;
-}
+export type GetStockConversionAsOcfParams = GetByContractIdParams;
 
 export interface GetStockConversionAsOcfResult {
   event: OcfStockConversionEvent;
@@ -51,7 +50,10 @@ export async function getStockConversionAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockConversionAsOcfParams
 ): Promise<GetStockConversionAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
+  const eventsResponse = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
       contractId: params.contractId,

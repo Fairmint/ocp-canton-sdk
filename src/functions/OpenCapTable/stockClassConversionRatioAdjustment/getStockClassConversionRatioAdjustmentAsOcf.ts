@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import { damlMonetaryToNative, normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface OcfStockClassConversionRatioAdjustmentEvent {
@@ -17,9 +18,7 @@ export interface OcfStockClassConversionRatioAdjustmentEvent {
   comments?: string[];
 }
 
-export interface GetStockClassConversionRatioAdjustmentAsOcfParams {
-  contractId: string;
-}
+export type GetStockClassConversionRatioAdjustmentAsOcfParams = GetByContractIdParams;
 export interface GetStockClassConversionRatioAdjustmentAsOcfResult {
   event: OcfStockClassConversionRatioAdjustmentEvent;
   contractId: string;
@@ -33,7 +32,10 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockClassConversionRatioAdjustmentAsOcfParams
 ): Promise<GetStockClassConversionRatioAdjustmentAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!res.created?.createdEvent.createArgument) {
     throw new OcpContractError('Missing createArgument', {
       contractId: params.contractId,

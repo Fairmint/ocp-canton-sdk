@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface OcfStockClassSplitEvent {
@@ -12,9 +13,7 @@ export interface OcfStockClassSplitEvent {
   comments?: string[];
 }
 
-export interface GetStockClassSplitAsOcfParams {
-  contractId: string;
-}
+export type GetStockClassSplitAsOcfParams = GetByContractIdParams;
 export interface GetStockClassSplitAsOcfResult {
   event: OcfStockClassSplitEvent;
   contractId: string;
@@ -27,7 +26,10 @@ export async function getStockClassSplitAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockClassSplitAsOcfParams
 ): Promise<GetStockClassSplitAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!res.created?.createdEvent.createArgument) {
     throw new OcpContractError('Missing createArgument', {
       contractId: params.contractId,

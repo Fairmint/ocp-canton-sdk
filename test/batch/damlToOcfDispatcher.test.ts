@@ -3,7 +3,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError } from '../../src/errors';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../src/errors';
 import {
   convertToOcf,
   ENTITY_DATA_FIELD_MAP,
@@ -12,6 +12,7 @@ import {
   getEntityAsOcf,
   type SupportedOcfReadType,
 } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { getStockTransferAsOcf } from '../../src/functions/OpenCapTable/stockTransfer/getStockTransferAsOcf';
 
 describe('damlToOcf dispatcher', () => {
   describe('extractCreateArgument', () => {
@@ -78,6 +79,22 @@ describe('damlToOcf dispatcher', () => {
       expect(mockClient.getEventsByContractId).toHaveBeenCalledWith({
         contractId: 'contract-123',
         readAs: ['issuer::party-123'],
+      });
+    });
+  });
+
+  describe('get*AsOcf readAs forwarding', () => {
+    it('getStockTransferAsOcf forwards readAs to getEventsByContractId', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue({ created: null });
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(
+        getStockTransferAsOcf(mockClient, { contractId: 'transfer-cid', readAs: ['issuer::p'] })
+      ).rejects.toThrow(OcpContractError);
+
+      expect(getEventsByContractId).toHaveBeenCalledWith({
+        contractId: 'transfer-cid',
+        readAs: ['issuer::p'],
       });
     });
   });

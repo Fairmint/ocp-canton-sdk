@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfConvertibleTransfer } from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -14,9 +15,7 @@ export interface OcfConvertibleTransferEvent extends Omit<OcfConvertibleTransfer
   amount: { amount: string; currency: string };
 }
 
-export interface GetConvertibleTransferAsOcfParams {
-  contractId: string;
-}
+export type GetConvertibleTransferAsOcfParams = GetByContractIdParams;
 
 export interface GetConvertibleTransferAsOcfResult {
   event: OcfConvertibleTransferEvent;
@@ -30,7 +29,10 @@ export async function getConvertibleTransferAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleTransferAsOcfParams
 ): Promise<GetConvertibleTransferAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!res.created) {
     throw new OcpContractError('Missing created event', {
       contractId: params.contractId,

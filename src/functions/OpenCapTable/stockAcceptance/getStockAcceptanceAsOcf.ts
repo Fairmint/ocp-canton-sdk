@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockAcceptance } from '../../../types';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 
@@ -10,9 +11,7 @@ export interface OcfStockAcceptanceEvent extends OcfStockAcceptance {
   object_type: 'TX_STOCK_ACCEPTANCE';
 }
 
-export interface GetStockAcceptanceAsOcfParams {
-  contractId: string;
-}
+export type GetStockAcceptanceAsOcfParams = GetByContractIdParams;
 
 export interface GetStockAcceptanceAsOcfResult {
   event: OcfStockAcceptanceEvent;
@@ -42,7 +41,10 @@ export async function getStockAcceptanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockAcceptanceAsOcfParams
 ): Promise<GetStockAcceptanceAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!res.created) {
     throw new OcpContractError('Missing created event', {
       contractId: params.contractId,

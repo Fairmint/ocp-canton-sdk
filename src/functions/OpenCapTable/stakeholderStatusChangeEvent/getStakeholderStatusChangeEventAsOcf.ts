@@ -5,15 +5,13 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
 import { damlStakeholderStatusToNative } from '../../../utils/enumConversions';
 import { isRecord } from '../../../utils/typeConversions';
 
 /** Parameters for getting a stakeholder status change event as OCF */
-export interface GetStakeholderStatusChangeEventAsOcfParams {
-  /** The contract ID of the StakeholderStatusChangeEvent on the ledger */
-  contractId: string;
-}
+export type GetStakeholderStatusChangeEventAsOcfParams = GetByContractIdParams;
 
 /** Result of getting a stakeholder status change event as OCF */
 export interface GetStakeholderStatusChangeEventAsOcfResult {
@@ -77,7 +75,10 @@ export async function getStakeholderStatusChangeEventAsOcf(
   client: LedgerJsonApiClient,
   params: GetStakeholderStatusChangeEventAsOcfParams
 ): Promise<GetStakeholderStatusChangeEventAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
 
   if (!res.created) {
     throw new OcpContractError('Missing created event', {

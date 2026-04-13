@@ -27,7 +27,12 @@ export type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
 /**
  * Standard params for retrieving an entity by its contract ID.
  *
- * Used by all `get()` operations that look up a single contract.
+ * Used by all `OpenCapTable.*.get()` operations and by `get*AsOcf` readers that
+ * load a single contract via `getEventsByContractId`. When the authenticated
+ * Ledger API party differs from the party that can see the contract (for example
+ * a portal client reading issuer-scoped contracts), pass `readAs` with the
+ * issuer party id (and any other parties required by the ledger) so event
+ * fetches succeed.
  *
  * @example
  * ```typescript
