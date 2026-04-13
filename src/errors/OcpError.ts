@@ -1,5 +1,14 @@
 import type { OcpErrorCode } from './codes';
 
+export type OcpErrorContext = Record<string, unknown>;
+
+export interface OcpErrorDetails {
+  /** Structured failure classification for machine-readable diagnostics */
+  classification?: string;
+  /** Structured context attached to the failure */
+  context?: OcpErrorContext;
+}
+
 /**
  * Base error class for all OCP SDK errors.
  *
@@ -25,11 +34,19 @@ export class OcpError extends Error {
   /** The original error that caused this error, if any */
   readonly cause?: Error;
 
-  constructor(message: string, code: OcpErrorCode, cause?: Error) {
+  /** Structured failure classification for machine-readable diagnostics */
+  readonly classification?: string;
+
+  /** Structured context attached to the failure */
+  readonly context?: OcpErrorContext;
+
+  constructor(message: string, code: OcpErrorCode, cause?: Error, details?: OcpErrorDetails) {
     super(message);
     this.name = 'OcpError';
     this.code = code;
     this.cause = cause;
+    this.classification = details?.classification;
+    this.context = details?.context;
 
     // Maintain proper stack trace in V8 environments (Node.js, Chrome)
     Error.captureStackTrace(this, this.constructor);

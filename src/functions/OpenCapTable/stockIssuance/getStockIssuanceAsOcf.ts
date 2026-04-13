@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type {
   Monetary,
   OcfStockIssuance,
@@ -9,6 +10,7 @@ import type {
   StockIssuanceType,
 } from '../../../types/native';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.Stock.OcfSecurityExemption): SecurityExemption {
   return { description: e.description, jurisdiction: e.jurisdiction };
@@ -92,9 +94,7 @@ export function damlStockIssuanceDataToNative(
   };
 }
 
-export interface GetStockIssuanceAsOcfParams {
-  contractId: string;
-}
+export interface GetStockIssuanceAsOcfParams extends GetByContractIdParams {}
 
 export interface GetStockIssuanceAsOcfResult {
   contractId: string;
@@ -116,15 +116,11 @@ export async function getStockIssuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockIssuanceAsOcfParams
 ): Promise<GetStockIssuanceAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
-  const created = res.created?.createdEvent;
-  if (!created?.createArgument) {
-    throw new OcpContractError('Missing createArgument for StockIssuance', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const arg = created.createArgument as Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance;
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getStockIssuanceAsOcf',
+    expectedTemplateId: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId,
+  });
+  const arg = createArgument as Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance;
   const argWithData = arg as unknown as {
     issuance_data?: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData;
   };

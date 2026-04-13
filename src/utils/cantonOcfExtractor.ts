@@ -33,7 +33,13 @@ import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stock
 import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
+import {
+  analyzeContractReadFailure,
+  contractReadFailureCode,
+  createDiagnosedContractReadError,
+} from './contractReadDiagnostics';
 import { LEGACY_OBJECT_TYPE_MAP } from './planSecurityAliases';
+import { ledgerReadScope } from './readScope';
 import { TRANSACTION_SUBTYPE_MAP } from './replicationHelpers';
 
 // ===== Transaction Sorting =====
@@ -378,19 +384,19 @@ export interface ExtractCantonOcfOptions {
   verbose?: boolean;
   /** Callback for logging (defaults to console.log when verbose) */
   logger?: (message: string) => void;
+  /** Optional Canton read scope for issuer-visible child contracts */
+  readAs?: string[];
   /**
-   * Throw when one or more contracts fail to extract.
-   * Default: true (fail fast instead of returning partial manifests).
+   * Compatibility mode for callers that intentionally accept partial manifests.
+   *
+   * Default: true. Non-benign child read failures still throw with classified
+   * diagnostics. Archived or not-found contracts remain soft-skipped regardless
+   * of this flag.
+   *
+   * Set to false to log and skip classified non-benign read failures instead of
+   * throwing, returning a partial manifest.
    */
   failOnReadErrors?: boolean;
-}
-
-function isTransientHttpError(error: unknown): boolean {
-  if (error instanceof Error) {
-    const msg = error.message;
-    return msg.includes('HTTP 502') || msg.includes('HTTP 503') || msg.includes('HTTP 404');
-  }
-  return false;
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -424,10 +430,10 @@ export async function extractCantonOcfManifest(
   cantonState: CapTableState,
   options: ExtractCantonOcfOptions = {}
 ): Promise<OcfManifest> {
-  const { verbose = false, failOnReadErrors = true } = options;
+  const { verbose = false, failOnReadErrors = true, readAs } = options;
   // eslint-disable-next-line no-console
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
-  const extractionFailures: Array<{ entityType: string; id: string; contractId: string; message: string }> = [];
+  const readScopeOpts = ledgerReadScope({ readAs });
 
   const result: OcfManifest = {
     issuer: null,
@@ -449,17 +455,21 @@ export async function extractCantonOcfManifest(
   if (issuerContractEntry && issuerContractEntry.size > 0) {
     const [[issuerId, issuerCid]] = issuerContractEntry;
     let issuerLastError: Error | null = null;
+    let issuerAttempts = 0;
     for (let attempt = 0; attempt < 2; attempt++) {
+      issuerAttempts = attempt + 1;
       try {
         const issuerResult = await getIssuerAsOcf(client, {
           contractId: issuerCid,
+          ...readScopeOpts,
         });
         result.issuer = issuerResult.data as unknown as Record<string, unknown>;
         issuerLastError = null;
         break;
       } catch (error) {
         issuerLastError = error instanceof Error ? error : new Error(String(error));
-        if (attempt === 0 && isTransientHttpError(error)) {
+        const outcome = analyzeContractReadFailure(error);
+        if (attempt === 0 && outcome.retryable) {
           log(`  ⏳ Transient error fetching issuer/${issuerId}, retrying in 2s...`);
           await sleep(2000);
           continue;
@@ -468,13 +478,29 @@ export async function extractCantonOcfManifest(
       }
     }
     if (issuerLastError) {
-      log(`  ⚠️ Failed to fetch issuer: ${issuerLastError.message}`);
-      extractionFailures.push({
-        entityType: 'issuer',
-        id: issuerId,
-        contractId: issuerCid,
-        message: issuerLastError.message,
-      });
+      const outcome = analyzeContractReadFailure(issuerLastError);
+      log(`  ⚠️ Failed to fetch issuer/${issuerId} [${outcome.classification}]: ${issuerLastError.message}`);
+      if (!outcome.benignMissing) {
+        const diagnosedError = createDiagnosedContractReadError({
+          message: `Failed to fetch issuer/${issuerId} (${outcome.classification})`,
+          contractId: issuerCid,
+          code: contractReadFailureCode(outcome.classification),
+          cause: issuerLastError,
+          diagnostics: {
+            classification: outcome.classification,
+            operation: 'extractCantonOcfManifest',
+            entityType: 'issuer',
+            objectId: issuerId,
+            contractId: issuerCid,
+            attempts: issuerAttempts,
+            ...ledgerReadScope({ readAs }),
+          },
+        });
+        if (failOnReadErrors) {
+          throw diagnosedError;
+        }
+        log('  -> Continuing with partial manifest because failOnReadErrors=false');
+      }
     }
   } else if (cantonState.issuerContractId) {
     log(`  ⚠️ Skipping issuer fetch: contract ${cantonState.issuerContractId} not in contractIds (likely archived)`);
@@ -485,53 +511,64 @@ export async function extractCantonOcfManifest(
     if (entityType === 'issuer') continue;
     for (const [objectId, contractId] of idToContractId) {
       let lastError: Error | null = null;
+      let readAttempts = 0;
       for (let attempt = 0; attempt < 2; attempt++) {
+        readAttempts = attempt + 1;
         try {
           // Handle core objects with their specific functions
           if (entityType === 'stakeholder') {
-            const { stakeholder } = await getStakeholderAsOcf(client, { contractId });
+            const { stakeholder } = await getStakeholderAsOcf(client, { contractId, ...readScopeOpts });
             result.stakeholders.push(stakeholder as unknown as Record<string, unknown>);
           } else if (entityType === 'stockClass') {
-            const { stockClass } = await getStockClassAsOcf(client, { contractId });
+            const { stockClass } = await getStockClassAsOcf(client, { contractId, ...readScopeOpts });
             result.stockClasses.push(stockClass as unknown as Record<string, unknown>);
           } else if (entityType === 'stockPlan') {
-            const { stockPlan } = await getStockPlanAsOcf(client, { contractId });
+            const { stockPlan } = await getStockPlanAsOcf(client, { contractId, ...readScopeOpts });
             result.stockPlans.push(stockPlan as unknown as Record<string, unknown>);
           } else if (entityType === 'vestingTerms') {
-            const { vestingTerms } = await getVestingTermsAsOcf(client, { contractId });
+            const { vestingTerms } = await getVestingTermsAsOcf(client, { contractId, ...readScopeOpts });
             result.vestingTerms.push(vestingTerms as unknown as Record<string, unknown>);
           } else if (entityType === 'stockIssuance') {
-            const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId });
+            const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(stockIssuance as unknown as Record<string, unknown>);
           } else if (entityType === 'convertibleIssuance') {
-            const { event } = await getConvertibleIssuanceAsOcf(client, { contractId });
+            const { event } = await getConvertibleIssuanceAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'warrantIssuance') {
-            const { warrantIssuance } = await getWarrantIssuanceAsOcf(client, { contractId });
+            const { warrantIssuance } = await getWarrantIssuanceAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(warrantIssuance as unknown as Record<string, unknown>);
           } else if (entityType === 'equityCompensationIssuance') {
-            const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId });
+            const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'equityCompensationExercise') {
-            const { event } = await getEquityCompensationExerciseAsOcf(client, { contractId });
+            const { event } = await getEquityCompensationExerciseAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'stockClassAuthorizedSharesAdjustment') {
-            const { event } = await getStockClassAuthorizedSharesAdjustmentAsOcf(client, { contractId });
+            const { event } = await getStockClassAuthorizedSharesAdjustmentAsOcf(client, {
+              contractId,
+              ...readScopeOpts,
+            });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'issuerAuthorizedSharesAdjustment') {
-            const { event } = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, { contractId });
+            const { event } = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, {
+              contractId,
+              ...readScopeOpts,
+            });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'stockPlanPoolAdjustment') {
-            const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId });
+            const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'valuation') {
-            const { valuation } = await getValuationAsOcf(client, { contractId });
+            const { valuation } = await getValuationAsOcf(client, { contractId, ...readScopeOpts });
             result.valuations.push(valuation as unknown as Record<string, unknown>);
           } else if (entityType === 'document') {
-            const { document } = await getDocumentAsOcf(client, { contractId });
+            const { document } = await getDocumentAsOcf(client, { contractId, ...readScopeOpts });
             result.documents.push(document as unknown as Record<string, unknown>);
           } else if (entityType === 'stockLegendTemplate') {
-            const { stockLegendTemplate } = await getStockLegendTemplateAsOcf(client, { contractId });
+            const { stockLegendTemplate } = await getStockLegendTemplateAsOcf(client, {
+              contractId,
+              ...readScopeOpts,
+            });
             result.stockLegendTemplates.push(stockLegendTemplate as unknown as Record<string, unknown>);
           } else if (
             SUPPORTED_READ_TYPES.has(entityType as SupportedOcfReadType) &&
@@ -539,7 +576,7 @@ export async function extractCantonOcfManifest(
           ) {
             // Handle remaining transaction types with the generic dispatcher
             const supportedType = entityType as SupportedOcfReadType;
-            const { data } = await getEntityAsOcf(client, supportedType, contractId);
+            const { data } = await getEntityAsOcf(client, supportedType, contractId, readScopeOpts);
             const txData = data as unknown as Record<string, unknown>;
 
             // Ensure object_type is present for correct sorting
@@ -566,7 +603,8 @@ export async function extractCantonOcfManifest(
           break;
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error));
-          if (attempt === 0 && isTransientHttpError(error)) {
+          const outcome = analyzeContractReadFailure(error);
+          if (attempt === 0 && outcome.retryable) {
             log(`  ⏳ Transient error fetching ${entityType}/${objectId}, retrying in 2s...`);
             await sleep(2000);
             continue;
@@ -575,31 +613,31 @@ export async function extractCantonOcfManifest(
         }
       }
       if (lastError) {
-        log(`  ⚠️ Failed to fetch ${entityType}/${objectId}: ${lastError.message}`);
-        extractionFailures.push({
-          entityType,
-          id: objectId,
-          contractId,
-          message: lastError.message,
-        });
+        const outcome = analyzeContractReadFailure(lastError);
+        log(`  ⚠️ Failed to fetch ${entityType}/${objectId} [${outcome.classification}]: ${lastError.message}`);
+        if (!outcome.benignMissing) {
+          const diagnosedError = createDiagnosedContractReadError({
+            message: `Failed to fetch ${entityType}/${objectId} (${outcome.classification})`,
+            contractId,
+            code: contractReadFailureCode(outcome.classification),
+            cause: lastError,
+            diagnostics: {
+              classification: outcome.classification,
+              operation: 'extractCantonOcfManifest',
+              entityType,
+              objectId,
+              contractId,
+              attempts: readAttempts,
+              ...ledgerReadScope({ readAs }),
+            },
+          });
+          if (failOnReadErrors) {
+            throw diagnosedError;
+          }
+          log('  -> Continuing with partial manifest because failOnReadErrors=false');
+        }
       }
     }
-  }
-
-  if (failOnReadErrors && extractionFailures.length > 0) {
-    const maxFailuresToReport = 10;
-    const failureSummary = extractionFailures
-      .slice(0, maxFailuresToReport)
-      .map((failure) => `${failure.entityType}/${failure.id} (contractId=${failure.contractId}): ${failure.message}`)
-      .join('\n');
-    const extraCount = extractionFailures.length - maxFailuresToReport;
-    const extraSuffix = extraCount > 0 ? `\n... and ${extraCount} more` : '';
-
-    throw new Error(
-      `Failed to extract ${extractionFailures.length} Canton object(s) while building manifest. ` +
-        'Extraction returned partial data; aborting to avoid inconsistent diffs.\n' +
-        `${failureSummary}${extraSuffix}`
-    );
   }
 
   // Sort transactions by date with domain-aware same-day ordering

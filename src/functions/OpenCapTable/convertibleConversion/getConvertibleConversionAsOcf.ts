@@ -1,7 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfConvertibleConversion } from '../../../types/native';
 import { isRecord } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 import type { DamlConvertibleConversionData } from './damlToOcf';
 
 type DamlConvertibleConversionInput = Pick<DamlConvertibleConversionData, 'id' | 'date' | 'security_id'> & {
@@ -51,9 +53,7 @@ export interface OcfConvertibleConversionEvent extends OcfConvertibleConversion 
   object_type: 'TX_CONVERTIBLE_CONVERSION';
 }
 
-export interface GetConvertibleConversionAsOcfParams {
-  contractId: string;
-}
+export type GetConvertibleConversionAsOcfParams = GetByContractIdParams;
 
 export interface GetConvertibleConversionAsOcfResult {
   event: OcfConvertibleConversionEvent;
@@ -68,14 +68,9 @@ export async function getConvertibleConversionAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleConversionAsOcfParams
 ): Promise<GetConvertibleConversionAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getConvertibleConversionAsOcf',
+  });
 
   const conversionData = createArgument.conversion_data;
   if (!isDamlConvertibleConversionData(conversionData)) {

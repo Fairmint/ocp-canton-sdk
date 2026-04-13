@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import {
   archiveFullCapTable,
   getSystemOperatorPartyId,
@@ -26,6 +27,7 @@ jest.mock('../../src/functions/OpenCapTable/capTable/CapTableBatch', () => ({
 
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
 const CURRENT_OCP_PACKAGE_NAME = CURRENT_CAP_TABLE_TEMPLATE_ID.replace(/^#/, '').split(':')[0];
+const HASH_FORM_CAP_TABLE_TEMPLATE_ID = CapTable.templateIdWithPackageId;
 
 function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
   return templateIds?.length === 1 && templateIds[0] === CURRENT_CAP_TABLE_TEMPLATE_ID;
@@ -177,7 +179,7 @@ describe('archiveFullCapTable', () => {
     );
   });
 
-  it('uses discovered template id for delete and archive steps', async () => {
+  it('preserves discovered raw package-id template id for delete and archive steps', async () => {
     mockActiveContractsForCapTableState(mockClient, {
       current: [
         buildMockCapTableContract({
@@ -185,6 +187,7 @@ describe('archiveFullCapTable', () => {
           issuerContractId: 'issuer-contract-456',
           packageName: CURRENT_OCP_PACKAGE_NAME,
           systemOperatorPartyId: 'current-system-operator',
+          templateId: HASH_FORM_CAP_TABLE_TEMPLATE_ID,
         }),
       ],
     });
@@ -200,7 +203,7 @@ describe('archiveFullCapTable', () => {
     expect(mockCapTableBatch).toHaveBeenCalledWith(
       {
         capTableContractId: 'cap-table-v34',
-        capTableContractDetails: { templateId: CURRENT_CAP_TABLE_TEMPLATE_ID },
+        capTableContractDetails: { templateId: HASH_FORM_CAP_TABLE_TEMPLATE_ID },
         actAs: ['issuer::party-123'],
       },
       mockClient
@@ -208,7 +211,7 @@ describe('archiveFullCapTable', () => {
     expect(mockBatchDelete).toHaveBeenCalledWith('stakeholder', 'stakeholder-1');
     expect(mockArchiveCapTable).toHaveBeenCalledWith(mockClient, {
       capTableContractId: 'cap-table-updated',
-      capTableContractDetails: { templateId: CURRENT_CAP_TABLE_TEMPLATE_ID },
+      capTableContractDetails: { templateId: HASH_FORM_CAP_TABLE_TEMPLATE_ID },
       actAs: ['current-system-operator'],
     });
     expect(result).toEqual({

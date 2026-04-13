@@ -1,11 +1,11 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
-export interface GetIssuerAuthorizedSharesAdjustmentAsOcfParams {
-  contractId: string;
-}
+export interface GetIssuerAuthorizedSharesAdjustmentAsOcfParams extends GetByContractIdParams {}
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfResult {
   event: OcfIssuerAuthorizedSharesAdjustment & { object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT' };
   contractId: string;
@@ -65,13 +65,9 @@ export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
   client: LedgerJsonApiClient,
   params: GetIssuerAuthorizedSharesAdjustmentAsOcfParams
 ): Promise<GetIssuerAuthorizedSharesAdjustmentAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!res.created?.createdEvent.createArgument)
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
+  const { createArgument: arg } = await readSingleContract(client, params, {
+    operation: 'getIssuerAuthorizedSharesAdjustmentAsOcf',
+  });
   const d = (arg.adjustment_data ?? arg) as Record<string, unknown>;
 
   const native = damlIssuerAuthorizedSharesAdjustmentDataToNative(d);

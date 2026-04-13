@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type {
   AllocationType,
   VestingCondition,
@@ -10,6 +11,7 @@ import type {
   VestingTrigger,
 } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
   switch (t) {
@@ -338,9 +340,7 @@ interface OcfVestingTermsOutput {
   comments?: string[];
 }
 
-export interface GetVestingTermsAsOcfParams {
-  contractId: string;
-}
+export interface GetVestingTermsAsOcfParams extends GetByContractIdParams {}
 
 export interface GetVestingTermsAsOcfResult {
   vestingTerms: OcfVestingTermsOutput;
@@ -356,14 +356,10 @@ export async function getVestingTermsAsOcf(
   client: LedgerJsonApiClient,
   params: GetVestingTermsAsOcfParams
 ): Promise<GetVestingTermsAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const { createArgument } = eventsResponse.created.createdEvent;
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getVestingTermsAsOcf',
+    expectedTemplateId: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
+  });
 
   function hasData(
     arg: unknown

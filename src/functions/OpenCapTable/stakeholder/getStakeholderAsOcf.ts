@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { ContactInfo, ContactInfoWithoutName, Email, Name, Phone } from '../../../types/native';
 import {
   damlEmailTypeToNative,
@@ -10,6 +11,7 @@ import {
   damlStakeholderTypeToNative,
 } from '../../../utils/enumConversions';
 import { damlAddressToNative } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): Email {
   return {
@@ -137,9 +139,7 @@ interface OcfStakeholderOutput {
   comments?: string[];
 }
 
-export interface GetStakeholderAsOcfParams {
-  contractId: string;
-}
+export interface GetStakeholderAsOcfParams extends GetByContractIdParams {}
 
 export interface GetStakeholderAsOcfResult {
   stakeholder: OcfStakeholderOutput;
@@ -151,18 +151,11 @@ export async function getStakeholderAsOcf(
   client: LedgerJsonApiClient,
   params: GetStakeholderAsOcfParams
 ): Promise<GetStakeholderAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({
-    contractId: params.contractId,
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getStakeholderAsOcf',
+    expectedTemplateId: Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId,
+    missingDataError: 'parse',
   });
-
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpParseError('Invalid contract events response: missing created event or create argument', {
-      source: `contract ${params.contractId}`,
-      code: OcpErrorCodes.INVALID_RESPONSE,
-    });
-  }
-
-  const { createArgument } = eventsResponse.created.createdEvent;
 
   function hasStakeholderData(
     arg: unknown

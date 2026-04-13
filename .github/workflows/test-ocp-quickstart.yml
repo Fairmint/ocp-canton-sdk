@@ -29,6 +29,12 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Configure npm (retries for flaky registry)
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+
       - name: Upgrade npm
         run: npm install --global npm@11.10.0
 
@@ -110,7 +116,21 @@ jobs:
 
       - name: Install Dependencies
         if: steps.verify-cache.outputs.has_node_modules != 'true'
-        run: npm install
+        run: |
+          set -euo pipefail
+          attempt=1
+          max=3
+          while [ "$attempt" -le "$max" ]; do
+            if npm install; then
+              exit 0
+            fi
+            echo "npm install failed (attempt $attempt/$max), retrying..."
+            if [ "$attempt" -eq "$max" ]; then
+              exit 1
+            fi
+            sleep $((attempt * 15))
+            attempt=$((attempt + 1))
+          done
 
       - name: Assert minimum open-captable-protocol-daml-js (DAR resolver API)
         run: node scripts/ci/assert-min-open-captable-daml-js.mjs

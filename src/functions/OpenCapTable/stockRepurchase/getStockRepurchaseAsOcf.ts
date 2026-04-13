@@ -1,8 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockRepurchase } from '../../../types/native';
 import { damlMonetaryToNative, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 /**
  * OCF Stock Repurchase Event with object_type discriminator OCF:
@@ -14,9 +15,7 @@ export interface OcfStockRepurchaseEvent extends Omit<OcfStockRepurchase, 'quant
   quantity: string;
 }
 
-export interface GetStockRepurchaseAsOcfParams {
-  contractId: string;
-}
+export type GetStockRepurchaseAsOcfParams = GetByContractIdParams;
 
 export interface GetStockRepurchaseAsOcfResult {
   event: OcfStockRepurchaseEvent;
@@ -30,20 +29,10 @@ export async function getStockRepurchaseAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockRepurchaseAsOcfParams
 ): Promise<GetStockRepurchaseAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!res.created) {
-    throw new OcpContractError('Missing created event', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  if (!res.created.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const contract = res.created.createdEvent.createArgument as StockRepurchaseCreateArgument;
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getStockRepurchaseAsOcf',
+  });
+  const contract = createArgument as StockRepurchaseCreateArgument;
   const data = contract.repurchase_data;
 
   // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)

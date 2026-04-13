@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type {
   CompensationType,
   OcfEquityCompensationIssuance,
@@ -8,10 +9,9 @@ import type {
   Vesting,
 } from '../../../types/native';
 import { damlMonetaryToNativeWithValidation, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
-export interface GetEquityCompensationIssuanceAsOcfParams {
-  contractId: string;
-}
+export interface GetEquityCompensationIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetEquityCompensationIssuanceAsOcfResult {
   event: OcfEquityCompensationIssuance & { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE' };
   contractId: string;
@@ -232,14 +232,10 @@ export async function getEquityCompensationIssuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetEquityCompensationIssuanceAsOcfParams
 ): Promise<GetEquityCompensationIssuanceAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!res.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const arg = res.created.createdEvent.createArgument as Record<string, unknown>;
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getEquityCompensationIssuanceAsOcf',
+  });
+  const arg = createArgument;
   const d = (arg.issuance_data ?? arg) as Record<string, unknown>;
 
   const native = damlEquityCompensationIssuanceDataToNative(d);

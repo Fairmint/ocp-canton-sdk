@@ -1,5 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError } from './OcpError';
+import { OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpValidationErrorOptions {
   /** The expected type for this field */
@@ -8,6 +8,10 @@ export interface OcpValidationErrorOptions {
   receivedValue?: unknown;
   /** Specific validation error code (defaults to REQUIRED_FIELD_MISSING) */
   code?: OcpErrorCode;
+  /** Structured failure classification override */
+  classification?: string;
+  /** Additional structured diagnostics context */
+  context?: OcpErrorContext;
 }
 
 /**
@@ -51,7 +55,15 @@ export class OcpValidationError extends OcpError {
 
   constructor(fieldPath: string, message: string, options?: OcpValidationErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.REQUIRED_FIELD_MISSING;
-    super(`Validation error at '${fieldPath}': ${message}`, code);
+    super(`Validation error at '${fieldPath}': ${message}`, code, undefined, {
+      classification: options?.classification ?? 'validation_error',
+      context: {
+        ...options?.context,
+        fieldPath,
+        expectedType: options?.expectedType,
+        receivedValue: options?.receivedValue,
+      },
+    });
     this.name = 'OcpValidationError';
     this.fieldPath = fieldPath;
     this.expectedType = options?.expectedType;

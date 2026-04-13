@@ -1,7 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfEquityCompensationExercise } from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 /**
  * Converts DAML EquityCompensationExercise data to native OCF format.
@@ -56,9 +58,7 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
   };
 }
 
-export interface GetEquityCompensationExerciseAsOcfParams {
-  contractId: string; // ContractId of PlanSecurityExerciseEvent
-}
+export interface GetEquityCompensationExerciseAsOcfParams extends GetByContractIdParams {}
 
 export interface GetEquityCompensationExerciseAsOcfResult {
   event: OcfEquityCompensationExercise & { object_type: 'TX_EQUITY_COMPENSATION_EXERCISE' };
@@ -73,20 +73,19 @@ export async function getEquityCompensationExerciseAsOcf(
   client: LedgerJsonApiClient,
   params: GetEquityCompensationExerciseAsOcfParams
 ): Promise<GetEquityCompensationExerciseAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getEquityCompensationExerciseAsOcf',
+  });
 
   const exerciseData = createArgument.exercise_data;
   if (!exerciseData || typeof exerciseData !== 'object' || Array.isArray(exerciseData)) {
     throw new OcpContractError('EquityCompensationExercise data not found in contract create argument', {
       contractId: params.contractId,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'missing_exercise_data',
+      context: {
+        operation: 'getEquityCompensationExerciseAsOcf',
+      },
     });
   }
   const d = exerciseData as Record<string, unknown>;

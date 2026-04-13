@@ -1,11 +1,12 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ContractResult, GetByContractIdParams } from '../../../types/common';
 import type { OcfIssuer as OcfIssuerInput } from '../../../types/native';
 import type { OcfIssuerOutput } from '../../../types/output';
 import { damlEmailTypeToNative, damlPhoneTypeToNative } from '../../../utils/enumConversions';
 import { damlAddressToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): OcfIssuerInput['email'] {
   return {
@@ -85,15 +86,10 @@ export async function getIssuerAsOcf(
   client: LedgerJsonApiClient,
   params: GetByContractIdParams
 ): Promise<ContractResult<OcfIssuerOutput>> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-
-  const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getIssuerAsOcf',
+    expectedTemplateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
+  });
   if (!('issuer_data' in createArgument)) {
     throw new OcpParseError('Issuer data not found in contract create argument', {
       source: 'Issuer.createArgument',

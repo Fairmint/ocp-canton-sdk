@@ -11,6 +11,8 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import type { ReadScopeParams } from '../../../types/common';
+import { readSingleContract } from '../shared/singleContractRead';
 import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
 
 // Import converters from entity folders
@@ -546,52 +548,7 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
   return entityData as Record<string, unknown>;
 }
 
-/**
- * Contract events response type from the ledger client.
- */
-interface ContractEventsResponse {
-  created?: {
-    createdEvent: {
-      createArgument?: unknown;
-    };
-  };
-}
-
-/**
- * Extract the createArgument from a contract events response.
- *
- * This helper provides consistent error handling for contract data extraction,
- * replacing the duplicated pattern across get*AsOcf functions.
- *
- * @param eventsResponse - The response from getEventsByContractId
- * @param contractId - The contract ID (for error messages)
- * @returns The createArgument from the contract's created event
- * @throws OcpParseError if the response is missing expected fields
- *
- * @example
- * ```typescript
- * const eventsResponse = await client.getEventsByContractId({ contractId });
- * const createArg = extractCreateArgument(eventsResponse, contractId);
- * ```
- */
-export function extractCreateArgument(eventsResponse: ContractEventsResponse, contractId: string): unknown {
-  if (!eventsResponse.created?.createdEvent) {
-    throw new OcpParseError('Invalid contract events response: missing created event', {
-      source: `contract ${contractId}`,
-      code: OcpErrorCodes.INVALID_RESPONSE,
-    });
-  }
-
-  const { createArgument } = eventsResponse.created.createdEvent;
-  if (!createArgument) {
-    throw new OcpParseError('Invalid contract events response: missing create argument', {
-      source: `contract ${contractId}`,
-      code: OcpErrorCodes.INVALID_RESPONSE,
-    });
-  }
-
-  return createArgument;
-}
+export { extractCreateArgument } from '../shared/singleContractRead';
 
 /**
  * Result type for getEntityAsOcf.
@@ -602,6 +559,8 @@ export interface GetEntityAsOcfResult<T extends SupportedOcfReadType> {
   /** The contract ID */
   contractId: string;
 }
+
+export interface GetEntityAsOcfOptions extends ReadScopeParams {}
 
 /**
  * Generic function to retrieve and convert a contract to OCF format.
@@ -628,13 +587,20 @@ export interface GetEntityAsOcfResult<T extends SupportedOcfReadType> {
 export async function getEntityAsOcf<T extends SupportedOcfReadType>(
   client: LedgerJsonApiClient,
   entityType: T,
-  contractId: string
+  contractId: string,
+  options: GetEntityAsOcfOptions = {}
 ): Promise<GetEntityAsOcfResult<T>> {
-  // Fetch contract events
-  const eventsResponse = await client.getEventsByContractId({ contractId });
-
-  // Extract createArgument with proper error handling
-  const createArgument = extractCreateArgument(eventsResponse, contractId);
+  const { createArgument } = await readSingleContract(
+    client,
+    {
+      contractId,
+      ...options,
+    },
+    {
+      operation: `getEntityAsOcf(${entityType})`,
+      missingDataError: 'parse',
+    }
+  );
 
   // Extract entity-specific data field
   const entityData = extractEntityData(entityType, createArgument);

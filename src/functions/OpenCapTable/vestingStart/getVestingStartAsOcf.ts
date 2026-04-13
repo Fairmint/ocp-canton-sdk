@@ -1,11 +1,11 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfVestingStart } from '../../../types/native';
+import { readSingleContract } from '../shared/singleContractRead';
 import { damlVestingStartToNative, type DamlVestingStartData } from './damlToOcf';
 
-export interface GetVestingStartAsOcfParams {
-  contractId: string;
-}
+export type GetVestingStartAsOcfParams = GetByContractIdParams;
 
 export interface GetVestingStartAsOcfResult {
   vestingStart: OcfVestingStart & { object_type: 'TX_VESTING_START' };
@@ -25,15 +25,9 @@ export async function getVestingStartAsOcf(
   client: LedgerJsonApiClient,
   params: GetVestingStartAsOcfParams
 ): Promise<GetVestingStartAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('No createArgument found for contract', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-
-  const { createArgument } = eventsResponse.created.createdEvent;
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getVestingStartAsOcf',
+  });
 
   function hasVestingStartData(arg: unknown): arg is {
     vesting_data?: DamlVestingStartData;

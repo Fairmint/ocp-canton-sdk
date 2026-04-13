@@ -1,7 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import { normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 /**
  * OCF Equity Compensation Cancellation Event with object_type discriminator OCF:
@@ -18,9 +19,7 @@ export interface OcfEquityCompensationCancellationEvent {
   comments?: string[];
 }
 
-export interface GetEquityCompensationCancellationAsOcfParams {
-  contractId: string;
-}
+export type GetEquityCompensationCancellationAsOcfParams = GetByContractIdParams;
 
 export interface GetEquityCompensationCancellationAsOcfResult {
   event: OcfEquityCompensationCancellationEvent;
@@ -42,20 +41,10 @@ export async function getEquityCompensationCancellationAsOcf(
   client: LedgerJsonApiClient,
   params: GetEquityCompensationCancellationAsOcfParams
 ): Promise<GetEquityCompensationCancellationAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!res.created) {
-    throw new OcpContractError('Missing created event', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  if (!res.created.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const contract = res.created.createdEvent.createArgument as EquityCompensationCancellationCreateArgument;
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getEquityCompensationCancellationAsOcf',
+  });
+  const contract = createArgument as EquityCompensationCancellationCreateArgument;
   const data = contract.cancellation_data;
 
   // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)

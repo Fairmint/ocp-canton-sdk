@@ -45,7 +45,7 @@ export { OcpErrorCodes, type OcpErrorCode } from './codes';
 
 // Error classes
 export { OcpContractError, type OcpContractErrorOptions } from './OcpContractError';
-export { OcpError } from './OcpError';
+export { OcpError, type OcpErrorContext, type OcpErrorDetails } from './OcpError';
 export { OcpNetworkError, type OcpNetworkErrorOptions } from './OcpNetworkError';
 export { OcpParseError, type OcpParseErrorOptions } from './OcpParseError';
 export { OcpValidationError, type OcpValidationErrorOptions } from './OcpValidationError';

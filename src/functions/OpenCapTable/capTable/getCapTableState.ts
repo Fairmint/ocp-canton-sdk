@@ -28,6 +28,12 @@ import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import {
+  classifyContractReadFailure,
+  contractReadFailureCode,
+  createDiagnosedContractReadError,
+} from '../../../utils/contractReadDiagnostics';
+import { ledgerReadScope } from '../../../utils/readScope';
 import { parseDamlMap } from '../../../utils/typeConversions';
 import type { OcfEntityType } from './batchTypes';
 
@@ -264,13 +270,62 @@ export interface IssuerCapTableClassification {
   current: CapTableWithArchiveContext | null;
 }
 
+function requireObjectRecord(value: unknown, message: string, contractId: string): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new OcpContractError(message, {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId,
+    });
+  }
+  return value as Record<string, unknown>;
+}
+
+function requireIssuerCanonicalObjectId(eventsResponse: unknown, issuerContractId: string): string {
+  const response = requireObjectRecord(
+    eventsResponse,
+    'Issuer contract events response must be an object',
+    issuerContractId
+  );
+  const created = requireObjectRecord(
+    response.created,
+    'Issuer contract events response missing created payload',
+    issuerContractId
+  );
+  const createdEvent = requireObjectRecord(
+    created.createdEvent,
+    'Issuer contract events response missing created.createdEvent',
+    issuerContractId
+  );
+  const createArgument = requireObjectRecord(
+    createdEvent.createArgument,
+    'Issuer contract events response missing created.createdEvent.createArgument',
+    issuerContractId
+  );
+  const issuerData = requireObjectRecord(
+    createArgument.issuer_data,
+    'Issuer contract createArgument.issuer_data must be an object',
+    issuerContractId
+  );
+  const issuerId = issuerData.id;
+
+  if (typeof issuerId !== 'string' || issuerId.length === 0) {
+    throw new OcpContractError('Issuer contract createArgument.issuer_data.id must be a non-empty string', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: issuerContractId,
+    });
+  }
+
+  return issuerId;
+}
+
 async function buildCapTableStateFromCreatedEvent(
   client: LedgerJsonApiClient,
   createdEvent: {
     contractId: string;
     createArgument: Record<string, unknown>;
     templateId?: unknown;
-  }
+  },
+  issuerPartyId?: string
 ): Promise<CapTableState> {
   const { contractId, createArgument: payload } = createdEvent;
 
@@ -316,35 +371,37 @@ async function buildCapTableStateFromCreatedEvent(
   // (issuer is stored as a single contract reference, not a map like other entities)
   if (issuerContractId) {
     try {
-      const eventsResponse = await client.getEventsByContractId({ contractId: issuerContractId });
-      // Use optional chaining for defensive runtime validation of API response structure
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Runtime defensive access
-      const createArgument = eventsResponse.created?.createdEvent?.createArgument as
-        | Record<string, unknown>
-        | undefined;
-      const issuerData = createArgument?.issuer_data as Record<string, unknown> | undefined;
-      const issuerId = issuerData?.id;
-
-      // Only add issuer if we got a valid non-empty canonical object ID
-      if (typeof issuerId === 'string' && issuerId.length > 0) {
-        entities.set('issuer', new Set([issuerId]));
-        contractIds.set('issuer', new Map([[issuerId, issuerContractId]]));
-      }
+      const eventsResponse = await client.getEventsByContractId({
+        contractId: issuerContractId,
+        ...ledgerReadScope({ readAs: issuerPartyId ? [issuerPartyId] : undefined }),
+      });
+      const issuerId = requireIssuerCanonicalObjectId(eventsResponse, issuerContractId);
+      entities.set('issuer', new Set([issuerId]));
+      contractIds.set('issuer', new Map([[issuerId, issuerContractId]]));
     } catch (error: unknown) {
-      // Differentiate between expected and unexpected failures for better debugging
-      // - Contract archived/not found: graceful degradation (expected in some workflows)
-      // - Network/permission errors: transient, may retry
-      // - Schema mismatch: indicates a bug, should be investigated
+      const classification = classifyContractReadFailure(error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const isNotFoundError =
-        errorMessage.toLowerCase().includes('not found') || errorMessage.toLowerCase().includes('archived');
 
-      const issuerWarnTitle = isNotFoundError
-        ? 'Issuer contract not found (may be archived)'
-        : 'Failed to fetch issuer contract events';
+      if (classification !== 'not_found') {
+        throw createDiagnosedContractReadError({
+          message: `Failed to fetch issuer contract events (${classification})`,
+          code: contractReadFailureCode(classification),
+          contractId: issuerContractId,
+          cause: error instanceof Error ? error : new Error(String(error)),
+          diagnostics: {
+            classification,
+            operation: 'getEventsByContractId',
+            entityType: 'issuer',
+            contractId: issuerContractId,
+            ...(issuerPartyId ? { issuerPartyId } : {}),
+          },
+        });
+      }
+
       // eslint-disable-next-line no-console -- Intentional warning for operational visibility
-      console.warn(`[getCapTableState] ${issuerWarnTitle}`, {
+      console.warn('[getCapTableState] Issuer contract unavailable; continuing without issuer entity', {
         issuerContractId,
+        classification,
         errorMessage,
         stack: error instanceof Error ? error.stack : undefined,
       });
@@ -448,9 +505,10 @@ async function capTableWithArchiveContext(
     createArgument: Record<string, unknown>;
     templateId?: unknown;
   },
-  templateId: string
+  templateId: string,
+  issuerPartyId: string
 ): Promise<CapTableWithArchiveContext> {
-  const base = await buildCapTableStateFromCreatedEvent(client, createdEvent);
+  const base = await buildCapTableStateFromCreatedEvent(client, createdEvent, issuerPartyId);
   const ctx = createdEvent.createArgument.context as Record<string, unknown> | undefined;
   const systemOperatorPartyId = typeof ctx?.system_operator === 'string' ? ctx.system_operator : '';
   if (!systemOperatorPartyId) {
@@ -482,7 +540,7 @@ async function loadCurrentCapTables(
     }
     const { createdEvent } = contract.contractEntry.JsActiveContract;
     const templateId = requirePinnedCapTableCreatedEvent(createdEvent);
-    out.push(await capTableWithArchiveContext(client, createdEvent, templateId));
+    out.push(await capTableWithArchiveContext(client, createdEvent, templateId, issuerPartyId));
   }
   if (out.length > 1) {
     throw new OcpContractError('Multiple active CapTable contracts for issuer', {

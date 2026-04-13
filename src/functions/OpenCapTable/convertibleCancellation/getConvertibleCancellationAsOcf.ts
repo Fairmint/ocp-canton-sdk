@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
+import { readSingleContract } from '../shared/singleContractRead';
 
 /**
  * OCF Convertible Cancellation Event with object_type discriminator OCF:
@@ -19,9 +20,7 @@ export interface OcfConvertibleCancellationEvent {
   comments?: string[];
 }
 
-export interface GetConvertibleCancellationAsOcfParams {
-  contractId: string;
-}
+export type GetConvertibleCancellationAsOcfParams = GetByContractIdParams;
 
 export interface GetConvertibleCancellationAsOcfResult {
   event: OcfConvertibleCancellationEvent;
@@ -42,20 +41,10 @@ export async function getConvertibleCancellationAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleCancellationAsOcfParams
 ): Promise<GetConvertibleCancellationAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
-  if (!res.created) {
-    throw new OcpContractError('Missing created event', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  if (!res.created.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const contract = res.created.createdEvent.createArgument as ConvertibleCancellationCreateArgument;
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getConvertibleCancellationAsOcf',
+  });
+  const contract = createArgument as ConvertibleCancellationCreateArgument;
   const data = contract.cancellation_data;
 
   const event: OcfConvertibleCancellationEvent = {
