@@ -48,8 +48,8 @@ export class OcpParseError extends OcpError {
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'parse_error',
       context: {
-        source: options?.source,
         ...options?.context,
+        source: options?.source,
       },
     });
     this.name = 'OcpParseError';

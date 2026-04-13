@@ -61,10 +61,10 @@ export class OcpContractError extends OcpError {
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'contract_error',
       context: {
+        ...options?.context,
         contractId: options?.contractId,
         templateId: options?.templateId,
         choice: options?.choice,
-        ...options?.context,
       },
     });
     this.name = 'OcpContractError';

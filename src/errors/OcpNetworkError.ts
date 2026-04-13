@@ -57,9 +57,9 @@ export class OcpNetworkError extends OcpError {
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'network_error',
       context: {
+        ...options?.context,
         endpoint: options?.endpoint,
         statusCode: options?.statusCode,
-        ...options?.context,
       },
     });
     this.name = 'OcpNetworkError';

@@ -108,6 +108,25 @@ describe('OcpContractError', () => {
     expect(error.code).toBe('RESULT_NOT_FOUND');
   });
 
+  it('should not let caller context override canonical contract fields on error.context', () => {
+    const error = new OcpContractError('Mismatch', {
+      contractId: 'real-cid',
+      templateId: 'Real:Template',
+      choice: 'RealChoice',
+      context: {
+        contractId: 'spoof-cid',
+        templateId: 'Spoof:Template',
+        choice: 'SpoofChoice',
+        extra: 'kept',
+      },
+    });
+
+    expect(error.context?.contractId).toBe('real-cid');
+    expect(error.context?.templateId).toBe('Real:Template');
+    expect(error.context?.choice).toBe('RealChoice');
+    expect(error.context?.extra).toBe('kept');
+  });
+
   it('should include cause when provided', () => {
     const cause = new Error('DAML error');
     const error = new OcpContractError('Choice execution failed', {

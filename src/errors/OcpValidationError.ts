@@ -58,10 +58,10 @@ export class OcpValidationError extends OcpError {
     super(`Validation error at '${fieldPath}': ${message}`, code, undefined, {
       classification: options?.classification ?? 'validation_error',
       context: {
+        ...options?.context,
         fieldPath,
         expectedType: options?.expectedType,
         receivedValue: options?.receivedValue,
-        ...options?.context,
       },
     });
     this.name = 'OcpValidationError';

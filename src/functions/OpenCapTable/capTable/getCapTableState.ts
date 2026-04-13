@@ -28,11 +28,13 @@ import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import type { OcpErrorContext } from '../../../errors/OcpError';
 import {
   classifyContractReadFailure,
   contractReadFailureCode,
   type ContractReadFailureKind,
 } from '../../../utils/contractReadDiagnostics';
+import { ledgerReadScope } from '../../../utils/readScope';
 import { parseDamlMap } from '../../../utils/typeConversions';
 import type { OcfEntityType } from './batchTypes';
 
@@ -289,6 +291,8 @@ function createDiagnosedContractReadError(params: {
       code: params.code,
       contractId: params.contractId,
       cause: params.cause,
+      classification: params.diagnostics.classification,
+      context: params.diagnostics as OcpErrorContext,
     }),
     { diagnostics: params.diagnostics }
   );
@@ -397,7 +401,7 @@ async function buildCapTableStateFromCreatedEvent(
     try {
       const eventsResponse = await client.getEventsByContractId({
         contractId: issuerContractId,
-        ...(issuerPartyId ? { readAs: [issuerPartyId] } : {}),
+        ...ledgerReadScope({ readAs: issuerPartyId ? [issuerPartyId] : undefined }),
       });
       const issuerId = requireIssuerCanonicalObjectId(eventsResponse, issuerContractId);
       entities.set('issuer', new Set([issuerId]));

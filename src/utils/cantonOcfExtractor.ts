@@ -13,6 +13,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
 import { OcpContractError } from '../errors/OcpContractError';
+import type { OcpErrorContext } from '../errors/OcpError';
 import { OcpValidationError } from '../errors/OcpValidationError';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
@@ -34,6 +35,7 @@ import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stock
 import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
+import { ledgerReadScope } from './readScope';
 import {
   analyzeContractReadFailure,
   contractReadFailureCode,
@@ -421,6 +423,8 @@ function createDiagnosedContractReadError(params: {
       contractId: params.contractId,
       code: params.code,
       cause: params.cause,
+      classification: params.diagnostics.classification,
+      context: params.diagnostics as OcpErrorContext,
     }),
     { diagnostics: params.diagnostics }
   );
@@ -460,8 +464,8 @@ export async function extractCantonOcfManifest(
   const { verbose = false, failOnReadErrors = true, readAs } = options;
   // eslint-disable-next-line no-console
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
-  const contractReadParams = readAs ? { readAs } : {};
-  const entityReadOptions = readAs ? { readAs } : undefined;
+  const contractReadParams = ledgerReadScope({ readAs });
+  const entityReadOptions = ledgerReadScope({ readAs });
 
   const result: OcfManifest = {
     issuer: null,
@@ -521,7 +525,7 @@ export async function extractCantonOcfManifest(
             objectId: issuerId,
             contractId: issuerCid,
             attempts: issuerAttempts,
-            ...(readAs ? { readAs } : {}),
+            ...ledgerReadScope({ readAs }),
           },
         });
         if (failOnReadErrors) {
@@ -656,7 +660,7 @@ export async function extractCantonOcfManifest(
               objectId,
               contractId,
               attempts: readAttempts,
-              ...(readAs ? { readAs } : {}),
+              ...ledgerReadScope({ readAs }),
             },
           });
           if (failOnReadErrors) {
