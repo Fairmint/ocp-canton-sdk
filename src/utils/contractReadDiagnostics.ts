@@ -251,8 +251,7 @@ export function analyzeContractReadFailure(error: unknown): ContractReadOutcome 
   return {
     classification,
     retryable:
-      classification === 'network' ||
-      (classification !== 'not_found' && isRetryableContractReadFailure(error)),
+      classification === 'network' || (classification !== 'not_found' && isRetryableContractReadFailure(error)),
     benignMissing: classification === 'not_found',
   };
 }
