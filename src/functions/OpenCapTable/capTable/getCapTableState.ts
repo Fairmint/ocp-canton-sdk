@@ -28,9 +28,9 @@ import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
-import type { OcpErrorContext } from '../../../errors/OcpError';
 import {
   classifyContractReadFailure,
+  contractReadDiagnosticsToOcpContext,
   contractReadFailureCode,
   type ContractReadFailureKind,
 } from '../../../utils/contractReadDiagnostics';
@@ -292,7 +292,13 @@ function createDiagnosedContractReadError(params: {
       contractId: params.contractId,
       cause: params.cause,
       classification: params.diagnostics.classification,
-      context: params.diagnostics as OcpErrorContext,
+      context: contractReadDiagnosticsToOcpContext({
+        classification: params.diagnostics.classification,
+        operation: params.diagnostics.operation,
+        contractId: params.diagnostics.contractId,
+        entityType: params.diagnostics.entityType,
+        issuerPartyId: params.diagnostics.issuerPartyId,
+      }),
     }),
     { diagnostics: params.diagnostics }
   );

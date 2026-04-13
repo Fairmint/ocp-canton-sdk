@@ -8,7 +8,7 @@
  */
 
 import { OcpErrorCodes, type OcpErrorCode } from '../errors/codes';
-import { OcpError } from '../errors/OcpError';
+import { OcpError, type OcpErrorContext } from '../errors/OcpError';
 
 export type ContractReadFailureKind = 'not_found' | 'visibility' | 'auth' | 'schema' | 'network' | 'unknown';
 
@@ -175,6 +175,43 @@ export function contractReadFailureCode(kind: ContractReadFailureKind): OcpError
     case 'unknown':
       return OcpErrorCodes.CHOICE_FAILED;
   }
+}
+
+/** Fields used to populate `OcpContractError` `context` for issuer / manifest read failures. */
+export interface ContractReadDiagnosticsOcpContextInput {
+  classification: ContractReadFailureKind;
+  operation: string;
+  contractId: string;
+  entityType: string;
+  issuerPartyId?: string;
+  objectId?: string;
+  attempts?: number;
+  readAs?: string[];
+}
+
+/**
+ * Builds a plain `OcpErrorContext` from structured contract-read diagnostics (no casts).
+ */
+export function contractReadDiagnosticsToOcpContext(input: ContractReadDiagnosticsOcpContextInput): OcpErrorContext {
+  const ctx: OcpErrorContext = {
+    classification: input.classification,
+    operation: input.operation,
+    contractId: input.contractId,
+    entityType: input.entityType,
+  };
+  if (input.issuerPartyId !== undefined) {
+    ctx.issuerPartyId = input.issuerPartyId;
+  }
+  if (input.objectId !== undefined) {
+    ctx.objectId = input.objectId;
+  }
+  if (input.attempts !== undefined) {
+    ctx.attempts = input.attempts;
+  }
+  if (input.readAs !== undefined) {
+    ctx.readAs = input.readAs;
+  }
+  return ctx;
 }
 
 export function isRetryableContractReadFailure(error: unknown): boolean {

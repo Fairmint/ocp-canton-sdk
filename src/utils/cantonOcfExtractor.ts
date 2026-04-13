@@ -13,7 +13,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
 import { OcpContractError } from '../errors/OcpContractError';
-import type { OcpErrorContext } from '../errors/OcpError';
 import { OcpValidationError } from '../errors/OcpValidationError';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
@@ -37,6 +36,7 @@ import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
 import {
   analyzeContractReadFailure,
+  contractReadDiagnosticsToOcpContext,
   contractReadFailureCode,
   type ContractReadFailureKind,
 } from './contractReadDiagnostics';
@@ -424,7 +424,15 @@ function createDiagnosedContractReadError(params: {
       code: params.code,
       cause: params.cause,
       classification: params.diagnostics.classification,
-      context: params.diagnostics as OcpErrorContext,
+      context: contractReadDiagnosticsToOcpContext({
+        classification: params.diagnostics.classification,
+        operation: params.diagnostics.operation,
+        contractId: params.diagnostics.contractId,
+        entityType: params.diagnostics.entityType,
+        objectId: params.diagnostics.objectId,
+        attempts: params.diagnostics.attempts,
+        readAs: params.diagnostics.readAs,
+      }),
     }),
     { diagnostics: params.diagnostics }
   );
