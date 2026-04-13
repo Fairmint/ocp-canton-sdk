@@ -1,3 +1,8 @@
+/**
+ * Multi-party `readAs` coverage. Omitted when `OCP_LOCALNET_QUICKSTART_INTEGRATION=1`
+ * (see `jest.integration.config.js` + `localnet-cloud.sh`): cn-quickstart LocalNet
+ * does not reliably support a second `AuthorizeIssuer` for App User topology.
+ */
 import type { OcpClient } from '../../../src/OcpClient';
 import { createIntegrationTestSuite } from '../setup';
 import { generateTestId, setupTestIssuer, setupTestStakeholder } from '../utils';
