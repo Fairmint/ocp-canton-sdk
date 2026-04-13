@@ -340,6 +340,7 @@ interface OcfVestingTermsOutput {
 
 export interface GetVestingTermsAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 
 export interface GetVestingTermsAsOcfResult {
@@ -356,7 +357,10 @@ export async function getVestingTermsAsOcf(
   client: LedgerJsonApiClient,
   params: GetVestingTermsAsOcfParams
 ): Promise<GetVestingTermsAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
+  const eventsResponse = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
       contractId: params.contractId,

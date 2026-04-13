@@ -340,6 +340,8 @@ interface OcfStockClassOutput {
 export interface GetStockClassAsOcfParams {
   /** Contract ID of the StockClass contract to retrieve */
   contractId: string;
+  /** Optional Canton read scope for contract event visibility */
+  readAs?: string[];
 }
 
 export interface GetStockClassAsOcfResult {
@@ -367,6 +369,7 @@ export async function getStockClassAsOcf(
   // Get the events for the StockClass contract
   const eventsResponse = await client.getEventsByContractId({
     contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
   });
 
   if (!eventsResponse.created?.createdEvent.createArgument) {

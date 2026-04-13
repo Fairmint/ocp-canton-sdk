@@ -146,6 +146,7 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
 
 export interface GetDocumentAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 
 export interface GetDocumentAsOcfResult {
@@ -157,7 +158,10 @@ export async function getDocumentAsOcf(
   client: LedgerJsonApiClient,
   params: GetDocumentAsOcfParams
 ): Promise<GetDocumentAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
+  const eventsResponse = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('No createArgument found for contract', {
       contractId: params.contractId,

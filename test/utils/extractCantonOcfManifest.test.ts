@@ -62,11 +62,13 @@ jest.mock('../../src/functions/OpenCapTable/stockLegendTemplate', () => ({
 }));
 jest.mock('../../src/functions/OpenCapTable/capTable/damlToOcf', () => ({
   getEntityAsOcf: jest.fn(),
-  SUPPORTED_READ_TYPES: new Set(),
+  SUPPORTED_READ_TYPES: new Set(['stockTransfer']),
 }));
 
 // Import after mocks are set up
 const { getIssuerAsOcf } = jest.requireMock('../../src/functions/OpenCapTable/issuer');
+const { getStakeholderAsOcf } = jest.requireMock('../../src/functions/OpenCapTable/stakeholder');
+const { getEntityAsOcf } = jest.requireMock('../../src/functions/OpenCapTable/capTable/damlToOcf');
 
 const mockClient = {} as LedgerJsonApiClient;
 
@@ -113,6 +115,68 @@ describe('extractCantonOcfManifest', () => {
   });
 
   describe('valid issuer contract reference', () => {
+    it('should pass readAs to issuer, child getter, and generic transaction reads', async () => {
+      const readAs = ['issuer::party-123'];
+      const state = buildCapTableState({
+        issuerContractId: 'issuer-cid-123',
+        contractIds: new Map([
+          ['issuer', new Map([['iss_test', 'issuer-cid-123']])],
+          ['stakeholder', new Map([['stakeholder-1', 'stakeholder-cid-1']])],
+          ['stockTransfer', new Map([['tx-1', 'stock-transfer-cid-1']])],
+        ]),
+        entities: new Map([
+          ['issuer', new Set(['iss_test'])],
+          ['stakeholder', new Set(['stakeholder-1'])],
+          ['stockTransfer', new Set(['tx-1'])],
+        ]),
+      });
+
+      getIssuerAsOcf.mockResolvedValue({
+        data: { id: 'iss_test', object_type: 'ISSUER', legal_name: 'Test Corp' },
+      });
+      getStakeholderAsOcf.mockResolvedValue({
+        stakeholder: { id: 'stakeholder-1', object_type: 'STAKEHOLDER', name: { legal_name: 'Holder 1' } },
+        contractId: 'stakeholder-cid-1',
+      });
+      getEntityAsOcf.mockResolvedValue({
+        data: {
+          id: 'tx-1',
+          object_type: 'TX_STOCK_TRANSFER',
+          date: '2025-01-01T00:00:00Z',
+          security_id: 'sec-1',
+        },
+        contractId: 'stock-transfer-cid-1',
+      });
+
+      const manifest = await extractCantonOcfManifest(mockClient, state, { readAs });
+
+      expect(getIssuerAsOcf).toHaveBeenCalledWith(mockClient, {
+        contractId: 'issuer-cid-123',
+        readAs,
+      });
+      expect(getStakeholderAsOcf).toHaveBeenCalledWith(mockClient, {
+        contractId: 'stakeholder-cid-1',
+        readAs,
+      });
+      expect(getEntityAsOcf).toHaveBeenCalledWith(mockClient, 'stockTransfer', 'stock-transfer-cid-1', {
+        readAs,
+      });
+      expect(manifest.issuer).toEqual({
+        id: 'iss_test',
+        object_type: 'ISSUER',
+        legal_name: 'Test Corp',
+      });
+      expect(manifest.stakeholders).toEqual([
+        { id: 'stakeholder-1', object_type: 'STAKEHOLDER', name: { legal_name: 'Holder 1' } },
+      ]);
+      expect(manifest.transactions).toEqual([
+        expect.objectContaining({
+          id: 'tx-1',
+          object_type: 'TX_STOCK_TRANSFER',
+        }),
+      ]);
+    });
+
     it('should fetch issuer when present in contractIds', async () => {
       const state = buildCapTableState({
         issuerContractId: 'issuer-cid-123',

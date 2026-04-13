@@ -40,6 +40,8 @@ export type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
 export interface GetByContractIdParams {
   /** The Canton contract ID of the entity to retrieve */
   contractId: string;
+  /** Optional Canton read scope for contract event visibility */
+  readAs?: string[];
 }
 
 // ===== Common Result Types =====

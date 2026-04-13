@@ -58,6 +58,7 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
 
 export interface GetEquityCompensationExerciseAsOcfParams {
   contractId: string; // ContractId of PlanSecurityExerciseEvent
+  readAs?: string[];
 }
 
 export interface GetEquityCompensationExerciseAsOcfResult {
@@ -73,7 +74,10 @@ export async function getEquityCompensationExerciseAsOcf(
   client: LedgerJsonApiClient,
   params: GetEquityCompensationExerciseAsOcfParams
 ): Promise<GetEquityCompensationExerciseAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
+  const eventsResponse = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
       contractId: params.contractId,

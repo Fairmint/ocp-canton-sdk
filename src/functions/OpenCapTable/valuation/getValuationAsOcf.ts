@@ -5,6 +5,7 @@ import { damlValuationToNative, type DamlValuationData } from './damlToOcf';
 
 export interface GetValuationAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 
 export interface GetValuationAsOcfResult {
@@ -25,7 +26,10 @@ export async function getValuationAsOcf(
   client: LedgerJsonApiClient,
   params: GetValuationAsOcfParams
 ): Promise<GetValuationAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
+  const eventsResponse = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('No createArgument found for contract', {
       contractId: params.contractId,

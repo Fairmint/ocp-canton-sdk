@@ -5,6 +5,7 @@ import { normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfResult {
   event: OcfIssuerAuthorizedSharesAdjustment & { object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT' };
@@ -65,7 +66,10 @@ export async function getIssuerAuthorizedSharesAdjustmentAsOcf(
   client: LedgerJsonApiClient,
   params: GetIssuerAuthorizedSharesAdjustmentAsOcfParams
 ): Promise<GetIssuerAuthorizedSharesAdjustmentAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!res.created?.createdEvent.createArgument)
     throw new OcpContractError('Missing createArgument', {
       contractId: params.contractId,

@@ -6,6 +6,7 @@ import { normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface GetStockPlanPoolAdjustmentAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 export interface GetStockPlanPoolAdjustmentAsOcfResult {
   event: OcfStockPlanPoolAdjustment & { object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT' };
@@ -46,7 +47,10 @@ export async function getStockPlanPoolAdjustmentAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockPlanPoolAdjustmentAsOcfParams
 ): Promise<GetStockPlanPoolAdjustmentAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!res.created?.createdEvent.createArgument) {
     throw new OcpContractError('Missing createArgument', {
       contractId: params.contractId,

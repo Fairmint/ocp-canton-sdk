@@ -200,6 +200,7 @@ describe('getCapTableState', () => {
       // Verify issuer contract was fetched
       expect(mockClient.getEventsByContractId).toHaveBeenCalledWith({
         contractId: 'issuer-contract-456',
+        readAs: ['issuer::party-123'],
       });
 
       // Verify entities were correctly extracted

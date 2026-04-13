@@ -139,6 +139,7 @@ interface OcfStakeholderOutput {
 
 export interface GetStakeholderAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 
 export interface GetStakeholderAsOcfResult {
@@ -153,6 +154,7 @@ export async function getStakeholderAsOcf(
 ): Promise<GetStakeholderAsOcfResult> {
   const eventsResponse = await client.getEventsByContractId({
     contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
   });
 
   if (!eventsResponse.created?.createdEvent.createArgument) {

@@ -11,6 +11,7 @@ import { damlMonetaryToNativeWithValidation, normalizeNumericString } from '../.
 
 export interface GetEquityCompensationIssuanceAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 export interface GetEquityCompensationIssuanceAsOcfResult {
   event: OcfEquityCompensationIssuance & { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE' };
@@ -232,7 +233,10 @@ export async function getEquityCompensationIssuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetEquityCompensationIssuanceAsOcfParams
 ): Promise<GetEquityCompensationIssuanceAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!res.created?.createdEvent.createArgument) {
     throw new OcpContractError('Missing createArgument', {
       contractId: params.contractId,

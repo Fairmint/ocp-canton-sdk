@@ -123,6 +123,7 @@ export interface OcfConvertibleIssuanceEvent {
 
 export interface GetConvertibleIssuanceAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 
 export interface GetConvertibleIssuanceAsOcfResult {
@@ -709,7 +710,10 @@ export async function getConvertibleIssuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleIssuanceAsOcfParams
 ): Promise<GetConvertibleIssuanceAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   const created = res.created?.createdEvent;
   if (!created?.createArgument) {
     throw new OcpContractError('Missing createArgument for ConvertibleIssuance', {

@@ -85,7 +85,10 @@ export async function getIssuerAsOcf(
   client: LedgerJsonApiClient,
   params: GetByContractIdParams
 ): Promise<ContractResult<OcfIssuerOutput>> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
+  const eventsResponse = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
       contractId: params.contractId,

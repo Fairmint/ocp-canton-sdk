@@ -20,6 +20,7 @@ import {
 
 export interface GetWarrantIssuanceAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 export interface GetWarrantIssuanceAsOcfResult {
   warrantIssuance: OcfWarrantIssuance & { object_type: 'TX_WARRANT_ISSUANCE' };
@@ -354,7 +355,10 @@ export async function getWarrantIssuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetWarrantIssuanceAsOcfParams
 ): Promise<GetWarrantIssuanceAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   const created = res.created?.createdEvent;
   if (!created?.createArgument)
     throw new OcpContractError('Missing createArgument for WarrantIssuance', {

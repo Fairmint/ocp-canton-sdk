@@ -94,6 +94,7 @@ export function damlStockIssuanceDataToNative(
 
 export interface GetStockIssuanceAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 
 export interface GetStockIssuanceAsOcfResult {
@@ -116,7 +117,10 @@ export async function getStockIssuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockIssuanceAsOcfParams
 ): Promise<GetStockIssuanceAsOcfResult> {
-  const res = await client.getEventsByContractId({ contractId: params.contractId });
+  const res = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   const created = res.created?.createdEvent;
   if (!created?.createArgument) {
     throw new OcpContractError('Missing createArgument for StockIssuance', {

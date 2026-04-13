@@ -603,6 +603,11 @@ export interface GetEntityAsOcfResult<T extends SupportedOcfReadType> {
   contractId: string;
 }
 
+export interface GetEntityAsOcfOptions {
+  /** Optional Canton read scope for contract event visibility */
+  readAs?: string[];
+}
+
 /**
  * Generic function to retrieve and convert a contract to OCF format.
  *
@@ -628,10 +633,14 @@ export interface GetEntityAsOcfResult<T extends SupportedOcfReadType> {
 export async function getEntityAsOcf<T extends SupportedOcfReadType>(
   client: LedgerJsonApiClient,
   entityType: T,
-  contractId: string
+  contractId: string,
+  options: GetEntityAsOcfOptions = {}
 ): Promise<GetEntityAsOcfResult<T>> {
   // Fetch contract events
-  const eventsResponse = await client.getEventsByContractId({ contractId });
+  const eventsResponse = await client.getEventsByContractId({
+    contractId,
+    ...(options.readAs ? { readAs: options.readAs } : {}),
+  });
 
   // Extract createArgument with proper error handling
   const createArgument = extractCreateArgument(eventsResponse, contractId);

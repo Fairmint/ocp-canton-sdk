@@ -2,12 +2,14 @@
  * Tests for the damlToOcf dispatcher and helper functions.
  */
 
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError } from '../../src/errors';
 import {
   convertToOcf,
   ENTITY_DATA_FIELD_MAP,
   extractCreateArgument,
   extractEntityData,
+  getEntityAsOcf,
   type SupportedOcfReadType,
 } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 
@@ -58,6 +60,25 @@ describe('damlToOcf dispatcher', () => {
         expect(error.source).toBe('contract my-contract-456');
         expect(error.code).toBe(OcpErrorCodes.INVALID_RESPONSE);
       }
+    });
+  });
+
+  describe('getEntityAsOcf', () => {
+    it('forwards readAs to ledger contract reads', async () => {
+      const mockClient = {
+        getEventsByContractId: jest.fn().mockRejectedValue(new Error('boom')),
+      } as unknown as LedgerJsonApiClient;
+
+      await expect(
+        getEntityAsOcf(mockClient, 'stockTransfer', 'contract-123', {
+          readAs: ['issuer::party-123'],
+        })
+      ).rejects.toThrow('boom');
+
+      expect(mockClient.getEventsByContractId).toHaveBeenCalledWith({
+        contractId: 'contract-123',
+        readAs: ['issuer::party-123'],
+      });
     });
   });
 

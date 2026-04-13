@@ -270,7 +270,8 @@ async function buildCapTableStateFromCreatedEvent(
     contractId: string;
     createArgument: Record<string, unknown>;
     templateId?: unknown;
-  }
+  },
+  issuerPartyId?: string
 ): Promise<CapTableState> {
   const { contractId, createArgument: payload } = createdEvent;
 
@@ -316,7 +317,10 @@ async function buildCapTableStateFromCreatedEvent(
   // (issuer is stored as a single contract reference, not a map like other entities)
   if (issuerContractId) {
     try {
-      const eventsResponse = await client.getEventsByContractId({ contractId: issuerContractId });
+      const eventsResponse = await client.getEventsByContractId({
+        contractId: issuerContractId,
+        ...(issuerPartyId ? { readAs: [issuerPartyId] } : {}),
+      });
       // Use optional chaining for defensive runtime validation of API response structure
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Runtime defensive access
       const createArgument = eventsResponse.created?.createdEvent?.createArgument as
@@ -419,7 +423,11 @@ function requirePinnedCapTableCreatedEvent(createdEvent: {
   packageName?: unknown;
 }): string {
   const templateId = requireCapTableTemplateIdString(createdEvent.templateId, createdEvent.contractId);
-  const packageName = requireCapTablePackageNameString(createdEvent.packageName, createdEvent.contractId, templateId);
+  const packageName = requireCapTablePackageNameString(
+    createdEvent.packageName,
+    createdEvent.contractId,
+    templateId
+  );
 
   if (packageName !== PINNED_CAP_TABLE_PACKAGE_LINE.packageName) {
     throw new OcpContractError('CapTable contract packageName does not match pinned OpenCapTable package line', {
@@ -448,9 +456,10 @@ async function capTableWithArchiveContext(
     createArgument: Record<string, unknown>;
     templateId?: unknown;
   },
-  templateId: string
+  templateId: string,
+  issuerPartyId: string
 ): Promise<CapTableWithArchiveContext> {
-  const base = await buildCapTableStateFromCreatedEvent(client, createdEvent);
+  const base = await buildCapTableStateFromCreatedEvent(client, createdEvent, issuerPartyId);
   const ctx = createdEvent.createArgument.context as Record<string, unknown> | undefined;
   const systemOperatorPartyId = typeof ctx?.system_operator === 'string' ? ctx.system_operator : '';
   if (!systemOperatorPartyId) {
@@ -482,7 +491,7 @@ async function loadCurrentCapTables(
     }
     const { createdEvent } = contract.contractEntry.JsActiveContract;
     const templateId = requirePinnedCapTableCreatedEvent(createdEvent);
-    out.push(await capTableWithArchiveContext(client, createdEvent, templateId));
+    out.push(await capTableWithArchiveContext(client, createdEvent, templateId, issuerPartyId));
   }
   if (out.length > 1) {
     throw new OcpContractError('Multiple active CapTable contracts for issuer', {

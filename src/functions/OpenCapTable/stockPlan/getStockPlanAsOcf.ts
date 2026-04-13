@@ -93,6 +93,7 @@ interface OcfStockPlanOutput {
 
 export interface GetStockPlanAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 
 export interface GetStockPlanAsOcfResult {
@@ -109,7 +110,10 @@ export async function getStockPlanAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockPlanAsOcfParams
 ): Promise<GetStockPlanAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
+  const eventsResponse = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
       contractId: params.contractId,

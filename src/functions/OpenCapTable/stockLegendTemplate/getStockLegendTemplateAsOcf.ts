@@ -37,6 +37,7 @@ interface OcfStockLegendTemplateOutput {
 
 export interface GetStockLegendTemplateAsOcfParams {
   contractId: string;
+  readAs?: string[];
 }
 
 export interface GetStockLegendTemplateAsOcfResult {
@@ -48,7 +49,10 @@ export async function getStockLegendTemplateAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockLegendTemplateAsOcfParams
 ): Promise<GetStockLegendTemplateAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({ contractId: params.contractId });
+  const eventsResponse = await client.getEventsByContractId({
+    contractId: params.contractId,
+    ...(params.readAs ? { readAs: params.readAs } : {}),
+  });
   if (!eventsResponse.created?.createdEvent.createArgument) {
     throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
       contractId: params.contractId,
