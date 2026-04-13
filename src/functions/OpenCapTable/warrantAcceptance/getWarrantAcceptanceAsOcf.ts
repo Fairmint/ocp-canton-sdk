@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
-import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfWarrantAcceptance } from '../../../types';
+import type { GetByContractIdParams } from '../../../types/common';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
 
 /**
