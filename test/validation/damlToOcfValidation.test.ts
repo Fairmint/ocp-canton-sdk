@@ -6,6 +6,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpValidationError } from '../../src/errors';
 import { getEquityCompensationIssuanceAsOcf } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
@@ -16,18 +17,39 @@ import { getVestingTermsAsOcf } from '../../src/functions/OpenCapTable/vestingTe
 import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
+/** Ledger template ids for mocks — must match `readSingleContract` `expectedTemplateId` on each getter. */
+const MOCK_LEDGER_TEMPLATE_IDS = {
+  equityCompensationIssuance: Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuance
+    .templateId,
+  warrantIssuance: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance.templateId,
+  vestingTerms: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
+  stockClass: Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
+  stockPlan: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
+} as const;
+
 /**
  * Creates a mock LedgerJsonApiClient with the given createArgument data
  */
-function createMockClient(dataKey: string, data: Record<string, unknown>): LedgerJsonApiClient {
+function createMockClient(
+  dataKey: string,
+  data: Record<string, unknown>,
+  ledgerMeta?: { templateId?: string; packageName?: string }
+): LedgerJsonApiClient {
+  const createdEvent: Record<string, unknown> = {
+    createArgument: {
+      [dataKey]: data,
+    },
+  };
+  if (ledgerMeta?.templateId !== undefined) {
+    createdEvent.templateId = ledgerMeta.templateId;
+  }
+  if (ledgerMeta?.packageName !== undefined) {
+    createdEvent.packageName = ledgerMeta.packageName;
+  }
   return {
     getEventsByContractId: jest.fn().mockResolvedValue({
       created: {
-        createdEvent: {
-          createArgument: {
-            [dataKey]: data,
-          },
-        },
+        createdEvent,
       },
     }),
   } as unknown as LedgerJsonApiClient;
@@ -58,7 +80,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when id is missing', async () => {
       const { id: _, ...invalidData } = validIssuanceData;
-      const client = createMockClient('issuance_data', invalidData);
+      const client = createMockClient('issuance_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
+      });
 
       await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
         OcpValidationError
@@ -70,7 +94,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when date is missing', async () => {
       const { date: _, ...invalidData } = validIssuanceData;
-      const client = createMockClient('issuance_data', invalidData);
+      const client = createMockClient('issuance_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
+      });
 
       await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
         OcpValidationError
@@ -82,7 +108,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when security_id is missing', async () => {
       const { security_id: _, ...invalidData } = validIssuanceData;
-      const client = createMockClient('issuance_data', invalidData);
+      const client = createMockClient('issuance_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
+      });
 
       await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
         OcpValidationError
@@ -94,7 +122,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when compensation_type is unknown', async () => {
       const invalidData = { ...validIssuanceData, compensation_type: 'UnknownType' };
-      const client = createMockClient('issuance_data', invalidData);
+      const client = createMockClient('issuance_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
+      });
 
       await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
         OcpValidationError
@@ -105,7 +135,9 @@ describe('DAML to OCF Validation', () => {
     });
 
     test('succeeds with valid data', async () => {
-      const client = createMockClient('issuance_data', validIssuanceData);
+      const client = createMockClient('issuance_data', validIssuanceData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
+      });
 
       const result = await getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' });
       expect(result.event.id).toBe('ec-001');
@@ -127,7 +159,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when id is missing', async () => {
       const { id: _, ...invalidData } = validWarrantData;
-      const client = createMockClient('issuance_data', invalidData);
+      const client = createMockClient('issuance_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
+      });
 
       await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
         OcpValidationError
@@ -139,7 +173,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when stakeholder_id is missing', async () => {
       const { stakeholder_id: _, ...invalidData } = validWarrantData;
-      const client = createMockClient('issuance_data', invalidData);
+      const client = createMockClient('issuance_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
+      });
 
       await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
         OcpValidationError
@@ -150,7 +186,9 @@ describe('DAML to OCF Validation', () => {
     });
 
     test('succeeds with valid data', async () => {
-      const client = createMockClient('issuance_data', validWarrantData);
+      const client = createMockClient('issuance_data', validWarrantData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
+      });
 
       const result = await getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' });
       expect(result.warrantIssuance.id).toBe('wi-001');
@@ -169,7 +207,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when id is missing', async () => {
       const { id: _, ...invalidData } = validVestingData;
-      const client = createMockClient('vesting_terms_data', invalidData);
+      const client = createMockClient('vesting_terms_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+      });
 
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('vestingTerms.id');
@@ -177,7 +217,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when name is missing', async () => {
       const { name: _, ...invalidData } = validVestingData;
-      const client = createMockClient('vesting_terms_data', invalidData);
+      const client = createMockClient('vesting_terms_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+      });
 
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('vestingTerms.name');
@@ -185,7 +227,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when description is missing', async () => {
       const { description: _, ...invalidData } = validVestingData;
-      const client = createMockClient('vesting_terms_data', invalidData);
+      const client = createMockClient('vesting_terms_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+      });
 
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
@@ -194,7 +238,9 @@ describe('DAML to OCF Validation', () => {
     });
 
     test('succeeds with valid data', async () => {
-      const client = createMockClient('vesting_terms_data', validVestingData);
+      const client = createMockClient('vesting_terms_data', validVestingData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+      });
 
       const result = await getVestingTermsAsOcf(client, { contractId: 'test-contract' });
       expect(result.vestingTerms.id).toBe('vt-001');
@@ -216,7 +262,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when id is missing', async () => {
       const { id: _, ...invalidData } = validStockClassData;
-      const client = createMockClient('stock_class_data', invalidData);
+      const client = createMockClient('stock_class_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
+      });
 
       await expect(getStockClassAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
       await expect(getStockClassAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('stockClass.id');
@@ -224,7 +272,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when name is missing', async () => {
       const { name: _, ...invalidData } = validStockClassData;
-      const client = createMockClient('stock_class_data', invalidData);
+      const client = createMockClient('stock_class_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
+      });
 
       await expect(getStockClassAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
       await expect(getStockClassAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('stockClass.name');
@@ -232,7 +282,9 @@ describe('DAML to OCF Validation', () => {
 
     test('handles zero values for votes_per_share correctly', async () => {
       const dataWithZeroVotes = { ...validStockClassData, votes_per_share: '0' };
-      const client = createMockClient('stock_class_data', dataWithZeroVotes);
+      const client = createMockClient('stock_class_data', dataWithZeroVotes, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
+      });
 
       const result = await getStockClassAsOcf(client, { contractId: 'test-contract' });
       expect(result.stockClass.votes_per_share).toBe('0');
@@ -240,14 +292,18 @@ describe('DAML to OCF Validation', () => {
 
     test('handles zero values for seniority correctly', async () => {
       const dataWithZeroSeniority = { ...validStockClassData, seniority: '0' };
-      const client = createMockClient('stock_class_data', dataWithZeroSeniority);
+      const client = createMockClient('stock_class_data', dataWithZeroSeniority, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
+      });
 
       const result = await getStockClassAsOcf(client, { contractId: 'test-contract' });
       expect(result.stockClass.seniority).toBe('0');
     });
 
     test('succeeds with valid data', async () => {
-      const client = createMockClient('stock_class_data', validStockClassData);
+      const client = createMockClient('stock_class_data', validStockClassData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
+      });
 
       const result = await getStockClassAsOcf(client, { contractId: 'test-contract' });
       expect(result.stockClass.id).toBe('sc-001');
@@ -265,7 +321,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when id is missing', async () => {
       const { id: _, ...invalidData } = validStockPlanData;
-      const client = createMockClient('plan_data', invalidData);
+      const client = createMockClient('plan_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
+      });
 
       await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
       await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('stockPlan.id');
@@ -273,7 +331,9 @@ describe('DAML to OCF Validation', () => {
 
     test('throws OcpValidationError when plan_name is missing', async () => {
       const { plan_name: _, ...invalidData } = validStockPlanData;
-      const client = createMockClient('plan_data', invalidData);
+      const client = createMockClient('plan_data', invalidData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
+      });
 
       await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
       await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('stockPlan.plan_name');
@@ -281,14 +341,18 @@ describe('DAML to OCF Validation', () => {
 
     test('handles zero values for initial_shares_reserved correctly', async () => {
       const dataWithZeroShares = { ...validStockPlanData, initial_shares_reserved: '0' };
-      const client = createMockClient('plan_data', dataWithZeroShares);
+      const client = createMockClient('plan_data', dataWithZeroShares, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
+      });
 
       const result = await getStockPlanAsOcf(client, { contractId: 'test-contract' });
       expect(result.stockPlan.initial_shares_reserved).toBe('0');
     });
 
     test('succeeds with valid data', async () => {
-      const client = createMockClient('plan_data', validStockPlanData);
+      const client = createMockClient('plan_data', validStockPlanData, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
+      });
 
       const result = await getStockPlanAsOcf(client, { contractId: 'test-contract' });
       expect(result.stockPlan.id).toBe('sp-001');
