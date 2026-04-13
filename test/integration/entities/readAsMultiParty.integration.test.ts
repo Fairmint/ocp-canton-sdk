@@ -1,4 +1,4 @@
-import { OcpClient } from '../../../src/OcpClient';
+import type { OcpClient } from '../../../src/OcpClient';
 import { createIntegrationTestSuite } from '../setup';
 import { generateTestId, setupTestIssuer, setupTestStakeholder } from '../utils';
 
@@ -8,8 +8,10 @@ interface PartyScopedRight {
 
 function hasPartyRight(rights: unknown[], rightName: 'CanActAs' | 'CanReadAs', party: string): boolean {
   return rights.some((right) => {
-    const kind = (right as PartyScopedRight).kind;
-    return kind?.[rightName]?.value?.party === party;
+    const { kind } = right as PartyScopedRight;
+    const entry = kind[rightName];
+    const inner = entry.value;
+    return inner?.party === party;
   });
 }
 
