@@ -1,9 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfWarrantTransfer } from '../../../types/native';
 import { normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 /**
  * OCF Warrant Transfer Event with object_type discriminator OCF:
@@ -29,23 +29,10 @@ export async function getWarrantTransferAsOcf(
   client: LedgerJsonApiClient,
   params: GetWarrantTransferAsOcfParams
 ): Promise<GetWarrantTransferAsOcfResult> {
-  const res = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getWarrantTransferAsOcf',
   });
-  if (!res.created) {
-    throw new OcpContractError('Missing created event', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  if (!res.created.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const contract = res.created.createdEvent.createArgument as WarrantTransferCreateArgument;
+  const contract = createArgument as WarrantTransferCreateArgument;
   const data = contract.transfer_data;
 
   // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)

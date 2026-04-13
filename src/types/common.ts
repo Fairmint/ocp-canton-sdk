@@ -25,14 +25,22 @@ export type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
 // ===== Common Params Types =====
 
 /**
+ * Canonical Canton read scope shared by ledger read helpers.
+ *
+ * Pass `readAs` when the authenticated Ledger API party differs from the
+ * party that can see the contract (for example a portal client reading
+ * issuer-scoped contracts).
+ */
+export interface ReadScopeParams {
+  /** Optional Canton read scope for contract event visibility */
+  readAs?: string[];
+}
+
+/**
  * Standard params for retrieving an entity by its contract ID.
  *
  * Used by all `OpenCapTable.*.get()` operations and by `get*AsOcf` readers that
- * load a single contract via `getEventsByContractId`. When the authenticated
- * Ledger API party differs from the party that can see the contract (for example
- * a portal client reading issuer-scoped contracts), pass `readAs` with the
- * issuer party id (and any other parties required by the ledger) so event
- * fetches succeed.
+ * load a single contract via `getEventsByContractId`.
  *
  * @example
  * ```typescript
@@ -42,11 +50,9 @@ export type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-n
  * console.log(issuer.legal_name);
  * ```
  */
-export interface GetByContractIdParams {
+export interface GetByContractIdParams extends ReadScopeParams {
   /** The Canton contract ID of the entity to retrieve */
   contractId: string;
-  /** Optional Canton read scope for contract event visibility */
-  readAs?: string[];
 }
 
 // ===== Common Result Types =====

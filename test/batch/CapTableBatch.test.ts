@@ -1,5 +1,6 @@
 /** Unit tests for CapTableBatch fluent builder. */
 
+import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type {
@@ -355,11 +356,12 @@ describe('CapTableBatch', () => {
       expect(choiceArg.deletes[0].value).toBe('doc-123');
     });
 
-    it('should use custom templateId when capTableContractDetails provided', () => {
+    it('should preserve raw package-id templateId when capTableContractDetails provided', () => {
+      const rawLedgerTemplateId = CapTable.templateIdWithPackageId;
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         capTableContractDetails: {
-          templateId: 'custom-template-id',
+          templateId: rawLedgerTemplateId,
         },
         actAs: ['party-1'],
       });
@@ -369,7 +371,7 @@ describe('CapTableBatch', () => {
       const { command } = batch.build();
       if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
 
-      expect(command.ExerciseCommand.templateId).toBe('custom-template-id');
+      expect(command.ExerciseCommand.templateId).toBe(rawLedgerTemplateId);
     });
   });
 

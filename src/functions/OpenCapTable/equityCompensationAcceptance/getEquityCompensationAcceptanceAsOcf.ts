@@ -1,8 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfEquityCompensationAcceptance } from '../../../types';
 import type { GetByContractIdParams } from '../../../types/common';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 /**
  * OCF Equity Compensation Acceptance event with object_type discriminator.
@@ -30,6 +31,11 @@ interface EquityCompensationAcceptanceCreateArgument {
   };
 }
 
+function hasEquityCompensationAcceptanceData(arg: unknown): arg is EquityCompensationAcceptanceCreateArgument {
+  const record = arg as { acceptance_data?: unknown };
+  return typeof record.acceptance_data === 'object' && record.acceptance_data !== null;
+}
+
 /**
  * Retrieve an Equity Compensation Acceptance contract and convert to OCF format.
  *
@@ -41,24 +47,17 @@ export async function getEquityCompensationAcceptanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetEquityCompensationAcceptanceAsOcfParams
 ): Promise<GetEquityCompensationAcceptanceAsOcfResult> {
-  const res = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getEquityCompensationAcceptanceAsOcf',
   });
-  if (!res.created) {
-    throw new OcpContractError('Missing created event', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  if (!res.created.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
+  if (!hasEquityCompensationAcceptanceData(createArgument)) {
+    throw new OcpParseError('EquityCompensationAcceptance data not found in contract create argument', {
+      source: 'EquityCompensationAcceptance.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
 
-  const contract = res.created.createdEvent.createArgument as EquityCompensationAcceptanceCreateArgument;
+  const contract = createArgument;
   const data = contract.acceptance_data;
 
   const event: OcfEquityCompensationAcceptanceEvent = {

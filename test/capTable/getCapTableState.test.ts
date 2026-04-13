@@ -552,7 +552,10 @@ describe('getCapTableState', () => {
       expect(result!.entities.get('issuer')!.has('issuer-only-ocf-id')).toBe(true);
     });
 
-    it('should continue without issuer in entities if issuer fetch fails', async () => {
+    it.each([
+      ['not found', new Error('Contract not found')],
+      ['archived', new Error('Contract archived on ledger')],
+    ])('should continue without issuer in entities when issuer fetch is %s', async (_case, issuerReadError) => {
       const mockCapTableResponse = [
         {
           contractEntry: {
@@ -584,8 +587,7 @@ describe('getCapTableState', () => {
       ];
 
       mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
-      // Simulate issuer fetch failure
-      mockClient.getEventsByContractId.mockRejectedValue(new Error('Contract not found'));
+      mockClient.getEventsByContractId.mockRejectedValue(issuerReadError);
 
       const result = await getCapTableState(mockClient, 'issuer::party-123');
 
@@ -602,7 +604,67 @@ describe('getCapTableState', () => {
       expect(stakeholders!.size).toBe(1);
     });
 
-    it('should not add issuer to entities when issuer_data.id is empty string', async () => {
+    it.each([
+      [
+        'visibility',
+        new Error('Contract not visible for requesting party; supply readAs'),
+        OcpErrorCodes.AUTHORIZATION_FAILED,
+      ],
+      ['auth', new Error('HTTP 403: permission denied'), OcpErrorCodes.AUTHORIZATION_FAILED],
+      ['schema', new Error('Schema mismatch in issuer create argument'), OcpErrorCodes.SCHEMA_MISMATCH],
+      ['network', new Error('connect ECONNREFUSED 127.0.0.1:3975'), OcpErrorCodes.CONNECTION_FAILED],
+    ])(
+      'should fail loud when issuer fetch fails due to %s errors',
+      async (_case, issuerReadError, expectedCode) => {
+        const mockCapTableResponse = [
+          {
+            contractEntry: {
+              JsActiveContract: {
+                createdEvent: {
+                  contractId: 'cap-table-contract-123',
+                  templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
+                  createArgument: {
+                    issuer: 'issuer-contract-456',
+                    context: { system_operator: 'system-op::party' },
+                    stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
+                  },
+                  createdEventBlob: 'blob-data',
+                  witnessParties: ['party-1'],
+                  signatories: ['party-1'],
+                  observers: [],
+                  createdAt: '2024-01-01T00:00:00Z',
+                  packageName: CURRENT_OCP_PACKAGE_NAME,
+                  offset: 1000,
+                  nodeId: 1,
+                  contractKey: null,
+                  interfaceViews: [],
+                },
+                synchronizerId: 'sync-1',
+                reassignmentCounter: 0,
+              },
+            },
+          },
+        ];
+
+        mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
+        mockClient.getEventsByContractId.mockRejectedValue(issuerReadError);
+
+        await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+          code: expectedCode,
+          contractId: 'issuer-contract-456',
+          message: `Failed to fetch issuer contract events (${_case})`,
+          diagnostics: {
+            classification: _case,
+            operation: 'getEventsByContractId',
+            entityType: 'issuer',
+            contractId: 'issuer-contract-456',
+            issuerPartyId: 'issuer::party-123',
+          },
+        });
+      }
+    );
+
+    it('should reject when issuer_data.id is empty string', async () => {
       const mockCapTableResponse = [
         {
           contractEntry: {
@@ -653,23 +715,21 @@ describe('getCapTableState', () => {
       mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
-      const result = await getCapTableState(mockClient, 'issuer::party-123');
-
-      expect(result).not.toBeNull();
-      expect(result!.capTableContractId).toBe('cap-table-contract-123');
-      expect(result!.issuerContractId).toBe('issuer-contract-456');
-
-      // Issuer should NOT be in entities (empty ID)
-      expect(result!.entities.get('issuer')).toBeUndefined();
-      expect(result!.contractIds.get('issuer')).toBeUndefined();
-
-      // But other entities should still be there
-      const stakeholders = result!.entities.get('stakeholder');
-      expect(stakeholders).toBeDefined();
-      expect(stakeholders!.size).toBe(1);
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'issuer-contract-456',
+        message: 'Failed to fetch issuer contract events (schema)',
+        diagnostics: {
+          classification: 'schema',
+          operation: 'getEventsByContractId',
+          entityType: 'issuer',
+          contractId: 'issuer-contract-456',
+          issuerPartyId: 'issuer::party-123',
+        },
+      });
     });
 
-    it('should not add issuer to entities when issuer_data.id is missing', async () => {
+    it('should reject when issuer_data.id is missing', async () => {
       const mockCapTableResponse = [
         {
           contractEntry: {
@@ -720,23 +780,21 @@ describe('getCapTableState', () => {
       mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
-      const result = await getCapTableState(mockClient, 'issuer::party-123');
-
-      expect(result).not.toBeNull();
-      expect(result!.capTableContractId).toBe('cap-table-contract-123');
-      expect(result!.issuerContractId).toBe('issuer-contract-456');
-
-      // Issuer should NOT be in entities (missing ID)
-      expect(result!.entities.get('issuer')).toBeUndefined();
-      expect(result!.contractIds.get('issuer')).toBeUndefined();
-
-      // But other entities should still be there
-      const stakeholders = result!.entities.get('stakeholder');
-      expect(stakeholders).toBeDefined();
-      expect(stakeholders!.size).toBe(1);
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'issuer-contract-456',
+        message: 'Failed to fetch issuer contract events (schema)',
+        diagnostics: {
+          classification: 'schema',
+          operation: 'getEventsByContractId',
+          entityType: 'issuer',
+          contractId: 'issuer-contract-456',
+          issuerPartyId: 'issuer::party-123',
+        },
+      });
     });
 
-    it('should handle issuer response with missing createdEvent gracefully', async () => {
+    it('should reject malformed issuer responses with missing createdEvent', async () => {
       const mockCapTableResponse = [
         {
           contractEntry: {
@@ -777,19 +835,18 @@ describe('getCapTableState', () => {
       mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
       mockClient.getEventsByContractId.mockResolvedValue(mockIssuerEventsResponse as never);
 
-      const result = await getCapTableState(mockClient, 'issuer::party-123');
-
-      expect(result).not.toBeNull();
-      expect(result!.capTableContractId).toBe('cap-table-contract-123');
-      expect(result!.issuerContractId).toBe('issuer-contract-456');
-
-      // Issuer should NOT be in entities (malformed response)
-      expect(result!.entities.get('issuer')).toBeUndefined();
-
-      // But other entities should still be there
-      const stakeholders = result!.entities.get('stakeholder');
-      expect(stakeholders).toBeDefined();
-      expect(stakeholders!.size).toBe(1);
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'issuer-contract-456',
+        message: 'Failed to fetch issuer contract events (schema)',
+        diagnostics: {
+          classification: 'schema',
+          operation: 'getEventsByContractId',
+          entityType: 'issuer',
+          contractId: 'issuer-contract-456',
+          issuerPartyId: 'issuer::party-123',
+        },
+      });
     });
 
     it('should throw when JsActiveContract structure is incomplete', async () => {

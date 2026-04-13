@@ -9,6 +9,7 @@ import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
 import { damlStakeholderStatusToNative } from '../../../utils/enumConversions';
 import { isRecord } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 /** Parameters for getting a stakeholder status change event as OCF */
 export type GetStakeholderStatusChangeEventAsOcfParams = GetByContractIdParams;
@@ -75,25 +76,9 @@ export async function getStakeholderStatusChangeEventAsOcf(
   client: LedgerJsonApiClient,
   params: GetStakeholderStatusChangeEventAsOcfParams
 ): Promise<GetStakeholderStatusChangeEventAsOcfResult> {
-  const res = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getStakeholderStatusChangeEventAsOcf',
   });
-
-  if (!res.created) {
-    throw new OcpContractError('Missing created event', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  if (!res.created.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-
-  const { createArgument } = res.created.createdEvent;
   if (!isDamlStakeholderStatusChangeEventContract(createArgument)) {
     throw new OcpContractError('Invalid stakeholder status event contract payload', {
       contractId: params.contractId,
@@ -101,9 +86,9 @@ export async function getStakeholderStatusChangeEventAsOcf(
     });
   }
 
-  const contract = createArgument;
-  const data = contract.event_data ?? contract.status_change_data;
-  if (!data) {
+  const contract: DamlStakeholderStatusChangeEventContract = createArgument;
+  const data: DamlStakeholderStatusChangeEventData | undefined = contract.event_data ?? contract.status_change_data;
+  if (data === undefined) {
     throw new OcpContractError('Missing stakeholder status event data', {
       contractId: params.contractId,
       code: OcpErrorCodes.INVALID_FORMAT,

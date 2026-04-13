@@ -264,6 +264,182 @@ export interface IssuerCapTableClassification {
   current: CapTableWithArchiveContext | null;
 }
 
+type ContractReadFailureKind = 'not_found' | 'visibility' | 'auth' | 'schema' | 'network' | 'unknown';
+interface ContractReadDiagnostics {
+  classification: ContractReadFailureKind;
+  operation: 'getEventsByContractId';
+  entityType: 'issuer';
+  contractId: string;
+  issuerPartyId?: string;
+}
+
+function classifyContractReadFailure(error: unknown): ContractReadFailureKind {
+  if (error instanceof OcpContractError) {
+    switch (error.code) {
+      case OcpErrorCodes.CONTRACT_NOT_FOUND:
+        return 'not_found';
+      case OcpErrorCodes.AUTHORIZATION_FAILED:
+        return 'auth';
+      case OcpErrorCodes.SCHEMA_MISMATCH:
+      case OcpErrorCodes.INVALID_RESPONSE:
+      case OcpErrorCodes.REQUIRED_FIELD_MISSING:
+      case OcpErrorCodes.INVALID_TYPE:
+      case OcpErrorCodes.INVALID_FORMAT:
+      case OcpErrorCodes.OUT_OF_RANGE:
+      case OcpErrorCodes.UNKNOWN_ENUM_VALUE:
+      case OcpErrorCodes.UNKNOWN_ENTITY_TYPE:
+        return 'schema';
+      case OcpErrorCodes.CONNECTION_FAILED:
+      case OcpErrorCodes.TIMEOUT:
+      case OcpErrorCodes.RATE_LIMITED:
+        return 'network';
+      case OcpErrorCodes.CHOICE_FAILED:
+      case OcpErrorCodes.RESULT_NOT_FOUND:
+        return 'unknown';
+    }
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes('contract_events_not_found') ||
+    lower.includes('not found') ||
+    lower.includes('archived') ||
+    lower.includes('inactive contract')
+  ) {
+    return 'not_found';
+  }
+
+  if (lower.includes('readas') || lower.includes('not visible') || lower.includes('visibility')) {
+    return 'visibility';
+  }
+
+  if (
+    lower.includes('401') ||
+    lower.includes('403') ||
+    lower.includes('permission') ||
+    lower.includes('forbidden') ||
+    lower.includes('unauthorized') ||
+    lower.includes('unauthorised') ||
+    lower.includes('authentication')
+  ) {
+    return 'auth';
+  }
+
+  if (
+    lower.includes('schema') ||
+    lower.includes('create argument') ||
+    lower.includes('createargument') ||
+    lower.includes('invalid contract events response') ||
+    lower.includes('parse')
+  ) {
+    return 'schema';
+  }
+
+  if (
+    lower.includes('network') ||
+    lower.includes('econnrefused') ||
+    lower.includes('enotfound') ||
+    lower.includes('socket hang up') ||
+    lower.includes('timed out') ||
+    lower.includes('timeout') ||
+    lower.includes('http 502') ||
+    lower.includes('http 503') ||
+    lower.includes('http 504') ||
+    lower.includes('fetch failed')
+  ) {
+    return 'network';
+  }
+
+  return 'unknown';
+}
+
+function contractReadFailureCode(kind: ContractReadFailureKind): (typeof OcpErrorCodes)[keyof typeof OcpErrorCodes] {
+  switch (kind) {
+    case 'auth':
+    case 'visibility':
+      return OcpErrorCodes.AUTHORIZATION_FAILED;
+    case 'schema':
+      return OcpErrorCodes.SCHEMA_MISMATCH;
+    case 'network':
+      return OcpErrorCodes.CONNECTION_FAILED;
+    case 'not_found':
+      return OcpErrorCodes.CONTRACT_NOT_FOUND;
+    case 'unknown':
+      return OcpErrorCodes.CHOICE_FAILED;
+  }
+}
+
+function createDiagnosedContractReadError(params: {
+  message: string;
+  code: (typeof OcpErrorCodes)[keyof typeof OcpErrorCodes];
+  contractId: string;
+  cause: Error;
+  diagnostics: ContractReadDiagnostics;
+}): OcpContractError & { diagnostics: ContractReadDiagnostics } {
+  return Object.assign(
+    new OcpContractError(params.message, {
+      code: params.code,
+      contractId: params.contractId,
+      cause: params.cause,
+    }),
+    { diagnostics: params.diagnostics }
+  );
+}
+
+function requireObjectRecord(
+  value: unknown,
+  message: string,
+  contractId: string
+): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new OcpContractError(message, {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId,
+    });
+  }
+  return value as Record<string, unknown>;
+}
+
+function requireIssuerCanonicalObjectId(eventsResponse: unknown, issuerContractId: string): string {
+  const response = requireObjectRecord(
+    eventsResponse,
+    'Issuer contract events response must be an object',
+    issuerContractId
+  );
+  const created = requireObjectRecord(
+    response.created,
+    'Issuer contract events response missing created payload',
+    issuerContractId
+  );
+  const createdEvent = requireObjectRecord(
+    created.createdEvent,
+    'Issuer contract events response missing created.createdEvent',
+    issuerContractId
+  );
+  const createArgument = requireObjectRecord(
+    createdEvent.createArgument,
+    'Issuer contract events response missing created.createdEvent.createArgument',
+    issuerContractId
+  );
+  const issuerData = requireObjectRecord(
+    createArgument.issuer_data,
+    'Issuer contract createArgument.issuer_data must be an object',
+    issuerContractId
+  );
+  const issuerId = issuerData.id;
+
+  if (typeof issuerId !== 'string' || issuerId.length === 0) {
+    throw new OcpContractError('Issuer contract createArgument.issuer_data.id must be a non-empty string', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: issuerContractId,
+    });
+  }
+
+  return issuerId;
+}
+
 async function buildCapTableStateFromCreatedEvent(
   client: LedgerJsonApiClient,
   createdEvent: {
@@ -321,34 +497,33 @@ async function buildCapTableStateFromCreatedEvent(
         contractId: issuerContractId,
         ...(issuerPartyId ? { readAs: [issuerPartyId] } : {}),
       });
-      // Use optional chaining for defensive runtime validation of API response structure
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Runtime defensive access
-      const createArgument = eventsResponse.created?.createdEvent?.createArgument as
-        | Record<string, unknown>
-        | undefined;
-      const issuerData = createArgument?.issuer_data as Record<string, unknown> | undefined;
-      const issuerId = issuerData?.id;
-
-      // Only add issuer if we got a valid non-empty canonical object ID
-      if (typeof issuerId === 'string' && issuerId.length > 0) {
-        entities.set('issuer', new Set([issuerId]));
-        contractIds.set('issuer', new Map([[issuerId, issuerContractId]]));
-      }
+      const issuerId = requireIssuerCanonicalObjectId(eventsResponse, issuerContractId);
+      entities.set('issuer', new Set([issuerId]));
+      contractIds.set('issuer', new Map([[issuerId, issuerContractId]]));
     } catch (error: unknown) {
-      // Differentiate between expected and unexpected failures for better debugging
-      // - Contract archived/not found: graceful degradation (expected in some workflows)
-      // - Network/permission errors: transient, may retry
-      // - Schema mismatch: indicates a bug, should be investigated
+      const classification = classifyContractReadFailure(error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const isNotFoundError =
-        errorMessage.toLowerCase().includes('not found') || errorMessage.toLowerCase().includes('archived');
 
-      const issuerWarnTitle = isNotFoundError
-        ? 'Issuer contract not found (may be archived)'
-        : 'Failed to fetch issuer contract events';
+      if (classification !== 'not_found') {
+        throw createDiagnosedContractReadError({
+          message: `Failed to fetch issuer contract events (${classification})`,
+          code: contractReadFailureCode(classification),
+          contractId: issuerContractId,
+          cause: error instanceof Error ? error : new Error(String(error)),
+          diagnostics: {
+            classification,
+            operation: 'getEventsByContractId',
+            entityType: 'issuer',
+            contractId: issuerContractId,
+            ...(issuerPartyId ? { issuerPartyId } : {}),
+          },
+        });
+      }
+
       // eslint-disable-next-line no-console -- Intentional warning for operational visibility
-      console.warn(`[getCapTableState] ${issuerWarnTitle}`, {
+      console.warn('[getCapTableState] Issuer contract unavailable; continuing without issuer entity', {
         issuerContractId,
+        classification,
         errorMessage,
         stack: error instanceof Error ? error.stack : undefined,
       });
@@ -423,7 +598,11 @@ function requirePinnedCapTableCreatedEvent(createdEvent: {
   packageName?: unknown;
 }): string {
   const templateId = requireCapTableTemplateIdString(createdEvent.templateId, createdEvent.contractId);
-  const packageName = requireCapTablePackageNameString(createdEvent.packageName, createdEvent.contractId, templateId);
+  const packageName = requireCapTablePackageNameString(
+    createdEvent.packageName,
+    createdEvent.contractId,
+    templateId
+  );
 
   if (packageName !== PINNED_CAP_TABLE_PACKAGE_LINE.packageName) {
     throw new OcpContractError('CapTable contract packageName does not match pinned OpenCapTable package line', {

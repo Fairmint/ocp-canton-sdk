@@ -1,7 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfDocument, OcfObjectReference } from '../../../types/native';
+import { readSingleContract } from '../shared/singleContractRead';
 
 function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType): OcfObjectReference['object_type'] {
   switch (t) {
@@ -144,10 +146,7 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
   };
 }
 
-export interface GetDocumentAsOcfParams {
-  contractId: string;
-  readAs?: string[];
-}
+export interface GetDocumentAsOcfParams extends GetByContractIdParams {}
 
 export interface GetDocumentAsOcfResult {
   document: OcfDocument & { object_type: 'DOCUMENT'; id?: string };
@@ -158,18 +157,10 @@ export async function getDocumentAsOcf(
   client: LedgerJsonApiClient,
   params: GetDocumentAsOcfParams
 ): Promise<GetDocumentAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getDocumentAsOcf',
+    expectedTemplateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
   });
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('No createArgument found for contract', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-
-  const { createArgument } = eventsResponse.created.createdEvent;
 
   function hasDocumentData(arg: unknown): arg is { document_data: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData } {
     const record = arg as Record<string, unknown>;

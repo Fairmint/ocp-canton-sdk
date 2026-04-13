@@ -11,6 +11,7 @@ import {
   type DamlStakeholderRelationshipType,
 } from '../../../utils/enumConversions';
 import { isRecord } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 /** Parameters for getting a stakeholder relationship change event as OCF */
 export type GetStakeholderRelationshipChangeEventAsOcfParams = GetByContractIdParams;
@@ -101,25 +102,9 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
   client: LedgerJsonApiClient,
   params: GetStakeholderRelationshipChangeEventAsOcfParams
 ): Promise<GetStakeholderRelationshipChangeEventAsOcfResult> {
-  const res = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getStakeholderRelationshipChangeEventAsOcf',
   });
-
-  if (!res.created) {
-    throw new OcpContractError('Missing created event', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  if (!res.created.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-
-  const { createArgument } = res.created.createdEvent;
   if (!isDamlStakeholderRelationshipChangeEventContract(createArgument)) {
     throw new OcpContractError('Invalid stakeholder relationship event contract payload', {
       contractId: params.contractId,
@@ -127,9 +112,10 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
     });
   }
 
-  const contract = createArgument;
-  const data = contract.event_data ?? contract.relationship_change_data;
-  if (!data) {
+  const contract: DamlStakeholderRelationshipChangeEventContract = createArgument;
+  const data: DamlStakeholderRelationshipChangeEventData | undefined =
+    contract.event_data ?? contract.relationship_change_data;
+  if (data === undefined) {
     throw new OcpContractError('Missing stakeholder relationship event data', {
       contractId: params.contractId,
       code: OcpErrorCodes.INVALID_FORMAT,

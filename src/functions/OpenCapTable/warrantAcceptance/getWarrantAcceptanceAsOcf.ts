@@ -1,8 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfWarrantAcceptance } from '../../../types';
 import type { GetByContractIdParams } from '../../../types/common';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 /**
  * OCF Warrant Acceptance event with object_type discriminator.
@@ -30,6 +31,11 @@ interface WarrantAcceptanceCreateArgument {
   };
 }
 
+function hasWarrantAcceptanceData(arg: unknown): arg is WarrantAcceptanceCreateArgument {
+  const record = arg as { acceptance_data?: unknown };
+  return typeof record.acceptance_data === 'object' && record.acceptance_data !== null;
+}
+
 /**
  * Retrieve a Warrant Acceptance contract and convert to OCF format.
  *
@@ -41,24 +47,17 @@ export async function getWarrantAcceptanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetWarrantAcceptanceAsOcfParams
 ): Promise<GetWarrantAcceptanceAsOcfResult> {
-  const res = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getWarrantAcceptanceAsOcf',
   });
-  if (!res.created) {
-    throw new OcpContractError('Missing created event', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  if (!res.created.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
+  if (!hasWarrantAcceptanceData(createArgument)) {
+    throw new OcpParseError('WarrantAcceptance data not found in contract create argument', {
+      source: 'WarrantAcceptance.createArgument',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
 
-  const contract = res.created.createdEvent.createArgument as WarrantAcceptanceCreateArgument;
+  const contract = createArgument;
   const data = contract.acceptance_data;
 
   const event: OcfWarrantAcceptanceEvent = {

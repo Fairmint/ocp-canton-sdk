@@ -1,6 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
+import { readSingleContract } from '../shared/singleContractRead';
 
 /** Type alias for DAML StockLegendTemplate contract createArgument */
 type StockLegendTemplateCreateArgument = Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplate;
@@ -35,10 +37,7 @@ interface OcfStockLegendTemplateOutput {
   comments?: string[];
 }
 
-export interface GetStockLegendTemplateAsOcfParams {
-  contractId: string;
-  readAs?: string[];
-}
+export interface GetStockLegendTemplateAsOcfParams extends GetByContractIdParams {}
 
 export interface GetStockLegendTemplateAsOcfResult {
   stockLegendTemplate: OcfStockLegendTemplateOutput;
@@ -49,17 +48,11 @@ export async function getStockLegendTemplateAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockLegendTemplateAsOcfParams
 ): Promise<GetStockLegendTemplateAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getStockLegendTemplateAsOcf',
+    expectedTemplateId: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplate.templateId,
   });
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const contract = eventsResponse.created.createdEvent.createArgument as StockLegendTemplateCreateArgument;
+  const contract = createArgument as StockLegendTemplateCreateArgument;
   const native = damlStockLegendTemplateDataToNative(contract.template_data);
 
   const ocf: OcfStockLegendTemplateOutput = {

@@ -1,8 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { PkgStockClassAuthorizedSharesAdjustmentOcfData } from '../../../types/daml';
 import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types/native';
+import { readSingleContract } from '../shared/singleContractRead';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 export interface OcfStockClassAuthorizedSharesAdjustmentEvent {
@@ -16,10 +17,7 @@ export interface OcfStockClassAuthorizedSharesAdjustmentEvent {
   comments?: string[];
 }
 
-export interface GetStockClassAuthorizedSharesAdjustmentAsOcfParams {
-  contractId: string;
-  readAs?: string[];
-}
+export interface GetStockClassAuthorizedSharesAdjustmentAsOcfParams extends GetByContractIdParams {}
 export interface GetStockClassAuthorizedSharesAdjustmentAsOcfResult {
   event: OcfStockClassAuthorizedSharesAdjustmentEvent;
   contractId: string;
@@ -58,17 +56,12 @@ export async function getStockClassAuthorizedSharesAdjustmentAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockClassAuthorizedSharesAdjustmentAsOcfParams
 ): Promise<GetStockClassAuthorizedSharesAdjustmentAsOcfResult> {
-  const res = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getStockClassAuthorizedSharesAdjustmentAsOcf',
+    expectedTemplateId:
+      Fairmint.OpenCapTable.OCF.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustment.templateId,
   });
-  if (!res.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const contract = res.created.createdEvent.createArgument as StockClassAuthorizedSharesAdjustmentCreateArgument;
+  const contract = createArgument as StockClassAuthorizedSharesAdjustmentCreateArgument;
   const native = damlStockClassAuthorizedSharesAdjustmentDataToNative(contract.adjustment_data);
 
   const event: OcfStockClassAuthorizedSharesAdjustmentEvent = {

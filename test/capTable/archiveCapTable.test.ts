@@ -6,6 +6,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import { OcpValidationError } from '../../src/errors';
 import {
   archiveCapTable,
@@ -61,16 +62,17 @@ describe('archiveCapTable', () => {
       expect(disclosedContracts).toEqual([]);
     });
 
-    it('uses custom templateId when capTableContractDetails provided', () => {
+    it('preserves raw package-id templateId when capTableContractDetails provided', () => {
+      const rawLedgerTemplateId = CapTable.templateIdWithPackageId;
       const params: ArchiveCapTableParams = {
         ...validParams,
-        capTableContractDetails: { templateId: 'custom::template' },
+        capTableContractDetails: { templateId: rawLedgerTemplateId },
       };
       const { command } = buildArchiveCapTableCommand(params);
 
       expect(command).toEqual({
         ExerciseCommand: expect.objectContaining({
-          templateId: 'custom::template',
+          templateId: rawLedgerTemplateId,
         }),
       });
     });

@@ -1,10 +1,12 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type {
   CapitalizationDefinitionRules,
   ConversionTriggerType,
   OcfConvertibleIssuance,
 } from '../../../types/native';
+import { readSingleContract } from '../shared/singleContractRead';
 import {
   damlMonetaryToNativeWithValidation,
   mapDamlTriggerTypeToOcf,
@@ -121,10 +123,7 @@ export interface OcfConvertibleIssuanceEvent {
   comments?: string[];
 }
 
-export interface GetConvertibleIssuanceAsOcfParams {
-  contractId: string;
-  readAs?: string[];
-}
+export interface GetConvertibleIssuanceAsOcfParams extends GetByContractIdParams {}
 
 export interface GetConvertibleIssuanceAsOcfResult {
   event: OcfConvertibleIssuanceEvent;
@@ -710,19 +709,10 @@ export async function getConvertibleIssuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleIssuanceAsOcfParams
 ): Promise<GetConvertibleIssuanceAsOcfResult> {
-  const res = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getConvertibleIssuanceAsOcf',
   });
-  const created = res.created?.createdEvent;
-  if (!created?.createArgument) {
-    throw new OcpContractError('Missing createArgument for ConvertibleIssuance', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-
-  const arg = created.createArgument;
+  const arg = createArgument;
   if (typeof arg !== 'object' || !('issuance_data' in arg)) {
     throw new OcpParseError('Unexpected createArgument for ConvertibleIssuance', {
       source: 'ConvertibleIssuance.createArgument',

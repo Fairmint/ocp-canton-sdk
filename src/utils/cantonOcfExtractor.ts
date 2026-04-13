@@ -12,6 +12,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
+import { OcpContractError } from '../errors/OcpContractError';
 import { OcpValidationError } from '../errors/OcpValidationError';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
@@ -381,18 +382,164 @@ export interface ExtractCantonOcfOptions {
   /** Optional Canton read scope for issuer-visible child contracts */
   readAs?: string[];
   /**
-   * Throw when one or more contracts fail to extract.
-   * Default: true (fail fast instead of returning partial manifests).
+   * Compatibility mode for callers that intentionally accept partial manifests.
+   *
+   * Default: true. Non-benign child read failures still throw with classified
+   * diagnostics. Archived or not-found contracts remain soft-skipped regardless
+   * of this flag.
+   *
+   * Set to false to log and skip classified non-benign read failures instead of
+   * throwing, returning a partial manifest.
    */
   failOnReadErrors?: boolean;
 }
 
-function isTransientHttpError(error: unknown): boolean {
+type ContractReadFailureKind = 'not_found' | 'visibility' | 'auth' | 'schema' | 'network' | 'unknown';
+interface ContractReadDiagnostics {
+  classification: ContractReadFailureKind;
+  operation: 'extractCantonOcfManifest';
+  entityType: string;
+  objectId: string;
+  contractId: string;
+  attempts: number;
+  readAs?: string[];
+}
+interface ContractReadOutcome {
+  classification: ContractReadFailureKind;
+  retryable: boolean;
+  benignMissing: boolean;
+}
+
+function classifyContractReadFailure(error: unknown): ContractReadFailureKind {
+  if (error instanceof OcpContractError || error instanceof OcpValidationError) {
+    switch (error.code) {
+      case OcpErrorCodes.CONTRACT_NOT_FOUND:
+        return 'not_found';
+      case OcpErrorCodes.AUTHORIZATION_FAILED:
+        return 'auth';
+      case OcpErrorCodes.SCHEMA_MISMATCH:
+      case OcpErrorCodes.INVALID_RESPONSE:
+      case OcpErrorCodes.REQUIRED_FIELD_MISSING:
+      case OcpErrorCodes.INVALID_TYPE:
+      case OcpErrorCodes.INVALID_FORMAT:
+      case OcpErrorCodes.OUT_OF_RANGE:
+      case OcpErrorCodes.UNKNOWN_ENUM_VALUE:
+      case OcpErrorCodes.UNKNOWN_ENTITY_TYPE:
+        return 'schema';
+      case OcpErrorCodes.CONNECTION_FAILED:
+      case OcpErrorCodes.TIMEOUT:
+      case OcpErrorCodes.RATE_LIMITED:
+        return 'network';
+      case OcpErrorCodes.CHOICE_FAILED:
+      case OcpErrorCodes.RESULT_NOT_FOUND:
+        return 'unknown';
+    }
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes('contract_events_not_found') ||
+    lower.includes('not found') ||
+    lower.includes('archived') ||
+    lower.includes('inactive contract')
+  ) {
+    return 'not_found';
+  }
+
+  if (lower.includes('readas') || lower.includes('not visible') || lower.includes('visibility')) {
+    return 'visibility';
+  }
+
+  if (
+    lower.includes('401') ||
+    lower.includes('403') ||
+    lower.includes('permission') ||
+    lower.includes('forbidden') ||
+    lower.includes('unauthorized') ||
+    lower.includes('unauthorised') ||
+    lower.includes('authentication')
+  ) {
+    return 'auth';
+  }
+
+  if (
+    lower.includes('schema') ||
+    lower.includes('create argument') ||
+    lower.includes('createargument') ||
+    lower.includes('invalid contract events response') ||
+    lower.includes('parse')
+  ) {
+    return 'schema';
+  }
+
+  if (
+    lower.includes('network') ||
+    lower.includes('econnrefused') ||
+    lower.includes('enotfound') ||
+    lower.includes('socket hang up') ||
+    lower.includes('timed out') ||
+    lower.includes('timeout') ||
+    lower.includes('http 502') ||
+    lower.includes('http 503') ||
+    lower.includes('http 504') ||
+    lower.includes('fetch failed')
+  ) {
+    return 'network';
+  }
+
+  return 'unknown';
+}
+
+function contractReadFailureCode(kind: ContractReadFailureKind): (typeof OcpErrorCodes)[keyof typeof OcpErrorCodes] {
+  switch (kind) {
+    case 'auth':
+    case 'visibility':
+      return OcpErrorCodes.AUTHORIZATION_FAILED;
+    case 'schema':
+      return OcpErrorCodes.SCHEMA_MISMATCH;
+    case 'network':
+      return OcpErrorCodes.CONNECTION_FAILED;
+    case 'not_found':
+      return OcpErrorCodes.CONTRACT_NOT_FOUND;
+    case 'unknown':
+      return OcpErrorCodes.CHOICE_FAILED;
+  }
+}
+
+function isRetryableContractReadFailure(error: unknown): boolean {
   if (error instanceof Error) {
     const msg = error.message;
-    return msg.includes('HTTP 502') || msg.includes('HTTP 503') || msg.includes('HTTP 404');
+    return msg.includes('HTTP 429') || msg.includes('HTTP 502') || msg.includes('HTTP 503') || msg.includes('HTTP 504');
   }
   return false;
+}
+
+function analyzeContractReadFailure(error: unknown): ContractReadOutcome {
+  const classification = classifyContractReadFailure(error);
+  return {
+    classification,
+    retryable: classification !== 'not_found' && isRetryableContractReadFailure(error),
+    benignMissing: classification === 'not_found',
+  };
+}
+
+function createDiagnosedContractReadError(params: {
+  message: string;
+  code: (typeof OcpErrorCodes)[keyof typeof OcpErrorCodes];
+  contractId: string;
+  cause: Error;
+  diagnostics: ContractReadDiagnostics;
+}): OcpContractError & { diagnostics: ContractReadDiagnostics } {
+  return Object.assign(
+    new OcpContractError(params.message, {
+      contractId: params.contractId,
+      code: params.code,
+      cause: params.cause,
+    }),
+    { diagnostics: params.diagnostics }
+  );
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -431,7 +578,6 @@ export async function extractCantonOcfManifest(
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
   const contractReadParams = readAs ? { readAs } : {};
   const entityReadOptions = readAs ? { readAs } : undefined;
-  const extractionFailures: Array<{ entityType: string; id: string; contractId: string; message: string }> = [];
 
   const result: OcfManifest = {
     issuer: null,
@@ -453,7 +599,9 @@ export async function extractCantonOcfManifest(
   if (issuerContractEntry && issuerContractEntry.size > 0) {
     const [[issuerId, issuerCid]] = issuerContractEntry;
     let issuerLastError: Error | null = null;
+    let issuerAttempts = 0;
     for (let attempt = 0; attempt < 2; attempt++) {
+      issuerAttempts = attempt + 1;
       try {
         const issuerResult = await getIssuerAsOcf(client, {
           contractId: issuerCid,
@@ -464,7 +612,8 @@ export async function extractCantonOcfManifest(
         break;
       } catch (error) {
         issuerLastError = error instanceof Error ? error : new Error(String(error));
-        if (attempt === 0 && isTransientHttpError(error)) {
+        const outcome = analyzeContractReadFailure(error);
+        if (attempt === 0 && outcome.retryable) {
           log(`  ⏳ Transient error fetching issuer/${issuerId}, retrying in 2s...`);
           await sleep(2000);
           continue;
@@ -473,13 +622,29 @@ export async function extractCantonOcfManifest(
       }
     }
     if (issuerLastError) {
-      log(`  ⚠️ Failed to fetch issuer: ${issuerLastError.message}`);
-      extractionFailures.push({
-        entityType: 'issuer',
-        id: issuerId,
-        contractId: issuerCid,
-        message: issuerLastError.message,
-      });
+      const outcome = analyzeContractReadFailure(issuerLastError);
+      log(`  ⚠️ Failed to fetch issuer/${issuerId} [${outcome.classification}]: ${issuerLastError.message}`);
+      if (!outcome.benignMissing) {
+        const diagnosedError = createDiagnosedContractReadError({
+          message: `Failed to fetch issuer/${issuerId} (${outcome.classification})`,
+          contractId: issuerCid,
+          code: contractReadFailureCode(outcome.classification),
+          cause: issuerLastError,
+          diagnostics: {
+            classification: outcome.classification,
+            operation: 'extractCantonOcfManifest',
+            entityType: 'issuer',
+            objectId: issuerId,
+            contractId: issuerCid,
+            attempts: issuerAttempts,
+            ...(readAs ? { readAs } : {}),
+          },
+        });
+        if (failOnReadErrors) {
+          throw diagnosedError;
+        }
+        log('  -> Continuing with partial manifest because failOnReadErrors=false');
+      }
     }
   } else if (cantonState.issuerContractId) {
     log(`  ⚠️ Skipping issuer fetch: contract ${cantonState.issuerContractId} not in contractIds (likely archived)`);
@@ -490,7 +655,9 @@ export async function extractCantonOcfManifest(
     if (entityType === 'issuer') continue;
     for (const [objectId, contractId] of idToContractId) {
       let lastError: Error | null = null;
+      let readAttempts = 0;
       for (let attempt = 0; attempt < 2; attempt++) {
+        readAttempts = attempt + 1;
         try {
           // Handle core objects with their specific functions
           if (entityType === 'stakeholder') {
@@ -580,7 +747,8 @@ export async function extractCantonOcfManifest(
           break;
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error));
-          if (attempt === 0 && isTransientHttpError(error)) {
+          const outcome = analyzeContractReadFailure(error);
+          if (attempt === 0 && outcome.retryable) {
             log(`  ⏳ Transient error fetching ${entityType}/${objectId}, retrying in 2s...`);
             await sleep(2000);
             continue;
@@ -589,31 +757,31 @@ export async function extractCantonOcfManifest(
         }
       }
       if (lastError) {
-        log(`  ⚠️ Failed to fetch ${entityType}/${objectId}: ${lastError.message}`);
-        extractionFailures.push({
-          entityType,
-          id: objectId,
-          contractId,
-          message: lastError.message,
-        });
+        const outcome = analyzeContractReadFailure(lastError);
+        log(`  ⚠️ Failed to fetch ${entityType}/${objectId} [${outcome.classification}]: ${lastError.message}`);
+        if (!outcome.benignMissing) {
+          const diagnosedError = createDiagnosedContractReadError({
+            message: `Failed to fetch ${entityType}/${objectId} (${outcome.classification})`,
+            contractId,
+            code: contractReadFailureCode(outcome.classification),
+            cause: lastError,
+            diagnostics: {
+              classification: outcome.classification,
+              operation: 'extractCantonOcfManifest',
+              entityType,
+              objectId,
+              contractId,
+              attempts: readAttempts,
+              ...(readAs ? { readAs } : {}),
+            },
+          });
+          if (failOnReadErrors) {
+            throw diagnosedError;
+          }
+          log('  -> Continuing with partial manifest because failOnReadErrors=false');
+        }
       }
     }
-  }
-
-  if (failOnReadErrors && extractionFailures.length > 0) {
-    const maxFailuresToReport = 10;
-    const failureSummary = extractionFailures
-      .slice(0, maxFailuresToReport)
-      .map((failure) => `${failure.entityType}/${failure.id} (contractId=${failure.contractId}): ${failure.message}`)
-      .join('\n');
-    const extraCount = extractionFailures.length - maxFailuresToReport;
-    const extraSuffix = extraCount > 0 ? `\n... and ${extraCount} more` : '';
-
-    throw new Error(
-      `Failed to extract ${extractionFailures.length} Canton object(s) while building manifest. ` +
-        'Extraction returned partial data; aborting to avoid inconsistent diffs.\n' +
-        `${failureSummary}${extraSuffix}`
-    );
   }
 
   // Sort transactions by date with domain-aware same-day ordering

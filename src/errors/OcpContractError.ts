@@ -1,5 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError } from './OcpError';
+import { OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpContractErrorOptions {
   /** The contract ID involved in the error */
@@ -12,6 +12,10 @@ export interface OcpContractErrorOptions {
   cause?: Error;
   /** Specific contract error code (defaults to CHOICE_FAILED) */
   code?: OcpErrorCode;
+  /** Structured failure classification override */
+  classification?: string;
+  /** Additional structured diagnostics context */
+  context?: OcpErrorContext;
 }
 
 /**
@@ -54,7 +58,15 @@ export class OcpContractError extends OcpError {
 
   constructor(message: string, options?: OcpContractErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CHOICE_FAILED;
-    super(message, code, options?.cause);
+    super(message, code, options?.cause, {
+      classification: options?.classification ?? 'contract_error',
+      context: {
+        contractId: options?.contractId,
+        templateId: options?.templateId,
+        choice: options?.choice,
+        ...options?.context,
+      },
+    });
     this.name = 'OcpContractError';
     this.contractId = options?.contractId;
     this.templateId = options?.templateId;

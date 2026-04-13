@@ -1,6 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
+import { readSingleContract } from '../shared/singleContractRead';
 import type { StockPlanCancellationBehavior } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
@@ -91,10 +93,7 @@ interface OcfStockPlanOutput {
   comments?: string[];
 }
 
-export interface GetStockPlanAsOcfParams {
-  contractId: string;
-  readAs?: string[];
-}
+export interface GetStockPlanAsOcfParams extends GetByContractIdParams {}
 
 export interface GetStockPlanAsOcfResult {
   stockPlan: OcfStockPlanOutput;
@@ -110,17 +109,10 @@ export async function getStockPlanAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockPlanAsOcfParams
 ): Promise<GetStockPlanAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getStockPlanAsOcf',
+    expectedTemplateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
   });
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
   if (!('plan_data' in createArgument)) {
     throw new OcpParseError('plan_data not found in contract create argument', {

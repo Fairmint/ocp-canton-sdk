@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type {
   ConversionTriggerType,
   OcfWarrantIssuance,
@@ -12,16 +13,14 @@ import type {
   WarrantMechanismPpsBased,
   WarrantMechanismValuationBased,
 } from '../../../types/native';
+import { readSingleContract } from '../shared/singleContractRead';
 import {
   damlMonetaryToNativeWithValidation,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
 } from '../../../utils/typeConversions';
 
-export interface GetWarrantIssuanceAsOcfParams {
-  contractId: string;
-  readAs?: string[];
-}
+export interface GetWarrantIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetWarrantIssuanceAsOcfResult {
   warrantIssuance: OcfWarrantIssuance & { object_type: 'TX_WARRANT_ISSUANCE' };
   contractId: string;
@@ -355,17 +354,10 @@ export async function getWarrantIssuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetWarrantIssuanceAsOcfParams
 ): Promise<GetWarrantIssuanceAsOcfResult> {
-  const res = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getWarrantIssuanceAsOcf',
   });
-  const created = res.created?.createdEvent;
-  if (!created?.createArgument)
-    throw new OcpContractError('Missing createArgument for WarrantIssuance', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  const arg = created.createArgument as Record<string, unknown>;
+  const arg = createArgument as Record<string, unknown>;
   if (!('issuance_data' in arg))
     throw new OcpParseError('Unexpected createArgument for WarrantIssuance', {
       source: 'WarrantIssuance.createArgument',

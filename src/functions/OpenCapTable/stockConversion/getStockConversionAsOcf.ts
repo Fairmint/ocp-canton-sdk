@@ -3,6 +3,7 @@ import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../er
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockConversion } from '../../../types/native';
 import { isRecord, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 import type { DamlStockConversionData } from './damlToOcf';
 
 type DamlStockConversionInput = Pick<DamlStockConversionData, 'id' | 'date' | 'security_id'> & {
@@ -50,17 +51,9 @@ export async function getStockConversionAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockConversionAsOcfParams
 ): Promise<GetStockConversionAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getStockConversionAsOcf',
   });
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
   const conversionData = createArgument.conversion_data;
   if (!isDamlStockConversionData(conversionData)) {

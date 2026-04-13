@@ -3,6 +3,7 @@ import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfWarrantExercise } from '../../../types/native';
 import { isRecord } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 import { damlWarrantExerciseToNative } from './damlToOcf';
 
 /**
@@ -28,17 +29,9 @@ export async function getWarrantExerciseAsOcf(
   client: LedgerJsonApiClient,
   params: GetWarrantExerciseAsOcfParams
 ): Promise<GetWarrantExerciseAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getWarrantExerciseAsOcf',
   });
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const createArgument = eventsResponse.created.createdEvent.createArgument as Record<string, unknown>;
 
   const exerciseData = createArgument.exercise_data;
   if (!isRecord(exerciseData)) {

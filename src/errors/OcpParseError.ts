@@ -1,5 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError } from './OcpError';
+import { OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpParseErrorOptions {
   /** Description of the data source being parsed */
@@ -8,6 +8,10 @@ export interface OcpParseErrorOptions {
   cause?: Error;
   /** Specific parse error code (defaults to INVALID_RESPONSE) */
   code?: OcpErrorCode;
+  /** Structured failure classification override */
+  classification?: string;
+  /** Additional structured diagnostics context */
+  context?: OcpErrorContext;
 }
 
 /**
@@ -41,7 +45,13 @@ export class OcpParseError extends OcpError {
 
   constructor(message: string, options?: OcpParseErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.INVALID_RESPONSE;
-    super(message, code, options?.cause);
+    super(message, code, options?.cause, {
+      classification: options?.classification ?? 'parse_error',
+      context: {
+        source: options?.source,
+        ...options?.context,
+      },
+    });
     this.name = 'OcpParseError';
     this.source = options?.source;
   }

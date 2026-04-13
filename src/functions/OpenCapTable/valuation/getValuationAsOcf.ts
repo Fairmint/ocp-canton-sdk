@@ -1,12 +1,11 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfValuation } from '../../../types/native';
+import { readSingleContract } from '../shared/singleContractRead';
 import { damlValuationToNative, type DamlValuationData } from './damlToOcf';
 
-export interface GetValuationAsOcfParams {
-  contractId: string;
-  readAs?: string[];
-}
+export interface GetValuationAsOcfParams extends GetByContractIdParams {}
 
 export interface GetValuationAsOcfResult {
   valuation: OcfValuation & { object_type: 'VALUATION' };
@@ -26,18 +25,9 @@ export async function getValuationAsOcf(
   client: LedgerJsonApiClient,
   params: GetValuationAsOcfParams
 ): Promise<GetValuationAsOcfResult> {
-  const eventsResponse = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getValuationAsOcf',
   });
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('No createArgument found for contract', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-
-  const { createArgument } = eventsResponse.created.createdEvent;
 
   function hasValuationData(arg: unknown): arg is { valuation_data: DamlValuationData } {
     const record = arg as Record<string, unknown>;

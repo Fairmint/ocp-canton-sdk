@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import type { GetByContractIdParams } from '../../../types/common';
 import type {
   ConversionMechanism,
   ConversionMechanismObject,
@@ -10,6 +11,7 @@ import type {
 } from '../../../types/native';
 import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 /**
  * Internal type for the intermediate stock class data converted from DAML.
@@ -337,12 +339,7 @@ interface OcfStockClassOutput {
   comments?: string[];
 }
 
-export interface GetStockClassAsOcfParams {
-  /** Contract ID of the StockClass contract to retrieve */
-  contractId: string;
-  /** Optional Canton read scope for contract event visibility */
-  readAs?: string[];
-}
+export interface GetStockClassAsOcfParams extends GetByContractIdParams {}
 
 export interface GetStockClassAsOcfResult {
   /** The OCF StockClass object */
@@ -366,20 +363,10 @@ export async function getStockClassAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockClassAsOcfParams
 ): Promise<GetStockClassAsOcfResult> {
-  // Get the events for the StockClass contract
-  const eventsResponse = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getStockClassAsOcf',
+    expectedTemplateId: Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
   });
-
-  if (!eventsResponse.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Invalid contract events response: missing created event or create argument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-
-  const { createArgument } = eventsResponse.created.createdEvent;
 
   // Type guard to ensure we have the expected stock class data structure
   function hasStockClassData(

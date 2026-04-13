@@ -1,4 +1,5 @@
 import { OCF_METADATA, type OcfObjectType } from './ocfMetadata';
+import { matchesTemplateIdentity } from './templateIdentity';
 
 /** Represents a created event from a transaction tree */
 export interface CreatedTreeEvent {
@@ -6,6 +7,7 @@ export interface CreatedTreeEvent {
     value: {
       contractId: string;
       templateId: string;
+      packageName?: string;
       createArgument?: unknown;
     };
   };
@@ -43,11 +45,6 @@ export function findCreatedEventsByTemplateId(treeResponse: unknown, expectedTem
   };
   const eventsById = tr.transaction?.eventsById ?? {};
 
-  // Extract suffix for comparison (handles both full and short template IDs)
-  const expectedSuffix = expectedTemplateId.includes(':')
-    ? expectedTemplateId.substring(expectedTemplateId.indexOf(':') + 1)
-    : expectedTemplateId;
-
   for (const event of Object.values(eventsById)) {
     if (
       event &&
@@ -57,14 +54,19 @@ export function findCreatedEventsByTemplateId(treeResponse: unknown, expectedTem
       typeof (event as Record<string, unknown>).CreatedTreeEvent === 'object'
     ) {
       const createdEvent = (event as Record<string, unknown>).CreatedTreeEvent as { value?: { templateId?: string } };
-      const templateId = createdEvent.value?.templateId;
+      const createdValue = createdEvent.value;
 
-      if (templateId) {
-        const actualSuffix = templateId.includes(':') ? templateId.substring(templateId.indexOf(':') + 1) : templateId;
-
-        if (actualSuffix === expectedSuffix) {
-          results.push(event as CreatedTreeEvent);
-        }
+      if (
+        createdValue &&
+        matchesTemplateIdentity(
+          {
+            templateId: createdValue.templateId,
+            packageName: 'packageName' in createdValue ? createdValue.packageName : undefined,
+          },
+          expectedTemplateId
+        )
+      ) {
+        results.push(event as CreatedTreeEvent);
       }
     }
   }

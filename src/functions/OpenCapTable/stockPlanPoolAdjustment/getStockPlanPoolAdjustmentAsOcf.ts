@@ -1,13 +1,11 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlanPoolAdjustment } from '../../../types/native';
+import { readSingleContract } from '../shared/singleContractRead';
 import { normalizeNumericString } from '../../../utils/typeConversions';
 
-export interface GetStockPlanPoolAdjustmentAsOcfParams {
-  contractId: string;
-  readAs?: string[];
-}
+export interface GetStockPlanPoolAdjustmentAsOcfParams extends GetByContractIdParams {}
 export interface GetStockPlanPoolAdjustmentAsOcfResult {
   event: OcfStockPlanPoolAdjustment & { object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT' };
   contractId: string;
@@ -47,17 +45,11 @@ export async function getStockPlanPoolAdjustmentAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockPlanPoolAdjustmentAsOcfParams
 ): Promise<GetStockPlanPoolAdjustmentAsOcfResult> {
-  const res = await client.getEventsByContractId({
-    contractId: params.contractId,
-    ...(params.readAs ? { readAs: params.readAs } : {}),
+  const { createArgument } = await readSingleContract(client, params, {
+    operation: 'getStockPlanPoolAdjustmentAsOcf',
+    expectedTemplateId: Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId,
   });
-  if (!res.created?.createdEvent.createArgument) {
-    throw new OcpContractError('Missing createArgument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.RESULT_NOT_FOUND,
-    });
-  }
-  const contract = res.created.createdEvent.createArgument as StockPlanPoolAdjustmentCreateArgument;
+  const contract = createArgument as StockPlanPoolAdjustmentCreateArgument;
 
   const native = damlStockPlanPoolAdjustmentDataToNative(contract.adjustment_data);
   // Add object_type to create the full event type
