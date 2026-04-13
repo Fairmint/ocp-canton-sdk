@@ -19,8 +19,8 @@ import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
 /** Ledger template ids for mocks — must match `readSingleContract` `expectedTemplateId` on each getter. */
 const MOCK_LEDGER_TEMPLATE_IDS = {
-  equityCompensationIssuance: Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuance
-    .templateId,
+  equityCompensationIssuance:
+    Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuance.templateId,
   warrantIssuance: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuance.templateId,
   vestingTerms: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
   stockClass: Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
