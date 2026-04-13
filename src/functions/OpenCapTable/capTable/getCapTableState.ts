@@ -1,18 +1,24 @@
 /**
- * Query Canton for the state of a CapTable on **this SDK’s pinned template** (`OCP_TEMPLATES.capTable`).
+ * Query Canton for the state of a CapTable on **this SDK’s pinned OpenCapTable package line** (`OCP_TEMPLATES.capTable`).
+ *
+ * Requests use the package-name symbolic template id (`#OpenCapTable-vN:…`). The ledger may echo
+ * `createdEvent.templateId` using either that form or the package-id (`hash:…`) form for the same template.
+ *
+ * Validation therefore uses **structured fields** from the Canton JSON API: `createdEvent.packageName` must match
+ * the pinned package name parsed from `OCP_TEMPLATES.capTable`, and the **module + entity** suffix of
+ * `createdEvent.templateId` (everything after the first `:`) must match the pinned template. The SDK returns the
+ * raw ledger `templateId` string unchanged for downstream commands.
  *
  * This is **not** a global “does this issuer have any CapTable on any package line?” API. Ledger filters use
- * that template id; contracts on other OpenCapTable package versions are outside this query and are neither
+ * the pinned template id; contracts on other OpenCapTable package versions are outside this query and are neither
  * loaded nor classified here.
  *
  * `classifyIssuerCapTables` / `getCapTableState` therefore answer only: “is there an active CapTable **on the
- * current template** for this issuer?” A `none` / `null` result means the filtered query returned no matching row,
+ * current package line** for this issuer?” A `none` / `null` result means the filtered query returned no matching row,
  * not that the issuer has zero CapTable-shaped contracts in Canton overall. Whether it is safe to create a new
  * CapTable is a separate DAML / operations concern.
  *
- * Any row returned for the filtered query must carry a non-empty `createdEvent.templateId` that **exactly**
- * matches `OCP_TEMPLATES.capTable`; otherwise the SDK throws `SCHEMA_MISMATCH` (including when the participant
- * returns an unexpected template id for the same filter).
+ * Rows that fail package-name or module-path checks throw `SCHEMA_MISMATCH`.
  *
  * @module getCapTableState
  */
@@ -25,8 +31,27 @@ import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import { parseDamlMap } from '../../../utils/typeConversions';
 import type { OcfEntityType } from './batchTypes';
 
-/** CapTable template ID this SDK treats as current. */
+/** CapTable template ID this SDK treats as current (package-name symbolic form; used for ledger queries). */
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
+
+/**
+ * Pinned package line + module path from {@link CURRENT_CAP_TABLE_TEMPLATE_ID} (`#PackageName:Module:Entity`).
+ * Used to validate `getActiveContracts` rows without requiring `createdEvent.templateId` to match the full string.
+ */
+const PINNED_CAP_TABLE_PACKAGE_LINE = (() => {
+  const full = CURRENT_CAP_TABLE_TEMPLATE_ID;
+  if (!full.startsWith('#')) {
+    throw new Error(`Invalid pinned CapTable template id (expected # prefix): ${full}`);
+  }
+  const withoutHash = full.slice(1);
+  const firstColon = withoutHash.indexOf(':');
+  if (firstColon < 0) {
+    throw new Error(`Invalid pinned CapTable template id (expected :): ${full}`);
+  }
+  const packageName = withoutHash.slice(0, firstColon);
+  const moduleEntityPath = withoutHash.slice(firstColon + 1);
+  return { packageName, moduleEntityPath };
+})();
 
 /**
  * Type guard to check if a contract entry is a JsActiveContract with complete structure.
@@ -228,14 +253,14 @@ export interface CapTableWithArchiveContext extends CapTableState {
 }
 
 /**
- * CapTable presence **for the pinned template only** (`OCP_TEMPLATES.capTable`).
+ * CapTable presence **for the pinned package line only** (see module doc; query uses `OCP_TEMPLATES.capTable`).
  * `none` means the filtered ledger query found no row on that template, not “no CapTable exists on any package.”
  */
 export type IssuerCapTableStatus = 'current' | 'none';
 
 export interface IssuerCapTableClassification {
   status: IssuerCapTableStatus;
-  /** Populated when `status` is `current` (exactly one CapTable on the pinned template). */
+  /** Populated when `status` is `current` (exactly one CapTable on the pinned package line). */
   current: CapTableWithArchiveContext | null;
 }
 
@@ -347,16 +372,73 @@ function requireCapTableTemplateIdString(templateId: unknown, contractId: string
   return templateId;
 }
 
-function requireCurrentCapTableTemplateId(templateId: unknown, contractId: string): string {
-  const currentTemplateId = requireCapTableTemplateIdString(templateId, contractId);
-  if (currentTemplateId !== CURRENT_CAP_TABLE_TEMPLATE_ID) {
-    throw new OcpContractError('CapTable contract templateId did not match requested template scope', {
+/** Module + entity path after the package reference (first `:`), for `#pkg:Mod:Ent` or `hash:Mod:Ent`. */
+function damlTemplateModuleEntityPath(templateId: string, contractId: string): string {
+  const i = templateId.indexOf(':');
+  if (i < 0) {
+    throw new OcpContractError('CapTable contract templateId is missing package or module path', {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       contractId,
-      templateId: currentTemplateId,
+      templateId,
     });
   }
-  return currentTemplateId;
+  const path = templateId.slice(i + 1);
+  if (path.length === 0) {
+    throw new OcpContractError('CapTable contract templateId is missing module path after package reference', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId,
+      templateId,
+    });
+  }
+  return path;
+}
+
+function requireCapTablePackageNameString(
+  packageName: unknown,
+  contractId: string,
+  templateIdForDiagnostics?: string
+): string {
+  if (typeof packageName !== 'string' || packageName.length === 0) {
+    throw new OcpContractError('CapTable contract packageName must be a non-empty string', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId,
+      ...(templateIdForDiagnostics ? { templateId: templateIdForDiagnostics } : {}),
+    });
+  }
+  return packageName;
+}
+
+/**
+ * Ensures the created event is the pinned CapTable template (same package line + module path as
+ * `OCP_TEMPLATES.capTable`), regardless of whether `templateId` uses package-name or package-id form.
+ * @returns Raw ledger `templateId` for downstream use.
+ */
+function requirePinnedCapTableCreatedEvent(createdEvent: {
+  contractId: string;
+  templateId?: unknown;
+  packageName?: unknown;
+}): string {
+  const templateId = requireCapTableTemplateIdString(createdEvent.templateId, createdEvent.contractId);
+  const packageName = requireCapTablePackageNameString(createdEvent.packageName, createdEvent.contractId, templateId);
+
+  if (packageName !== PINNED_CAP_TABLE_PACKAGE_LINE.packageName) {
+    throw new OcpContractError('CapTable contract packageName does not match pinned OpenCapTable package line', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: createdEvent.contractId,
+      templateId,
+    });
+  }
+
+  const moduleEntityPath = damlTemplateModuleEntityPath(templateId, createdEvent.contractId);
+  if (moduleEntityPath !== PINNED_CAP_TABLE_PACKAGE_LINE.moduleEntityPath) {
+    throw new OcpContractError('CapTable contract template module path does not match pinned CapTable template', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: createdEvent.contractId,
+      templateId,
+    });
+  }
+
+  return templateId;
 }
 
 async function capTableWithArchiveContext(
@@ -381,7 +463,7 @@ async function capTableWithArchiveContext(
   return { ...base, templateId, systemOperatorPartyId };
 }
 
-/** Active CapTable contracts for the issuer on the current template only. */
+/** Active CapTable contracts for the issuer on the current pinned package line only. */
 async function loadCurrentCapTables(
   client: LedgerJsonApiClient,
   issuerPartyId: string
@@ -399,7 +481,7 @@ async function loadCurrentCapTables(
       });
     }
     const { createdEvent } = contract.contractEntry.JsActiveContract;
-    const templateId = requireCurrentCapTableTemplateId(createdEvent.templateId, createdEvent.contractId);
+    const templateId = requirePinnedCapTableCreatedEvent(createdEvent);
     out.push(await capTableWithArchiveContext(client, createdEvent, templateId));
   }
   if (out.length > 1) {
@@ -412,7 +494,7 @@ async function loadCurrentCapTables(
 }
 
 /**
- * Classifies whether the issuer has an active CapTable **on the pinned template** (see module doc).
+ * Classifies whether the issuer has an active CapTable **on the pinned package line** (see module doc).
  * Other package lines are out of scope and do not affect `status`.
  */
 export async function classifyIssuerCapTables(
@@ -427,7 +509,7 @@ export async function classifyIssuerCapTables(
 }
 
 /**
- * Reads CapTable state **on the pinned template only**, or `null` if the filtered query finds no such contract.
+ * Reads CapTable state **on the pinned package line only**, or `null` if the filtered query finds no such contract.
  * This does not imply the issuer has no CapTable on other templates.
  */
 export async function getCapTableState(

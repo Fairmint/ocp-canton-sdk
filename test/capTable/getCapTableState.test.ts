@@ -8,6 +8,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import { OcpErrorCodes } from '../../src/errors';
 import { classifyIssuerCapTables, getCapTableState } from '../../src/functions/OpenCapTable/capTable';
 
@@ -20,11 +21,17 @@ const NON_CURRENT_CAP_TABLE_TEMPLATE_ID = '#OpenCapTable-other:Fairmint.OpenCapT
 const CURRENT_OCP_PACKAGE_NAME = CURRENT_CAP_TABLE_TEMPLATE_ID.replace(/^#/, '').split(':')[0];
 const NON_CURRENT_CAP_TABLE_PACKAGE_NAME = 'OpenCapTable-other';
 
+/** Package-id form of the pinned CapTable template (same build as `OCP_TEMPLATES.capTable`). */
+const HASH_FORM_CAP_TABLE_TEMPLATE_ID = CapTable.templateIdWithPackageId;
+
 function isCurrentTemplateQuery(templateIds: string[] | undefined): boolean {
   return templateIds?.length === 1 && templateIds[0] === CURRENT_CAP_TABLE_TEMPLATE_ID;
 }
 
-/** `classifyIssuerCapTables` / `getCapTableState` query only the SDK’s current CapTable template. */
+/**
+ * Test mock: `getActiveContracts` must be called with `templateIds: [OCP_TEMPLATES.capTable]` (package-name symbolic
+ * id). The SDK validates each returned row using `packageName` plus the module/entity suffix of `templateId`.
+ */
 function mockActiveContractsForCapTableState(
   mockClient: jest.Mocked<Pick<LedgerJsonApiClient, 'getActiveContracts'>>,
   responses: { current?: unknown[] }
@@ -268,7 +275,7 @@ describe('getCapTableState', () => {
       expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
     });
 
-    it('should reject returned rows whose templateId does not match the requested current template', async () => {
+    it('should reject returned rows whose package line does not match the pinned OpenCapTable package', async () => {
       mockActiveContractsForCapTableState(mockClient, {
         current: [
           buildMockCapTableContract({
@@ -294,8 +301,112 @@ describe('getCapTableState', () => {
       await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         contractId: 'cap-table-other',
-        message: 'CapTable contract templateId did not match requested template scope',
+        message: 'CapTable contract packageName does not match pinned OpenCapTable package line',
         templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('should accept hash-form templateId when packageName and module path match the pinned template', async () => {
+      const mockCapTableResponse = [
+        buildMockCapTableContract({
+          contractId: 'cap-table-hash-id',
+          issuerContractId: 'issuer-contract-456',
+          packageName: CURRENT_OCP_PACKAGE_NAME,
+          templateId: HASH_FORM_CAP_TABLE_TEMPLATE_ID,
+          createArgument: {
+            stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
+          },
+        }),
+      ];
+
+      mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
+      mockClient.getEventsByContractId.mockResolvedValue(
+        buildMockIssuerEventsResponse('issuer-contract-456', {
+          id: 'issuer-ocf-hash',
+          legal_name: 'Hash Id Corp',
+          country_of_formation: 'US',
+          formation_date: '2024-01-01T00:00:00Z',
+        }) as never
+      );
+
+      const result = await getCapTableState(mockClient, 'issuer::party-123');
+
+      expect(result).not.toBeNull();
+      expect(result!.capTableContractId).toBe('cap-table-hash-id');
+    });
+
+    it('should reject templateId with empty module path after package reference', async () => {
+      const badTemplateId = `${HASH_FORM_CAP_TABLE_TEMPLATE_ID.split(':')[0]}:`;
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-bad-suffix',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            templateId: badTemplateId,
+            createArgument: { stakeholders: [['s', 'c']] },
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'cap-table-bad-suffix',
+        message: 'CapTable contract templateId is missing module path after package reference',
+        templateId: badTemplateId,
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['missing', undefined],
+      ['empty', ''],
+    ])('should reject returned CapTable rows with a %s packageName', async (_case, packageName) => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-bad-pkg',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+        createArgument: { stakeholders: [['s', 'c']] },
+      });
+      const ce = { ...row.contractEntry.JsActiveContract.createdEvent };
+      if (packageName === undefined) {
+        delete (ce as { packageName?: string }).packageName;
+      } else {
+        (ce as { packageName: string }).packageName = packageName;
+      }
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [{ contractEntry: { JsActiveContract: { ...row.contractEntry.JsActiveContract, createdEvent: ce } } }],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'cap-table-bad-pkg',
+        message: 'CapTable contract packageName must be a non-empty string',
+        templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('should reject when packageName matches but template module path does not', async () => {
+      const wrongEntityTemplateId = `#${CURRENT_OCP_PACKAGE_NAME}:Fairmint.OpenCapTable.CapTable:NotCapTable`;
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-wrong-entity',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            templateId: wrongEntityTemplateId,
+            createArgument: { stakeholders: [['s', 'c']] },
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'cap-table-wrong-entity',
+        message: 'CapTable contract template module path does not match pinned CapTable template',
+        templateId: wrongEntityTemplateId,
       });
       expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
     });
@@ -734,7 +845,37 @@ describe('getCapTableState', () => {
       });
     });
 
-    it('should reject a returned row whose templateId does not match the requested current template', async () => {
+    it('should classify as current when templateId is package-id form but packageName matches pinned line', async () => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-pkg-id',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            templateId: HASH_FORM_CAP_TABLE_TEMPLATE_ID,
+            createArgument: {
+              stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
+            },
+          }),
+        ],
+      });
+      mockClient.getEventsByContractId.mockResolvedValue(
+        buildMockIssuerEventsResponse('issuer-contract-456', {
+          id: 'issuer-ocf-id-123',
+          legal_name: 'Target Corp',
+          country_of_formation: 'US',
+          formation_date: '2024-01-01T00:00:00Z',
+        }) as never
+      );
+
+      const result = await classifyIssuerCapTables(mockClient, 'issuer::party-123');
+
+      expect(result.status).toBe('current');
+      expect(result.current?.capTableContractId).toBe('cap-table-pkg-id');
+      expect(result.current?.templateId).toBe(HASH_FORM_CAP_TABLE_TEMPLATE_ID);
+    });
+
+    it('should reject a returned row whose package line does not match the pinned OpenCapTable package', async () => {
       mockActiveContractsForCapTableState(mockClient, {
         current: [
           buildMockCapTableContract({
@@ -754,7 +895,7 @@ describe('getCapTableState', () => {
       await expect(classifyIssuerCapTables(mockClient, 'issuer::party-123')).rejects.toMatchObject({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         contractId: 'cap-table-other',
-        message: 'CapTable contract templateId did not match requested template scope',
+        message: 'CapTable contract packageName does not match pinned OpenCapTable package line',
         templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
       });
       expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
@@ -773,7 +914,7 @@ describe('getCapTableState', () => {
       });
     });
 
-    it('should reject when a mismatched template row is returned', async () => {
+    it('should reject when a mismatched package line row is returned', async () => {
       mockActiveContractsForCapTableState(mockClient, {
         current: [
           buildMockCapTableContract({
@@ -788,7 +929,7 @@ describe('getCapTableState', () => {
       await expect(classifyIssuerCapTables(mockClient, 'issuer::party-123')).rejects.toMatchObject({
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         contractId: 'cap-table-other',
-        message: 'CapTable contract templateId did not match requested template scope',
+        message: 'CapTable contract packageName does not match pinned OpenCapTable package line',
         templateId: NON_CURRENT_CAP_TABLE_TEMPLATE_ID,
       });
       expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
