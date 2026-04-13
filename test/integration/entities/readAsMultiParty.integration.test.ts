@@ -39,10 +39,22 @@ async function ensurePartyReadRights(ocp: OcpClient, party: string): Promise<voi
 }
 
 async function pickAlternateIssuerParty(ocp: OcpClient, authenticatedParty: string): Promise<string> {
-  const partiesResponse = await ocp.ledger.listParties({});
-  const alternateParty = (partiesResponse.partyDetails ?? [])
+  const partyDetails = (await ocp.ledger.listParties({})).partyDetails ?? [];
+  const shortId = (full: string) => full.split('::')[0]?.toLowerCase() ?? '';
+
+  /** Prefer cn-quickstart App User — other listed parties (e.g. DSO) may not satisfy OcpFactory topology. */
+  const appUserParty = partyDetails
     .map((p) => p.party)
-    .find((party) => party !== authenticatedParty);
+    .find((party) => {
+      if (party === authenticatedParty) return false;
+      const s = shortId(party);
+      return s.includes('app-user') || s.includes('app_user') || s.startsWith('appuser');
+    });
+  if (appUserParty) {
+    return appUserParty;
+  }
+
+  const alternateParty = partyDetails.map((p) => p.party).find((party) => party !== authenticatedParty);
   if (!alternateParty) {
     throw new Error('Expected LocalNet to expose at least two parties for readAs integration coverage');
   }
