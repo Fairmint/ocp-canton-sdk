@@ -294,11 +294,7 @@ function createDiagnosedContractReadError(params: {
   );
 }
 
-function requireObjectRecord(
-  value: unknown,
-  message: string,
-  contractId: string
-): Record<string, unknown> {
+function requireObjectRecord(value: unknown, message: string, contractId: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new OcpContractError(message, {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -504,11 +500,7 @@ function requirePinnedCapTableCreatedEvent(createdEvent: {
   packageName?: unknown;
 }): string {
   const templateId = requireCapTableTemplateIdString(createdEvent.templateId, createdEvent.contractId);
-  const packageName = requireCapTablePackageNameString(
-    createdEvent.packageName,
-    createdEvent.contractId,
-    templateId
-  );
+  const packageName = requireCapTablePackageNameString(createdEvent.packageName, createdEvent.contractId, templateId);
 
   if (packageName !== PINNED_CAP_TABLE_PACKAGE_LINE.packageName) {
     throw new OcpContractError('CapTable contract packageName does not match pinned OpenCapTable package line', {

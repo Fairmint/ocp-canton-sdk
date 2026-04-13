@@ -1,5 +1,5 @@
-import { OcpContractError } from '../../src/errors/OcpContractError';
 import { OcpErrorCodes } from '../../src/errors/codes';
+import { OcpContractError } from '../../src/errors/OcpContractError';
 import { OcpParseError } from '../../src/errors/OcpParseError';
 import { classifyContractReadFailure } from '../../src/utils/contractReadDiagnostics';
 

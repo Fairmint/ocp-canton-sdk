@@ -14,7 +14,6 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
 import { OcpContractError } from '../errors/OcpContractError';
 import { OcpValidationError } from '../errors/OcpValidationError';
-import { analyzeContractReadFailure, contractReadFailureCode, type ContractReadFailureKind } from './contractReadDiagnostics';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
@@ -35,6 +34,11 @@ import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stock
 import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
+import {
+  analyzeContractReadFailure,
+  contractReadFailureCode,
+  type ContractReadFailureKind,
+} from './contractReadDiagnostics';
 import { LEGACY_OBJECT_TYPE_MAP } from './planSecurityAliases';
 import { TRANSACTION_SUBTYPE_MAP } from './replicationHelpers';
 

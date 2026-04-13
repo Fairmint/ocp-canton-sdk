@@ -55,12 +55,7 @@ function refineUnknownOcpError(error: OcpError): ContractReadFailureKind {
   if (cls.includes('auth') || cls.includes('forbidden') || cls.includes('unauthorized')) {
     return 'auth';
   }
-  if (
-    cls.includes('network') ||
-    cls.includes('timeout') ||
-    cls.includes('connection') ||
-    cls.includes('rate_limit')
-  ) {
+  if (cls.includes('network') || cls.includes('timeout') || cls.includes('connection') || cls.includes('rate_limit')) {
     return 'network';
   }
   if (cls.includes('not_found') || cls.includes('archived') || cls.includes('inactive')) {
