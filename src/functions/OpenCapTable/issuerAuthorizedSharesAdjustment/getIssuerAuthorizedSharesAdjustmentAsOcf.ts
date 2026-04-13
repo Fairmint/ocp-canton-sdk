@@ -2,8 +2,8 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types/native';
-import { readSingleContract } from '../shared/singleContractRead';
 import { normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfParams extends GetByContractIdParams {}
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfResult {

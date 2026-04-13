@@ -105,24 +105,21 @@ export function assertTemplateIdentity(
 ): ParsedTemplateIdentity {
   const comparison = compareTemplateIdentity(actual, expectedTemplateId);
   if (!comparison.matches) {
-    throw new OcpContractError(
-      diagnostics.message ?? 'Contract template identity does not match expected template',
-      {
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        contractId: diagnostics.contractId,
-        templateId: typeof actual.templateId === 'string' ? actual.templateId : undefined,
-        classification: comparison.mismatch ?? 'template_identity_mismatch',
-        context: {
-          operation: diagnostics.operation,
-          actualPackageName: typeof actual.packageName === 'string' ? actual.packageName : undefined,
-          actualTemplateId: typeof actual.templateId === 'string' ? actual.templateId : undefined,
-          actualModuleEntityPath: comparison.actual?.moduleEntityPath,
-          expectedTemplateId,
-          expectedPackageName: comparison.expected?.packageName,
-          expectedModuleEntityPath: comparison.expected?.moduleEntityPath,
-        },
-      }
-    );
+    throw new OcpContractError(diagnostics.message ?? 'Contract template identity does not match expected template', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: diagnostics.contractId,
+      templateId: typeof actual.templateId === 'string' ? actual.templateId : undefined,
+      classification: comparison.mismatch ?? 'template_identity_mismatch',
+      context: {
+        operation: diagnostics.operation,
+        actualPackageName: typeof actual.packageName === 'string' ? actual.packageName : undefined,
+        actualTemplateId: typeof actual.templateId === 'string' ? actual.templateId : undefined,
+        actualModuleEntityPath: comparison.actual?.moduleEntityPath,
+        expectedTemplateId,
+        expectedPackageName: comparison.expected?.packageName,
+        expectedModuleEntityPath: comparison.expected?.moduleEntityPath,
+      },
+    });
   }
 
   return comparison.actual as ParsedTemplateIdentity;

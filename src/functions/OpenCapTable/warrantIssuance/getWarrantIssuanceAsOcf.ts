@@ -13,12 +13,12 @@ import type {
   WarrantMechanismPpsBased,
   WarrantMechanismValuationBased,
 } from '../../../types/native';
-import { readSingleContract } from '../shared/singleContractRead';
 import {
   damlMonetaryToNativeWithValidation,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
 } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetWarrantIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetWarrantIssuanceAsOcfResult {
@@ -357,7 +357,7 @@ export async function getWarrantIssuanceAsOcf(
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getWarrantIssuanceAsOcf',
   });
-  const arg = createArgument as Record<string, unknown>;
+  const arg = createArgument;
   if (!('issuance_data' in arg))
     throw new OcpParseError('Unexpected createArgument for WarrantIssuance', {
       source: 'WarrantIssuance.createArgument',

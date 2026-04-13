@@ -14,7 +14,10 @@ describe('readSingleContract', () => {
         },
       },
     });
-    const client = { getEventsByContractId } as Pick<LedgerJsonApiClient, 'getEventsByContractId'> as LedgerJsonApiClient;
+    const client = { getEventsByContractId } as Pick<
+      LedgerJsonApiClient,
+      'getEventsByContractId'
+    > as LedgerJsonApiClient;
 
     const result = await readSingleContract(
       client,
@@ -71,11 +74,19 @@ describe('readSingleContract', () => {
     } as Pick<LedgerJsonApiClient, 'getEventsByContractId'> as LedgerJsonApiClient;
 
     await expect(
-      readSingleContract(client, { contractId: 'cid-parse' }, { operation: 'getStakeholderAsOcf', missingDataError: 'parse' })
+      readSingleContract(
+        client,
+        { contractId: 'cid-parse' },
+        { operation: 'getStakeholderAsOcf', missingDataError: 'parse' }
+      )
     ).rejects.toBeInstanceOf(OcpParseError);
 
     try {
-      await readSingleContract(client, { contractId: 'cid-parse' }, { operation: 'getStakeholderAsOcf', missingDataError: 'parse' });
+      await readSingleContract(
+        client,
+        { contractId: 'cid-parse' },
+        { operation: 'getStakeholderAsOcf', missingDataError: 'parse' }
+      );
       throw new Error('expected readSingleContract to throw');
     } catch (error) {
       expect(error).toBeInstanceOf(OcpParseError);
@@ -140,7 +151,7 @@ describe('readSingleContract', () => {
       name: 'OcpContractError',
       code: 'SCHEMA_MISMATCH',
       classification: 'missing_template_id',
-      message: "Contract template identity is missing; cannot validate expected template",
+      message: 'Contract template identity is missing; cannot validate expected template',
       context: {
         contractId: 'cid-no-template',
         operation: 'getIssuerAsOcf',

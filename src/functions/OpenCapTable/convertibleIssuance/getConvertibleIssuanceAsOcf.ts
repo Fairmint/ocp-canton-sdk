@@ -6,13 +6,13 @@ import type {
   ConversionTriggerType,
   OcfConvertibleIssuance,
 } from '../../../types/native';
-import { readSingleContract } from '../shared/singleContractRead';
 import {
   damlMonetaryToNativeWithValidation,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
   safeString,
 } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 interface CustomConversionMechanism {
   type: 'CUSTOM_CONVERSION';

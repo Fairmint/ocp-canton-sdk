@@ -613,56 +613,53 @@ describe('getCapTableState', () => {
       ['auth', new Error('HTTP 403: permission denied'), OcpErrorCodes.AUTHORIZATION_FAILED],
       ['schema', new Error('Schema mismatch in issuer create argument'), OcpErrorCodes.SCHEMA_MISMATCH],
       ['network', new Error('connect ECONNREFUSED 127.0.0.1:3975'), OcpErrorCodes.CONNECTION_FAILED],
-    ])(
-      'should fail loud when issuer fetch fails due to %s errors',
-      async (_case, issuerReadError, expectedCode) => {
-        const mockCapTableResponse = [
-          {
-            contractEntry: {
-              JsActiveContract: {
-                createdEvent: {
-                  contractId: 'cap-table-contract-123',
-                  templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                  createArgument: {
-                    issuer: 'issuer-contract-456',
-                    context: { system_operator: 'system-op::party' },
-                    stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-                  },
-                  createdEventBlob: 'blob-data',
-                  witnessParties: ['party-1'],
-                  signatories: ['party-1'],
-                  observers: [],
-                  createdAt: '2024-01-01T00:00:00Z',
-                  packageName: CURRENT_OCP_PACKAGE_NAME,
-                  offset: 1000,
-                  nodeId: 1,
-                  contractKey: null,
-                  interfaceViews: [],
+    ])('should fail loud when issuer fetch fails due to %s errors', async (_case, issuerReadError, expectedCode) => {
+      const mockCapTableResponse = [
+        {
+          contractEntry: {
+            JsActiveContract: {
+              createdEvent: {
+                contractId: 'cap-table-contract-123',
+                templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
+                createArgument: {
+                  issuer: 'issuer-contract-456',
+                  context: { system_operator: 'system-op::party' },
+                  stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
                 },
-                synchronizerId: 'sync-1',
-                reassignmentCounter: 0,
+                createdEventBlob: 'blob-data',
+                witnessParties: ['party-1'],
+                signatories: ['party-1'],
+                observers: [],
+                createdAt: '2024-01-01T00:00:00Z',
+                packageName: CURRENT_OCP_PACKAGE_NAME,
+                offset: 1000,
+                nodeId: 1,
+                contractKey: null,
+                interfaceViews: [],
               },
+              synchronizerId: 'sync-1',
+              reassignmentCounter: 0,
             },
           },
-        ];
+        },
+      ];
 
-        mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
-        mockClient.getEventsByContractId.mockRejectedValue(issuerReadError);
+      mockActiveContractsForCapTableState(mockClient, { current: mockCapTableResponse });
+      mockClient.getEventsByContractId.mockRejectedValue(issuerReadError);
 
-        await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
-          code: expectedCode,
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        code: expectedCode,
+        contractId: 'issuer-contract-456',
+        message: `Failed to fetch issuer contract events (${_case})`,
+        diagnostics: {
+          classification: _case,
+          operation: 'getEventsByContractId',
+          entityType: 'issuer',
           contractId: 'issuer-contract-456',
-          message: `Failed to fetch issuer contract events (${_case})`,
-          diagnostics: {
-            classification: _case,
-            operation: 'getEventsByContractId',
-            entityType: 'issuer',
-            contractId: 'issuer-contract-456',
-            issuerPartyId: 'issuer::party-123',
-          },
-        });
-      }
-    );
+          issuerPartyId: 'issuer::party-123',
+        },
+      });
+    });
 
     it('should reject when issuer_data.id is empty string', async () => {
       const mockCapTableResponse = [

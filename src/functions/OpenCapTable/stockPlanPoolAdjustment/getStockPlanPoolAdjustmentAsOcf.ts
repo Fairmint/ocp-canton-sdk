@@ -2,8 +2,8 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlanPoolAdjustment } from '../../../types/native';
-import { readSingleContract } from '../shared/singleContractRead';
 import { normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetStockPlanPoolAdjustmentAsOcfParams extends GetByContractIdParams {}
 export interface GetStockPlanPoolAdjustmentAsOcfResult {

@@ -3,8 +3,8 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { PkgStockClassAuthorizedSharesAdjustmentOcfData } from '../../../types/daml';
 import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types/native';
-import { readSingleContract } from '../shared/singleContractRead';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 export interface OcfStockClassAuthorizedSharesAdjustmentEvent {
   object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT';

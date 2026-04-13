@@ -9,8 +9,8 @@ import type {
   ShareNumberRange,
   StockIssuanceType,
 } from '../../../types/native';
-import { readSingleContract } from '../shared/singleContractRead';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.Stock.OcfSecurityExemption): SecurityExemption {
   return { description: e.description, jurisdiction: e.jurisdiction };

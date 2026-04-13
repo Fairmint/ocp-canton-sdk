@@ -3,7 +3,6 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { ContactInfo, ContactInfoWithoutName, Email, Name, Phone } from '../../../types/native';
-import { readSingleContract } from '../shared/singleContractRead';
 import {
   damlEmailTypeToNative,
   damlPhoneTypeToNative,
@@ -12,6 +11,7 @@ import {
   damlStakeholderTypeToNative,
 } from '../../../utils/enumConversions';
 import { damlAddressToNative } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): Email {
   return {

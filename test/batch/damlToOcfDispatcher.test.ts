@@ -103,73 +103,87 @@ describe('damlToOcf dispatcher', () => {
     it.each([
       [
         'getIssuerAsOcf',
-        (client: LedgerJsonApiClient) => getIssuerAsOcf(client, { contractId: 'issuer-cid', readAs: ['issuer::p'] }),
-        buildCreatedEventsResponse({
-          issuer_data: {
-            id: 'iss-1',
-            legal_name: 'Issuer Corp',
-            country_of_formation: 'US',
-            formation_date: '2025-01-01T00:00:00Z',
-            tax_ids: [],
+        async (client: LedgerJsonApiClient) =>
+          getIssuerAsOcf(client, { contractId: 'issuer-cid', readAs: ['issuer::p'] }),
+        buildCreatedEventsResponse(
+          {
+            issuer_data: {
+              id: 'iss-1',
+              legal_name: 'Issuer Corp',
+              country_of_formation: 'US',
+              formation_date: '2025-01-01T00:00:00Z',
+              tax_ids: [],
+            },
           },
-        }, Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId),
+          Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId
+        ),
       ],
       [
         'getStakeholderAsOcf',
-        (client: LedgerJsonApiClient) =>
+        async (client: LedgerJsonApiClient) =>
           getStakeholderAsOcf(client, { contractId: 'stakeholder-cid', readAs: ['issuer::p'] }),
-        buildCreatedEventsResponse({
-          stakeholder_data: {
-            id: 'sh-1',
-            name: { legal_name: 'Holder 1' },
-            stakeholder_type: 'OcfStakeholderTypeIndividual',
-            addresses: [],
-            tax_ids: [],
+        buildCreatedEventsResponse(
+          {
+            stakeholder_data: {
+              id: 'sh-1',
+              name: { legal_name: 'Holder 1' },
+              stakeholder_type: 'OcfStakeholderTypeIndividual',
+              addresses: [],
+              tax_ids: [],
+            },
           },
-        }, Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId),
+          Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId
+        ),
       ],
       [
         'getStockClassAsOcf',
-        (client: LedgerJsonApiClient) => getStockClassAsOcf(client, { contractId: 'stock-class-cid', readAs: ['issuer::p'] }),
-        buildCreatedEventsResponse({
-          stock_class_data: {
-            id: 'sc-1',
-            name: 'Common',
-            class_type: 'OcfStockClassTypeCommon',
-            default_id_prefix: 'CS-',
-            initial_shares_authorized: '1000',
-            votes_per_share: '1',
-            seniority: '1',
-            conversion_rights: [],
-            comments: [],
+        async (client: LedgerJsonApiClient) =>
+          getStockClassAsOcf(client, { contractId: 'stock-class-cid', readAs: ['issuer::p'] }),
+        buildCreatedEventsResponse(
+          {
+            stock_class_data: {
+              id: 'sc-1',
+              name: 'Common',
+              class_type: 'OcfStockClassTypeCommon',
+              default_id_prefix: 'CS-',
+              initial_shares_authorized: '1000',
+              votes_per_share: '1',
+              seniority: '1',
+              conversion_rights: [],
+              comments: [],
+            },
           },
-        }, Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId),
+          Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId
+        ),
       ],
       [
         'getStockIssuanceAsOcf',
-        (client: LedgerJsonApiClient) =>
+        async (client: LedgerJsonApiClient) =>
           getStockIssuanceAsOcf(client, { contractId: 'stock-issuance-cid', readAs: ['issuer::p'] }),
-        buildCreatedEventsResponse({
-          issuance_data: {
-            id: 'tx-1',
-            date: '2025-01-01T00:00:00Z',
-            security_id: 'sec-1',
-            custom_id: 'custom-sec-1',
-            stakeholder_id: 'sh-1',
-            stock_class_id: 'sc-1',
-            share_price: { amount: '1.00', currency: 'USD' },
-            quantity: '10',
-            security_law_exemptions: [],
-            share_numbers_issued: [],
-            vestings: [],
-            stock_legend_ids: [],
-            comments: [],
+        buildCreatedEventsResponse(
+          {
+            issuance_data: {
+              id: 'tx-1',
+              date: '2025-01-01T00:00:00Z',
+              security_id: 'sec-1',
+              custom_id: 'custom-sec-1',
+              stakeholder_id: 'sh-1',
+              stock_class_id: 'sc-1',
+              share_price: { amount: '1.00', currency: 'USD' },
+              quantity: '10',
+              security_law_exemptions: [],
+              share_numbers_issued: [],
+              vestings: [],
+              stock_legend_ids: [],
+              comments: [],
+            },
           },
-        }, Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId),
+          Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId
+        ),
       ],
       [
         'getEntityAsOcf(stockAcceptance)',
-        (client: LedgerJsonApiClient) =>
+        async (client: LedgerJsonApiClient) =>
           getEntityAsOcf(client, 'stockAcceptance', 'stock-acceptance-cid', { readAs: ['issuer::p'] }),
         buildCreatedEventsResponse({
           acceptance_data: {

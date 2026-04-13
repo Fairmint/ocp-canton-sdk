@@ -206,11 +206,9 @@ describe('extractCantonOcfManifest', () => {
         entities: new Map([['issuer', new Set(['iss_retry'])]]),
       });
 
-      getIssuerAsOcf
-        .mockRejectedValueOnce(new Error('HTTP 503: upstream unavailable'))
-        .mockResolvedValueOnce({
-          data: { id: 'iss_retry', object_type: 'ISSUER', legal_name: 'Retry Corp' },
-        });
+      getIssuerAsOcf.mockRejectedValueOnce(new Error('HTTP 503: upstream unavailable')).mockResolvedValueOnce({
+        data: { id: 'iss_retry', object_type: 'ISSUER', legal_name: 'Retry Corp' },
+      });
 
       const manifest = await extractCantonOcfManifest(mockClient, state);
 
@@ -252,32 +250,29 @@ describe('extractCantonOcfManifest', () => {
       ['auth', new Error('HTTP 403: permission denied'), OcpErrorCodes.AUTHORIZATION_FAILED],
       ['schema', new Error('Schema mismatch in issuer create argument'), OcpErrorCodes.SCHEMA_MISMATCH],
       ['network', new Error('connect ECONNREFUSED 127.0.0.1:3975'), OcpErrorCodes.CONNECTION_FAILED],
-    ])(
-      'should fail loud when issuer fetch hits %s errors',
-      async (_case, issuerReadError, expectedCode) => {
-        const state = buildCapTableState({
-          issuerContractId: 'issuer-cid-loud',
-          contractIds: new Map([['issuer', new Map([['iss_loud', 'issuer-cid-loud']])]]),
-          entities: new Map([['issuer', new Set(['iss_loud'])]]),
-        });
+    ])('should fail loud when issuer fetch hits %s errors', async (_case, issuerReadError, expectedCode) => {
+      const state = buildCapTableState({
+        issuerContractId: 'issuer-cid-loud',
+        contractIds: new Map([['issuer', new Map([['iss_loud', 'issuer-cid-loud']])]]),
+        entities: new Map([['issuer', new Set(['iss_loud'])]]),
+      });
 
-        getIssuerAsOcf.mockRejectedValue(issuerReadError);
+      getIssuerAsOcf.mockRejectedValue(issuerReadError);
 
-        await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
-          code: expectedCode,
+      await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
+        code: expectedCode,
+        contractId: 'issuer-cid-loud',
+        message: `Failed to fetch issuer/iss_loud (${_case})`,
+        diagnostics: {
+          classification: _case,
+          operation: 'extractCantonOcfManifest',
+          entityType: 'issuer',
+          objectId: 'iss_loud',
           contractId: 'issuer-cid-loud',
-          message: `Failed to fetch issuer/iss_loud (${_case})`,
-          diagnostics: {
-            classification: _case,
-            operation: 'extractCantonOcfManifest',
-            entityType: 'issuer',
-            objectId: 'iss_loud',
-            contractId: 'issuer-cid-loud',
-            attempts: 1,
-          },
-        });
-      }
-    );
+          attempts: 1,
+        },
+      });
+    });
 
     it('should return partial manifest when failOnReadErrors=false and issuer fetch is non-benign', async () => {
       const state = buildCapTableState({
@@ -326,31 +321,28 @@ describe('extractCantonOcfManifest', () => {
       ['auth', new Error('HTTP 403: permission denied'), OcpErrorCodes.AUTHORIZATION_FAILED],
       ['schema', new Error('Schema mismatch in stakeholder create argument'), OcpErrorCodes.SCHEMA_MISMATCH],
       ['network', new Error('connect ECONNREFUSED 127.0.0.1:3975'), OcpErrorCodes.CONNECTION_FAILED],
-    ])(
-      'should fail loud when child fetch hits %s errors',
-      async (_case, childReadError, expectedCode) => {
-        const state = buildCapTableState({
-          contractIds: new Map([['stakeholder', new Map([['stakeholder-1', 'stakeholder-cid-1']])]]),
-          entities: new Map([['stakeholder', new Set(['stakeholder-1'])]]),
-        });
+    ])('should fail loud when child fetch hits %s errors', async (_case, childReadError, expectedCode) => {
+      const state = buildCapTableState({
+        contractIds: new Map([['stakeholder', new Map([['stakeholder-1', 'stakeholder-cid-1']])]]),
+        entities: new Map([['stakeholder', new Set(['stakeholder-1'])]]),
+      });
 
-        getStakeholderAsOcf.mockRejectedValue(childReadError);
+      getStakeholderAsOcf.mockRejectedValue(childReadError);
 
-        await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
-          code: expectedCode,
+      await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
+        code: expectedCode,
+        contractId: 'stakeholder-cid-1',
+        message: `Failed to fetch stakeholder/stakeholder-1 (${_case})`,
+        diagnostics: {
+          classification: _case,
+          operation: 'extractCantonOcfManifest',
+          entityType: 'stakeholder',
+          objectId: 'stakeholder-1',
           contractId: 'stakeholder-cid-1',
-          message: `Failed to fetch stakeholder/stakeholder-1 (${_case})`,
-          diagnostics: {
-            classification: _case,
-            operation: 'extractCantonOcfManifest',
-            entityType: 'stakeholder',
-            objectId: 'stakeholder-1',
-            contractId: 'stakeholder-cid-1',
-            attempts: 1,
-          },
-        });
-      }
-    );
+          attempts: 1,
+        },
+      });
+    });
 
     it('should return partial manifest when failOnReadErrors=false and child fetch is non-benign', async () => {
       const state = buildCapTableState({

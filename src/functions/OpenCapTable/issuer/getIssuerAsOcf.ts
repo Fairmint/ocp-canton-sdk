@@ -4,9 +4,9 @@ import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ContractResult, GetByContractIdParams } from '../../../types/common';
 import type { OcfIssuer as OcfIssuerInput } from '../../../types/native';
 import type { OcfIssuerOutput } from '../../../types/output';
-import { readSingleContract } from '../shared/singleContractRead';
 import { damlEmailTypeToNative, damlPhoneTypeToNative } from '../../../utils/enumConversions';
 import { damlAddressToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): OcfIssuerInput['email'] {
   return {

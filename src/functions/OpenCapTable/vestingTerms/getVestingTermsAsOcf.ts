@@ -10,8 +10,8 @@ import type {
   VestingPeriod,
   VestingTrigger,
 } from '../../../types/native';
-import { readSingleContract } from '../shared/singleContractRead';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
   switch (t) {

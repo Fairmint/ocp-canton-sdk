@@ -8,8 +8,8 @@ import type {
   TerminationWindowReason,
   Vesting,
 } from '../../../types/native';
-import { readSingleContract } from '../shared/singleContractRead';
 import { damlMonetaryToNativeWithValidation, normalizeNumericString } from '../../../utils/typeConversions';
+import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetEquityCompensationIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetEquityCompensationIssuanceAsOcfResult {
@@ -235,7 +235,7 @@ export async function getEquityCompensationIssuanceAsOcf(
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getEquityCompensationIssuanceAsOcf',
   });
-  const arg = createArgument as Record<string, unknown>;
+  const arg = createArgument;
   const d = (arg.issuance_data ?? arg) as Record<string, unknown>;
 
   const native = damlEquityCompensationIssuanceDataToNative(d);
