@@ -555,7 +555,6 @@ run_integration_tests() {
   log "Running integration tests..."
   (
     cd "${PROJECT_ROOT}"
-    export OCP_LOCALNET_QUICKSTART_INTEGRATION=1
     npm run test:integration:ci
   )
 }

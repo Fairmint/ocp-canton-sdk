@@ -259,6 +259,7 @@ describe('extractCantonOcfManifest', () => {
 
       getIssuerAsOcf.mockRejectedValue(issuerReadError);
 
+      const expectedAttempts = _case === 'network' ? 2 : 1;
       await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
         code: expectedCode,
         contractId: 'issuer-cid-loud',
@@ -269,9 +270,10 @@ describe('extractCantonOcfManifest', () => {
           entityType: 'issuer',
           objectId: 'iss_loud',
           contractId: 'issuer-cid-loud',
-          attempts: 1,
+          attempts: expectedAttempts,
         },
       });
+      expect(getIssuerAsOcf).toHaveBeenCalledTimes(expectedAttempts);
     });
 
     it('should return partial manifest when failOnReadErrors=false and issuer fetch is non-benign', async () => {
@@ -329,6 +331,7 @@ describe('extractCantonOcfManifest', () => {
 
       getStakeholderAsOcf.mockRejectedValue(childReadError);
 
+      const expectedAttempts = _case === 'network' ? 2 : 1;
       await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
         code: expectedCode,
         contractId: 'stakeholder-cid-1',
@@ -339,9 +342,10 @@ describe('extractCantonOcfManifest', () => {
           entityType: 'stakeholder',
           objectId: 'stakeholder-1',
           contractId: 'stakeholder-cid-1',
-          attempts: 1,
+          attempts: expectedAttempts,
         },
       });
+      expect(getStakeholderAsOcf).toHaveBeenCalledTimes(expectedAttempts);
     });
 
     it('should return partial manifest when failOnReadErrors=false and child fetch is non-benign', async () => {

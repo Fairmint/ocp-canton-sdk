@@ -33,13 +33,13 @@ import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stock
 import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
 import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
 import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
+import { ledgerReadScope } from './readScope';
 import {
   analyzeContractReadFailure,
   contractReadFailureCode,
   createDiagnosedContractReadError,
 } from './contractReadDiagnostics';
 import { LEGACY_OBJECT_TYPE_MAP } from './planSecurityAliases';
-import { ledgerReadScope } from './readScope';
 import { TRANSACTION_SUBTYPE_MAP } from './replicationHelpers';
 
 // ===== Transaction Sorting =====
@@ -433,8 +433,7 @@ export async function extractCantonOcfManifest(
   const { verbose = false, failOnReadErrors = true, readAs } = options;
   // eslint-disable-next-line no-console
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
-  const contractReadParams = ledgerReadScope({ readAs });
-  const entityReadOptions = ledgerReadScope({ readAs });
+  const readScopeOpts = ledgerReadScope({ readAs });
 
   const result: OcfManifest = {
     issuer: null,
@@ -462,7 +461,7 @@ export async function extractCantonOcfManifest(
       try {
         const issuerResult = await getIssuerAsOcf(client, {
           contractId: issuerCid,
-          ...contractReadParams,
+          ...readScopeOpts,
         });
         result.issuer = issuerResult.data as unknown as Record<string, unknown>;
         issuerLastError = null;
@@ -518,57 +517,57 @@ export async function extractCantonOcfManifest(
         try {
           // Handle core objects with their specific functions
           if (entityType === 'stakeholder') {
-            const { stakeholder } = await getStakeholderAsOcf(client, { contractId, ...contractReadParams });
+            const { stakeholder } = await getStakeholderAsOcf(client, { contractId, ...readScopeOpts });
             result.stakeholders.push(stakeholder as unknown as Record<string, unknown>);
           } else if (entityType === 'stockClass') {
-            const { stockClass } = await getStockClassAsOcf(client, { contractId, ...contractReadParams });
+            const { stockClass } = await getStockClassAsOcf(client, { contractId, ...readScopeOpts });
             result.stockClasses.push(stockClass as unknown as Record<string, unknown>);
           } else if (entityType === 'stockPlan') {
-            const { stockPlan } = await getStockPlanAsOcf(client, { contractId, ...contractReadParams });
+            const { stockPlan } = await getStockPlanAsOcf(client, { contractId, ...readScopeOpts });
             result.stockPlans.push(stockPlan as unknown as Record<string, unknown>);
           } else if (entityType === 'vestingTerms') {
-            const { vestingTerms } = await getVestingTermsAsOcf(client, { contractId, ...contractReadParams });
+            const { vestingTerms } = await getVestingTermsAsOcf(client, { contractId, ...readScopeOpts });
             result.vestingTerms.push(vestingTerms as unknown as Record<string, unknown>);
           } else if (entityType === 'stockIssuance') {
-            const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId, ...contractReadParams });
+            const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(stockIssuance as unknown as Record<string, unknown>);
           } else if (entityType === 'convertibleIssuance') {
-            const { event } = await getConvertibleIssuanceAsOcf(client, { contractId, ...contractReadParams });
+            const { event } = await getConvertibleIssuanceAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'warrantIssuance') {
-            const { warrantIssuance } = await getWarrantIssuanceAsOcf(client, { contractId, ...contractReadParams });
+            const { warrantIssuance } = await getWarrantIssuanceAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(warrantIssuance as unknown as Record<string, unknown>);
           } else if (entityType === 'equityCompensationIssuance') {
-            const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId, ...contractReadParams });
+            const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'equityCompensationExercise') {
-            const { event } = await getEquityCompensationExerciseAsOcf(client, { contractId, ...contractReadParams });
+            const { event } = await getEquityCompensationExerciseAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'stockClassAuthorizedSharesAdjustment') {
             const { event } = await getStockClassAuthorizedSharesAdjustmentAsOcf(client, {
               contractId,
-              ...contractReadParams,
+              ...readScopeOpts,
             });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'issuerAuthorizedSharesAdjustment') {
             const { event } = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, {
               contractId,
-              ...contractReadParams,
+              ...readScopeOpts,
             });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'stockPlanPoolAdjustment') {
-            const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId, ...contractReadParams });
+            const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(event as unknown as Record<string, unknown>);
           } else if (entityType === 'valuation') {
-            const { valuation } = await getValuationAsOcf(client, { contractId, ...contractReadParams });
+            const { valuation } = await getValuationAsOcf(client, { contractId, ...readScopeOpts });
             result.valuations.push(valuation as unknown as Record<string, unknown>);
           } else if (entityType === 'document') {
-            const { document } = await getDocumentAsOcf(client, { contractId, ...contractReadParams });
+            const { document } = await getDocumentAsOcf(client, { contractId, ...readScopeOpts });
             result.documents.push(document as unknown as Record<string, unknown>);
           } else if (entityType === 'stockLegendTemplate') {
             const { stockLegendTemplate } = await getStockLegendTemplateAsOcf(client, {
               contractId,
-              ...contractReadParams,
+              ...readScopeOpts,
             });
             result.stockLegendTemplates.push(stockLegendTemplate as unknown as Record<string, unknown>);
           } else if (
@@ -577,7 +576,7 @@ export async function extractCantonOcfManifest(
           ) {
             // Handle remaining transaction types with the generic dispatcher
             const supportedType = entityType as SupportedOcfReadType;
-            const { data } = await getEntityAsOcf(client, supportedType, contractId, entityReadOptions);
+            const { data } = await getEntityAsOcf(client, supportedType, contractId, readScopeOpts);
             const txData = data as unknown as Record<string, unknown>;
 
             // Ensure object_type is present for correct sorting

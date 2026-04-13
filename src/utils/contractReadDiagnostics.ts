@@ -250,7 +250,9 @@ export function analyzeContractReadFailure(error: unknown): ContractReadOutcome 
   const classification = classifyContractReadFailure(error);
   return {
     classification,
-    retryable: classification !== 'not_found' && isRetryableContractReadFailure(error),
+    retryable:
+      classification === 'network' ||
+      (classification !== 'not_found' && isRetryableContractReadFailure(error)),
     benignMissing: classification === 'not_found',
   };
 }

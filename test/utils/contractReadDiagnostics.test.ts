@@ -1,7 +1,11 @@
 import { OcpErrorCodes } from '../../src/errors/codes';
 import { OcpContractError } from '../../src/errors/OcpContractError';
 import { OcpParseError } from '../../src/errors/OcpParseError';
-import { classifyContractReadFailure, createDiagnosedContractReadError } from '../../src/utils/contractReadDiagnostics';
+import {
+  analyzeContractReadFailure,
+  classifyContractReadFailure,
+  createDiagnosedContractReadError,
+} from '../../src/utils/contractReadDiagnostics';
 
 describe('contractReadDiagnostics', () => {
   describe('classifyContractReadFailure', () => {
@@ -25,6 +29,15 @@ describe('contractReadDiagnostics', () => {
     it('classifies OcpContractError CONTRACT_NOT_FOUND as not_found', () => {
       const err = new OcpContractError('missing', { code: OcpErrorCodes.CONTRACT_NOT_FOUND });
       expect(classifyContractReadFailure(err)).toBe('not_found');
+    });
+  });
+
+  describe('analyzeContractReadFailure', () => {
+    it('marks generic connection failures as retryable when classified as network', () => {
+      const outcome = analyzeContractReadFailure(new Error('connect ECONNREFUSED 127.0.0.1:7575'));
+      expect(outcome.classification).toBe('network');
+      expect(outcome.retryable).toBe(true);
+      expect(outcome.benignMissing).toBe(false);
     });
   });
 

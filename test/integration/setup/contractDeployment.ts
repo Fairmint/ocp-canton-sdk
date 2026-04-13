@@ -361,47 +361,19 @@ export async function authorizeIssuerWithFactory(
     issuer: issuerParty,
   };
 
-  const maxSubmitAttempts = 5;
-  let response: SubmitAndWaitForTransactionTreeResponse | undefined;
-  let lastSubmitError: unknown;
-  for (let attempt = 1; attempt <= maxSubmitAttempts; attempt++) {
-    try {
-      response = (await client.submitAndWaitForTransactionTree({
-        commands: [
-          {
-            ExerciseCommand: {
-              templateId: factoryTemplateId,
-              contractId: ocpFactoryContractId,
-              choice: 'AuthorizeIssuer',
-              choiceArgument: choiceArguments,
-            },
-          },
-        ],
-        actAs: [systemOperatorParty],
-      })) as SubmitAndWaitForTransactionTreeResponse;
-      break;
-    } catch (error) {
-      lastSubmitError = error;
-      const message = error instanceof Error ? error.message : String(error);
-      const transientPackageOrTopology =
-        message.includes('PACKAGE_SELECTION_FAILED') ||
-        message.includes('No synchronizers satisfy') ||
-        message.includes('Discarded synchronizers');
-      if (!transientPackageOrTopology || attempt === maxSubmitAttempts) {
-        throw error;
-      }
-      const delayMs = 400 * attempt * attempt;
-      console.warn(
-        `[authorizeIssuerWithFactory] transient submit error (attempt ${attempt}/${maxSubmitAttempts}), waiting ${delayMs}ms: ${message.slice(0, 240)}`
-      );
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, delayMs);
-      });
-    }
-  }
-  if (!response) {
-    throw lastSubmitError instanceof Error ? lastSubmitError : new Error(String(lastSubmitError));
-  }
+  const response = (await client.submitAndWaitForTransactionTree({
+    commands: [
+      {
+        ExerciseCommand: {
+          templateId: factoryTemplateId,
+          contractId: ocpFactoryContractId,
+          choice: 'AuthorizeIssuer',
+          choiceArgument: choiceArguments,
+        },
+      },
+    ],
+    actAs: [systemOperatorParty],
+  })) as SubmitAndWaitForTransactionTreeResponse;
 
   // Find the created IssuerAuthorization contract
   const { eventsById } = response.transactionTree;

@@ -58,14 +58,19 @@ export class OcpContractError extends OcpError {
 
   constructor(message: string, options?: OcpContractErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CHOICE_FAILED;
+    const context = { ...options?.context } as OcpErrorContext;
+    if (options?.contractId !== undefined) {
+      context.contractId = options.contractId;
+    }
+    if (options?.templateId !== undefined) {
+      context.templateId = options.templateId;
+    }
+    if (options?.choice !== undefined) {
+      context.choice = options.choice;
+    }
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'contract_error',
-      context: {
-        ...options?.context,
-        contractId: options?.contractId,
-        templateId: options?.templateId,
-        choice: options?.choice,
-      },
+      context,
     });
     this.name = 'OcpContractError';
     this.contractId = options?.contractId;

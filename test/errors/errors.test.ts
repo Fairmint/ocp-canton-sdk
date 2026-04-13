@@ -127,6 +127,17 @@ describe('OcpContractError', () => {
     expect(error.context?.extra).toBe('kept');
   });
 
+  it('should not overwrite caller context with undefined canonical fields', () => {
+    const error = new OcpContractError('Partial', {
+      context: { contractId: 'from-context', note: 'x' },
+    });
+
+    expect(error.context?.contractId).toBe('from-context');
+    expect(error.context?.note).toBe('x');
+    expect(Object.prototype.hasOwnProperty.call(error.context ?? {}, 'templateId')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(error.context ?? {}, 'choice')).toBe(false);
+  });
+
   it('should include cause when provided', () => {
     const cause = new Error('DAML error');
     const error = new OcpContractError('Choice execution failed', {
