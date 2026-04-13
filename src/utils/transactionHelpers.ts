@@ -56,12 +56,20 @@ export function findCreatedEventsByTemplateId(treeResponse: unknown, expectedTem
       const createdEvent = (event as Record<string, unknown>).CreatedTreeEvent as { value?: { templateId?: string } };
       const createdValue = createdEvent.value;
 
+      const packageNameFromValue = (() => {
+        if (!createdValue || typeof createdValue !== 'object') return undefined;
+        const v = createdValue as Record<string, unknown>;
+        const p = v.packageName;
+        return typeof p === 'string' ? p : undefined;
+      })();
+
       if (
         createdValue &&
+        typeof createdValue === 'object' &&
         matchesTemplateIdentity(
           {
             templateId: createdValue.templateId,
-            packageName: 'packageName' in createdValue ? createdValue.packageName : undefined,
+            packageName: packageNameFromValue,
           },
           expectedTemplateId
         )

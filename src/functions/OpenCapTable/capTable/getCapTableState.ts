@@ -28,6 +28,11 @@ import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import {
+  classifyContractReadFailure,
+  contractReadFailureCode,
+  type ContractReadFailureKind,
+} from '../../../utils/contractReadDiagnostics';
 import { parseDamlMap } from '../../../utils/typeConversions';
 import type { OcfEntityType } from './batchTypes';
 
@@ -264,111 +269,12 @@ export interface IssuerCapTableClassification {
   current: CapTableWithArchiveContext | null;
 }
 
-type ContractReadFailureKind = 'not_found' | 'visibility' | 'auth' | 'schema' | 'network' | 'unknown';
 interface ContractReadDiagnostics {
   classification: ContractReadFailureKind;
   operation: 'getEventsByContractId';
   entityType: 'issuer';
   contractId: string;
   issuerPartyId?: string;
-}
-
-function classifyContractReadFailure(error: unknown): ContractReadFailureKind {
-  if (error instanceof OcpContractError) {
-    switch (error.code) {
-      case OcpErrorCodes.CONTRACT_NOT_FOUND:
-        return 'not_found';
-      case OcpErrorCodes.AUTHORIZATION_FAILED:
-        return 'auth';
-      case OcpErrorCodes.SCHEMA_MISMATCH:
-      case OcpErrorCodes.INVALID_RESPONSE:
-      case OcpErrorCodes.REQUIRED_FIELD_MISSING:
-      case OcpErrorCodes.INVALID_TYPE:
-      case OcpErrorCodes.INVALID_FORMAT:
-      case OcpErrorCodes.OUT_OF_RANGE:
-      case OcpErrorCodes.UNKNOWN_ENUM_VALUE:
-      case OcpErrorCodes.UNKNOWN_ENTITY_TYPE:
-        return 'schema';
-      case OcpErrorCodes.CONNECTION_FAILED:
-      case OcpErrorCodes.TIMEOUT:
-      case OcpErrorCodes.RATE_LIMITED:
-        return 'network';
-      case OcpErrorCodes.CHOICE_FAILED:
-      case OcpErrorCodes.RESULT_NOT_FOUND:
-        return 'unknown';
-    }
-  }
-
-  const message = error instanceof Error ? error.message : String(error);
-  const lower = message.toLowerCase();
-
-  if (
-    lower.includes('contract_events_not_found') ||
-    lower.includes('not found') ||
-    lower.includes('archived') ||
-    lower.includes('inactive contract')
-  ) {
-    return 'not_found';
-  }
-
-  if (lower.includes('readas') || lower.includes('not visible') || lower.includes('visibility')) {
-    return 'visibility';
-  }
-
-  if (
-    lower.includes('401') ||
-    lower.includes('403') ||
-    lower.includes('permission') ||
-    lower.includes('forbidden') ||
-    lower.includes('unauthorized') ||
-    lower.includes('unauthorised') ||
-    lower.includes('authentication')
-  ) {
-    return 'auth';
-  }
-
-  if (
-    lower.includes('schema') ||
-    lower.includes('create argument') ||
-    lower.includes('createargument') ||
-    lower.includes('invalid contract events response') ||
-    lower.includes('parse')
-  ) {
-    return 'schema';
-  }
-
-  if (
-    lower.includes('network') ||
-    lower.includes('econnrefused') ||
-    lower.includes('enotfound') ||
-    lower.includes('socket hang up') ||
-    lower.includes('timed out') ||
-    lower.includes('timeout') ||
-    lower.includes('http 502') ||
-    lower.includes('http 503') ||
-    lower.includes('http 504') ||
-    lower.includes('fetch failed')
-  ) {
-    return 'network';
-  }
-
-  return 'unknown';
-}
-
-function contractReadFailureCode(kind: ContractReadFailureKind): (typeof OcpErrorCodes)[keyof typeof OcpErrorCodes] {
-  switch (kind) {
-    case 'auth':
-    case 'visibility':
-      return OcpErrorCodes.AUTHORIZATION_FAILED;
-    case 'schema':
-      return OcpErrorCodes.SCHEMA_MISMATCH;
-    case 'network':
-      return OcpErrorCodes.CONNECTION_FAILED;
-    case 'not_found':
-      return OcpErrorCodes.CONTRACT_NOT_FOUND;
-    case 'unknown':
-      return OcpErrorCodes.CHOICE_FAILED;
-  }
 }
 
 function createDiagnosedContractReadError(params: {
@@ -388,7 +294,11 @@ function createDiagnosedContractReadError(params: {
   );
 }
 
-function requireObjectRecord(value: unknown, message: string, contractId: string): Record<string, unknown> {
+function requireObjectRecord(
+  value: unknown,
+  message: string,
+  contractId: string
+): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new OcpContractError(message, {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -594,7 +504,11 @@ function requirePinnedCapTableCreatedEvent(createdEvent: {
   packageName?: unknown;
 }): string {
   const templateId = requireCapTableTemplateIdString(createdEvent.templateId, createdEvent.contractId);
-  const packageName = requireCapTablePackageNameString(createdEvent.packageName, createdEvent.contractId, templateId);
+  const packageName = requireCapTablePackageNameString(
+    createdEvent.packageName,
+    createdEvent.contractId,
+    templateId
+  );
 
   if (packageName !== PINNED_CAP_TABLE_PACKAGE_LINE.packageName) {
     throw new OcpContractError('CapTable contract packageName does not match pinned OpenCapTable package line', {

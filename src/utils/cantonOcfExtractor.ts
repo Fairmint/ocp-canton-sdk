@@ -14,6 +14,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
 import { OcpContractError } from '../errors/OcpContractError';
 import { OcpValidationError } from '../errors/OcpValidationError';
+import { analyzeContractReadFailure, contractReadFailureCode, type ContractReadFailureKind } from './contractReadDiagnostics';
 import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
@@ -394,7 +395,6 @@ export interface ExtractCantonOcfOptions {
   failOnReadErrors?: boolean;
 }
 
-type ContractReadFailureKind = 'not_found' | 'visibility' | 'auth' | 'schema' | 'network' | 'unknown';
 interface ContractReadDiagnostics {
   classification: ContractReadFailureKind;
   operation: 'extractCantonOcfManifest';
@@ -403,126 +403,6 @@ interface ContractReadDiagnostics {
   contractId: string;
   attempts: number;
   readAs?: string[];
-}
-interface ContractReadOutcome {
-  classification: ContractReadFailureKind;
-  retryable: boolean;
-  benignMissing: boolean;
-}
-
-function classifyContractReadFailure(error: unknown): ContractReadFailureKind {
-  if (error instanceof OcpContractError || error instanceof OcpValidationError) {
-    switch (error.code) {
-      case OcpErrorCodes.CONTRACT_NOT_FOUND:
-        return 'not_found';
-      case OcpErrorCodes.AUTHORIZATION_FAILED:
-        return 'auth';
-      case OcpErrorCodes.SCHEMA_MISMATCH:
-      case OcpErrorCodes.INVALID_RESPONSE:
-      case OcpErrorCodes.REQUIRED_FIELD_MISSING:
-      case OcpErrorCodes.INVALID_TYPE:
-      case OcpErrorCodes.INVALID_FORMAT:
-      case OcpErrorCodes.OUT_OF_RANGE:
-      case OcpErrorCodes.UNKNOWN_ENUM_VALUE:
-      case OcpErrorCodes.UNKNOWN_ENTITY_TYPE:
-        return 'schema';
-      case OcpErrorCodes.CONNECTION_FAILED:
-      case OcpErrorCodes.TIMEOUT:
-      case OcpErrorCodes.RATE_LIMITED:
-        return 'network';
-      case OcpErrorCodes.CHOICE_FAILED:
-      case OcpErrorCodes.RESULT_NOT_FOUND:
-        return 'unknown';
-    }
-  }
-
-  const message = error instanceof Error ? error.message : String(error);
-  const lower = message.toLowerCase();
-
-  if (
-    lower.includes('contract_events_not_found') ||
-    lower.includes('not found') ||
-    lower.includes('archived') ||
-    lower.includes('inactive contract')
-  ) {
-    return 'not_found';
-  }
-
-  if (lower.includes('readas') || lower.includes('not visible') || lower.includes('visibility')) {
-    return 'visibility';
-  }
-
-  if (
-    lower.includes('401') ||
-    lower.includes('403') ||
-    lower.includes('permission') ||
-    lower.includes('forbidden') ||
-    lower.includes('unauthorized') ||
-    lower.includes('unauthorised') ||
-    lower.includes('authentication')
-  ) {
-    return 'auth';
-  }
-
-  if (
-    lower.includes('schema') ||
-    lower.includes('create argument') ||
-    lower.includes('createargument') ||
-    lower.includes('invalid contract events response') ||
-    lower.includes('parse')
-  ) {
-    return 'schema';
-  }
-
-  if (
-    lower.includes('network') ||
-    lower.includes('econnrefused') ||
-    lower.includes('enotfound') ||
-    lower.includes('socket hang up') ||
-    lower.includes('timed out') ||
-    lower.includes('timeout') ||
-    lower.includes('http 502') ||
-    lower.includes('http 503') ||
-    lower.includes('http 504') ||
-    lower.includes('fetch failed')
-  ) {
-    return 'network';
-  }
-
-  return 'unknown';
-}
-
-function contractReadFailureCode(kind: ContractReadFailureKind): (typeof OcpErrorCodes)[keyof typeof OcpErrorCodes] {
-  switch (kind) {
-    case 'auth':
-    case 'visibility':
-      return OcpErrorCodes.AUTHORIZATION_FAILED;
-    case 'schema':
-      return OcpErrorCodes.SCHEMA_MISMATCH;
-    case 'network':
-      return OcpErrorCodes.CONNECTION_FAILED;
-    case 'not_found':
-      return OcpErrorCodes.CONTRACT_NOT_FOUND;
-    case 'unknown':
-      return OcpErrorCodes.CHOICE_FAILED;
-  }
-}
-
-function isRetryableContractReadFailure(error: unknown): boolean {
-  if (error instanceof Error) {
-    const msg = error.message;
-    return msg.includes('HTTP 429') || msg.includes('HTTP 502') || msg.includes('HTTP 503') || msg.includes('HTTP 504');
-  }
-  return false;
-}
-
-function analyzeContractReadFailure(error: unknown): ContractReadOutcome {
-  const classification = classifyContractReadFailure(error);
-  return {
-    classification,
-    retryable: classification !== 'not_found' && isRetryableContractReadFailure(error),
-    benignMissing: classification === 'not_found',
-  };
 }
 
 function createDiagnosedContractReadError(params: {

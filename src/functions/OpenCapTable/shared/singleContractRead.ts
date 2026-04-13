@@ -50,7 +50,7 @@ export function extractCreateArgument(
   }
 
   const { createArgument } = eventsResponse.created.createdEvent;
-  if (createArgument === undefined) {
+  if (createArgument == null) {
     throw new OcpParseError('Invalid contract events response: missing create argument', {
       source: `contract ${contractId}`,
       code: OcpErrorCodes.INVALID_RESPONSE,
@@ -136,7 +136,7 @@ export async function readSingleContract(
     );
   }
 
-  if (createdEvent.createArgument === undefined) {
+  if (createdEvent.createArgument == null) {
     throw missingContractDataError(
       options.missingDataError ?? 'contract',
       'Invalid contract events response: missing create argument',
