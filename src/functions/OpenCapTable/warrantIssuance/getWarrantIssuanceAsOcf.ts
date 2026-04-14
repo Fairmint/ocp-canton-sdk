@@ -280,11 +280,15 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
     Array.isArray(d.vestings) && d.vestings.length > 0
       ? (d.vestings as Array<{ date: string; amount?: unknown }>).map((v) => {
           if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
-            throw new OcpValidationError('warrantIssuance.vestings.amount', `Must be string or number, got ${typeof v.amount}`, {
-              code: OcpErrorCodes.INVALID_TYPE,
-              expectedType: 'string | number',
-              receivedValue: v.amount,
-            });
+            throw new OcpValidationError(
+              'warrantIssuance.vestings.amount',
+              `Must be string or number, got ${typeof v.amount}`,
+              {
+                code: OcpErrorCodes.INVALID_TYPE,
+                expectedType: 'string | number',
+                receivedValue: v.amount,
+              }
+            );
           }
           const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
           if (typeof v.date !== 'string' || !v.date) {
