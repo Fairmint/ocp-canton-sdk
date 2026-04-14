@@ -138,6 +138,20 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
 
+  test('warrant issuance with approval dates, consideration_text, and vestings survives round-trip', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      board_approval_date: '2024-06-01',
+      stockholder_approval_date: '2024-06-05',
+      consideration_text: 'Cash and services',
+      vestings: [{ date: '2024-01-01', amount: '100' }],
+    };
+    const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input };
+    const cantonData = roundTrip(input);
+
+    expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
+  });
+
   test('warrant issuance with numeric converts_to_quantity as JS number survives round-trip', () => {
     const input = {
       ...baseWarrantIssuance,
