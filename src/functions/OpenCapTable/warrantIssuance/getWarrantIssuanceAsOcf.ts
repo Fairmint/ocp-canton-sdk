@@ -4,6 +4,7 @@ import type { GetByContractIdParams } from '../../../types/common';
 import type {
   ConversionTriggerType,
   OcfWarrantIssuance,
+  VestingSimple,
   WarrantConversionMechanism,
   WarrantConversionRight,
   WarrantExerciseTrigger,
@@ -204,6 +205,9 @@ function mapQuantitySource(qs: unknown): OcfWarrantIssuance['quantity_source'] |
 /**
  * Converts DAML WarrantIssuance data to native OCF format.
  * Used by the dispatcher pattern in damlToOcf.ts.
+ *
+ * Optional fields must stay aligned with `warrantIssuanceDataToDaml` in `createWarrantIssuance.ts`:
+ * replication compares raw DB OCF to Canton readback; missing optional keys cause false residual edits.
  */
 export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): OcfWarrantIssuance {
   const exercise_triggers: WarrantExerciseTrigger[] = Array.isArray(d.exercise_triggers)
@@ -271,6 +275,34 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
   }
 
   const comments = Array.isArray(d.comments) && d.comments.length > 0 ? (d.comments as string[]) : undefined;
+
+  const vestings: VestingSimple[] | undefined =
+    Array.isArray(d.vestings) && d.vestings.length > 0
+      ? (d.vestings as Array<{ date: string; amount?: unknown }>).map((v) => {
+          if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
+            throw new OcpValidationError(
+              'warrantIssuance.vestings.amount',
+              `Must be string or number, got ${typeof v.amount}`,
+              {
+                code: OcpErrorCodes.INVALID_TYPE,
+                expectedType: 'string | number',
+                receivedValue: v.amount,
+              }
+            );
+          }
+          const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
+          if (typeof v.date !== 'string' || !v.date) {
+            throw new OcpValidationError('warrantIssuance.vestings.date', 'Required field is missing or invalid', {
+              code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+              receivedValue: v.date,
+            });
+          }
+          return {
+            date: v.date.split('T')[0],
+            amount: normalizeNumericString(amountStr),
+          };
+        })
+      : undefined;
 
   // Validate required string fields
   if (typeof d.id !== 'string' || !d.id) {
@@ -342,6 +374,16 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
       ? { warrant_expiration_date: (d.warrant_expiration_date as string).split('T')[0] }
       : {}),
     ...(d.vesting_terms_id && typeof d.vesting_terms_id === 'string' ? { vesting_terms_id: d.vesting_terms_id } : {}),
+    ...(d.board_approval_date && typeof d.board_approval_date === 'string'
+      ? { board_approval_date: d.board_approval_date.split('T')[0] }
+      : {}),
+    ...(d.stockholder_approval_date && typeof d.stockholder_approval_date === 'string'
+      ? { stockholder_approval_date: d.stockholder_approval_date.split('T')[0] }
+      : {}),
+    ...(typeof d.consideration_text === 'string' && d.consideration_text.length > 0
+      ? { consideration_text: d.consideration_text }
+      : {}),
+    ...(vestings ? { vestings } : {}),
     security_law_exemptions: d.security_law_exemptions as Array<{
       description: string;
       jurisdiction: string;
