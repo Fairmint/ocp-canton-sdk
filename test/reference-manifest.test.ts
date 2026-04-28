@@ -4,7 +4,7 @@ describe('reference manifest export', () => {
   it('builds JSON with package metadata and OcpClient namespaces', () => {
     const m = buildReferenceManifest();
 
-    expect(m.schemaVersion).toBe(1);
+    expect(m.schemaVersion).toBe(2);
     expect(m.package.name).toBe('@open-captable-protocol/canton');
     expect(m.package.version).toMatch(/^\d+\.\d+\.\d+/);
 
@@ -33,6 +33,15 @@ describe('reference manifest export', () => {
     expect(m.ocpClient.namespaces.CouponMinter.members.canMintCouponsNow).toBeDefined();
     expect(m.ocpClient.namespaces.CantonPayments.members.airdrop).toBeDefined();
     expect(m.ocpClient.namespaces.PaymentStreams.members.activePaymentStream).toBeDefined();
+
+    expect(m.functions.length).toBeGreaterThan(300);
+    const createBatch = m.functions.find((fn) => fn.id === 'OcpClient.createBatch');
+    expect(createBatch?.params[0]?.type).toContain('actAs');
+    expect(createBatch?.returnType).toBe('TransactionBatch');
+
+    const getState = m.functions.find((fn) => fn.id === 'OpenCapTable.capTable.getState');
+    expect(getState?.params[0]?.name).toBe('issuerPartyId');
+    expect(getState?.returnType).toContain('CapTableState');
 
     const batchMethods = new Set([...m.capTableBatch.publicMethods, ...m.capTableBatch.publicAsyncMethods]);
     expect(batchMethods).toEqual(

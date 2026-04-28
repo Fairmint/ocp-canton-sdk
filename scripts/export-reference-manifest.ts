@@ -10,7 +10,36 @@ import fs from 'fs';
 import path from 'path';
 import ts from 'typescript';
 
-const SCHEMA_VERSION = 1 as const;
+const SCHEMA_VERSION = 2 as const;
+const GITHUB_BLOB_BASE = 'https://github.com/Fairmint/ocp-canton-sdk/blob/main';
+
+export interface ReferenceParam {
+  name: string;
+  type: string;
+  optional?: boolean;
+  rest?: boolean;
+  description?: string;
+}
+
+export interface ReferenceFunction {
+  id: string;
+  name: string;
+  kind: 'function' | 'method' | 'constructor' | 'namespace-function';
+  parent?: string;
+  receiver?: string;
+  path?: string;
+  importPath: string;
+  category: string;
+  summary?: string;
+  signature: string;
+  params: ReferenceParam[];
+  returnType: string;
+  sourceFile: string;
+  sourceLine: number;
+  sourceUrl: string;
+  requirements?: string[];
+  examples?: string[];
+}
 
 export interface ReferenceManifest {
   schemaVersion: typeof SCHEMA_VERSION;
@@ -26,6 +55,8 @@ export interface ReferenceManifest {
   entryExports: BarrelExports;
   ocpClient: OcpClientManifest;
   categories: CategorySection[];
+  functions: ReferenceFunction[];
+  functionGroups: Array<{ id: string; label: string; functions: ReferenceFunction[] }>;
   capTableBatch: ClassSurface;
   examplesScripts: ScriptEntry[];
 }
@@ -115,6 +146,271 @@ interface ClassSurface {
 interface ScriptEntry {
   relativePath: string;
   note?: string;
+}
+
+
+let cachedProgram: ts.Program | undefined;
+let cachedChecker: ts.TypeChecker | undefined;
+
+function createReferenceProgram(root = repoRoot()): ts.Program {
+  if (cachedProgram) return cachedProgram;
+  const configPath = path.join(root, 'tsconfig.tests.json');
+  const parsedConfig = ts.getParsedCommandLineOfConfigFile(configPath, {}, ts.sys as unknown as ts.ParseConfigFileHost);
+  if (!parsedConfig) throw new Error('Unable to parse tsconfig.tests.json');
+  cachedProgram = ts.createProgram({ rootNames: parsedConfig.fileNames, options: parsedConfig.options });
+  cachedChecker = cachedProgram.getTypeChecker();
+  return cachedProgram;
+}
+
+function checker(root = repoRoot()): ts.TypeChecker {
+  if (!cachedChecker) cachedChecker = createReferenceProgram(root).getTypeChecker();
+  return cachedChecker;
+}
+
+function rel(root: string, filePath: string): string {
+  return path.relative(root, filePath).replace(/\\/g, '/');
+}
+
+function sourceInfo(root: string, node: ts.Node): { sourceFile: string; sourceLine: number; sourceUrl: string } {
+  const sf = node.getSourceFile();
+  const sourceFile = rel(root, sf.fileName);
+  const sourceLine = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+  return { sourceFile, sourceLine, sourceUrl: `${GITHUB_BLOB_BASE}/${sourceFile}#L${sourceLine}` };
+}
+
+function typeText(root: string, type: ts.Type, node: ts.Node): string {
+  return checker(root).typeToString(
+    type,
+    node,
+    ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope
+  );
+}
+
+function docsFromSymbol(root: string, symbol: ts.Symbol | undefined): string | undefined {
+  if (!symbol) return undefined;
+  const text = ts.displayPartsToString(symbol.getDocumentationComment(checker(root))).trim();
+  return text === '' ? undefined : text;
+}
+
+function paramDocs(sig: ts.Signature): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const tag of sig.getJsDocTags()) {
+    if (tag.name !== 'param' || !tag.text?.length) continue;
+    const [first, ...rest] = tag.text.map((p) => p.text).join('').split(/\s+/);
+    if (first) out.set(first, rest.join(' ').trim());
+  }
+  return out;
+}
+
+function signatureParams(root: string, sig: ts.Signature, node: ts.Node): ReferenceParam[] {
+  const docs = paramDocs(sig);
+  return sig.parameters.map((sym) => {
+    const decl = sym.valueDeclaration;
+    const optional = Boolean(decl && ts.isParameter(decl) && decl.questionToken !== undefined);
+    const rest = Boolean(decl && ts.isParameter(decl) && decl.dotDotDotToken !== undefined);
+    const param: ReferenceParam = {
+      name: sym.getName(),
+      type: typeText(root, checker(root).getTypeOfSymbolAtLocation(sym, decl ?? node), decl ?? node),
+    };
+    if (optional) param.optional = true;
+    if (rest) param.rest = true;
+    const desc = docs.get(sym.getName()) ?? docsFromSymbol(root, sym);
+    if (desc) param.description = desc;
+    return param;
+  });
+}
+
+function categoryForSource(sourceFile: string): { id: string; label: string } {
+  if (sourceFile.endsWith('src/OcpClient.ts')) return { id: 'ocp-client', label: 'OcpClient' };
+  if (sourceFile.includes('/functions/OpenCapTable/')) return { id: 'open-cap-table', label: 'OpenCapTable' };
+  if (sourceFile.includes('/functions/OpenCapTableReports/')) return { id: 'reports-coupons', label: 'Reports & coupons' };
+  if (sourceFile.includes('/functions/CouponMinter/')) return { id: 'reports-coupons', label: 'Reports & coupons' };
+  if (sourceFile.includes('/functions/PaymentStreams/') || sourceFile.includes('/extensions/PaymentStreams')) return { id: 'payments-streams', label: 'Payments & streams' };
+  if (sourceFile.includes('/extensions/CantonPayments')) return { id: 'payments-streams', label: 'Payments & streams' };
+  if (sourceFile.includes('/errors/')) return { id: 'types-errors-utils', label: 'Types, errors & utilities' };
+  if (sourceFile.includes('/types/') || sourceFile.includes('/utils/')) return { id: 'types-errors-utils', label: 'Types, errors & utilities' };
+  return { id: 'types-errors-utils', label: 'Types, errors & utilities' };
+}
+
+function callableReference(root: string, input: {
+  id: string;
+  name: string;
+  kind: ReferenceFunction['kind'];
+  node: ts.Node;
+  signature: ts.Signature;
+  category?: string | undefined;
+  parent?: string | undefined;
+  receiver?: string | undefined;
+  path?: string | undefined;
+  summary?: string | undefined;
+}): ReferenceFunction {
+  const info = sourceInfo(root, input.node);
+  const group = categoryForSource(info.sourceFile);
+  const fn: ReferenceFunction = {
+    id: input.id,
+    name: input.name,
+    kind: input.kind,
+    importPath: '@open-captable-protocol/canton',
+    category: input.category ?? group.label,
+    signature: `${input.path ?? input.name}${checker(root).signatureToString(input.signature, input.node, ts.TypeFormatFlags.NoTruncation)}`,
+    params: signatureParams(root, input.signature, input.node),
+    returnType: typeText(root, checker(root).getReturnTypeOfSignature(input.signature), input.node),
+    ...info,
+  };
+  if (input.parent) fn.parent = input.parent;
+  if (input.receiver) fn.receiver = input.receiver;
+  if (input.path) fn.path = input.path;
+  if (input.summary) fn.summary = input.summary;
+  return fn;
+}
+
+function publicMember(node: ts.ClassElement): boolean {
+  const mods = ts.getCombinedModifierFlags(node);
+  return !(mods & ts.ModifierFlags.Private) && !(mods & ts.ModifierFlags.Protected);
+}
+
+function collectInterfaceCallables(root: string, iface: ts.InterfaceDeclaration, namespaceName: string): ReferenceFunction[] {
+  const out: ReferenceFunction[] = [];
+  const walk = (symbol: ts.Symbol, prefix: string[]): void => {
+    const decl = symbol.valueDeclaration ?? symbol.declarations?.[0];
+    if (!decl) return;
+    const type = checker(root).getTypeOfSymbolAtLocation(symbol, decl);
+    const pathParts = [...prefix, symbol.getName()];
+    const call = type.getCallSignatures()[0];
+    if (call) {
+      const pathName = pathParts.join('.');
+      out.push(
+        callableReference(root, {
+          id: `${namespaceName}.${pathName}`,
+          name: symbol.getName(),
+          kind: 'namespace-function',
+          parent: namespaceName,
+          receiver: `client.${namespaceName}`,
+          path: pathName,
+          node: decl,
+          signature: call,
+          category: namespaceName.includes('Reports') || namespaceName.includes('Coupon') ? 'Reports & coupons' : namespaceName.includes('Payment') || namespaceName.includes('CantonPayments') ? 'Payments & streams' : 'OpenCapTable',
+          summary: docsFromSymbol(root, symbol),
+        })
+      );
+      return;
+    }
+    for (const child of type.getProperties()) {
+      walk(child, pathParts);
+    }
+  };
+  for (const member of iface.members) {
+    if (ts.isPropertySignature(member) && ts.isIdentifier(member.name)) {
+      const symbol = checker(root).getSymbolAtLocation(member.name);
+      if (symbol) walk(symbol, []);
+    }
+  }
+  return out;
+}
+
+function collectCallableReferences(root: string): ReferenceFunction[] {
+  const program = createReferenceProgram(root);
+  const out: ReferenceFunction[] = [];
+  const srcRoot = path.join(root, 'src');
+
+  for (const sf of program.getSourceFiles()) {
+    if (!sf.fileName.startsWith(srcRoot) || sf.fileName.endsWith('.d.ts')) continue;
+    const visit = (node: ts.Node): void => {
+      if (ts.isFunctionDeclaration(node) && node.name) {
+        const mods = ts.getCombinedModifierFlags(node);
+        if (mods & ts.ModifierFlags.Export) {
+          const sig = checker(root).getSignatureFromDeclaration(node);
+          if (sig) {
+            out.push(
+              callableReference(root, {
+                id: node.name.text,
+                name: node.name.text,
+                kind: 'function',
+                node,
+                signature: sig,
+                summary: docsFromSymbol(root, checker(root).getSymbolAtLocation(node.name)),
+              })
+            );
+          }
+        }
+      } else if (ts.isClassDeclaration(node) && node.name && (ts.getCombinedModifierFlags(node) & ts.ModifierFlags.Export)) {
+        for (const member of node.members) {
+          if (ts.isConstructorDeclaration(member) && publicMember(member)) {
+            const sig = checker(root).getSignatureFromDeclaration(member);
+            if (sig) {
+              out.push(
+                callableReference(root, {
+                  id: `${node.name.text}.constructor`,
+                  name: 'constructor',
+                  kind: 'constructor',
+                  parent: node.name.text,
+                  receiver: `new ${node.name.text}`,
+                  node: member,
+                  signature: sig,
+                })
+              );
+            }
+          } else if (ts.isMethodDeclaration(member) && ts.isIdentifier(member.name) && publicMember(member)) {
+            const sig = checker(root).getSignatureFromDeclaration(member);
+            if (sig) {
+              out.push(
+                callableReference(root, {
+                  id: `${node.name.text}.${member.name.text}`,
+                  name: member.name.text,
+                  kind: 'method',
+                  parent: node.name.text,
+                  receiver: node.name.text === 'OcpClient' ? 'client' : node.name.text,
+                  node: member,
+                  signature: sig,
+                  summary: docsFromSymbol(root, checker(root).getSymbolAtLocation(member.name)),
+                })
+              );
+            }
+          }
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(sf);
+  }
+
+  const ocpPath = path.join(srcRoot, 'OcpClient.ts');
+  const payPath = path.join(srcRoot, 'extensions/PaymentStreamsExtension.ts');
+  const cantonPayPath = path.join(srcRoot, 'extensions/CantonPaymentsExtension.ts');
+  const ifaceSpecs = [
+    [ocpPath, 'OpenCapTableMethods', 'OpenCapTable'],
+    [ocpPath, 'OpenCapTableReportsMethods', 'OpenCapTableReports'],
+    [ocpPath, 'CouponMinterMethods', 'CouponMinter'],
+    [payPath, 'PaymentStreamsMethods', 'PaymentStreams'],
+    [cantonPayPath, 'CantonPaymentsMethods', 'CantonPayments'],
+  ] as const;
+  for (const [file, ifaceName, namespaceName] of ifaceSpecs) {
+    const sf = program.getSourceFile(file);
+    if (!sf) continue;
+    const iface = findInterface(sf, ifaceName);
+    if (iface) out.push(...collectInterfaceCallables(root, iface, namespaceName));
+  }
+
+  const seen = new Set<string>();
+  return out
+    .filter((fn) => {
+      const key = `${fn.id}|${fn.sourceFile}|${fn.sourceLine}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function groupReferenceFunctions(functions: ReferenceFunction[]): Array<{ id: string; label: string; functions: ReferenceFunction[] }> {
+  const groups = new Map<string, { id: string; label: string; functions: ReferenceFunction[] }>();
+  for (const fn of functions) {
+    const info = categoryForSource(fn.sourceFile);
+    const group = groups.get(info.id) ?? { id: info.id, label: info.label, functions: [] };
+    group.functions.push(fn);
+    groups.set(info.id, group);
+  }
+  return [...groups.values()].sort((a, b) => a.label.localeCompare(b.label));
 }
 
 function readUtf8(filePath: string): string {
@@ -352,6 +648,7 @@ function grepRelatedImports(srcRoot: string): { cantonNode: Set<string>; damlJs:
 }
 
 export function buildReferenceManifest(root = repoRoot()): ReferenceManifest {
+  createReferenceProgram(root);
   const pkgPath = path.join(root, 'package.json');
   const pkg = JSON.parse(readUtf8(pkgPath)) as {
     name: string;
@@ -540,6 +837,8 @@ export function buildReferenceManifest(root = repoRoot()): ReferenceManifest {
   ];
 
   const capTableBatchMethods = batchClass ? collectPublicMethods(batchClass) : { sync: [], async: [] };
+  const functions = collectCallableReferences(root);
+  const functionGroups = groupReferenceFunctions(functions);
 
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -592,6 +891,8 @@ export function buildReferenceManifest(root = repoRoot()): ReferenceManifest {
       },
     },
     categories,
+    functions,
+    functionGroups,
     capTableBatch: {
       name: 'CapTableBatch',
       sourceFile: 'src/functions/OpenCapTable/capTable/CapTableBatch.ts',
