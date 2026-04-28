@@ -39,7 +39,7 @@
  * await batch.execute();
  * ```
  *
- * @see https://ocp-canton-sdk.fairmint.com/ — documentation site (fairmint/web)
+ * @see https://ocp.canton.fairmint.com/ — documentation site (fairmint/web)
  *
  * @module
  */
