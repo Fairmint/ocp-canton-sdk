@@ -146,7 +146,14 @@ export interface GetStakeholderAsOcfResult {
   contractId: string;
 }
 
-/** Retrieve a stakeholder contract by ID and return it as an OCF JSON object */
+/**
+ * Retrieve a stakeholder contract by ID and return native OCF-shaped data plus contract id.
+ *
+ * @param client - Ledger JSON API client
+ * @param params - Contract id (and optional read scope) for the stakeholder template
+ * @returns Raw `{ stakeholder, contractId }`; {@link OcpClient.OpenCapTable.stakeholder.get} adapts to `ContractResult`.
+ * @throws OcpParseError / OcpValidationError when contract data cannot be read or is invalid
+ */
 export async function getStakeholderAsOcf(
   client: LedgerJsonApiClient,
   params: GetStakeholderAsOcfParams

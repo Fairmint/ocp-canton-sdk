@@ -1,8 +1,14 @@
 /**
- * CantonPayments extension for OcpClient.
+ * CantonPayments integration: **airdrop** (full-featured) vs **simpleAirdrop** (lighter-weight) command builders.
  *
- * Provides payment and airdrop operations using Canton's native token.
- * Loaded as a plugin to avoid circular dependencies and reduce bundle size.
+ * All methods return `Command` (or `CommandWithDisclosedContracts` for join) for you to submit via
+ * {@link OcpClient.createBatch} or the ledger client—nothing is executed inside the SDK.
+ *
+ * @example
+ * ```typescript
+ * const cmd = ocp.CantonPayments.airdrop.buildCreateAirdropCommand(params);
+ * await ocp.createBatch({ actAs: [operatorParty] }).addCommand(cmd).submitAndWaitForTransactionTree();
+ * ```
  */
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import {

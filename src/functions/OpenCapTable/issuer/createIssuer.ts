@@ -147,6 +147,26 @@ export interface CreateIssuerParams {
   issuerData: IssuerDataInput;
 }
 
+/**
+ * Build the ledger command to exercise **CreateCapTable** on an IssuerAuthorization contract.
+ *
+ * Does not submit—pair with {@link OcpClient.createBatch} or submit the returned `command` yourself.
+ * The issuer is created together with the CapTable; further entities use {@link CapTableBatch}.
+ *
+ * @param params - IssuerAuthorization disclosed contract, signing party, and OCF issuer payload
+ * @returns Exercise command plus disclosed contracts for the authorization template
+ * @throws OcpValidationError if issuer data fails schema or entity validation
+ *
+ * @example
+ * ```typescript
+ * const { command, disclosedContracts } = ocp.OpenCapTable.issuer.buildCreate({
+ *   issuerAuthorizationContractDetails,
+ *   issuerParty,
+ *   issuerData: { id: 'i1', legal_name: 'Acme', country_of_formation: 'US', formation_date: '2024-01-01' },
+ * });
+ * await ocp.createBatch({ actAs: [issuerParty] }).addBuiltCommand({ command, disclosedContracts }).submitAndWaitForTransactionTree();
+ * ```
+ */
 export function buildCreateIssuerCommand(params: CreateIssuerParams): CommandWithDisclosedContracts {
   const choiceArguments: Fairmint.OpenCapTable.IssuerAuthorization.CreateCapTable = {
     issuer_data: issuerDataToDaml(params.issuerData),

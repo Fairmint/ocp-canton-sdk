@@ -370,9 +370,17 @@ export class OcpContextManager implements OcpContext {
 /**
  * High-level client for interacting with Open Cap Table Protocol (OCP) contracts on Canton.
  *
- * @example
+ * **Namespaced APIs** (each mirrors a domain of the DAML model):
+ * - {@link OcpClient.OpenCapTable} — issuer, stakeholders, stock classes, issuances, `capTable` lifecycle and batch updates
+ * - {@link OcpClient.OpenCapTableReports} — company valuation reports
+ * - {@link OcpClient.CantonPayments} — airdrop-related ledger commands
+ * - {@link OcpClient.PaymentStreams} — recurring payment stream proposals and active streams
+ *
+ * Prefer {@link OcpClient.context} to cache FeaturedAppRight, issuer party, and cap table contract id across calls.
+ *
+ * @example Wire client, read issuer, batch cap table update
  * ```typescript
- * import { OcpClient, toContractId } from '@open-captable-protocol/canton';
+ * import { OcpClient, toContractId, toPartyId } from '@open-captable-protocol/canton';
  * import { Canton } from '@fairmint/canton-node-sdk';
  *
  * const canton = new Canton({ network: 'localnet' });
@@ -381,12 +389,16 @@ export class OcpContextManager implements OcpContext {
  *   validator: canton.validator,
  * });
  *
- * // Read an issuer - all get() methods return { data, contractId }
  * const { data: issuer } = await ocp.OpenCapTable.issuer.get({
  *   contractId: toContractId('00abc123'),
  * });
- * console.log(issuer.legal_name);
- * console.log(issuer.object_type); // 'ISSUER' - enables discriminated unions
+ *
+ * const batch = ocp.OpenCapTable.capTable.update({
+ *   capTableContractId: toContractId('...'),
+ *   actAs: [toPartyId('issuer::namespace')],
+ * });
+ * batch.create('stakeholder', { id: 'sh_1', name: { legal_name: 'Example' }, ... });
+ * await batch.execute();
  * ```
  */
 export class OcpClient {
@@ -419,6 +431,11 @@ export class OcpClient {
   /** Recurring payment stream management */
   public readonly PaymentStreams: PaymentStreamsMethodsWithClient;
 
+  /**
+   * @param dependencies - **`ledger`** — required for all OpenCapTable reads, `CapTableBatch`, and report helpers.
+   * **`validator`** — optional for most cap-table flows; required for
+   * {@link PaymentStreamsMethodsWithClient.utils.buildPaymentContext} and Amulet-backed payment context helpers.
+   */
   constructor(dependencies: OcpClientDependencies) {
     this.ledger = dependencies.ledger;
     this.validator = dependencies.validator;
@@ -442,7 +459,28 @@ export class OcpClient {
     this.PaymentStreams = this.createPaymentStreamsMethods();
   }
 
-  /** Create a new transaction batch for submitting multiple commands atomically */
+  /**
+   * Create a Canton {@link TransactionBatch} to submit multiple ledger commands in one transaction.
+   *
+   * Use with `addBuiltCommand` / `addCommand` from `@fairmint/canton-node-sdk` when composing custom flows
+   * (for example `issuer.buildCreate`). For atomic **UpdateCapTable** changes, prefer
+   * {@link OpenCapTableMethods.capTable.update} and {@link CapTableBatch}.
+   *
+   * @param params.actAs - Parties that authorize the submission (signatories).
+   * @param params.readAs - Optional parties granted read access for contract resolution.
+   * @returns Fluent batch builder; call `addBuiltCommand` or `addCommand`, then `submitAndWaitForTransactionTree`.
+   *
+   * @example
+   * ```typescript
+   * const batch = ocp.createBatch({ actAs: [issuerPartyId] });
+   * const built = ocp.OpenCapTable.issuer.buildCreate({
+   *   issuerAuthorizationContractDetails,
+   *   issuerParty: issuerPartyId,
+   *   issuerData: { id: 'i1', legal_name: 'Co', country_of_formation: 'US', formation_date: '2020-01-01' },
+   * });
+   * await batch.addBuiltCommand(built).submitAndWaitForTransactionTree();
+   * ```
+   */
   public createBatch(params: { actAs: string[]; readAs?: string[] }): TransactionBatch {
     return new TransactionBatch(this.ledger, params.actAs, params.readAs);
   }
@@ -772,10 +810,9 @@ export class OcpClient {
 // ===== Type Definitions =====
 
 /**
- * Runtime-derived clients consumed by `OcpClient`.
+ * Clients consumed by {@link OcpClient}.
  *
- * These are typically derived from a shared runtime such as `new Canton(...)`,
- * then injected into `OcpClient` explicitly as `{ ledger, validator }`.
+ * Usually obtained from `new Canton({ network })` (or equivalent): pass `{ ledger: canton.ledger, validator: canton.validator }`.
  */
 export interface OcpClientDependencies {
   readonly ledger: LedgerJsonApiClient;
@@ -884,13 +921,24 @@ interface OpenCapTableMethods {
 
   // Batch Updates & Lifecycle
   capTable: {
-    /** Current-line CapTable (SDK template) vs none for an issuer. */
+    /**
+     * Whether the issuer has an active CapTable on **this SDK’s pinned OpenCapTable package line** only.
+     * @remarks A `none` result does not mean the issuer has no CapTable on other package versions—see {@link getCapTableState}.
+     */
     classify: (issuerPartyId: string) => Promise<IssuerCapTableClassification>;
-    /** Read CapTable state for an issuer (SDK-supported template). */
+    /**
+     * Snapshot of entity inventories for the pinned-template CapTable, or `null` if none on that line.
+     * @returns `null` when the filtered ledger query finds no matching CapTable; otherwise {@link CapTableState}.
+     */
     getState: (issuerPartyId: string) => Promise<CapTableState | null>;
-    /** Create a batch builder for atomic cap table updates */
+    /**
+     * Start a fluent {@link CapTableBatch}: chain `create` / `edit` / `delete`, then `build` or `execute`.
+     */
     update: (params: CapTableUpdateParams) => CapTableBatch;
-    /** Archive a cap table (system_operator only, requires empty entity maps) */
+    /**
+     * Archive the CapTable and issuer (system operator). Entity maps must be empty first—delete via `update` batch.
+     * @throws Errors from the ledger if preconditions are not met
+     */
     archive: (params: ArchiveCapTableParams) => Promise<ArchiveCapTableResult>;
   };
 }

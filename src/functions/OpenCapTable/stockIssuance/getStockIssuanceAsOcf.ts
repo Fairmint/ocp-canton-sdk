@@ -112,6 +112,14 @@ export interface GetStockIssuanceAsOcfResult {
   };
 }
 
+/**
+ * Read a stock issuance contract and convert DAML issuance data to OCF `TX_STOCK_ISSUANCE`.
+ *
+ * @param client - Ledger JSON API client
+ * @param params - Stock issuance contract id
+ * @returns Typed issuance object and contract id
+ * @throws OcpParseError when payload or enums cannot be mapped
+ */
 export async function getStockIssuanceAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockIssuanceAsOcfParams
