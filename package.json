@@ -31,6 +31,7 @@
     "localnet:test": "bash scripts/localnet/localnet-cloud.sh test",
     "localnet:verify": "bash scripts/localnet/localnet-cloud.sh verify",
     "prepare-release": "ts-node --project tsconfig.tests.json scripts/prepare-release.ts",
+    "reference:export": "ts-node --project tsconfig.tests.json scripts/export-reference-manifest.ts",
     "script:authorize": "ts-node --project tsconfig.tests.json scripts/authorizeIssuer.ts",
     "script:create-issuer": "ts-node --project tsconfig.tests.json scripts/createIssuer.ts",
     "script:get-issuer-ocf": "ts-node --project tsconfig.tests.json scripts/getIssuerAsOcf.ts",
