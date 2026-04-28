@@ -17,8 +17,6 @@
     "clean": "rm -rf dist",
     "copy-ocf-schemas": "ts-node --project tsconfig.tests.json scripts/copy-ocf-schemas.ts",
     "dev": "tsc --watch",
-    "docs": "typedoc",
-    "docs:clean": "rm -rf docs",
     "fix": "npm run lint:fix && npm run format:fix",
     "flatten-schemas": "ts-node --project tsconfig.tests.json scripts/flatten-ocf-schemas.ts",
     "format": "prettier --check .",
@@ -74,7 +72,6 @@
     "prettier-plugin-packagejson": "3.0.2",
     "ts-jest": "29.4.9",
     "ts-node": "10.9.2",
-    "typedoc": "0.28.18",
     "typescript": "5.9.3"
   },
   "peerDependencies": {

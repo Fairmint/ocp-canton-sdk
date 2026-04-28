@@ -12,7 +12,6 @@ jobs:
     permissions:
       contents: write
       packages: write
-      pages: write
       id-token: write
 
     steps:
@@ -60,18 +59,3 @@ jobs:
           git config --local user.name "GitHub Action"
           git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
           git push origin "v$NEW_VERSION"
-
-      - name: Generate documentation
-        run: npm run docs
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v6
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: './docs'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
