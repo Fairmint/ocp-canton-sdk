@@ -154,9 +154,7 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
-          converts_to_percent: normalizeNumericString(
-            typeof ctp === 'number' ? ctp : String(ctp as string | number)
-          ),
+          converts_to_percent: normalizeNumericString(typeof ctp === 'number' ? ctp : String(ctp as string | number)),
           capitalization_definition: optionalString(obj.capitalization_definition as string | undefined),
           capitalization_definition_rules: mapWarrantCapitalizationRules(obj.capitalization_definition_rules),
         },
@@ -174,9 +172,7 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismFixedAmount',
         value: {
-          converts_to_quantity: normalizeNumericString(
-            typeof ctq === 'number' ? ctq : String(ctq as string | number)
-          ),
+          converts_to_quantity: normalizeNumericString(typeof ctq === 'number' ? ctq : String(ctq as string | number)),
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
     }
