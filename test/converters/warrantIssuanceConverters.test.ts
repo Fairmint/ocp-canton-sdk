@@ -153,7 +153,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
 
-  test('rejects SAFE_CONVERSION on warrant with validation error (never emits undefined conversion_mechanism)', () => {
+  test('SAFE_CONVERSION on warrant maps to PPS-based mechanism (JSON-safe, no undefined)', () => {
     // Regression: JSON from DB may use convertible-style SAFE_CONVERSION; warrant DAML has no SAFE variant.
     // Previously the switch fell through and produced undefined → CapTableBatch.assertJsonSafe failed opaquely.
     const input = {
@@ -166,13 +166,97 @@ describe('WarrantIssuance round-trip equivalence', () => {
             conversion_mechanism: {
               type: 'SAFE_CONVERSION' as const,
               conversion_discount: '0.2',
+              conversion_valuation_cap: { amount: '10000000', currency: 'USD' },
+              conversion_mfn: true,
+              conversion_timing: 'POST_MONEY',
             },
           },
         },
       ],
     };
+    const daml = warrantIssuanceDataToDaml(input);
+    const json = JSON.stringify(daml);
+    expect(json).not.toMatch(/undefined/);
+    const mech = daml.exercise_triggers[0].conversion_right as {
+      tag: string;
+      value: { conversion_mechanism: { tag: string; value: Record<string, unknown> } };
+    };
+    expect(mech.tag).toBe('OcfRightWarrant');
+    expect(mech.value.conversion_mechanism.tag).toBe('OcfWarrantMechanismPpsBased');
+    const pps = mech.value.conversion_mechanism.value;
+    expect(pps.discount).toBe(true);
+    expect(pps.discount_percentage).toBe('0.2');
+    expect(pps.discount_amount).toBeNull();
+    expect(String(pps.description)).toContain('SAFE-style conversion');
+    expect(String(pps.description)).toContain('conversion_valuation_cap');
+  });
+
+  test('bare string SAFE_CONVERSION shorthand maps to PPS-based warrant mechanism', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        {
+          ...baseWarrantIssuance.exercise_triggers[0],
+          conversion_right: {
+            ...baseWarrantIssuance.exercise_triggers[0].conversion_right,
+            conversion_mechanism: 'SAFE_CONVERSION',
+          },
+        },
+      ],
+    };
+    const daml = warrantIssuanceDataToDaml(input);
+    expect(() => JSON.stringify(daml)).not.toThrow();
+    const mech = daml.exercise_triggers[0].conversion_right as {
+      value: { conversion_mechanism: { tag: string } };
+    };
+    expect(mech.value.conversion_mechanism.tag).toBe('OcfWarrantMechanismPpsBased');
+  });
+
+  test('CONVERTIBLE_NOTE_CONVERSION on warrant maps to custom mechanism (JSON-safe)', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        {
+          ...baseWarrantIssuance.exercise_triggers[0],
+          conversion_right: {
+            ...baseWarrantIssuance.exercise_triggers[0].conversion_right,
+            conversion_mechanism: {
+              type: 'CONVERTIBLE_NOTE_CONVERSION' as const,
+              conversion_discount: '0.15',
+              interest_rates: [{ rate: '0.08', accrual_start_date: '2020-01-01', accrual_end_date: null }],
+              day_count_convention: 'ACTUAL_365',
+              interest_payout: 'DEFERRED',
+            },
+          },
+        },
+      ],
+    };
+    const daml = warrantIssuanceDataToDaml(input);
+    expect(() => JSON.stringify(daml)).not.toThrow();
+    const mech = daml.exercise_triggers[0].conversion_right as {
+      value: { conversion_mechanism: { tag: string; value: { custom_conversion_description: string } } };
+    };
+    expect(mech.value.conversion_mechanism.tag).toBe('OcfWarrantMechanismCustom');
+    expect(mech.value.conversion_mechanism.value.custom_conversion_description).toContain('CONVERTIBLE_NOTE');
+  });
+
+  test('unknown conversion_mechanism type still throws (never emits undefined)', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        {
+          ...baseWarrantIssuance.exercise_triggers[0],
+          conversion_right: {
+            ...baseWarrantIssuance.exercise_triggers[0].conversion_right,
+            conversion_mechanism: { type: 'NOT_A_REAL_MECHANISM' },
+          },
+        },
+      ],
+    } as Parameters<typeof warrantIssuanceDataToDaml>[0];
     expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpValidationError);
-    expect(() => warrantIssuanceDataToDaml(input)).toThrow(/Unsupported warrant conversion_mechanism type: SAFE_CONVERSION/);
+    expect(() => warrantIssuanceDataToDaml(input)).toThrow(
+      /Unsupported warrant conversion_mechanism type: NOT_A_REAL_MECHANISM/
+    );
   });
 
   test('warrant issuance with numeric converts_to_quantity as JS number survives round-trip', () => {

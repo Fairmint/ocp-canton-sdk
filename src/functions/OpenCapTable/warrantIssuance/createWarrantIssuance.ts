@@ -7,6 +7,7 @@ import {
   monetaryToDaml,
   normalizeNumericString,
   optionalString,
+  safeString,
 } from '../../../utils/typeConversions';
 
 export interface SimpleVesting {
@@ -44,7 +45,19 @@ type WarrantConversionMechanismInput =
       discount: boolean;
       discount_percentage?: string | null;
       discount_amount?: Monetary | null;
-    };
+    }
+  /** DB/OCF payloads may attach convertible-style mechanisms; warrant DAML has no SAFE/note variants. */
+  | {
+      type: 'SAFE_CONVERSION';
+      conversion_discount?: string | number | null;
+      conversion_valuation_cap?: Monetary | null;
+      exit_multiple?: { numerator: string | number; denominator: string | number } | null;
+      conversion_mfn?: boolean | null;
+      conversion_timing?: string | null;
+      capitalization_definition?: string | null;
+      capitalization_definition_rules?: Record<string, unknown> | null;
+    }
+  | (Record<string, unknown> & { type: string });
 
 export type WarrantExerciseTriggerInput =
   | WarrantTriggerTypeInput
@@ -58,7 +71,7 @@ export type WarrantExerciseTriggerInput =
       start_date?: string; // YYYY-MM-DD or ISO datetime (ELECTIVE_IN_RANGE)
       end_date?: string; // YYYY-MM-DD or ISO datetime (ELECTIVE_IN_RANGE)
       conversion_right?: {
-        conversion_mechanism?: WarrantConversionMechanismInput;
+        conversion_mechanism?: WarrantConversionMechanismInput | string;
         converts_to_future_round?: boolean;
         converts_to_stock_class_id?: string;
       };
@@ -94,72 +107,234 @@ function triggerTypeToDamlEnum(
   }
 }
 
-function warrantMechanismToDamlVariant(
-  m?: WarrantConversionMechanismInput
+function mapWarrantCapitalizationRules(
+  rules: unknown
+): Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules | null {
+  if (!rules || typeof rules !== 'object') return null;
+  const r = rules as Record<string, unknown>;
+  return {
+    include_outstanding_shares: Boolean(r.include_outstanding_shares),
+    include_outstanding_options: Boolean(r.include_outstanding_options),
+    include_outstanding_unissued_options: Boolean(r.include_outstanding_unissued_options),
+    include_this_security: Boolean(r.include_this_security),
+    include_other_converting_securities: Boolean(r.include_other_converting_securities),
+    include_option_pool_topup_for_promised_options: Boolean(r.include_option_pool_topup_for_promised_options),
+    include_additional_option_pool_topup: Boolean(r.include_additional_option_pool_topup),
+    include_new_money: Boolean(r.include_new_money),
+  } as Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules;
+}
+
+/**
+ * Warrant DAML has no OcfConvMechSAFE. Map SAFE-style OCF fields to PPS-based warrant mechanism
+ * (discount + prose description for cap, MFN, timing, etc.).
+ */
+function warrantSafeLikeToPpsDaml(
+  anyM: Record<string, unknown>
 ): Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism {
-  if (!m) {
+  const descParts: string[] = ['SAFE-style conversion'];
+  if (typeof anyM.capitalization_definition === 'string' && anyM.capitalization_definition.length) {
+    descParts.push(`capitalization_definition: ${anyM.capitalization_definition}`);
+  }
+  const capRules = mapWarrantCapitalizationRules(anyM.capitalization_definition_rules);
+  if (capRules && Object.values(capRules).some(Boolean)) {
+    descParts.push(`capitalization_definition_rules: ${JSON.stringify(capRules)}`);
+  }
+  const timingRaw = anyM.conversion_timing;
+  if (timingRaw != null && safeString(timingRaw) !== '') {
+    descParts.push(`conversion_timing: ${safeString(timingRaw)}`);
+  }
+  if (anyM.conversion_mfn != null) {
+    descParts.push(`conversion_mfn: ${Boolean(anyM.conversion_mfn)}`);
+  }
+  const exitMultiple = anyM.exit_multiple as { numerator?: unknown; denominator?: unknown } | null | undefined;
+  if (exitMultiple && exitMultiple.numerator != null && exitMultiple.denominator != null) {
+    descParts.push(
+      `exit_multiple: ${normalizeNumericString(String(exitMultiple.numerator))}/${normalizeNumericString(String(exitMultiple.denominator))}`
+    );
+  }
+  const capMoney = anyM.conversion_valuation_cap;
+  if (capMoney && typeof capMoney === 'object') {
+    const m = monetaryToDaml(capMoney as Monetary);
+    descParts.push(`conversion_valuation_cap: ${m.amount} ${m.currency}`);
+  }
+
+  const discountRaw = anyM.conversion_discount;
+  const hasDiscount = discountRaw != null && discountRaw !== '';
+  const discount_percentage =
+    hasDiscount && (typeof discountRaw === 'string' || typeof discountRaw === 'number')
+      ? normalizeNumericString(discountRaw)
+      : null;
+
+  return {
+    tag: 'OcfWarrantMechanismPpsBased',
+    value: {
+      description: descParts.join('; '),
+      discount: Boolean(hasDiscount),
+      discount_percentage,
+      discount_amount: null,
+    },
+  } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
+}
+
+/** Note mechanics have no warrant analogue; preserve salient terms in custom description. */
+function warrantNoteLikeToCustomDaml(
+  anyM: Record<string, unknown>
+): Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism {
+  const parts: string[] = ['CONVERTIBLE_NOTE_CONVERSION mapped to warrant custom mechanism'];
+  if (anyM.conversion_discount != null && anyM.conversion_discount !== '') {
+    const d = anyM.conversion_discount;
+    parts.push(
+      `conversion_discount: ${normalizeNumericString(typeof d === 'number' ? d : String(d))}`
+    );
+  }
+  const capMoney = anyM.conversion_valuation_cap;
+  if (capMoney && typeof capMoney === 'object') {
+    const m = monetaryToDaml(capMoney as Monetary);
+    parts.push(`conversion_valuation_cap: ${m.amount} ${m.currency}`);
+  }
+  if (Array.isArray(anyM.interest_rates)) {
+    parts.push(`interest_rates_count: ${anyM.interest_rates.length}`);
+  }
+  if (anyM.day_count_convention != null) {
+    parts.push(`day_count_convention: ${safeString(anyM.day_count_convention)}`);
+  }
+  if (anyM.interest_payout != null) {
+    parts.push(`interest_payout: ${safeString(anyM.interest_payout)}`);
+  }
+  if (anyM.interest_accrual_period != null) {
+    parts.push(`interest_accrual_period: ${safeString(anyM.interest_accrual_period)}`);
+  }
+  if (anyM.compounding_type != null) {
+    parts.push(`compounding_type: ${safeString(anyM.compounding_type)}`);
+  }
+  if (anyM.conversion_mfn != null) {
+    parts.push(`conversion_mfn: ${Boolean(anyM.conversion_mfn)}`);
+  }
+  return {
+    tag: 'OcfWarrantMechanismCustom',
+    value: { custom_conversion_description: parts.join('; ') },
+  } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
+}
+
+function warrantMechanismToDamlVariant(
+  m?: WarrantConversionMechanismInput | string
+): Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism {
+  if (m === undefined || m === null) {
     throw new OcpValidationError(
       'conversion_right.conversion_mechanism',
       'conversion_right.conversion_mechanism is required for warrant issuance',
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
     );
   }
-  switch (m.type) {
-    case 'CUSTOM_CONVERSION':
+  const obj: Record<string, unknown> = typeof m === 'string' ? { type: m } : (m as Record<string, unknown>);
+  const typeStr = String(obj.type ?? '').toUpperCase();
+
+  switch (typeStr) {
+    case 'CUSTOM_CONVERSION': {
+      const desc =
+        (obj.custom_conversion_description as string) ||
+        (obj.custom_description as string) ||
+        (typeof obj.description === 'string' ? obj.description : '');
+      if (!desc) {
+        throw new OcpValidationError(
+          'conversion_right.conversion_mechanism',
+          'CUSTOM_CONVERSION requires custom_conversion_description',
+          { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+        );
+      }
       return {
         tag: 'OcfWarrantMechanismCustom',
-        value: { custom_conversion_description: m.custom_conversion_description },
+        value: { custom_conversion_description: desc },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
-    case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION':
+    }
+    case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION': {
+      const ctp = obj.converts_to_percent;
+      if (ctp === undefined || ctp === null) {
+        throw new OcpValidationError(
+          'conversion_right.conversion_mechanism',
+          'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION requires converts_to_percent',
+          { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+        );
+      }
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
-          converts_to_percent: normalizeNumericString(m.converts_to_percent),
-          capitalization_definition: optionalString(m.capitalization_definition),
-          capitalization_definition_rules: (m.capitalization_definition_rules ??
-            null) as Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules | null,
+          converts_to_percent: normalizeNumericString(
+            typeof ctp === 'number' ? ctp : String(ctp)
+          ),
+          capitalization_definition: optionalString(obj.capitalization_definition as string | undefined),
+          capitalization_definition_rules: mapWarrantCapitalizationRules(obj.capitalization_definition_rules),
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
-    case 'FIXED_AMOUNT_CONVERSION':
+    }
+    case 'FIXED_AMOUNT_CONVERSION': {
+      const ctq = obj.converts_to_quantity;
+      if (ctq === undefined || ctq === null) {
+        throw new OcpValidationError(
+          'conversion_right.conversion_mechanism',
+          'FIXED_AMOUNT_CONVERSION requires converts_to_quantity',
+          { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+        );
+      }
       return {
         tag: 'OcfWarrantMechanismFixedAmount',
         value: {
-          converts_to_quantity: normalizeNumericString(m.converts_to_quantity),
+          converts_to_quantity: normalizeNumericString(
+            typeof ctq === 'number' ? ctq : String(ctq)
+          ),
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
-    case 'VALUATION_BASED_CONVERSION':
+    }
+    case 'VALUATION_BASED_CONVERSION': {
+      if (!obj.valuation_type || typeof obj.valuation_type !== 'string') {
+        throw new OcpValidationError(
+          'conversion_right.conversion_mechanism',
+          'VALUATION_BASED_CONVERSION requires valuation_type',
+          { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+        );
+      }
       return {
         tag: 'OcfWarrantMechanismValuationBased',
         value: {
-          valuation_type: m.valuation_type,
-          valuation_amount: m.valuation_amount ? monetaryToDaml(m.valuation_amount) : null,
-          capitalization_definition: optionalString(m.capitalization_definition),
-          capitalization_definition_rules: (m.capitalization_definition_rules ??
-            null) as Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules | null,
+          valuation_type: obj.valuation_type,
+          valuation_amount: obj.valuation_amount ? monetaryToDaml(obj.valuation_amount as Monetary) : null,
+          capitalization_definition: optionalString(obj.capitalization_definition as string | undefined),
+          capitalization_definition_rules: mapWarrantCapitalizationRules(obj.capitalization_definition_rules),
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
-    case 'PPS_BASED_CONVERSION':
+    }
+    case 'PPS_BASED_CONVERSION': {
+      if (typeof obj.description !== 'string' || !obj.description) {
+        throw new OcpValidationError(
+          'conversion_right.conversion_mechanism',
+          'PPS_BASED_CONVERSION requires description',
+          { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+        );
+      }
+      const dpct = obj.discount_percentage;
       return {
         tag: 'OcfWarrantMechanismPpsBased',
         value: {
-          description: m.description,
-          discount: m.discount,
+          description: obj.description,
+          discount: Boolean(obj.discount),
           discount_percentage:
-            m.discount_percentage === '' || m.discount_percentage == null
+            dpct === '' || dpct == null
               ? null
-              : normalizeNumericString(m.discount_percentage),
-          discount_amount: m.discount_amount ? monetaryToDaml(m.discount_amount) : null,
+              : normalizeNumericString(typeof dpct === 'number' ? dpct : String(dpct)),
+          discount_amount: obj.discount_amount ? monetaryToDaml(obj.discount_amount as Monetary) : null,
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
-    default: {
-      const rawType =
-        m && typeof m === 'object' && 'type' in m ? String((m as { type?: unknown }).type) : 'unknown';
+    }
+    case 'SAFE_CONVERSION':
+      return warrantSafeLikeToPpsDaml(obj);
+    case 'CONVERTIBLE_NOTE_CONVERSION':
+      return warrantNoteLikeToCustomDaml(obj);
+    default:
       throw new OcpValidationError(
         'conversion_right.conversion_mechanism',
-        `Unsupported warrant conversion_mechanism type: ${rawType}. Canton warrant templates only support CUSTOM_CONVERSION, FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION, FIXED_AMOUNT_CONVERSION, VALUATION_BASED_CONVERSION, and PPS_BASED_CONVERSION. If the cap table uses SAFE_CONVERSION or convertible-style mechanisms on a warrant, normalize the OCF or extend DAML (warrants use OcfWarrantConversionMechanism, not OcfConvertibleConversionMechanism).`,
+        `Unsupported warrant conversion_mechanism type: ${typeStr || 'unknown'}. Canton warrant templates support warrant mechanisms only (plus SAFE_CONVERSION and CONVERTIBLE_NOTE_CONVERSION, which are mapped to PPS-based and custom warrant mechanisms).`,
         { code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
       );
-    }
   }
 }
 
