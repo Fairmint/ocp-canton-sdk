@@ -146,10 +146,10 @@ function warrantSafeLikeToPpsDaml(
   if (anyM.conversion_mfn != null) {
     descParts.push(`conversion_mfn: ${Boolean(anyM.conversion_mfn)}`);
   }
-  const exitMultiple = anyM.exit_multiple as { numerator?: unknown; denominator?: unknown } | null | undefined;
-  if (exitMultiple && exitMultiple.numerator != null && exitMultiple.denominator != null) {
+  const exitMultiple = anyM.exit_multiple as { numerator?: string | number; denominator?: string | number } | null | undefined;
+  if (exitMultiple?.numerator != null && exitMultiple.denominator != null) {
     descParts.push(
-      `exit_multiple: ${normalizeNumericString(String(exitMultiple.numerator))}/${normalizeNumericString(String(exitMultiple.denominator))}`
+      `exit_multiple: ${normalizeNumericString(exitMultiple.numerator)}/${normalizeNumericString(exitMultiple.denominator)}`
     );
   }
   const capMoney = anyM.conversion_valuation_cap;
@@ -182,7 +182,7 @@ function warrantNoteLikeToCustomDaml(
 ): Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism {
   const parts: string[] = ['CONVERTIBLE_NOTE_CONVERSION mapped to warrant custom mechanism'];
   if (anyM.conversion_discount != null && anyM.conversion_discount !== '') {
-    const d = anyM.conversion_discount;
+    const d = anyM.conversion_discount as string | number;
     parts.push(
       `conversion_discount: ${normalizeNumericString(typeof d === 'number' ? d : String(d))}`
     );
@@ -219,7 +219,7 @@ function warrantNoteLikeToCustomDaml(
 function warrantMechanismToDamlVariant(
   m?: WarrantConversionMechanismInput | string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism {
-  if (m === undefined || m === null) {
+  if (m === undefined) {
     throw new OcpValidationError(
       'conversion_right.conversion_mechanism',
       'conversion_right.conversion_mechanism is required for warrant issuance',
@@ -227,7 +227,7 @@ function warrantMechanismToDamlVariant(
     );
   }
   const obj: Record<string, unknown> = typeof m === 'string' ? { type: m } : (m as Record<string, unknown>);
-  const typeStr = String(obj.type ?? '').toUpperCase();
+  const typeStr = (typeof obj.type === 'string' ? obj.type : '').toUpperCase();
 
   switch (typeStr) {
     case 'CUSTOM_CONVERSION': {
@@ -260,7 +260,7 @@ function warrantMechanismToDamlVariant(
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
           converts_to_percent: normalizeNumericString(
-            typeof ctp === 'number' ? ctp : String(ctp)
+            typeof ctp === 'number' ? ctp : String(ctp as string | number)
           ),
           capitalization_definition: optionalString(obj.capitalization_definition as string | undefined),
           capitalization_definition_rules: mapWarrantCapitalizationRules(obj.capitalization_definition_rules),
@@ -280,7 +280,7 @@ function warrantMechanismToDamlVariant(
         tag: 'OcfWarrantMechanismFixedAmount',
         value: {
           converts_to_quantity: normalizeNumericString(
-            typeof ctq === 'number' ? ctq : String(ctq)
+            typeof ctq === 'number' ? ctq : String(ctq as string | number)
           ),
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
@@ -320,7 +320,7 @@ function warrantMechanismToDamlVariant(
           discount_percentage:
             dpct === '' || dpct == null
               ? null
-              : normalizeNumericString(typeof dpct === 'number' ? dpct : String(dpct)),
+              : normalizeNumericString(typeof dpct === 'number' ? dpct : String(dpct as string | number)),
           discount_amount: obj.discount_amount ? monetaryToDaml(obj.discount_amount as Monetary) : null,
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
@@ -330,9 +330,8 @@ function warrantMechanismToDamlVariant(
     case 'CONVERTIBLE_NOTE_CONVERSION':
       return warrantNoteLikeToCustomDaml(obj);
     default:
-      throw new OcpValidationError(
-        'conversion_right.conversion_mechanism',
-        `Unsupported warrant conversion_mechanism type: ${typeStr || 'unknown'}. Canton warrant templates support warrant mechanisms only (plus SAFE_CONVERSION and CONVERTIBLE_NOTE_CONVERSION, which are mapped to PPS-based and custom warrant mechanisms).`,
+      throw new OcpParseError(
+        `Unsupported warrant conversion_mechanism.type: ${typeStr || 'unknown'}. Supported: CUSTOM_CONVERSION, FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION, FIXED_AMOUNT_CONVERSION, VALUATION_BASED_CONVERSION, PPS_BASED_CONVERSION, SAFE_CONVERSION, CONVERTIBLE_NOTE_CONVERSION.`,
         { code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
       );
   }

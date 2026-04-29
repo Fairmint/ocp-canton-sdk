@@ -6,7 +6,7 @@
  * infinite edit loops in the replication script.
  */
 
-import { OcpValidationError } from '../../src/errors';
+import { OcpParseError } from '../../src/errors';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
@@ -253,9 +253,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
         },
       ],
     } as Parameters<typeof warrantIssuanceDataToDaml>[0];
-    expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpValidationError);
+    expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpParseError);
     expect(() => warrantIssuanceDataToDaml(input)).toThrow(
-      /Unsupported warrant conversion_mechanism type: NOT_A_REAL_MECHANISM/
+      /Unsupported warrant conversion_mechanism\.type: NOT_A_REAL_MECHANISM/
     );
   });
 
