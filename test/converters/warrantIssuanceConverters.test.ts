@@ -6,6 +6,7 @@
  * infinite edit loops in the replication script.
  */
 
+import { OcpValidationError } from '../../src/errors';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
@@ -150,6 +151,28 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const cantonData = roundTrip(input);
 
     expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
+  });
+
+  test('rejects SAFE_CONVERSION on warrant with validation error (never emits undefined conversion_mechanism)', () => {
+    // Regression: JSON from DB may use convertible-style SAFE_CONVERSION; warrant DAML has no SAFE variant.
+    // Previously the switch fell through and produced undefined → CapTableBatch.assertJsonSafe failed opaquely.
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        {
+          ...baseWarrantIssuance.exercise_triggers[0],
+          conversion_right: {
+            ...baseWarrantIssuance.exercise_triggers[0].conversion_right,
+            conversion_mechanism: {
+              type: 'SAFE_CONVERSION' as const,
+              conversion_discount: '0.2',
+            },
+          },
+        },
+      ],
+    };
+    expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpValidationError);
+    expect(() => warrantIssuanceDataToDaml(input)).toThrow(/Unsupported warrant conversion_mechanism type: SAFE_CONVERSION/);
   });
 
   test('warrant issuance with numeric converts_to_quantity as JS number survives round-trip', () => {

@@ -151,6 +151,15 @@ function warrantMechanismToDamlVariant(
           discount_amount: m.discount_amount ? monetaryToDaml(m.discount_amount) : null,
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
+    default: {
+      const rawType =
+        m && typeof m === 'object' && 'type' in m ? String((m as { type?: unknown }).type) : 'unknown';
+      throw new OcpValidationError(
+        'conversion_right.conversion_mechanism',
+        `Unsupported warrant conversion_mechanism type: ${rawType}. Canton warrant templates only support CUSTOM_CONVERSION, FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION, FIXED_AMOUNT_CONVERSION, VALUATION_BASED_CONVERSION, and PPS_BASED_CONVERSION. If the cap table uses SAFE_CONVERSION or convertible-style mechanisms on a warrant, normalize the OCF or extend DAML (warrants use OcfWarrantConversionMechanism, not OcfConvertibleConversionMechanism).`,
+        { code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
+      );
+    }
   }
 }
 
