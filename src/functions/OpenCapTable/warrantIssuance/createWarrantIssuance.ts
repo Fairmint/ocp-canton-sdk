@@ -146,7 +146,10 @@ function warrantSafeLikeToPpsDaml(
   if (anyM.conversion_mfn != null) {
     descParts.push(`conversion_mfn: ${Boolean(anyM.conversion_mfn)}`);
   }
-  const exitMultiple = anyM.exit_multiple as { numerator?: string | number; denominator?: string | number } | null | undefined;
+  const exitMultiple = anyM.exit_multiple as
+    | { numerator?: string | number; denominator?: string | number }
+    | null
+    | undefined;
   if (exitMultiple?.numerator != null && exitMultiple.denominator != null) {
     descParts.push(
       `exit_multiple: ${normalizeNumericString(exitMultiple.numerator)}/${normalizeNumericString(exitMultiple.denominator)}`
@@ -183,9 +186,7 @@ function warrantNoteLikeToCustomDaml(
   const parts: string[] = ['CONVERTIBLE_NOTE_CONVERSION mapped to warrant custom mechanism'];
   if (anyM.conversion_discount != null && anyM.conversion_discount !== '') {
     const d = anyM.conversion_discount as string | number;
-    parts.push(
-      `conversion_discount: ${normalizeNumericString(typeof d === 'number' ? d : String(d))}`
-    );
+    parts.push(`conversion_discount: ${normalizeNumericString(typeof d === 'number' ? d : String(d))}`);
   }
   const capMoney = anyM.conversion_valuation_cap;
   if (capMoney && typeof capMoney === 'object') {
@@ -259,9 +260,7 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
-          converts_to_percent: normalizeNumericString(
-            typeof ctp === 'number' ? ctp : String(ctp as string | number)
-          ),
+          converts_to_percent: normalizeNumericString(typeof ctp === 'number' ? ctp : String(ctp as string | number)),
           capitalization_definition: optionalString(obj.capitalization_definition as string | undefined),
           capitalization_definition_rules: mapWarrantCapitalizationRules(obj.capitalization_definition_rules),
         },
@@ -279,9 +278,7 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismFixedAmount',
         value: {
-          converts_to_quantity: normalizeNumericString(
-            typeof ctq === 'number' ? ctq : String(ctq as string | number)
-          ),
+          converts_to_quantity: normalizeNumericString(typeof ctq === 'number' ? ctq : String(ctq as string | number)),
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
     }
