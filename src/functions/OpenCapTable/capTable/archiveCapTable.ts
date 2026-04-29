@@ -57,6 +57,8 @@ export function buildArchiveCapTableCommand(params: ArchiveCapTableParams): Comm
  * @param client - LedgerJsonApiClient instance (must have system_operator credentials)
  * @param params - Archive parameters including contract ID and actAs parties
  * @returns The transaction ID
+ * @throws OcpValidationError if `capTableContractId` is missing
+ * @throws OcpContractError when the ledger rejects the archive choice (non-empty maps, wrong actor, etc.)
  *
  * @example
  * ```typescript

@@ -19,7 +19,7 @@ export interface OcpErrorDetails {
  * @example
  * ```typescript
  * try {
- *   await ocp.OpenCapTable.issuer.createIssuer(params);
+ *   const built = ocp.OpenCapTable.issuer.buildCreate({ ... });
  * } catch (error) {
  *   if (error instanceof OcpError) {
  *     console.error(`OCP Error [${error.code}]: ${error.message}`);

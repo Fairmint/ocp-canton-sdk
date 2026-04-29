@@ -45,9 +45,21 @@ export interface BatchItemMeta {
 }
 
 /**
- * Fluent builder for batch cap table updates.
+ * Fluent batch builder for cap table updates.
  *
- * Collects creates, edits, and deletes and builds them into a single UpdateCapTable command for atomic execution.
+ * Collects creates, edits, and deletes and builds them into a single `UpdateCapTable` choice for atomic execution.
+ *
+ * @example
+ * ```typescript
+ * const batch = ocp.OpenCapTable.capTable.update({
+ *   capTableContractId,
+ *   actAs: [issuerPartyId],
+ * });
+ * batch
+ *   .create('stakeholder', stakeholderOcf)
+ *   .create('stockClass', stockClassOcf);
+ * const { updatedCapTableCid, updateId } = await batch.execute();
+ * ```
  */
 export class CapTableBatch {
   private readonly params: CapTableBatchParams;
@@ -371,10 +383,8 @@ export class CapTableBatch {
   }
 
   /**
-   * Get detailed per-item metadata for all operations in the batch.
-   *
-   * Useful for error reporting and debugging - includes canonical object IDs, entity types,
-   * and key fields like security_id for issuance types.
+   * Per-item metadata for debugging (object ids, entity types)—does not include operation counts.
+   * @returns Copies of metadata gathered for each queued create, edit, and delete.
    */
   getDetailedSummary(): BatchItemDetails {
     return {
@@ -384,7 +394,10 @@ export class CapTableBatch {
     };
   }
 
-  /** Clear all operations from the batch. */
+  /**
+   * Remove all queued operations and metadata so the builder can be reused.
+   * @returns This instance for chaining.
+   */
   clear(): this {
     this.creates = [];
     this.edits = [];

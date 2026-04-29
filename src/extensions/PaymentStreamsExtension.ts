@@ -1,8 +1,15 @@
 /**
- * PaymentStreams extension for OcpClient.
+ * PaymentStreams integration: build ledger commands for recurring payment streams (factory → proposal → active stream).
  *
- * Provides recurring payment stream management operations.
- * Loaded as a plugin to avoid circular dependencies and reduce bundle size.
+ * Typical flow: `paymentStreamFactory.buildCreatePaymentStreamProposalCommand` → stakeholder exercises approve/start on
+ * `proposedPaymentStream` → `activePaymentStream` for processing payments or amendments. Use `utils.buildPaymentContext`
+ * when you need validator-backed disclosure for Amulet transfers (`validator` on {@link OcpClient}).
+ *
+ * @example
+ * ```typescript
+ * const createCmd = ocp.PaymentStreams.paymentStreamFactory.buildCreatePaymentStreamProposalCommand(params);
+ * await ocp.createBatch({ actAs: [payerParty] }).addBuiltCommand(createCmd).submitAndWaitForTransactionTree();
+ * ```
  */
 import type { ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';

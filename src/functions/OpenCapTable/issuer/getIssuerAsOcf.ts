@@ -79,6 +79,7 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
  * @param client - The ledger JSON API client
  * @param params - Parameters containing the contract ID
  * @returns The issuer data with `object_type: 'ISSUER'` discriminant and the contract ID
+ * @throws OcpParseError if the contract payload is missing required issuer fields
  *
  * @see https://schema.opencaptablecoalition.com/v/1.2.0/objects/Issuer.schema.json
  */

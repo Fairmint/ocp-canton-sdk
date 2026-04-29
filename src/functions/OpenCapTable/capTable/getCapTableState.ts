@@ -552,8 +552,12 @@ async function loadCurrentCapTables(
 }
 
 /**
- * Classifies whether the issuer has an active CapTable **on the pinned package line** (see module doc).
- * Other package lines are out of scope and do not affect `status`.
+ * Classifies whether the issuer has an active CapTable on **the pinned OpenCapTable package line** (see module doc).
+ *
+ * @param client - Ledger JSON API client
+ * @param issuerPartyId - Issuer party id to query (template-filtered active contracts)
+ * @returns `'current'` with context when exactly one matching CapTable exists; `'none'` otherwise
+ * @throws OcpContractError — e.g. multiple active CapTables, `SCHEMA_MISMATCH` when a row is not the pinned template
  */
 export async function classifyIssuerCapTables(
   client: LedgerJsonApiClient,
@@ -569,6 +573,11 @@ export async function classifyIssuerCapTables(
 /**
  * Reads CapTable state **on the pinned package line only**, or `null` if the filtered query finds no such contract.
  * This does not imply the issuer has no CapTable on other templates.
+ *
+ * @param client - Ledger JSON API client
+ * @param issuerPartyId - Issuer party id
+ * @returns {@link CapTableState} for the current package-line CapTable, or `null` if {@link classifyIssuerCapTables} is `none`
+ * @throws OcpContractError — same failure modes as {@link classifyIssuerCapTables} when loading the CapTable row
  */
 export async function getCapTableState(
   client: LedgerJsonApiClient,
