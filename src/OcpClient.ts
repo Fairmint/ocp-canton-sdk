@@ -6,7 +6,7 @@
  * - **OpenCapTable**: Core cap table operations (issuer, stakeholders, stock classes, issuances, etc.)
  * - **OpenCapTableReports**: Reporting operations (company valuations)
  *
- * Coupon minter, CantonPayments, and PaymentStreams live in `@fairmint/canton-fairmint-sdk` (`createFairmintOcpClient`).
+ * Payment-stream, coupon-minter, and related validator-backed helpers were removed in v0.4.0. Consumers that need those flows must implement them against the injected ledger and validator clients (or other integration of their choice).
  *
  * @example
  * ```typescript
@@ -359,6 +359,8 @@ export class OcpContextManager implements OcpContext {
  *
  * Prefer {@link OcpClient.context} to cache FeaturedAppRight, issuer party, and cap table contract id across calls.
  *
+ * Payment-stream, coupon-minter, and related flows are not included (removed in v0.4.0); implement them with the same injected `ledger` / `validator` clients or your own modules.
+ *
  * @example Wire client, read issuer, batch cap table update
  * ```typescript
  * import { OcpClient, toContractId, toPartyId } from '@open-captable-protocol/canton';
@@ -405,7 +407,7 @@ export class OcpClient {
 
   /**
    * @param dependencies - **`ledger`** — required for OpenCapTable reads, `CapTableBatch`, and report helpers.
-   * **`validator`** — optional for cap-table-only usage of this package.
+   * **`validator`** — optional when using cap-table-only APIs from this package.
    */
   constructor(dependencies: OcpClientDependencies) {
     this.ledger = dependencies.ledger;
@@ -747,6 +749,7 @@ export class OcpClient {
  * Clients consumed by {@link OcpClient}.
  *
  * Usually obtained from `new Canton({ network })` (or equivalent): pass `{ ledger: canton.ledger, validator: canton.validator }`.
+ * **`validator`** is optional for cap-table-only usage of this SDK.
  */
 export interface OcpClientDependencies {
   readonly ledger: LedgerJsonApiClient;
