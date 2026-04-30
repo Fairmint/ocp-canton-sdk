@@ -259,9 +259,10 @@ function warrantNestedConversionTrigger(
   };
 }
 
-function parseStockClassRatioMechanismForWarrant(
-  mechanism: unknown
-): { ratio: Fairmint.OpenCapTable.Types.Stock.OcfRatio; conversion_price: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary } {
+function parseStockClassRatioMechanismForWarrant(mechanism: unknown): {
+  ratio: Fairmint.OpenCapTable.Types.Stock.OcfRatio;
+  conversion_price: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary;
+} {
   if (!mechanism || typeof mechanism !== 'object') {
     throw new OcpValidationError(
       'conversion_right.conversion_mechanism',
@@ -384,10 +385,13 @@ function buildWarrantRight(
   // Absent conversion_right.type or WARRANT_* → legacy warrant-shaped right
 
   if (rightKind !== undefined && rightKind !== 'WARRANT_CONVERSION_RIGHT') {
-    throw new OcpParseError(`Unknown conversion_right.type: "${detailsRaw && typeof detailsRaw === 'object' && 'type' in detailsRaw ? String((detailsRaw as { type?: unknown }).type) : 'unknown'}"`, {
-      source: 'conversion_right.type',
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-    });
+    throw new OcpParseError(
+      `Unknown conversion_right.type: "${detailsRaw && typeof detailsRaw === 'object' && 'type' in detailsRaw ? String((detailsRaw as { type?: unknown }).type) : 'unknown'}"`,
+      {
+        source: 'conversion_right.type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      }
+    );
   }
 
   const mechanism = warrantMechanismToDamlVariant(
