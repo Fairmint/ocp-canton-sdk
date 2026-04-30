@@ -403,7 +403,6 @@ export class OcpClient {
   /** Reporting operations for cap table analytics */
   public readonly OpenCapTableReports: OpenCapTableReportsMethods;
 
-
   /**
    * @param dependencies - **`ledger`** — required for OpenCapTable reads, `CapTableBatch`, and report helpers.
    * **`validator`** — optional for cap-table-only usage of this package.
@@ -414,7 +413,6 @@ export class OcpClient {
 
     this.OpenCapTable = this.createOpenCapTableMethods();
     this.OpenCapTableReports = this.createOpenCapTableReportsMethods();
-
   }
 
   /**
@@ -741,7 +739,6 @@ export class OcpClient {
       },
     };
   }
-
 }
 
 // ===== Type Definitions =====
@@ -895,4 +892,3 @@ interface OpenCapTableReportsMethods {
     update: (params: UpdateCompanyValuationParams) => Promise<UpdateCompanyValuationResult>;
   };
 }
-
