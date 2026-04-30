@@ -176,8 +176,7 @@ function warrantMechanismToDamlVariant(
         value: {
           description: m.description,
           discount: m.discount,
-          discount_percentage:
-            dpct === '' || dpct == null ? null : normalizeNumericString(dpct),
+          discount_percentage: dpct === '' || dpct == null ? null : normalizeNumericString(dpct),
           discount_amount: m.discount_amount ? monetaryToDaml(m.discount_amount) : null,
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
@@ -228,9 +227,7 @@ function warrantNestedConversionTrigger(
 }
 
 /** Typed helper: convert a strict StockClassRatioConversionMechanismInput to DAML ratio fields. */
-function toDamlRatio(
-  mech: StockClassRatioConversionMechanismInput
-): {
+function toDamlRatio(mech: StockClassRatioConversionMechanismInput): {
   ratio: Fairmint.OpenCapTable.Types.Stock.OcfRatio;
   conversion_price: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary;
 } {
@@ -332,10 +329,10 @@ function buildWarrantRight(
     }
     default: {
       const _exhaustive: never = cr;
-      throw new OcpParseError(
-        `Unknown conversion_right.type: "${(_exhaustive as { type: string }).type}"`,
-        { source: 'conversion_right.type', code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
-      );
+      throw new OcpParseError(`Unknown conversion_right.type: "${(_exhaustive as { type: string }).type}"`, {
+        source: 'conversion_right.type',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
     }
   }
 }
