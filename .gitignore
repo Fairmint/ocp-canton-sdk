@@ -1,4 +1,6 @@
 node_modules/
+# Local GitHub wiki clone (separate repo; see CLAUDE.md)
+wiki/
 yarn.lock
 dist/
 package-lock.json
