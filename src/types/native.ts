@@ -70,6 +70,14 @@ export interface ConversionMechanismObject {
   rounding_type?: RoundingType;
 }
 
+/** RATIO_CONVERSION with ratio, price, and rounding required (warrant stock-class path). */
+export interface WarrantRatioConversionMechanism {
+  type: 'RATIO_CONVERSION';
+  ratio: NonNullable<ConversionMechanismObject['ratio']>;
+  conversion_price: NonNullable<ConversionMechanismObject['conversion_price']>;
+  rounding_type: NonNullable<ConversionMechanismObject['rounding_type']>;
+}
+
 /**
  * Enum - Conversion Trigger Type Type of conversion trigger OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/ConversionTriggerType.schema.json
@@ -187,7 +195,7 @@ export interface WarrantConversionRight {
  */
 export interface WarrantStockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: ConversionMechanismObject & { type: 'RATIO_CONVERSION' };
+  conversion_mechanism: WarrantRatioConversionMechanism;
   converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }

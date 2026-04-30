@@ -214,9 +214,18 @@ function extractOptionalMonetaryFromDaml(raw: unknown): Monetary | undefined {
   return undefined;
 }
 
+/** DAML JSON may encode enums as plain strings or `{ tag: "..." }`. */
+function damlEnumTagString(raw: unknown): string {
+  if (typeof raw === 'string') return raw;
+  if (raw && typeof raw === 'object' && typeof (raw as Record<string, unknown>).tag === 'string') {
+    return (raw as Record<string, unknown>).tag as string;
+  }
+  return '';
+}
+
 function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): WarrantStockClassConversionRight {
   const mechRaw = value.conversion_mechanism;
-  const mechanismTag = typeof mechRaw === 'string' ? mechRaw : '';
+  const mechanismTag = damlEnumTagString(mechRaw);
   if (mechanismTag !== 'OcfConversionMechanismRatioConversion') {
     throw new OcpParseError(
       `Unsupported OcfRightStockClass.conversion_mechanism "${mechanismTag || 'unknown'}" on warrant issuance`,
@@ -251,6 +260,8 @@ function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): Warr
     );
   }
 
+  // rounding_type is not on OcfStockClassConversionRight in DAML (generated JS type has ratio +
+  // conversion_price only for ratio mech). Match StockClass readback normalization in planSecurityAliases.
   const out: WarrantStockClassConversionRight = {
     type: 'STOCK_CLASS_CONVERSION_RIGHT',
     converts_to_stock_class_id: stockClassId,
