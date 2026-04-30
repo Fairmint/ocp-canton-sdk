@@ -153,9 +153,78 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
 
-  test('SAFE_CONVERSION on warrant throws OcpParseError with actionable message', () => {
-    // SAFE_CONVERSION is invalid for warrant issuance per OCF schema and DAML.
-    // The SDK must fail fast rather than silently produce a lossy mapping.
+  test('STOCK_CLASS_CONVERSION_RIGHT + RATIO_CONVERSION maps to OcfRightStockClass and round-trips', () => {
+    const stockClassId = '16faa6e5-b13a-4dda-bad2-885fccd2975a';
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        {
+          type: 'AUTOMATIC_ON_CONDITION' as const,
+          trigger_id: 'w_stock_ratio',
+          nickname: 'Test',
+          trigger_description: 'Warrant issuance stock-class conversion right',
+          trigger_condition: 'X',
+          conversion_right: {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+            converts_to_stock_class_id: stockClassId,
+            conversion_mechanism: {
+              type: 'RATIO_CONVERSION' as const,
+              ratio: { numerator: '3', denominator: '2' },
+              conversion_price: { amount: '10', currency: 'USD' },
+              rounding_type: 'NORMAL' as const,
+            },
+          },
+        },
+      ],
+    };
+
+    const daml = warrantIssuanceDataToDaml(input as Parameters<typeof warrantIssuanceDataToDaml>[0]);
+    const trig = daml.exercise_triggers[0];
+    expect(trig.conversion_right.tag).toBe('OcfRightStockClass');
+    const sr = trig.conversion_right.value as {
+      type_: string;
+      converts_to_stock_class_id: string;
+      conversion_mechanism: string;
+      ratio: { numerator: string; denominator: string };
+      conversion_price: { amount: string; currency: string };
+    };
+    expect(sr.type_).toBe('STOCK_CLASS_CONVERSION_RIGHT');
+    expect(sr.converts_to_stock_class_id).toBe(stockClassId);
+    expect(sr.conversion_mechanism).toBe('OcfConversionMechanismRatioConversion');
+    expect(sr.ratio.numerator).toBe('3');
+    expect(sr.ratio.denominator).toBe('2');
+    expect(sr.conversion_price.amount).toBe('10');
+    expect(sr.conversion_price.currency).toBe('USD');
+
+    const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input } as Record<string, unknown>;
+    const cantonData = roundTrip(input as Parameters<typeof warrantIssuanceDataToDaml>[0]);
+    expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
+  });
+
+  test('STOCK_CLASS_CONVERSION_RIGHT with unsupported mechanism throws OcpParseError', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        {
+          type: 'AUTOMATIC_ON_CONDITION' as const,
+          trigger_id: 'w_bad_mech',
+          trigger_condition: 'X',
+          conversion_right: {
+            type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+            converts_to_stock_class_id: '16faa6e5-b13a-4dda-bad2-885fccd2975a',
+            conversion_mechanism: {
+              type: 'CUSTOM_CONVERSION' as const,
+              custom_conversion_description: 'nope',
+            },
+          },
+        },
+      ],
+    } as Parameters<typeof warrantIssuanceDataToDaml>[0];
+    expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpParseError);
+    expect(() => warrantIssuanceDataToDaml(input)).toThrow(/CUSTOM_CONVERSION/);
+  });
+
+  test('SAFE_CONVERSION under WARRANT_CONVERSION_RIGHT throws OcpParseError', () => {
     const input = {
       ...baseWarrantIssuance,
       exercise_triggers: [
@@ -173,11 +242,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
     } as Parameters<typeof warrantIssuanceDataToDaml>[0];
     expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpParseError);
     expect(() => warrantIssuanceDataToDaml(input)).toThrow(/SAFE_CONVERSION/);
-    expect(() => warrantIssuanceDataToDaml(input)).toThrow(/invalid for warrant issuance/);
   });
 
-  test('CONVERTIBLE_NOTE_CONVERSION on warrant throws OcpParseError with actionable message', () => {
-    // CONVERTIBLE_NOTE_CONVERSION is invalid for warrant issuance per OCF schema and DAML.
+  test('CONVERTIBLE_NOTE_CONVERSION under WARRANT_CONVERSION_RIGHT throws OcpParseError', () => {
     const input = {
       ...baseWarrantIssuance,
       exercise_triggers: [
@@ -195,7 +262,6 @@ describe('WarrantIssuance round-trip equivalence', () => {
     } as Parameters<typeof warrantIssuanceDataToDaml>[0];
     expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpParseError);
     expect(() => warrantIssuanceDataToDaml(input)).toThrow(/CONVERTIBLE_NOTE_CONVERSION/);
-    expect(() => warrantIssuanceDataToDaml(input)).toThrow(/invalid for warrant issuance/);
   });
 
   test('unknown conversion_mechanism type throws OcpParseError (never emits undefined)', () => {

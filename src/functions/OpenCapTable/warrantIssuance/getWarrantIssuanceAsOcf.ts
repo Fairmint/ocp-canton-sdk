@@ -4,6 +4,7 @@ import type { GetByContractIdParams } from '../../../types/common';
 import type {
   ConversionTriggerType,
   OcfWarrantIssuance,
+  Monetary,
   VestingSimple,
   WarrantConversionMechanism,
   WarrantConversionRight,
@@ -13,8 +14,11 @@ import type {
   WarrantMechanismPercentCapitalization,
   WarrantMechanismPpsBased,
   WarrantMechanismValuationBased,
+  WarrantStockClassConversionRight,
+  WarrantTriggerConversionRight,
 } from '../../../types/native';
 import {
+  damlMonetaryToNative,
   damlMonetaryToNativeWithValidation,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
@@ -165,20 +169,9 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
   }
 }
 
-function mapAnyRightToWarrantRight(r: unknown): WarrantConversionRight {
-  // r is expected to be variant { tag: 'OcfRightWarrant', value: {...} }
-  if (!r || typeof r !== 'object' || !('value' in r)) {
-    throw new OcpValidationError('warrantRight', 'Invalid warrant right: expected object with value property', {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'object with value property',
-      receivedValue: r,
-    });
-  }
-  const rObj = r as { value: unknown };
-  const value = typeof rObj.value === 'object' && rObj.value ? (rObj.value as Record<string, unknown>) : {};
-
+function mapWarrantRightValueToNative(value: Record<string, unknown>): WarrantConversionRight {
   const mech = mapWarrantMechanism(value.conversion_mechanism);
-  const right: WarrantConversionRight = {
+  return {
     type: 'WARRANT_CONVERSION_RIGHT',
     conversion_mechanism: mech,
     ...(typeof value.converts_to_future_round === 'boolean'
@@ -188,7 +181,125 @@ function mapAnyRightToWarrantRight(r: unknown): WarrantConversionRight {
       ? { converts_to_stock_class_id: value.converts_to_stock_class_id }
       : {}),
   };
-  return right;
+}
+
+function extractRatioFromStockClassDaml(raw: unknown): { numerator: string; denominator: string } | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  let val: unknown = raw;
+  if ('tag' in (val as Record<string, unknown>)) {
+    const tagged = val as { tag: string; value?: unknown };
+    if (tagged.tag !== 'Some' || !tagged.value) return undefined;
+    val = tagged.value;
+  }
+  const r = val as Record<string, unknown>;
+  if (!('numerator' in r) || !('denominator' in r)) return undefined;
+  const num = r.numerator;
+  const den = r.denominator;
+  if (num == null || den == null) return undefined;
+  const numStr = typeof num === 'string' ? num : typeof num === 'number' ? num.toString() : null;
+  const denStr = typeof den === 'string' ? den : typeof den === 'number' ? den.toString() : null;
+  if (numStr === null || denStr === null) return undefined;
+  return { numerator: normalizeNumericString(numStr), denominator: normalizeNumericString(denStr) };
+}
+
+function extractOptionalMonetaryFromDaml(raw: unknown): Monetary | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const rec = raw as Record<string, unknown>;
+  if (rec.tag === 'Some' && rec.value && typeof rec.value === 'object') {
+    return damlMonetaryToNative(rec.value as Parameters<typeof damlMonetaryToNative>[0]);
+  }
+  if ('amount' in rec && 'currency' in rec) {
+    return damlMonetaryToNativeWithValidation(rec);
+  }
+  return undefined;
+}
+
+function mapStockClassWarrantRightFromDaml(value: Record<string, unknown>): WarrantStockClassConversionRight {
+  const mechRaw = value.conversion_mechanism;
+  const mechanismTag = typeof mechRaw === 'string' ? mechRaw : '';
+  if (mechanismTag !== 'OcfConversionMechanismRatioConversion') {
+    throw new OcpParseError(
+      `Unsupported OcfRightStockClass.conversion_mechanism "${mechanismTag || 'unknown'}" on warrant issuance`,
+      { source: 'warrantIssuance.conversion_right', code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
+    );
+  }
+
+  const stockClassId = value.converts_to_stock_class_id;
+  if (typeof stockClassId !== 'string' || !stockClassId.length) {
+    throw new OcpValidationError(
+      'warrantIssuance.conversion_right.converts_to_stock_class_id',
+      'Stock class conversion right requires converts_to_stock_class_id',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: stockClassId }
+    );
+  }
+
+  const ratio = extractRatioFromStockClassDaml(value.ratio);
+  if (!ratio) {
+    throw new OcpValidationError(
+      'warrantIssuance.conversion_right.ratio',
+      'OcfRightStockClass with ratio conversion requires ratio',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
+  }
+
+  const conversion_price = extractOptionalMonetaryFromDaml(value.conversion_price);
+  if (!conversion_price) {
+    throw new OcpValidationError(
+      'warrantIssuance.conversion_right.conversion_price',
+      'OcfRightStockClass with ratio conversion requires conversion_price',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
+  }
+
+  const out: WarrantStockClassConversionRight = {
+    type: 'STOCK_CLASS_CONVERSION_RIGHT',
+    converts_to_stock_class_id: stockClassId,
+    conversion_mechanism: {
+      type: 'RATIO_CONVERSION',
+      ratio,
+      conversion_price,
+      rounding_type: 'NORMAL',
+    },
+  };
+  if (typeof value.converts_to_future_round === 'boolean') {
+    out.converts_to_future_round = value.converts_to_future_round;
+  }
+  return out;
+}
+
+function mapAnyConversionRightFromDaml(r: unknown): WarrantTriggerConversionRight {
+  if (!r || typeof r !== 'object') {
+    throw new OcpValidationError('warrantRight', 'Invalid warrant conversion_right', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'object with tag and value',
+      receivedValue: r,
+    });
+  }
+
+  const variant = r as { tag?: string; value?: unknown };
+  const {tag} = variant;
+  const inner = variant.value;
+  const value =
+    typeof inner === 'object' && inner !== null ? (inner as Record<string, unknown>) : null;
+
+  if (!tag || !value) {
+    throw new OcpValidationError('warrantRight', 'Invalid warrant conversion_right: missing tag/value', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      receivedValue: r,
+    });
+  }
+
+  if (tag === 'OcfRightWarrant') {
+    return mapWarrantRightValueToNative(value);
+  }
+  if (tag === 'OcfRightStockClass') {
+    return mapStockClassWarrantRightFromDaml(value);
+  }
+
+  throw new OcpParseError(`Unknown warrant conversion_right tag: "${tag}"`, {
+    source: 'conversion_right.tag',
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+  });
 }
 
 function mapQuantitySource(qs: unknown): OcfWarrantIssuance['quantity_source'] | undefined {
@@ -239,7 +350,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
         const end_date: string | undefined =
           typeof r.end_date === 'string' && r.end_date.length ? r.end_date.split('T')[0] : undefined;
 
-        const conversion_right: WarrantConversionRight = mapAnyRightToWarrantRight(r.conversion_right);
+        const conversion_right: WarrantTriggerConversionRight = mapAnyConversionRightFromDaml(r.conversion_right);
 
         const t: WarrantExerciseTrigger = {
           type,

@@ -181,6 +181,20 @@ export interface WarrantConversionRight {
   converts_to_stock_class_id?: string;
 }
 
+/**
+ * WarrantIssuance ConversionTrigger.oneOf StockClassConversionRight (OCF) — exercised as
+ * DAML {@code OcfAnyConversionRight} tag {@code OcfRightStockClass}.
+ */
+export interface WarrantStockClassConversionRight {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT';
+  conversion_mechanism: ConversionMechanismObject & { type: 'RATIO_CONVERSION' };
+  converts_to_stock_class_id: string;
+  converts_to_future_round?: boolean;
+}
+
+/** Union — warrant exercise triggers may carry either variant per OCF {@code ConversionTrigger} schema */
+export type WarrantTriggerConversionRight = WarrantConversionRight | WarrantStockClassConversionRight;
+
 /** Warrant Exercise Trigger Describes when and how a warrant can be exercised */
 export interface WarrantExerciseTrigger {
   /** Type of trigger */
@@ -188,7 +202,7 @@ export interface WarrantExerciseTrigger {
   /** Unique identifier for this trigger */
   trigger_id: string;
   /** Conversion right associated with this trigger */
-  conversion_right: WarrantConversionRight;
+  conversion_right: WarrantTriggerConversionRight;
   /** Human-readable nickname for the trigger */
   nickname?: string;
   /** Description of trigger conditions */
