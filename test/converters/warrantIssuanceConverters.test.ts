@@ -339,7 +339,8 @@ describe('WarrantIssuance round-trip equivalence', () => {
           ...baseWarrantIssuance.exercise_triggers[0],
           conversion_right: {
             ...baseWarrantIssuance.exercise_triggers[0].conversion_right,
-            conversion_mechanism: null as unknown as (typeof baseWarrantIssuance.exercise_triggers)[0]['conversion_right']['conversion_mechanism'],
+            conversion_mechanism:
+              null as unknown as (typeof baseWarrantIssuance.exercise_triggers)[0]['conversion_right']['conversion_mechanism'],
           },
         },
       ],
