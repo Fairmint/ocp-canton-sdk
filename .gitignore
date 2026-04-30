@@ -4,6 +4,8 @@ dist/
 package-lock.json
 .env
 docs/
+# Local clone of GitHub wiki (see CLAUDE.md); not part of this repo
+wiki/
 .DS_Store
 coverage/
 .backup-*/
