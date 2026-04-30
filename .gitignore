@@ -1,3 +1,6 @@
+# Local clone of https://github.com/Fairmint/ocp-canton-sdk.wiki (see CLAUDE.md)
+wiki/
+
 node_modules/
 yarn.lock
 dist/
