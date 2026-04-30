@@ -70,6 +70,14 @@ export interface ConversionMechanismObject {
   rounding_type?: RoundingType;
 }
 
+/** RATIO_CONVERSION with ratio, price, and rounding required (warrant stock-class path). */
+export interface WarrantRatioConversionMechanism {
+  type: 'RATIO_CONVERSION';
+  ratio: NonNullable<ConversionMechanismObject['ratio']>;
+  conversion_price: NonNullable<ConversionMechanismObject['conversion_price']>;
+  rounding_type: NonNullable<ConversionMechanismObject['rounding_type']>;
+}
+
 /**
  * Enum - Conversion Trigger Type Type of conversion trigger OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/ConversionTriggerType.schema.json
@@ -181,6 +189,20 @@ export interface WarrantConversionRight {
   converts_to_stock_class_id?: string;
 }
 
+/**
+ * WarrantIssuance ConversionTrigger.oneOf StockClassConversionRight (OCF) — exercised as
+ * DAML {@code OcfAnyConversionRight} tag {@code OcfRightStockClass}.
+ */
+export interface WarrantStockClassConversionRight {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT';
+  conversion_mechanism: WarrantRatioConversionMechanism;
+  converts_to_stock_class_id: string;
+  converts_to_future_round?: boolean;
+}
+
+/** Union — warrant exercise triggers may carry either variant per OCF {@code ConversionTrigger} schema */
+export type WarrantTriggerConversionRight = WarrantConversionRight | WarrantStockClassConversionRight;
+
 /** Warrant Exercise Trigger Describes when and how a warrant can be exercised */
 export interface WarrantExerciseTrigger {
   /** Type of trigger */
@@ -188,7 +210,7 @@ export interface WarrantExerciseTrigger {
   /** Unique identifier for this trigger */
   trigger_id: string;
   /** Conversion right associated with this trigger */
-  conversion_right: WarrantConversionRight;
+  conversion_right: WarrantTriggerConversionRight;
   /** Human-readable nickname for the trigger */
   nickname?: string;
   /** Description of trigger conditions */
