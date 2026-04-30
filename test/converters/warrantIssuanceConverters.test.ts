@@ -178,7 +178,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       ],
     };
 
-    const daml = warrantIssuanceDataToDaml(input as Parameters<typeof warrantIssuanceDataToDaml>[0]);
+    const daml = warrantIssuanceDataToDaml(input);
     const trig = daml.exercise_triggers[0];
     expect(trig.conversion_right.tag).toBe('OcfRightStockClass');
     const sr = trig.conversion_right.value as {
@@ -197,11 +197,13 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(sr.conversion_price.currency).toBe('USD');
 
     const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input } as Record<string, unknown>;
-    const cantonData = roundTrip(input as Parameters<typeof warrantIssuanceDataToDaml>[0]);
+    const cantonData = roundTrip(input);
     expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
   });
 
   test('STOCK_CLASS_CONVERSION_RIGHT with unsupported mechanism throws OcpParseError', () => {
+    // Intentionally passing runtime-invalid data (CUSTOM_CONVERSION where RATIO_CONVERSION required)
+    // to verify the runtime guard in buildWarrantStockClassConversionRight.
     const input = {
       ...baseWarrantIssuance,
       exercise_triggers: [
@@ -213,13 +215,13 @@ describe('WarrantIssuance round-trip equivalence', () => {
             type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
             converts_to_stock_class_id: '16faa6e5-b13a-4dda-bad2-885fccd2975a',
             conversion_mechanism: {
-              type: 'CUSTOM_CONVERSION' as const,
+              type: 'CUSTOM_CONVERSION',
               custom_conversion_description: 'nope',
-            },
+            } as unknown as import('../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance').StockClassRatioConversionMechanismInput,
           },
         },
       ],
-    } as Parameters<typeof warrantIssuanceDataToDaml>[0];
+    };
     expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpParseError);
     expect(() => warrantIssuanceDataToDaml(input)).toThrow(/CUSTOM_CONVERSION/);
   });
