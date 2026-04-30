@@ -1,12 +1,12 @@
 /**
  * High-level client for interacting with Open Cap Table Protocol (OCP) contracts on Canton.
  *
- * The OcpClient provides a clean, organized API for all OCP operations, grouped by domain:
+ * The OcpClient provides a clean, organized API for OCP operations, grouped by domain:
  *
  * - **OpenCapTable**: Core cap table operations (issuer, stakeholders, stock classes, issuances, etc.)
  * - **OpenCapTableReports**: Reporting operations (company valuations)
- * - **CantonPayments**: Payment and airdrop operations
- * - **PaymentStreams**: Recurring payment stream management
+ *
+ * Coupon minter, CantonPayments, and PaymentStreams live in `@fairmint/canton-fairmint-sdk` (`createFairmintOcpClient`).
  *
  * @example
  * ```typescript
@@ -48,12 +48,6 @@ import type { LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-n
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
 import { OcpErrorCodes, OcpValidationError } from './errors';
-import {
-  createCantonPaymentsExtension,
-  createPaymentStreamsExtension,
-  type CantonPaymentsMethods,
-  type PaymentStreamsMethods,
-} from './extensions';
 import {
   addObserversToCompanyValuationReport,
   authorizeIssuer,
@@ -105,8 +99,6 @@ import {
   withdrawAuthorization,
   type AuthorizeIssuerParams,
   type AuthorizeIssuerResult,
-  type CanMintResult,
-  type CouponMinterPayload,
   type CreateCompanyValuationReportParams,
   type CreateCompanyValuationReportResult,
   type CreateIssuerParams,
@@ -115,15 +107,6 @@ import {
   type WithdrawAuthorizationParams,
   type WithdrawAuthorizationResult,
 } from './functions';
-import {
-  canMintCouponsNow,
-  getRateLimitStatus,
-  mintWithRateLimit,
-  waitUntilCanMint,
-  type MintWithRateLimitOptions,
-  type MintWithRateLimitResult,
-  type WaitUntilCanMintOptions,
-} from './functions/CouponMinter';
 import {
   archiveCapTable,
   CapTableBatch,
@@ -373,8 +356,6 @@ export class OcpContextManager implements OcpContext {
  * **Namespaced APIs** (each mirrors a domain of the DAML model):
  * - {@link OcpClient.OpenCapTable} — issuer, stakeholders, stock classes, issuances, `capTable` lifecycle and batch updates
  * - {@link OcpClient.OpenCapTableReports} — company valuation reports
- * - {@link OcpClient.CantonPayments} — airdrop-related ledger commands
- * - {@link OcpClient.PaymentStreams} — recurring payment stream proposals and active streams
  *
  * Prefer {@link OcpClient.context} to cache FeaturedAppRight, issuer party, and cap table contract id across calls.
  *
@@ -422,19 +403,10 @@ export class OcpClient {
   /** Reporting operations for cap table analytics */
   public readonly OpenCapTableReports: OpenCapTableReportsMethods;
 
-  /** CouponMinter utilities for TPS rate limit checking */
-  public readonly CouponMinter: CouponMinterMethods;
-
-  /** Payment and airdrop operations using Canton's native token */
-  public readonly CantonPayments: CantonPaymentsMethods;
-
-  /** Recurring payment stream management */
-  public readonly PaymentStreams: PaymentStreamsMethodsWithClient;
 
   /**
-   * @param dependencies - **`ledger`** — required for all OpenCapTable reads, `CapTableBatch`, and report helpers.
-   * **`validator`** — optional for most cap-table flows; required for
-   * {@link PaymentStreamsMethodsWithClient.utils.buildPaymentContext} and Amulet-backed payment context helpers.
+   * @param dependencies - **`ledger`** — required for OpenCapTable reads, `CapTableBatch`, and report helpers.
+   * **`validator`** — optional for cap-table-only usage of this package.
    */
   constructor(dependencies: OcpClientDependencies) {
     this.ledger = dependencies.ledger;
@@ -443,20 +415,6 @@ export class OcpClient {
     this.OpenCapTable = this.createOpenCapTableMethods();
     this.OpenCapTableReports = this.createOpenCapTableReportsMethods();
 
-    this.CouponMinter = {
-      canMintCouponsNow: (payload: CouponMinterPayload, now?: Date) => canMintCouponsNow(payload, now),
-      getRateLimitStatus: (payload: CouponMinterPayload, now?: Date) => getRateLimitStatus(payload, now),
-      waitUntilCanMint: async (payload: CouponMinterPayload, options?: WaitUntilCanMintOptions) =>
-        waitUntilCanMint(payload, options),
-      mintWithRateLimit: async <T>(
-        payload: CouponMinterPayload,
-        mintFn: () => Promise<T>,
-        options?: MintWithRateLimitOptions
-      ) => mintWithRateLimit(payload, mintFn, options),
-    };
-
-    this.CantonPayments = createCantonPaymentsExtension();
-    this.PaymentStreams = this.createPaymentStreamsMethods();
   }
 
   /**
@@ -784,27 +742,6 @@ export class OcpClient {
     };
   }
 
-  private createPaymentStreamsMethods(): PaymentStreamsMethodsWithClient {
-    const client = this.ledger;
-    const baseExtension = createPaymentStreamsExtension();
-
-    return {
-      ...baseExtension,
-      utils: {
-        ...baseExtension.utils,
-        getFactoryDisclosedContracts: () => baseExtension.utils.getFactoryDisclosedContracts(client),
-        getProposedPaymentStreamDisclosedContracts: async (
-          proposedPaymentStreamContractId: string,
-          readAs?: string[]
-        ) =>
-          baseExtension.utils.getProposedPaymentStreamDisclosedContracts(
-            client,
-            proposedPaymentStreamContractId,
-            readAs
-          ),
-      },
-    };
-  }
 }
 
 // ===== Type Definitions =====
@@ -959,44 +896,3 @@ interface OpenCapTableReportsMethods {
   };
 }
 
-interface CouponMinterMethods {
-  /** Check if minting is currently allowed based on rate limits */
-  canMintCouponsNow: (payload: CouponMinterPayload, now?: Date) => CanMintResult;
-
-  /** Get detailed rate limit status with additional context */
-  getRateLimitStatus: (
-    payload: CouponMinterPayload,
-    now?: Date
-  ) => CanMintResult & { waitSeconds?: number; isRateLimitEnabled: boolean };
-
-  /** Wait until minting is allowed, sleeping as needed */
-  waitUntilCanMint: (payload: CouponMinterPayload, options?: WaitUntilCanMintOptions) => Promise<void>;
-
-  /** Wait for rate limit then execute mint function (fire and forget style) */
-  mintWithRateLimit: <T>(
-    payload: CouponMinterPayload,
-    mintFn: () => Promise<T>,
-    options?: MintWithRateLimitOptions
-  ) => Promise<MintWithRateLimitResult<T>>;
-}
-
-/** PaymentStreams methods with client already bound for utils */
-interface PaymentStreamsMethodsWithClient extends Omit<PaymentStreamsMethods, 'utils'> {
-  utils: {
-    getFactoryDisclosedContracts: () => DisclosedContract[];
-    getProposedPaymentStreamDisclosedContracts: (
-      proposedPaymentStreamContractId: string,
-      readAs?: string[]
-    ) => Promise<DisclosedContract[]>;
-    buildPaymentContext: (
-      validatorClient: ValidatorApiClient,
-      provider: string
-    ) => Promise<import('./functions/PaymentStreams/utils/paymentContext').PaymentContextWithDisclosedContracts>;
-    buildPaymentContextWithAmulets: (
-      validatorClient: ValidatorApiClient,
-      payerParty: string,
-      requestedAmount: string,
-      provider: string
-    ) => Promise<import('./functions/PaymentStreams/utils/paymentContext').PaymentContextWithAmuletsAndDisclosed>;
-  };
-}
