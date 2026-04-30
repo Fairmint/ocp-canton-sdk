@@ -184,7 +184,8 @@ function warrantMechanismToDamlVariant(
         value: {
           description: mech.description,
           discount: mech.discount,
-          discount_percentage: dpct === '' || dpct == null ? null : normalizeNumericString(dpct),
+          discount_percentage:
+            dpct === '' || dpct == null ? null : normalizeNumericString(dpct),
           discount_amount: mech.discount_amount ? monetaryToDaml(mech.discount_amount) : null,
         },
       } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
@@ -234,7 +235,9 @@ function warrantNestedConversionTrigger(
 }
 
 /** Typed helper: convert a strict StockClassRatioConversionMechanismInput to DAML ratio fields. */
-function toDamlRatio(mech: StockClassRatioConversionMechanismInput): {
+function toDamlRatio(
+  mech: StockClassRatioConversionMechanismInput
+): {
   ratio: Fairmint.OpenCapTable.Types.Stock.OcfRatio;
   conversion_price: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary;
 } {
@@ -296,7 +299,7 @@ function buildWarrantStockClassConversionRight(
 function buildWarrantRight(
   exerciseTrigger: WarrantExerciseTriggerInput | undefined
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
-  if (typeof exerciseTrigger !== 'object') {
+  if (!exerciseTrigger || typeof exerciseTrigger !== 'object') {
     throw new OcpValidationError(
       'warrantTrigger.conversion_right',
       'conversion_right is required for each warrant exercise trigger',
@@ -344,10 +347,10 @@ function buildWarrantRight(
     }
     default: {
       const _exhaustive: never = cr;
-      throw new OcpParseError(`Unknown conversion_right.type: "${(_exhaustive as { type: string }).type}"`, {
-        source: 'conversion_right.type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
+      throw new OcpParseError(
+        `Unknown conversion_right.type: "${(_exhaustive as { type: string }).type}"`,
+        { source: 'conversion_right.type', code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
+      );
     }
   }
 }
@@ -388,13 +391,6 @@ function quantitySourceToDamlEnum(
 }
 
 function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _ocfId: string) {
-  if (typeof t === 'string') {
-    throw new OcpValidationError(
-      'warrantTrigger',
-      'Warrant exercise triggers must be objects with trigger_id and conversion_right',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-    );
-  }
   const typeEnum = triggerTypeToDamlEnum(normalizeTriggerType(t.type));
   if (!t.trigger_id) {
     throw new OcpValidationError(
@@ -412,8 +408,8 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
     conversion_right,
     trigger_date: typeof t.trigger_date === 'string' ? dateStringToDAMLTime(t.trigger_date) : null,
     trigger_condition: typeof t.trigger_condition === 'string' ? t.trigger_condition : null,
-    start_date: t.start_date ? dateStringToDAMLTime(t.start_date) : null,
-    end_date: t.end_date ? dateStringToDAMLTime(t.end_date) : null,
+    start_date: typeof t.start_date === 'string' && t.start_date ? dateStringToDAMLTime(t.start_date) : null,
+    end_date: typeof t.end_date === 'string' && t.end_date ? dateStringToDAMLTime(t.end_date) : null,
   };
 }
 

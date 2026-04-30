@@ -3,8 +3,8 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
   ConversionTriggerType,
-  Monetary,
   OcfWarrantIssuance,
+  Monetary,
   VestingSimple,
   WarrantConversionMechanism,
   WarrantConversionRight,
@@ -288,9 +288,10 @@ function mapAnyConversionRightFromDaml(r: unknown): WarrantTriggerConversionRigh
   }
 
   const variant = r as { tag?: string; value?: unknown };
-  const { tag } = variant;
+  const {tag} = variant;
   const inner = variant.value;
-  const value = typeof inner === 'object' && inner !== null ? (inner as Record<string, unknown>) : null;
+  const value =
+    typeof inner === 'object' && inner !== null ? (inner as Record<string, unknown>) : null;
 
   if (!tag || !value) {
     throw new OcpValidationError('warrantRight', 'Invalid warrant conversion_right: missing tag/value', {
