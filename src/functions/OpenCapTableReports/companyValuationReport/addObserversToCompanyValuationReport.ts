@@ -60,7 +60,7 @@ export async function addObserversToCompanyValuationReport(
     added: params.added,
   };
 
-  const response = (await client.submitAndWaitForTransactionTree({
+  const response = await client.submitAndWaitForTransactionTree({
     actAs: [systemOperator],
     commands: [
       {
@@ -72,7 +72,7 @@ export async function addObserversToCompanyValuationReport(
         },
       },
     ],
-  })) as SubmitAndWaitForTransactionTreeResponse;
+  });
 
   const created = findCreatedEventByTemplateId(
     response,

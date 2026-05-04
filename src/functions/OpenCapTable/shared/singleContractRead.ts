@@ -62,7 +62,7 @@ export function extractCreateArgument(
     });
   }
 
-  return createArgument as Record<string, unknown>;
+  return createArgument;
 }
 
 function requireCreateArgumentRecord(

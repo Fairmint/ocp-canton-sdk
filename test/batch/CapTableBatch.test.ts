@@ -404,7 +404,7 @@ describe('CapTableBatch', () => {
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
-      } as OcfStakeholder);
+      });
 
       await expect(batch.execute()).rejects.toThrow(/Batch execution failed: DAML_FAILURE: Invalid contract/);
       await expect(batch.execute()).rejects.toThrow(/\[batch: 1 creates, 0 edits, 0 deletes; types: Stakeholder\]/);
@@ -428,7 +428,7 @@ describe('CapTableBatch', () => {
           id: 'sh-123',
           name: { legal_name: 'John Doe' },
           stakeholder_type: 'INDIVIDUAL',
-        } as OcfStakeholder)
+        })
         .edit('stockClass', {
           id: 'sc-123',
           name: 'Common Stock',
@@ -437,7 +437,7 @@ describe('CapTableBatch', () => {
           initial_shares_authorized: '10000000',
           votes_per_share: '1',
           seniority: '1',
-        } as OcfStockClass)
+        })
         .delete('document', 'doc-123');
 
       await expect(batch.execute()).rejects.toThrow(/\[batch: 1 creates, 1 edits, 1 deletes/);

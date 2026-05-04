@@ -223,7 +223,7 @@ function damlVestingTriggerToNative(t: string | { tag?: string; value?: Record<s
       !periodValue ||
       typeof periodValue !== 'object' ||
       !('tag' in periodValue) ||
-      typeof (periodValue as { tag: unknown }).tag !== 'string'
+      typeof periodValue.tag !== 'string'
     ) {
       throw new OcpValidationError('vestingTrigger.period', 'Invalid period in OcfVestingScheduleRelativeTrigger', {
         code: OcpErrorCodes.INVALID_TYPE,
@@ -277,7 +277,7 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
     if (
       typeof portionUnknown === 'object' &&
       'tag' in portionUnknown &&
-      (portionUnknown as { tag: unknown }).tag === 'Some' &&
+      portionUnknown.tag === 'Some' &&
       'value' in portionUnknown
     ) {
       const { value } = portionUnknown as { value: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion };

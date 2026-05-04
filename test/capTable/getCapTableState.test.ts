@@ -858,7 +858,7 @@ describe('getCapTableState', () => {
         },
       ];
 
-      mockActiveContractsForCapTableState(mockClient, { current: mockMalformedResponse as unknown[] });
+      mockActiveContractsForCapTableState(mockClient, { current: mockMalformedResponse });
 
       await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toThrow(
         /Invalid CapTable contract response/

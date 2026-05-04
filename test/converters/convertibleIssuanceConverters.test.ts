@@ -381,7 +381,7 @@ describe('SAFE conversion_timing round-trip', () => {
       ],
     };
     const daml = convertibleIssuanceDataToDaml(input);
-    return damlConvertibleIssuanceDataToNative(daml as unknown as Record<string, unknown>);
+    return damlConvertibleIssuanceDataToNative(daml);
   }
 
   it('POST_MONEY survives OCF → DAML → OCF round-trip', () => {
@@ -443,7 +443,7 @@ describe('POST_MONEY SAFE – production fixture round-trip', () => {
     const daml = convertibleIssuanceDataToDaml(
       fixture as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]
     );
-    const result = damlConvertibleIssuanceDataToNative(daml as unknown as Record<string, unknown>);
+    const result = damlConvertibleIssuanceDataToNative(daml);
 
     const trigger = result.conversion_triggers[0];
     const right = trigger.conversion_right;

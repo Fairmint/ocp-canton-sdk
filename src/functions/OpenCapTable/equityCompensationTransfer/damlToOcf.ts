@@ -20,5 +20,5 @@ export type DamlEquityCompensationTransferData = DamlQuantityTransferData;
 export function damlEquityCompensationTransferToNative(
   d: DamlEquityCompensationTransferData
 ): OcfEquityCompensationTransfer {
-  return quantityTransferToNative(d) as OcfEquityCompensationTransfer;
+  return quantityTransferToNative(d);
 }

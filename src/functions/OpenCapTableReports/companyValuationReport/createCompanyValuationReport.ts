@@ -33,10 +33,10 @@ export async function createCompanyValuationReport(
 ): Promise<CreateCompanyValuationReportResult> {
   const { command, disclosedContracts } = buildCreateCompanyValuationReportCommand(client, params);
 
-  const response = (await client.submitAndWaitForTransactionTree({
+  const response = await client.submitAndWaitForTransactionTree({
     commands: [command],
     disclosedContracts,
-  })) as SubmitAndWaitForTransactionTreeResponse;
+  });
 
   const created = findCreatedEventByTemplateId(
     response,

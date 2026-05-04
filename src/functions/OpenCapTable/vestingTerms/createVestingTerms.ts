@@ -127,13 +127,13 @@ function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.Vest
       return {
         tag: 'OcfVestingStartTrigger',
         value: {},
-      } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
+      };
 
     case 'VESTING_EVENT':
       return {
         tag: 'OcfVestingEventTrigger',
         value: {},
-      } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
+      };
 
     case 'VESTING_SCHEDULE_ABSOLUTE':
       if (!isIsoDateString(t.date)) {
@@ -151,7 +151,7 @@ function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.Vest
         value: {
           date: dateStringToDAMLTime(t.date),
         },
-      } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
+      };
 
     case 'VESTING_SCHEDULE_RELATIVE': {
       if (typeof t.relative_to_condition_id !== 'string' || t.relative_to_condition_id.length === 0) {
@@ -232,10 +232,10 @@ function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.Vest
       return {
         tag: 'OcfVestingScheduleRelativeTrigger',
         value: {
-          period: period as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingPeriod,
+          period,
           relative_to_condition_id: t.relative_to_condition_id,
         },
-      } as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingTrigger;
+      };
     }
 
     default: {

@@ -272,7 +272,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
                     return value.converts_to_quantity;
                   })()
             ),
-          } as FixedAmountMechanism;
+          };
           return mech;
         }
         case 'OcfConvMechValuationBased': {

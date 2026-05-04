@@ -9,11 +9,6 @@ import type {
   WarrantConversionMechanism,
   WarrantConversionRight,
   WarrantExerciseTrigger,
-  WarrantMechanismCustom,
-  WarrantMechanismFixedAmount,
-  WarrantMechanismPercentCapitalization,
-  WarrantMechanismPpsBased,
-  WarrantMechanismValuationBased,
   WarrantStockClassConversionRight,
   WarrantTriggerConversionRight,
 } from '../../../types/native';
@@ -72,9 +67,9 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
           ? { capitalization_definition: value.capitalization_definition }
           : {}),
         ...(value.capitalization_definition_rules
-          ? { capitalization_definition_rules: value.capitalization_definition_rules as Record<string, unknown> }
+          ? { capitalization_definition_rules: value.capitalization_definition_rules }
           : {}),
-      } as WarrantMechanismPercentCapitalization;
+      };
     case 'OcfWarrantMechanismFixedAmount':
       return {
         type: 'FIXED_AMOUNT_CONVERSION',
@@ -96,7 +91,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
                 return value.converts_to_quantity;
               })()
         ),
-      } as WarrantMechanismFixedAmount;
+      };
     case 'OcfWarrantMechanismValuationBased': {
       const valuationAmount = damlMonetaryToNativeWithValidation(value.valuation_amount as Record<string, unknown>);
       if (typeof value.valuation_type !== 'string' || !value.valuation_type) {
@@ -114,9 +109,9 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
           ? { capitalization_definition: value.capitalization_definition }
           : {}),
         ...(value.capitalization_definition_rules
-          ? { capitalization_definition_rules: value.capitalization_definition_rules as Record<string, unknown> }
+          ? { capitalization_definition_rules: value.capitalization_definition_rules }
           : {}),
-      } as WarrantMechanismValuationBased;
+      };
     }
     case 'OcfWarrantMechanismPpsBased': {
       const discountAmount = damlMonetaryToNativeWithValidation(value.discount_amount as Record<string, unknown>);
@@ -143,7 +138,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
             }
           : {}),
         ...(discountAmount ? { discount_amount: discountAmount } : {}),
-      } as WarrantMechanismPpsBased;
+      };
     }
     case 'OcfWarrantMechanismCustom':
       if (typeof value.custom_conversion_description !== 'string' || !value.custom_conversion_description) {
@@ -160,7 +155,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
       return {
         type: 'CUSTOM_CONVERSION',
         custom_conversion_description: value.custom_conversion_description,
-      } as WarrantMechanismCustom;
+      };
     default:
       throw new OcpParseError(`Unknown warrant mechanism: ${tag}`, {
         source: 'warrantMechanism.tag',

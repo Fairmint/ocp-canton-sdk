@@ -1049,10 +1049,7 @@ export async function setupStockSecurity(
   const result3 = await batch3.create('stockIssuance', stockIssuanceData).execute();
 
   // Extract the stock issuance contract ID from the result
-  const stockIssuanceContractId = extractCreatedCid(
-    result3.createdCids as unknown as Array<Record<string, string>>,
-    'CidStockIssuance'
-  );
+  const stockIssuanceContractId = extractCreatedCid(result3.createdCids, 'CidStockIssuance');
 
   return {
     securityId,
@@ -1123,10 +1120,7 @@ export async function setupWarrantSecurity(
   const result2 = await batch2.create('warrantIssuance', warrantIssuanceData).execute();
 
   // Extract the warrant issuance contract ID from the result
-  const warrantIssuanceContractId = extractCreatedCid(
-    result2.createdCids as unknown as Array<Record<string, string>>,
-    'CidWarrantIssuance'
-  );
+  const warrantIssuanceContractId = extractCreatedCid(result2.createdCids, 'CidWarrantIssuance');
 
   return {
     securityId,
@@ -1225,10 +1219,7 @@ export async function setupEquityCompensationSecurity(
   const result3 = await batch3.create('equityCompensationIssuance', eqCompIssuanceData).execute();
 
   // Extract the equity compensation issuance contract ID from the result
-  const equityCompensationIssuanceContractId = extractCreatedCid(
-    result3.createdCids as unknown as Array<Record<string, string>>,
-    'CidEquityCompensationIssuance'
-  );
+  const equityCompensationIssuanceContractId = extractCreatedCid(result3.createdCids, 'CidEquityCompensationIssuance');
 
   return {
     securityId,
@@ -1302,10 +1293,7 @@ export async function setupConvertibleSecurity(
   const result2 = await batch2.create('convertibleIssuance', convertibleIssuanceData).execute();
 
   // Extract the convertible issuance contract ID from the result
-  const convertibleIssuanceContractId = extractCreatedCid(
-    result2.createdCids as unknown as Array<Record<string, string>>,
-    'CidConvertibleIssuance'
-  );
+  const convertibleIssuanceContractId = extractCreatedCid(result2.createdCids, 'CidConvertibleIssuance');
 
   return {
     securityId,

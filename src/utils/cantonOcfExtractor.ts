@@ -530,7 +530,7 @@ export async function extractCantonOcfManifest(
             result.vestingTerms.push(vestingTerms as unknown as Record<string, unknown>);
           } else if (entityType === 'stockIssuance') {
             const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(stockIssuance as unknown as Record<string, unknown>);
+            result.transactions.push(stockIssuance);
           } else if (entityType === 'convertibleIssuance') {
             const { event } = await getConvertibleIssuanceAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(event as unknown as Record<string, unknown>);
@@ -570,10 +570,7 @@ export async function extractCantonOcfManifest(
               ...readScopeOpts,
             });
             result.stockLegendTemplates.push(stockLegendTemplate as unknown as Record<string, unknown>);
-          } else if (
-            SUPPORTED_READ_TYPES.has(entityType as SupportedOcfReadType) &&
-            TRANSACTION_ENTITY_TYPES.has(entityType)
-          ) {
+          } else if (SUPPORTED_READ_TYPES.has(entityType) && TRANSACTION_ENTITY_TYPES.has(entityType)) {
             // Handle remaining transaction types with the generic dispatcher
             const supportedType = entityType as SupportedOcfReadType;
             const { data } = await getEntityAsOcf(client, supportedType, contractId, readScopeOpts);

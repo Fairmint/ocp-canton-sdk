@@ -91,7 +91,7 @@ describe('Required Field Validation', () => {
     });
 
     test('succeeds with valid data', () => {
-      const result = stockIssuanceDataToDaml(validBaseData as OcfStockIssuance);
+      const result = stockIssuanceDataToDaml(validBaseData);
       expect(result.id).toBe('iss-001');
       expect(result.security_id).toBe('sec-001');
     });

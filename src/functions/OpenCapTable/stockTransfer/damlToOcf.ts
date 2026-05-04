@@ -18,5 +18,5 @@ export type DamlStockTransferData = DamlQuantityTransferData;
  * @returns The native OCF StockTransfer object
  */
 export function damlStockTransferToNative(d: DamlStockTransferData): OcfStockTransfer {
-  return quantityTransferToNative(d) as OcfStockTransfer;
+  return quantityTransferToNative(d);
 }

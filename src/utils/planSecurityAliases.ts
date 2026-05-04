@@ -452,7 +452,7 @@ function normalizeQuantitySource<T extends Record<string, unknown>>(data: T): T 
   // Case 2: Add quantity_source: 'UNSPECIFIED' if quantity IS present but quantity_source is missing
   // This matches the OCF-to-DAML converter behavior that defaults to 'UNSPECIFIED'
   if (quantity !== null && quantity !== undefined && quantitySource === undefined) {
-    return { ...data, quantity_source: 'UNSPECIFIED' } as T;
+    return { ...data, quantity_source: 'UNSPECIFIED' };
   }
 
   return data;
@@ -991,7 +991,7 @@ function normalizeCapitalizationDefinitionRules<T extends Record<string, unknown
 
   const changed = normalizedTriggers.some((t, i) => t !== triggers[i]);
   if (!changed) return data;
-  return { ...data, conversion_triggers: normalizedTriggers } as T;
+  return { ...data, conversion_triggers: normalizedTriggers };
 }
 
 /**

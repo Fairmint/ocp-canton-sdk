@@ -58,7 +58,7 @@ export class OcpContractError extends OcpError {
 
   constructor(message: string, options?: OcpContractErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CHOICE_FAILED;
-    const context = { ...options?.context } as OcpErrorContext;
+    const context = { ...options?.context };
     if (options?.contractId !== undefined) {
       context.contractId = options.contractId;
     }
