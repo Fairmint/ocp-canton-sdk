@@ -5,7 +5,8 @@
 The repository **README** is contributor-focused (implementation guidance for maintainers and AI
 assistants). Use this wiki for consumer-facing links, architecture, and workflows.
 
-**End-user / docs site:** [ocp.canton.fairmint.com](https://ocp.canton.fairmint.com/) (source: [Fairmint/web](https://github.com/Fairmint/web))
+**End-user / docs site:** [ocp.canton.fairmint.com](https://ocp.canton.fairmint.com/) (source:
+[Fairmint/web](https://github.com/Fairmint/web))
 
 ## Clone this wiki locally (AI agents: run first)
 
@@ -132,9 +133,18 @@ Each operation exports: `Params`, `Result`, function, and optionally `buildXComm
 
 ### OcpClient API (consumer-facing)
 
-The `OcpClient` is the primary API surface. Construct it with **`LedgerJsonApiClient`** (required) and **`ValidatorApiClient`** (optional), typically from `new Canton({ ... })` in `@fairmint/canton-node-sdk`. The SDK does not build hidden clients; the same instances you pass in are exposed as `ocp.ledger` and `ocp.validator`.
+The `OcpClient` is the primary API surface. Construct it with **`LedgerJsonApiClient`** (required)
+and **`ValidatorApiClient`** (optional), typically from `new Canton({ ... })` in
+`@fairmint/canton-node-sdk`. The SDK does not build hidden clients; the same instances you pass in
+are exposed as `ocp.ledger` and `ocp.validator`.
 
-Methods are grouped under **`OpenCapTable`** and **`context`**. **Company valuation reports** (OpenCapTableReports DAML) live in **`@fairmint/canton-fairmint-sdk`** (`createFairmintOcpClient`) with **`@fairmint/daml-js`** — not in this OCP-only package (since v0.5.0). Payment-stream, coupon-minter, and similar validator-backed helpers are not part of this package (removed in v0.4.0); pass **`validator`** when your own integration needs it. Use **`createBatch`** for custom `TransactionBatch` composition; for cap-table updates prefer **`OpenCapTable.capTable.update`**. See **`OcpClient`** in source and **`dist/index.d.ts`** for the full surface.
+Methods are grouped under **`OpenCapTable`** and **`context`**. **Company valuation reports**
+(OpenCapTableReports DAML) live in **`@fairmint/canton-fairmint-sdk`** (`createFairmintOcpClient`)
+with **`@fairmint/daml-js`** — not in this OCP-only package (since v0.5.0). Payment-stream,
+coupon-minter, and similar validator-backed helpers are not part of this package (removed in
+v0.4.0); pass **`validator`** when your own integration needs it. Use **`createBatch`** for custom
+`TransactionBatch` composition; for cap-table updates prefer **`OpenCapTable.capTable.update`**. See
+**`OcpClient`** in source and **`dist/index.d.ts`** for the full surface.
 
 ```typescript
 import { Canton } from '@fairmint/canton-node-sdk';
@@ -161,10 +171,18 @@ await batch.execute();
 
 ### Warrant issuance (batch + readback)
 
-- **Batch key:** `warrantIssuance` on `capTable.update().create('warrantIssuance', …)` (same pattern as other cap-table creates).
-- **Read shape:** `getWarrantIssuanceAsOcf` in `src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf.ts` returns OCF with `object_type: 'TX_WARRANT_ISSUANCE'`.
-- **Optional dates:** When present on the contract, `board_approval_date` and `stockholder_approval_date` are included in DAML→OCF conversion (`damlWarrantIssuanceDataToNative`) so Canton readback matches stored OCF and replication parity checks stay clean.
-- **Schema:** [WarrantIssuance.schema.json](https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/WarrantIssuance.schema.json) (OCF).
+- **Batch key:** `warrantIssuance` on `capTable.update().create('warrantIssuance', …)` (same pattern
+  as other cap-table creates).
+- **Read shape:** `getWarrantIssuanceAsOcf` in
+  `src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf.ts` returns OCF with
+  `object_type: 'TX_WARRANT_ISSUANCE'`.
+- **Optional dates:** When present on the contract, `board_approval_date` and
+  `stockholder_approval_date` are included in DAML→OCF conversion
+  (`damlWarrantIssuanceDataToNative`) so Canton readback matches stored OCF and replication parity
+  checks stay clean.
+- **Schema:**
+  [WarrantIssuance.schema.json](https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/WarrantIssuance.schema.json)
+  (OCF).
 
 ```typescript
 // Cap table snapshot (replication): null if none; errors if >1 active CapTable on the supported package line
@@ -172,7 +190,12 @@ const state = await ocp.OpenCapTable.capTable.getState(issuerPartyId);
 const classification = await ocp.OpenCapTable.capTable.classify(issuerPartyId); // 'current' | 'none'
 ```
 
-**Read scope (`readAs`):** Single-contract reads use `getEventsByContractId` and accept optional **`readAs`** on params (e.g. `get*AsOcf`, `extractCantonOcfManifest`). **`getCapTableState`** applies **`readAs: [issuerPartyId]`** when loading the issuer contract’s create event so issuer-scoped visibility works even when the Ledger API user is not the issuer party. Pass **`readAs`** into manifest extraction (and other readers) when your client acts for a different visibility party—same idea as optional **`readAs`** on **`capTable.update`**.
+**Read scope (`readAs`):** Single-contract reads use `getEventsByContractId` and accept optional
+**`readAs`** on params (e.g. `get*AsOcf`, `extractCantonOcfManifest`). **`getCapTableState`**
+applies **`readAs: [issuerPartyId]`** when loading the issuer contract’s create event so
+issuer-scoped visibility works even when the Ledger API user is not the issuer party. Pass
+**`readAs`** into manifest extraction (and other readers) when your client acts for a different
+visibility party—same idea as optional **`readAs`** on **`capTable.update`**.
 
 ### Internal function pattern
 
@@ -225,7 +248,8 @@ import {
 
 1. **Validate before converting** — Check for null/undefined before calling conversion functions
 2. **Use `.toString()` not `String()`** — When you've validated a value is not null/undefined
-3. **Let validation functions throw** — Functions like `normalizeNumericString()` throw on invalid input
+3. **Let validation functions throw** — Functions like `normalizeNumericString()` throw on invalid
+   input
 4. **Example pattern:**
 
 ```typescript
@@ -387,12 +411,23 @@ CANTON_LOCALNET_FORCE_FULL_START=true npm run localnet:start
 
 ### OCP DAR file (integration deploy & quickstart)
 
-The Open Cap Table **DAR path** is resolved from the pinned **`@fairmint/open-captable-protocol-daml-js`** package only (no hardcoded `OpenCapTable-v*` folders in this repo).
+The Open Cap Table **DAR path** is resolved from the pinned
+**`@fairmint/open-captable-protocol-daml-js`** package only (no hardcoded `OpenCapTable-v*` folders
+in this repo).
 
-- Import **`resolveOpenCapTableDarPath`** from **`@fairmint/open-captable-protocol-daml-js/openCapTableDarPath`**. This module is the single source of truth; it resolves the packaged DAR or a build from a sibling **`open-captable-protocol-daml`** checkout / env as the package defines.
-- This repo wraps it in **`resolveOpenCapTableDarForOcpSdkRepo()`** (`scripts/lib/resolveOpenCapTableDarForOcpSdkRepo.ts`), used by **`test/integration/setup/contractDeployment.ts`** and **`scripts/quickstart/deployContracts.ts`**.
-- The package **root** export is browser-safe (no `fs`); DAR path resolution lives on the **`openCapTableDarPath`** subpath (`resolveOpenCapTableDarPath`).
-- Keep **`@fairmint/open-captable-protocol-daml-js`** at or above the **`peerDependencies`** floor in `package.json` (currently **≥ 0.2.160**). If resolution fails, install or upgrade the npm package or build the DAR from **`open-captable-protocol-daml`** as the error message describes.
+- Import **`resolveOpenCapTableDarPath`** from
+  **`@fairmint/open-captable-protocol-daml-js/openCapTableDarPath`**. This module is the single
+  source of truth; it resolves the packaged DAR or a build from a sibling
+  **`open-captable-protocol-daml`** checkout / env as the package defines.
+- This repo wraps it in **`resolveOpenCapTableDarForOcpSdkRepo()`**
+  (`scripts/lib/resolveOpenCapTableDarForOcpSdkRepo.ts`), used by
+  **`test/integration/setup/contractDeployment.ts`** and
+  **`scripts/quickstart/deployContracts.ts`**.
+- The package **root** export is browser-safe (no `fs`); DAR path resolution lives on the
+  **`openCapTableDarPath`** subpath (`resolveOpenCapTableDarPath`).
+- Keep **`@fairmint/open-captable-protocol-daml-js`** at or above the **`peerDependencies`** floor
+  in `package.json` (currently **≥ 0.2.160**). If resolution fails, install or upgrade the npm
+  package or build the DAR from **`open-captable-protocol-daml`** as the error message describes.
 
 **Pre-push checklist:**
 
@@ -407,21 +442,32 @@ When upgrading `@fairmint/open-captable-protocol-daml-js`:
 1. Check release notes for breaking changes in field types
 2. Run `npm run test:integration` (not just unit tests)
 3. Verify OCF-to-DAML converters encode union types correctly
-4. **DAR path:** LocalNet deploy and integration setup use `openCapTableDarPath` / `resolveOpenCapTableDarPath()` from the package (via `resolveOpenCapTableDarForOcpSdkRepo` here). You do not update versioned paths under `node_modules` in this repo.
-5. **0.2.147+** — the package no longer applies a postinstall patch; `npm ci` / `npm install` is sufficient
+4. **DAR path:** LocalNet deploy and integration setup use `openCapTableDarPath` /
+   `resolveOpenCapTableDarPath()` from the package (via `resolveOpenCapTableDarForOcpSdkRepo` here).
+   You do not update versioned paths under `node_modules` in this repo.
+5. **0.2.147+** — the package no longer applies a postinstall patch; `npm ci` / `npm install` is
+   sufficient
 
 ## NPM Publishing
 
-Releases run from **`.github/workflows/publish.yml`** on pushes to `main` or **`workflow_dispatch`**.
+Releases run from **`.github/workflows/publish.yml`** on pushes to `main` or
+**`workflow_dispatch`**.
 
 ### How It Works
 
 1. **PR → merge to `main`** (with review as usual).
-2. **Publish workflow:** installs deps, initializes the OCF submodule, **`npm run build`**, **`npm run prepare-release`** (patch bump + changelog unless you already set minor/major in `package.json`), then **`npm publish`**.
-3. **npm Trusted Publishing (OIDC):** the job sets **`id-token: write`**, uses Node **22.14**, and upgrades to **npm 11.10.0** (per workflow comments). It does **not** set **`NODE_AUTH_TOKEN`**. With [Trusted Publisher](https://docs.npmjs.com/trusted-publishers) configured for this repo on npmjs.org, **no long-lived `NPM_TOKEN` secret** is needed for that workflow.
+2. **Publish workflow:** installs deps, initializes the OCF submodule, **`npm run build`**,
+   **`npm run prepare-release`** (patch bump + changelog unless you already set minor/major in
+   `package.json`), then **`npm publish`**.
+3. **npm Trusted Publishing (OIDC):** the job sets **`id-token: write`**, uses Node **22.14**, and
+   upgrades to **npm 11.10.0** (per workflow comments). It does **not** set **`NODE_AUTH_TOKEN`**.
+   With [Trusted Publisher](https://docs.npmjs.com/trusted-publishers) configured for this repo on
+   npmjs.org, **no long-lived `NPM_TOKEN` secret** is needed for that workflow.
 4. **Tag:** creates and pushes **`v<version>`** from `package.json`.
 
-Public documentation is published from the **[Fairmint/web](https://github.com/Fairmint/web)** monorepo (`apps/ocp-canton-sdk`); this repository's npm publish workflow no longer runs TypeDoc or deploys GitHub Pages.
+Public documentation is published from the **[Fairmint/web](https://github.com/Fairmint/web)**
+monorepo (`apps/ocp-canton-sdk`); this repository's npm publish workflow no longer runs TypeDoc or
+deploys GitHub Pages.
 
 PR validation (lint, tests) lives in **`ci.yml`** and related workflows — not in `publish.yml`.
 
@@ -432,7 +478,8 @@ PR validation (lint, tests) lives in **`ci.yml`** and related workflows — not 
 
 ### Manual Release (Local)
 
-Local **`npm publish`** is separate from CI: use **`npm login`** or a token the way npm documents for your machine — not the OIDC path above.
+Local **`npm publish`** is separate from CI: use **`npm login`** or a token the way npm documents
+for your machine — not the OIDC path above.
 
 ```bash
 npm run prepare-release   # bumps version, changelog
@@ -443,20 +490,26 @@ npm publish
 
 ### `commands.0: Invalid input` (batch parameter validation failure)
 
-**Symptom:** `CapTableBatch.execute()` throws `Batch execution failed: Parameter validation failed: commands.0: Invalid input`.
+**Symptom:** `CapTableBatch.execute()` throws
+`Batch execution failed: Parameter validation failed: commands.0: Invalid input`.
 
-**Root cause:** A converter (`*DataToDaml`) emitted `undefined` for an optional field instead of `null`. The Canton JSON API uses strict Zod schema validation; `undefined` is not valid JSON.
+**Root cause:** A converter (`*DataToDaml`) emitted `undefined` for an optional field instead of
+`null`. The Canton JSON API uses strict Zod schema validation; `undefined` is not valid JSON.
 
 **Triage checklist:**
 
 1. **Identify the failing row** from the batch log (entity type + OCF ID).
-2. **Validate the source data against the OCF JSON schema** in `libs/Open-Cap-Format-OCF/schema/`. If the data is schema-valid, this is a **converter bug**, not a data issue.
-3. **Check the converter** in `src/functions/OpenCapTable/<entity>/` for direct passthrough of optional fields (e.g., `fieldName: d.fieldName` without `?? null` or `?? []`).
+2. **Validate the source data against the OCF JSON schema** in `libs/Open-Cap-Format-OCF/schema/`.
+   If the data is schema-valid, this is a **converter bug**, not a data issue.
+3. **Check the converter** in `src/functions/OpenCapTable/<entity>/` for direct passthrough of
+   optional fields (e.g., `fieldName: d.fieldName` without `?? null` or `?? []`).
 4. **Check for deprecated OCF fields** — the schema may allow alternative field names via `oneOf`.
 
-**Safety net:** `CapTableBatch.build()` runs `assertJsonSafe()` which recursively detects `undefined` values and throws with the exact JSON-path.
+**Safety net:** `CapTableBatch.build()` runs `assertJsonSafe()` which recursively detects
+`undefined` values and throws with the exact JSON-path.
 
 **Converter rules:**
+
 - **Never** emit `undefined` in output objects — use `null` for DAML optional fields.
 - **Always** handle deprecated OCF field alternatives (check schema `oneOf`/`anyOf`).
 - **Always** normalize arrays with `?? []` and strings with `optionalString()`.
@@ -486,38 +539,60 @@ For `stockClassConversionRatioAdjustmentDataToDaml`:
 
 ### Stale issuer contract reference (`CONTRACT_EVENTS_NOT_FOUND` during extraction)
 
-**Root cause:** The CapTable stores the issuer as a single `contractId` in `payload.issuer`. If that contract is archived or missing, issuer rows are omitted from `entities` / `contractIds`, but `issuerContractId` on the state object still reflects the payload reference.
+**Root cause:** The CapTable stores the issuer as a single `contractId` in `payload.issuer`. If that
+contract is archived or missing, issuer rows are omitted from `entities` / `contractIds`, but
+`issuerContractId` on the state object still reflects the payload reference.
 
-**Fix:** Extractors should use `cantonState.contractIds.get('issuer')` (populated only when the issuer contract resolves) instead of re-reading raw payload IDs. Resolution uses contract-events reads with **`readAs`** scoped to the issuer party where applicable; if you still see visibility errors, confirm your **`readAs`** on **`extractCantonOcfManifest`** / **`get*AsOcf`** matches the parties that can see those contracts.
+**Fix:** Extractors should use `cantonState.contractIds.get('issuer')` (populated only when the
+issuer contract resolves) instead of re-reading raw payload IDs. Resolution uses contract-events
+reads with **`readAs`** scoped to the issuer party where applicable; if you still see visibility
+errors, confirm your **`readAs`** on **`extractCantonOcfManifest`** / **`get*AsOcf`** matches the
+parties that can see those contracts.
 
 ### Cap table template line and state reads
 
-`getCapTableState` / `classifyIssuerCapTables` query active contracts with the symbolic package-name template id from the pinned `@fairmint/open-captable-protocol-daml-js` package (`OCP_TEMPLATES.capTable`). Older OpenCapTable package lines on the ledger are ignored for “current” classification. **More than one** active CapTable on that package line for the same issuer party is treated as a schema error.
+`getCapTableState` / `classifyIssuerCapTables` query active contracts with the symbolic package-name
+template id from the pinned `@fairmint/open-captable-protocol-daml-js` package
+(`OCP_TEMPLATES.capTable`). Older OpenCapTable package lines on the ledger are ignored for “current”
+classification. **More than one** active CapTable on that package line for the same issuer party is
+treated as a schema error.
 
-- The ledger may echo `createdEvent.templateId` as `#PackageName:Module:Entity` or as `hash:Module:Entity`. The SDK **validates** each row using **`createdEvent.packageName`** (must match the pinned package) and the **module + entity** suffix of `templateId` (everything after the first `:`), aligned with `OCP_TEMPLATES.capTable`. Missing/empty `packageName` or a mismatched line/path throws `OcpContractError` with `OcpErrorCodes.SCHEMA_MISMATCH`. On success, the raw ledger `templateId` is returned unchanged for downstream use.
-- **`null` state / `none` classification** mean no contract on **that pinned package line** — not “the issuer has no CapTable-shaped contract anywhere.” Other package lines are out of scope for this status.
+- The ledger may echo `createdEvent.templateId` as `#PackageName:Module:Entity` or as
+  `hash:Module:Entity`. The SDK **validates** each row using **`createdEvent.packageName`** (must
+  match the pinned package) and the **module + entity** suffix of `templateId` (everything after the
+  first `:`), aligned with `OCP_TEMPLATES.capTable`. Missing/empty `packageName` or a mismatched
+  line/path throws `OcpContractError` with `OcpErrorCodes.SCHEMA_MISMATCH`. On success, the raw
+  ledger `templateId` is returned unchanged for downstream use.
+- **`null` state / `none` classification** mean no contract on **that pinned package line** — not
+  “the issuer has no CapTable-shaped contract anywhere.” Other package lines are out of scope for
+  this status.
 
 ### Multi-repo SDK sharing (`archiveFullCapTable`, `getSystemOperatorPartyId`)
 
-- These live in `src/functions/OpenCapTable/capTable/archiveFullCapTable.ts` and take `LedgerJsonApiClient` (not `OcpClient`) so explorer/CLI can reuse them.
-- Archive resolves **`templateId`** and **`context.system_operator`** from the live CapTable (version-aware). Optional `systemOperatorPartyId` skips the read when the caller already has it.
-- `archiveFullCapTable` matches the caller’s `capTableContractId` when provided so the correct table is archived if multiple were ever visible.
-- Consumers need a published SDK release to pick up new exports — coordinate multi-repo changes accordingly.
+- These live in `src/functions/OpenCapTable/capTable/archiveFullCapTable.ts` and take
+  `LedgerJsonApiClient` (not `OcpClient`) so explorer/CLI can reuse them.
+- Archive resolves **`templateId`** and **`context.system_operator`** from the live CapTable
+  (version-aware). Optional `systemOperatorPartyId` skips the read when the caller already has it.
+- `archiveFullCapTable` matches the caller’s `capTableContractId` when provided so the correct table
+  is archived if multiple were ever visible.
+- Consumers need a published SDK release to pick up new exports — coordinate multi-repo changes
+  accordingly.
 
 ## Architecture Decision Records (ADRs)
 
-See [[ADRs]] for the ADR index and lifecycle. When adding an ADR, create `ADR-NNN-Short-Title`, update [[ADRs]], and link it from related notes.
+See [[ADRs]] for the ADR index and lifecycle. When adding an ADR, create `ADR-NNN-Short-Title`,
+update [[ADRs]], and link it from related notes.
 
 ## Related Repos
 
-| Repo                          | Purpose                                      | Docs                                                                      |
-| ----------------------------- | -------------------------------------------- | ------------------------------------------------------------------------- |
-| `canton`                      | Trading infrastructure, ADRs                 | `AGENTS.md`                                                               |
-| `canton-explorer`             | Next.js explorer UI                          | `AGENTS.md`, [cantonops.fairmint.com](https://cantonops.fairmint.com/)    |
-| `canton-node-sdk`             | Low-level Canton client                      | `AGENTS.md`, [sdk.canton.fairmint.com](https://sdk.canton.fairmint.com/)  |
-| `ocp-equity-certificate`      | Soulbound equity certificate smart contracts | `AGENTS.md`                                                               |
-| `open-captable-protocol-daml` | DAML contracts (OCF impl)                    | `AGENTS.md`                                                               |
-| `Open-Cap-Format-OCF` (`libs/Open-Cap-Format-OCF`) | OCF JSON schemas (git submodule)      | [GitHub](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF) |
+| Repo                                               | Purpose                                      | Docs                                                                      |
+| -------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------- |
+| `canton`                                           | Trading infrastructure, ADRs                 | `AGENTS.md`                                                               |
+| `canton-explorer`                                  | Next.js explorer UI                          | `AGENTS.md`, [cantonops.fairmint.com](https://cantonops.fairmint.com/)    |
+| `canton-node-sdk`                                  | Low-level Canton client                      | `AGENTS.md`, [sdk.canton.fairmint.com](https://sdk.canton.fairmint.com/)  |
+| `ocp-equity-certificate`                           | Soulbound equity certificate smart contracts | `AGENTS.md`                                                               |
+| `open-captable-protocol-daml`                      | DAML contracts (OCF impl)                    | `AGENTS.md`                                                               |
+| `Open-Cap-Format-OCF` (`libs/Open-Cap-Format-OCF`) | OCF JSON schemas (git submodule)             | [GitHub](https://github.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF) |
 
 ## Docs
 
