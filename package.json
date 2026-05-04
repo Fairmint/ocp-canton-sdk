@@ -53,6 +53,7 @@
     "@apidevtools/json-schema-ref-parser": "15.3.5",
     "@eslint/eslintrc": "3.3.5",
     "@fairmint/canton-node-sdk": "0.0.197",
+    "@fairmint/daml-js": "0.1.1",
     "@fairmint/open-captable-protocol-daml-js": "0.2.160",
     "@types/jest": "30.0.0",
     "@types/jsonwebtoken": "9.0.10",
@@ -76,6 +77,7 @@
   },
   "peerDependencies": {
     "@fairmint/canton-node-sdk": ">=0.0.195 <0.1.0",
+    "@fairmint/daml-js": ">=0.1.1",
     "@fairmint/open-captable-protocol-daml-js": ">=0.2.160 <0.3.0"
   },
   "publishConfig": {
