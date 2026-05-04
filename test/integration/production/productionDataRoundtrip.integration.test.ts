@@ -205,11 +205,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       // Compare data (the ID will differ since we generated a new one)
       const sourceWithoutId = stripInternalFields({ ...prepared, id: readBack.data.id });
-      compareOcfData(
-        sourceWithoutId as Record<string, unknown>,
-        readBack.data as unknown as Record<string, unknown>,
-        'Stakeholder individual'
-      );
+      compareOcfData(sourceWithoutId, readBack.data as unknown as Record<string, unknown>, 'Stakeholder individual');
     });
 
     test('Stakeholder (institution) round-trips correctly', async () => {
@@ -1759,7 +1755,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         })
       );
       compareOcfData(
-        sourceWithoutId as Record<string, unknown>,
+        sourceWithoutId,
         readBack.data as unknown as Record<string, unknown>,
         'Stakeholder Relationship Change Event synthetic'
       );
@@ -1809,7 +1805,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         })
       );
       compareOcfData(
-        sourceWithoutId as Record<string, unknown>,
+        sourceWithoutId,
         readBack.data as unknown as Record<string, unknown>,
         'Stakeholder Status Change Event synthetic'
       );

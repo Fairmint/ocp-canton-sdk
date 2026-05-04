@@ -17,7 +17,7 @@ export async function withdrawAuthorization(
   params: WithdrawAuthorizationParams
 ): Promise<WithdrawAuthorizationResult> {
   const issuerAuthorizationTemplateId = OCP_TEMPLATES.issuerAuthorization;
-  const response = (await client.submitAndWaitForTransactionTree({
+  const response = await client.submitAndWaitForTransactionTree({
     actAs: [params.systemOperatorParty],
     commands: [
       {
@@ -29,7 +29,7 @@ export async function withdrawAuthorization(
         },
       },
     ],
-  })) as SubmitAndWaitForTransactionTreeResponse;
+  });
 
   return {
     updateId: response.transactionTree.updateId,

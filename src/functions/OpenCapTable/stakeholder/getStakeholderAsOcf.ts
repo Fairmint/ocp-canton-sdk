@@ -47,7 +47,7 @@ function damlContactInfoToNative(damlInfo: Fairmint.OpenCapTable.OCF.Stakeholder
     name,
     phone_numbers: phones,
     emails,
-  } as ContactInfo;
+  };
 }
 
 function damlContactInfoWithoutNameToNative(
@@ -58,7 +58,7 @@ function damlContactInfoWithoutNameToNative(
   return {
     phone_numbers: phones,
     emails,
-  } as ContactInfoWithoutName;
+  };
 }
 
 export function damlStakeholderDataToNative(
@@ -101,7 +101,7 @@ export function damlStakeholderDataToNative(
     ...(Array.isArray((dAny as { comments?: unknown }).comments) && (dAny as { comments: string[] }).comments.length > 0
       ? { comments: (dAny as { comments: string[] }).comments }
       : {}),
-  } as Omit<OcfStakeholderOutput, 'object_type'>;
+  };
   return native;
 }
 

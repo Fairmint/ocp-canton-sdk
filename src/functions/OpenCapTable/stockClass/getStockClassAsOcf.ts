@@ -192,18 +192,12 @@ export function damlStockClassDataToNative(
 
         let ratio = extractRatio(rec.ratio);
         if (!ratio && mechRaw && typeof mechRaw === 'object' && 'value' in mechRaw) {
-          ratio = extractRatio((mechRaw as { value: unknown }).value);
+          ratio = extractRatio(mechRaw.value);
         }
 
         // Extract optional monetary from DAML Optional(OcfMonetary)
         const extractOptionalMonetary = (raw: unknown): Monetary | undefined => {
-          if (
-            raw &&
-            typeof raw === 'object' &&
-            'tag' in raw &&
-            (raw as { tag: unknown }).tag === 'Some' &&
-            'value' in raw
-          ) {
+          if (raw && typeof raw === 'object' && 'tag' in raw && raw.tag === 'Some' && 'value' in raw) {
             return damlMonetaryToNative((raw as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value);
           }
           return undefined;
@@ -233,7 +227,7 @@ export function damlStockClassDataToNative(
           type: mechanismType,
           ratio: ratio ?? { numerator: '1', denominator: '1' },
           conversion_price: conversionPrice ?? { amount: '0', currency: 'USD' },
-          rounding_type: roundingType as ConversionMechanismObject['rounding_type'],
+          rounding_type: roundingType,
         };
 
         // OCF StockClassConversionRight schema allows ONLY: type, conversion_mechanism,

@@ -338,7 +338,7 @@ describe('buildCantonOcfDataMap', () => {
 
     it('throws when issuer has no id', () => {
       const manifest = createEmptyManifest();
-      manifest.issuer = { legal_name: 'Test Corp' } as Record<string, unknown>;
+      manifest.issuer = { legal_name: 'Test Corp' };
 
       expect(() => buildCantonOcfDataMap(manifest)).toThrow("Invalid issuer: missing or invalid 'id' field");
     });
@@ -415,7 +415,7 @@ describe('buildCantonOcfDataMap', () => {
 
     it('throws when core object has no id', () => {
       const manifest = createEmptyManifest();
-      manifest.stakeholders = [{ name: 'No ID Stakeholder' } as Record<string, unknown>];
+      manifest.stakeholders = [{ name: 'No ID Stakeholder' }];
 
       expect(() => buildCantonOcfDataMap(manifest)).toThrow("Invalid stakeholder: missing or invalid 'id' field");
     });
@@ -746,7 +746,7 @@ describe('computeReplicationDiff', () => {
     });
 
     it('throws when source item data is null', () => {
-      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: null as unknown }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: null }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
@@ -758,7 +758,7 @@ describe('computeReplicationDiff', () => {
     });
 
     it('throws when source item data is undefined', () => {
-      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: undefined as unknown }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: undefined }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 
@@ -782,7 +782,7 @@ describe('computeReplicationDiff', () => {
     });
 
     it('throws when source item data is a primitive', () => {
-      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: 'string' as unknown }];
+      const sourceItems: SourceReplicationItem[] = [{ entityType: 'stakeholder', data: 'string' }];
       const cantonState = createEmptyCantonState();
       cantonState.entities.set('stakeholder', new Set(['sh-1']));
 

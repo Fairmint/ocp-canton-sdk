@@ -128,7 +128,7 @@ function mapWarrantCapitalizationRules(
     include_option_pool_topup_for_promised_options: rules.include_option_pool_topup_for_promised_options ?? false,
     include_additional_option_pool_topup: rules.include_additional_option_pool_topup ?? false,
     include_new_money: rules.include_new_money ?? false,
-  } as Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules;
+  };
 }
 
 function warrantMechanismToDamlVariant(
@@ -148,7 +148,7 @@ function warrantMechanismToDamlVariant(
       return {
         tag: 'OcfWarrantMechanismCustom',
         value: { custom_conversion_description: mech.custom_conversion_description },
-      } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
+      };
 
     case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION':
       return {
@@ -158,13 +158,13 @@ function warrantMechanismToDamlVariant(
           capitalization_definition: optionalString(mech.capitalization_definition ?? undefined),
           capitalization_definition_rules: mapWarrantCapitalizationRules(mech.capitalization_definition_rules),
         },
-      } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
+      };
 
     case 'FIXED_AMOUNT_CONVERSION':
       return {
         tag: 'OcfWarrantMechanismFixedAmount',
         value: { converts_to_quantity: normalizeNumericString(mech.converts_to_quantity) },
-      } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
+      };
 
     case 'VALUATION_BASED_CONVERSION':
       return {
@@ -175,7 +175,7 @@ function warrantMechanismToDamlVariant(
           capitalization_definition: optionalString(mech.capitalization_definition ?? undefined),
           capitalization_definition_rules: mapWarrantCapitalizationRules(mech.capitalization_definition_rules),
         },
-      } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
+      };
 
     case 'PPS_BASED_CONVERSION': {
       const dpct = mech.discount_percentage;
@@ -187,7 +187,7 @@ function warrantMechanismToDamlVariant(
           discount_percentage: dpct === '' || dpct == null ? null : normalizeNumericString(dpct),
           discount_amount: mech.discount_amount ? monetaryToDaml(mech.discount_amount) : null,
         },
-      } as Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
+      };
     }
 
     default: {
@@ -340,7 +340,7 @@ function buildWarrantRight(
           converts_to_future_round,
           converts_to_stock_class_id,
         },
-      } as Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight;
+      };
     }
     default: {
       const _exhaustive: never = cr;

@@ -2,7 +2,7 @@ import { countManifestObjects, type OcfManifest } from '../../src/utils/cantonOc
 
 describe('countManifestObjects', () => {
   const fullManifest: OcfManifest = {
-    issuer: { id: 'issuer-1', object_type: 'ISSUER' } as OcfManifest['issuer'],
+    issuer: { id: 'issuer-1', object_type: 'ISSUER' },
     stakeholders: [{ id: 's1' }, { id: 's2' }] as OcfManifest['stakeholders'],
     stockClasses: [{ id: 'sc1' }] as OcfManifest['stockClasses'],
     stockPlans: [] as OcfManifest['stockPlans'],

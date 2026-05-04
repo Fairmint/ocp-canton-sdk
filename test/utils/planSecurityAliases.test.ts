@@ -536,7 +536,7 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
-      await validateOcfObject(result as Record<string, unknown>);
+      await validateOcfObject(result);
 
       expect(result.compensation_type).toBe('OPTION_NSO');
       expect(result).not.toHaveProperty('option_grant_type');
@@ -656,7 +656,7 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
-      await validateOcfObject(result as Record<string, unknown>);
+      await validateOcfObject(result);
 
       expect(result.object_type).toBe('CE_STAKEHOLDER_STATUS');
       expect(result.comments).toEqual(['existing', 'legacy reason']);
@@ -768,7 +768,7 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
-      await validateOcfObject(result as Record<string, unknown>);
+      await validateOcfObject(result);
 
       expect(result).not.toHaveProperty('split_transaction_id');
     });
@@ -780,7 +780,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             investment_amount: { amount: '100000.00', currency: 'USD' },
-          } as Record<string, unknown>);
+          });
           expect((result.investment_amount as Record<string, unknown>).amount).toBe('100000');
         });
 
@@ -789,7 +789,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             some_rate: '0.00',
-          } as Record<string, unknown>);
+          });
           expect(result.some_rate).toBe('0');
         });
 
@@ -798,7 +798,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             some_rate: '0.10',
-          } as Record<string, unknown>);
+          });
           expect(result.some_rate).toBe('0.1');
         });
 
@@ -807,7 +807,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             value: '1.00',
-          } as Record<string, unknown>);
+          });
           expect(result.value).toBe('1');
         });
 
@@ -816,7 +816,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             value: '123.4500',
-          } as Record<string, unknown>);
+          });
           expect(result.value).toBe('123.45');
         });
 
@@ -825,7 +825,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             value: '-100.00',
-          } as Record<string, unknown>);
+          });
           expect(result.value).toBe('-100');
         });
 
@@ -834,7 +834,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             value: '-0.10',
-          } as Record<string, unknown>);
+          });
           expect(result.value).toBe('-0.1');
         });
 
@@ -843,7 +843,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             value: '0.0',
-          } as Record<string, unknown>);
+          });
           expect(result.value).toBe('0');
         });
       });
@@ -854,7 +854,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             quantity: '100000',
-          } as Record<string, unknown>);
+          });
           expect(result.quantity).toBe('100000');
         });
 
@@ -863,7 +863,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             rate: '0.1',
-          } as Record<string, unknown>);
+          });
           expect(result.rate).toBe('0.1');
         });
 
@@ -872,7 +872,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             amount: '123.456',
-          } as Record<string, unknown>);
+          });
           expect(result.amount).toBe('123.456');
         });
 
@@ -881,7 +881,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             value: '0',
-          } as Record<string, unknown>);
+          });
           expect(result.value).toBe('0');
         });
       });
@@ -893,7 +893,7 @@ describe('PlanSecurity alias utilities', () => {
             id: 'stk_000001',
             name: { legal_name: 'Alice Doe' },
             stakeholder_type: 'INDIVIDUAL',
-          } as Record<string, unknown>);
+          });
           expect(result.id).toBe('stk_000001');
           expect((result.name as Record<string, unknown>).legal_name).toBe('Alice Doe');
         });
@@ -903,7 +903,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             date: '2024-01-15',
-          } as Record<string, unknown>);
+          });
           expect(result.date).toBe('2024-01-15');
         });
 
@@ -912,7 +912,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             status: 'ACTIVE',
-          } as Record<string, unknown>);
+          });
           expect(result.status).toBe('ACTIVE');
         });
 
@@ -921,7 +921,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'abc-123-def',
             custom_id: '',
-          } as Record<string, unknown>);
+          });
           expect(result.id).toBe('abc-123-def');
           expect(result.custom_id).toBe('');
         });
@@ -933,7 +933,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             investment_amount: { amount: '100000.00', currency: 'USD' },
-          } as Record<string, unknown>);
+          });
           const investmentAmount = result.investment_amount as Record<string, unknown>;
           expect(investmentAmount.amount).toBe('100000');
           expect(investmentAmount.currency).toBe('USD');
@@ -944,7 +944,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_CONVERTIBLE_ISSUANCE',
             id: 'x',
             items: [{ rate: '0.10' }, { rate: '5.00' }],
-          } as Record<string, unknown>);
+          });
           const items = result.items as Array<Record<string, unknown>>;
           expect(items[0].rate).toBe('0.1');
           expect(items[1].rate).toBe('5');
@@ -963,7 +963,7 @@ describe('PlanSecurity alias utilities', () => {
                 },
               },
             ],
-          } as Record<string, unknown>);
+          });
           const triggers = result.conversion_triggers as Array<Record<string, unknown>>;
           const right = triggers[0].conversion_right as Record<string, unknown>;
           const mechanism = right.conversion_mechanism as Record<string, unknown>;
@@ -1038,7 +1038,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             optional_field: null,
-          } as Record<string, unknown>);
+          });
           expect(result.optional_field).toBeNull();
         });
 
@@ -1047,7 +1047,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             flag: true,
-          } as Record<string, unknown>);
+          });
           expect(result.flag).toBe(true);
         });
 
@@ -1056,7 +1056,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             count: 42,
-          } as Record<string, unknown>);
+          });
           expect(result.count).toBe(42);
         });
 
@@ -1065,7 +1065,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             metadata: {},
-          } as Record<string, unknown>);
+          });
           expect(result.metadata).toEqual({});
         });
 
@@ -1074,7 +1074,7 @@ describe('PlanSecurity alias utilities', () => {
             object_type: 'TX_STOCK_ISSUANCE',
             id: 'x',
             items: [],
-          } as Record<string, unknown>);
+          });
           expect(result.items).toEqual([]);
         });
       });

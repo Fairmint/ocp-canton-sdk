@@ -193,7 +193,7 @@ function removeEmptyProperties(schema: JsonSchema): JsonSchema {
 
   for (const [propName, propSchema] of Object.entries(schema.properties)) {
     // Skip empty property definitions
-    if (typeof propSchema === 'object' && Object.keys(propSchema as object).length === 0) {
+    if (typeof propSchema === 'object' && Object.keys(propSchema).length === 0) {
       continue;
     }
     cleanedProperties[propName] = propSchema;

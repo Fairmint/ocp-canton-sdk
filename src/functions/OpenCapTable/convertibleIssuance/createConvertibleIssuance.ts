@@ -132,7 +132,7 @@ function mechanismInputToDamlEnum(
         include_option_pool_topup_for_promised_options: Boolean(r.include_option_pool_topup_for_promised_options),
         include_additional_option_pool_topup: Boolean(r.include_additional_option_pool_topup),
         include_new_money: Boolean(r.include_new_money),
-      } as Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules;
+      };
     };
 
     const safeTiming = (v: unknown): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTimingType | null => {
@@ -292,7 +292,7 @@ function mechanismInputToDamlEnum(
             capitalization_definition: optionalString(anyM.capitalization_definition as string | undefined),
             capitalization_definition_rules: mapCapRules(anyM.capitalization_definition_rules),
           },
-        } as Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;
+        };
       }
       case 'FIXED_AMOUNT_CONVERSION': {
         const anyM = m as Record<string, unknown>;
@@ -308,7 +308,7 @@ function mechanismInputToDamlEnum(
           value: {
             converts_to_quantity: normalizeNumericString(anyM.converts_to_quantity),
           },
-        } as Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;
+        };
       }
       case 'VALUATION_BASED_CONVERSION': {
         const anyM = m as Record<string, unknown>;
@@ -348,7 +348,7 @@ function mechanismInputToDamlEnum(
                 : normalizeNumericString(anyM.discount_percentage as string),
             discount_amount: anyM.discount_amount ? monetaryToDaml(anyM.discount_amount as Monetary) : null,
           },
-        } as Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;
+        };
       }
       case 'CUSTOM_CONVERSION': {
         const anyM = m as Record<string, unknown>;
@@ -365,7 +365,7 @@ function mechanismInputToDamlEnum(
         return {
           tag: 'OcfConvMechCustom',
           value: { custom_conversion_description: desc },
-        } as Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;
+        };
       }
       default: {
         throw new OcpParseError(`Unknown conversion mechanism: ${typeStr}`, {

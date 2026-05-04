@@ -38,7 +38,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         seniority: 1,
         security_law_exemptions: [],
       };
-      const result = damlConvertibleIssuanceDataToNative(daml as Record<string, unknown>);
+      const result = damlConvertibleIssuanceDataToNative(daml);
       const mechanism = result.conversion_triggers[0]?.conversion_right.conversion_mechanism;
       expect(mechanism).toBeDefined();
       expect('conversion_mfn' in mechanism).toBe(true);
@@ -69,7 +69,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         seniority: 1,
         security_law_exemptions: [],
       };
-      const result = damlConvertibleIssuanceDataToNative(daml as Record<string, unknown>);
+      const result = damlConvertibleIssuanceDataToNative(daml);
       const mechanism = result.conversion_triggers[0]?.conversion_right.conversion_mechanism;
       expect(mechanism).toBeDefined();
       expect('conversion_mfn' in mechanism).toBe(true);

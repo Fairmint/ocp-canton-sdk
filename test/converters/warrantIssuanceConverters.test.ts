@@ -15,7 +15,7 @@ import { ocfDeepEqual } from '../../src/utils/ocfComparison';
 function roundTrip(ocfInput: Parameters<typeof warrantIssuanceDataToDaml>[0]): Record<string, unknown> {
   const daml = warrantIssuanceDataToDaml(ocfInput);
   // daml is the DAML representation. Convert it back via the readback function.
-  const native = damlWarrantIssuanceDataToNative(daml as unknown as Record<string, unknown>);
+  const native = damlWarrantIssuanceDataToNative(daml);
   return { object_type: 'TX_WARRANT_ISSUANCE', ...native };
 }
 

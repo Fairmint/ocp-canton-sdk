@@ -69,7 +69,7 @@ export async function authorizeIssuer(
   };
 
   // Submit the choice to the factory contract
-  const response = (await client.submitAndWaitForTransactionTree({
+  const response = await client.submitAndWaitForTransactionTree({
     commands: [
       {
         ExerciseCommand: {
@@ -80,7 +80,7 @@ export async function authorizeIssuer(
         },
       },
     ],
-  })) as SubmitAndWaitForTransactionTreeResponse;
+  });
 
   const issuerAuthorizationTemplateId = OCP_TEMPLATES.issuerAuthorization;
   const created = findCreatedEventByTemplateId(response, issuerAuthorizationTemplateId);

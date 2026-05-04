@@ -46,15 +46,13 @@ describe('DAML to OCF Converters', () => {
 
   describe('damlStakeholderRelationshipToNative', () => {
     it('converts all relationship types correctly', () => {
-      expect(damlStakeholderRelationshipToNative('OcfRelEmployee' as DamlStakeholderRelationshipType)).toBe('EMPLOYEE');
-      expect(damlStakeholderRelationshipToNative('OcfRelAdvisor' as DamlStakeholderRelationshipType)).toBe('ADVISOR');
-      expect(damlStakeholderRelationshipToNative('OcfRelInvestor' as DamlStakeholderRelationshipType)).toBe('INVESTOR');
-      expect(damlStakeholderRelationshipToNative('OcfRelFounder' as DamlStakeholderRelationshipType)).toBe('FOUNDER');
-      expect(damlStakeholderRelationshipToNative('OcfRelBoardMember' as DamlStakeholderRelationshipType)).toBe(
-        'BOARD_MEMBER'
-      );
-      expect(damlStakeholderRelationshipToNative('OcfRelOfficer' as DamlStakeholderRelationshipType)).toBe('OFFICER');
-      expect(damlStakeholderRelationshipToNative('OcfRelOther' as DamlStakeholderRelationshipType)).toBe('OTHER');
+      expect(damlStakeholderRelationshipToNative('OcfRelEmployee')).toBe('EMPLOYEE');
+      expect(damlStakeholderRelationshipToNative('OcfRelAdvisor')).toBe('ADVISOR');
+      expect(damlStakeholderRelationshipToNative('OcfRelInvestor')).toBe('INVESTOR');
+      expect(damlStakeholderRelationshipToNative('OcfRelFounder')).toBe('FOUNDER');
+      expect(damlStakeholderRelationshipToNative('OcfRelBoardMember')).toBe('BOARD_MEMBER');
+      expect(damlStakeholderRelationshipToNative('OcfRelOfficer')).toBe('OFFICER');
+      expect(damlStakeholderRelationshipToNative('OcfRelOther')).toBe('OTHER');
     });
 
     it('throws error for unknown relationship', () => {

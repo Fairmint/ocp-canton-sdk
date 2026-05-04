@@ -5,7 +5,6 @@
  */
 
 import { type LedgerJsonApiClient, type ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
@@ -91,7 +90,7 @@ async function createOcpFactory(
     system_operator: systemOperatorParty,
   };
 
-  const response = (await client.submitAndWaitForTransactionTree({
+  const response = await client.submitAndWaitForTransactionTree({
     commands: [
       {
         CreateCommand: {
@@ -101,7 +100,7 @@ async function createOcpFactory(
       },
     ],
     actAs: [systemOperatorParty],
-  })) as SubmitAndWaitForTransactionTreeResponse;
+  });
 
   // Extract contract ID from response
   const { eventsById } = response.transactionTree;
@@ -264,7 +263,7 @@ export async function createFeaturedAppRight(
   // We use disclosed contracts to provide visibility into the AmuletRules contract.
   // NOTE: Do NOT include DSO in readAs - the OAuth2 client doesn't have CanReadAs rights for DSO.
   // The disclosed contracts mechanism provides the necessary visibility.
-  const response = (await client.submitAndWaitForTransactionTree({
+  const response = await client.submitAndWaitForTransactionTree({
     commands: [
       {
         ExerciseCommand: {
@@ -287,7 +286,7 @@ export async function createFeaturedAppRight(
         synchronizerId,
       },
     ],
-  })) as SubmitAndWaitForTransactionTreeResponse;
+  });
 
   // Find the created FeaturedAppRight contract
   const { eventsById } = response.transactionTree;
@@ -361,7 +360,7 @@ export async function authorizeIssuerWithFactory(
     issuer: issuerParty,
   };
 
-  const response = (await client.submitAndWaitForTransactionTree({
+  const response = await client.submitAndWaitForTransactionTree({
     commands: [
       {
         ExerciseCommand: {
@@ -373,7 +372,7 @@ export async function authorizeIssuerWithFactory(
       },
     ],
     actAs: [systemOperatorParty],
-  })) as SubmitAndWaitForTransactionTreeResponse;
+  });
 
   // Find the created IssuerAuthorization contract
   const { eventsById } = response.transactionTree;

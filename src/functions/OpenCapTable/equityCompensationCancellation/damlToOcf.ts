@@ -20,5 +20,5 @@ export type DamlEquityCompensationCancellationData = DamlQuantityCancellationDat
 export function damlEquityCompensationCancellationToNative(
   d: DamlEquityCompensationCancellationData
 ): OcfEquityCompensationCancellation {
-  return quantityCancellationToNative(d) as OcfEquityCompensationCancellation;
+  return quantityCancellationToNative(d);
 }
