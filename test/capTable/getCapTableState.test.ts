@@ -17,7 +17,7 @@ jest.mock('@fairmint/canton-node-sdk');
 
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
 const NON_CURRENT_CAP_TABLE_TEMPLATE_ID = '#OpenCapTable-other:Fairmint.OpenCapTable.CapTable:CapTable';
-/** Package segment from the pinned CapTable template (tracks daml-js upgrades). */
+/** Package segment from the pinned CapTable template (tracks `@fairmint/open-captable-protocol-daml-js` upgrades). */
 const CURRENT_OCP_PACKAGE_NAME = CURRENT_CAP_TABLE_TEMPLATE_ID.replace(/^#/, '').split(':')[0];
 const NON_CURRENT_CAP_TABLE_PACKAGE_NAME = 'OpenCapTable-other';
 

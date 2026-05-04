@@ -27,7 +27,7 @@ export function buildCapTableCommand(params: {
   // This is safe because all our DAML choice arguments are serializable JSON structures
   const choiceArg = params.choiceArgument as JsonRecord;
 
-  // Prefer templateId from ledger; fall back to daml-js canonical id (same module:entity, current package).
+  // Prefer templateId from ledger; fall back to OCP package canonical id (same module:entity, current package).
   const capTableTemplateId = params.capTableContractDetails?.templateId ?? OCP_TEMPLATES.capTable;
 
   const command: Command = {

@@ -1,5 +1,6 @@
 /**
- * OCP SDK repo root → OpenCapTable DAR via daml-js (packaged DAR or sibling `open-captable-protocol-daml`).
+ * OCP SDK repo root → OpenCapTable DAR via `@fairmint/open-captable-protocol-daml-js/openCapTableDarPath`
+ * (packaged DAR or sibling `open-captable-protocol-daml` checkout).
  * Keeps `siblingSearchFrom` in one place for quickstart + integration tests.
  */
 import * as path from 'path';
