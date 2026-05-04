@@ -8,3 +8,6 @@ docs/
 coverage/
 .backup-*/
 generated/
+
+# GitHub wiki is separate; ignore local wiki mirror
+wiki/
