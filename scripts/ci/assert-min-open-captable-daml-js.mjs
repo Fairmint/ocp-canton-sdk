@@ -32,7 +32,12 @@ if (typeof peer !== 'string' || !peer.startsWith(MIN_PEER_PREFIX)) {
   process.exit(1);
 }
 
-if (pkg.devDependencies?.['@fairmint/daml-js'] != null || pkg.peerDependencies?.['@fairmint/daml-js'] != null) {
+if (
+  pkg.devDependencies?.['@fairmint/daml-js'] != null ||
+  pkg.peerDependencies?.['@fairmint/daml-js'] != null ||
+  pkg.dependencies?.['@fairmint/daml-js'] != null ||
+  pkg.optionalDependencies?.['@fairmint/daml-js'] != null
+) {
   console.error(
     'assert-min-open-captable-daml-js: @fairmint/daml-js must not be a dependency of this package (OCP-only public SDK)'
   );
