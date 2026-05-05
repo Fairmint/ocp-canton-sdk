@@ -1,11 +1,7 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';
-import {
-  authorizeIssuer,
-  type AuthorizeIssuerResult,
-} from '../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
-import { OcpClient } from '../../src/OcpClient';
+import { authorizeIssuer, type AuthorizeIssuerResult } from '../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
+import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';import { OcpClient } from '../../src/OcpClient';
 import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 jest.mock('@fairmint/canton-node-sdk');
@@ -89,6 +85,25 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
       issuer: 'issuer::party',
       factoryContractId: 'per-call-cid',
       factoryTemplateId: 'per-call-tid',
+    });
+    expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not mix client-level factory with a partial per-call override', async () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const ocp = new OcpClient({
+      ledger,
+      factory: { contractId: 'client-factory-cid', templateId: 'client-factory-tid' },
+    });
+
+    await ocp.OpenCapTable.issuerAuthorization.authorize({
+      issuer: 'issuer::party',
+      factoryContractId: 'per-call-cid-only',
+    });
+
+    expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(ledger, {
+      issuer: 'issuer::party',
+      factoryContractId: 'per-call-cid-only',
     });
     expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
   });

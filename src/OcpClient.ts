@@ -352,6 +352,10 @@ export class OcpContextManager implements OcpContext {
  *
  * @example For localnet or custom factory deployments
  * ```typescript
+ * import { OcpClient } from '@open-captable-protocol/canton';
+ * import { Canton } from '@fairmint/canton-node-sdk';
+ *
+ * const canton = new Canton({ network: 'localnet' });
  * const ocp = new OcpClient({
  *   ledger: canton.ledger,
  *   factory: {
@@ -372,7 +376,7 @@ export class OcpClient {
    * Optional factory coordinates when not using the bundled mainnet/devnet config
    * (e.g. localnet, staging, or a custom network).
    */
-  public readonly factory?: { contractId: string; templateId: string };
+  public readonly factory?: OcpFactoryCoordinates;
 
   /**
    * Context manager for caching commonly used values.
@@ -695,7 +699,8 @@ export class OcpClient {
       // ===== Authorization =====
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
-          const hasPerCallOverride = params.factoryContractId != null || params.factoryTemplateId != null;
+          const hasPerCallOverride =
+            params.factoryContractId != null || params.factoryTemplateId != null;
           return authorizeIssuer(client, {
             ...params,
             ...(hasPerCallOverride
@@ -722,6 +727,14 @@ export class OcpClient {
 
 // ===== Type Definitions =====
 
+/** OCP Factory contract coordinates for custom deployments (localnet, staging, etc.). */
+export interface OcpFactoryCoordinates {
+  /** Contract ID of the deployed OCP Factory */
+  contractId: string;
+  /** Template ID of the deployed OCP Factory */
+  templateId: string;
+}
+
 /**
  * Clients consumed by {@link OcpClient}.
  *
@@ -735,12 +748,7 @@ export interface OcpClientDependencies {
    * Optional factory override — use when deploying your own OCP Factory (e.g. localnet, staging, or custom network).
    * If omitted, the SDK resolves factory coords from the bundled network config.
    */
-  factory?: {
-    /** Contract ID of the deployed OCP Factory */
-    contractId: string;
-    /** Template ID of the deployed OCP Factory */
-    templateId: string;
-  };
+  readonly factory?: OcpFactoryCoordinates;
 }
 
 /** Parameters for creating a batch cap table update */
