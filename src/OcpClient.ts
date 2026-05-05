@@ -396,7 +396,8 @@ export class OcpClient {
   constructor(dependencies: OcpClientDependencies) {
     this.ledger = dependencies.ledger;
     this.validator = dependencies.validator;
-    this.factory = dependencies.factory;
+    this.factory =
+      dependencies.factory === undefined ? undefined : { ...dependencies.factory };
 
     this.OpenCapTable = this.createOpenCapTableMethods();
   }
@@ -699,7 +700,8 @@ export class OcpClient {
       // ===== Authorization =====
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
-          const hasPerCallOverride = params.factoryContractId != null || params.factoryTemplateId != null;
+          const hasPerCallOverride =
+            params.factoryContractId != null || params.factoryTemplateId != null;
           return authorizeIssuer(client, {
             ...params,
             ...(hasPerCallOverride
