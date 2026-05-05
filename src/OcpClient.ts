@@ -4,7 +4,6 @@
  * The OcpClient provides a clean, organized API for OCP operations, grouped by domain:
  *
  * - **OpenCapTable**: Core cap table operations (issuer, stakeholders, stock classes, issuances, etc.)
- * - **OpenCapTableReports**: Reporting operations (company valuations)
  *
  * Payment-stream, coupon-minter, and related validator-backed helpers were removed in v0.4.0. Consumers that need those flows must implement them against the injected ledger and validator clients (or other integration of their choice).
  *
@@ -49,11 +48,8 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
 import { OcpErrorCodes, OcpValidationError } from './errors';
 import {
-  addObserversToCompanyValuationReport,
   authorizeIssuer,
-  buildCreateCompanyValuationReportCommand,
   buildCreateIssuerCommand,
-  createCompanyValuationReport,
   getConvertibleAcceptanceAsOcf,
   getConvertibleCancellationAsOcf,
   getConvertibleConversionAsOcf,
@@ -95,15 +91,10 @@ import {
   getWarrantExerciseAsOcf,
   getWarrantIssuanceAsOcf,
   getWarrantTransferAsOcf,
-  updateCompanyValuationReport,
   withdrawAuthorization,
   type AuthorizeIssuerParams,
   type AuthorizeIssuerResult,
-  type CreateCompanyValuationReportParams,
-  type CreateCompanyValuationReportResult,
   type CreateIssuerParams,
-  type UpdateCompanyValuationParams,
-  type UpdateCompanyValuationResult,
   type WithdrawAuthorizationParams,
   type WithdrawAuthorizationResult,
 } from './functions';
@@ -355,7 +346,6 @@ export class OcpContextManager implements OcpContext {
  *
  * **Namespaced APIs** (each mirrors a domain of the DAML model):
  * - {@link OcpClient.OpenCapTable} — issuer, stakeholders, stock classes, issuances, `capTable` lifecycle and batch updates
- * - {@link OcpClient.OpenCapTableReports} — company valuation reports
  *
  * Prefer {@link OcpClient.context} to cache FeaturedAppRight, issuer party, and cap table contract id across calls.
  *
@@ -402,11 +392,8 @@ export class OcpClient {
   /** Core cap table operations */
   public readonly OpenCapTable: OpenCapTableMethods;
 
-  /** Reporting operations for cap table analytics */
-  public readonly OpenCapTableReports: OpenCapTableReportsMethods;
-
   /**
-   * @param dependencies - **`ledger`** — required for OpenCapTable reads, `CapTableBatch`, and report helpers.
+   * @param dependencies - **`ledger`** — required for OpenCapTable reads and `CapTableBatch`.
    * **`validator`** — optional when using cap-table-only APIs from this package.
    */
   constructor(dependencies: OcpClientDependencies) {
@@ -414,7 +401,6 @@ export class OcpClient {
     this.validator = dependencies.validator;
 
     this.OpenCapTable = this.createOpenCapTableMethods();
-    this.OpenCapTableReports = this.createOpenCapTableReportsMethods();
   }
 
   /**
@@ -728,19 +714,6 @@ export class OcpClient {
     };
   }
 
-  private createOpenCapTableReportsMethods(): OpenCapTableReportsMethods {
-    const client = this.ledger;
-    return {
-      companyValuationReport: {
-        buildCreate: (params: CreateCompanyValuationReportParams) =>
-          buildCreateCompanyValuationReportCommand(client, params),
-        addObservers: async (params: { companyValuationReportContractId: string; added: string[] }) =>
-          addObserversToCompanyValuationReport(client, params),
-        create: async (params: CreateCompanyValuationReportParams) => createCompanyValuationReport(client, params),
-        update: async (params: UpdateCompanyValuationParams) => updateCompanyValuationReport(client, params),
-      },
-    };
-  }
 }
 
 // ===== Type Definitions =====
@@ -877,21 +850,5 @@ interface OpenCapTableMethods {
      * @throws Errors from the ledger if preconditions are not met
      */
     archive: (params: ArchiveCapTableParams) => Promise<ArchiveCapTableResult>;
-  };
-}
-
-interface OpenCapTableReportsMethods {
-  companyValuationReport: {
-    /** Build a CreateCompanyValuationReport command */
-    buildCreate: (params: CreateCompanyValuationReportParams) => CommandWithDisclosedContracts;
-    /** Add observers to a company valuation report */
-    addObservers: (params: {
-      companyValuationReportContractId: string;
-      added: string[];
-    }) => Promise<{ contractId: string; updateId: string }>;
-    /** Create a new company valuation report */
-    create: (params: CreateCompanyValuationReportParams) => Promise<CreateCompanyValuationReportResult>;
-    /** Update an existing company valuation report */
-    update: (params: UpdateCompanyValuationParams) => Promise<UpdateCompanyValuationResult>;
   };
 }
