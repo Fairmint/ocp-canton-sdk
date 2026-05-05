@@ -695,8 +695,7 @@ export class OcpClient {
       // ===== Authorization =====
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
-          const hasPerCallOverride =
-            params.factoryContractId != null || params.factoryTemplateId != null;
+          const hasPerCallOverride = params.factoryContractId != null || params.factoryTemplateId != null;
           return authorizeIssuer(client, {
             ...params,
             ...(hasPerCallOverride
