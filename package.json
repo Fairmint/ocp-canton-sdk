@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/Fairmint/ocp-canton-sdk.git"
   },
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
