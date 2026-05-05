@@ -7,6 +7,9 @@
  *
  * Payment-stream, coupon-minter, and related validator-backed helpers were removed in v0.4.0. Consumers that need those flows must implement them against the injected ledger and validator clients (or other integration of their choice).
  *
+ * **Company valuation reports** (`OpenCapTableReports` DAML) are not part of this package — use
+ * `@fairmint/canton-fairmint-sdk` (`createFairmintOcpClient`) and `@fairmint/daml-js` instead (v0.5.0+).
+ *
  * @example
  * ```typescript
  * import { OcpClient, toContractId, toPartyId } from '@open-captable-protocol/canton';
@@ -19,7 +22,6 @@
  * });
  *
  * // Set context once to cache common parameters
- * ocp.context.setFeaturedAppRight(appRightContract);
  * ocp.context.setIssuerParty(partyId);
  *
  * // Read operations return ContractResult<T> with { data, contractId }
@@ -44,7 +46,6 @@
  */
 
 import type { LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
 import { OcpErrorCodes, OcpValidationError } from './errors';
 import {
@@ -197,19 +198,16 @@ function toContractResult<T>(data: unknown, contractId: string): ContractResult<
  * });
  *
  * // Set context once after initial setup
- * ocp.context.setFeaturedAppRight(featuredAppRightDetails);
+ * ocp.context.setIssuerParty(issuerPartyId);
  *
  * // Later, retrieve cached values when needed
  * const batch = ocp.OpenCapTable.capTable.update({
  *   capTableContractId: ocp.context.requireCapTableContractId(),
- *   featuredAppRightContractDetails: ocp.context.requireFeaturedAppRight(),
  *   actAs: [ocp.context.requireIssuerParty()],
  * });
  * ```
  */
 export interface OcpContext {
-  /** The cached FeaturedAppRight disclosed contract details */
-  featuredAppRight: DisclosedContract | null;
   /** The cached issuer party ID */
   issuerParty: string | null;
   /** The cached cap table contract ID */
@@ -222,14 +220,8 @@ export interface OcpContext {
  * Provides methods to set, get, and clear cached context values.
  */
 export class OcpContextManager implements OcpContext {
-  private _featuredAppRight: DisclosedContract | null = null;
   private _issuerParty: string | null = null;
   private _capTableContractId: string | null = null;
-
-  /** Get the cached FeaturedAppRight disclosed contract details */
-  get featuredAppRight(): DisclosedContract | null {
-    return this._featuredAppRight;
-  }
 
   /** Get the cached issuer party ID */
   get issuerParty(): string | null {
@@ -239,14 +231,6 @@ export class OcpContextManager implements OcpContext {
   /** Get the cached cap table contract ID */
   get capTableContractId(): string | null {
     return this._capTableContractId;
-  }
-
-  /**
-   * Set the FeaturedAppRight disclosed contract details.
-   * @param details - The disclosed contract details to cache
-   */
-  setFeaturedAppRight(details: DisclosedContract): void {
-    this._featuredAppRight = details;
   }
 
   /**
@@ -270,30 +254,12 @@ export class OcpContextManager implements OcpContext {
    * @param context - Partial context object with values to set
    */
   setAll(context: Partial<OcpContext>): void {
-    if (context.featuredAppRight !== undefined) {
-      this._featuredAppRight = context.featuredAppRight;
-    }
     if (context.issuerParty !== undefined) {
       this._issuerParty = context.issuerParty;
     }
     if (context.capTableContractId !== undefined) {
       this._capTableContractId = context.capTableContractId;
     }
-  }
-
-  /**
-   * Get the FeaturedAppRight or throw if not set.
-   * @throws OcpValidationError if FeaturedAppRight has not been set
-   */
-  requireFeaturedAppRight(): DisclosedContract {
-    if (!this._featuredAppRight) {
-      throw new OcpValidationError(
-        'context.featuredAppRight',
-        'FeaturedAppRight not set. Call context.setFeaturedAppRight() first.',
-        { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-      );
-    }
-    return this._featuredAppRight;
   }
 
   /**
@@ -328,14 +294,13 @@ export class OcpContextManager implements OcpContext {
 
   /** Clear all cached context values */
   clear(): void {
-    this._featuredAppRight = null;
     this._issuerParty = null;
     this._capTableContractId = null;
   }
 
   /** Check if the context has all required values for batch operations */
   isReadyForBatchOperations(): boolean {
-    return this._featuredAppRight !== null && this._capTableContractId !== null;
+    return this._capTableContractId !== null;
   }
 }
 
@@ -347,7 +312,7 @@ export class OcpContextManager implements OcpContext {
  * **Namespaced APIs** (each mirrors a domain of the DAML model):
  * - {@link OcpClient.OpenCapTable} — issuer, stakeholders, stock classes, issuances, `capTable` lifecycle and batch updates
  *
- * Prefer {@link OcpClient.context} to cache FeaturedAppRight, issuer party, and cap table contract id across calls.
+ * Prefer {@link OcpClient.context} to cache issuer party and cap table contract id across calls.
  *
  * Payment-stream, coupon-minter, and related flows are not included (removed in v0.4.0); implement them with the same injected `ledger` / `validator` clients or your own modules.
  *
