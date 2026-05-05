@@ -69,6 +69,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
       factoryContractId: 'client-factory-cid',
       factoryTemplateId: 'client-factory-tid',
     });
+    expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
   });
 
   it('prefers per-call factory overrides over client-level factory', async () => {
@@ -89,6 +90,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
       factoryContractId: 'per-call-cid',
       factoryTemplateId: 'per-call-tid',
     });
+    expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
   });
 });
 

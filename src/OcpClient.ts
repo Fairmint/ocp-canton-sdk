@@ -323,7 +323,7 @@ export class OcpContextManager implements OcpContext {
  * **Namespaced APIs** (each mirrors a domain of the DAML model):
  * - {@link OcpClient.OpenCapTable} — issuer, stakeholders, stock classes, issuances, `capTable` lifecycle and batch updates
  *
- * Prefer {@link OcpClient.context} to cache FeaturedAppRight, issuer party, and cap table contract id across calls.
+ * Prefer {@link OcpClient.context} to cache issuer party and cap table contract id across calls.
  *
  * Payment-stream, coupon-minter, and related flows are not included (removed in v0.4.0); implement them with the same injected `ledger` / `validator` clients or your own modules.
  *
@@ -377,8 +377,8 @@ export class OcpClient {
   /**
    * Context manager for caching commonly used values.
    *
-   * Use this to store FeaturedAppRight details, issuer party, and cap table contract ID
-   * after fetching them once, so they can be reused across operations.
+   * Use this to store issuer party and cap table contract ID after fetching them once,
+   * so they can be reused across operations.
    */
   public readonly context: OcpContextManager = new OcpContextManager();
 
@@ -694,12 +694,19 @@ export class OcpClient {
 
       // ===== Authorization =====
       issuerAuthorization: {
-        authorize: async (params: AuthorizeIssuerParams) =>
-          authorizeIssuer(client, {
+        authorize: async (params: AuthorizeIssuerParams) => {
+          const hasPerCallOverride =
+            params.factoryContractId != null || params.factoryTemplateId != null;
+          return authorizeIssuer(client, {
             ...params,
-            factoryContractId: params.factoryContractId ?? this.factory?.contractId,
-            factoryTemplateId: params.factoryTemplateId ?? this.factory?.templateId,
-          }),
+            ...(hasPerCallOverride
+              ? {}
+              : {
+                  factoryContractId: this.factory?.contractId,
+                  factoryTemplateId: this.factory?.templateId,
+                }),
+          });
+        },
         withdraw: async (params: WithdrawAuthorizationParams) => withdrawAuthorization(client, params),
       },
 
