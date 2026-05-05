@@ -1,7 +1,11 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { authorizeIssuer, type AuthorizeIssuerResult } from '../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
-import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';import { OcpClient } from '../../src/OcpClient';
+import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';
+import {
+  authorizeIssuer,
+  type AuthorizeIssuerResult,
+} from '../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
+import { OcpClient } from '../../src/OcpClient';
 import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 jest.mock('@fairmint/canton-node-sdk');
