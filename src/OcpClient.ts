@@ -40,6 +40,17 @@
  * await batch.execute();
  * ```
  *
+ * @example For localnet or custom factory deployments
+ * ```typescript
+ * const ocp = new OcpClient({
+ *   ledger: canton.ledger,
+ *   factory: {
+ *     contractId: 'YOUR_FACTORY_CONTRACT_ID',
+ *     templateId: 'YOUR_FACTORY_TEMPLATE_ID',
+ *   },
+ * });
+ * ```
+ *
  * @see https://ocp.canton.fairmint.com/ — documentation site (fairmint/web)
  *
  * @module
@@ -312,7 +323,7 @@ export class OcpContextManager implements OcpContext {
  * **Namespaced APIs** (each mirrors a domain of the DAML model):
  * - {@link OcpClient.OpenCapTable} — issuer, stakeholders, stock classes, issuances, `capTable` lifecycle and batch updates
  *
- * Prefer {@link OcpClient.context} to cache issuer party and cap table contract id across calls.
+ * Prefer {@link OcpClient.context} to cache FeaturedAppRight, issuer party, and cap table contract id across calls.
  *
  * Payment-stream, coupon-minter, and related flows are not included (removed in v0.4.0); implement them with the same injected `ledger` / `validator` clients or your own modules.
  *
@@ -338,6 +349,17 @@ export class OcpContextManager implements OcpContext {
  * batch.create('stakeholder', { id: 'sh_1', name: { legal_name: 'Example' }, ... });
  * await batch.execute();
  * ```
+ *
+ * @example For localnet or custom factory deployments
+ * ```typescript
+ * const ocp = new OcpClient({
+ *   ledger: canton.ledger,
+ *   factory: {
+ *     contractId: 'YOUR_FACTORY_CONTRACT_ID',
+ *     templateId: 'YOUR_FACTORY_TEMPLATE_ID',
+ *   },
+ * });
+ * ```
  */
 export class OcpClient {
   /** The injected Ledger JSON API client for direct ledger access */
@@ -345,6 +367,12 @@ export class OcpClient {
 
   /** Optional injected Validator API client for validator-backed workflows */
   public readonly validator?: ValidatorApiClient;
+
+  /**
+   * Optional factory coordinates when not using the bundled mainnet/devnet config
+   * (e.g. localnet, staging, or a custom network).
+   */
+  public readonly factory?: { contractId: string; templateId: string };
 
   /**
    * Context manager for caching commonly used values.
@@ -364,6 +392,7 @@ export class OcpClient {
   constructor(dependencies: OcpClientDependencies) {
     this.ledger = dependencies.ledger;
     this.validator = dependencies.validator;
+    this.factory = dependencies.factory;
 
     this.OpenCapTable = this.createOpenCapTableMethods();
   }
@@ -665,7 +694,12 @@ export class OcpClient {
 
       // ===== Authorization =====
       issuerAuthorization: {
-        authorize: async (params: AuthorizeIssuerParams) => authorizeIssuer(client, params),
+        authorize: async (params: AuthorizeIssuerParams) =>
+          authorizeIssuer(client, {
+            ...params,
+            factoryContractId: params.factoryContractId ?? this.factory?.contractId,
+            factoryTemplateId: params.factoryTemplateId ?? this.factory?.templateId,
+          }),
         withdraw: async (params: WithdrawAuthorizationParams) => withdrawAuthorization(client, params),
       },
 
@@ -691,6 +725,16 @@ export class OcpClient {
 export interface OcpClientDependencies {
   readonly ledger: LedgerJsonApiClient;
   readonly validator?: ValidatorApiClient;
+  /**
+   * Optional factory override — use when deploying your own OCP Factory (e.g. localnet, staging, or custom network).
+   * If omitted, the SDK resolves factory coords from the bundled network config.
+   */
+  factory?: {
+    /** Contract ID of the deployed OCP Factory */
+    contractId: string;
+    /** Template ID of the deployed OCP Factory */
+    templateId: string;
+  };
 }
 
 /** Parameters for creating a batch cap table update */

@@ -1,10 +1,14 @@
 import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { authorizeIssuer, type AuthorizeIssuerResult } from '../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
 import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';
 import { OcpClient } from '../../src/OcpClient';
 import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 jest.mock('@fairmint/canton-node-sdk');
+jest.mock('../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer', () => ({
+  authorizeIssuer: jest.fn(),
+}));
 
 describe('OcpClient', () => {
   const config: ClientConfig = { network: 'devnet' };
@@ -25,6 +29,63 @@ describe('OcpClient', () => {
 
     expect(ocp.ledger).toBe(ledger);
     expect(ocp.validator).toBeUndefined();
+  });
+
+  it('exposes optional client-level factory config', () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const factory = { contractId: 'factory-cid', templateId: 'factory-tid' };
+
+    const ocp = new OcpClient({ ledger, factory });
+
+    expect(ocp.factory).toEqual(factory);
+  });
+});
+
+describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
+  const config: ClientConfig = { network: 'devnet' };
+  const minimalAuthorizeResult = {} as AuthorizeIssuerResult;
+  const mockedAuthorizeIssuer = authorizeIssuer as jest.MockedFunction<typeof authorizeIssuer>;
+
+  beforeEach(() => {
+    mockedAuthorizeIssuer.mockResolvedValue(minimalAuthorizeResult);
+  });
+
+  afterEach(() => {
+    mockedAuthorizeIssuer.mockClear();
+  });
+
+  it('merges client-level factory into authorizeIssuer when per-call overrides are omitted', async () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const factory = { contractId: 'client-factory-cid', templateId: 'client-factory-tid' };
+    const ocp = new OcpClient({ ledger, factory });
+
+    await ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' });
+
+    expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(ledger, {
+      issuer: 'issuer::party',
+      factoryContractId: 'client-factory-cid',
+      factoryTemplateId: 'client-factory-tid',
+    });
+  });
+
+  it('prefers per-call factory overrides over client-level factory', async () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const ocp = new OcpClient({
+      ledger,
+      factory: { contractId: 'client-factory-cid', templateId: 'client-factory-tid' },
+    });
+
+    await ocp.OpenCapTable.issuerAuthorization.authorize({
+      issuer: 'issuer::party',
+      factoryContractId: 'per-call-cid',
+      factoryTemplateId: 'per-call-tid',
+    });
+
+    expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(ledger, {
+      issuer: 'issuer::party',
+      factoryContractId: 'per-call-cid',
+      factoryTemplateId: 'per-call-tid',
+    });
   });
 });
 
