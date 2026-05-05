@@ -61,6 +61,51 @@ describe('createFactory', () => {
     });
   });
 
+  it('uses params.templateId when provided', async () => {
+    const customTemplateId = 'custom::pkg::OcpFactory';
+    const mockContractId = 'factory-contract-cid';
+    const mockUpdateId = 'update-xyz';
+
+    mockClient.submitAndWaitForTransactionTree.mockResolvedValue({
+      transactionTree: {
+        updateId: mockUpdateId,
+        commandId: 'cmd-2',
+        workflowId: '',
+        offset: 1,
+        eventsById: {
+          e1: {
+            CreatedTreeEvent: {
+              value: {
+                templateId: customTemplateId,
+                contractId: mockContractId,
+              },
+            },
+          },
+        },
+        synchronizerId: 'sync-1',
+        recordTime: '2026-02-17T00:00:00Z',
+      },
+    } as unknown as SubmitAndWaitForTransactionTreeResponse);
+
+    const result = await createFactory(mockClient as unknown as LedgerJsonApiClient, {
+      systemOperator,
+      templateId: customTemplateId,
+    });
+
+    expect(result.templateId).toBe(customTemplateId);
+    expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith({
+      commands: [
+        {
+          CreateCommand: {
+            templateId: customTemplateId,
+            createArguments: { system_operator: systemOperator },
+          },
+        },
+      ],
+      actAs: [systemOperator],
+    });
+  });
+
   it('throws OcpContractError when CreatedTreeEvent is missing', async () => {
     mockClient.submitAndWaitForTransactionTree.mockResolvedValue({
       transactionTree: {
