@@ -14,6 +14,7 @@ export * from './equityCompensationRelease';
 export * from './equityCompensationRepricing';
 export * from './equityCompensationRetraction';
 export * from './equityCompensationTransfer';
+export * from './factory';
 export * from './issuer';
 export * from './issuerAuthorization';
 export * from './issuerAuthorizedSharesAdjustment';
