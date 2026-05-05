@@ -1,5 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
+import {
+  findCreatedEventByTemplateId,
+  type SubmitAndWaitForTransactionTreeResponse,
+} from '../../../types/common';
 import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
 
@@ -32,7 +35,7 @@ export async function createFactory(
     system_operator: params.systemOperator,
   };
 
-  const response = await client.submitAndWaitForTransactionTree({
+  const response = (await client.submitAndWaitForTransactionTree({
     commands: [
       {
         CreateCommand: {
@@ -42,7 +45,7 @@ export async function createFactory(
       },
     ],
     actAs: [params.systemOperator],
-  });
+  })) as SubmitAndWaitForTransactionTreeResponse;
 
   const created = findCreatedEventByTemplateId(response, templateId);
   if (!created) {

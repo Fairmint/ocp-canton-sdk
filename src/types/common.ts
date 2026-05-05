@@ -22,6 +22,8 @@ export type { ClientConfig, LedgerJsonApiClient, ValidatorApiClient } from '@fai
 
 export type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
+export { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
+
 // ===== Common Params Types =====
 
 /**

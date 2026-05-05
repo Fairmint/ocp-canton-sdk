@@ -1,7 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import type { SubmitAndWaitForTransactionTreeResponse } from '../../../src/types/common';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError } from '../../../src/errors';
 import { createFactory } from '../../../src/functions/OpenCapTable/factory/createFactory';
 
 describe('createFactory', () => {
@@ -73,10 +72,10 @@ describe('createFactory', () => {
         synchronizerId: 'sync-1',
         recordTime: '2026-02-17T00:00:00Z',
       },
-    });
+    } as unknown as SubmitAndWaitForTransactionTreeResponse);
 
     await expect(createFactory(mockClient as unknown as LedgerJsonApiClient, { systemOperator })).rejects.toThrow(
-      OcpContractError
+      'Expected CreatedTreeEvent not found for OcpFactory'
     );
   });
 });
