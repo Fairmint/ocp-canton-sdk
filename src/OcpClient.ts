@@ -12,7 +12,7 @@
  *
  * @example
  * ```typescript
- * import { OcpClient, toContractId, toPartyId } from '@open-captable-protocol/canton';
+ * import { OcpClient } from '@open-captable-protocol/canton';
  * import { Canton } from '@fairmint/canton-node-sdk';
  *
  * const canton = new Canton({ network: 'localnet' });
@@ -26,15 +26,15 @@
  *
  * // Read operations return ContractResult<T> with { data, contractId }
  * const { data: issuer } = await ocp.OpenCapTable.issuer.get({
- *   contractId: toContractId('00abc123'),
+ *   contractId: '00abc123',
  * });
  * console.log(issuer.object_type); // 'ISSUER'
  * console.log(issuer.legal_name);
  *
  * // Batch updates
  * const batch = ocp.OpenCapTable.capTable.update({
- *   capTableContractId: toContractId('...'),
- *   actAs: [toPartyId('issuer::namespace')],
+ *   capTableContractId: 'REPLACE_WITH_CAP_TABLE_CONTRACT_ID',
+ *   actAs: ['issuer::namespace'],
  * });
  * batch.create('stakeholder', stakeholderData);
  * await batch.execute();
@@ -329,7 +329,7 @@ export class OcpContextManager implements OcpContext {
  *
  * @example Wire client, read issuer, batch cap table update
  * ```typescript
- * import { OcpClient, toContractId, toPartyId } from '@open-captable-protocol/canton';
+ * import { OcpClient } from '@open-captable-protocol/canton';
  * import { Canton } from '@fairmint/canton-node-sdk';
  *
  * const canton = new Canton({ network: 'localnet' });
@@ -339,12 +339,12 @@ export class OcpContextManager implements OcpContext {
  * });
  *
  * const { data: issuer } = await ocp.OpenCapTable.issuer.get({
- *   contractId: toContractId('00abc123'),
+ *   contractId: '00abc123',
  * });
  *
  * const batch = ocp.OpenCapTable.capTable.update({
- *   capTableContractId: toContractId('...'),
- *   actAs: [toPartyId('issuer::namespace')],
+ *   capTableContractId: 'REPLACE_WITH_CAP_TABLE_CONTRACT_ID',
+ *   actAs: ['issuer::namespace'],
  * });
  * batch.create('stakeholder', { id: 'sh_1', name: { legal_name: 'Example' }, ... });
  * await batch.execute();
