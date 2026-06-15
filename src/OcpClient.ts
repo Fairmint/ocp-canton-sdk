@@ -112,10 +112,10 @@ import {
   type WithdrawAuthorizationResult,
 } from './functions';
 import {
-  ENTITY_OBJECT_TYPE_MAP,
   archiveCapTable,
   CapTableBatch,
   classifyIssuerCapTables,
+  ENTITY_OBJECT_TYPE_MAP,
   getCapTableState,
   type ArchiveCapTableParams,
   type ArchiveCapTableResult,
