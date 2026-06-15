@@ -68,6 +68,7 @@ import {
   getConvertibleIssuanceAsOcf,
   getConvertibleTransferAsOcf,
   getDocumentAsOcf,
+  getEntityAsOcf,
   getEquityCompensationAcceptanceAsOcf,
   getEquityCompensationCancellationAsOcf,
   getEquityCompensationExerciseAsOcf,
@@ -127,12 +128,16 @@ import type {
   OcfConvertibleCancellationOutput,
   OcfConvertibleConversionOutput,
   OcfConvertibleIssuanceOutput,
+  OcfConvertibleRetractionOutput,
   OcfConvertibleTransferOutput,
   OcfDocumentOutput,
   OcfEquityCompensationAcceptanceOutput,
   OcfEquityCompensationCancellationOutput,
   OcfEquityCompensationExerciseOutput,
   OcfEquityCompensationIssuanceOutput,
+  OcfEquityCompensationReleaseOutput,
+  OcfEquityCompensationRepricingOutput,
+  OcfEquityCompensationRetractionOutput,
   OcfEquityCompensationTransferOutput,
   OcfIssuerAuthorizedSharesAdjustmentOutput,
   OcfIssuerOutput,
@@ -151,8 +156,10 @@ import type {
   OcfStockLegendTemplateOutput,
   OcfStockPlanOutput,
   OcfStockPlanPoolAdjustmentOutput,
+  OcfStockPlanReturnToPoolOutput,
   OcfStockReissuanceOutput,
   OcfStockRepurchaseOutput,
+  OcfStockRetractionOutput,
   OcfStockTransferOutput,
   OcfValuationOutput,
   OcfVestingAccelerationOutput,
@@ -163,6 +170,7 @@ import type {
   OcfWarrantCancellationOutput,
   OcfWarrantExerciseOutput,
   OcfWarrantIssuanceOutput,
+  OcfWarrantRetractionOutput,
   OcfWarrantTransferOutput,
 } from './types/output';
 
@@ -191,6 +199,18 @@ function toContractResult<T>(data: unknown, contractId: string): ContractResult<
     );
   }
   return { data: data as T, contractId };
+}
+
+function makeGenericEntityReader<T>(
+  client: LedgerJsonApiClient,
+  entityType: Parameters<typeof getEntityAsOcf>[1]
+): EntityReader<T> {
+  return {
+    get: async (params) => {
+      const r = await getEntityAsOcf(client, entityType, params.contractId, params);
+      return toContractResult<T>(r.data, r.contractId);
+    },
+  };
 }
 
 // ===== Context Manager =====
@@ -429,6 +449,9 @@ export class OcpClient {
 
   private createOpenCapTableMethods(): OpenCapTableMethods {
     const client = this.ledger;
+    const genericEntity = <T>(entityType: Parameters<typeof getEntityAsOcf>[1]): EntityReader<T> =>
+      makeGenericEntityReader<T>(client, entityType);
+
     return {
       // ===== Objects =====
       issuer: {
@@ -556,6 +579,13 @@ export class OcpClient {
         },
       },
 
+      // ===== Retractions =====
+      stockRetraction: genericEntity<OcfStockRetractionOutput>('stockRetraction'),
+      warrantRetraction: genericEntity<OcfWarrantRetractionOutput>('warrantRetraction'),
+      convertibleRetraction: genericEntity<OcfConvertibleRetractionOutput>('convertibleRetraction'),
+      equityCompensationRetraction:
+        genericEntity<OcfEquityCompensationRetractionOutput>('equityCompensationRetraction'),
+
       // ===== Exercises =====
       equityCompensationExercise: {
         get: async (params) => {
@@ -641,6 +671,7 @@ export class OcpClient {
           return toContractResult(r.event, r.contractId);
         },
       },
+      stockPlanReturnToPool: genericEntity<OcfStockPlanReturnToPoolOutput>('stockPlanReturnToPool'),
 
       // ===== Other Transactions =====
       stockRepurchase: {
@@ -661,6 +692,8 @@ export class OcpClient {
           return toContractResult(r.event, r.contractId);
         },
       },
+      equityCompensationRelease: genericEntity<OcfEquityCompensationReleaseOutput>('equityCompensationRelease'),
+      equityCompensationRepricing: genericEntity<OcfEquityCompensationRepricingOutput>('equityCompensationRepricing'),
 
       // ===== Vesting =====
       vestingStart: {
@@ -756,6 +789,8 @@ interface CapTableUpdateParams {
   capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
   capTableContractDetails?: { templateId: string };
+  /** Optional deterministic command ID for idempotent retry handling. */
+  commandId?: string;
   /** Party IDs to act as (signatories) */
   actAs: string[];
   /** Optional additional party IDs for read access */
@@ -807,6 +842,12 @@ interface OpenCapTableMethods {
   convertibleCancellation: EntityReader<OcfConvertibleCancellationOutput>;
   equityCompensationCancellation: EntityReader<OcfEquityCompensationCancellationOutput>;
 
+  // Retractions
+  stockRetraction: EntityReader<OcfStockRetractionOutput>;
+  warrantRetraction: EntityReader<OcfWarrantRetractionOutput>;
+  convertibleRetraction: EntityReader<OcfConvertibleRetractionOutput>;
+  equityCompensationRetraction: EntityReader<OcfEquityCompensationRetractionOutput>;
+
   // Exercises
   equityCompensationExercise: EntityReader<OcfEquityCompensationExerciseOutput>;
   warrantExercise: EntityReader<OcfWarrantExerciseOutput>;
@@ -827,11 +868,14 @@ interface OpenCapTableMethods {
   stockClassConversionRatioAdjustment: EntityReader<OcfStockClassConversionRatioAdjustmentOutput>;
   stockClassSplit: EntityReader<OcfStockClassSplitOutput>;
   stockPlanPoolAdjustment: EntityReader<OcfStockPlanPoolAdjustmentOutput>;
+  stockPlanReturnToPool: EntityReader<OcfStockPlanReturnToPoolOutput>;
 
   // Other transactions
   stockRepurchase: EntityReader<OcfStockRepurchaseOutput>;
   stockConsolidation: EntityReader<OcfStockConsolidationOutput>;
   stockReissuance: EntityReader<OcfStockReissuanceOutput>;
+  equityCompensationRelease: EntityReader<OcfEquityCompensationReleaseOutput>;
+  equityCompensationRepricing: EntityReader<OcfEquityCompensationRepricingOutput>;
 
   // Vesting
   vestingStart: EntityReader<OcfVestingStartOutput>;

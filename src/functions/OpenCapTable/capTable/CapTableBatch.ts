@@ -28,10 +28,16 @@ export interface CapTableBatchParams {
   capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
   capTableContractDetails?: { templateId: string };
+  /** Optional deterministic command ID for callers that need idempotent retry semantics. */
+  commandId?: string;
   /** Party IDs to act as (signatories) */
   actAs: string[];
   /** Optional additional party IDs for read access */
   readAs?: string[];
+}
+
+function createUpdateCapTableCommandId(): string {
+  return `update-captable-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 /** Metadata for a batch operation item, used for debugging and error reporting. */
@@ -240,7 +246,7 @@ export class CapTableBatch {
     try {
       response = await this.client.submitAndWaitForTransactionTree({
         commands: [command],
-        commandId: `update-captable-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        commandId: this.params.commandId ?? createUpdateCapTableCommandId(),
         actAs: this.params.actAs,
         readAs: this.params.readAs,
         disclosedContracts,

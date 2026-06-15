@@ -13,7 +13,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
 import { OcpValidationError } from '../errors/OcpValidationError';
-import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
+import { ENTITY_OBJECT_TYPE_MAP, type OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
@@ -38,9 +38,7 @@ import {
   contractReadFailureCode,
   createDiagnosedContractReadError,
 } from './contractReadDiagnostics';
-import { LEGACY_OBJECT_TYPE_MAP } from './planSecurityAliases';
 import { ledgerReadScope } from './readScope';
-import { TRANSACTION_SUBTYPE_MAP } from './replicationHelpers';
 
 // ===== Transaction Sorting =====
 // These utilities ensure Canton transactions are sorted consistently with DB data.
@@ -297,20 +295,6 @@ const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
   'vestingEvent',
   'vestingStart',
 ]);
-
-/**
- * Maps entity types to their OCF object_type values.
- * Used to ensure transactions fetched via the generic getEntityAsOcf path
- * have the correct object_type for sorting.
- *
- * Derived programmatically from TRANSACTION_SUBTYPE_MAP to avoid maintaining
- * duplicate inverse mappings that could drift out of sync.
- */
-const ENTITY_TYPE_TO_OBJECT_TYPE: Record<string, string> = Object.fromEntries(
-  Object.entries(TRANSACTION_SUBTYPE_MAP)
-    .filter(([objectType]) => !Object.prototype.hasOwnProperty.call(LEGACY_OBJECT_TYPE_MAP, objectType))
-    .map(([objectType, entityType]) => [entityType, objectType])
-);
 
 /**
  * Entity types supported by getEntityAsOcf dispatcher.
@@ -579,7 +563,7 @@ export async function extractCantonOcfManifest(
             // Ensure object_type is present for correct sorting
             // Generic converters may not include it, so we add it from our mapping
             const existingObjectType = typeof txData.object_type === 'string' ? txData.object_type : null;
-            const mappedObjectType = ENTITY_TYPE_TO_OBJECT_TYPE[entityType];
+            const mappedObjectType = ENTITY_OBJECT_TYPE_MAP[entityType];
 
             if (!existingObjectType && !mappedObjectType) {
               throw new OcpValidationError(
