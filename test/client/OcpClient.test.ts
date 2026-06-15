@@ -218,6 +218,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
     expect(result).toEqual({
       contractId: 'stock-retraction-cid-1',
       data: {
+        object_type: 'TX_STOCK_RETRACTION',
         id: 'ret-1',
         date: '2025-01-01',
         security_id: 'stock-1',

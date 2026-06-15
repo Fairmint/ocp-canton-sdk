@@ -112,6 +112,7 @@ import {
   type WithdrawAuthorizationResult,
 } from './functions';
 import {
+  ENTITY_OBJECT_TYPE_MAP,
   archiveCapTable,
   CapTableBatch,
   classifyIssuerCapTables,
@@ -201,6 +202,15 @@ function toContractResult<T>(data: unknown, contractId: string): ContractResult<
   return { data: data as T, contractId };
 }
 
+function withObjectType(data: unknown, objectType: string): unknown {
+  if (data == null || typeof data !== 'object' || Array.isArray(data)) {
+    return data;
+  }
+
+  const record = data as Record<string, unknown>;
+  return typeof record.object_type === 'string' ? record : { ...record, object_type: objectType };
+}
+
 function makeGenericEntityReader<T>(
   client: LedgerJsonApiClient,
   entityType: Parameters<typeof getEntityAsOcf>[1]
@@ -208,7 +218,7 @@ function makeGenericEntityReader<T>(
   return {
     get: async (params) => {
       const r = await getEntityAsOcf(client, entityType, params.contractId, params);
-      return toContractResult<T>(r.data, r.contractId);
+      return toContractResult<T>(withObjectType(r.data, ENTITY_OBJECT_TYPE_MAP[entityType]), r.contractId);
     },
   };
 }
