@@ -216,8 +216,8 @@ function makeGenericEntityReader<T>(
   entityType: Parameters<typeof getEntityAsOcf>[1]
 ): EntityReader<T> {
   return {
-    get: async (params) => {
-      const r = await getEntityAsOcf(client, entityType, params.contractId, params);
+    get: async ({ contractId, ...options }) => {
+      const r = await getEntityAsOcf(client, entityType, contractId, options);
       return toContractResult<T>(withObjectType(r.data, ENTITY_OBJECT_TYPE_MAP[entityType]), r.contractId);
     },
   };

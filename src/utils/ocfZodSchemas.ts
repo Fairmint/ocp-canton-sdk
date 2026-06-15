@@ -407,7 +407,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
     });
   }
 
-  const expectedObjectType = ENTITY_OBJECT_TYPE_MAP[entityType] as OcfSchemaObjectType;
+  const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
   const objectInput = input;
 
   const withObjectType =
