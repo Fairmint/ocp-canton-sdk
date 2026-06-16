@@ -18,16 +18,17 @@
  * ```
  */
 
-import { createIntegrationTestSuite } from '../setup';
+import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
   createTestConvertibleConversionData,
-  createTestStakeholderData,
   createTestStockConversionData,
-  createTestStockIssuanceData,
   createTestWarrantExerciseData,
   generateTestId,
   requireCreatedEventBlob,
+  setupConvertibleSecurity,
+  setupStockSecurity,
   setupTestIssuer,
+  setupWarrantSecurity,
 } from '../utils';
 
 /**
@@ -41,6 +42,19 @@ function extractContractIdString(cid: { value: unknown }): string {
   return cid.value as string;
 }
 
+async function getCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {
+  const events = await ctx.ocp.ledger.getEventsByContractId({ contractId });
+  if (!events.created?.createdEvent) {
+    throw new Error('Failed to get CapTable created event');
+  }
+  return {
+    templateId: events.created.createdEvent.templateId,
+    contractId,
+    createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+    synchronizerId,
+  };
+}
+
 createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
   /**
    * Test: Create warrant exercise transaction via batch API.
@@ -49,7 +63,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
    * that the security_id references an existing warrant. Without setting up a full
    * warrant issuance lifecycle first, this will fail with COMMAND_PREPROCESSING_FAILED.
    */
-  test.skip('creates warrant exercise and reads back as OCF (requires warrant issuance)', async () => {
+  test('creates warrant exercise and reads back as OCF (requires warrant issuance)', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -58,48 +72,27 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       issuerParty: ctx.issuerParty,
     });
 
-    // Create stakeholder first
-    const stakeholderData = createTestStakeholderData({
-      id: generateTestId('warrant-holder'),
-    });
-
-    const stakeholderBatch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
+    const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
-      actAs: [ctx.issuerParty],
     });
+    const capTableDetails = await getCapTableDetails(
+      ctx,
+      warrantSecurity.capTableContractId,
+      issuerSetup.capTableContractDetails.synchronizerId
+    );
 
-    const stakeholderResult = await stakeholderBatch.create('stakeholder', stakeholderData).execute();
-    const newCapTableCid = stakeholderResult.updatedCapTableCid;
-
-    // Get updated cap table details
-    const capTableEvents = await ctx.ocp.ledger.getEventsByContractId({ contractId: newCapTableCid });
-    if (!capTableEvents.created?.createdEvent) {
-      throw new Error('Failed to get CapTable created event');
-    }
-    const newCapTableDetails = {
-      templateId: capTableEvents.created.createdEvent.templateId,
-      contractId: newCapTableCid,
-      createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
-      synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-    };
-
-    // TODO: First need to issue a warrant with:
-    // - warrantIssuance (requires stakeholder_id, stock_class_id or stock_plan_id)
-    // Then exercise it with warrantExercise
-
-    const warrantSecurityId = generateTestId('warrant-security');
     const resultingStockSecurityId = generateTestId('resulting-stock');
 
     const warrantExerciseData = createTestWarrantExerciseData({
-      security_id: warrantSecurityId,
+      security_id: warrantSecurity.securityId,
       resulting_security_ids: [resultingStockSecurityId],
-      quantity: '1000',
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: newCapTableCid,
-      capTableContractDetails: newCapTableDetails,
+      capTableContractId: warrantSecurity.capTableContractId,
+      capTableContractDetails: capTableDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -112,8 +105,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     });
 
     expect(ocfResult.data.object_type).toBe('TX_WARRANT_EXERCISE');
-    expect(ocfResult.data.security_id).toBe(warrantSecurityId);
-    expect(ocfResult.data.quantity).toBe('1000');
+    expect(ocfResult.data.security_id).toBe(warrantSecurity.securityId);
     expect(ocfResult.data.resulting_security_ids).toContain(resultingStockSecurityId);
   });
 
@@ -124,7 +116,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
    * that the security_id references an existing convertible. Without setting up a full
    * convertible issuance lifecycle first, this will fail with COMMAND_PREPROCESSING_FAILED.
    */
-  test.skip('creates convertible conversion and reads back as OCF (requires convertible issuance)', async () => {
+  test('creates convertible conversion and reads back as OCF (requires convertible issuance)', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -133,21 +125,27 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       issuerParty: ctx.issuerParty,
     });
 
-    // TODO: First need to issue a convertible with:
-    // - convertibleIssuance (requires stakeholder_id, investment_amount, etc.)
-    // Then convert it with convertibleConversion
+    const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+    const capTableDetails = await getCapTableDetails(
+      ctx,
+      convertibleSecurity.capTableContractId,
+      issuerSetup.capTableContractDetails.synchronizerId
+    );
 
-    const convertibleSecurityId = generateTestId('convertible-security');
     const resultingStockSecurityId = generateTestId('resulting-stock');
 
     const convertibleConversionData = createTestConvertibleConversionData({
-      security_id: convertibleSecurityId,
+      security_id: convertibleSecurity.securityId,
       resulting_security_ids: [resultingStockSecurityId],
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractId: convertibleSecurity.capTableContractId,
+      capTableContractDetails: capTableDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -160,7 +158,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     });
 
     expect(ocfResult.data.object_type).toBe('TX_CONVERTIBLE_CONVERSION');
-    expect(ocfResult.data.security_id).toBe(convertibleSecurityId);
+    expect(ocfResult.data.security_id).toBe(convertibleSecurity.securityId);
     expect(ocfResult.data.resulting_security_ids).toContain(resultingStockSecurityId);
   });
 
@@ -171,7 +169,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
    * that the security_id references an existing stock. Without setting up a full
    * stock issuance lifecycle first, this will fail with COMMAND_PREPROCESSING_FAILED.
    */
-  test.skip('creates stock conversion and reads back as OCF (requires stock issuance)', async () => {
+  test('creates stock conversion and reads back as OCF (requires stock issuance)', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -180,24 +178,28 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       issuerParty: ctx.issuerParty,
     });
 
-    // TODO: First need to issue stock with:
-    // - stockClass (has numeric encoding issues)
-    // - stakeholder
-    // - stockIssuance
-    // Then convert it with stockConversion
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+    const capTableDetails = await getCapTableDetails(
+      ctx,
+      stockSecurity.capTableContractId,
+      issuerSetup.capTableContractDetails.synchronizerId
+    );
 
-    const stockSecurityId = generateTestId('stock-security');
     const resultingSecurityId = generateTestId('resulting-preferred');
 
     const stockConversionData = createTestStockConversionData({
-      security_id: stockSecurityId,
+      security_id: stockSecurity.securityId,
       resulting_security_ids: [resultingSecurityId],
-      quantity: '5000',
+      quantity_converted: '5000',
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails: capTableDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -210,8 +212,8 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     });
 
     expect(ocfResult.data.object_type).toBe('TX_STOCK_CONVERSION');
-    expect(ocfResult.data.security_id).toBe(stockSecurityId);
-    expect(ocfResult.data.quantity).toBe('5000');
+    expect(ocfResult.data.security_id).toBe(stockSecurity.securityId);
+    expect(ocfResult.data.quantity_converted).toBe('5000');
     expect(ocfResult.data.resulting_security_ids).toContain(resultingSecurityId);
   });
 
@@ -340,7 +342,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
    *
    * Note: This requires a stock class, which has numeric encoding issues.
    */
-  test.skip('creates stock issuance prerequisite for conversion', async () => {
+  test('creates stock issuance prerequisite for conversion', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -349,48 +351,13 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       issuerParty: ctx.issuerParty,
     });
 
-    // Create stakeholder
-    const stakeholderData = createTestStakeholderData({
-      id: generateTestId('stock-holder'),
-    });
-
-    const stakeholderBatch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
-      actAs: [ctx.issuerParty],
     });
 
-    const stakeholderResult = await stakeholderBatch.create('stakeholder', stakeholderData).execute();
-    const newCapTableCid = stakeholderResult.updatedCapTableCid;
-
-    // Get updated cap table details
-    const capTableEvents = await ctx.ocp.ledger.getEventsByContractId({ contractId: newCapTableCid });
-    if (!capTableEvents.created?.createdEvent) {
-      throw new Error('Failed to get CapTable created event');
-    }
-    const newCapTableDetails = {
-      templateId: capTableEvents.created.createdEvent.templateId,
-      contractId: newCapTableCid,
-      createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
-      synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-    };
-
-    // Create stock issuance
-    const stockClassId = generateTestId('stock-class');
-    const stockIssuanceData = createTestStockIssuanceData({
-      stakeholder_id: stakeholderData.id,
-      stock_class_id: stockClassId,
-      quantity: '10000',
-    });
-
-    const issuanceBatch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: newCapTableCid,
-      capTableContractDetails: newCapTableDetails,
-      actAs: [ctx.issuerParty],
-    });
-
-    // Note: This will likely fail due to missing stock class
-    const result = await issuanceBatch.create('stockIssuance', stockIssuanceData).execute();
-    expect(result.createdCids).toHaveLength(1);
+    expect(stockSecurity.stockIssuanceContractId).toBeTruthy();
+    expect(stockSecurity.securityId).toBeTruthy();
   });
 });

@@ -4,7 +4,10 @@
   "object_type": "TX_EQUITY_COMPENSATION_REPRICING",
   "date": "2025-01-15",
   "security_id": "test-security-option-reprice-001",
-  "resulting_security_ids": ["test-security-option-repriced-001"],
+  "new_exercise_price": {
+    "amount": "10.00",
+    "currency": "USD"
+  },
   "comments": [
     "Underwater option repricing approved by Board and Compensation Committee",
     "Original exercise price: $25.00",

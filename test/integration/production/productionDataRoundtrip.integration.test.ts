@@ -25,9 +25,11 @@ import {
 import { normalizeOcfData } from '../../../src/utils/planSecurityAliases';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
-import { createIntegrationTestSuite } from '../setup';
+import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
+  createTestStockPlanData,
   generateTestId,
+  requireCreatedEventBlob,
   setupConvertibleSecurity,
   setupEquityCompensationSecurity,
   setupStockSecurity,
@@ -87,6 +89,58 @@ function extractContractIdString(cid: { value: unknown }): string {
   return cid.value as string;
 }
 
+async function getUpdatedCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {
+  const events = await ctx.ocp.ledger.getEventsByContractId({ contractId });
+  if (!events.created?.createdEvent) {
+    throw new Error('Failed to get CapTable created event');
+  }
+
+  return {
+    templateId: events.created.createdEvent.templateId,
+    contractId,
+    createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+    synchronizerId,
+  };
+}
+
+async function createStockPlanPrerequisite(
+  ctx: IntegrationTestContext,
+  params: {
+    capTableContractId: string;
+    capTableContractDetails: {
+      templateId: string;
+      contractId: string;
+      createdEventBlob: string;
+      synchronizerId: string;
+    };
+    issuerParty: string;
+    stockClassId: string;
+    stockPlanId?: string;
+  }
+) {
+  const stockPlanData = createTestStockPlanData({
+    id: params.stockPlanId,
+    stock_class_ids: [params.stockClassId],
+  });
+
+  const batch = ctx.ocp.OpenCapTable.capTable.update({
+    capTableContractId: params.capTableContractId,
+    capTableContractDetails: params.capTableContractDetails,
+    actAs: [params.issuerParty],
+  });
+  const result = await batch.create('stockPlan', stockPlanData).execute();
+
+  return {
+    stockPlanId: stockPlanData.id,
+    capTableContractId: result.updatedCapTableCid,
+    capTableContractDetails: await getUpdatedCapTableDetails(
+      ctx,
+      result.updatedCapTableCid,
+      params.capTableContractDetails.synchronizerId
+    ),
+  };
+}
+
 // =============================================================================
 // PRODUCTION FIXTURES - Tests using real anonymized data (26 types)
 // =============================================================================
@@ -118,11 +172,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StockClass uses nested Numeric fields (price_per_share, par_value).
+     * Previously skipped: StockClass uses nested Numeric fields (price_per_share, par_value).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
      * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
-    test.skip('Stock Class round-trips correctly', async () => {
+    test('Stock Class round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -145,11 +199,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: Valuation uses nested Numeric fields (price_per_share).
+     * Previously skipped: Valuation uses nested Numeric fields (price_per_share).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
      * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
-    test.skip('Valuation round-trips correctly', async () => {
+    test('Valuation round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -159,11 +213,24 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('valuation', '409a');
-      const prepared = prepareFixture(fixture, 'valuation');
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        stockSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const prepared = {
+        ...prepareFixture(fixture, 'valuation'),
+        stock_class_id: stockSecurity.stockClassId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stockSecurity.capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -293,11 +360,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: VestingTerms has complex nested structures (vesting_conditions with portions using Numeric fields).
+     * Previously skipped: VestingTerms has complex nested structures (vesting_conditions with portions using Numeric fields).
      * The batch API's DAML encoding requires fixture format adjustments.
      * TODO: Fix fixture format to match expected DAML structure.
      */
-    test.skip('Vesting Terms round-trips correctly', async () => {
+    test('Vesting Terms round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -360,11 +427,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
   describe('Stock Transactions', () => {
     /**
-     * SKIPPED: StockIssuance uses nested Numeric fields (share_price, cost_basis).
+     * Previously skipped: StockIssuance uses nested Numeric fields (share_price, cost_basis).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
      * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
-    test.skip('Stock Issuance round-trips correctly', async () => {
+    test('Stock Issuance round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -374,11 +441,25 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stockIssuance', 'founders-stock');
-      const prepared = prepareFixture(fixture, 'stock-issuance');
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        stockSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-issuance'),
+        stakeholder_id: stockSecurity.stakeholderId,
+        stock_class_id: stockSecurity.stockClassId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stockSecurity.capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -522,12 +603,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
   describe('Convertible Transactions', () => {
     /**
-     * SKIPPED: ConvertibleIssuance has complex nested structures with Numeric fields
+     * Previously skipped: ConvertibleIssuance has complex nested structures with Numeric fields
      * (investment_amount, conversion_valuation_cap).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
      * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
-    test.skip('Convertible Issuance round-trips correctly', async () => {
+    test('Convertible Issuance round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -537,11 +618,19 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('convertibleIssuance', 'safe-post-money');
-      const prepared = prepareFixture(fixture, 'convertible-issuance');
+      const stakeholder = await setupTestStakeholder(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const prepared = {
+        ...prepareFixture(fixture, 'convertible-issuance'),
+        stakeholder_id: stakeholder.stakeholderData.id,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stakeholder.newCapTableContractId,
+        capTableContractDetails: stakeholder.newCapTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -550,10 +639,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: ConvertibleCancellation batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * Previously skipped: ConvertibleCancellation batch API fails with COMMAND_PREPROCESSING_FAILED.
      * The DAML contract expects different data structure than what the batch API provides.
      */
-    test.skip('Convertible Cancellation round-trips correctly', async () => {
+    test('Convertible Cancellation round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -563,11 +652,24 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('convertibleCancellation');
-      const prepared = prepareFixture(fixture, 'convertible-cancel');
+      const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        convertibleSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const prepared = {
+        ...prepareFixture(fixture, 'convertible-cancel'),
+        security_id: convertibleSecurity.securityId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: convertibleSecurity.capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -576,10 +678,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: ConvertibleConversion batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * Previously skipped: ConvertibleConversion batch API fails with COMMAND_PREPROCESSING_FAILED.
      * The DAML contract expects different data structure than what the batch API provides.
      */
-    test.skip('Convertible Conversion round-trips correctly', async () => {
+    test('Convertible Conversion round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -589,11 +691,24 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('convertibleConversion');
-      const prepared = prepareFixture(fixture, 'convertible-conversion');
+      const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        convertibleSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const prepared = {
+        ...prepareFixture(fixture, 'convertible-conversion'),
+        security_id: convertibleSecurity.securityId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: convertibleSecurity.capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -653,11 +768,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
   describe('Equity Compensation Transactions', () => {
     /**
-     * SKIPPED: EquityCompensationIssuance uses nested Numeric fields (exercise_price).
+     * Previously skipped: EquityCompensationIssuance uses nested Numeric fields (exercise_price).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
      * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
-    test.skip('Equity Compensation Issuance round-trips correctly', async () => {
+    test('Equity Compensation Issuance round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -667,11 +782,35 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso');
+      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      let { capTableContractId } = eqCompSecurity;
+      let capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
       const prepared = prepareFixture(fixture, 'equity-compensation-issuance');
+      delete prepared.vesting_terms_id;
+      prepared.stakeholder_id = eqCompSecurity.stakeholderId;
+      prepared.stock_class_id = eqCompSecurity.stockClassId;
+      if (typeof prepared.stock_plan_id === 'string') {
+        const stockPlan = await createStockPlanPrerequisite(ctx, {
+          capTableContractId,
+          capTableContractDetails,
+          issuerParty: ctx.issuerParty,
+          stockClassId: eqCompSecurity.stockClassId,
+          stockPlanId: prepared.stock_plan_id,
+        });
+        ({ capTableContractId, capTableContractDetails } = stockPlan);
+      }
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -798,10 +937,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StockClassAuthorizedSharesAdjustment batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * Previously skipped: StockClassAuthorizedSharesAdjustment batch API fails with COMMAND_PREPROCESSING_FAILED.
      * The DAML contract expects different data structure than what the batch API provides.
      */
-    test.skip('Stock Class Authorized Shares Adjustment round-trips correctly', async () => {
+    test('Stock Class Authorized Shares Adjustment round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -811,11 +950,24 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stockClassAuthorizedSharesAdjustment');
-      const prepared = prepareFixture(fixture, 'stock-class-shares-adj');
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        stockSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-class-shares-adj'),
+        stock_class_id: stockSecurity.stockClassId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stockSecurity.capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -824,10 +976,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StockPlanPoolAdjustment batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * Previously skipped: StockPlanPoolAdjustment batch API fails with COMMAND_PREPROCESSING_FAILED.
      * The DAML contract expects different data structure than what the batch API provides.
      */
-    test.skip('Stock Plan Pool Adjustment round-trips correctly', async () => {
+    test('Stock Plan Pool Adjustment round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -837,11 +989,32 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stockPlanPoolAdjustment');
-      const prepared = prepareFixture(fixture, 'stock-plan-pool-adj');
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const stockSecurityCapTableDetails = await getUpdatedCapTableDetails(
+        ctx,
+        stockSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const fixturePrepared = prepareFixture(fixture, 'stock-plan-pool-adj');
+      const stockPlan = await createStockPlanPrerequisite(ctx, {
+        capTableContractId: stockSecurity.capTableContractId,
+        capTableContractDetails: stockSecurityCapTableDetails,
+        issuerParty: ctx.issuerParty,
+        stockClassId: stockSecurity.stockClassId,
+        stockPlanId: typeof fixturePrepared.stock_plan_id === 'string' ? fixturePrepared.stock_plan_id : undefined,
+      });
+      const prepared = {
+        ...fixturePrepared,
+        stock_plan_id: stockPlan.stockPlanId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stockPlan.capTableContractId,
+        capTableContractDetails: stockPlan.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -850,11 +1023,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StockClassSplit uses OcfRatio which has nested Numeric fields.
+     * Previously skipped: StockClassSplit uses OcfRatio which has nested Numeric fields.
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
      * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
-    test.skip('Stock Class Split round-trips correctly', async () => {
+    test('Stock Class Split round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -864,11 +1037,24 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('stockClassSplit');
-      const prepared = prepareFixture(fixture, 'stock-class-split');
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        stockSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-class-split'),
+        stock_class_id: stockSecurity.stockClassId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stockSecurity.capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -883,11 +1069,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
   describe('Warrant Transactions', () => {
     /**
-     * SKIPPED: WarrantIssuance uses nested Numeric fields (exercise_price, purchase_price).
+     * Previously skipped: WarrantIssuance uses nested Numeric fields (exercise_price, purchase_price).
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
      * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
-    test.skip('Warrant Issuance round-trips correctly', async () => {
+    test('Warrant Issuance round-trips correctly', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -897,11 +1083,19 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadProductionFixture<Record<string, unknown>>('warrantIssuance');
-      const prepared = prepareFixture(fixture, 'warrant-issuance');
+      const stakeholder = await setupTestStakeholder(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const prepared = {
+        ...prepareFixture(fixture, 'warrant-issuance'),
+        stakeholder_id: stakeholder.stakeholderData.id,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stakeholder.newCapTableContractId,
+        capTableContractDetails: stakeholder.newCapTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1049,10 +1243,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StockConversion batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * Previously skipped: StockConversion batch API fails with COMMAND_PREPROCESSING_FAILED.
      * The DAML contract expects different data structure than what the batch API provides.
      */
-    test.skip('Stock Conversion round-trips correctly (synthetic)', async () => {
+    test('Stock Conversion round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1062,11 +1256,24 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stockConversion');
-      const prepared = prepareFixture(fixture, 'stock-conversion');
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        stockSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-conversion'),
+        security_id: stockSecurity.securityId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stockSecurity.capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1378,10 +1585,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: EquityCompensationRelease batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * Previously skipped: EquityCompensationRelease batch API fails with COMMAND_PREPROCESSING_FAILED.
      * The DAML contract expects different data structure than what the batch API provides.
      */
-    test.skip('Equity Compensation Release round-trips correctly (synthetic)', async () => {
+    test('Equity Compensation Release round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1391,11 +1598,24 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRelease');
-      const prepared = prepareFixture(fixture, 'equity-release');
+      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        eqCompSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const prepared = {
+        ...prepareFixture(fixture, 'equity-release'),
+        security_id: eqCompSecurity.securityId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: eqCompSecurity.capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1404,10 +1624,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: EquityCompensationRepricing batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * Previously skipped: EquityCompensationRepricing batch API fails with COMMAND_PREPROCESSING_FAILED.
      * The DAML contract expects different data structure than what the batch API provides.
      */
-    test.skip('Equity Compensation Repricing round-trips correctly (synthetic)', async () => {
+    test('Equity Compensation Repricing round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1417,11 +1637,24 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('equityCompensationRepricing');
-      const prepared = prepareFixture(fixture, 'equity-repricing');
+      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        eqCompSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const prepared = {
+        ...prepareFixture(fixture, 'equity-repricing'),
+        security_id: eqCompSecurity.securityId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: eqCompSecurity.capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1558,10 +1791,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: WarrantExercise batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * Previously skipped: WarrantExercise batch API fails with COMMAND_PREPROCESSING_FAILED.
      * The DAML contract expects different data structure than what the batch API provides.
      */
-    test.skip('Warrant Exercise round-trips correctly (synthetic)', async () => {
+    test('Warrant Exercise round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1571,11 +1804,24 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('warrantExercise');
-      const prepared = prepareFixture(fixture, 'warrant-exercise');
+      const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        warrantSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const prepared = {
+        ...prepareFixture(fixture, 'warrant-exercise'),
+        security_id: warrantSecurity.securityId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: warrantSecurity.capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1812,10 +2058,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
     });
 
     /**
-     * SKIPPED: StockPlanReturnToPool batch API fails with COMMAND_PREPROCESSING_FAILED.
+     * Previously skipped: StockPlanReturnToPool batch API fails with COMMAND_PREPROCESSING_FAILED.
      * The DAML contract expects different data structure than what the batch API provides.
      */
-    test.skip('Stock Plan Return to Pool round-trips correctly (synthetic)', async () => {
+    test('Stock Plan Return to Pool round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1825,11 +2071,33 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stockPlanReturnToPool');
-      const prepared = prepareFixture(fixture, 'stock-plan-return');
+      const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const eqCompCapTableDetails = await getUpdatedCapTableDetails(
+        ctx,
+        eqCompSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const fixturePrepared = prepareFixture(fixture, 'stock-plan-return');
+      const stockPlan = await createStockPlanPrerequisite(ctx, {
+        capTableContractId: eqCompSecurity.capTableContractId,
+        capTableContractDetails: eqCompCapTableDetails,
+        issuerParty: ctx.issuerParty,
+        stockClassId: eqCompSecurity.stockClassId,
+        stockPlanId: typeof fixturePrepared.stock_plan_id === 'string' ? fixturePrepared.stock_plan_id : undefined,
+      });
+      const prepared = {
+        ...fixturePrepared,
+        security_id: eqCompSecurity.securityId,
+        stock_plan_id: stockPlan.stockPlanId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stockPlan.capTableContractId,
+        capTableContractDetails: stockPlan.capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 
@@ -1840,11 +2108,11 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
   describe('Synthetic Fixtures - Corporate Actions', () => {
     /**
-     * SKIPPED: StockClassConversionRatioAdjustment uses OcfRatioConversionMechanism with nested Numeric fields.
+     * Previously skipped: StockClassConversionRatioAdjustment uses OcfRatioConversionMechanism with nested Numeric fields.
      * The DAML JSON API v2 has encoding issues with nested Numeric fields.
      * See CLAUDE.md "DAML JSON API v2 Nested Numeric Encoding" for details.
      */
-    test.skip('Stock Class Conversion Ratio Adjustment round-trips correctly (synthetic)', async () => {
+    test('Stock Class Conversion Ratio Adjustment round-trips correctly (synthetic)', async () => {
       const ctx = getContext();
 
       const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -1854,11 +2122,24 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stockClassConversionRatioAdjustment');
-      const prepared = prepareFixture(fixture, 'stock-class-conv-ratio-adj');
+      const stockSecurity = await setupStockSecurity(ctx.ocp, {
+        issuerContractId: issuerSetup.issuerContractId,
+        issuerParty: ctx.issuerParty,
+        capTableContractDetails: issuerSetup.capTableContractDetails,
+      });
+      const capTableContractDetails = await getUpdatedCapTableDetails(
+        ctx,
+        stockSecurity.capTableContractId,
+        issuerSetup.capTableContractDetails.synchronizerId
+      );
+      const prepared = {
+        ...prepareFixture(fixture, 'stock-class-conv-ratio-adj'),
+        stock_class_id: stockSecurity.stockClassId,
+      };
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
-        capTableContractId: issuerSetup.issuerContractId,
-        capTableContractDetails: issuerSetup.capTableContractDetails,
+        capTableContractId: stockSecurity.capTableContractId,
+        capTableContractDetails,
         actAs: [ctx.issuerParty],
       });
 

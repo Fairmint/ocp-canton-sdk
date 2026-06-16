@@ -3,6 +3,7 @@
   "id": "test-equity-comp-release-001",
   "object_type": "TX_EQUITY_COMPENSATION_RELEASE",
   "date": "2025-04-01",
+  "settlement_date": "2025-04-03",
   "security_id": "test-security-rsu-release-001",
   "quantity": "2500",
   "resulting_security_ids": ["test-security-released-shares-001"],

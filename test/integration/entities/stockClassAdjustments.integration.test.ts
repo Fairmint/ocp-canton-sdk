@@ -19,7 +19,7 @@
  * ```
  */
 
-import { createIntegrationTestSuite } from '../setup';
+import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
   generateDateString,
   generateTestId,
@@ -28,16 +28,29 @@ import {
   setupTestIssuer,
 } from '../utils';
 
+async function getCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {
+  const events = await ctx.ocp.ledger.getEventsByContractId({ contractId });
+  if (!events.created?.createdEvent) {
+    throw new Error('Failed to get CapTable created event');
+  }
+  return {
+    templateId: events.created.createdEvent.templateId,
+    contractId,
+    createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+    synchronizerId,
+  };
+}
+
 createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
   /**
    * Test: Create a stock class split via batch API.
    *
    * Stock splits multiply existing shares by a ratio (e.g., 2-for-1 split).
    *
-   * SKIPPED: StockClassSplit uses OcfRatio which has nested Numeric fields.
+   * Previously skipped: StockClassSplit uses OcfRatio which has nested Numeric fields.
    * The DAML JSON API v2 has encoding issues with nested Numeric fields.
    */
-  test.skip('creates stock class split', async () => {
+  test('creates stock class split', async () => {
     const ctx = getContext();
 
     // Create issuer
@@ -47,13 +60,23 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       issuerParty: ctx.issuerParty,
     });
 
-    // Create stock class split event
+    // Create a real stock class first; DAML validates stock_class_id references.
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+    const capTableContractDetails = await getCapTableDetails(
+      ctx,
+      stockSecurity.capTableContractId,
+      issuerSetup.capTableContractDetails.synchronizerId
+    );
+
     const splitId = generateTestId('stock-class-split');
-    const stockClassId = generateTestId('stock-class');
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -61,7 +84,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       .create('stockClassSplit', {
         id: splitId,
         date: generateDateString(0),
-        stock_class_id: stockClassId,
+        stock_class_id: stockSecurity.stockClassId,
         split_ratio: { numerator: '2', denominator: '1' },
         comments: ['2-for-1 stock split'],
       })
@@ -76,10 +99,10 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
    *
    * Adjusts the conversion ratio for convertible instruments targeting a stock class.
    *
-   * SKIPPED: StockClassConversionRatioAdjustment uses OcfRatioConversionMechanism which has
+   * Previously skipped: StockClassConversionRatioAdjustment uses OcfRatioConversionMechanism which has
    * nested Numeric fields. The DAML JSON API v2 has encoding issues with nested Numeric fields.
    */
-  test.skip('creates stock class conversion ratio adjustment', async () => {
+  test('creates stock class conversion ratio adjustment', async () => {
     const ctx = getContext();
 
     // Create issuer
@@ -89,13 +112,23 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       issuerParty: ctx.issuerParty,
     });
 
-    // Create conversion ratio adjustment event
+    // Create a real stock class first; DAML validates stock_class_id references.
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+    const capTableContractDetails = await getCapTableDetails(
+      ctx,
+      stockSecurity.capTableContractId,
+      issuerSetup.capTableContractDetails.synchronizerId
+    );
+
     const adjustmentId = generateTestId('conversion-ratio-adj');
-    const stockClassId = generateTestId('stock-class');
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -103,7 +136,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       .create('stockClassConversionRatioAdjustment', {
         id: adjustmentId,
         date: generateDateString(0),
-        stock_class_id: stockClassId,
+        stock_class_id: stockSecurity.stockClassId,
         new_ratio_conversion_mechanism: {
           type: 'RATIO_CONVERSION',
           conversion_price: { amount: '0', currency: 'USD' },
@@ -365,10 +398,10 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
    * stockholder_approval_date fields (unlike StockClassAuthorizedSharesAdjustmentOcfData).
    * The native OCF type has these fields but they are not supported by the DAML contract.
    *
-   * SKIPPED: StockClassSplit uses OcfRatio which has nested Numeric fields.
+   * Previously skipped: StockClassSplit uses OcfRatio which has nested Numeric fields.
    * The DAML JSON API v2 has encoding issues with nested Numeric fields.
    */
-  test.skip('creates stock class split with approval dates', async () => {
+  test('rejects stock class split approval dates not supported by the OCF schema', async () => {
     const ctx = getContext();
 
     // Create issuer
@@ -384,8 +417,8 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       actAs: [ctx.issuerParty],
     });
 
-    const result = await batch
-      .create('stockClassSplit', {
+    expect(() =>
+      batch.create('stockClassSplit', {
         id: generateTestId('split-with-dates'),
         date: generateDateString(0),
         stock_class_id: generateTestId('class-with-dates'),
@@ -394,9 +427,6 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         stockholder_approval_date: generateDateString(-2),
         comments: ['Split with full approval chain'],
       })
-      .execute();
-
-    expect(result.createdCids).toHaveLength(1);
-    expect(result.updatedCapTableCid).toBeTruthy();
+    ).toThrow('board_approval_date');
   });
 });

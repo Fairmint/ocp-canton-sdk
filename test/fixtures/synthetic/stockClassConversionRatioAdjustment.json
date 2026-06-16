@@ -6,13 +6,16 @@
   "stock_class_id": "test-stock-class-preferred-001",
   "new_ratio_conversion_mechanism": {
     "type": "RATIO_CONVERSION",
+    "conversion_price": {
+      "amount": "0",
+      "currency": "USD"
+    },
     "ratio": {
       "numerator": "11",
       "denominator": "10"
     },
     "rounding_type": "FLOOR"
   },
-  "board_approval_date": "2025-06-01",
   "comments": [
     "Conversion ratio adjusted following 10:1 stock split of common stock",
     "Original conversion ratio: 1:1",

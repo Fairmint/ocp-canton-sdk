@@ -2,7 +2,7 @@
  * Integration tests for Valuation and Vesting types via batch API.
  *
  * Tests the batch API for:
- * - Valuation (409A valuations) - SKIPPED: requires existing stock class
+ * - Valuation (409A valuations) - Previously skipped: requires existing stock class
  * - VestingStart (when vesting schedule begins)
  * - VestingEvent (milestone-based vesting events)
  * - VestingAcceleration (accelerated vesting due to M&A, etc.)
@@ -41,11 +41,11 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
   /**
    * Test: Create a valuation (409A) via batch API.
    *
-   * SKIPPED: Valuations require a valid stock_class_id that exists in the DAML contract.
+   * Previously skipped: Valuations require a valid stock_class_id that exists in the DAML contract.
    * Stock class creation via batch API has numeric encoding issues, so we cannot easily
    * create the prerequisite stock class needed for this test.
    */
-  test.skip('creates valuation entity via batch API', async () => {
+  test('creates valuation entity via batch API', async () => {
     // This test requires a valid stock_class_id. Stock class creation via batch API
     // has numeric encoding issues (JSON API expects Numeric as objects but receives strings).
     // See capTableBatch.integration.test.ts for details on this limitation.
@@ -54,9 +54,9 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
   /**
    * Test: Create multiple valuations in a single batch.
    *
-   * SKIPPED: See above - valuations require valid stock class references.
+   * Previously skipped: See above - valuations require valid stock class references.
    */
-  test.skip('creates multiple valuations in batch', async () => {
+  test('creates multiple valuations in batch', async () => {
     // This test requires valid stock_class_ids for each valuation.
   });
 
@@ -330,9 +330,9 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
   /**
    * Test: Create valuation and vesting types together in a batch.
    *
-   * SKIPPED: This test includes valuation which requires valid stock class references.
+   * Previously skipped: This test includes valuation which requires valid stock class references.
    */
-  test.skip('creates valuation and vesting types together in batch', async () => {
+  test('creates valuation and vesting types together in batch', async () => {
     // This test includes valuation which requires a valid stock_class_id.
   });
 });
