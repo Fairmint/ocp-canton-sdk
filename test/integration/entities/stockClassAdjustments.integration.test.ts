@@ -20,7 +20,13 @@
  */
 
 import { createIntegrationTestSuite } from '../setup';
-import { generateDateString, generateTestId, setupStockSecurity, setupTestIssuer } from '../utils';
+import {
+  generateDateString,
+  generateTestId,
+  requireCreatedEventBlob,
+  setupStockSecurity,
+  setupTestIssuer,
+} from '../utils';
 
 createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
   /**
@@ -141,7 +147,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity1.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -157,7 +163,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity2.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -173,7 +179,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity3.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -229,7 +235,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -286,7 +292,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity1.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -302,7 +308,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity2.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -318,7 +324,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity3.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;

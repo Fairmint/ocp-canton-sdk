@@ -25,6 +25,7 @@ import {
   createTestVestingEventData,
   createTestVestingStartData,
   generateTestId,
+  requireCreatedEventBlob,
   setupStockSecurity,
   setupTestIssuer,
 } from '../utils';
@@ -86,7 +87,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -147,7 +148,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -208,7 +209,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -267,7 +268,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity1.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -283,7 +284,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity2.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;

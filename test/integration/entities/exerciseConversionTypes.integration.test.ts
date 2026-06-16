@@ -26,6 +26,7 @@ import {
   createTestStockIssuanceData,
   createTestWarrantExerciseData,
   generateTestId,
+  requireCreatedEventBlob,
   setupTestIssuer,
 } from '../utils';
 
@@ -79,7 +80,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     const newCapTableDetails = {
       templateId: capTableEvents.created.createdEvent.templateId,
       contractId: newCapTableCid,
-      createdEventBlob: capTableEvents.created.createdEvent.createdEventBlob,
+      createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
       synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
     };
 
@@ -370,7 +371,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
     const newCapTableDetails = {
       templateId: capTableEvents.created.createdEvent.templateId,
       contractId: newCapTableCid,
-      createdEventBlob: capTableEvents.created.createdEvent.createdEventBlob,
+      createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
       synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
     };
 

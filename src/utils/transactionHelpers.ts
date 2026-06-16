@@ -1,3 +1,4 @@
+import { extractEventsFromTransaction } from '@fairmint/canton-node-sdk';
 import { OCF_METADATA, type OcfObjectType } from './ocfMetadata';
 import { matchesTemplateIdentity } from './templateIdentity';
 
@@ -37,48 +38,33 @@ export function safeGet(obj: unknown, path: string[]): unknown {
  * @returns Array of matching created events
  */
 export function findCreatedEventsByTemplateId(treeResponse: unknown, expectedTemplateId: string): CreatedTreeEvent[] {
-  const results: CreatedTreeEvent[] = [];
-  if (!treeResponse || typeof treeResponse !== 'object') return results;
-
-  const tr = treeResponse as {
-    transaction?: { eventsById?: Record<string, unknown> };
-  };
-  const eventsById = tr.transaction?.eventsById ?? {};
-
-  for (const event of Object.values(eventsById)) {
-    if (
-      event &&
-      typeof event === 'object' &&
-      'CreatedTreeEvent' in event &&
-      (event as Record<string, unknown>).CreatedTreeEvent &&
-      typeof (event as Record<string, unknown>).CreatedTreeEvent === 'object'
-    ) {
-      const createdEvent = (event as Record<string, unknown>).CreatedTreeEvent as { value?: { templateId?: string } };
-      const createdValue = createdEvent.value;
-
-      const packageNameFromValue = (() => {
-        if (!createdValue || typeof createdValue !== 'object') return undefined;
-        const v = createdValue as Record<string, unknown>;
-        const p = v.packageName;
-        return typeof p === 'string' ? p : undefined;
-      })();
-
-      if (
-        createdValue &&
-        typeof createdValue === 'object' &&
-        matchesTemplateIdentity(
-          {
-            templateId: createdValue.templateId,
-            packageName: packageNameFromValue,
-          },
-          expectedTemplateId
-        )
-      ) {
-        results.push(event as CreatedTreeEvent);
-      }
-    }
+  let createdEvents: ReturnType<typeof extractEventsFromTransaction>['created'];
+  try {
+    createdEvents = extractEventsFromTransaction(treeResponse).created;
+  } catch {
+    return [];
   }
-  return results;
+
+  return createdEvents
+    .filter((event) =>
+      matchesTemplateIdentity(
+        {
+          templateId: event.templateId,
+          packageName: event.packageName,
+        },
+        expectedTemplateId
+      )
+    )
+    .map((event) => ({
+      CreatedTreeEvent: {
+        value: {
+          contractId: event.contractId,
+          templateId: event.templateId,
+          ...(event.packageName !== undefined ? { packageName: event.packageName } : {}),
+          createArgument: event.createArgument,
+        },
+      },
+    }));
 }
 
 /**

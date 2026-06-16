@@ -27,6 +27,7 @@ import { createIntegrationTestSuite } from '../setup';
 import {
   generateDateString,
   generateTestId,
+  requireCreatedEventBlob,
   setupConvertibleSecurity,
   setupEquityCompensationSecurity,
   setupStockSecurity,
@@ -119,7 +120,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -167,7 +168,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: warrantSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -217,7 +218,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: convertibleSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -265,7 +266,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: eqCompSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -318,7 +319,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -335,7 +336,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: warrantSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -352,7 +353,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: convertibleSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -369,7 +370,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: eqCompSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -435,7 +436,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -487,7 +488,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -520,7 +521,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     const newCapTableContractDetails = {
       templateId: events.created.createdEvent.templateId,
       contractId: newCapTableContractId,
-      createdEventBlob: events.created.createdEvent.createdEventBlob,
+      createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
       synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
     };
 
@@ -570,7 +571,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -602,7 +603,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     const newCapTableContractDetails = {
       templateId: events.created.createdEvent.templateId,
       contractId: newCapTableContractId,
-      createdEventBlob: events.created.createdEvent.createdEventBlob,
+      createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
       synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
     };
 

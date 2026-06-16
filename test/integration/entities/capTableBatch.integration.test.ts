@@ -23,6 +23,7 @@ import {
   createTestStockPlanData,
   createTestVestingTermsData,
   generateTestId,
+  requireCreatedEventBlob,
   setupTestIssuer,
   setupTestStakeholder,
 } from '../utils';
@@ -147,7 +148,7 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
     const newCapTableContractDetails = {
       templateId: capTableEvents.created.createdEvent.templateId,
       contractId: newCapTableContractId,
-      createdEventBlob: capTableEvents.created.createdEvent.createdEventBlob,
+      createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
       synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
     };
 
@@ -205,7 +206,7 @@ createIntegrationTestSuite('CapTableBatch operations', (getContext) => {
     const newCapTableContractDetails = {
       templateId: capTableEvents2.created.createdEvent.templateId,
       contractId: newCapTableContractId,
-      createdEventBlob: capTableEvents2.created.createdEvent.createdEventBlob,
+      createdEventBlob: requireCreatedEventBlob(capTableEvents2.created.createdEvent),
       synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
     };
 

@@ -23,6 +23,7 @@ import {
   createTestValuationData,
   createTestVestingTermsData,
   generateTestId,
+  requireCreatedEventBlob,
   setupTestIssuer,
 } from '../utils';
 
@@ -399,7 +400,7 @@ async function getUpdatedCapTableDetails(
   return {
     templateId: capTableEvents.created.createdEvent.templateId,
     contractId: capTableContractId,
-    createdEventBlob: capTableEvents.created.createdEvent.createdEventBlob,
+    createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
     synchronizerId,
   };
 }

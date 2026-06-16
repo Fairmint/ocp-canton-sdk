@@ -20,6 +20,7 @@ import {
   createTestStakeholderData,
   createTestStakeholderStatusChangeData,
   generateTestId,
+  requireCreatedEventBlob,
   setupTestIssuer,
 } from '../utils';
 
@@ -63,7 +64,7 @@ createIntegrationTestSuite('Remaining OCF Types via Batch API', (getContext) => 
     const newCapTableContractDetails = {
       templateId: capTableEvents.created.createdEvent.templateId,
       contractId: stakeholderResult.updatedCapTableCid,
-      createdEventBlob: capTableEvents.created.createdEvent.createdEventBlob,
+      createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
       synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
     };
 
