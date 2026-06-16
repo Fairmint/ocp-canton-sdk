@@ -7,10 +7,8 @@
  * - VestingEvent (milestone-based vesting events)
  * - VestingAcceleration (accelerated vesting due to M&A, etc.)
  *
- * Note: Valuation tests are skipped because they require a valid stock_class_id that exists
- * in the DAML contract. Stock class creation via batch API has numeric encoding issues
- * (see capTableBatch.integration.test.ts comments), so we cannot easily create the
- * prerequisite stock class.
+ * Valuation tests create a real stock class prerequisite before submitting valuation payloads,
+ * because DAML validates stock_class_id references.
  *
  * Run with:
  *
@@ -19,8 +17,9 @@
  * ```
  */
 
-import { createIntegrationTestSuite } from '../setup';
+import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
 import {
+  createTestValuationData,
   createTestVestingAccelerationData,
   createTestVestingEventData,
   createTestVestingStartData,
@@ -37,27 +36,129 @@ function extractContractIdString(cid: { value: unknown }): string {
   return cid.value;
 }
 
+async function getUpdatedCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {
+  const events = await ctx.ocp.ledger.getEventsByContractId({ contractId });
+  if (!events.created?.createdEvent) {
+    throw new Error('Failed to get CapTable created event');
+  }
+
+  return {
+    templateId: events.created.createdEvent.templateId,
+    contractId,
+    createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
+    synchronizerId,
+  };
+}
+
 createIntegrationTestSuite('Valuation and Vesting types via batch API', (getContext) => {
   /**
    * Test: Create a valuation (409A) via batch API.
    *
-   * Previously skipped: Valuations require a valid stock_class_id that exists in the DAML contract.
-   * Stock class creation via batch API has numeric encoding issues, so we cannot easily
-   * create the prerequisite stock class needed for this test.
+   * Valuations require a valid stock_class_id that exists in the DAML contract.
    */
   test('creates valuation entity via batch API', async () => {
-    // This test requires a valid stock_class_id. Stock class creation via batch API
-    // has numeric encoding issues (JSON API expects Numeric as objects but receives strings).
-    // See capTableBatch.integration.test.ts for details on this limitation.
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+    });
+
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+    const capTableContractDetails = await getUpdatedCapTableDetails(
+      ctx,
+      stockSecurity.capTableContractId,
+      issuerSetup.capTableContractDetails.synchronizerId
+    );
+
+    const valuationData = createTestValuationData({
+      id: generateTestId('valuation'),
+      stock_class_id: stockSecurity.stockClassId,
+      price_per_share: { amount: '2.50', currency: 'USD' },
+    });
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    const result = await batch.create('valuation', valuationData).execute();
+
+    expect(result.createdCids).toHaveLength(1);
+    expect(result.updatedCapTableCid).toBeTruthy();
+
+    const ocfResult = await ctx.ocp.OpenCapTable.valuation.get({
+      contractId: extractContractIdString(result.createdCids[0]),
+    });
+    expect(ocfResult.data.object_type).toBe('VALUATION');
+    expect(ocfResult.data.stock_class_id).toBe(valuationData.stock_class_id);
+    expect(Number(ocfResult.data.price_per_share.amount)).toBe(Number(valuationData.price_per_share.amount));
+    expect(ocfResult.data.price_per_share.currency).toBe(valuationData.price_per_share.currency);
   });
 
   /**
    * Test: Create multiple valuations in a single batch.
    *
-   * Previously skipped: See above - valuations require valid stock class references.
+   * Valuations require valid stock class references.
    */
   test('creates multiple valuations in batch', async () => {
-    // This test requires valid stock_class_ids for each valuation.
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+    });
+
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+    const capTableContractDetails = await getUpdatedCapTableDetails(
+      ctx,
+      stockSecurity.capTableContractId,
+      issuerSetup.capTableContractDetails.synchronizerId
+    );
+
+    const valuation1 = createTestValuationData({
+      id: generateTestId('valuation-1'),
+      stock_class_id: stockSecurity.stockClassId,
+      price_per_share: { amount: '1.50', currency: 'USD' },
+      effective_date: '2024-01-01',
+    });
+    const valuation2 = createTestValuationData({
+      id: generateTestId('valuation-2'),
+      stock_class_id: stockSecurity.stockClassId,
+      price_per_share: { amount: '2.25', currency: 'USD' },
+      effective_date: '2024-06-01',
+    });
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    const result = await batch.create('valuation', valuation1).create('valuation', valuation2).execute();
+
+    expect(result.createdCids).toHaveLength(2);
+    expect(result.updatedCapTableCid).toBeTruthy();
+
+    const ocfResults = await Promise.all(
+      result.createdCids.map(async (cid) =>
+        ctx.ocp.OpenCapTable.valuation.get({
+          contractId: extractContractIdString(cid),
+        })
+      )
+    );
+    expect(ocfResults.map((ocf) => ocf.data.id)).toEqual([valuation1.id, valuation2.id]);
   });
 
   /**
@@ -330,9 +431,64 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
   /**
    * Test: Create valuation and vesting types together in a batch.
    *
-   * Previously skipped: This test includes valuation which requires valid stock class references.
+   * This test includes valuation, which requires valid stock class references.
    */
   test('creates valuation and vesting types together in batch', async () => {
-    // This test includes valuation which requires a valid stock_class_id.
+    const ctx = getContext();
+
+    const issuerSetup = await setupTestIssuer(ctx.ocp, {
+      systemOperatorParty: ctx.systemOperatorParty,
+      ocpFactoryContractId: ctx.ocpFactoryContractId,
+      issuerParty: ctx.issuerParty,
+    });
+
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+    const capTableContractDetails = await getUpdatedCapTableDetails(
+      ctx,
+      stockSecurity.capTableContractId,
+      issuerSetup.capTableContractDetails.synchronizerId
+    );
+
+    const valuationData = createTestValuationData({
+      id: generateTestId('valuation-combined'),
+      stock_class_id: stockSecurity.stockClassId,
+      price_per_share: { amount: '3.00', currency: 'USD' },
+    });
+    const vestingStartData = createTestVestingStartData({
+      id: generateTestId('vesting-start-combined'),
+      security_id: stockSecurity.securityId,
+      vesting_condition_id: 'combined-start-condition',
+    });
+    const vestingAccelerationData = createTestVestingAccelerationData({
+      id: generateTestId('vesting-accel-combined'),
+      security_id: stockSecurity.securityId,
+      quantity: '10000',
+      reason_text: 'Combined batch acceleration test',
+    });
+
+    const batch = ctx.ocp.OpenCapTable.capTable.update({
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails,
+      actAs: [ctx.issuerParty],
+    });
+
+    const result = await batch
+      .create('valuation', valuationData)
+      .create('vestingStart', vestingStartData)
+      .create('vestingAcceleration', vestingAccelerationData)
+      .execute();
+
+    expect(result.createdCids).toHaveLength(3);
+    expect(result.updatedCapTableCid).toBeTruthy();
+
+    const valuationResult = await ctx.ocp.OpenCapTable.valuation.get({
+      contractId: extractContractIdString(result.createdCids[0]),
+    });
+    expect(valuationResult.data.object_type).toBe('VALUATION');
+    expect(valuationResult.data.stock_class_id).toBe(stockSecurity.stockClassId);
   });
 });

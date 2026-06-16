@@ -237,9 +237,7 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
    *
    * Demonstrates creating a 409A valuation which is required for equity compensation pricing.
    *
-   * Previously skipped: This test requires a valid stock_class_id that references an existing stock class.
-   * Stock class creation has numeric encoding issues with JSON API v2, so we can't create the
-   * prerequisite stock class. When stock class creation is fixed, this test can be re-enabled.
+   * Creates a real stock security first so the valuation references an existing stock class.
    */
   test('creates valuation entity', async () => {
     const ctx = getContext();
@@ -256,16 +254,11 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
-    const capTableEvents = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity.capTableContractId });
-    if (!capTableEvents.created?.createdEvent) {
-      throw new Error('Failed to get CapTable created event');
-    }
-    const capTableContractDetails = {
-      templateId: capTableEvents.created.createdEvent.templateId,
-      contractId: stockSecurity.capTableContractId,
-      createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
-      synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
-    };
+    const capTableContractDetails = await getUpdatedCapTableDetails(
+      ctx.ocp,
+      stockSecurity.capTableContractId,
+      issuerSetup.capTableContractDetails.synchronizerId
+    );
 
     const valuationData = createTestValuationData({
       id: generateTestId('valuation'),
