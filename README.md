@@ -31,6 +31,6 @@ await ocp.OpenCapTable.capTable
   .execute();
 ```
 
-`workflowId`, `commandId`, and `submissionId` are forwarded to Canton command submission.
+`workflowId`, `commandId`, and `submissionId` are forwarded to Canton command submissions.
 `traceContext` is included in SDK log context; the current `@fairmint/canton-node-sdk`
 submit-and-wait schema does not expose a submit-level trace context field yet.

@@ -70,11 +70,10 @@ export function mergeCommandContext(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-export function applyCommandContext<T extends SubmitTransactionTreeParams>(
+function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(
   params: T,
-  options?: CommandObservabilityOptions
+  context: CommandContext | undefined
 ): T {
-  const context = mergeCommandContext(options?.defaultContext, options?.context);
   if (!context) return params;
 
   return {
@@ -85,14 +84,22 @@ export function applyCommandContext<T extends SubmitTransactionTreeParams>(
   };
 }
 
+export function applyCommandContext<T extends SubmitTransactionTreeParams>(
+  params: T,
+  options?: CommandObservabilityOptions
+): T {
+  const context = mergeCommandContext(options?.defaultContext, options?.context);
+  return applyMergedCommandContext(params, context);
+}
+
 export async function submitObservedTransactionTree(
   client: LedgerJsonApiClient,
   params: SubmitTransactionTreeParams,
   options: CommandObservabilityOptions | undefined,
   telemetry: CommandTelemetry
 ): Promise<SubmitTransactionTreeResponse> {
-  const submitParams = applyCommandContext(params, options);
   const context = mergeCommandContext(options?.defaultContext, options?.context);
+  const submitParams = applyMergedCommandContext(params, context);
   const startedAt = Date.now();
   const templateId = telemetry.templateId ?? 'unknown';
   const choice = telemetry.choice ?? 'unknown';

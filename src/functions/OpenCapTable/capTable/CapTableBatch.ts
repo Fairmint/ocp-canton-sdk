@@ -33,7 +33,10 @@ export interface CapTableBatchParams extends CommandObservabilityOptions {
   capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
   capTableContractDetails?: { templateId: string };
-  /** Optional deterministic command ID for callers that need idempotent retry semantics. */
+  /**
+   * Optional deterministic command ID for callers that need idempotent retry semantics.
+   * If `context.commandId` is also set, `context.commandId` is submitted.
+   */
   commandId?: string;
   /** Party IDs to act as (signatories) */
   actAs: string[];
