@@ -87,6 +87,40 @@ describe('observability helpers', () => {
     expect(metrics.commandFailed).not.toHaveBeenCalled();
   });
 
+  it('logs traceContext provided directly on submit params', async () => {
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
+        transactionTree: {
+          updateId: 'update-123',
+        },
+      }),
+    };
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+
+    await submitObservedTransactionTree(
+      client as never,
+      {
+        commands: [],
+        actAs: ['issuer::party'],
+        traceContext: { traceId: 'trace-from-params', spanId: 'span-from-params' },
+      },
+      { logger },
+      { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+    );
+
+    expect(logger.debug).toHaveBeenCalledWith(
+      'Submitting Canton command',
+      expect.objectContaining({
+        traceContext: { traceId: 'trace-from-params', spanId: 'span-from-params' },
+      })
+    );
+  });
+
   it('does not let success observability hook failures change command outcomes', async () => {
     const response = {
       transactionTree: {

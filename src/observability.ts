@@ -111,7 +111,7 @@ export async function submitObservedTransactionTree(
     workflowId: submitParams.workflowId,
     commandId: submitParams.commandId,
     submissionId: submitParams.submissionId,
-    traceContext: context?.traceContext,
+    traceContext: submitParams.traceContext,
   };
 
   runBestEffort(() => options?.logger?.debug('Submitting Canton command', logContext));
