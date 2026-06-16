@@ -5,8 +5,9 @@ import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/sr
 import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
 
-export interface AuthorizeIssuerParams {
+export interface AuthorizeIssuerParams extends CommandObservabilityOptions {
   issuer: string; // Party ID of the issuer to authorize
   /** Override: factory contract ID (e.g. for staging). Requires factoryTemplateId. */
   factoryContractId?: string;
@@ -69,18 +70,23 @@ export async function authorizeIssuer(
   };
 
   // Submit the choice to the factory contract
-  const response = await client.submitAndWaitForTransactionTree({
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId,
-          contractId,
-          choice: 'AuthorizeIssuer',
-          choiceArgument: choiceArguments,
+  const response = await submitObservedTransactionTree(
+    client,
+    {
+      commands: [
+        {
+          ExerciseCommand: {
+            templateId,
+            contractId,
+            choice: 'AuthorizeIssuer',
+            choiceArgument: choiceArguments,
+          },
         },
-      },
-    ],
-  });
+      ],
+    },
+    params,
+    { operation: 'authorizeIssuer', templateId, choice: 'AuthorizeIssuer' }
+  );
 
   const issuerAuthorizationTemplateId = OCP_TEMPLATES.issuerAuthorization;
   const created = findCreatedEventByTemplateId(response, issuerAuthorizationTemplateId);

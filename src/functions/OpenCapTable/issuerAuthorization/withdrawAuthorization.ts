@@ -1,8 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
 
-export interface WithdrawAuthorizationParams {
+export interface WithdrawAuthorizationParams extends CommandObservabilityOptions {
   issuerAuthorizationContractId: string;
   systemOperatorParty: string;
 }
@@ -17,19 +18,28 @@ export async function withdrawAuthorization(
   params: WithdrawAuthorizationParams
 ): Promise<WithdrawAuthorizationResult> {
   const issuerAuthorizationTemplateId = OCP_TEMPLATES.issuerAuthorization;
-  const response = await client.submitAndWaitForTransactionTree({
-    actAs: [params.systemOperatorParty],
-    commands: [
-      {
-        ExerciseCommand: {
-          templateId: issuerAuthorizationTemplateId,
-          contractId: params.issuerAuthorizationContractId,
-          choice: 'WithdrawAuthorization',
-          choiceArgument: {},
+  const response = await submitObservedTransactionTree(
+    client,
+    {
+      actAs: [params.systemOperatorParty],
+      commands: [
+        {
+          ExerciseCommand: {
+            templateId: issuerAuthorizationTemplateId,
+            contractId: params.issuerAuthorizationContractId,
+            choice: 'WithdrawAuthorization',
+            choiceArgument: {},
+          },
         },
-      },
-    ],
-  });
+      ],
+    },
+    params,
+    {
+      operation: 'withdrawAuthorization',
+      templateId: issuerAuthorizationTemplateId,
+      choice: 'WithdrawAuthorization',
+    }
+  );
 
   return {
     updateId: response.transactionTree.updateId,

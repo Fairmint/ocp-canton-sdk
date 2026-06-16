@@ -487,6 +487,126 @@ describe('CapTableBatch', () => {
       );
     });
 
+    it('should pass command context and emit observability hooks when executing', async () => {
+      const mockClient = {
+        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
+          transactionTree: {
+            updateId: 'update-123',
+            eventsById: {
+              'event-1': {
+                ExercisedTreeEvent: {
+                  value: {
+                    choice: 'UpdateCapTable',
+                    exerciseResult: {
+                      updatedCapTableCid: 'cap-table-updated',
+                      createdCids: [],
+                      editedCids: [],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      };
+      const logger = {
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      };
+      const metrics = {
+        commandSubmitted: jest.fn(),
+        commandSucceeded: jest.fn(),
+        commandFailed: jest.fn(),
+      };
+
+      const batch = new CapTableBatch(
+        {
+          capTableContractId: 'cap-table-123',
+          actAs: ['party-1'],
+          defaultContext: { workflowId: 'workflow-default' },
+          context: {
+            commandId: 'context-command-1',
+            submissionId: 'submission-1',
+            traceContext: { traceId: 'trace-1', spanId: 'span-1' },
+          },
+          logger,
+          metrics,
+        },
+        mockClient as never
+      );
+
+      batch.delete('document', 'doc-123');
+
+      const result = await batch.execute();
+
+      expect(result.updateId).toBe('update-123');
+      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workflowId: 'workflow-default',
+          commandId: 'context-command-1',
+          submissionId: 'submission-1',
+          traceContext: { traceId: 'trace-1', spanId: 'span-1' },
+        })
+      );
+      expect(logger.debug).toHaveBeenCalledWith(
+        'Submitting Canton command',
+        expect.objectContaining({
+          operation: 'capTable.update',
+          choice: 'UpdateCapTable',
+          traceContext: { traceId: 'trace-1', spanId: 'span-1' },
+        })
+      );
+      expect(metrics.commandSubmitted).toHaveBeenCalledWith(expect.any(String), 'UpdateCapTable');
+      expect(metrics.commandSucceeded).toHaveBeenCalledWith(expect.any(String), 'UpdateCapTable', expect.any(Number));
+    });
+
+    it('should prefer top-level commandId over context command IDs', async () => {
+      const mockClient = {
+        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
+          transactionTree: {
+            updateId: 'update-123',
+            eventsById: {
+              'event-1': {
+                ExercisedTreeEvent: {
+                  value: {
+                    choice: 'UpdateCapTable',
+                    exerciseResult: {
+                      updatedCapTableCid: 'cap-table-updated',
+                      createdCids: [],
+                      editedCids: [],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      };
+
+      const batch = new CapTableBatch(
+        {
+          capTableContractId: 'cap-table-123',
+          actAs: ['party-1'],
+          commandId: 'batch-command-1',
+          defaultContext: { commandId: 'default-command-1' },
+          context: { commandId: 'context-command-1' },
+        },
+        mockClient as never
+      );
+
+      batch.delete('document', 'doc-123');
+
+      await batch.execute();
+
+      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+        expect.objectContaining({
+          commandId: 'batch-command-1',
+        })
+      );
+    });
+
     it('should throw RESULT_NOT_FOUND with batch context when UpdateCapTable result missing', async () => {
       // Mock a transaction tree that doesn't contain the UpdateCapTable exercised event
       const mockClient = {

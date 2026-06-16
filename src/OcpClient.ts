@@ -131,6 +131,7 @@ import {
   type CapTableState,
   type IssuerCapTableClassification,
 } from './functions/OpenCapTable/capTable';
+import { mergeCommandContext, type CommandObservabilityOptions, type OcpObservabilityOptions } from './observability';
 import type { CommandWithDisclosedContracts } from './types';
 import type { ContractResult, GetByContractIdParams } from './types/common';
 import type {
@@ -420,6 +421,9 @@ export class OcpClient {
   /** Logical Canton environment when this client was created through environment helpers. */
   public readonly environment?: OcpEnvironment;
 
+  /** Optional logger, metrics, and default command context for OCP write operations. */
+  public readonly observability: OcpObservabilityOptions;
+
   private productionSafetyChecksEnabled: boolean;
 
   /**
@@ -448,8 +452,25 @@ export class OcpClient {
         : { contractId: dependencies.factory.contractId, templateId: dependencies.factory.templateId };
     this.environment = dependencies.environment;
     this.productionSafetyChecksEnabled = dependencies.productionSafetyChecks ?? false;
+    const observability: OcpObservabilityOptions = {};
+    if (dependencies.logger !== undefined) observability.logger = dependencies.logger;
+    if (dependencies.metrics !== undefined) observability.metrics = dependencies.metrics;
+    if (dependencies.defaultContext !== undefined) observability.defaultContext = dependencies.defaultContext;
+    this.observability = observability;
 
     this.OpenCapTable = this.createOpenCapTableMethods();
+  }
+
+  private withObservability<T extends CommandObservabilityOptions>(params: T): T {
+    const { logger, metrics, defaultContext: paramsDefaultContext, ...commandParams } = params;
+    const defaultContext = mergeCommandContext(this.observability.defaultContext, paramsDefaultContext);
+    return {
+      ...this.observability,
+      ...commandParams,
+      ...(logger !== undefined ? { logger } : {}),
+      ...(metrics !== undefined ? { metrics } : {}),
+      ...(defaultContext ? { defaultContext } : {}),
+    } as T;
   }
 
   /**
@@ -846,25 +867,29 @@ export class OcpClient {
             );
           }
 
-          return authorizeIssuer(client, {
-            ...params,
-            ...(hasPerCallOverride
-              ? {}
-              : {
-                  factoryContractId: clientFactory?.contractId,
-                  factoryTemplateId: clientFactory?.templateId,
-                }),
-          });
+          return authorizeIssuer(
+            client,
+            this.withObservability({
+              ...params,
+              ...(hasPerCallOverride
+                ? {}
+                : {
+                    factoryContractId: clientFactory?.contractId,
+                    factoryTemplateId: clientFactory?.templateId,
+                  }),
+            })
+          );
         },
-        withdraw: async (params: WithdrawAuthorizationParams) => withdrawAuthorization(client, params),
+        withdraw: async (params: WithdrawAuthorizationParams) =>
+          withdrawAuthorization(client, this.withObservability(params)),
       },
 
       // ===== Batch Updates & Lifecycle =====
       capTable: {
         classify: async (issuerPartyId: string) => classifyIssuerCapTables(client, issuerPartyId),
         getState: async (issuerPartyId: string) => getCapTableState(client, issuerPartyId),
-        update: (params: CapTableUpdateParams) => new CapTableBatch(params, client),
-        archive: async (params: ArchiveCapTableParams) => archiveCapTable(client, params),
+        update: (params: CapTableUpdateParams) => new CapTableBatch(this.withObservability(params), client),
+        archive: async (params: ArchiveCapTableParams) => archiveCapTable(client, this.withObservability(params)),
       },
     };
   }
@@ -886,7 +911,7 @@ export interface OcpFactoryCoordinates {
  * Usually obtained from `new Canton({ network })` (or equivalent): pass `{ ledger: canton.ledger, validator: canton.validator }`.
  * **`validator`** is optional for cap-table-only usage of this SDK.
  */
-export interface OcpClientDependencies {
+export interface OcpClientDependencies extends OcpObservabilityOptions {
   readonly ledger: LedgerJsonApiClient;
   readonly validator?: ValidatorApiClient;
   /**
@@ -958,12 +983,15 @@ function validateInjectedEnvironment(environment: OcpEnvironment | undefined, le
 }
 
 /** Parameters for creating a batch cap table update */
-interface CapTableUpdateParams {
+interface CapTableUpdateParams extends CommandObservabilityOptions {
   /** The contract ID of the CapTable to update */
   capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
   capTableContractDetails?: { templateId: string };
-  /** Optional deterministic command ID for idempotent retry handling. */
+  /**
+   * Optional deterministic command ID for idempotent retry handling.
+   * Takes precedence over `defaultContext.commandId` and `context.commandId`.
+   */
   commandId?: string;
   /** Party IDs to act as (signatories) */
   actAs: string[];
