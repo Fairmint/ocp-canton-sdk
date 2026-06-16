@@ -987,7 +987,7 @@ interface CapTableUpdateParams extends CommandObservabilityOptions {
   capTableContractDetails?: { templateId: string };
   /**
    * Optional deterministic command ID for idempotent retry handling.
-   * If `context.commandId` is also set, `context.commandId` is submitted.
+   * Takes precedence over `defaultContext.commandId` and `context.commandId`.
    */
   commandId?: string;
   /** Party IDs to act as (signatories) */

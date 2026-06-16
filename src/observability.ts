@@ -84,6 +84,14 @@ function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(
   };
 }
 
+function runBestEffort(callback: (() => void) | undefined): void {
+  try {
+    callback?.();
+  } catch {
+    // Observability hooks must not change ledger command outcomes.
+  }
+}
+
 export function applyCommandContext<T extends SubmitTransactionTreeParams>(
   params: T,
   options?: CommandObservabilityOptions
@@ -113,29 +121,33 @@ export async function submitObservedTransactionTree(
     traceContext: context?.traceContext,
   };
 
-  options?.logger?.debug('Submitting Canton command', logContext);
-  options?.metrics?.commandSubmitted(templateId, choice);
+  runBestEffort(() => options?.logger?.debug('Submitting Canton command', logContext));
+  runBestEffort(() => options?.metrics?.commandSubmitted(templateId, choice));
 
   try {
     const response = await client.submitAndWaitForTransactionTree(submitParams);
     const durationMs = Date.now() - startedAt;
-    options?.logger?.info('Canton command succeeded', {
-      ...logContext,
-      updateId: response.transactionTree.updateId,
-      durationMs,
-    });
-    options?.metrics?.commandSucceeded(templateId, choice, durationMs);
+    runBestEffort(() =>
+      options?.logger?.info('Canton command succeeded', {
+        ...logContext,
+        updateId: response.transactionTree.updateId,
+        durationMs,
+      })
+    );
+    runBestEffort(() => options?.metrics?.commandSucceeded(templateId, choice, durationMs));
     return response;
   } catch (error) {
     const durationMs = Date.now() - startedAt;
     const errorType = error instanceof Error ? error.name : typeof error;
-    options?.logger?.error('Canton command failed', {
-      ...logContext,
-      durationMs,
-      errorType,
-      errorMessage: error instanceof Error ? error.message : String(error),
-    });
-    options?.metrics?.commandFailed(templateId, choice, errorType);
+    runBestEffort(() =>
+      options?.logger?.error('Canton command failed', {
+        ...logContext,
+        durationMs,
+        errorType,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      })
+    );
+    runBestEffort(() => options?.metrics?.commandFailed(templateId, choice, errorType));
     throw error;
   }
 }

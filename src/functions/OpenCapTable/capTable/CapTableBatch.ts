@@ -35,7 +35,7 @@ export interface CapTableBatchParams extends CommandObservabilityOptions {
   capTableContractDetails?: { templateId: string };
   /**
    * Optional deterministic command ID for callers that need idempotent retry semantics.
-   * If `context.commandId` is also set, `context.commandId` is submitted.
+   * Takes precedence over `defaultContext.commandId` and `context.commandId`.
    */
   commandId?: string;
   /** Party IDs to act as (signatories) */
@@ -253,13 +253,10 @@ export class CapTableBatch {
     let response: Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
     try {
       const templateId = 'ExerciseCommand' in command ? command.ExerciseCommand.templateId : undefined;
-      const context = mergeCommandContext(
-        {
-          commandId: this.params.commandId ?? createUpdateCapTableCommandId(),
-        },
-        this.params.defaultContext,
-        this.params.context
-      );
+      const mergedContext = mergeCommandContext(this.params.defaultContext, this.params.context);
+      const context = mergeCommandContext(mergedContext, {
+        commandId: this.params.commandId ?? mergedContext?.commandId ?? createUpdateCapTableCommandId(),
+      });
       response = await submitObservedTransactionTree(
         this.client,
         {

@@ -85,4 +85,79 @@ describe('observability helpers', () => {
     expect(metrics.commandSucceeded).toHaveBeenCalledWith('template-1', 'Choice', expect.any(Number));
     expect(metrics.commandFailed).not.toHaveBeenCalled();
   });
+
+  it('does not let success observability hook failures change command outcomes', async () => {
+    const response = {
+      transactionTree: {
+        updateId: 'update-123',
+      },
+    };
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockResolvedValue(response),
+    };
+    const logger = {
+      debug: jest.fn(() => {
+        throw new Error('debug failed');
+      }),
+      info: jest.fn(() => {
+        throw new Error('info failed');
+      }),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(() => {
+        throw new Error('submitted failed');
+      }),
+      commandSucceeded: jest.fn(() => {
+        throw new Error('succeeded failed');
+      }),
+      commandFailed: jest.fn(),
+    };
+
+    await expect(
+      submitObservedTransactionTree(
+        client as never,
+        { commands: [], actAs: ['issuer::party'] },
+        { logger, metrics },
+        { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+      )
+    ).resolves.toBe(response);
+
+    expect(client.submitAndWaitForTransactionTree).toHaveBeenCalledTimes(1);
+    expect(metrics.commandFailed).not.toHaveBeenCalled();
+  });
+
+  it('preserves ledger failures when failure observability hooks throw', async () => {
+    const ledgerError = new Error('ledger failed');
+    const client = {
+      submitAndWaitForTransactionTree: jest.fn().mockRejectedValue(ledgerError),
+    };
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(() => {
+        throw new Error('error hook failed');
+      }),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(() => {
+        throw new Error('failed hook failed');
+      }),
+    };
+
+    await expect(
+      submitObservedTransactionTree(
+        client as never,
+        { commands: [], actAs: ['issuer::party'] },
+        { logger, metrics },
+        { operation: 'test.operation', templateId: 'template-1', choice: 'Choice' }
+      )
+    ).rejects.toBe(ledgerError);
+
+    expect(metrics.commandFailed).toHaveBeenCalledWith('template-1', 'Choice', 'Error');
+  });
 });
