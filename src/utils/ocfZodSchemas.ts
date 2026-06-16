@@ -5,7 +5,11 @@ import fs from 'fs';
 import path from 'path';
 import { z, ZodError, type ZodType } from 'zod';
 import { OcpErrorCodes, OcpValidationError } from '../errors';
-import type { OcfDataTypeFor, OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
+import {
+  ENTITY_OBJECT_TYPE_MAP,
+  type OcfDataTypeFor,
+  type OcfEntityType,
+} from '../functions/OpenCapTable/capTable/batchTypes';
 import { normalizeOcfData } from './planSecurityAliases';
 
 /**
@@ -100,79 +104,6 @@ const LEGACY_OBJECT_TYPE_ALIASES: Partial<Record<string, OcfSchemaObjectType>> =
   TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'CE_STAKEHOLDER_RELATIONSHIP',
   TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'CE_STAKEHOLDER_STATUS',
 };
-
-/**
- * Canonical object_type expected for each SDK entity type.
- */
-const ENTITY_TYPE_TO_OBJECT_TYPE: Record<OcfEntityType, OcfSchemaObjectType> = {
-  issuer: 'ISSUER',
-  stakeholder: 'STAKEHOLDER',
-  stockClass: 'STOCK_CLASS',
-  stockLegendTemplate: 'STOCK_LEGEND_TEMPLATE',
-  stockPlan: 'STOCK_PLAN',
-  vestingTerms: 'VESTING_TERMS',
-  valuation: 'VALUATION',
-  document: 'DOCUMENT',
-
-  stockIssuance: 'TX_STOCK_ISSUANCE',
-  stockCancellation: 'TX_STOCK_CANCELLATION',
-  stockTransfer: 'TX_STOCK_TRANSFER',
-  stockAcceptance: 'TX_STOCK_ACCEPTANCE',
-  stockConversion: 'TX_STOCK_CONVERSION',
-  stockRepurchase: 'TX_STOCK_REPURCHASE',
-  stockReissuance: 'TX_STOCK_REISSUANCE',
-  stockRetraction: 'TX_STOCK_RETRACTION',
-  stockConsolidation: 'TX_STOCK_CONSOLIDATION',
-
-  stockClassAuthorizedSharesAdjustment: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
-  stockClassConversionRatioAdjustment: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
-  stockClassSplit: 'TX_STOCK_CLASS_SPLIT',
-  issuerAuthorizedSharesAdjustment: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
-  stockPlanPoolAdjustment: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
-  stockPlanReturnToPool: 'TX_STOCK_PLAN_RETURN_TO_POOL',
-
-  convertibleIssuance: 'TX_CONVERTIBLE_ISSUANCE',
-  convertibleCancellation: 'TX_CONVERTIBLE_CANCELLATION',
-  convertibleTransfer: 'TX_CONVERTIBLE_TRANSFER',
-  convertibleAcceptance: 'TX_CONVERTIBLE_ACCEPTANCE',
-  convertibleConversion: 'TX_CONVERTIBLE_CONVERSION',
-  convertibleRetraction: 'TX_CONVERTIBLE_RETRACTION',
-
-  warrantIssuance: 'TX_WARRANT_ISSUANCE',
-  warrantCancellation: 'TX_WARRANT_CANCELLATION',
-  warrantTransfer: 'TX_WARRANT_TRANSFER',
-  warrantAcceptance: 'TX_WARRANT_ACCEPTANCE',
-  warrantExercise: 'TX_WARRANT_EXERCISE',
-  warrantRetraction: 'TX_WARRANT_RETRACTION',
-
-  equityCompensationIssuance: 'TX_EQUITY_COMPENSATION_ISSUANCE',
-  equityCompensationCancellation: 'TX_EQUITY_COMPENSATION_CANCELLATION',
-  equityCompensationTransfer: 'TX_EQUITY_COMPENSATION_TRANSFER',
-  equityCompensationAcceptance: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
-  equityCompensationExercise: 'TX_EQUITY_COMPENSATION_EXERCISE',
-  equityCompensationRelease: 'TX_EQUITY_COMPENSATION_RELEASE',
-  equityCompensationRetraction: 'TX_EQUITY_COMPENSATION_RETRACTION',
-  equityCompensationRepricing: 'TX_EQUITY_COMPENSATION_REPRICING',
-
-  // PlanSecurity aliases canonicalize to equity compensation
-  planSecurityIssuance: 'TX_EQUITY_COMPENSATION_ISSUANCE',
-  planSecurityCancellation: 'TX_EQUITY_COMPENSATION_CANCELLATION',
-  planSecurityTransfer: 'TX_EQUITY_COMPENSATION_TRANSFER',
-  planSecurityAcceptance: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
-  planSecurityExercise: 'TX_EQUITY_COMPENSATION_EXERCISE',
-  planSecurityRelease: 'TX_EQUITY_COMPENSATION_RELEASE',
-  planSecurityRetraction: 'TX_EQUITY_COMPENSATION_RETRACTION',
-
-  vestingAcceleration: 'TX_VESTING_ACCELERATION',
-  vestingEvent: 'TX_VESTING_EVENT',
-  vestingStart: 'TX_VESTING_START',
-
-  stakeholderRelationshipChangeEvent: 'CE_STAKEHOLDER_RELATIONSHIP',
-  stakeholderStatusChangeEvent: 'CE_STAKEHOLDER_STATUS',
-
-  // Included in object schemas though not currently modeled as SDK entity operations
-  // (kept here only to satisfy totality of Record<OcfEntityType,...>)
-} satisfies Record<OcfEntityType, OcfSchemaObjectType>;
 
 const OBJECTS_DIR_RELATIVE_PATH = 'objects';
 const SCHEMA_FILE_SUFFIX = '.schema.json';
@@ -476,7 +407,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
     });
   }
 
-  const expectedObjectType = ENTITY_TYPE_TO_OBJECT_TYPE[entityType];
+  const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
   const objectInput = input;
 
   const withObjectType =

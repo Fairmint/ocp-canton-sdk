@@ -218,291 +218,427 @@ export interface OcfEntityDataMap {
 /** Helper type to get the native OCF data type for a given entity type. */
 export type OcfDataTypeFor<T extends OcfEntityType> = OcfEntityDataMap[T];
 
+/** Shared registry entry for all OCF entity metadata used by batch, read, schema, and state code. */
+export interface OcfEntityRegistryEntry {
+  /** Canonical OCF object_type accepted by schema validation. */
+  objectType: string;
+  /** Field containing entity data in DAML contract create arguments. */
+  dataField: string;
+  /** Alternate create-argument fields accepted for older template payloads. */
+  dataFieldFallbacks?: readonly string[];
+  /** CapTable map field that stores object-id to contract-id entries. */
+  capTableField?: string;
+  /** CapTable map field that stores security-id uniqueness entries. */
+  securityIdField?: string;
+  /** DAML union suffix used to derive `OcfCreateX`, `OcfEditX`, and `OcfDeleteX` tags. */
+  batchName: string;
+  /** False for edit-only entities such as issuer. */
+  supportsCreate?: boolean;
+  /** False for non-deletable entities such as issuer. */
+  supportsDelete?: boolean;
+}
+
+/**
+ * Single source of truth for entity-level metadata.
+ *
+ * PlanSecurity entries intentionally use EquityCompensation object types and batch tags because the SDK normalizes
+ * those aliases before writing to Canton.
+ */
+export const ENTITY_REGISTRY = {
+  convertibleAcceptance: {
+    objectType: 'TX_CONVERTIBLE_ACCEPTANCE',
+    dataField: 'acceptance_data',
+    capTableField: 'convertible_acceptances',
+    batchName: 'ConvertibleAcceptance',
+  },
+  convertibleCancellation: {
+    objectType: 'TX_CONVERTIBLE_CANCELLATION',
+    dataField: 'cancellation_data',
+    capTableField: 'convertible_cancellations',
+    batchName: 'ConvertibleCancellation',
+  },
+  convertibleConversion: {
+    objectType: 'TX_CONVERTIBLE_CONVERSION',
+    dataField: 'conversion_data',
+    capTableField: 'convertible_conversions',
+    batchName: 'ConvertibleConversion',
+  },
+  convertibleIssuance: {
+    objectType: 'TX_CONVERTIBLE_ISSUANCE',
+    dataField: 'issuance_data',
+    capTableField: 'convertible_issuances',
+    securityIdField: 'convertible_issuances_by_security_id',
+    batchName: 'ConvertibleIssuance',
+  },
+  convertibleRetraction: {
+    objectType: 'TX_CONVERTIBLE_RETRACTION',
+    dataField: 'retraction_data',
+    capTableField: 'convertible_retractions',
+    batchName: 'ConvertibleRetraction',
+  },
+  convertibleTransfer: {
+    objectType: 'TX_CONVERTIBLE_TRANSFER',
+    dataField: 'transfer_data',
+    capTableField: 'convertible_transfers',
+    batchName: 'ConvertibleTransfer',
+  },
+  document: {
+    objectType: 'DOCUMENT',
+    dataField: 'document_data',
+    capTableField: 'documents',
+    batchName: 'Document',
+  },
+  equityCompensationAcceptance: {
+    objectType: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
+    dataField: 'acceptance_data',
+    capTableField: 'equity_compensation_acceptances',
+    batchName: 'EquityCompensationAcceptance',
+  },
+  equityCompensationCancellation: {
+    objectType: 'TX_EQUITY_COMPENSATION_CANCELLATION',
+    dataField: 'cancellation_data',
+    capTableField: 'equity_compensation_cancellations',
+    batchName: 'EquityCompensationCancellation',
+  },
+  equityCompensationExercise: {
+    objectType: 'TX_EQUITY_COMPENSATION_EXERCISE',
+    dataField: 'exercise_data',
+    capTableField: 'equity_compensation_exercises',
+    batchName: 'EquityCompensationExercise',
+  },
+  equityCompensationIssuance: {
+    objectType: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+    dataField: 'issuance_data',
+    capTableField: 'equity_compensation_issuances',
+    securityIdField: 'equity_compensation_issuances_by_security_id',
+    batchName: 'EquityCompensationIssuance',
+  },
+  equityCompensationRelease: {
+    objectType: 'TX_EQUITY_COMPENSATION_RELEASE',
+    dataField: 'release_data',
+    capTableField: 'equity_compensation_releases',
+    batchName: 'EquityCompensationRelease',
+  },
+  equityCompensationRepricing: {
+    objectType: 'TX_EQUITY_COMPENSATION_REPRICING',
+    dataField: 'repricing_data',
+    capTableField: 'equity_compensation_repricings',
+    batchName: 'EquityCompensationRepricing',
+  },
+  equityCompensationRetraction: {
+    objectType: 'TX_EQUITY_COMPENSATION_RETRACTION',
+    dataField: 'retraction_data',
+    capTableField: 'equity_compensation_retractions',
+    batchName: 'EquityCompensationRetraction',
+  },
+  equityCompensationTransfer: {
+    objectType: 'TX_EQUITY_COMPENSATION_TRANSFER',
+    dataField: 'transfer_data',
+    capTableField: 'equity_compensation_transfers',
+    batchName: 'EquityCompensationTransfer',
+  },
+  issuer: {
+    objectType: 'ISSUER',
+    dataField: 'issuer_data',
+    batchName: 'Issuer',
+    supportsCreate: false,
+    supportsDelete: false,
+  },
+  issuerAuthorizedSharesAdjustment: {
+    objectType: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
+    dataField: 'adjustment_data',
+    capTableField: 'issuer_authorized_shares_adjustments',
+    batchName: 'IssuerAuthorizedSharesAdjustment',
+  },
+  planSecurityAcceptance: {
+    objectType: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
+    dataField: 'acceptance_data',
+    batchName: 'EquityCompensationAcceptance',
+  },
+  planSecurityCancellation: {
+    objectType: 'TX_EQUITY_COMPENSATION_CANCELLATION',
+    dataField: 'cancellation_data',
+    batchName: 'EquityCompensationCancellation',
+  },
+  planSecurityExercise: {
+    objectType: 'TX_EQUITY_COMPENSATION_EXERCISE',
+    dataField: 'exercise_data',
+    batchName: 'EquityCompensationExercise',
+  },
+  planSecurityIssuance: {
+    objectType: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+    dataField: 'issuance_data',
+    batchName: 'EquityCompensationIssuance',
+  },
+  planSecurityRelease: {
+    objectType: 'TX_EQUITY_COMPENSATION_RELEASE',
+    dataField: 'release_data',
+    batchName: 'EquityCompensationRelease',
+  },
+  planSecurityRetraction: {
+    objectType: 'TX_EQUITY_COMPENSATION_RETRACTION',
+    dataField: 'retraction_data',
+    batchName: 'EquityCompensationRetraction',
+  },
+  planSecurityTransfer: {
+    objectType: 'TX_EQUITY_COMPENSATION_TRANSFER',
+    dataField: 'transfer_data',
+    batchName: 'EquityCompensationTransfer',
+  },
+  stakeholder: {
+    objectType: 'STAKEHOLDER',
+    dataField: 'stakeholder_data',
+    capTableField: 'stakeholders',
+    batchName: 'Stakeholder',
+  },
+  stakeholderRelationshipChangeEvent: {
+    objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
+    dataField: 'relationship_change_data',
+    dataFieldFallbacks: ['event_data'],
+    capTableField: 'stakeholder_relationship_change_events',
+    batchName: 'StakeholderRelationshipChangeEvent',
+  },
+  stakeholderStatusChangeEvent: {
+    objectType: 'CE_STAKEHOLDER_STATUS',
+    dataField: 'status_change_data',
+    dataFieldFallbacks: ['event_data'],
+    capTableField: 'stakeholder_status_change_events',
+    batchName: 'StakeholderStatusChangeEvent',
+  },
+  stockAcceptance: {
+    objectType: 'TX_STOCK_ACCEPTANCE',
+    dataField: 'acceptance_data',
+    capTableField: 'stock_acceptances',
+    batchName: 'StockAcceptance',
+  },
+  stockCancellation: {
+    objectType: 'TX_STOCK_CANCELLATION',
+    dataField: 'cancellation_data',
+    capTableField: 'stock_cancellations',
+    batchName: 'StockCancellation',
+  },
+  stockClass: {
+    objectType: 'STOCK_CLASS',
+    dataField: 'stock_class_data',
+    capTableField: 'stock_classes',
+    batchName: 'StockClass',
+  },
+  stockClassAuthorizedSharesAdjustment: {
+    objectType: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
+    dataField: 'adjustment_data',
+    capTableField: 'stock_class_authorized_shares_adjustments',
+    batchName: 'StockClassAuthorizedSharesAdjustment',
+  },
+  stockClassConversionRatioAdjustment: {
+    objectType: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+    dataField: 'adjustment_data',
+    capTableField: 'stock_class_conversion_ratio_adjustments',
+    batchName: 'StockClassConversionRatioAdjustment',
+  },
+  stockClassSplit: {
+    objectType: 'TX_STOCK_CLASS_SPLIT',
+    dataField: 'split_data',
+    capTableField: 'stock_class_splits',
+    batchName: 'StockClassSplit',
+  },
+  stockConsolidation: {
+    objectType: 'TX_STOCK_CONSOLIDATION',
+    dataField: 'consolidation_data',
+    capTableField: 'stock_consolidations',
+    batchName: 'StockConsolidation',
+  },
+  stockConversion: {
+    objectType: 'TX_STOCK_CONVERSION',
+    dataField: 'conversion_data',
+    capTableField: 'stock_conversions',
+    batchName: 'StockConversion',
+  },
+  stockIssuance: {
+    objectType: 'TX_STOCK_ISSUANCE',
+    dataField: 'issuance_data',
+    capTableField: 'stock_issuances',
+    securityIdField: 'stock_issuances_by_security_id',
+    batchName: 'StockIssuance',
+  },
+  stockLegendTemplate: {
+    objectType: 'STOCK_LEGEND_TEMPLATE',
+    dataField: 'template_data',
+    capTableField: 'stock_legend_templates',
+    batchName: 'StockLegendTemplate',
+  },
+  stockPlan: {
+    objectType: 'STOCK_PLAN',
+    dataField: 'stock_plan_data',
+    capTableField: 'stock_plans',
+    batchName: 'StockPlan',
+  },
+  stockPlanPoolAdjustment: {
+    objectType: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
+    dataField: 'adjustment_data',
+    capTableField: 'stock_plan_pool_adjustments',
+    batchName: 'StockPlanPoolAdjustment',
+  },
+  stockPlanReturnToPool: {
+    objectType: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+    dataField: 'return_data',
+    capTableField: 'stock_plan_return_to_pools',
+    batchName: 'StockPlanReturnToPool',
+  },
+  stockReissuance: {
+    objectType: 'TX_STOCK_REISSUANCE',
+    dataField: 'reissuance_data',
+    capTableField: 'stock_reissuances',
+    batchName: 'StockReissuance',
+  },
+  stockRepurchase: {
+    objectType: 'TX_STOCK_REPURCHASE',
+    dataField: 'repurchase_data',
+    capTableField: 'stock_repurchases',
+    batchName: 'StockRepurchase',
+  },
+  stockRetraction: {
+    objectType: 'TX_STOCK_RETRACTION',
+    dataField: 'retraction_data',
+    capTableField: 'stock_retractions',
+    batchName: 'StockRetraction',
+  },
+  stockTransfer: {
+    objectType: 'TX_STOCK_TRANSFER',
+    dataField: 'transfer_data',
+    capTableField: 'stock_transfers',
+    batchName: 'StockTransfer',
+  },
+  valuation: {
+    objectType: 'VALUATION',
+    dataField: 'valuation_data',
+    capTableField: 'valuations',
+    batchName: 'Valuation',
+  },
+  vestingAcceleration: {
+    objectType: 'TX_VESTING_ACCELERATION',
+    dataField: 'acceleration_data',
+    dataFieldFallbacks: ['vesting_acceleration_data'],
+    capTableField: 'vesting_accelerations',
+    batchName: 'VestingAcceleration',
+  },
+  vestingEvent: {
+    objectType: 'TX_VESTING_EVENT',
+    dataField: 'vesting_data',
+    dataFieldFallbacks: ['vesting_event_data'],
+    capTableField: 'vesting_events',
+    batchName: 'VestingEvent',
+  },
+  vestingStart: {
+    objectType: 'TX_VESTING_START',
+    dataField: 'vesting_data',
+    dataFieldFallbacks: ['vesting_start_data'],
+    capTableField: 'vesting_starts',
+    batchName: 'VestingStart',
+  },
+  vestingTerms: {
+    objectType: 'VESTING_TERMS',
+    dataField: 'vesting_terms_data',
+    capTableField: 'vesting_terms',
+    batchName: 'VestingTerms',
+  },
+  warrantAcceptance: {
+    objectType: 'TX_WARRANT_ACCEPTANCE',
+    dataField: 'acceptance_data',
+    capTableField: 'warrant_acceptances',
+    batchName: 'WarrantAcceptance',
+  },
+  warrantCancellation: {
+    objectType: 'TX_WARRANT_CANCELLATION',
+    dataField: 'cancellation_data',
+    capTableField: 'warrant_cancellations',
+    batchName: 'WarrantCancellation',
+  },
+  warrantExercise: {
+    objectType: 'TX_WARRANT_EXERCISE',
+    dataField: 'exercise_data',
+    capTableField: 'warrant_exercises',
+    batchName: 'WarrantExercise',
+  },
+  warrantIssuance: {
+    objectType: 'TX_WARRANT_ISSUANCE',
+    dataField: 'issuance_data',
+    capTableField: 'warrant_issuances',
+    securityIdField: 'warrant_issuances_by_security_id',
+    batchName: 'WarrantIssuance',
+  },
+  warrantRetraction: {
+    objectType: 'TX_WARRANT_RETRACTION',
+    dataField: 'retraction_data',
+    capTableField: 'warrant_retractions',
+    batchName: 'WarrantRetraction',
+  },
+  warrantTransfer: {
+    objectType: 'TX_WARRANT_TRANSFER',
+    dataField: 'transfer_data',
+    capTableField: 'warrant_transfers',
+    batchName: 'WarrantTransfer',
+  },
+} as const satisfies Record<OcfEntityType, OcfEntityRegistryEntry>;
+
+function entityRegistryEntries(): Array<[OcfEntityType, OcfEntityRegistryEntry]> {
+  return Object.entries(ENTITY_REGISTRY) as Array<[OcfEntityType, OcfEntityRegistryEntry]>;
+}
+
+function mapRegistryValues<TValue>(
+  selector: (entry: OcfEntityRegistryEntry, entityType: OcfEntityType) => TValue
+): Record<OcfEntityType, TValue> {
+  return Object.fromEntries(
+    entityRegistryEntries().map(([entityType, entry]) => [entityType, selector(entry, entityType)])
+  ) as Record<OcfEntityType, TValue>;
+}
+
+function partialMapFromRegistry<TValue>(
+  selector: (entry: OcfEntityRegistryEntry, entityType: OcfEntityType) => TValue | undefined
+): Partial<Record<OcfEntityType, TValue>> {
+  return Object.fromEntries(
+    entityRegistryEntries()
+      .map(([entityType, entry]) => [entityType, selector(entry, entityType)] as const)
+      .filter((entry): entry is readonly [OcfEntityType, TValue] => entry[1] !== undefined)
+  );
+}
+
+/** Mapping from entity type to canonical OCF object_type. */
+export const ENTITY_OBJECT_TYPE_MAP = mapRegistryValues((entry) => entry.objectType);
+
+/** Mapping from entity type to DAML create-argument data field. */
+export const ENTITY_DATA_FIELD_MAP = mapRegistryValues((entry) => entry.dataField);
+
+/** Alternate DAML field names used when the canonical field is missing. */
+export const ENTITY_DATA_FIELD_FALLBACK_MAP = partialMapFromRegistry((entry) => entry.dataFieldFallbacks);
+
+/** Mapping from CapTable contract field names to OCF entity types. */
+export const FIELD_TO_ENTITY_TYPE = Object.fromEntries(
+  entityRegistryEntries()
+    .filter((entry): entry is [OcfEntityType, OcfEntityRegistryEntry & { capTableField: string }] => {
+      const [, metadata] = entry;
+      return metadata.capTableField !== undefined;
+    })
+    .map(([entityType, metadata]) => [metadata.capTableField, entityType])
+);
+
+/** Mapping from CapTable `*_by_security_id` fields to issuance entity types. */
+export const SECURITY_ID_FIELD_TO_ENTITY_TYPE = Object.fromEntries(
+  entityRegistryEntries()
+    .filter((entry): entry is [OcfEntityType, OcfEntityRegistryEntry & { securityIdField: string }] => {
+      const [, metadata] = entry;
+      return metadata.securityIdField !== undefined;
+    })
+    .map(([entityType, metadata]) => [metadata.securityIdField, entityType])
+);
+
 /**
  * Mapping from entity type to DAML tag names.
  *
- * Note: PlanSecurity types use the same DAML tags as their EquityCompensation equivalents
- * since the underlying DAML contracts are the same.
+ * PlanSecurity entries derive EquityCompensation tags from ENTITY_REGISTRY because the underlying DAML unions are the
+ * same.
  */
-export const ENTITY_TAG_MAP: Record<
-  OcfEntityType,
-  { create: string | undefined; edit: string | undefined; delete: string | undefined }
-> = {
-  convertibleAcceptance: {
-    create: 'OcfCreateConvertibleAcceptance',
-    edit: 'OcfEditConvertibleAcceptance',
-    delete: 'OcfDeleteConvertibleAcceptance',
-  },
-  convertibleCancellation: {
-    create: 'OcfCreateConvertibleCancellation',
-    edit: 'OcfEditConvertibleCancellation',
-    delete: 'OcfDeleteConvertibleCancellation',
-  },
-  convertibleConversion: {
-    create: 'OcfCreateConvertibleConversion',
-    edit: 'OcfEditConvertibleConversion',
-    delete: 'OcfDeleteConvertibleConversion',
-  },
-  convertibleIssuance: {
-    create: 'OcfCreateConvertibleIssuance',
-    edit: 'OcfEditConvertibleIssuance',
-    delete: 'OcfDeleteConvertibleIssuance',
-  },
-  convertibleRetraction: {
-    create: 'OcfCreateConvertibleRetraction',
-    edit: 'OcfEditConvertibleRetraction',
-    delete: 'OcfDeleteConvertibleRetraction',
-  },
-  convertibleTransfer: {
-    create: 'OcfCreateConvertibleTransfer',
-    edit: 'OcfEditConvertibleTransfer',
-    delete: 'OcfDeleteConvertibleTransfer',
-  },
-  document: {
-    create: 'OcfCreateDocument',
-    edit: 'OcfEditDocument',
-    delete: 'OcfDeleteDocument',
-  },
-  equityCompensationAcceptance: {
-    create: 'OcfCreateEquityCompensationAcceptance',
-    edit: 'OcfEditEquityCompensationAcceptance',
-    delete: 'OcfDeleteEquityCompensationAcceptance',
-  },
-  equityCompensationCancellation: {
-    create: 'OcfCreateEquityCompensationCancellation',
-    edit: 'OcfEditEquityCompensationCancellation',
-    delete: 'OcfDeleteEquityCompensationCancellation',
-  },
-  equityCompensationExercise: {
-    create: 'OcfCreateEquityCompensationExercise',
-    edit: 'OcfEditEquityCompensationExercise',
-    delete: 'OcfDeleteEquityCompensationExercise',
-  },
-  equityCompensationIssuance: {
-    create: 'OcfCreateEquityCompensationIssuance',
-    edit: 'OcfEditEquityCompensationIssuance',
-    delete: 'OcfDeleteEquityCompensationIssuance',
-  },
-  equityCompensationRelease: {
-    create: 'OcfCreateEquityCompensationRelease',
-    edit: 'OcfEditEquityCompensationRelease',
-    delete: 'OcfDeleteEquityCompensationRelease',
-  },
-  equityCompensationRepricing: {
-    create: 'OcfCreateEquityCompensationRepricing',
-    edit: 'OcfEditEquityCompensationRepricing',
-    delete: 'OcfDeleteEquityCompensationRepricing',
-  },
-  equityCompensationRetraction: {
-    create: 'OcfCreateEquityCompensationRetraction',
-    edit: 'OcfEditEquityCompensationRetraction',
-    delete: 'OcfDeleteEquityCompensationRetraction',
-  },
-  equityCompensationTransfer: {
-    create: 'OcfCreateEquityCompensationTransfer',
-    edit: 'OcfEditEquityCompensationTransfer',
-    delete: 'OcfDeleteEquityCompensationTransfer',
-  },
-  // Issuer is edit-only (created with CapTable via IssuerAuthorization, cannot be deleted)
-  issuer: {
-    create: undefined, // Not supported - use IssuerAuthorization.CreateCapTable
-    edit: 'OcfEditIssuer',
-    delete: undefined, // Not supported - issuer cannot be deleted
-  },
-  issuerAuthorizedSharesAdjustment: {
-    create: 'OcfCreateIssuerAuthorizedSharesAdjustment',
-    edit: 'OcfEditIssuerAuthorizedSharesAdjustment',
-    delete: 'OcfDeleteIssuerAuthorizedSharesAdjustment',
-  },
-  // PlanSecurity aliases - use EquityCompensation DAML tags
-  planSecurityAcceptance: {
-    create: 'OcfCreateEquityCompensationAcceptance',
-    edit: 'OcfEditEquityCompensationAcceptance',
-    delete: 'OcfDeleteEquityCompensationAcceptance',
-  },
-  planSecurityCancellation: {
-    create: 'OcfCreateEquityCompensationCancellation',
-    edit: 'OcfEditEquityCompensationCancellation',
-    delete: 'OcfDeleteEquityCompensationCancellation',
-  },
-  planSecurityExercise: {
-    create: 'OcfCreateEquityCompensationExercise',
-    edit: 'OcfEditEquityCompensationExercise',
-    delete: 'OcfDeleteEquityCompensationExercise',
-  },
-  planSecurityIssuance: {
-    create: 'OcfCreateEquityCompensationIssuance',
-    edit: 'OcfEditEquityCompensationIssuance',
-    delete: 'OcfDeleteEquityCompensationIssuance',
-  },
-  planSecurityRelease: {
-    create: 'OcfCreateEquityCompensationRelease',
-    edit: 'OcfEditEquityCompensationRelease',
-    delete: 'OcfDeleteEquityCompensationRelease',
-  },
-  planSecurityRetraction: {
-    create: 'OcfCreateEquityCompensationRetraction',
-    edit: 'OcfEditEquityCompensationRetraction',
-    delete: 'OcfDeleteEquityCompensationRetraction',
-  },
-  planSecurityTransfer: {
-    create: 'OcfCreateEquityCompensationTransfer',
-    edit: 'OcfEditEquityCompensationTransfer',
-    delete: 'OcfDeleteEquityCompensationTransfer',
-  },
-  stakeholder: {
-    create: 'OcfCreateStakeholder',
-    edit: 'OcfEditStakeholder',
-    delete: 'OcfDeleteStakeholder',
-  },
-  stakeholderRelationshipChangeEvent: {
-    create: 'OcfCreateStakeholderRelationshipChangeEvent',
-    edit: 'OcfEditStakeholderRelationshipChangeEvent',
-    delete: 'OcfDeleteStakeholderRelationshipChangeEvent',
-  },
-  stakeholderStatusChangeEvent: {
-    create: 'OcfCreateStakeholderStatusChangeEvent',
-    edit: 'OcfEditStakeholderStatusChangeEvent',
-    delete: 'OcfDeleteStakeholderStatusChangeEvent',
-  },
-  stockAcceptance: {
-    create: 'OcfCreateStockAcceptance',
-    edit: 'OcfEditStockAcceptance',
-    delete: 'OcfDeleteStockAcceptance',
-  },
-  stockCancellation: {
-    create: 'OcfCreateStockCancellation',
-    edit: 'OcfEditStockCancellation',
-    delete: 'OcfDeleteStockCancellation',
-  },
-  stockClass: {
-    create: 'OcfCreateStockClass',
-    edit: 'OcfEditStockClass',
-    delete: 'OcfDeleteStockClass',
-  },
-  stockClassAuthorizedSharesAdjustment: {
-    create: 'OcfCreateStockClassAuthorizedSharesAdjustment',
-    edit: 'OcfEditStockClassAuthorizedSharesAdjustment',
-    delete: 'OcfDeleteStockClassAuthorizedSharesAdjustment',
-  },
-  stockClassConversionRatioAdjustment: {
-    create: 'OcfCreateStockClassConversionRatioAdjustment',
-    edit: 'OcfEditStockClassConversionRatioAdjustment',
-    delete: 'OcfDeleteStockClassConversionRatioAdjustment',
-  },
-  stockClassSplit: {
-    create: 'OcfCreateStockClassSplit',
-    edit: 'OcfEditStockClassSplit',
-    delete: 'OcfDeleteStockClassSplit',
-  },
-  stockConsolidation: {
-    create: 'OcfCreateStockConsolidation',
-    edit: 'OcfEditStockConsolidation',
-    delete: 'OcfDeleteStockConsolidation',
-  },
-  stockConversion: {
-    create: 'OcfCreateStockConversion',
-    edit: 'OcfEditStockConversion',
-    delete: 'OcfDeleteStockConversion',
-  },
-  stockIssuance: {
-    create: 'OcfCreateStockIssuance',
-    edit: 'OcfEditStockIssuance',
-    delete: 'OcfDeleteStockIssuance',
-  },
-  stockLegendTemplate: {
-    create: 'OcfCreateStockLegendTemplate',
-    edit: 'OcfEditStockLegendTemplate',
-    delete: 'OcfDeleteStockLegendTemplate',
-  },
-  stockPlan: {
-    create: 'OcfCreateStockPlan',
-    edit: 'OcfEditStockPlan',
-    delete: 'OcfDeleteStockPlan',
-  },
-  stockPlanPoolAdjustment: {
-    create: 'OcfCreateStockPlanPoolAdjustment',
-    edit: 'OcfEditStockPlanPoolAdjustment',
-    delete: 'OcfDeleteStockPlanPoolAdjustment',
-  },
-  stockPlanReturnToPool: {
-    create: 'OcfCreateStockPlanReturnToPool',
-    edit: 'OcfEditStockPlanReturnToPool',
-    delete: 'OcfDeleteStockPlanReturnToPool',
-  },
-  stockReissuance: {
-    create: 'OcfCreateStockReissuance',
-    edit: 'OcfEditStockReissuance',
-    delete: 'OcfDeleteStockReissuance',
-  },
-  stockRepurchase: {
-    create: 'OcfCreateStockRepurchase',
-    edit: 'OcfEditStockRepurchase',
-    delete: 'OcfDeleteStockRepurchase',
-  },
-  stockRetraction: {
-    create: 'OcfCreateStockRetraction',
-    edit: 'OcfEditStockRetraction',
-    delete: 'OcfDeleteStockRetraction',
-  },
-  stockTransfer: {
-    create: 'OcfCreateStockTransfer',
-    edit: 'OcfEditStockTransfer',
-    delete: 'OcfDeleteStockTransfer',
-  },
-  valuation: {
-    create: 'OcfCreateValuation',
-    edit: 'OcfEditValuation',
-    delete: 'OcfDeleteValuation',
-  },
-  vestingAcceleration: {
-    create: 'OcfCreateVestingAcceleration',
-    edit: 'OcfEditVestingAcceleration',
-    delete: 'OcfDeleteVestingAcceleration',
-  },
-  vestingEvent: {
-    create: 'OcfCreateVestingEvent',
-    edit: 'OcfEditVestingEvent',
-    delete: 'OcfDeleteVestingEvent',
-  },
-  vestingStart: {
-    create: 'OcfCreateVestingStart',
-    edit: 'OcfEditVestingStart',
-    delete: 'OcfDeleteVestingStart',
-  },
-  vestingTerms: {
-    create: 'OcfCreateVestingTerms',
-    edit: 'OcfEditVestingTerms',
-    delete: 'OcfDeleteVestingTerms',
-  },
-  warrantAcceptance: {
-    create: 'OcfCreateWarrantAcceptance',
-    edit: 'OcfEditWarrantAcceptance',
-    delete: 'OcfDeleteWarrantAcceptance',
-  },
-  warrantCancellation: {
-    create: 'OcfCreateWarrantCancellation',
-    edit: 'OcfEditWarrantCancellation',
-    delete: 'OcfDeleteWarrantCancellation',
-  },
-  warrantExercise: {
-    create: 'OcfCreateWarrantExercise',
-    edit: 'OcfEditWarrantExercise',
-    delete: 'OcfDeleteWarrantExercise',
-  },
-  warrantIssuance: {
-    create: 'OcfCreateWarrantIssuance',
-    edit: 'OcfEditWarrantIssuance',
-    delete: 'OcfDeleteWarrantIssuance',
-  },
-  warrantRetraction: {
-    create: 'OcfCreateWarrantRetraction',
-    edit: 'OcfEditWarrantRetraction',
-    delete: 'OcfDeleteWarrantRetraction',
-  },
-  warrantTransfer: {
-    create: 'OcfCreateWarrantTransfer',
-    edit: 'OcfEditWarrantTransfer',
-    delete: 'OcfDeleteWarrantTransfer',
-  },
-};
+export const ENTITY_TAG_MAP = mapRegistryValues((entry) => ({
+  create: entry.supportsCreate === false ? undefined : `OcfCreate${entry.batchName}`,
+  edit: `OcfEdit${entry.batchName}`,
+  delete: entry.supportsDelete === false ? undefined : `OcfDelete${entry.batchName}`,
+}));

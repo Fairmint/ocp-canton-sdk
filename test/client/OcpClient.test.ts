@@ -189,4 +189,45 @@ describe('OcpClient OpenCapTable entity facade', () => {
       readAs: ['issuer::party-1'],
     });
   });
+
+  it('exposes dispatcher-backed readers for transaction types missing dedicated facade wiring', async () => {
+    const ledger = {
+      getEventsByContractId: jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            createArgument: {
+              retraction_data: {
+                id: 'ret-1',
+                date: '2025-01-01T00:00:00.000Z',
+                security_id: 'stock-1',
+                reason_text: 'Correction',
+                comments: [],
+              },
+            },
+          },
+        },
+      }),
+    };
+    const ocp = new OcpClient({ ledger: ledger as never });
+
+    const result = await ocp.OpenCapTable.stockRetraction.get({
+      contractId: 'stock-retraction-cid-1',
+      readAs: ['issuer::party-1'],
+    });
+
+    expect(result).toEqual({
+      contractId: 'stock-retraction-cid-1',
+      data: {
+        object_type: 'TX_STOCK_RETRACTION',
+        id: 'ret-1',
+        date: '2025-01-01',
+        security_id: 'stock-1',
+        reason_text: 'Correction',
+      },
+    });
+    expect(ledger.getEventsByContractId).toHaveBeenCalledWith({
+      contractId: 'stock-retraction-cid-1',
+      readAs: ['issuer::party-1'],
+    });
+  });
 });

@@ -13,7 +13,12 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
 import { readSingleContract } from '../shared/singleContractRead';
-import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
+import {
+  ENTITY_DATA_FIELD_FALLBACK_MAP,
+  ENTITY_DATA_FIELD_MAP,
+  type OcfDataTypeFor,
+  type OcfEntityType,
+} from './batchTypes';
 
 // Import converters from entity folders
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -65,88 +70,7 @@ import { damlWarrantIssuanceDataToNative } from '../warrantIssuance/getWarrantIs
 import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 import { damlWarrantTransferToNative } from '../warrantTransfer/damlToOcf';
 
-// ===== Data field name mapping for contract extraction =====
-
-/**
- * Maps entity types to the field name containing the entity data in the DAML contract.
- * For example, 'stakeholder' contracts have data in 'stakeholder_data' field.
- *
- * Note: PlanSecurity types use the same data fields as EquityCompensation since they
- * share the same underlying DAML contracts.
- */
-export const ENTITY_DATA_FIELD_MAP: Record<OcfEntityType, string> = {
-  convertibleAcceptance: 'acceptance_data',
-  convertibleCancellation: 'cancellation_data',
-  convertibleConversion: 'conversion_data',
-  convertibleIssuance: 'issuance_data',
-  convertibleRetraction: 'retraction_data',
-  convertibleTransfer: 'transfer_data',
-  document: 'document_data',
-  equityCompensationAcceptance: 'acceptance_data',
-  equityCompensationCancellation: 'cancellation_data',
-  equityCompensationExercise: 'exercise_data',
-  equityCompensationIssuance: 'issuance_data',
-  equityCompensationRelease: 'release_data',
-  equityCompensationRepricing: 'repricing_data',
-  equityCompensationRetraction: 'retraction_data',
-  equityCompensationTransfer: 'transfer_data',
-  // Issuer is edit-only (stored as a single reference in CapTable, not a map)
-  issuer: 'issuer_data',
-  issuerAuthorizedSharesAdjustment: 'adjustment_data',
-  // PlanSecurity aliases - use EquityCompensation data field names
-  planSecurityAcceptance: 'acceptance_data',
-  planSecurityCancellation: 'cancellation_data',
-  planSecurityExercise: 'exercise_data',
-  planSecurityIssuance: 'issuance_data',
-  planSecurityRelease: 'release_data',
-  planSecurityRetraction: 'retraction_data',
-  planSecurityTransfer: 'transfer_data',
-  stakeholder: 'stakeholder_data',
-  stakeholderRelationshipChangeEvent: 'relationship_change_data',
-  stakeholderStatusChangeEvent: 'status_change_data',
-  stockAcceptance: 'acceptance_data',
-  stockCancellation: 'cancellation_data',
-  stockClass: 'stock_class_data',
-  stockClassAuthorizedSharesAdjustment: 'adjustment_data',
-  stockClassConversionRatioAdjustment: 'adjustment_data',
-  stockClassSplit: 'split_data',
-  stockConsolidation: 'consolidation_data',
-  stockConversion: 'conversion_data',
-  stockIssuance: 'issuance_data',
-  stockLegendTemplate: 'template_data',
-  stockPlan: 'stock_plan_data',
-  stockPlanPoolAdjustment: 'adjustment_data',
-  stockPlanReturnToPool: 'return_data',
-  stockReissuance: 'reissuance_data',
-  stockRepurchase: 'repurchase_data',
-  stockRetraction: 'retraction_data',
-  stockTransfer: 'transfer_data',
-  valuation: 'valuation_data',
-  // Deployed DAML templates use these wrapper fields:
-  // - VestingStart/VestingEvent: vesting_data
-  // - VestingAcceleration: acceleration_data
-  vestingAcceleration: 'acceleration_data',
-  vestingEvent: 'vesting_data',
-  vestingStart: 'vesting_data',
-  vestingTerms: 'vesting_terms_data',
-  warrantAcceptance: 'acceptance_data',
-  warrantCancellation: 'cancellation_data',
-  warrantExercise: 'exercise_data',
-  warrantIssuance: 'issuance_data',
-  warrantRetraction: 'retraction_data',
-  warrantTransfer: 'transfer_data',
-};
-
-/**
- * Alternate DAML field names used when the canonical field in ENTITY_DATA_FIELD_MAP is missing.
- */
-export const ENTITY_DATA_FIELD_FALLBACK_MAP: Partial<Record<OcfEntityType, readonly string[]>> = {
-  stakeholderRelationshipChangeEvent: ['event_data'],
-  stakeholderStatusChangeEvent: ['event_data'],
-  vestingAcceleration: ['vesting_acceleration_data'],
-  vestingEvent: ['vesting_event_data'],
-  vestingStart: ['vesting_start_data'],
-};
+export { ENTITY_DATA_FIELD_FALLBACK_MAP, ENTITY_DATA_FIELD_MAP };
 
 // Note: DAML input type definitions and converter implementations have been moved to their
 // respective entity folders (e.g., stockTransfer/damlToOcf.ts) following the Entity Folder
@@ -160,76 +84,7 @@ export const ENTITY_DATA_FIELD_FALLBACK_MAP: Partial<Record<OcfEntityType, reado
  *
  * PlanSecurity types are aliases that delegate to EquityCompensation converters.
  */
-export type SupportedOcfReadType =
-  // Core objects
-  | 'document'
-  | 'issuer'
-  | 'stakeholder'
-  | 'stockClass'
-  | 'stockLegendTemplate'
-  | 'stockPlan'
-  | 'vestingTerms'
-  // Issuance types
-  | 'convertibleIssuance'
-  | 'equityCompensationIssuance'
-  | 'stockIssuance'
-  | 'warrantIssuance'
-  // Acceptance types
-  | 'convertibleAcceptance'
-  | 'equityCompensationAcceptance'
-  | 'stockAcceptance'
-  | 'warrantAcceptance'
-  // Cancellation types
-  | 'convertibleCancellation'
-  | 'equityCompensationCancellation'
-  | 'stockCancellation'
-  | 'warrantCancellation'
-  // Transfer types
-  | 'convertibleTransfer'
-  | 'equityCompensationTransfer'
-  | 'stockTransfer'
-  | 'warrantTransfer'
-  // Retraction types
-  | 'convertibleRetraction'
-  | 'equityCompensationRetraction'
-  | 'stockRetraction'
-  | 'warrantRetraction'
-  // Conversion types
-  | 'convertibleConversion'
-  | 'stockConversion'
-  // Exercise types
-  | 'equityCompensationExercise'
-  | 'warrantExercise'
-  // Release and other equity compensation
-  | 'equityCompensationRelease'
-  | 'equityCompensationRepricing'
-  // Stock adjustments
-  | 'stockClassAuthorizedSharesAdjustment'
-  | 'stockClassConversionRatioAdjustment'
-  | 'stockClassSplit'
-  | 'stockConsolidation'
-  | 'stockPlanPoolAdjustment'
-  | 'stockPlanReturnToPool'
-  | 'stockReissuance'
-  | 'stockRepurchase'
-  // Issuer adjustment
-  | 'issuerAuthorizedSharesAdjustment'
-  // Stakeholder events
-  | 'stakeholderRelationshipChangeEvent'
-  | 'stakeholderStatusChangeEvent'
-  // Valuation and vesting
-  | 'valuation'
-  | 'vestingAcceleration'
-  | 'vestingEvent'
-  | 'vestingStart'
-  // PlanSecurity aliases (delegate to EquityCompensation)
-  | 'planSecurityAcceptance'
-  | 'planSecurityCancellation'
-  | 'planSecurityExercise'
-  | 'planSecurityIssuance'
-  | 'planSecurityRelease'
-  | 'planSecurityRetraction'
-  | 'planSecurityTransfer';
+export type SupportedOcfReadType = OcfEntityType;
 
 /**
  * Convert DAML entity data to native OCF format based on entity type.

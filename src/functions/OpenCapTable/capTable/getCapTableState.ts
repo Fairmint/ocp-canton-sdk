@@ -35,7 +35,8 @@ import {
 } from '../../../utils/contractReadDiagnostics';
 import { ledgerReadScope } from '../../../utils/readScope';
 import { parseDamlMap } from '../../../utils/typeConversions';
-import type { OcfEntityType } from './batchTypes';
+import { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE, type OcfEntityType } from './batchTypes';
+export { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE } from './batchTypes';
 
 /** CapTable template ID this SDK treats as current (package-name symbolic form; used for ledger queries). */
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
@@ -124,99 +125,6 @@ function isJsActiveContractItem(item: JsGetActiveContractsResponseItem): item is
 
   return true;
 }
-
-/**
- * Mapping from CapTable contract field names (snake_case) to OcfEntityType (camelCase).
- *
- * Each field in the CapTable DAML contract is a Map from canonical object ID (Text) to ContractId.
- * This mapping allows extraction of entity inventories from the contract payload.
- *
- * Note: planSecurity* types (7 total) are intentionally omitted from this mapping.
- * They are aliases for equityCompensation* types and are stored under equity_compensation_*
- * fields in Canton. The SDK normalizes planSecurity → equityCompensation during upload.
- */
-export const FIELD_TO_ENTITY_TYPE: Record<string, OcfEntityType> = {
-  // Core Objects (7 types)
-  stakeholders: 'stakeholder',
-  stock_classes: 'stockClass',
-  stock_plans: 'stockPlan',
-  vesting_terms: 'vestingTerms',
-  stock_legend_templates: 'stockLegendTemplate',
-  documents: 'document',
-  valuations: 'valuation',
-
-  // Stock Class Adjustments (4 types)
-  stock_class_authorized_shares_adjustments: 'stockClassAuthorizedSharesAdjustment',
-  stock_class_conversion_ratio_adjustments: 'stockClassConversionRatioAdjustment',
-  stock_class_splits: 'stockClassSplit',
-  issuer_authorized_shares_adjustments: 'issuerAuthorizedSharesAdjustment',
-
-  // Stock Transactions (9 types)
-  stock_issuances: 'stockIssuance',
-  stock_cancellations: 'stockCancellation',
-  stock_transfers: 'stockTransfer',
-  stock_acceptances: 'stockAcceptance',
-  stock_conversions: 'stockConversion',
-  stock_repurchases: 'stockRepurchase',
-  stock_reissuances: 'stockReissuance',
-  stock_retractions: 'stockRetraction',
-  stock_consolidations: 'stockConsolidation',
-
-  // Equity Compensation (8 types)
-  equity_compensation_issuances: 'equityCompensationIssuance',
-  equity_compensation_cancellations: 'equityCompensationCancellation',
-  equity_compensation_transfers: 'equityCompensationTransfer',
-  equity_compensation_acceptances: 'equityCompensationAcceptance',
-  equity_compensation_exercises: 'equityCompensationExercise',
-  equity_compensation_releases: 'equityCompensationRelease',
-  equity_compensation_repricings: 'equityCompensationRepricing',
-  equity_compensation_retractions: 'equityCompensationRetraction',
-
-  // Convertibles (6 types)
-  convertible_issuances: 'convertibleIssuance',
-  convertible_cancellations: 'convertibleCancellation',
-  convertible_transfers: 'convertibleTransfer',
-  convertible_acceptances: 'convertibleAcceptance',
-  convertible_conversions: 'convertibleConversion',
-  convertible_retractions: 'convertibleRetraction',
-
-  // Warrants (6 types)
-  warrant_issuances: 'warrantIssuance',
-  warrant_cancellations: 'warrantCancellation',
-  warrant_transfers: 'warrantTransfer',
-  warrant_acceptances: 'warrantAcceptance',
-  warrant_exercises: 'warrantExercise',
-  warrant_retractions: 'warrantRetraction',
-
-  // Stock Plan Events (2 types)
-  stock_plan_pool_adjustments: 'stockPlanPoolAdjustment',
-  stock_plan_return_to_pools: 'stockPlanReturnToPool',
-
-  // Vesting Events (3 types)
-  vesting_accelerations: 'vestingAcceleration',
-  vesting_events: 'vestingEvent',
-  vesting_starts: 'vestingStart',
-
-  // Stakeholder Events (2 types)
-  stakeholder_relationship_change_events: 'stakeholderRelationshipChangeEvent',
-  stakeholder_status_change_events: 'stakeholderStatusChangeEvent',
-};
-
-/**
- * Mapping from CapTable `*_by_security_id` fields to OcfEntityType.
- *
- * These maps track security_id uniqueness for issuance types. The keys are
- * security_id values (not canonical object IDs), and the values are ContractIds.
- *
- * Used by the replication diff to detect duplicate security_id conflicts
- * before submitting to DAML (which would fail with "security_id already exists").
- */
-export const SECURITY_ID_FIELD_TO_ENTITY_TYPE: Record<string, OcfEntityType> = {
-  stock_issuances_by_security_id: 'stockIssuance',
-  convertible_issuances_by_security_id: 'convertibleIssuance',
-  equity_compensation_issuances_by_security_id: 'equityCompensationIssuance',
-  warrant_issuances_by_security_id: 'warrantIssuance',
-};
 
 /**
  * Current state of a CapTable on Canton, with all canonical object IDs grouped by entity type.

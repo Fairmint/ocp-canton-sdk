@@ -443,6 +443,50 @@ describe('CapTableBatch', () => {
       await expect(batch.execute()).rejects.toThrow(/\[batch: 1 creates, 1 edits, 1 deletes/);
     });
 
+    it('should use provided commandId when executing', async () => {
+      const mockClient = {
+        submitAndWaitForTransactionTree: jest.fn().mockResolvedValue({
+          transactionTree: {
+            updateId: 'update-123',
+            eventsById: {
+              'event-1': {
+                ExercisedTreeEvent: {
+                  value: {
+                    choice: 'UpdateCapTable',
+                    exerciseResult: {
+                      updatedCapTableCid: 'cap-table-updated',
+                      createdCids: [],
+                      editedCids: [],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      };
+
+      const batch = new CapTableBatch(
+        {
+          capTableContractId: 'cap-table-123',
+          commandId: 'retry-safe-command-1',
+          actAs: ['party-1'],
+        },
+        mockClient as never
+      );
+
+      batch.delete('document', 'doc-123');
+
+      const result = await batch.execute();
+
+      expect(result.updateId).toBe('update-123');
+      expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+        expect.objectContaining({
+          commandId: 'retry-safe-command-1',
+        })
+      );
+    });
+
     it('should throw RESULT_NOT_FOUND with batch context when UpdateCapTable result missing', async () => {
       // Mock a transaction tree that doesn't contain the UpdateCapTable exercised event
       const mockClient = {
