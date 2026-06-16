@@ -1,3 +1,4 @@
+export * from './environment';
 export * from './errors';
 export * from './functions';
 export * from './OcpClient';

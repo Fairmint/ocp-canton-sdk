@@ -56,8 +56,17 @@
  * @module
  */
 
-import type { LedgerJsonApiClient, ValidatorApiClient } from '@fairmint/canton-node-sdk';
+import { Canton, type LedgerJsonApiClient, type ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
+import {
+  loadEnvironmentConfigFromEnv,
+  resolveEnvironmentConfig,
+  toCantonNetwork,
+  toResolvedCantonConfig,
+  type EnvironmentConfig,
+  type EnvironmentConfigInput,
+  type OcpEnvironment,
+} from './environment';
 import { OcpErrorCodes, OcpValidationError } from './errors';
 import {
   authorizeIssuer,
@@ -408,6 +417,11 @@ export class OcpClient {
    */
   public readonly factory?: OcpFactoryCoordinates;
 
+  /** Logical Canton environment when this client was created through environment helpers. */
+  public readonly environment?: OcpEnvironment;
+
+  private productionSafetyChecksEnabled: boolean;
+
   /**
    * Context manager for caching commonly used values.
    *
@@ -424,11 +438,86 @@ export class OcpClient {
    * **`validator`** — optional when using cap-table-only APIs from this package.
    */
   constructor(dependencies: OcpClientDependencies) {
+    validateInjectedEnvironment(dependencies.environment, dependencies.ledger);
+    validateFactoryCoordinates(dependencies.factory);
     this.ledger = dependencies.ledger;
     this.validator = dependencies.validator;
-    this.factory = dependencies.factory === undefined ? undefined : { ...dependencies.factory };
+    this.factory =
+      dependencies.factory === undefined
+        ? undefined
+        : { contractId: dependencies.factory.contractId, templateId: dependencies.factory.templateId };
+    this.environment = dependencies.environment;
+    this.productionSafetyChecksEnabled = dependencies.productionSafetyChecks ?? false;
 
     this.OpenCapTable = this.createOpenCapTableMethods();
+  }
+
+  /**
+   * Create an OCP client from an environment config.
+   *
+   * This is an opt-in convenience around `@fairmint/canton-node-sdk`'s `Canton` client. The constructor still accepts
+   * injected `ledger` / `validator` clients for callers that manage runtime clients themselves.
+   */
+  public static create(options: OcpClientEnvironmentOptions): OcpClient {
+    return OcpClient.fromEnvironment(options);
+  }
+
+  /** Create a client using the LocalNet preset, including cn-quickstart app-provider ports. */
+  public static forLocalNet(options: OcpClientPresetOptions = {}): OcpClient {
+    return OcpClient.fromEnvironment({ ...options, environment: 'localnet' });
+  }
+
+  /** Create a client for DevNet with explicit API URLs and OAuth2 credentials. */
+  public static forDevNet(options: OcpClientHostedPresetOptions): OcpClient {
+    return OcpClient.fromEnvironment({ ...options, environment: 'devnet' });
+  }
+
+  /** Create a client for TestNet with explicit API URLs and OAuth2 credentials. */
+  public static forTestNet(options: OcpClientHostedPresetOptions): OcpClient {
+    return OcpClient.fromEnvironment({ ...options, environment: 'testnet' });
+  }
+
+  /** Create a client for MainNet with explicit API URLs and OAuth2 credentials. */
+  public static forMainNet(options: OcpClientHostedPresetOptions): OcpClient {
+    return OcpClient.fromEnvironment({ ...options, environment: 'mainnet' });
+  }
+
+  /** Create a client from `CANTON_*` environment variables, with optional per-call overrides. */
+  public static fromEnv(options: OcpClientEnvOptions = {}): OcpClient {
+    const { factory, productionSafetyChecks, ...overrides } = options;
+    const config = loadEnvironmentConfigFromEnv(process.env, overrides);
+    return OcpClient.fromEnvironment({ ...config, factory, productionSafetyChecks });
+  }
+
+  private static fromEnvironment(options: OcpClientEnvironmentOptions): OcpClient {
+    const { factory, productionSafetyChecks, ...environmentInput } = options;
+    const environmentConfig = resolveEnvironmentConfig(environmentInput);
+    const canton = new Canton(toResolvedCantonConfig(environmentConfig));
+
+    return new OcpClient({
+      ledger: canton.ledger,
+      validator: canton.validator,
+      factory,
+      environment: environmentConfig.environment,
+      productionSafetyChecks,
+    });
+  }
+
+  public isLocalNet(): boolean {
+    return this.environment === 'localnet';
+  }
+
+  public isProduction(): boolean {
+    return this.environment === 'mainnet';
+  }
+
+  public setProductionSafetyChecks(enabled = true): this {
+    this.productionSafetyChecksEnabled = enabled;
+    return this;
+  }
+
+  public areProductionSafetyChecksEnabled(): boolean {
+    return this.productionSafetyChecksEnabled;
   }
 
   /**
@@ -743,13 +832,27 @@ export class OcpClient {
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
           const hasPerCallOverride = params.factoryContractId != null || params.factoryTemplateId != null;
+          const clientFactory = hasCompleteFactoryCoordinates(this.factory) ? this.factory : undefined;
+          if (!hasPerCallOverride && this.factory !== undefined && clientFactory === undefined) {
+            throw new OcpValidationError('factory', 'factory override must include contractId and templateId', {
+              code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+            });
+          }
+          if (!hasPerCallOverride && clientFactory === undefined && requiresExplicitFactory(this.environment)) {
+            throw new OcpValidationError(
+              'factory',
+              `factory override is required for ${this.environment} issuer authorization`,
+              { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+            );
+          }
+
           return authorizeIssuer(client, {
             ...params,
             ...(hasPerCallOverride
               ? {}
               : {
-                  factoryContractId: this.factory?.contractId,
-                  factoryTemplateId: this.factory?.templateId,
+                  factoryContractId: clientFactory?.contractId,
+                  factoryTemplateId: clientFactory?.templateId,
                 }),
           });
         },
@@ -791,6 +894,67 @@ export interface OcpClientDependencies {
    * If omitted, the SDK resolves factory coords from the bundled network config.
    */
   readonly factory?: OcpFactoryCoordinates;
+  readonly environment?: OcpEnvironment;
+  readonly productionSafetyChecks?: boolean;
+}
+
+export type OcpClientEnvironmentOptions = EnvironmentConfigInput & {
+  readonly factory?: OcpFactoryCoordinates;
+  readonly productionSafetyChecks?: boolean;
+};
+
+export type OcpClientPresetOptions = Omit<Partial<EnvironmentConfigInput>, 'environment'> & {
+  readonly factory?: OcpFactoryCoordinates;
+  readonly productionSafetyChecks?: boolean;
+};
+
+export type OcpClientHostedPresetOptions = OcpClientPresetOptions &
+  Required<Pick<EnvironmentConfig, 'ledgerApiUrl' | 'authUrl' | 'clientId' | 'clientSecret'>>;
+
+export type OcpClientEnvOptions = Partial<EnvironmentConfigInput> & {
+  readonly factory?: OcpFactoryCoordinates;
+  readonly productionSafetyChecks?: boolean;
+};
+
+function requiresExplicitFactory(environment: OcpEnvironment | undefined): boolean {
+  return environment === 'localnet' || environment === 'custom' || environment === 'scratchnet';
+}
+
+function hasCompleteFactoryCoordinates(factory: OcpFactoryCoordinates | undefined): factory is OcpFactoryCoordinates {
+  return (
+    typeof factory?.contractId === 'string' &&
+    factory.contractId.trim().length > 0 &&
+    typeof factory.templateId === 'string' &&
+    factory.templateId.trim().length > 0
+  );
+}
+
+function validateFactoryCoordinates(factory: OcpFactoryCoordinates | undefined): void {
+  if (factory !== undefined && !hasCompleteFactoryCoordinates(factory)) {
+    throw new OcpValidationError('factory', 'factory override must include contractId and templateId', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
+}
+
+function validateInjectedEnvironment(environment: OcpEnvironment | undefined, ledger: LedgerJsonApiClient): void {
+  if (environment === undefined) {
+    return;
+  }
+
+  const ledgerNetwork = ledger.getNetwork();
+  const expectedNetwork = toCantonNetwork(environment);
+  if (ledgerNetwork !== expectedNetwork) {
+    throw new OcpValidationError(
+      'environment',
+      `environment ${environment} does not match ledger network ${ledgerNetwork}`,
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: expectedNetwork,
+        receivedValue: ledgerNetwork,
+      }
+    );
+  }
 }
 
 /** Parameters for creating a batch cap table update */
