@@ -1,4 +1,4 @@
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 
 type SubmitTransactionTreeParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransactionTree']>[0];
 type SubmitTransactionTreeResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
@@ -84,9 +84,11 @@ function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(
   };
 }
 
-function runBestEffort(callback: (() => void) | undefined): void {
+function runBestEffort(callback: (() => unknown) | undefined): void {
   try {
-    callback?.();
+    void Promise.resolve(callback?.()).catch(() => {
+      // Observability hooks must not change ledger command outcomes.
+    });
   } catch {
     // Observability hooks must not change ledger command outcomes.
   }

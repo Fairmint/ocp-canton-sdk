@@ -109,9 +109,7 @@ describe('observability helpers', () => {
       commandSubmitted: jest.fn(() => {
         throw new Error('submitted failed');
       }),
-      commandSucceeded: jest.fn(() => {
-        throw new Error('succeeded failed');
-      }),
+      commandSucceeded: jest.fn().mockRejectedValue(new Error('succeeded failed')),
       commandFailed: jest.fn(),
     };
 
