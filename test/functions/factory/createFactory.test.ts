@@ -106,6 +106,74 @@ describe('createFactory', () => {
     });
   });
 
+  it('passes command context and emits observability hooks', async () => {
+    const factoryTemplateId = OCP_TEMPLATES.ocpFactory;
+    const mockContractId = 'factory-contract-cid';
+    const mockUpdateId = 'update-observed';
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(),
+    };
+
+    mockClient.submitAndWaitForTransactionTree.mockResolvedValue({
+      transactionTree: {
+        updateId: mockUpdateId,
+        commandId: 'cmd-observed',
+        workflowId: 'workflow-observed',
+        offset: 1,
+        eventsById: {
+          e1: {
+            CreatedTreeEvent: {
+              value: {
+                templateId: factoryTemplateId,
+                contractId: mockContractId,
+              },
+            },
+          },
+        },
+        synchronizerId: 'sync-1',
+        recordTime: '2026-02-17T00:00:00Z',
+      },
+    } as unknown as SubmitAndWaitForTransactionTreeResponse);
+
+    await createFactory(mockClient as unknown as LedgerJsonApiClient, {
+      systemOperator,
+      logger,
+      metrics,
+      context: {
+        workflowId: 'workflow-observed',
+        commandId: 'cmd-observed',
+        submissionId: 'submission-observed',
+        traceContext: { traceId: 'trace-observed', spanId: 'span-observed' },
+      },
+    });
+
+    expect(mockClient.submitAndWaitForTransactionTree).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflowId: 'workflow-observed',
+        commandId: 'cmd-observed',
+        submissionId: 'submission-observed',
+      })
+    );
+    expect(mockClient.submitAndWaitForTransactionTree.mock.calls[0]?.[0]).not.toHaveProperty('traceContext');
+    expect(logger.debug).toHaveBeenCalledWith(
+      'Submitting Canton command',
+      expect.objectContaining({
+        operation: 'createFactory',
+        traceContext: { traceId: 'trace-observed', spanId: 'span-observed' },
+      })
+    );
+    expect(metrics.commandSubmitted).toHaveBeenCalledWith(factoryTemplateId, 'Create');
+    expect(metrics.commandSucceeded).toHaveBeenCalledWith(factoryTemplateId, 'Create', expect.any(Number));
+  });
+
   it('throws OcpContractError when CreatedTreeEvent is missing', async () => {
     mockClient.submitAndWaitForTransactionTree.mockResolvedValue({
       transactionTree: {

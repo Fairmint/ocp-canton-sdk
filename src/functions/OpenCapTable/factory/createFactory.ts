@@ -2,8 +2,9 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
 import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
 
-export interface CreateFactoryParams {
+export interface CreateFactoryParams extends CommandObservabilityOptions {
   /** Party ID that will own the factory (submits the create as this party). */
   systemOperator: string;
   /**
@@ -37,17 +38,22 @@ export async function createFactory(
     system_operator: params.systemOperator,
   };
 
-  const response = await client.submitAndWaitForTransactionTree({
-    commands: [
-      {
-        CreateCommand: {
-          templateId,
-          createArguments,
+  const response = await submitObservedTransactionTree(
+    client,
+    {
+      commands: [
+        {
+          CreateCommand: {
+            templateId,
+            createArguments,
+          },
         },
-      },
-    ],
-    actAs: [params.systemOperator],
-  });
+      ],
+      actAs: [params.systemOperator],
+    },
+    params,
+    { operation: 'createFactory', templateId, choice: 'Create' }
+  );
 
   const created = findCreatedEventByTemplateId(response, templateId);
   if (!created) {

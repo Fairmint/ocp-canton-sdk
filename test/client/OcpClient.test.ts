@@ -245,6 +245,44 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
     );
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
+
+  it('passes client-level observability defaults into authorizeIssuer', async () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const logger = {
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+    const metrics = {
+      commandSubmitted: jest.fn(),
+      commandSucceeded: jest.fn(),
+      commandFailed: jest.fn(),
+    };
+    const ocp = new OcpClient({
+      ledger,
+      logger,
+      metrics,
+      defaultContext: { workflowId: 'workflow-default' },
+    });
+
+    await ocp.OpenCapTable.issuerAuthorization.authorize({
+      issuer: 'issuer::party',
+      context: { commandId: 'command-call' },
+    });
+
+    expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(
+      ledger,
+      expect.objectContaining({
+        issuer: 'issuer::party',
+        logger,
+        metrics,
+        defaultContext: { workflowId: 'workflow-default' },
+        context: { commandId: 'command-call' },
+      })
+    );
+    expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('OcpClient OpenCapTable.capTable facade', () => {

@@ -10,11 +10,12 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
 import type { CommandWithDisclosedContracts } from '../../../types';
 import { buildCapTableCommand } from './buildCapTableCommand';
 
 /** Parameters for archiving a CapTable contract. */
-export interface ArchiveCapTableParams {
+export interface ArchiveCapTableParams extends CommandObservabilityOptions {
   /** The contract ID of the CapTable to archive */
   capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
@@ -89,12 +90,18 @@ export async function archiveCapTable(
 
   const { command, disclosedContracts } = buildArchiveCapTableCommand(params);
 
-  const result = await client.submitAndWaitForTransactionTree({
-    actAs: params.actAs,
-    readAs: params.readAs,
-    commands: [command],
-    disclosedContracts,
-  });
+  const templateId = 'ExerciseCommand' in command ? command.ExerciseCommand.templateId : undefined;
+  const result = await submitObservedTransactionTree(
+    client,
+    {
+      actAs: params.actAs,
+      readAs: params.readAs,
+      commands: [command],
+      disclosedContracts,
+    },
+    params,
+    { operation: 'archiveCapTable', templateId, choice: 'ArchiveCapTable' }
+  );
 
   return { updateId: result.transactionTree.updateId };
 }

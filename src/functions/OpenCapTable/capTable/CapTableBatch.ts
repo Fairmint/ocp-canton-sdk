@@ -9,6 +9,11 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/cl
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
+import {
+  mergeCommandContext,
+  submitObservedTransactionTree,
+  type CommandObservabilityOptions,
+} from '../../../observability';
 import type { CommandWithDisclosedContracts } from '../../../types';
 import {
   ENTITY_TAG_MAP,
@@ -23,7 +28,7 @@ import {
 import { convertToDaml } from './ocfToDaml';
 
 /** Parameters for initializing a batch update. */
-export interface CapTableBatchParams {
+export interface CapTableBatchParams extends CommandObservabilityOptions {
   /** The contract ID of the CapTable to update */
   capTableContractId: string;
   /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
@@ -244,13 +249,29 @@ export class CapTableBatch {
 
     let response: Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
     try {
-      response = await this.client.submitAndWaitForTransactionTree({
-        commands: [command],
-        commandId: this.params.commandId ?? createUpdateCapTableCommandId(),
-        actAs: this.params.actAs,
-        readAs: this.params.readAs,
-        disclosedContracts,
-      });
+      const templateId = 'ExerciseCommand' in command ? command.ExerciseCommand.templateId : undefined;
+      const context = mergeCommandContext(
+        {
+          commandId: this.params.commandId ?? createUpdateCapTableCommandId(),
+        },
+        this.params.defaultContext,
+        this.params.context
+      );
+      response = await submitObservedTransactionTree(
+        this.client,
+        {
+          commands: [command],
+          actAs: this.params.actAs,
+          readAs: this.params.readAs,
+          disclosedContracts,
+        },
+        { ...this.params, context },
+        {
+          operation: 'capTable.update',
+          templateId,
+          choice: 'UpdateCapTable',
+        }
+      );
     } catch (error) {
       // Wrap the error with batch context for better debugging
       const originalMessage = error instanceof Error ? error.message : String(error);
