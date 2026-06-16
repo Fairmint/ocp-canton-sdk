@@ -45,6 +45,7 @@ import type {
 } from '../../../src/types/native';
 import { createValidatorApiClient } from '../../utils/cantonNodeSdkCompat';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
+import { requireCreatedEventBlob } from './transactionHelpers';
 
 /** Result from setting up a test issuer. */
 export interface TestIssuerSetup {
@@ -611,7 +612,7 @@ async function extractNewCapTableDetails(
   const contractDetails: DisclosedContract = {
     templateId: events.created.createdEvent.templateId,
     contractId,
-    createdEventBlob: events.created.createdEvent.createdEventBlob,
+    createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
     synchronizerId: result.transactionTree.synchronizerId,
   };
 
@@ -709,7 +710,7 @@ export async function setupTestIssuer(
   const capTableContractDetails: DisclosedContract = {
     templateId: capTableEvents.created.createdEvent.templateId,
     contractId: capTableContractId,
-    createdEventBlob: capTableEvents.created.createdEvent.createdEventBlob,
+    createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
     synchronizerId: capTableSynchronizerId,
   };
 
@@ -1002,7 +1003,7 @@ export async function setupStockSecurity(
       capTableContractDetails = {
         templateId: events1.created.createdEvent.templateId,
         contractId: capTableContractId,
-        createdEventBlob: events1.created.createdEvent.createdEventBlob,
+        createdEventBlob: requireCreatedEventBlob(events1.created.createdEvent),
         synchronizerId: capTableContractDetails?.synchronizerId ?? '',
       };
     }
@@ -1028,7 +1029,7 @@ export async function setupStockSecurity(
       capTableContractDetails = {
         templateId: events2.created.createdEvent.templateId,
         contractId: capTableContractId,
-        createdEventBlob: events2.created.createdEvent.createdEventBlob,
+        createdEventBlob: requireCreatedEventBlob(events2.created.createdEvent),
         synchronizerId: capTableContractDetails?.synchronizerId ?? '',
       };
     }
@@ -1100,7 +1101,7 @@ export async function setupWarrantSecurity(
       capTableContractDetails = {
         templateId: events1.created.createdEvent.templateId,
         contractId: capTableContractId,
-        createdEventBlob: events1.created.createdEvent.createdEventBlob,
+        createdEventBlob: requireCreatedEventBlob(events1.created.createdEvent),
         synchronizerId: capTableContractDetails?.synchronizerId ?? '',
       };
     }
@@ -1172,7 +1173,7 @@ export async function setupEquityCompensationSecurity(
       capTableContractDetails = {
         templateId: events1.created.createdEvent.templateId,
         contractId: capTableContractId,
-        createdEventBlob: events1.created.createdEvent.createdEventBlob,
+        createdEventBlob: requireCreatedEventBlob(events1.created.createdEvent),
         synchronizerId: capTableContractDetails?.synchronizerId ?? '',
       };
     }
@@ -1198,7 +1199,7 @@ export async function setupEquityCompensationSecurity(
       capTableContractDetails = {
         templateId: events2.created.createdEvent.templateId,
         contractId: capTableContractId,
-        createdEventBlob: events2.created.createdEvent.createdEventBlob,
+        createdEventBlob: requireCreatedEventBlob(events2.created.createdEvent),
         synchronizerId: capTableContractDetails?.synchronizerId ?? '',
       };
     }
@@ -1273,7 +1274,7 @@ export async function setupConvertibleSecurity(
       capTableContractDetails = {
         templateId: events1.created.createdEvent.templateId,
         contractId: capTableContractId,
-        createdEventBlob: events1.created.createdEvent.createdEventBlob,
+        createdEventBlob: requireCreatedEventBlob(events1.created.createdEvent),
         synchronizerId: capTableContractDetails?.synchronizerId ?? '',
       };
     }

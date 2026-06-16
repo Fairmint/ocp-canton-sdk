@@ -5,34 +5,18 @@
  * using `any` types.
  */
 
+import { extractEventsFromTransaction } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
-/**
- * Minimal type for CreatedTreeEvent used in contract ID extraction. This is a subset of the full type that contains
- * only what we need.
- */
-interface CreatedTreeEventData {
-  CreatedTreeEvent: {
-    value: {
-      contractId: string;
-      templateId: string;
-    };
-  };
-}
-
-/** Type guard to check if an event has CreatedTreeEvent structure. */
-function hasCreatedTreeEvent(event: unknown): event is CreatedTreeEventData {
-  if (typeof event !== 'object' || event === null) return false;
-  if (!('CreatedTreeEvent' in event)) return false;
-
-  const created = (event as Record<string, unknown>).CreatedTreeEvent;
-  if (typeof created !== 'object' || created === null) return false;
-  if (!('value' in created)) return false;
-
-  const { value } = created as Record<string, unknown>;
-  if (typeof value !== 'object' || value === null) return false;
-
-  return 'contractId' in value && 'templateId' in value;
+export function requireCreatedEventBlob(
+  createdEvent: { createdEventBlob?: string },
+  context = 'created event'
+): string {
+  const blob = createdEvent.createdEventBlob;
+  if (typeof blob !== 'string' || blob.length === 0) {
+    throw new Error(`Expected ${context} to include createdEventBlob`);
+  }
+  return blob;
 }
 
 /**
@@ -46,14 +30,9 @@ export function extractContractIdByTemplatePattern(
   response: SubmitAndWaitForTransactionTreeResponse,
   templateIdPattern: string
 ): string | null {
-  const { eventsById } = response.transactionTree;
-
-  for (const event of Object.values(eventsById)) {
-    if (hasCreatedTreeEvent(event)) {
-      const { templateId, contractId } = event.CreatedTreeEvent.value;
-      if (templateId.includes(templateIdPattern)) {
-        return contractId;
-      }
+  for (const event of extractEventsFromTransaction(response).created) {
+    if (event.templateId.includes(templateIdPattern)) {
+      return event.contractId;
     }
   }
 
@@ -93,15 +72,8 @@ export function extractContractIdOrThrow(
 export function extractAllCreatedContracts(
   response: SubmitAndWaitForTransactionTreeResponse
 ): Array<{ contractId: string; templateId: string }> {
-  const { eventsById } = response.transactionTree;
-  const contracts: Array<{ contractId: string; templateId: string }> = [];
-
-  for (const event of Object.values(eventsById)) {
-    if (hasCreatedTreeEvent(event)) {
-      const { templateId, contractId } = event.CreatedTreeEvent.value;
-      contracts.push({ contractId, templateId });
-    }
-  }
-
-  return contracts;
+  return extractEventsFromTransaction(response).created.map(({ contractId, templateId }) => ({
+    contractId,
+    templateId,
+  }));
 }

@@ -112,6 +112,7 @@ describe('createFactory', () => {
         updateId: 'update-x',
         commandId: 'cmd-empty',
         workflowId: '',
+        effectiveAt: '2026-02-17T00:00:00Z',
         offset: 1,
         eventsById: {},
         synchronizerId: 'sync-1',

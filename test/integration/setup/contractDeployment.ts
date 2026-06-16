@@ -389,7 +389,7 @@ export async function authorizeIssuerWithFactory(
         authContractId = created.contractId;
         foundTemplateId = created.templateId;
         // Get createdEventBlob directly from the transaction event (may be empty string)
-        createdEventBlob = created.createdEventBlob || null;
+        createdEventBlob = created.createdEventBlob ?? null;
         break;
       }
     }

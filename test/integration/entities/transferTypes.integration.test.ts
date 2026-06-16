@@ -28,6 +28,7 @@ import {
   createTestStockTransferData,
   createTestWarrantTransferData,
   generateTestId,
+  requireCreatedEventBlob,
   setupConvertibleSecurity,
   setupEquityCompensationSecurity,
   setupStockSecurity,
@@ -88,7 +89,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: stockSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -169,7 +170,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: convertibleSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -241,7 +242,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: eqCompSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;
@@ -314,7 +315,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
       ? {
           templateId: events.created.createdEvent.templateId,
           contractId: warrantSecurity.capTableContractId,
-          createdEventBlob: events.created.createdEvent.createdEventBlob,
+          createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
           synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
         }
       : undefined;

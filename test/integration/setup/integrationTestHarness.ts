@@ -105,7 +105,7 @@ async function initializeHarness(): Promise<void> {
     // Use listParties to find which parties we have access to
     // The first party returned should be the one we're authenticated as
     const partiesResponse = await state.ocp.ledger.listParties({});
-    const partyDetails = partiesResponse.partyDetails ?? [];
+    const partyDetails = (partiesResponse as { partyDetails?: typeof partiesResponse.partyDetails }).partyDetails ?? [];
 
     if (partyDetails.length === 0) {
       throw new Error('No parties found. Make sure cn-quickstart is running and parties are allocated.');
@@ -141,7 +141,7 @@ async function initializeHarness(): Promise<void> {
       const rightsResponse = await state.ocp.ledger.listUserRights({ userId });
       const currentRights = rightsResponse.rights ?? [];
       const hasActAs = currentRights.some(
-        (r) => 'CanActAs' in r.kind && r.kind.CanActAs.value.party === authenticatedParty
+        (r) => r.kind !== undefined && 'CanActAs' in r.kind && r.kind.CanActAs.value.party === authenticatedParty
       );
 
       if (!hasActAs) {
@@ -218,7 +218,7 @@ async function initializeHarness(): Promise<void> {
 async function _discoverParties(ocp: OcpClient): Promise<{ issuerParty: string; systemOperatorParty: string }> {
   // Try to find parties from LocalNet
   const response = await ocp.ledger.listParties({});
-  const partyDetails = response.partyDetails ?? [];
+  const partyDetails = (response as { partyDetails?: typeof response.partyDetails }).partyDetails ?? [];
 
   if (partyDetails.length === 0) {
     throw new Error('No parties found in LocalNet. Make sure cn-quickstart is running and parties are allocated.');
