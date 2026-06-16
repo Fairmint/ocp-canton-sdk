@@ -142,6 +142,38 @@ export class ValidatorApiClient extends BaseClient {
   }
 }
 
+export class Canton {
+  public static __instances: Canton[] = [];
+  public readonly ledger: LedgerJsonApiClient;
+  public readonly validator: ValidatorApiClient;
+  public readonly scan: unknown;
+  private partyId?: string;
+
+  constructor(public readonly config: ClientConfig) {
+    this.ledger = new LedgerJsonApiClient(config);
+    this.validator = new ValidatorApiClient(config);
+    this.scan = {};
+    this.partyId = config.partyId;
+    Canton.__instances.push(this);
+  }
+
+  public getNetwork(): string {
+    return this.config.network;
+  }
+
+  public getProvider(): string | undefined {
+    return this.config.provider;
+  }
+
+  public getPartyId(): string {
+    return this.partyId ?? this.validator.getPartyId();
+  }
+
+  public setPartyId(partyId: string): void {
+    this.partyId = partyId;
+  }
+}
+
 // Export the getFeaturedAppRightContractDetails function
 export async function getFeaturedAppRightContractDetails(validatorApi: ValidatorApiClient): Promise<any> {
   const featuredAppRight = await validatorApi.lookupFeaturedAppRight();

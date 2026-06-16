@@ -1,4 +1,4 @@
-import type { ClientConfig } from '@fairmint/canton-node-sdk';
+import { Canton, type ClientConfig } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';
 import {
@@ -8,13 +8,17 @@ import {
 import { OcpClient } from '../../src/OcpClient';
 import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
-jest.mock('@fairmint/canton-node-sdk');
 jest.mock('../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer', () => ({
   authorizeIssuer: jest.fn(),
 }));
 
 describe('OcpClient', () => {
   const config: ClientConfig = { network: 'devnet' };
+  const mockedCanton = Canton as unknown as { __instances: Array<{ config: unknown }> };
+
+  beforeEach(() => {
+    mockedCanton.__instances.length = 0;
+  });
 
   it('reuses injected runtime clients instead of constructing hidden ones', () => {
     const { ledger, validator } = createLedgerAndValidatorClients(config);
@@ -41,6 +45,101 @@ describe('OcpClient', () => {
     const ocp = new OcpClient({ ledger, factory });
 
     expect(ocp.factory).toEqual(factory);
+  });
+
+  it('rejects incomplete client-level factory config', () => {
+    const ledger = createLedgerJsonApiClient(config);
+
+    expect(
+      () =>
+        new OcpClient({
+          ledger,
+          factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
+        })
+    ).toThrow('factory override must include contractId and templateId');
+  });
+
+  it('rejects injected environment labels that do not match the ledger network', () => {
+    const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+
+    expect(() => new OcpClient({ ledger, environment: 'mainnet' })).toThrow(
+      'environment mainnet does not match ledger network devnet'
+    );
+  });
+
+  it('creates a LocalNet client from environment defaults', () => {
+    const ocp = OcpClient.forLocalNet({ party: 'app_provider::party' });
+
+    expect(ocp.environment).toBe('localnet');
+    expect(ocp.isLocalNet()).toBe(true);
+    expect(ocp.isProduction()).toBe(false);
+    expect(mockedCanton.__instances).toHaveLength(1);
+    expect(mockedCanton.__instances[0]?.config).toMatchObject({
+      network: 'localnet',
+      provider: 'app-provider',
+      partyId: 'app_provider::party',
+      apis: {
+        LEDGER_JSON_API: {
+          apiUrl: 'http://localhost:3975',
+          auth: {
+            grantType: 'client_credentials',
+            clientId: 'ocp-sdk',
+          },
+        },
+        VALIDATOR_API: {
+          apiUrl: 'http://localhost:3903',
+        },
+      },
+    });
+  });
+
+  it('creates a DevNet client from explicit OAuth2 config', () => {
+    const ocp = OcpClient.forDevNet({
+      ledgerApiUrl: 'https://ledger.devnet.example.com',
+      validatorApiUrl: 'https://validator.devnet.example.com',
+      authUrl: 'https://auth.example.com/token',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      provider: '5n',
+      partyId: 'issuer::party',
+    });
+
+    expect(ocp.environment).toBe('devnet');
+    expect(mockedCanton.__instances).toHaveLength(1);
+    expect(mockedCanton.__instances[0]?.config).toMatchObject({
+      network: 'devnet',
+      provider: '5n',
+      authUrl: 'https://auth.example.com/token',
+      partyId: 'issuer::party',
+      apis: {
+        LEDGER_JSON_API: {
+          apiUrl: 'https://ledger.devnet.example.com',
+          auth: {
+            grantType: 'client_credentials',
+            clientId: 'client-id',
+            clientSecret: 'client-secret',
+          },
+        },
+        VALIDATOR_API: {
+          apiUrl: 'https://validator.devnet.example.com',
+        },
+      },
+    });
+  });
+
+  it('tracks production safety helper state', () => {
+    const ocp = OcpClient.forMainNet({
+      ledgerApiUrl: 'https://ledger.mainnet.example.com',
+      authUrl: 'https://auth.example.com/token',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      productionSafetyChecks: true,
+    });
+
+    expect(ocp.isProduction()).toBe(true);
+    expect(ocp.areProductionSafetyChecksEnabled()).toBe(true);
+    expect(ocp.setProductionSafetyChecks(false)).toBe(ocp);
+    expect(ocp.areProductionSafetyChecksEnabled()).toBe(false);
   });
 });
 
@@ -110,6 +209,41 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
       factoryContractId: 'per-call-cid-only',
     });
     expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires explicit factory coordinates for custom environment authorization', async () => {
+    const ledger = createLedgerJsonApiClient({ network: 'localnet' });
+    const ocp = new OcpClient({ ledger, environment: 'custom' });
+
+    await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toThrow(
+      'factory override is required for custom issuer authorization'
+    );
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
+  });
+
+  it('requires explicit factory coordinates for LocalNet authorization', async () => {
+    const ledger = createLedgerJsonApiClient({ network: 'localnet' });
+    const ocp = new OcpClient({ ledger, environment: 'localnet' });
+
+    await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toThrow(
+      'factory override is required for localnet issuer authorization'
+    );
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
+  });
+
+  it('does not treat a mutated partial client-level factory as explicit coordinates', async () => {
+    const ledger = createLedgerJsonApiClient({ network: 'localnet' });
+    const ocp = new OcpClient({
+      ledger,
+      environment: 'localnet',
+      factory: { contractId: 'client-factory-cid', templateId: 'client-factory-tid' },
+    });
+    (ocp.factory as unknown as { templateId?: string }).templateId = undefined;
+
+    await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toThrow(
+      'factory override must include contractId and templateId'
+    );
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
 });
 
