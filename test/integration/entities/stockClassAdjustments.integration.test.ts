@@ -382,9 +382,8 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
   /**
    * Test: Create stock class split with approval dates.
    *
-   * Note: The DAML StockClassSplitOcfData type does NOT have board_approval_date or
-   * stockholder_approval_date fields (unlike StockClassAuthorizedSharesAdjustmentOcfData).
-   * The native OCF type has these fields but they are not supported by the DAML contract.
+   * Note: board_approval_date and stockholder_approval_date are internal SDK extensions,
+   * not OCF StockClassSplit schema fields, and the DAML contract does not support them.
    *
    * Previously skipped: StockClassSplit uses OcfRatio which has nested Numeric fields.
    * The DAML JSON API v2 has encoding issues with nested Numeric fields.
