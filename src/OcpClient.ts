@@ -462,12 +462,15 @@ export class OcpClient {
   }
 
   private withObservability<T extends CommandObservabilityOptions>(params: T): T {
-    const defaultContext = mergeCommandContext(this.observability.defaultContext, params.defaultContext);
+    const { logger, metrics, defaultContext: paramsDefaultContext, ...commandParams } = params;
+    const defaultContext = mergeCommandContext(this.observability.defaultContext, paramsDefaultContext);
     return {
       ...this.observability,
-      ...params,
+      ...commandParams,
+      ...(logger !== undefined ? { logger } : {}),
+      ...(metrics !== undefined ? { metrics } : {}),
       ...(defaultContext ? { defaultContext } : {}),
-    };
+    } as T;
   }
 
   /**
