@@ -1,5 +1,4 @@
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { TraceContext } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/common';
+import type { LedgerJsonApiClient, TraceContext } from '@fairmint/canton-node-sdk';
 
 type SubmitTransactionTreeParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransactionTree']>[0];
 type SubmitTransactionTreeResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
