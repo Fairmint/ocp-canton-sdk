@@ -14,7 +14,6 @@
  * ```
  */
 
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import {
@@ -23,7 +22,8 @@ import {
   createTestValuationData,
   createTestVestingTermsData,
   generateTestId,
-  requireCreatedEventBlob,
+  getCapTableDetails,
+  setupStockSecurity,
   setupTestIssuer,
 } from '../utils';
 
@@ -103,7 +103,7 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
     expect(result1.updatedCapTableCid).toBeTruthy();
 
     // Step 3: Create vesting terms using the new CapTable
-    const newCapTableContractDetails = await getUpdatedCapTableDetails(
+    const newCapTableContractDetails = await getCapTableDetails(
       ctx.ocp,
       result1.updatedCapTableCid,
       issuerSetup.capTableContractDetails.synchronizerId
@@ -215,7 +215,7 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
 
       // Update for next iteration
       currentCapTableCid = result.updatedCapTableCid;
-      currentCapTableDetails = await getUpdatedCapTableDetails(
+      currentCapTableDetails = await getCapTableDetails(
         ctx.ocp,
         currentCapTableCid,
         issuerSetup.capTableContractDetails.synchronizerId
@@ -236,11 +236,9 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
    *
    * Demonstrates creating a 409A valuation which is required for equity compensation pricing.
    *
-   * SKIPPED: This test requires a valid stock_class_id that references an existing stock class.
-   * Stock class creation has numeric encoding issues with JSON API v2, so we can't create the
-   * prerequisite stock class. When stock class creation is fixed, this test can be re-enabled.
+   * Creates a real stock security first so the valuation references an existing stock class.
    */
-  test.skip('creates valuation entity', async () => {
+  test('creates valuation entity', async () => {
     const ctx = getContext();
 
     const issuerSetup = await setupTestIssuer(ctx.ocp, {
@@ -249,21 +247,29 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
       issuerParty: ctx.issuerParty,
     });
 
-    // Create a valuation (normally this would reference a real stock class ID)
-    // For testing purposes, we'll use a placeholder stock class ID
-    const stockClassId = generateTestId('stock-class');
+    // Create a real stock class first; DAML validates stock_class_id references.
+    const stockSecurity = await setupStockSecurity(ctx.ocp, {
+      issuerContractId: issuerSetup.issuerContractId,
+      issuerParty: ctx.issuerParty,
+      capTableContractDetails: issuerSetup.capTableContractDetails,
+    });
+    const capTableContractDetails = await getCapTableDetails(
+      ctx.ocp,
+      stockSecurity.capTableContractId,
+      issuerSetup.capTableContractDetails.synchronizerId
+    );
 
     const valuationData = createTestValuationData({
       id: generateTestId('valuation'),
-      stock_class_id: stockClassId,
+      stock_class_id: stockSecurity.stockClassId,
       price_per_share: { amount: '2.50', currency: 'USD' },
       provider: 'Valuation Co',
       valuation_type: '409A',
     });
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
-      capTableContractId: issuerSetup.issuerContractId,
-      capTableContractDetails: issuerSetup.capTableContractDetails,
+      capTableContractId: stockSecurity.capTableContractId,
+      capTableContractDetails,
       actAs: [ctx.issuerParty],
     });
 
@@ -349,7 +355,7 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
     expect(createResult.createdCids).toHaveLength(2);
 
     // Get updated CapTable details
-    const newCapTableDetails = await getUpdatedCapTableDetails(
+    const newCapTableDetails = await getCapTableDetails(
       ctx.ocp,
       createResult.updatedCapTableCid,
       issuerSetup.capTableContractDetails.synchronizerId
@@ -384,23 +390,3 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
     expect(editedOcf.data.name.legal_name).toBe('Successfully Edited');
   });
 });
-
-/** Helper to get updated CapTable contract details after a batch operation. */
-async function getUpdatedCapTableDetails(
-  ocp: Parameters<typeof setupTestIssuer>[0],
-  capTableContractId: string,
-  synchronizerId: string
-): Promise<DisclosedContract> {
-  const capTableEvents = await ocp.ledger.getEventsByContractId({
-    contractId: capTableContractId,
-  });
-  if (!capTableEvents.created?.createdEvent) {
-    throw new Error('Failed to get CapTable created event');
-  }
-  return {
-    templateId: capTableEvents.created.createdEvent.templateId,
-    contractId: capTableContractId,
-    createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
-    synchronizerId,
-  };
-}

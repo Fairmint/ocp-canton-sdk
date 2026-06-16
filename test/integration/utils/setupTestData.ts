@@ -81,6 +81,27 @@ export function generateTestId(prefix: string): string {
   return `${prefix}-${timestamp}-${random}`;
 }
 
+/** Get updated CapTable contract details after a batch operation. */
+export async function getCapTableDetails(
+  ocp: OcpClient,
+  capTableContractId: string,
+  synchronizerId: string
+): Promise<DisclosedContract> {
+  const capTableEvents = await ocp.ledger.getEventsByContractId({
+    contractId: capTableContractId,
+  });
+  if (!capTableEvents.created?.createdEvent) {
+    throw new Error(`Failed to get CapTable created event for contract ${capTableContractId}`);
+  }
+
+  return {
+    templateId: capTableEvents.created.createdEvent.templateId,
+    contractId: capTableContractId,
+    createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
+    synchronizerId,
+  };
+}
+
 /**
  * Generate a date string in ISO format (YYYY-MM-DD).
  *
@@ -949,11 +970,16 @@ export function createTestConvertibleIssuanceData(
 }
 
 /** Helper to extract a contract ID from a createdCids array by type tag. */
-function extractCreatedCid(createdCids: Array<Record<string, string>>, tagPrefix: string): string {
+function extractCreatedCid(createdCids: Array<Record<string, unknown>>, tagPrefix: string): string {
   for (const cid of createdCids) {
-    for (const [key, value] of Object.entries(cid)) {
-      if (key.startsWith(tagPrefix)) {
-        return value;
+    const { tag, value: taggedValue } = cid;
+    if (typeof tag === 'string' && tag.startsWith(tagPrefix) && typeof taggedValue === 'string') {
+      return taggedValue;
+    }
+
+    for (const [key, entryValue] of Object.entries(cid)) {
+      if (key.startsWith(tagPrefix) && typeof entryValue === 'string') {
+        return entryValue;
       }
     }
   }
