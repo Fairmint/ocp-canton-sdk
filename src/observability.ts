@@ -1,12 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import type { TraceContext } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/common';
 
 type SubmitTransactionTreeParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransactionTree']>[0];
 type SubmitTransactionTreeResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
-
-export interface CommandTraceContext {
-  traceId: string;
-  spanId: string;
-}
+type TraceableSubmitTransactionTreeParams = SubmitTransactionTreeParams & { traceContext?: TraceContext };
 
 export interface CommandContext {
   /** Business process ID persisted by Canton on submitted commands. */
@@ -15,14 +12,8 @@ export interface CommandContext {
   commandId?: string;
   /** Unique submission ID for retry tracking through completions. */
   submissionId?: string;
-  /**
-   * Distributed tracing metadata for SDK logs.
-   *
-   * The current canton-node-sdk submit-and-wait schema does not expose a
-   * submit-level traceContext field, so this is intentionally not forwarded to
-   * the ledger request yet.
-   */
-  traceContext?: CommandTraceContext;
+  /** Distributed tracing metadata forwarded to Canton command submissions and SDK logs. */
+  traceContext?: TraceContext;
 }
 
 export interface SdkLogger {
@@ -73,7 +64,7 @@ export function mergeCommandContext(
 function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(
   params: T,
   context: CommandContext | undefined
-): T {
+): T & TraceableSubmitTransactionTreeParams {
   if (!context) return params;
 
   return {
@@ -81,6 +72,7 @@ function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(
     ...(context.workflowId !== undefined ? { workflowId: context.workflowId } : {}),
     ...(context.commandId !== undefined ? { commandId: context.commandId } : {}),
     ...(context.submissionId !== undefined ? { submissionId: context.submissionId } : {}),
+    ...(context.traceContext !== undefined ? { traceContext: context.traceContext } : {}),
   };
 }
 
@@ -97,7 +89,7 @@ function runBestEffort(callback: (() => unknown) | undefined): void {
 export function applyCommandContext<T extends SubmitTransactionTreeParams>(
   params: T,
   options?: CommandObservabilityOptions
-): T {
+): T & TraceableSubmitTransactionTreeParams {
   const context = mergeCommandContext(options?.defaultContext, options?.context);
   return applyMergedCommandContext(params, context);
 }

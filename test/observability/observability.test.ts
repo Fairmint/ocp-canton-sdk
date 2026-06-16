@@ -1,7 +1,7 @@
 import { applyCommandContext, submitObservedTransactionTree } from '../../src/observability';
 
 describe('observability helpers', () => {
-  it('applies ledger-supported command context fields without forwarding traceContext', () => {
+  it('applies command context fields including traceContext', () => {
     const params = {
       commands: [],
       actAs: ['issuer::party'],
@@ -23,8 +23,8 @@ describe('observability helpers', () => {
       workflowId: 'workflow-default',
       commandId: 'command-call',
       submissionId: 'submission-call',
+      traceContext: { traceId: 'trace-1', spanId: 'span-1' },
     });
-    expect(result).not.toHaveProperty('traceContext');
   });
 
   it('emits success logs and metrics around command submission', async () => {
@@ -68,6 +68,7 @@ describe('observability helpers', () => {
         workflowId: 'workflow-1',
         commandId: 'command-1',
         submissionId: 'submission-1',
+        traceContext: { traceId: 'trace-1', spanId: 'span-1' },
       })
     );
     expect(logger.debug).toHaveBeenCalledWith(

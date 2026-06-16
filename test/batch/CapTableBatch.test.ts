@@ -547,9 +547,9 @@ describe('CapTableBatch', () => {
           workflowId: 'workflow-default',
           commandId: 'context-command-1',
           submissionId: 'submission-1',
+          traceContext: { traceId: 'trace-1', spanId: 'span-1' },
         })
       );
-      expect(mockClient.submitAndWaitForTransactionTree.mock.calls[0]?.[0]).not.toHaveProperty('traceContext');
       expect(logger.debug).toHaveBeenCalledWith(
         'Submitting Canton command',
         expect.objectContaining({

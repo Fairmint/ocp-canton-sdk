@@ -160,9 +160,9 @@ describe('createFactory', () => {
         workflowId: 'workflow-observed',
         commandId: 'cmd-observed',
         submissionId: 'submission-observed',
+        traceContext: { traceId: 'trace-observed', spanId: 'span-observed' },
       })
     );
-    expect(mockClient.submitAndWaitForTransactionTree.mock.calls[0]?.[0]).not.toHaveProperty('traceContext');
     expect(logger.debug).toHaveBeenCalledWith(
       'Submitting Canton command',
       expect.objectContaining({
