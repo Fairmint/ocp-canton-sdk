@@ -18,13 +18,13 @@
  * ```
  */
 
-import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import {
   createTestConvertibleConversionData,
   createTestStockConversionData,
   createTestWarrantExerciseData,
   generateTestId,
-  requireCreatedEventBlob,
+  getCapTableDetails,
   setupConvertibleSecurity,
   setupStockSecurity,
   setupTestIssuer,
@@ -40,19 +40,6 @@ function extractContractIdString(cid: { value: unknown }): string {
   // OcfContractId is a tagged union like { tag: "CidStakeholder", value: ContractId<Stakeholder> }
   // ContractId<T> is just a string in the JSON representation
   return cid.value as string;
-}
-
-async function getCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {
-  const events = await ctx.ocp.ledger.getEventsByContractId({ contractId });
-  if (!events.created?.createdEvent) {
-    throw new Error('Failed to get CapTable created event');
-  }
-  return {
-    templateId: events.created.createdEvent.templateId,
-    contractId,
-    createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
-    synchronizerId,
-  };
 }
 
 createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
@@ -78,7 +65,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
     const capTableDetails = await getCapTableDetails(
-      ctx,
+      ctx.ocp,
       warrantSecurity.capTableContractId,
       issuerSetup.capTableContractDetails.synchronizerId
     );
@@ -131,7 +118,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
     const capTableDetails = await getCapTableDetails(
-      ctx,
+      ctx.ocp,
       convertibleSecurity.capTableContractId,
       issuerSetup.capTableContractDetails.synchronizerId
     );
@@ -184,7 +171,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
     const capTableDetails = await getCapTableDetails(
-      ctx,
+      ctx.ocp,
       stockSecurity.capTableContractId,
       issuerSetup.capTableContractDetails.synchronizerId
     );

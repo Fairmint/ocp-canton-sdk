@@ -14,7 +14,6 @@
  * ```
  */
 
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { createIntegrationTestSuite } from '../setup';
 import {
@@ -23,7 +22,7 @@ import {
   createTestValuationData,
   createTestVestingTermsData,
   generateTestId,
-  requireCreatedEventBlob,
+  getCapTableDetails,
   setupStockSecurity,
   setupTestIssuer,
 } from '../utils';
@@ -104,7 +103,7 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
     expect(result1.updatedCapTableCid).toBeTruthy();
 
     // Step 3: Create vesting terms using the new CapTable
-    const newCapTableContractDetails = await getUpdatedCapTableDetails(
+    const newCapTableContractDetails = await getCapTableDetails(
       ctx.ocp,
       result1.updatedCapTableCid,
       issuerSetup.capTableContractDetails.synchronizerId
@@ -216,7 +215,7 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
 
       // Update for next iteration
       currentCapTableCid = result.updatedCapTableCid;
-      currentCapTableDetails = await getUpdatedCapTableDetails(
+      currentCapTableDetails = await getCapTableDetails(
         ctx.ocp,
         currentCapTableCid,
         issuerSetup.capTableContractDetails.synchronizerId
@@ -254,7 +253,7 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
-    const capTableContractDetails = await getUpdatedCapTableDetails(
+    const capTableContractDetails = await getCapTableDetails(
       ctx.ocp,
       stockSecurity.capTableContractId,
       issuerSetup.capTableContractDetails.synchronizerId
@@ -356,7 +355,7 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
     expect(createResult.createdCids).toHaveLength(2);
 
     // Get updated CapTable details
-    const newCapTableDetails = await getUpdatedCapTableDetails(
+    const newCapTableDetails = await getCapTableDetails(
       ctx.ocp,
       createResult.updatedCapTableCid,
       issuerSetup.capTableContractDetails.synchronizerId
@@ -391,23 +390,3 @@ createIntegrationTestSuite('Cap Table Workflow', (getContext) => {
     expect(editedOcf.data.name.legal_name).toBe('Successfully Edited');
   });
 });
-
-/** Helper to get updated CapTable contract details after a batch operation. */
-async function getUpdatedCapTableDetails(
-  ocp: Parameters<typeof setupTestIssuer>[0],
-  capTableContractId: string,
-  synchronizerId: string
-): Promise<DisclosedContract> {
-  const capTableEvents = await ocp.ledger.getEventsByContractId({
-    contractId: capTableContractId,
-  });
-  if (!capTableEvents.created?.createdEvent) {
-    throw new Error('Failed to get CapTable created event');
-  }
-  return {
-    templateId: capTableEvents.created.createdEvent.templateId,
-    contractId: capTableContractId,
-    createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
-    synchronizerId,
-  };
-}

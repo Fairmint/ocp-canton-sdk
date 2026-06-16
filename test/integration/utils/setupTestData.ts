@@ -81,6 +81,27 @@ export function generateTestId(prefix: string): string {
   return `${prefix}-${timestamp}-${random}`;
 }
 
+/** Get updated CapTable contract details after a batch operation. */
+export async function getCapTableDetails(
+  ocp: OcpClient,
+  capTableContractId: string,
+  synchronizerId: string
+): Promise<DisclosedContract> {
+  const capTableEvents = await ocp.ledger.getEventsByContractId({
+    contractId: capTableContractId,
+  });
+  if (!capTableEvents.created?.createdEvent) {
+    throw new Error(`Failed to get CapTable created event for contract ${capTableContractId}`);
+  }
+
+  return {
+    templateId: capTableEvents.created.createdEvent.templateId,
+    contractId: capTableContractId,
+    createdEventBlob: requireCreatedEventBlob(capTableEvents.created.createdEvent),
+    synchronizerId,
+  };
+}
+
 /**
  * Generate a date string in ISO format (YYYY-MM-DD).
  *

@@ -19,27 +19,15 @@
  * ```
  */
 
-import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import {
   generateDateString,
   generateTestId,
+  getCapTableDetails,
   requireCreatedEventBlob,
   setupStockSecurity,
   setupTestIssuer,
 } from '../utils';
-
-async function getCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {
-  const events = await ctx.ocp.ledger.getEventsByContractId({ contractId });
-  if (!events.created?.createdEvent) {
-    throw new Error('Failed to get CapTable created event');
-  }
-  return {
-    templateId: events.created.createdEvent.templateId,
-    contractId,
-    createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
-    synchronizerId,
-  };
-}
 
 createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
   /**
@@ -67,7 +55,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
     const capTableContractDetails = await getCapTableDetails(
-      ctx,
+      ctx.ocp,
       stockSecurity.capTableContractId,
       issuerSetup.capTableContractDetails.synchronizerId
     );
@@ -119,7 +107,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
     const capTableContractDetails = await getCapTableDetails(
-      ctx,
+      ctx.ocp,
       stockSecurity.capTableContractId,
       issuerSetup.capTableContractDetails.synchronizerId
     );

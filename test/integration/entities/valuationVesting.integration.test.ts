@@ -17,13 +17,14 @@
  * ```
  */
 
-import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
+import { createIntegrationTestSuite } from '../setup';
 import {
   createTestValuationData,
   createTestVestingAccelerationData,
   createTestVestingEventData,
   createTestVestingStartData,
   generateTestId,
+  getCapTableDetails,
   requireCreatedEventBlob,
   setupStockSecurity,
   setupTestIssuer,
@@ -34,20 +35,6 @@ function extractContractIdString(cid: { value: unknown }): string {
     throw new Error(`Expected contractId.value to be a string, got ${typeof cid.value}`);
   }
   return cid.value;
-}
-
-async function getUpdatedCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {
-  const events = await ctx.ocp.ledger.getEventsByContractId({ contractId });
-  if (!events.created?.createdEvent) {
-    throw new Error('Failed to get CapTable created event');
-  }
-
-  return {
-    templateId: events.created.createdEvent.templateId,
-    contractId,
-    createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
-    synchronizerId,
-  };
 }
 
 createIntegrationTestSuite('Valuation and Vesting types via batch API', (getContext) => {
@@ -70,8 +57,8 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
-    const capTableContractDetails = await getUpdatedCapTableDetails(
-      ctx,
+    const capTableContractDetails = await getCapTableDetails(
+      ctx.ocp,
       stockSecurity.capTableContractId,
       issuerSetup.capTableContractDetails.synchronizerId
     );
@@ -121,8 +108,8 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
-    const capTableContractDetails = await getUpdatedCapTableDetails(
-      ctx,
+    const capTableContractDetails = await getCapTableDetails(
+      ctx.ocp,
       stockSecurity.capTableContractId,
       issuerSetup.capTableContractDetails.synchronizerId
     );
@@ -447,8 +434,8 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
       issuerParty: ctx.issuerParty,
       capTableContractDetails: issuerSetup.capTableContractDetails,
     });
-    const capTableContractDetails = await getUpdatedCapTableDetails(
-      ctx,
+    const capTableContractDetails = await getCapTableDetails(
+      ctx.ocp,
       stockSecurity.capTableContractId,
       issuerSetup.capTableContractDetails.synchronizerId
     );

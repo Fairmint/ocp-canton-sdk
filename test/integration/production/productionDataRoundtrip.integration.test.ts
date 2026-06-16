@@ -92,7 +92,7 @@ function extractContractIdString(cid: { value: unknown }): string {
 async function getUpdatedCapTableDetails(ctx: IntegrationTestContext, contractId: string, synchronizerId: string) {
   const events = await ctx.ocp.ledger.getEventsByContractId({ contractId });
   if (!events.created?.createdEvent) {
-    throw new Error('Failed to get CapTable created event');
+    throw new Error(`Failed to get CapTable created event for contract ${contractId}`);
   }
 
   return {
