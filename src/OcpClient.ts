@@ -246,7 +246,7 @@ function getOpenCapTableObjectReader<T extends OcfReadableObjectType>(
   const entityType = mapOcfObjectTypeToEntityType(String(objectType));
   if (entityType === null) {
     throw new OcpValidationError('objectType', `Unsupported OCF object_type: ${objectType}`, {
-      code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       receivedValue: objectType,
     });
   }

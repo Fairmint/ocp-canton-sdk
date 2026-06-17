@@ -1,5 +1,6 @@
 import { Canton, type ClientConfig } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OcpErrorCodes } from '../../src/errors';
 import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';
 import {
   ENTITY_REGISTRY,
@@ -426,6 +427,12 @@ describe('OcpClient OpenCapTable entity facade', () => {
         contractId: 'unknown-cid',
       })
     ).rejects.toThrow('Unsupported OCF object_type: UNKNOWN_OBJECT_TYPE');
+    await expect(
+      ocp.OpenCapTable.getByObjectType({
+        objectType: 'UNKNOWN_OBJECT_TYPE' as OcfReadableObjectType,
+        contractId: 'unknown-cid',
+      })
+    ).rejects.toMatchObject({ code: OcpErrorCodes.UNKNOWN_ENUM_VALUE });
   });
 
   it('preserves concrete output inference for literal object types', async () => {
