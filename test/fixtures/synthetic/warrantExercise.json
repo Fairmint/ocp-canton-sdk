@@ -4,7 +4,7 @@
   "object_type": "TX_WARRANT_EXERCISE",
   "date": "2025-05-15",
   "security_id": "test-security-warrant-exercise-001",
-  "quantity": "75000",
+  "trigger_id": "test-warrant-trigger-001",
   "resulting_security_ids": ["test-security-warrant-shares-001"],
   "consideration_text": "Cashless exercise at fair market value of $20.00 per share",
   "comments": [
