@@ -419,3 +419,9 @@ export type OcfObject =
   // Stakeholder Events
   | OcfStakeholderRelationshipChangeEventOutput
   | OcfStakeholderStatusChangeEventOutput;
+
+/** Entity output type for a specific OCF `object_type` discriminant. */
+export type OcfOutputForObjectType<T extends OcfObject['object_type']> = Extract<
+  OcfObject,
+  { readonly object_type: T }
+>;

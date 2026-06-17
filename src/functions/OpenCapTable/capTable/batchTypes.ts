@@ -580,6 +580,83 @@ export const ENTITY_REGISTRY = {
   },
 } as const satisfies Record<OcfEntityType, OcfEntityRegistryEntry>;
 
+/**
+ * Canonical OCF `object_type` to SDK entity reader mapping.
+ *
+ * PlanSecurity aliases intentionally resolve to the EquityCompensation object types in
+ * {@link ENTITY_REGISTRY}, so this map exposes the canonical ledger object types that
+ * have first-class read facades.
+ */
+export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = {
+  CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
+  CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
+  DOCUMENT: 'document',
+  ISSUER: 'issuer',
+  STAKEHOLDER: 'stakeholder',
+  STOCK_CLASS: 'stockClass',
+  STOCK_LEGEND_TEMPLATE: 'stockLegendTemplate',
+  STOCK_PLAN: 'stockPlan',
+  TX_CONVERTIBLE_ACCEPTANCE: 'convertibleAcceptance',
+  TX_CONVERTIBLE_CANCELLATION: 'convertibleCancellation',
+  TX_CONVERTIBLE_CONVERSION: 'convertibleConversion',
+  TX_CONVERTIBLE_ISSUANCE: 'convertibleIssuance',
+  TX_CONVERTIBLE_RETRACTION: 'convertibleRetraction',
+  TX_CONVERTIBLE_TRANSFER: 'convertibleTransfer',
+  TX_EQUITY_COMPENSATION_ACCEPTANCE: 'equityCompensationAcceptance',
+  TX_EQUITY_COMPENSATION_CANCELLATION: 'equityCompensationCancellation',
+  TX_EQUITY_COMPENSATION_EXERCISE: 'equityCompensationExercise',
+  TX_EQUITY_COMPENSATION_ISSUANCE: 'equityCompensationIssuance',
+  TX_EQUITY_COMPENSATION_RELEASE: 'equityCompensationRelease',
+  TX_EQUITY_COMPENSATION_REPRICING: 'equityCompensationRepricing',
+  TX_EQUITY_COMPENSATION_RETRACTION: 'equityCompensationRetraction',
+  TX_EQUITY_COMPENSATION_TRANSFER: 'equityCompensationTransfer',
+  TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT: 'issuerAuthorizedSharesAdjustment',
+  TX_STOCK_ACCEPTANCE: 'stockAcceptance',
+  TX_STOCK_CANCELLATION: 'stockCancellation',
+  TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT: 'stockClassAuthorizedSharesAdjustment',
+  TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT: 'stockClassConversionRatioAdjustment',
+  TX_STOCK_CLASS_SPLIT: 'stockClassSplit',
+  TX_STOCK_CONSOLIDATION: 'stockConsolidation',
+  TX_STOCK_CONVERSION: 'stockConversion',
+  TX_STOCK_ISSUANCE: 'stockIssuance',
+  TX_STOCK_PLAN_POOL_ADJUSTMENT: 'stockPlanPoolAdjustment',
+  TX_STOCK_PLAN_RETURN_TO_POOL: 'stockPlanReturnToPool',
+  TX_STOCK_REISSUANCE: 'stockReissuance',
+  TX_STOCK_REPURCHASE: 'stockRepurchase',
+  TX_STOCK_RETRACTION: 'stockRetraction',
+  TX_STOCK_TRANSFER: 'stockTransfer',
+  TX_VESTING_ACCELERATION: 'vestingAcceleration',
+  TX_VESTING_EVENT: 'vestingEvent',
+  TX_VESTING_START: 'vestingStart',
+  TX_WARRANT_ACCEPTANCE: 'warrantAcceptance',
+  TX_WARRANT_CANCELLATION: 'warrantCancellation',
+  TX_WARRANT_EXERCISE: 'warrantExercise',
+  TX_WARRANT_ISSUANCE: 'warrantIssuance',
+  TX_WARRANT_RETRACTION: 'warrantRetraction',
+  TX_WARRANT_TRANSFER: 'warrantTransfer',
+  VALUATION: 'valuation',
+  VESTING_TERMS: 'vestingTerms',
+} as const satisfies Record<string, OcfEntityType>;
+
+/** OCF object types that can be read through OpenCapTable entity readers. */
+export type OcfReadableObjectType = keyof typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE;
+
+/** SDK entity reader name for a given OCF object type. */
+export type OcfEntityTypeForObjectType<T extends OcfReadableObjectType> = (typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE)[T];
+
+export function mapOcfObjectTypeToEntityType<T extends OcfReadableObjectType>(
+  objectType: T
+): OcfEntityTypeForObjectType<T>;
+export function mapOcfObjectTypeToEntityType(objectType: string): OcfEntityType | null;
+export function mapOcfObjectTypeToEntityType(objectType: string): OcfEntityType | null {
+  return isOcfReadableObjectType(objectType) ? OCF_OBJECT_TYPE_TO_ENTITY_TYPE[objectType] : null;
+}
+
+/** Runtime guard for OCF object types supported by OpenCapTable readers. */
+export function isOcfReadableObjectType(objectType: string): objectType is OcfReadableObjectType {
+  return Object.prototype.hasOwnProperty.call(OCF_OBJECT_TYPE_TO_ENTITY_TYPE, objectType);
+}
+
 function entityRegistryEntries(): Array<[OcfEntityType, OcfEntityRegistryEntry]> {
   return Object.entries(ENTITY_REGISTRY) as Array<[OcfEntityType, OcfEntityRegistryEntry]>;
 }
