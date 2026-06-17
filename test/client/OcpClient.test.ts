@@ -2,10 +2,17 @@ import { Canton, type ClientConfig } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';
 import {
+  ENTITY_REGISTRY,
+  OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
+  mapOcfObjectTypeToEntityType,
+  type OcfReadableObjectType,
+} from '../../src/functions/OpenCapTable/capTable';
+import {
   authorizeIssuer,
   type AuthorizeIssuerResult,
 } from '../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
 import { OcpClient } from '../../src/OcpClient';
+import type { ContractResult, OcfOutputForObjectType } from '../../src/types';
 import { createLedgerAndValidatorClients, createLedgerJsonApiClient } from '../utils/cantonNodeSdkCompat';
 
 jest.mock('../../src/functions/OpenCapTable/issuerAuthorization/authorizeIssuer', () => ({
@@ -367,6 +374,94 @@ describe('OcpClient OpenCapTable.capTable facade', () => {
 });
 
 describe('OcpClient OpenCapTable entity facade', () => {
+  type ObjectReaderEntityType = (typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE)[OcfReadableObjectType];
+  const objectTypeReaderEntries = Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE) as Array<
+    [OcfReadableObjectType, ObjectReaderEntityType]
+  >;
+
+  it('exports one canonical OCF object_type mapping for each readable registry entry', () => {
+    const expected = Object.fromEntries(
+      Object.entries(ENTITY_REGISTRY)
+        .filter(([entityType]) => !entityType.startsWith('planSecurity'))
+        .map(([entityType, entry]) => [entry.objectType, entityType])
+    );
+
+    expect(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).toEqual(expected);
+  });
+
+  it.each(objectTypeReaderEntries)('maps %s to %s', (objectType, entityType) => {
+    expect(mapOcfObjectTypeToEntityType(objectType)).toBe(entityType);
+  });
+
+  it.each(objectTypeReaderEntries)('dispatches getByObjectType(%s) through %s.get', async (objectType, entityType) => {
+    const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+    const ocp = new OcpClient({ ledger });
+    const expected = {
+      contractId: `cid-${objectType}`,
+      data: { object_type: objectType },
+    };
+    const getMock = jest.fn().mockResolvedValue(expected);
+    (ocp.OpenCapTable[entityType] as { get: typeof getMock }).get = getMock;
+
+    const result = await ocp.OpenCapTable.getByObjectType({
+      objectType,
+      contractId: `cid-${objectType}`,
+      readAs: ['issuer::party-1'],
+    });
+
+    expect(result).toBe(expected);
+    expect(getMock).toHaveBeenCalledWith({
+      contractId: `cid-${objectType}`,
+      readAs: ['issuer::party-1'],
+    });
+  });
+
+  it('rejects unsupported runtime object types', async () => {
+    const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+    const ocp = new OcpClient({ ledger });
+
+    await expect(
+      ocp.OpenCapTable.getByObjectType({
+        objectType: 'UNKNOWN_OBJECT_TYPE' as OcfReadableObjectType,
+        contractId: 'unknown-cid',
+      })
+    ).rejects.toThrow('Unsupported OCF object_type: UNKNOWN_OBJECT_TYPE');
+  });
+
+  it('preserves concrete output inference for literal object types', async () => {
+    const ledger = createLedgerJsonApiClient({ network: 'devnet' });
+    const ocp = new OcpClient({ ledger });
+    const expected: ContractResult<OcfOutputForObjectType<'STOCK_CLASS'>> = {
+      contractId: 'stock-class-cid-1',
+      data: {
+        object_type: 'STOCK_CLASS',
+        id: 'stock-class-1',
+        class_type: 'COMMON',
+        default_id_prefix: 'CS-',
+        initial_shares_authorized: '1000',
+        name: 'Common Stock',
+        seniority: '1',
+        board_approval_date: '2025-01-01',
+        votes_per_share: '1',
+        par_value: { amount: '0.00001', currency: 'USD' },
+        price_per_share: { amount: '1', currency: 'USD' },
+        comments: [],
+      },
+    };
+    const getMock = jest.fn().mockResolvedValue(expected);
+    (ocp.OpenCapTable.stockClass as { get: typeof getMock }).get = getMock;
+
+    const result = await ocp.OpenCapTable.getByObjectType({
+      objectType: 'STOCK_CLASS',
+      contractId: 'stock-class-cid-1',
+    });
+    const objectType: 'STOCK_CLASS' = result.data.object_type;
+    const { id }: { id: string } = result.data;
+
+    expect(objectType).toBe('STOCK_CLASS');
+    expect(id).toBe('stock-class-1');
+  });
+
   it('forwards issuer.get readAs through the OcpClient facade', async () => {
     const issuerTemplateId = Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId;
     const ledger = {

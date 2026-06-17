@@ -126,10 +126,12 @@ import {
   classifyIssuerCapTables,
   ENTITY_OBJECT_TYPE_MAP,
   getCapTableState,
+  mapOcfObjectTypeToEntityType,
   type ArchiveCapTableParams,
   type ArchiveCapTableResult,
   type CapTableState,
   type IssuerCapTableClassification,
+  type OcfReadableObjectType,
 } from './functions/OpenCapTable/capTable';
 import { mergeCommandContext, type CommandObservabilityOptions, type OcpObservabilityOptions } from './observability';
 import type { CommandWithDisclosedContracts } from './types';
@@ -152,6 +154,7 @@ import type {
   OcfEquityCompensationTransferOutput,
   OcfIssuerAuthorizedSharesAdjustmentOutput,
   OcfIssuerOutput,
+  OcfOutputForObjectType,
   OcfStakeholderOutput,
   OcfStakeholderRelationshipChangeEventOutput,
   OcfStakeholderStatusChangeEventOutput,
@@ -231,6 +234,24 @@ function makeGenericEntityReader<T>(
       return toContractResult<T>(withObjectType(r.data, ENTITY_OBJECT_TYPE_MAP[entityType]), r.contractId);
     },
   };
+}
+
+type OpenCapTableObjectReaderKey = ReturnType<typeof mapOcfObjectTypeToEntityType> & keyof OpenCapTableMethods;
+type OpenCapTableObjectReaderMap = Pick<OpenCapTableMethods, OpenCapTableObjectReaderKey>;
+
+function getOpenCapTableObjectReader<T extends OcfReadableObjectType>(
+  readers: OpenCapTableObjectReaderMap,
+  objectType: T
+): EntityReader<OcfOutputForObjectType<T>> {
+  const entityType = mapOcfObjectTypeToEntityType(String(objectType));
+  if (entityType === null) {
+    throw new OcpValidationError('objectType', `Unsupported OCF object_type: ${objectType}`, {
+      code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+      receivedValue: objectType,
+    });
+  }
+
+  return readers[entityType as OpenCapTableObjectReaderKey] as EntityReader<OcfOutputForObjectType<T>>;
 }
 
 // ===== Context Manager =====
@@ -572,7 +593,7 @@ export class OcpClient {
     const genericEntity = <T>(entityType: Parameters<typeof getEntityAsOcf>[1]): EntityReader<T> =>
       makeGenericEntityReader<T>(client, entityType);
 
-    return {
+    const methods = {
       // ===== Objects =====
       issuer: {
         get: async (params) => getIssuerAsOcf(client, params),
@@ -891,6 +912,14 @@ export class OcpClient {
         update: (params: CapTableUpdateParams) => new CapTableBatch(this.withObservability(params), client),
         archive: async (params: ArchiveCapTableParams) => archiveCapTable(client, this.withObservability(params)),
       },
+    } satisfies Omit<OpenCapTableMethods, 'getByObjectType'>;
+
+    return {
+      getByObjectType: async ({ objectType, ...params }) => {
+        const reader = getOpenCapTableObjectReader(methods, objectType);
+        return reader.get(params);
+      },
+      ...methods,
     };
   }
 }
@@ -982,6 +1011,14 @@ function validateInjectedEnvironment(environment: OcpEnvironment | undefined, le
   }
 }
 
+/** Parameters for reading an OCF contract by its `object_type` and contract ID. */
+export interface GetByObjectTypeParams<
+  T extends OcfReadableObjectType = OcfReadableObjectType,
+> extends GetByContractIdParams {
+  /** OCF `object_type` discriminant, e.g. `STOCK_CLASS` or `TX_STOCK_ISSUANCE`. */
+  objectType: T;
+}
+
 /** Parameters for creating a batch cap table update */
 interface CapTableUpdateParams extends CommandObservabilityOptions {
   /** The contract ID of the CapTable to update */
@@ -1013,6 +1050,14 @@ interface EntityReader<T> {
  * an `object_type` discriminant for type-safe pattern matching.
  */
 interface OpenCapTableMethods {
+  /**
+   * Retrieve a contract by OCF `object_type` without manually switching over
+   * `OpenCapTable.<entity>.get()` reader namespaces.
+   */
+  getByObjectType: <T extends OcfReadableObjectType>(
+    params: GetByObjectTypeParams<T>
+  ) => Promise<ContractResult<OcfOutputForObjectType<T>>>;
+
   // Objects
   issuer: EntityReader<OcfIssuerOutput> & {
     /** Build a CreateIssuer command (for use with transaction batches) */
