@@ -1,9 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
-import { OCP_TEMPLATES } from '../../../openCapTablePackage';
 
 export interface CreateFactoryParams extends CommandObservabilityOptions {
   /** Party ID that will own the factory (submits the create as this party). */

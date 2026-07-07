@@ -1,5 +1,5 @@
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OCP_TEMPLATES } from '../../../openCapTablePackage';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import type { CommandWithDisclosedContracts } from '../../../types';
 
 /**

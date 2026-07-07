@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
-import { OCP_TEMPLATES } from '../../../openCapTablePackage';
 
 export interface WithdrawAuthorizationParams extends CommandObservabilityOptions {
   issuerAuthorizationContractId: string;

@@ -2,11 +2,10 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
-import { OCP_TEMPLATES } from '../../../openCapTablePackage';
 
 export interface AuthorizeIssuerParams extends CommandObservabilityOptions {
   issuer: string; // Party ID of the issuer to authorize

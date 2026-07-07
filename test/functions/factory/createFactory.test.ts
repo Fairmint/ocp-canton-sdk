@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { createFactory } from '../../../src/functions/OpenCapTable/factory/createFactory';
-import { OCP_TEMPLATES } from '../../../src/openCapTablePackage';
 import type { SubmitAndWaitForTransactionTreeResponse } from '../../../src/types/common';
 
 describe('createFactory', () => {

@@ -7,10 +7,10 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
 import { OcpErrorCodes } from '../../src/errors';
 import { classifyIssuerCapTables, getCapTableState } from '../../src/functions/OpenCapTable/capTable';
-import { OCP_TEMPLATES } from '../../src/openCapTablePackage';
 
 // Mock the canton-node-sdk
 jest.mock('@fairmint/canton-node-sdk');
