@@ -23,13 +23,15 @@
     "format:fix": "prettier --write .",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix --max-warnings=0",
-    "localnet:setup": "bash scripts/localnet/localnet-cloud.sh setup",
-    "localnet:smoke": "bash scripts/localnet/localnet-cloud.sh smoke",
-    "localnet:start": "bash scripts/localnet/localnet-cloud.sh start",
-    "localnet:status": "bash scripts/localnet/localnet-cloud.sh status",
-    "localnet:stop": "bash scripts/localnet/localnet-cloud.sh stop",
-    "localnet:test": "bash scripts/localnet/localnet-cloud.sh test",
-    "localnet:verify": "bash scripts/localnet/localnet-cloud.sh verify",
+    "localnet": "CANTON_LOCALNET_AUTH_MODE=shared-secret CANTON_LOCALNET_QUICKSTART_REF=$npm_package_config_localnet_quickstart_ref canton-localnet",
+    "localnet:logs": "npm run -s localnet -- logs",
+    "localnet:setup": "npm run -s localnet -- setup",
+    "localnet:smoke": "npm run -s localnet -- smoke",
+    "localnet:start": "npm run -s localnet -- start",
+    "localnet:status": "npm run -s localnet -- status",
+    "localnet:stop": "npm run -s localnet -- stop",
+    "localnet:test": "CANTON_LOCALNET_TEST_CMD='npm run test:integration:ci' npm run -s localnet -- test",
+    "localnet:verify": "CANTON_LOCALNET_TEST_CMD='npm run test:integration:ci' npm run -s localnet -- verify",
     "prepare-release": "ts-node --project tsconfig.tests.json scripts/prepare-release.ts",
     "script:authorize": "ts-node --project tsconfig.tests.json scripts/authorizeIssuer.ts",
     "script:create-issuer": "ts-node --project tsconfig.tests.json scripts/createIssuer.ts",
@@ -42,6 +44,9 @@
     "test:watch": "jest --watch",
     "typecheck": "tsc -p tsconfig.tests.json --noEmit"
   },
+  "config": {
+    "localnet_quickstart_ref": "5c90cf4d0eb934712fd8c269b56e6272b605ccad"
+  },
   "dependencies": {
     "@daml/ledger": "2.10.4",
     "@daml/types": "3.5.0",
@@ -52,7 +57,7 @@
   "devDependencies": {
     "@apidevtools/json-schema-ref-parser": "15.3.5",
     "@eslint/eslintrc": "3.3.5",
-    "@fairmint/canton-node-sdk": "0.0.223",
+    "@fairmint/canton-node-sdk": "0.0.227",
     "@fairmint/open-captable-protocol-daml-js": "0.3.8",
     "@types/jest": "30.0.0",
     "@types/jsonwebtoken": "9.0.10",
