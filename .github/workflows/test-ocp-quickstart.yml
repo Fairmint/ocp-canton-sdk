@@ -71,10 +71,10 @@ jobs:
       - name: Build Package
         run: npm run build
 
-      - name: Start CN-Quickstart
+      - name: Start LocalNet
         run: |
           npm run localnet:start
-          echo "✓ CN-Quickstart started"
+          echo "✓ LocalNet started"
         timeout-minutes: 15
 
       - name: Run LocalNet Smoke + Integration Tests
