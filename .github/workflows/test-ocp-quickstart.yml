@@ -86,4 +86,4 @@ jobs:
 
       - name: Show Logs on Failure
         if: failure()
-        run: npm run localnet:logs
+        run: npm run localnet:logs || true
