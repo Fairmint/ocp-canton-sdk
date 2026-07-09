@@ -1,6 +1,6 @@
 /** Unit tests for CapTableBatch fluent builder. */
 
-import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
+import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module.js';
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { buildUpdateCapTableCommand, CapTableBatch, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable';
 import type {

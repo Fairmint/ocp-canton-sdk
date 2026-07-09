@@ -6,7 +6,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
+import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module.js';
 import { OcpValidationError } from '../../src/errors';
 import {
   archiveCapTable,

@@ -13,10 +13,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && npm run copy-ocf-schemas",
+    "build": "npm run tsc7 && npm run copy-ocf-schemas",
     "clean": "rm -rf dist",
     "copy-ocf-schemas": "ts-node --project tsconfig.tests.json scripts/copy-ocf-schemas.ts",
-    "dev": "tsc --watch",
+    "dev": "npm run tsc7 -- --watch",
     "fix": "npm run lint:fix && npm run format:fix",
     "flatten-schemas": "ts-node --project tsconfig.tests.json scripts/flatten-ocf-schemas.ts",
     "format": "prettier --check .",
@@ -42,7 +42,8 @@
     "test:integration": "npm run -s typecheck && jest -c jest.integration.config.js --passWithNoTests",
     "test:integration:ci": "npm run -s typecheck && jest -c jest.integration.config.js --runInBand",
     "test:watch": "jest --watch",
-    "typecheck": "tsc -p tsconfig.tests.json --noEmit"
+    "typecheck": "npm run tsc7 -- -p tsconfig.tests.json --noEmit",
+    "tsc7": "node node_modules/typescript-7/bin/tsc"
   },
   "config": {
     "localnet_quickstart_ref": "5c90cf4d0eb934712fd8c269b56e6272b605ccad"
@@ -77,7 +78,8 @@
     "prettier-plugin-packagejson": "3.0.2",
     "ts-jest": "29.4.9",
     "ts-node": "10.9.2",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "typescript-7": "npm:typescript@7.0.2"
   },
   "peerDependencies": {
     "@fairmint/canton-node-sdk": ">=0.0.223 <0.1.0",

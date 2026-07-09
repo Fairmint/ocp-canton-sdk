@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
-import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
+import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module.js';
 import {
   archiveFullCapTable,
   getSystemOperatorPartyId,
