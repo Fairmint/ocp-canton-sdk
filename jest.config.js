@@ -7,6 +7,14 @@ module.exports = {
   testMatch: ['**/test/**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/test/integration/'],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
+  coverageThreshold: {
+    global: {
+      branches: 60,
+      functions: 68,
+      lines: 72,
+      statements: 72,
+    },
+  },
   setupFilesAfterEnv: ['<rootDir>/test/setupTests.ts'],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', { diagnostics: false }],

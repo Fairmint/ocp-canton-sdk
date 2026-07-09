@@ -11,7 +11,7 @@
 
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
-import type { OcfDataTypeFor, OcfEntityType } from './batchTypes';
+import type { OcfDataTypeFor, OcfEntityArguments } from './batchTypes';
 
 // Import converters from entity folders
 import { convertibleAcceptanceDataToDaml } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -72,7 +72,8 @@ import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDat
  * @param data - The native OCF data object
  * @returns The DAML-formatted data object
  */
-export function convertToDaml<T extends OcfEntityType>(type: T, data: OcfDataTypeFor<T>): Record<string, unknown> {
+export function convertToDaml(...args: OcfEntityArguments): Record<string, unknown> {
+  const [type, data] = args;
   const d = parseOcfEntityInput(type, data);
 
   switch (type) {
