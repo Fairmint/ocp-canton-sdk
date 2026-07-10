@@ -27,6 +27,7 @@ import {
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const SCHEMA_ROOT = path.join(REPO_ROOT, 'libs', 'Open-Cap-Format-OCF', 'schema');
 const CANONICAL_INVENTORY_PATH = path.join(__dirname, 'canonicalOcfObjectInventory.json');
+const PPS_SCHEMA_PATH = 'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json';
 
 function readCanonicalInventory(): CanonicalOcfObjectInventoryEntry[] {
   return JSON.parse(fs.readFileSync(CANONICAL_INVENTORY_PATH, 'utf8')) as CanonicalOcfObjectInventoryEntry[];
@@ -65,6 +66,26 @@ describe('schema-driven OCF conformance guardrail', () => {
     };
 
     expect(resolveJsonPointer(document, '/a~1b/m~0n/~01', 'synthetic.schema.json')).toBe('escaped-value');
+  });
+
+  it.each(['/01', '/-0', '/1e0'])('rejects non-canonical array JSON Pointer index %s', (fragment) => {
+    expect(() => resolveJsonPointer(['zero', 'one'], fragment, 'synthetic.schema.json')).toThrow(
+      'Invalid array JSON Pointer segment'
+    );
+  });
+
+  it('rejects invalid JSON Pointer escape sequences', () => {
+    expect(() => resolveJsonPointer({ '~2': 'invalid' }, '/~2', 'synthetic.schema.json')).toThrow(
+      'Invalid JSON Pointer escape sequence'
+    );
+  });
+
+  it('resolves canonical array indices and rejects out-of-bounds indices', () => {
+    expect(resolveJsonPointer(['zero', 'one'], '/0', 'synthetic.schema.json')).toBe('zero');
+    expect(resolveJsonPointer(['zero', 'one'], '/1', 'synthetic.schema.json')).toBe('one');
+    expect(() => resolveJsonPointer(['zero', 'one'], '/2', 'synthetic.schema.json')).toThrow(
+      'Invalid array JSON Pointer segment'
+    );
   });
 
   it('fails on any reachable pinned schema content drift', () => {
@@ -260,20 +281,21 @@ describe('intentional SDK semantic refinements', () => {
     expect(targetProperty.type).toBe('string');
   });
 
-  it('records the PPS discount exclusivity that is stricter than the pinned draft-07 schema', () => {
-    const ppsSchema = dereferencePinnedSchemaFile(
-      SCHEMA_ROOT,
-      'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json'
-    );
+  it('enforces PPS discount exclusivity beyond the pinned draft-07 schema gap', () => {
+    const ppsSchema = dereferencePinnedSchemaFile(SCHEMA_ROOT, PPS_SCHEMA_PATH);
     const validate = new Ajv({ allErrors: true, strict: false }).compile(ppsSchema);
     const schemaLoophole = {
       type: 'PPS_BASED_CONVERSION',
-      description: '20% discount',
+      description: 'Stale discount details remain',
       discount: false,
       discount_percentage: '0.2',
     };
 
     expect(validate(schemaLoophole)).toBe(true);
+
+    const ppsRegistrations = OCF_CONDITIONAL_COVERAGE.filter((entry) => entry.path.startsWith(PPS_SCHEMA_PATH));
+    expect(ppsRegistrations).toHaveLength(4);
+    expect(ppsRegistrations.every((entry) => entry.refinement === 'pps-discount-exclusivity')).toBe(true);
     expect(EXPECTED_SEMANTIC_REFINEMENTS).toContainEqual(
       expect.objectContaining({
         expectedSdkContract: expect.stringContaining('discount=false with neither field'),

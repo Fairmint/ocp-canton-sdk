@@ -89,7 +89,10 @@ function escapeJsonPointerSegment(segment: string): string {
   return segment.replace(/~/g, '~0').replace(/\//g, '~1');
 }
 
-function decodeJsonPointerSegment(segment: string): string {
+function decodeJsonPointerSegment(segment: string, source: string): string {
+  if (/~(?:[^01]|$)/.test(segment)) {
+    throw new Error(`Invalid JSON Pointer escape sequence "${segment}" in ${source}`);
+  }
   return segment.replace(/~1/g, '/').replace(/~0/g, '~');
 }
 
@@ -124,10 +127,13 @@ export function resolveJsonPointer(document: unknown, fragment: string, source: 
 
   let current = document;
   for (const encodedSegment of fragment.slice(1).split('/')) {
-    const segment = decodeJsonPointerSegment(encodedSegment);
+    const segment = decodeJsonPointerSegment(encodedSegment, `${source}#${fragment}`);
     if (Array.isArray(current)) {
+      if (!/^(?:0|[1-9]\d*)$/.test(segment)) {
+        throw new Error(`Invalid array JSON Pointer segment "${segment}" in ${source}#${fragment}`);
+      }
       const index = Number(segment);
-      if (!Number.isInteger(index) || index < 0 || index >= current.length) {
+      if (!Number.isSafeInteger(index) || index >= current.length) {
         throw new Error(`Invalid array JSON Pointer segment "${segment}" in ${source}#${fragment}`);
       }
       current = current[index];

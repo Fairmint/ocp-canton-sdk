@@ -22,7 +22,7 @@ export function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): Record
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'vestingAcceleration.date'),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     reason_text: d.reason_text,
