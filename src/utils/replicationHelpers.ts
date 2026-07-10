@@ -9,8 +9,11 @@
  * @module replicationHelpers
  */
 
-import type { OcfEntityDataMap } from '../functions/OpenCapTable/capTable/batchTypes';
-import { mapOcfObjectTypeToEntityType, type OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
+import {
+  mapOcfObjectTypeToEntityType,
+  type OcfEntityDataMap,
+  type OcfEntityType,
+} from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
