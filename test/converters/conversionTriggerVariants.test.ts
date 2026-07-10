@@ -108,6 +108,55 @@ describe('exact conversion-trigger converter behavior', () => {
     ).toThrow(/Unknown conversion trigger type: NOT_A_TRIGGER/);
   });
 
+  it.each([
+    {
+      field: 'trigger_id',
+      trigger: { type: 'UNSPECIFIED', trigger_id: '', conversion_right: convertibleRight },
+    },
+    {
+      field: 'trigger_condition',
+      trigger: {
+        type: 'AUTOMATIC_ON_CONDITION',
+        trigger_id: 'empty-condition',
+        trigger_condition: '',
+        conversion_right: convertibleRight,
+      },
+    },
+    {
+      field: 'trigger_date',
+      trigger: {
+        type: 'AUTOMATIC_ON_DATE',
+        trigger_id: 'empty-date',
+        trigger_date: '',
+        conversion_right: convertibleRight,
+      },
+    },
+    {
+      field: 'start_date',
+      trigger: {
+        type: 'ELECTIVE_IN_RANGE',
+        trigger_id: 'empty-start',
+        start_date: '',
+        end_date: '2027-12-31',
+        conversion_right: convertibleRight,
+      },
+    },
+    {
+      field: 'end_date',
+      trigger: {
+        type: 'ELECTIVE_IN_RANGE',
+        trigger_id: 'empty-end',
+        start_date: '2027-01-01',
+        end_date: '',
+        conversion_right: convertibleRight,
+      },
+    },
+  ])('rejects an empty required $field', ({ field, trigger }) => {
+    expect(() => parseConversionTriggerFields(trigger, 'conversionTrigger')).toThrow(
+      new RegExp(`${field} is required and must be a non-empty string`)
+    );
+  });
+
   it.each(convertibleTriggerVariants)('round-trips convertible $type without synthesizing fields', (trigger) => {
     const daml = convertibleIssuanceDataToDaml({
       ...convertibleBase,
