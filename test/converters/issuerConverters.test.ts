@@ -7,6 +7,7 @@
  */
 
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { OcpParseError } from '../../src/errors';
 import { buildCreateIssuerCommand, normalizeIssuerData } from '../../src/functions/OpenCapTable/issuer/createIssuer';
 import { damlIssuerDataToNative } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import type { OcfIssuer } from '../../src/types/native';
@@ -165,24 +166,49 @@ describe('Issuer Converters', () => {
   });
 
   describe('damlIssuerDataToNative', () => {
+    const baseDamlIssuer = {
+      id: 'issuer-read-1',
+      legal_name: 'Invalid Issuer',
+      country_of_formation: 'US',
+      dba: null,
+      formation_date: '2026-01-01T00:00:00.000Z',
+      country_subdivision_of_formation: null,
+      country_subdivision_name_of_formation: null,
+      tax_ids: [],
+      email: null,
+      phone: null,
+      address: null,
+      initial_shares_authorized: null,
+      comments: [],
+    };
+
     test('rejects a ledger issuer with both subdivision representations', () => {
       const damlIssuer = {
+        ...baseDamlIssuer,
         id: 'issuer-read-1',
-        legal_name: 'Invalid Issuer',
-        country_of_formation: 'US',
-        dba: null,
-        formation_date: '2026-01-01T00:00:00.000Z',
         country_subdivision_of_formation: 'DE',
         country_subdivision_name_of_formation: 'Delaware',
-        tax_ids: [],
-        email: null,
-        phone: null,
-        address: null,
-        initial_shares_authorized: null,
-        comments: [],
       } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
 
       expect(() => damlIssuerDataToNative(damlIssuer)).toThrow('both subdivision code and subdivision name');
+    });
+
+    test.each([
+      ['subdivision code', { country_subdivision_of_formation: '' }, 'country_subdivision_of_formation'],
+      ['subdivision name', { country_subdivision_name_of_formation: '' }, 'country_subdivision_name_of_formation'],
+      [
+        'both subdivisions',
+        { country_subdivision_of_formation: '', country_subdivision_name_of_formation: '' },
+        'country_subdivision_of_formation',
+      ],
+    ])('rejects empty ledger %s', (_case, subdivisionFields, expectedField) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        ...subdivisionFields,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(OcpParseError);
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(expectedField);
     });
   });
 });
