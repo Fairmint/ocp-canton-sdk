@@ -471,45 +471,98 @@ describe('convertible issuance approval-date read boundaries', () => {
     }
   );
 
+  it('decodes only the required AUTOMATIC_ON_DATE trigger_date', () => {
+    const trigger = {
+      ...buildDamlSafeTrigger(),
+      type_: 'OcfTriggerTypeTypeAutomaticOnDate',
+      trigger_date: '2024-01-15T23:30:00-05:00',
+      start_date: null,
+      end_date: null,
+    };
+    const result = damlConvertibleIssuanceDataToNative({ ...BASE_DAML, conversion_triggers: [trigger] });
+
+    expect(result.conversion_triggers[0]).toMatchObject({ type: 'AUTOMATIC_ON_DATE', trigger_date: '2024-01-15' });
+    expect(result.conversion_triggers[0]).not.toHaveProperty('start_date');
+    expect(result.conversion_triggers[0]).not.toHaveProperty('end_date');
+  });
+
+  it('rejects a missing required AUTOMATIC_ON_DATE trigger_date on readback', () => {
+    expectInvalidDate(
+      () =>
+        damlConvertibleIssuanceDataToNative({
+          ...BASE_DAML,
+          conversion_triggers: [
+            { ...buildDamlSafeTrigger(), type_: 'OcfTriggerTypeTypeAutomaticOnDate', trigger_date: null },
+          ],
+        }),
+      'convertibleIssuance.conversion_triggers.0.trigger_date',
+      null,
+      OcpErrorCodes.INVALID_TYPE
+    );
+  });
+
   test.each(['trigger_date', 'start_date', 'end_date'] as const)(
     'rejects a present non-string conversion trigger %s',
     (field) => {
       const invalidDate = { seconds: 1 };
 
-      try {
-        damlConvertibleIssuanceDataToNative({
-          ...BASE_DAML,
-          conversion_triggers: [buildDamlSafeTriggerWithDateField(field, invalidDate)],
-        });
-        throw new Error('Expected trigger date validation to fail');
-      } catch (error) {
-        expect(error).toBeInstanceOf(OcpValidationError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_TYPE,
-          fieldPath: `convertibleIssuance.conversion_triggers.0.${field}`,
-          receivedValue: invalidDate,
-        });
-      }
+      expectInvalidDate(
+        () =>
+          damlConvertibleIssuanceDataToNative({
+            ...BASE_DAML,
+            conversion_triggers: [buildDamlSafeTriggerWithDateField(field, invalidDate)],
+          }),
+        `convertibleIssuance.conversion_triggers.0.${field}`,
+        invalidDate,
+        OcpErrorCodes.INVALID_TYPE
+      );
     }
   );
+
+  it('decodes only the required ELECTIVE_IN_RANGE start and end dates', () => {
+    const trigger = {
+      ...buildDamlSafeTrigger(),
+      type_: 'OcfTriggerTypeTypeElectiveInRange',
+      trigger_date: null,
+      start_date: '2024-01-15T00:00:00Z',
+      end_date: '2024-02-15T00:00:00Z',
+    };
+    const result = damlConvertibleIssuanceDataToNative({ ...BASE_DAML, conversion_triggers: [trigger] });
+
+    expect(result.conversion_triggers[0]).toMatchObject({
+      type: 'ELECTIVE_IN_RANGE',
+      start_date: '2024-01-15',
+      end_date: '2024-02-15',
+    });
+    expect(result.conversion_triggers[0]).not.toHaveProperty('trigger_date');
+  });
+
+  it('rejects date fields forbidden by the trigger discriminator on readback', () => {
+    expectInvalidDate(
+      () =>
+        damlConvertibleIssuanceDataToNative({
+          ...BASE_DAML,
+          conversion_triggers: [{ ...buildDamlSafeTrigger(), trigger_date: '2024-01-15T00:00:00Z' }],
+        }),
+      'convertibleIssuance.conversion_triggers.0.trigger_date',
+      '2024-01-15T00:00:00Z',
+      OcpErrorCodes.SCHEMA_MISMATCH
+    );
+  });
 
   test.each(['trigger_date', 'start_date', 'end_date'] as const)(
     'rejects a present empty conversion trigger %s',
     (field) => {
-      try {
-        damlConvertibleIssuanceDataToNative({
-          ...BASE_DAML,
-          conversion_triggers: [buildDamlSafeTriggerWithDateField(field, '')],
-        });
-        throw new Error('Expected trigger date validation to fail');
-      } catch (error) {
-        expect(error).toBeInstanceOf(OcpValidationError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_FORMAT,
-          fieldPath: `convertibleIssuance.conversion_triggers.0.${field}`,
-          receivedValue: '',
-        });
-      }
+      expectInvalidDate(
+        () =>
+          damlConvertibleIssuanceDataToNative({
+            ...BASE_DAML,
+            conversion_triggers: [buildDamlSafeTriggerWithDateField(field, '')],
+          }),
+        `convertibleIssuance.conversion_triggers.0.${field}`,
+        '',
+        OcpErrorCodes.INVALID_FORMAT
+      );
     }
   );
 
@@ -634,6 +687,56 @@ describe('convertible issuance write date boundaries', () => {
       }
     }
   );
+
+  it('encodes the required AUTOMATIC_ON_DATE trigger_date and no range dates', () => {
+    const result = convertibleIssuanceDataToDaml({
+      ...BASE_INPUT,
+      conversion_triggers: [
+        { ...SAFE_TRIGGER_BASE, type: 'AUTOMATIC_ON_DATE', trigger_date: '2024-01-15T23:30:00-05:00' },
+      ],
+    });
+
+    expect(result.conversion_triggers[0]).toMatchObject({
+      trigger_date: '2024-01-15T00:00:00.000Z',
+      start_date: null,
+      end_date: null,
+    });
+  });
+
+  it('encodes the required ELECTIVE_IN_RANGE dates and no trigger_date', () => {
+    const result = convertibleIssuanceDataToDaml({
+      ...BASE_INPUT,
+      conversion_triggers: [
+        {
+          ...SAFE_TRIGGER_BASE,
+          type: 'ELECTIVE_IN_RANGE',
+          start_date: '2024-01-15T00:30:00+14:00',
+          end_date: '2024-02-15T23:30:00-05:00',
+        },
+      ],
+    });
+
+    expect(result.conversion_triggers[0]).toMatchObject({
+      trigger_date: null,
+      start_date: '2024-01-15T00:00:00.000Z',
+      end_date: '2024-02-15T00:00:00.000Z',
+    });
+  });
+
+  it('rejects date fields forbidden by the trigger discriminator on write', () => {
+    expectInvalidDate(
+      () =>
+        convertibleIssuanceDataToDaml({
+          ...BASE_INPUT,
+          conversion_triggers: [
+            { ...SAFE_TRIGGER_BASE, trigger_date: '2024-01-15' } as unknown as ConvertibleConversionTrigger,
+          ],
+        }),
+      'convertibleIssuance.conversion_triggers.0.trigger_date',
+      '2024-01-15',
+      OcpErrorCodes.INVALID_FORMAT
+    );
+  });
 
   test.each(['trigger_date', 'start_date', 'end_date'] as const)(
     'validates a present conversion trigger %s instead of treating a falsy value as absent',

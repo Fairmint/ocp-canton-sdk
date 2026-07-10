@@ -1,7 +1,7 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfWarrantIssuance, StockClassConversionRight, WarrantExerciseTrigger } from '../../../types/native';
-import { conversionTriggerTimingToDaml, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -15,11 +15,15 @@ import {
   ratioMechanismToDaml,
   warrantMechanismToDaml,
 } from '../shared/conversionMechanisms';
+import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
 export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
   readonly object_type?: 'TX_WARRANT_ISSUANCE';
 };
+
+/** Canonical warrant trigger discriminator accepted by the strongly typed writer. */
+export type WarrantTriggerTypeInput = WarrantExerciseTrigger['type'];
 
 function triggerTypeToDaml(
   value: WarrantExerciseTrigger['type']
@@ -88,12 +92,13 @@ function storageTrigger(
   convertsToStockClassId: string,
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+  const triggerFields = triggerFieldsToDaml(trigger, trigger.type, source);
   return {
     type_: triggerTypeToDaml(trigger.type),
     trigger_id: trigger.trigger_id,
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
-    ...conversionTriggerTimingToDaml(trigger, source),
+    ...triggerFields,
     conversion_right: {
       tag: 'OcfRightConvertible',
       value: {
@@ -177,13 +182,14 @@ function triggerToDaml(
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
   const source = `warrantIssuance.exercise_triggers.${index}`;
   const parsed = parseConversionTriggerFields(trigger, source);
+  const triggerFields = triggerFieldsToDaml(parsed, parsed.type, source);
   return {
     type_: triggerTypeToDaml(parsed.type),
     trigger_id: parsed.trigger_id,
     conversion_right: conversionRightToDaml(parsed, source),
     nickname: optionalString(parsed.nickname),
     trigger_description: optionalString(parsed.trigger_description),
-    ...conversionTriggerTimingToDaml(parsed, source),
+    ...triggerFields,
   };
 }
 
