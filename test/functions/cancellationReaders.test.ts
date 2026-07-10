@@ -259,6 +259,72 @@ describe('decoder-backed cancellation readers', () => {
     }
   });
 
+  it.each(cancellationReaderCases)('$entityType rejects a numeric balance_security_id', async (testCase) => {
+    try {
+      await testCase.invoke(createMockClient(testCase, { ...testCase.validData(), balance_security_id: 17 }));
+      throw new Error(`Expected ${testCase.entityType} reader to reject malformed balance_security_id`);
+    } catch (error: unknown) {
+      expectDecoderFailure(error, testCase, 'balance_security_id');
+      expect(error).toMatchObject({
+        context: {
+          decoderPath: 'input.balance_security_id',
+          fieldPath: `${testCase.entityType}.balance_security_id`,
+          expectedType: 'string | null | undefined',
+          receivedType: 'number',
+        },
+      });
+    }
+  });
+
+  it.each(cancellationReaderCases)('$entityType rejects an object balance_security_id', async (testCase) => {
+    try {
+      await testCase.invoke(createMockClient(testCase, { ...testCase.validData(), balance_security_id: {} }));
+      throw new Error(`Expected ${testCase.entityType} reader to reject malformed balance_security_id`);
+    } catch (error: unknown) {
+      expectDecoderFailure(error, testCase, 'balance_security_id');
+      expect(error).toMatchObject({
+        context: {
+          decoderPath: 'input.balance_security_id',
+          fieldPath: `${testCase.entityType}.balance_security_id`,
+          expectedType: 'string | null | undefined',
+          receivedType: 'object',
+        },
+      });
+    }
+  });
+
+  it.each(cancellationReaderCases)('$entityType accepts a null balance_security_id as absent', async (testCase) => {
+    await expect(
+      testCase.invoke(createMockClient(testCase, { ...testCase.validData(), balance_security_id: null }))
+    ).resolves.toEqual({
+      event: testCase.expectedEvent,
+      contractId: testCase.contractId,
+    });
+  });
+
+  it.each(cancellationReaderCases)(
+    '$entityType accepts an undefined balance_security_id as absent',
+    async (testCase) => {
+      await expect(
+        testCase.invoke(createMockClient(testCase, { ...testCase.validData(), balance_security_id: undefined }))
+      ).resolves.toEqual({
+        event: testCase.expectedEvent,
+        contractId: testCase.contractId,
+      });
+    }
+  );
+
+  it.each(cancellationReaderCases)('$entityType preserves a valid balance_security_id', async (testCase) => {
+    const balanceSecurityId = `${testCase.entityType}-balance-security-1`;
+
+    await expect(
+      testCase.invoke(createMockClient(testCase, { ...testCase.validData(), balance_security_id: balanceSecurityId }))
+    ).resolves.toEqual({
+      event: { ...testCase.expectedEvent, balance_security_id: balanceSecurityId },
+      contractId: testCase.contractId,
+    });
+  });
+
   it.each(cancellationReaderCases)('$entityType rejects non-object nested cancellation data', async (testCase) => {
     await expect(testCase.invoke(createMockClient(testCase, []))).rejects.toMatchObject({
       name: 'OcpParseError',

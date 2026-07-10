@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfWarrantCancellation } from '../../../types/native';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
-import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { extractAndDecodeCancellationData } from '../shared/cancellationReader';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlWarrantCancellationToNative } from './damlToOcf';
 
@@ -34,7 +34,7 @@ export async function getWarrantCancellationAsOcf(
     operation: 'getWarrantCancellationAsOcf',
     expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.warrantCancellation,
   });
-  const data = extractAndDecodeDamlEntityData('warrantCancellation', createArgument);
+  const data = extractAndDecodeCancellationData('warrantCancellation', createArgument);
   const event = damlWarrantCancellationToNative(data);
   return { event, contractId: params.contractId };
 }
