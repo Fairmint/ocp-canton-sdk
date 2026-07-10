@@ -7,38 +7,35 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import type { Command } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { Fairmint, OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
+import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import {
   mergeCommandContext,
   submitObservedTransactionTree,
   type CommandObservabilityOptions,
 } from '../../../observability';
-import type { CommandWithDisclosedContracts } from '../../../types';
+import type { CommandWithDisclosedContracts } from '../../../types/common';
+import { type OcfCreateData, type OcfDeleteData, type OcfEditData, type UpdateCapTableResult } from './batchTypes';
 import {
-  ENTITY_TAG_MAP,
-  isOcfCreatableEntityType,
   isOcfDeletableEntityType,
-  isOcfEditableEntityType,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
   type OcfCreateArguments,
-  type OcfCreateData,
-  type OcfCreateDataFor,
   type OcfCreateOperation,
   type OcfDataTypeFor,
   type OcfDeletableEntityType,
-  type OcfDeleteData,
-  type OcfDeleteDataFor,
   type OcfDeleteOperation,
   type OcfEditArguments,
-  type OcfEditData,
-  type OcfEditDataFor,
   type OcfEditOperation,
   type OcfEntityType,
-  type UpdateCapTableResult,
-} from './batchTypes';
-import { convertOperationToDaml, convertToDaml } from './ocfToDaml';
+} from './entityTypes';
+import {
+  buildOcfCreateData,
+  buildOcfCreateDataFromOperation,
+  buildOcfDeleteData,
+  buildOcfEditData,
+  buildOcfEditDataFromOperation,
+} from './generatedBatchOperations';
 
 /** Parameters for initializing a batch update. */
 export interface CapTableBatchParams extends CommandObservabilityOptions {
@@ -69,124 +66,6 @@ export interface BatchItemMeta {
   id: string;
   /** The security_id for issuance types (stockIssuance, convertibleIssuance, etc.) */
   securityId?: string;
-}
-
-function decodeGeneratedOperation<T>(
-  decoder: { runWithException: (input: unknown) => T },
-  input: unknown,
-  operation: 'create' | 'edit' | 'delete',
-  entityType: OcfEntityType
-): T {
-  try {
-    return decoder.runWithException(input);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new OcpValidationError(
-      `batch.${operation}.${entityType}`,
-      `Converter output does not match the generated DAML ${operation} variant: ${message}`,
-      {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: input,
-      }
-    );
-  }
-}
-
-/** Build and validate one generated DAML create variant from a correlated entity-kind/data pair. */
-export function buildOcfCreateData<const Arguments extends OcfCreateArguments>(
-  ...args: Arguments
-): OcfCreateDataFor<Arguments[0]>;
-export function buildOcfCreateData(...args: OcfCreateArguments): OcfCreateData {
-  const [type] = args;
-  if (!isOcfCreatableEntityType(type)) {
-    throw new OcpValidationError('type', `Create operation not supported for entity type: ${String(type)}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
-  }
-
-  const tag = ENTITY_TAG_MAP[type].create;
-  return decodeGeneratedOperation(
-    Fairmint.OpenCapTable.CapTable.OcfCreateData.decoder,
-    { tag, value: convertToDaml(...args) },
-    'create',
-    type
-  );
-}
-
-function buildOcfCreateDataFromOperation(operation: OcfCreateOperation): OcfCreateData {
-  const { type } = operation;
-  if (!isOcfCreatableEntityType(type)) {
-    throw new OcpValidationError('type', `Create operation not supported for entity type: ${String(type)}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
-  }
-
-  const tag = ENTITY_TAG_MAP[type].create;
-  return decodeGeneratedOperation(
-    Fairmint.OpenCapTable.CapTable.OcfCreateData.decoder,
-    { tag, value: convertOperationToDaml(operation) },
-    'create',
-    type
-  );
-}
-
-/** Build and validate one generated DAML edit variant from a correlated entity-kind/data pair. */
-export function buildOcfEditData<const Arguments extends OcfEditArguments>(
-  ...args: Arguments
-): OcfEditDataFor<Arguments[0]>;
-export function buildOcfEditData(...args: OcfEditArguments): OcfEditData {
-  const [type] = args;
-  if (!isOcfEditableEntityType(type)) {
-    throw new OcpValidationError('type', `Edit operation not supported for entity type: ${String(type)}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
-  }
-
-  const tag = ENTITY_TAG_MAP[type].edit;
-  return decodeGeneratedOperation(
-    Fairmint.OpenCapTable.CapTable.OcfEditData.decoder,
-    { tag, value: convertToDaml(...args) },
-    'edit',
-    type
-  );
-}
-
-function buildOcfEditDataFromOperation(operation: OcfEditOperation): OcfEditData {
-  const { type } = operation;
-  if (!isOcfEditableEntityType(type)) {
-    throw new OcpValidationError('type', `Edit operation not supported for entity type: ${String(type)}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
-  }
-
-  const tag = ENTITY_TAG_MAP[type].edit;
-  return decodeGeneratedOperation(
-    Fairmint.OpenCapTable.CapTable.OcfEditData.decoder,
-    { tag, value: convertOperationToDaml(operation) },
-    'edit',
-    type
-  );
-}
-
-/** Build and validate one generated DAML delete variant. */
-export function buildOcfDeleteData<const EntityType extends OcfDeletableEntityType>(
-  type: EntityType,
-  id: string
-): OcfDeleteDataFor<EntityType>;
-export function buildOcfDeleteData(type: OcfDeletableEntityType, id: string): OcfDeleteData {
-  if (!isOcfDeletableEntityType(type)) {
-    throw new OcpValidationError('type', `Delete operation not supported for entity type: ${String(type)}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
-  }
-
-  const tag = ENTITY_TAG_MAP[type].delete;
-  return decodeGeneratedOperation(
-    Fairmint.OpenCapTable.CapTable.OcfDeleteData.decoder,
-    { tag, value: id },
-    'delete',
-    type
-  );
 }
 
 /**
@@ -376,9 +255,8 @@ export class CapTableBatch {
     try {
       const templateId = 'ExerciseCommand' in command ? command.ExerciseCommand.templateId : undefined;
       const mergedContext = mergeCommandContext(this.params.defaultContext, this.params.context);
-      const context = mergeCommandContext(mergedContext, {
-        commandId: this.params.commandId ?? mergedContext?.commandId ?? createUpdateCapTableCommandId(),
-      });
+      const commandId = this.params.commandId ?? mergedContext?.commandId ?? createUpdateCapTableCommandId();
+      const context = mergeCommandContext(mergedContext, { commandId }) ?? { commandId };
       response = await submitObservedTransactionTree(
         this.client,
         {
@@ -390,7 +268,7 @@ export class CapTableBatch {
         { ...this.params, context },
         {
           operation: 'capTable.update',
-          templateId,
+          ...(templateId !== undefined ? { templateId } : {}),
           choice: 'UpdateCapTable',
         }
       );

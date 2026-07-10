@@ -285,7 +285,13 @@ function convertZodErrorToValidationError(error: ZodError, contextField: string)
     });
   }
 
-  const firstIssue = error.issues[0];
+  const [firstIssue] = error.issues;
+  if (firstIssue === undefined) {
+    return new OcpValidationError(contextField, 'OCF schema validation failed', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: error.issues,
+    });
+  }
   const firstIssuePath = firstIssue.path.join('.');
   const issuePath = firstIssuePath.length > 0 ? firstIssuePath : contextField;
   const issueMessage = error.issues
@@ -449,6 +455,62 @@ function isParsedEntityType<T extends OcfEntityType>(
   return value.object_type === expectedObjectType;
 }
 
+function hasPresentField(value: Record<string, unknown>, field: string): boolean {
+  return value[field] !== undefined && value[field] !== null;
+}
+
+/** Enforce canonical SDK invariants that are stricter than compatibility-oriented OCF schemas. */
+function validateCanonicalSemanticRefinements(value: Record<string, unknown>): void {
+  if (value.object_type !== 'TX_EQUITY_COMPENSATION_ISSUANCE') return;
+
+  const compensationType = value.compensation_type;
+  const hasExercisePrice = hasPresentField(value, 'exercise_price');
+  const hasBasePrice = hasPresentField(value, 'base_price');
+
+  if (compensationType === 'OPTION' || compensationType === 'OPTION_ISO' || compensationType === 'OPTION_NSO') {
+    if (!hasExercisePrice) {
+      throw new OcpValidationError('exercise_price', `exercise_price is required for ${compensationType}`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'Monetary',
+      });
+    }
+    if (hasBasePrice) {
+      throw new OcpValidationError('base_price', `base_price is not valid for ${compensationType}`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'absent',
+        receivedValue: value.base_price,
+      });
+    }
+    return;
+  }
+
+  if (compensationType === 'CSAR' || compensationType === 'SSAR') {
+    if (!hasBasePrice) {
+      throw new OcpValidationError('base_price', `base_price is required for ${compensationType}`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'Monetary',
+      });
+    }
+    if (hasExercisePrice) {
+      throw new OcpValidationError('exercise_price', `exercise_price is not valid for ${compensationType}`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'absent',
+        receivedValue: value.exercise_price,
+      });
+    }
+    return;
+  }
+
+  if (compensationType === 'RSU' && (hasExercisePrice || hasBasePrice)) {
+    const invalidField = hasExercisePrice ? 'exercise_price' : 'base_price';
+    throw new OcpValidationError(invalidField, `${invalidField} is not valid for RSU`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'absent',
+      receivedValue: value[invalidField],
+    });
+  }
+}
+
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
@@ -487,7 +549,9 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
 
   const schema = getOcfSchema(objectType);
   try {
-    return schema.parse(normalized);
+    validateCanonicalSemanticRefinements(normalized);
+    const parsed = schema.parse(normalized);
+    return parsed;
   } catch (error) {
     if (error instanceof ZodError) {
       throw convertZodErrorToValidationError(error, 'ocfObject');

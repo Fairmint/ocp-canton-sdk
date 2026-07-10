@@ -7,7 +7,7 @@ describe('observability helpers', () => {
       actAs: ['issuer::party'],
     };
 
-    const result = applyCommandContext(params as never, {
+    const result = applyCommandContext(params, {
       defaultContext: {
         workflowId: 'workflow-default',
         commandId: 'command-default',

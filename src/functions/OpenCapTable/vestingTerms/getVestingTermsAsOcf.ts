@@ -146,7 +146,11 @@ function parseVestingPeriodCommonFields(v: Record<string, unknown>): {
       ? parseNumericLike('vestingPeriod.cliff_installment', v.cliff_installment)
       : undefined;
 
-  return { length, occurrences, cliffInstallment };
+  return {
+    length,
+    occurrences,
+    ...(cliffInstallment !== undefined ? { cliffInstallment } : {}),
+  };
 }
 
 function damlVestingPeriodToNative(p: { tag: string; value?: Record<string, unknown> }): VestingPeriod {

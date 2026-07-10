@@ -6,8 +6,8 @@ import {
   decodeDamlEntityData,
   ENTITY_TEMPLATE_ID_MAP,
   type DamlDataTypeFor,
-  type OcfStakeholder,
-} from '../../src';
+} from '../../src/functions/OpenCapTable/capTable';
+import type { OcfStakeholder } from '../../src/types/native';
 
 declare const stakeholderDamlData: DamlDataTypeFor<'stakeholder'>;
 declare const stockClassDamlData: DamlDataTypeFor<'stockClass'>;

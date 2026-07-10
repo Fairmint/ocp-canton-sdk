@@ -8,7 +8,7 @@ import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
 import { damlStakeholderStatusToNative } from '../../../utils/enumConversions';
-import { isRecord } from '../../../utils/typeConversions';
+import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /** Parameters for getting a stakeholder status change event as OCF */
@@ -98,7 +98,7 @@ export async function getStakeholderStatusChangeEventAsOcf(
   const event: OcfStakeholderStatusChangeEvent = {
     object_type: 'CE_STAKEHOLDER_STATUS',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: damlTimeToDateString(data.date, 'stakeholderStatusChangeEvent.date'),
     stakeholder_id: data.stakeholder_id,
     new_status: damlStakeholderStatusToNative(data.new_status),
     ...(data.comments.length ? { comments: data.comments } : {}),

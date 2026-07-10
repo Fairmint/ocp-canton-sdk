@@ -9,6 +9,7 @@ import {
   damlStakeholderStatusToNative,
   type DamlStakeholderRelationshipType,
 } from '../../src/utils/enumConversions';
+import { requireDefined } from '../../src/utils/requireDefined';
 
 describe('DAML to OCF Converters', () => {
   describe('damlStakeholderStatusToNative', () => {
@@ -92,10 +93,10 @@ describe('DAML to OCF Converters', () => {
       ];
 
       // Verify each DAML status converts to expected native status
-      for (let i = 0; i < damlStatuses.length; i++) {
-        expect(
-          damlStakeholderStatusToNative(damlStatuses[i] as Parameters<typeof damlStakeholderStatusToNative>[0])
-        ).toBe(statuses[i]);
+      for (const [i, damlStatus] of damlStatuses.entries()) {
+        expect(damlStakeholderStatusToNative(damlStatus as Parameters<typeof damlStakeholderStatusToNative>[0])).toBe(
+          requireDefined(statuses[i], `native status at index ${i}`)
+        );
       }
     });
 
@@ -113,8 +114,10 @@ describe('DAML to OCF Converters', () => {
       ];
 
       // Verify each DAML relationship converts to expected native relationship
-      for (let i = 0; i < damlRelationships.length; i++) {
-        expect(damlStakeholderRelationshipToNative(damlRelationships[i])).toBe(relationships[i]);
+      for (const [i, damlRelationship] of damlRelationships.entries()) {
+        expect(damlStakeholderRelationshipToNative(damlRelationship)).toBe(
+          requireDefined(relationships[i], `native relationship at index ${i}`)
+        );
       }
     });
   });

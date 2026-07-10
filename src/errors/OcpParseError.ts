@@ -1,5 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError, type OcpErrorContext } from './OcpError';
+import { contextOrUndefined, OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpParseErrorOptions {
   /** Description of the data source being parsed */
@@ -41,16 +41,17 @@ export interface OcpParseErrorOptions {
  */
 export class OcpParseError extends OcpError {
   /** Description of the data source being parsed */
-  readonly source?: string;
+  readonly source: string | undefined;
 
   constructor(message: string, options?: OcpParseErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.INVALID_RESPONSE;
+    const context = contextOrUndefined({
+      ...options?.context,
+      ...(options?.source !== undefined ? { source: options.source } : {}),
+    });
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'parse_error',
-      context: {
-        ...options?.context,
-        source: options?.source,
-      },
+      ...(context !== undefined ? { context } : {}),
     });
     this.name = 'OcpParseError';
     this.source = options?.source;

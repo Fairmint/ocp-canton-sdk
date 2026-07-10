@@ -9,6 +9,7 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
 import { resolveOpenCapTableDarForOcpSdkRepo } from '../../../scripts/lib/resolveOpenCapTableDarForOcpSdkRepo';
+import { requireFirst } from '../../../src/utils/requireDefined';
 
 /** Result of deploying contracts and creating the factory. */
 export interface DeploymentResult {
@@ -108,8 +109,7 @@ async function createOcpFactory(
     throw new Error('No events found in OcpFactory creation response');
   }
 
-  const eventKeys = Object.keys(eventsById);
-  const firstEvent = eventsById[eventKeys[0]];
+  const firstEvent = requireFirst(Object.values(eventsById), 'OcpFactory creation event');
 
   if (!('CreatedTreeEvent' in firstEvent)) {
     throw new Error('First event is not a CreatedTreeEvent');

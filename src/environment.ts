@@ -4,27 +4,118 @@ import { createHmac } from 'crypto';
 export type OcpEnvironment = 'localnet' | 'scratchnet' | 'devnet' | 'testnet' | 'mainnet' | 'custom';
 export type OcpAuthMode = 'shared-secret' | 'oauth2';
 
-export interface EnvironmentConfig {
-  environment: OcpEnvironment;
-  ledgerApiUrl: string;
-  validatorApiUrl?: string;
-  scanApiUrl?: string;
-  authMode: OcpAuthMode;
-  authUrl?: string;
-  clientId?: string;
-  clientSecret?: string;
-  sharedSecret?: string;
-  provider?: string;
-  partyId?: string;
-  party?: string;
-  userId?: string;
-  managedParties?: string[];
-  audience?: string;
-  scope?: string;
-  debug?: boolean;
+interface EnvironmentConfigInputBase {
+  readonly ledgerApiUrl?: string;
+  readonly validatorApiUrl?: string;
+  readonly scanApiUrl?: string;
+  readonly provider?: string;
+  readonly partyId?: string;
+  readonly party?: string;
+  readonly userId?: string;
+  readonly managedParties?: readonly string[];
+  readonly audience?: string;
+  readonly scope?: string;
+  readonly debug?: boolean;
 }
 
-export type EnvironmentConfigInput = Partial<EnvironmentConfig> & Pick<EnvironmentConfig, 'environment'>;
+/** Complete caller input for OAuth2 authentication. */
+export interface OAuth2EnvironmentConfigInput extends EnvironmentConfigInputBase {
+  readonly environment: OcpEnvironment;
+  readonly authMode: 'oauth2';
+  readonly authUrl: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
+  readonly sharedSecret?: never;
+}
+
+/** LocalNet input. Shared-secret authentication and its unsafe development secret are supplied by the preset. */
+export interface LocalNetEnvironmentConfigInput extends EnvironmentConfigInputBase {
+  readonly environment: 'localnet';
+  readonly authMode?: 'shared-secret';
+  readonly authUrl?: never;
+  readonly clientId?: string;
+  readonly clientSecret?: never;
+  readonly sharedSecret?: string;
+}
+
+/** Complete caller input for shared-secret authentication outside LocalNet. */
+export interface SharedSecretEnvironmentConfigInput extends EnvironmentConfigInputBase {
+  readonly environment: Exclude<OcpEnvironment, 'localnet' | 'mainnet'>;
+  readonly authMode: 'shared-secret';
+  readonly authUrl?: never;
+  readonly clientId?: string;
+  readonly clientSecret?: never;
+  readonly sharedSecret: string;
+}
+
+/**
+ * Complete, validated configuration input supplied directly by an SDK caller.
+ *
+ * Environment-variable overrides use {@link EnvironmentConfigOverrides} instead because the environment may provide
+ * the rest of a credential set.
+ */
+export type EnvironmentConfigInput =
+  | OAuth2EnvironmentConfigInput
+  | LocalNetEnvironmentConfigInput
+  | SharedSecretEnvironmentConfigInput;
+
+interface ResolvedEnvironmentConfigBase {
+  readonly environment: OcpEnvironment;
+  readonly ledgerApiUrl: string;
+  readonly validatorApiUrl: string | undefined;
+  readonly scanApiUrl: string | undefined;
+  readonly provider: string | undefined;
+  readonly partyId: string | undefined;
+  readonly party: string | undefined;
+  readonly userId: string | undefined;
+  readonly managedParties: string[] | undefined;
+  readonly audience: string | undefined;
+  readonly scope: string | undefined;
+  readonly debug: boolean | undefined;
+}
+
+/** Fully resolved OAuth2 configuration. Required credentials are guaranteed to be present. */
+export interface OAuth2EnvironmentConfig extends ResolvedEnvironmentConfigBase {
+  readonly authMode: 'oauth2';
+  readonly authUrl: string;
+  readonly clientId: string;
+  readonly clientSecret: string;
+  readonly sharedSecret: undefined;
+}
+
+/** Fully resolved shared-secret configuration. Irrelevant OAuth2 fields are guaranteed to be absent. */
+export interface SharedSecretEnvironmentConfig extends ResolvedEnvironmentConfigBase {
+  readonly environment: Exclude<OcpEnvironment, 'mainnet'>;
+  readonly authMode: 'shared-secret';
+  readonly authUrl: undefined;
+  readonly clientId: string;
+  readonly clientSecret: undefined;
+  readonly sharedSecret: string;
+}
+
+/** Fully validated runtime configuration. */
+export type EnvironmentConfig = OAuth2EnvironmentConfig | SharedSecretEnvironmentConfig;
+
+/** Optional caller overrides layered over `CANTON_*` environment variables. */
+export interface EnvironmentConfigOverrides {
+  readonly environment?: OcpEnvironment;
+  readonly ledgerApiUrl?: string;
+  readonly validatorApiUrl?: string;
+  readonly scanApiUrl?: string;
+  readonly authMode?: OcpAuthMode;
+  readonly authUrl?: string;
+  readonly clientId?: string;
+  readonly clientSecret?: string;
+  readonly sharedSecret?: string;
+  readonly provider?: string;
+  readonly partyId?: string;
+  readonly party?: string;
+  readonly userId?: string;
+  readonly managedParties?: readonly string[];
+  readonly audience?: string;
+  readonly scope?: string;
+  readonly debug?: boolean;
+}
 
 export interface ValidationResult {
   valid: boolean;
@@ -32,15 +123,52 @@ export interface ValidationResult {
   warnings: string[];
 }
 
-export type EnvironmentPreset = Partial<EnvironmentConfig> & Pick<EnvironmentConfig, 'environment' | 'authMode'>;
-type EnvironmentConfigCandidateInput = Omit<Partial<EnvironmentConfig>, 'environment' | 'authMode'> & {
-  environment: string;
-  authMode?: string;
+export interface EnvironmentConfigCandidateInput {
+  readonly environment: string;
+  readonly ledgerApiUrl?: string;
+  readonly validatorApiUrl?: string;
+  readonly scanApiUrl?: string;
+  readonly authMode?: string;
+  readonly authUrl?: string;
+  readonly clientId?: string;
+  readonly clientSecret?: string;
+  readonly sharedSecret?: string;
+  readonly provider?: string;
+  readonly partyId?: string;
+  readonly party?: string;
+  readonly userId?: string;
+  readonly managedParties?: readonly string[];
+  readonly audience?: string;
+  readonly scope?: string;
+  readonly debug?: boolean;
+}
+
+export type EnvironmentPreset = Omit<EnvironmentConfigCandidateInput, 'environment' | 'authMode'> & {
+  readonly environment: OcpEnvironment;
+  readonly authMode: OcpAuthMode;
 };
-type EnvironmentConfigCandidate = Omit<Partial<EnvironmentConfig>, 'environment' | 'authMode'> & {
-  environment: string;
-  authMode?: string;
-};
+
+interface EnvironmentConfigCandidate {
+  readonly environment: string;
+  readonly ledgerApiUrl: string | undefined;
+  readonly validatorApiUrl: string | undefined;
+  readonly scanApiUrl: string | undefined;
+  readonly authMode: string | undefined;
+  readonly authUrl: string | undefined;
+  readonly clientId: string | undefined;
+  readonly clientSecret: string | undefined;
+  readonly sharedSecret: string | undefined;
+  readonly provider: string | undefined;
+  readonly partyId: string | undefined;
+  readonly party: string | undefined;
+  readonly userId: string | undefined;
+  readonly managedParties: readonly string[] | undefined;
+  readonly audience: string | undefined;
+  readonly scope: string | undefined;
+  readonly debug: boolean | undefined;
+}
+
+type EnvironmentConfigCandidateLike = EnvironmentConfigCandidateInput | EnvironmentConfigCandidate;
 
 export const LOCALNET_PRESET: EnvironmentPreset = {
   environment: 'localnet',
@@ -169,7 +297,7 @@ function firstNonBlank(...values: Array<string | undefined>): string | undefined
   return undefined;
 }
 
-function trimManagedParties(managedParties: string[] | undefined): string[] | undefined {
+function trimManagedParties(managedParties: readonly string[] | undefined): string[] | undefined {
   const trimmed = managedParties
     ?.map((party) => trimOptionalString(party))
     .filter((party): party is string => party !== undefined);
@@ -190,24 +318,32 @@ function urlEnvironmentTokens(url: string): Set<string> {
   }
 }
 
-function omitUndefined<T extends object>(input: T): Partial<T> {
-  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined)) as Partial<T>;
-}
-
-function configWithPreset(input: EnvironmentConfigCandidateInput): EnvironmentConfigCandidate {
-  const preset: Partial<EnvironmentConfig> = isOcpEnvironment(input.environment)
+function configWithPreset(input: EnvironmentConfigCandidateLike): EnvironmentConfigCandidate {
+  const preset: EnvironmentPreset | undefined = isOcpEnvironment(input.environment)
     ? ENVIRONMENT_PRESETS[input.environment]
-    : {};
-  const definedInput = omitUndefined(input);
+    : undefined;
   return {
-    ...preset,
-    ...definedInput,
     environment: input.environment,
-    partyId: firstNonBlank(input.partyId, input.party, preset.partyId, preset.party),
+    ledgerApiUrl: input.ledgerApiUrl ?? preset?.ledgerApiUrl,
+    validatorApiUrl: input.validatorApiUrl ?? preset?.validatorApiUrl,
+    scanApiUrl: input.scanApiUrl ?? preset?.scanApiUrl,
+    authMode: input.authMode ?? preset?.authMode,
+    authUrl: input.authUrl ?? preset?.authUrl,
+    clientId: input.clientId ?? preset?.clientId,
+    clientSecret: input.clientSecret ?? preset?.clientSecret,
+    sharedSecret: input.sharedSecret ?? preset?.sharedSecret,
+    provider: input.provider ?? preset?.provider,
+    partyId: firstNonBlank(input.partyId, input.party, preset?.partyId, preset?.party),
+    party: input.party ?? preset?.party,
+    userId: input.userId ?? preset?.userId,
+    managedParties: input.managedParties ?? preset?.managedParties,
+    audience: input.audience ?? preset?.audience,
+    scope: input.scope ?? preset?.scope,
+    debug: input.debug ?? preset?.debug,
   };
 }
 
-export function validateConfig(input: EnvironmentConfigCandidateInput): ValidationResult {
+function validateConfigCandidate(input: EnvironmentConfigCandidateLike): ValidationResult {
   const config = configWithPreset(input);
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -282,24 +418,35 @@ export function validateConfig(input: EnvironmentConfigCandidateInput): Validati
   return { valid: errors.length === 0, errors, warnings };
 }
 
-export function resolveEnvironmentConfig(input: EnvironmentConfigCandidateInput): EnvironmentConfig {
+export function validateConfig(input: EnvironmentConfigCandidateInput): ValidationResult {
+  return validateConfigCandidate(input);
+}
+
+function requiredResolvedString(value: string | undefined, field: string): string {
+  const resolved = trimOptionalString(value);
+  if (resolved === undefined) {
+    throw new Error(`Invalid Canton environment configuration: ${field} is required.`);
+  }
+  return resolved;
+}
+
+function resolveEnvironmentConfigCandidate(input: EnvironmentConfigCandidateLike): EnvironmentConfig {
   const config = configWithPreset(input);
-  const result = validateConfig(config);
+  const result = validateConfigCandidate(config);
 
   if (!result.valid) {
     throw new Error(`Invalid Canton environment configuration: ${result.errors.join('; ')}`);
   }
 
-  return {
-    environment: config.environment as OcpEnvironment,
-    ledgerApiUrl: trimOptionalString(config.ledgerApiUrl) as string,
+  if (!isOcpEnvironment(config.environment) || !isOcpAuthMode(config.authMode ?? '')) {
+    throw new Error('Invalid Canton environment configuration: validated configuration could not be resolved.');
+  }
+
+  const common: ResolvedEnvironmentConfigBase = {
+    environment: config.environment,
+    ledgerApiUrl: requiredResolvedString(config.ledgerApiUrl, 'ledgerApiUrl'),
     validatorApiUrl: trimOptionalString(config.validatorApiUrl),
     scanApiUrl: trimOptionalString(config.scanApiUrl),
-    authMode: config.authMode as OcpAuthMode,
-    authUrl: trimOptionalString(config.authUrl),
-    clientId: trimOptionalString(config.clientId),
-    clientSecret: trimOptionalString(config.clientSecret),
-    sharedSecret: trimOptionalString(config.sharedSecret),
     provider: trimOptionalString(config.provider),
     partyId: trimOptionalString(config.partyId),
     party: trimOptionalString(config.party),
@@ -309,6 +456,38 @@ export function resolveEnvironmentConfig(input: EnvironmentConfigCandidateInput)
     scope: trimOptionalString(config.scope),
     debug: config.debug,
   };
+
+  if (config.authMode === 'oauth2') {
+    return {
+      ...common,
+      authMode: 'oauth2',
+      authUrl: requiredResolvedString(config.authUrl, 'authUrl'),
+      clientId: requiredResolvedString(config.clientId, 'clientId'),
+      clientSecret: requiredResolvedString(config.clientSecret, 'clientSecret'),
+      sharedSecret: undefined,
+    };
+  }
+
+  if (config.environment === 'mainnet') {
+    throw new Error('Invalid Canton environment configuration: shared-secret auth mode is not allowed for mainnet.');
+  }
+
+  return {
+    ...common,
+    environment: config.environment,
+    authMode: 'shared-secret',
+    authUrl: undefined,
+    clientId: trimOptionalString(config.clientId) ?? 'ocp-sdk',
+    clientSecret: undefined,
+    sharedSecret: requiredResolvedString(
+      trimOptionalString(config.sharedSecret) ?? (config.environment === 'localnet' ? 'unsafe' : undefined),
+      'sharedSecret'
+    ),
+  };
+}
+
+export function resolveEnvironmentConfig(input: EnvironmentConfigInput): EnvironmentConfig {
+  return resolveEnvironmentConfigCandidate(input);
 }
 
 export function detectEnvironment(ledgerApiUrl: string): OcpEnvironment {
@@ -335,7 +514,7 @@ export function detectEnvironment(ledgerApiUrl: string): OcpEnvironment {
 
 export function loadEnvironmentConfigFromEnv(
   env: Record<string, string | undefined> = process.env,
-  overrides: Partial<EnvironmentConfigInput> = {}
+  overrides: EnvironmentConfigOverrides = {}
 ): EnvironmentConfig {
   const ledgerApiUrl = overrides.ledgerApiUrl ?? envValue(env, 'CANTON_LEDGER_API_URL', 'CANTON_LEDGER_JSON_API_URL');
   const rawEnvironment =
@@ -349,7 +528,7 @@ export function loadEnvironmentConfigFromEnv(
   const normalizedAuthMode = rawAuthMode?.toLowerCase();
   const authMode = normalizedAuthMode;
 
-  return resolveEnvironmentConfig({
+  const candidate: EnvironmentConfigCandidate = {
     environment,
     ledgerApiUrl,
     validatorApiUrl: overrides.validatorApiUrl ?? envValue(env, 'CANTON_VALIDATOR_API_URL', 'CANTON_VALIDATOR_API_URI'),
@@ -366,7 +545,10 @@ export function loadEnvironmentConfigFromEnv(
     audience: overrides.audience ?? envValue(env, 'CANTON_AUDIENCE'),
     scope: overrides.scope ?? envValue(env, 'CANTON_SCOPE'),
     debug: overrides.debug ?? parseBoolean(envValue(env, 'CANTON_DEBUG')),
-  });
+    party: overrides.party,
+  };
+
+  return resolveEnvironmentConfigCandidate(candidate);
 }
 
 export function toCantonNetwork(environment: OcpEnvironment): NetworkType {
@@ -391,17 +573,12 @@ function createSharedSecretJwt(sharedSecret: string, audience: string, subject: 
   return `${header}.${payload}.${signature}`;
 }
 
-export function createSharedSecretTokenGenerator(config: EnvironmentConfig): () => Promise<string> {
-  const sharedSecret = config.sharedSecret ?? (config.environment === 'localnet' ? 'unsafe' : undefined);
-  if (!sharedSecret) {
-    throw new Error('sharedSecret is required for shared-secret auth mode outside localnet.');
-  }
-
+export function createSharedSecretTokenGenerator(config: SharedSecretEnvironmentConfig): () => Promise<string> {
   const audience = config.audience ?? 'https://canton.network.global';
   const subject = config.userId ?? 'ledger-api-user';
   return async () => {
     await Promise.resolve();
-    return createSharedSecretJwt(sharedSecret, audience, subject);
+    return createSharedSecretJwt(config.sharedSecret, audience, subject);
   };
 }
 
@@ -409,7 +586,7 @@ function buildAuthConfig(config: EnvironmentConfig): AuthConfig {
   if (config.authMode === 'shared-secret') {
     return {
       grantType: 'client_credentials',
-      clientId: config.clientId ?? 'ocp-sdk',
+      clientId: config.clientId,
       ...(config.audience ? { audience: config.audience } : {}),
       ...(config.scope ? { scope: config.scope } : {}),
       tokenGenerator: createSharedSecretTokenGenerator(config),
@@ -418,7 +595,7 @@ function buildAuthConfig(config: EnvironmentConfig): AuthConfig {
 
   return {
     grantType: 'client_credentials',
-    clientId: config.clientId as string,
+    clientId: config.clientId,
     clientSecret: config.clientSecret,
     ...(config.audience ? { audience: config.audience } : {}),
     ...(config.scope ? { scope: config.scope } : {}),

@@ -11,7 +11,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
-import type { CommandWithDisclosedContracts } from '../../../types';
+import type { CommandWithDisclosedContracts } from '../../../types/common';
 import { buildCapTableCommand } from './buildCapTableCommand';
 
 /** Parameters for archiving a CapTable contract. */
@@ -41,7 +41,9 @@ export interface ArchiveCapTableResult {
 export function buildArchiveCapTableCommand(params: ArchiveCapTableParams): CommandWithDisclosedContracts {
   return buildCapTableCommand({
     capTableContractId: params.capTableContractId,
-    capTableContractDetails: params.capTableContractDetails,
+    ...(params.capTableContractDetails !== undefined
+      ? { capTableContractDetails: params.capTableContractDetails }
+      : {}),
     choice: 'ArchiveCapTable',
     choiceArgument: {},
   });
@@ -100,7 +102,11 @@ export async function archiveCapTable(
       disclosedContracts,
     },
     params,
-    { operation: 'archiveCapTable', templateId, choice: 'ArchiveCapTable' }
+    {
+      operation: 'archiveCapTable',
+      ...(templateId !== undefined ? { templateId } : {}),
+      choice: 'ArchiveCapTable',
+    }
   );
 
   return { updateId: result.transactionTree.updateId };

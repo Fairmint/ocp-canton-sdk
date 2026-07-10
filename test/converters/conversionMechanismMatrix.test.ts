@@ -5,7 +5,6 @@ import type {
   RatioConversionMechanism,
   WarrantConversionMechanism,
 } from '../../src';
-import { parseOcfEntityInput } from '../../src';
 import {
   convertibleIssuanceDataToDaml,
   type ConvertibleIssuanceInput,
@@ -18,6 +17,13 @@ import {
   type WarrantIssuanceInput,
 } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
+import { parseOcfEntityInput } from '../../src/utils/ocfZodSchemas';
+
+function requireFirst<T>(values: readonly T[], description: string): T {
+  const [first] = values;
+  if (first === undefined) throw new Error(`Missing ${description}`);
+  return first;
+}
 
 const RULES: CapitalizationDefinitionRules = {
   include_outstanding_shares: true,
@@ -218,7 +224,9 @@ describe('canonical conversion mechanism matrices', () => {
     ).not.toThrow();
 
     const roundTripped = damlConvertibleIssuanceDataToNative(convertibleIssuanceDataToDaml(input));
-    expect(roundTripped.conversion_triggers[0].conversion_right).toEqual(input.conversion_triggers[0].conversion_right);
+    expect(
+      requireFirst(roundTripped.conversion_triggers, 'round-tripped convertible trigger').conversion_right
+    ).toEqual(requireFirst(input.conversion_triggers, 'input convertible trigger').conversion_right);
   });
 
   test.each(WARRANT_MECHANISMS)('parses and round-trips warrant $name', ({ mechanism }) => {
@@ -231,7 +239,9 @@ describe('canonical conversion mechanism matrices', () => {
     ).not.toThrow();
 
     const roundTripped = damlWarrantIssuanceDataToNative(warrantIssuanceDataToDaml(input));
-    expect(roundTripped.exercise_triggers[0].conversion_right).toEqual(input.exercise_triggers[0].conversion_right);
+    expect(requireFirst(roundTripped.exercise_triggers, 'round-tripped warrant trigger').conversion_right).toEqual(
+      requireFirst(input.exercise_triggers, 'input warrant trigger').conversion_right
+    );
   });
 
   it('parses and round-trips the stock-class right ratio mechanism through StockClass', () => {
@@ -292,6 +302,8 @@ describe('canonical conversion mechanism matrices', () => {
       })
     ).not.toThrow();
     const roundTripped = damlWarrantIssuanceDataToNative(warrantIssuanceDataToDaml(input));
-    expect(roundTripped.exercise_triggers[0].conversion_right).toEqual(input.exercise_triggers[0].conversion_right);
+    expect(requireFirst(roundTripped.exercise_triggers, 'round-tripped warrant trigger').conversion_right).toEqual(
+      requireFirst(input.exercise_triggers, 'input warrant trigger').conversion_right
+    );
   });
 });

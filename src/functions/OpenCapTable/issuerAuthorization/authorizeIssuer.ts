@@ -1,24 +1,12 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
-import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas';
 import { findCreatedEventByTemplateId } from '@fairmint/canton-node-sdk/build/src/utils/contracts/findCreatedEvent';
 import { OCP_TEMPLATES, type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import factoryContractIdData from '@fairmint/open-captable-protocol-daml-js/ocp-factory-contract-id.json';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
-import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
+import { submitObservedTransactionTree } from '../../../observability';
+import type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
 
-export interface AuthorizeIssuerParams extends CommandObservabilityOptions {
-  issuer: string; // Party ID of the issuer to authorize
-  /** Override: factory contract ID (e.g. for staging). Requires factoryTemplateId. */
-  factoryContractId?: string;
-  /** Override: factory template ID (e.g. for staging). Required when factoryContractId is set. */
-  factoryTemplateId?: string;
-}
-
-export interface AuthorizeIssuerResult extends DisclosedContract {
-  updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
-}
+export type { AuthorizeIssuerParams, AuthorizeIssuerResult } from './types';
 
 /**
  * Authorize an issuer using the OCP Factory contract
@@ -31,15 +19,14 @@ export async function authorizeIssuer(
   client: LedgerJsonApiClient,
   params: AuthorizeIssuerParams
 ): Promise<AuthorizeIssuerResult> {
-  if (params.factoryTemplateId != null && params.factoryContractId == null) {
-    throw new OcpValidationError(
-      'factoryContractId',
-      'factoryContractId is required when factoryTemplateId is provided',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-    );
-  }
-  if (params.factoryContractId != null && params.factoryTemplateId == null) {
-    throw new OcpValidationError('factoryTemplateId', 'factoryTemplateId is required when factoryContractId is set', {
+  if (
+    params.factory !== undefined &&
+    (typeof params.factory.contractId !== 'string' ||
+      params.factory.contractId.trim().length === 0 ||
+      typeof params.factory.templateId !== 'string' ||
+      params.factory.templateId.trim().length === 0)
+  ) {
+    throw new OcpValidationError('factory', 'factory override must include non-empty contractId and templateId', {
       code: OcpErrorCodes.INVALID_FORMAT,
     });
   }
@@ -47,9 +34,8 @@ export async function authorizeIssuer(
   let templateId: string;
   let contractId: string;
 
-  if (params.factoryContractId != null && params.factoryTemplateId != null) {
-    templateId = params.factoryTemplateId;
-    contractId = params.factoryContractId;
+  if (params.factory !== undefined) {
+    ({ templateId, contractId } = params.factory);
   } else {
     const network = client.getNetwork();
     const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData] as

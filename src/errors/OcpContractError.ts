@@ -1,5 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError, type OcpErrorContext } from './OcpError';
+import { contextOrUndefined, OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpContractErrorOptions {
   /** The contract ID involved in the error */
@@ -48,13 +48,13 @@ export interface OcpContractErrorOptions {
  */
 export class OcpContractError extends OcpError {
   /** The contract ID involved in the error */
-  readonly contractId?: string;
+  readonly contractId: string | undefined;
 
   /** The DAML template ID */
-  readonly templateId?: string;
+  readonly templateId: string | undefined;
 
   /** The choice being exercised when the error occurred */
-  readonly choice?: string;
+  readonly choice: string | undefined;
 
   constructor(message: string, options?: OcpContractErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CHOICE_FAILED;
@@ -68,9 +68,10 @@ export class OcpContractError extends OcpError {
     if (options?.choice !== undefined) {
       context.choice = options.choice;
     }
+    const errorContext = contextOrUndefined(context);
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'contract_error',
-      context,
+      ...(errorContext !== undefined ? { context: errorContext } : {}),
     });
     this.name = 'OcpContractError';
     this.contractId = options?.contractId;

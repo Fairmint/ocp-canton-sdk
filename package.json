@@ -7,6 +7,14 @@
     "url": "https://github.com/Fairmint/ocp-canton-sdk.git"
   },
   "license": "GPL-3.0-only",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -33,17 +41,20 @@
     "localnet:test": "CANTON_LOCALNET_TEST_CMD='npm run test:integration:ci' npm run -s localnet -- test",
     "localnet:verify": "CANTON_LOCALNET_TEST_CMD='npm run test:integration:ci' npm run -s localnet -- verify",
     "prepare-release": "ts-node --project tsconfig.tests.json scripts/prepare-release.ts",
+    "schema:inventory:update": "ts-node --project tsconfig.tests.json scripts/update-schema-conformance-inventory.ts",
     "script:authorize": "ts-node --project tsconfig.tests.json scripts/authorizeIssuer.ts",
     "script:create-issuer": "ts-node --project tsconfig.tests.json scripts/createIssuer.ts",
     "script:get-issuer-ocf": "ts-node --project tsconfig.tests.json scripts/getIssuerAsOcf.ts",
     "test": "npm run -s typecheck && jest --passWithNoTests",
     "test:ci": "npm run -s typecheck && jest --runInBand --coverage",
     "test:coverage": "jest --coverage --passWithNoTests",
-    "test:declarations": "ts-node --project tsconfig.tests.json scripts/check-declarations.ts && tsc -p tsconfig.declaration-tests.json --noEmit",
+    "test:declarations": "ts-node --project tsconfig.tests.json scripts/check-declarations.ts && tsc -p tsconfig.declaration-tests.json --noEmit && npm run -s test:exact-public-config",
+    "test:exact-public-config": "tsc -p tsconfig.exact-public-config-tests.json --noEmit",
+    "test:exact-source": "tsc -p tsconfig.exact-source.json --noEmit",
     "test:integration": "npm run -s typecheck && jest -c jest.integration.config.js --passWithNoTests",
     "test:integration:ci": "npm run -s typecheck && jest -c jest.integration.config.js --runInBand",
     "test:watch": "jest --watch",
-    "typecheck": "tsc -p tsconfig.tests.json --noEmit"
+    "typecheck": "tsc -p tsconfig.tests.json --noEmit && npm run -s test:exact-source"
   },
   "config": {
     "localnet_quickstart_ref": "5c90cf4d0eb934712fd8c269b56e6272b605ccad"

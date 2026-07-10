@@ -1,16 +1,17 @@
 /** Built-declaration contracts for exact generated DAML batch operation variants. */
 
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
+import type {
+  OcfCreateDataFor,
+  OcfDeleteDataFor,
+  OcfEditDataFor,
+} from '../../dist/functions/OpenCapTable/capTable/batchTypes';
 import {
   buildOcfCreateData,
   buildOcfDeleteData,
   buildOcfEditData,
-  type OcfCreateDataFor,
-  type OcfDeleteDataFor,
-  type OcfEditDataFor,
-  type OcfIssuer,
-  type OcfStakeholder,
-} from '../../dist';
+} from '../../dist/functions/OpenCapTable/capTable/generatedBatchOperations';
+import type { OcfIssuer, OcfStakeholder } from '../../dist/types/native';
 
 declare const stakeholder: OcfStakeholder;
 declare const issuer: OcfIssuer;

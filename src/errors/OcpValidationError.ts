@@ -48,10 +48,10 @@ export class OcpValidationError extends OcpError {
   readonly fieldPath: string;
 
   /** The expected type for this field, if applicable */
-  readonly expectedType?: string;
+  readonly expectedType: string | undefined;
 
   /** The actual value that was received */
-  readonly receivedValue?: unknown;
+  readonly receivedValue: unknown;
 
   constructor(fieldPath: string, message: string, options?: OcpValidationErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.REQUIRED_FIELD_MISSING;
@@ -60,8 +60,8 @@ export class OcpValidationError extends OcpError {
       context: {
         ...options?.context,
         fieldPath,
-        expectedType: options?.expectedType,
-        receivedValue: options?.receivedValue,
+        ...(options?.expectedType !== undefined ? { expectedType: options.expectedType } : {}),
+        ...(options?.receivedValue !== undefined ? { receivedValue: options.receivedValue } : {}),
       },
     });
     this.name = 'OcpValidationError';

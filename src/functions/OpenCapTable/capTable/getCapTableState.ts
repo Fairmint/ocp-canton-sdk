@@ -35,8 +35,8 @@ import {
 } from '../../../utils/contractReadDiagnostics';
 import { ledgerReadScope } from '../../../utils/readScope';
 import { parseDamlMap } from '../../../utils/typeConversions';
-import { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE, type OcfEntityType } from './batchTypes';
-export { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE } from './batchTypes';
+import { FIELD_TO_ENTITY_TYPE, SECURITY_ID_FIELD_TO_ENTITY_TYPE } from './batchTypes';
+import type { OcfEntityType } from './entityTypes';
 
 /** CapTable template ID this SDK treats as current (package-name symbolic form; used for ledger queries). */
 const CURRENT_CAP_TABLE_TEMPLATE_ID = OCP_TEMPLATES.capTable;
@@ -281,7 +281,7 @@ async function buildCapTableStateFromCreatedEvent(
     try {
       const eventsResponse = await client.getEventsByContractId({
         contractId: issuerContractId,
-        ...ledgerReadScope({ readAs: issuerPartyId ? [issuerPartyId] : undefined }),
+        ...ledgerReadScope(issuerPartyId ? { readAs: [issuerPartyId] } : {}),
       });
       const issuerId = requireIssuerCanonicalObjectId(eventsResponse, issuerContractId);
       entities.set('issuer', new Set([issuerId]));
@@ -475,7 +475,14 @@ export async function classifyIssuerCapTables(
   if (currentRows.length === 0) {
     return { status: 'none', current: null };
   }
-  return { status: 'current', current: currentRows[0] };
+  const [current] = currentRows;
+  if (current === undefined) {
+    throw new OcpContractError('CapTable query returned an inconsistent non-empty result', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      contractId: 'unknown',
+    });
+  }
+  return { status: 'current', current };
 }
 
 /**

@@ -8,6 +8,7 @@ import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCap
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { damlStockIssuanceDataToNative } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
+import { requireFirst } from '../../src/utils/requireDefined';
 
 describe('falsy field preservation in DAML-to-OCF converters', () => {
   describe('boolean false fields', () => {
@@ -44,7 +45,8 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         security_law_exemptions: [],
       };
       const result = damlConvertibleIssuanceDataToNative(daml);
-      const mechanism = result.conversion_triggers[0]?.conversion_right.conversion_mechanism;
+      const mechanism = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+        .conversion_mechanism;
       expect(mechanism).toBeDefined();
       expect('conversion_mfn' in mechanism).toBe(true);
       expect((mechanism as unknown as Record<string, unknown>).conversion_mfn).toBe(false);
@@ -76,7 +78,8 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         security_law_exemptions: [],
       };
       const result = damlConvertibleIssuanceDataToNative(daml);
-      const mechanism = result.conversion_triggers[0]?.conversion_right.conversion_mechanism;
+      const mechanism = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
+        .conversion_mechanism;
       expect(mechanism).toBeDefined();
       expect('conversion_mfn' in mechanism).toBe(true);
       expect((mechanism as unknown as Record<string, unknown>).conversion_mfn).toBe(false);

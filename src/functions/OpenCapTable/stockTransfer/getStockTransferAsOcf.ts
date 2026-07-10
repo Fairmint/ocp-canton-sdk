@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockTransfer } from '../../../types/native';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -42,7 +42,7 @@ export async function getStockTransferAsOcf(
   const event: OcfStockTransferEvent = {
     object_type: 'TX_STOCK_TRANSFER',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: damlTimeToDateString(data.date, 'stockTransfer.date'),
     security_id: data.security_id,
     quantity: normalizeNumericString(quantityStr),
     resulting_security_ids: data.resulting_security_ids,

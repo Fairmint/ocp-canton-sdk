@@ -44,6 +44,7 @@ import type {
   OcfWarrantRetraction,
   OcfWarrantTransfer,
 } from '../../../src/types/native';
+import { damlTimeToDateString } from '../../../src/utils/typeConversions';
 import { createValidatorApiClient } from '../../utils/cantonNodeSdkCompat';
 import { authorizeIssuerWithFactory } from '../setup/contractDeployment';
 import { requireCreatedEventBlob } from './transactionHelpers';
@@ -111,7 +112,7 @@ export async function getCapTableDetails(
 export function generateDateString(daysFromNow = 0): string {
   const date = new Date();
   date.setDate(date.getDate() + daysFromNow);
-  return date.toISOString().split('T')[0];
+  return damlTimeToDateString(date.toISOString(), 'integrationTest.generatedDate');
 }
 
 type IssuerSubdivisionOverrides = AtMostOne<
@@ -386,7 +387,10 @@ export function createTestStockIssuanceData(
 
 /** Create test equity compensation issuance data with optional overrides. */
 export function createTestEquityCompensationIssuanceData(
-  overrides: Omit<Partial<OcfEquityCompensationIssuance>, 'object_type'> & {
+  overrides: Omit<
+    Partial<OcfEquityCompensationIssuance>,
+    'object_type' | 'compensation_type' | 'exercise_price' | 'base_price'
+  > & {
     stakeholder_id: string;
     stock_plan_id?: string;
     stock_class_id?: string;
@@ -1036,7 +1040,7 @@ export function createTestConvertibleIssuanceData(
 }
 
 /** Helper to extract a contract ID from a createdCids array by type tag. */
-function extractCreatedCid(createdCids: Array<Record<string, unknown>>, tagPrefix: string): string {
+function extractCreatedCid(createdCids: ReadonlyArray<Record<string, unknown>>, tagPrefix: string): string {
   for (const cid of createdCids) {
     const { tag, value: taggedValue } = cid;
     if (typeof tag === 'string' && tag.startsWith(tagPrefix) && typeof taggedValue === 'string') {

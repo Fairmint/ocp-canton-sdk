@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types/native';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetIssuerAuthorizedSharesAdjustmentAsOcfParams extends GetByContractIdParams {}
@@ -49,14 +49,26 @@ export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
   return {
     object_type: 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: damlTimeToDateString(d.date, 'issuerAuthorizedSharesAdjustment.date'),
     issuer_id: d.issuer_id,
     new_shares_authorized: normalizeNumericString(
       typeof d.new_shares_authorized === 'number' ? String(d.new_shares_authorized) : d.new_shares_authorized
     ),
-    ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
+    ...(d.board_approval_date
+      ? {
+          board_approval_date: damlTimeToDateString(
+            d.board_approval_date,
+            'issuerAuthorizedSharesAdjustment.board_approval_date'
+          ),
+        }
+      : {}),
     ...(d.stockholder_approval_date
-      ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }
+      ? {
+          stockholder_approval_date: damlTimeToDateString(
+            d.stockholder_approval_date,
+            'issuerAuthorizedSharesAdjustment.stockholder_approval_date'
+          ),
+        }
       : {}),
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
   };

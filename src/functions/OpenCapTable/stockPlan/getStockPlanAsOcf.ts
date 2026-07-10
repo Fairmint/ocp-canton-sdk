@@ -6,8 +6,8 @@ import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
-function damlCancellationBehaviorToNative(b: string | null): StockPlanCancellationBehavior | undefined {
-  if (b === null) return undefined;
+function damlCancellationBehaviorToNative(b: string | null | undefined): StockPlanCancellationBehavior | undefined {
+  if (b === null || b === undefined) return undefined;
   switch (b) {
     case 'OcfPlanCancelRetire':
       return 'RETIRE';
@@ -23,6 +23,10 @@ function damlCancellationBehaviorToNative(b: string | null): StockPlanCancellati
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
+}
+
+function isNonEmptyStringArray(value: unknown): value is [string, ...string[]] {
+  return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string');
 }
 
 export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData): OcfStockPlan {
@@ -57,17 +61,14 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
     });
   }
   const stockClassIds = damlRecord.stock_class_ids;
-  if (
-    !Array.isArray(stockClassIds) ||
-    stockClassIds.length === 0 ||
-    !stockClassIds.every((id) => typeof id === 'string')
-  ) {
+  if (!isNonEmptyStringArray(stockClassIds)) {
     throw new OcpValidationError('stockPlan.stock_class_ids', 'Expected at least one stock class identifier', {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: '[string, ...string[]]',
       receivedValue: stockClassIds,
     });
   }
+  const defaultCancellationBehavior = damlCancellationBehaviorToNative(d.default_cancellation_behavior);
 
   return {
     object_type: 'STOCK_PLAN',
@@ -80,10 +81,10 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
       stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
     }),
     initial_shares_reserved: normalizeNumericString(initialSharesReserved.toString()),
-    ...(d.default_cancellation_behavior && {
-      default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior),
-    }),
-    stock_class_ids: [stockClassIds[0], ...stockClassIds.slice(1)],
+    ...(defaultCancellationBehavior !== undefined
+      ? { default_cancellation_behavior: defaultCancellationBehavior }
+      : {}),
+    stock_class_ids: stockClassIds,
     comments: Array.isArray((d as unknown as { comments?: unknown }).comments)
       ? (d as unknown as { comments: string[] }).comments
       : [],

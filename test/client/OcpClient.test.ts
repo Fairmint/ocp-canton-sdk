@@ -1,7 +1,6 @@
 import { Canton, type ClientConfig } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes } from '../../src/errors';
-import * as openCapTableCapTable from '../../src/functions/OpenCapTable/capTable';
 import {
   ENTITY_REGISTRY,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
@@ -9,6 +8,7 @@ import {
   type OcfEntityType,
   type OcfReadableObjectType,
 } from '../../src/functions/OpenCapTable/capTable';
+import * as capTableState from '../../src/functions/OpenCapTable/capTable/getCapTableState';
 import {
   authorizeIssuer,
   type AuthorizeIssuerResult,
@@ -174,8 +174,10 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
 
     expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(ledger, {
       issuer: 'issuer::party',
-      factoryContractId: 'client-factory-cid',
-      factoryTemplateId: 'client-factory-tid',
+      factory: {
+        contractId: 'client-factory-cid',
+        templateId: 'client-factory-tid',
+      },
     });
     expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
   });
@@ -189,35 +191,40 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
 
     await ocp.OpenCapTable.issuerAuthorization.authorize({
       issuer: 'issuer::party',
-      factoryContractId: 'per-call-cid',
-      factoryTemplateId: 'per-call-tid',
+      factory: {
+        contractId: 'per-call-cid',
+        templateId: 'per-call-tid',
+      },
     });
 
     expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(ledger, {
       issuer: 'issuer::party',
-      factoryContractId: 'per-call-cid',
-      factoryTemplateId: 'per-call-tid',
+      factory: {
+        contractId: 'per-call-cid',
+        templateId: 'per-call-tid',
+      },
     });
     expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
   });
 
-  it('does not mix client-level factory with a partial per-call override', async () => {
+  it('rejects malformed per-call factory coordinates instead of mixing them with client defaults', async () => {
     const ledger = createLedgerJsonApiClient(config);
     const ocp = new OcpClient({
       ledger,
       factory: { contractId: 'client-factory-cid', templateId: 'client-factory-tid' },
     });
 
-    await ocp.OpenCapTable.issuerAuthorization.authorize({
-      issuer: 'issuer::party',
-      factoryContractId: 'per-call-cid-only',
-    });
+    await expect(
+      ocp.OpenCapTable.issuerAuthorization.authorize({
+        issuer: 'issuer::party',
+        factory: { contractId: 'per-call-cid-only' } as unknown as {
+          contractId: string;
+          templateId: string;
+        },
+      })
+    ).rejects.toThrow('factory override must include contractId and templateId');
 
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledWith(ledger, {
-      issuer: 'issuer::party',
-      factoryContractId: 'per-call-cid-only',
-    });
-    expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
 
   it('requires explicit factory coordinates for custom environment authorization', async () => {
@@ -240,19 +247,15 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
 
-  it('does not treat a mutated partial client-level factory as explicit coordinates', async () => {
+  it('defensively freezes client-level factory coordinates', () => {
     const ledger = createLedgerJsonApiClient({ network: 'localnet' });
     const ocp = new OcpClient({
       ledger,
       environment: 'localnet',
       factory: { contractId: 'client-factory-cid', templateId: 'client-factory-tid' },
     });
-    (ocp.factory as unknown as { templateId?: string }).templateId = undefined;
-
-    await expect(ocp.OpenCapTable.issuerAuthorization.authorize({ issuer: 'issuer::party' })).rejects.toThrow(
-      'factory override must include contractId and templateId'
-    );
-    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
+    expect(Object.isFrozen(ocp.factory)).toBe(true);
+    expect(ocp.factory).toEqual({ contractId: 'client-factory-cid', templateId: 'client-factory-tid' });
   });
 
   it('passes client-level observability defaults into authorizeIssuer', async () => {
@@ -338,15 +341,15 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
 describe('OcpClient OpenCapTable.capTable facade', () => {
   const config: ClientConfig = { network: 'devnet' };
 
-  let classifySpy: jest.SpiedFunction<typeof openCapTableCapTable.classifyIssuerCapTables>;
-  let getStateSpy: jest.SpiedFunction<typeof openCapTableCapTable.getCapTableState>;
+  let classifySpy: jest.SpiedFunction<typeof capTableState.classifyIssuerCapTables>;
+  let getStateSpy: jest.SpiedFunction<typeof capTableState.getCapTableState>;
 
   beforeEach(() => {
-    classifySpy = jest.spyOn(openCapTableCapTable, 'classifyIssuerCapTables').mockResolvedValue({
+    classifySpy = jest.spyOn(capTableState, 'classifyIssuerCapTables').mockResolvedValue({
       status: 'none',
       current: null,
     });
-    getStateSpy = jest.spyOn(openCapTableCapTable, 'getCapTableState').mockResolvedValue(null);
+    getStateSpy = jest.spyOn(capTableState, 'getCapTableState').mockResolvedValue(null);
   });
 
   afterEach(() => {

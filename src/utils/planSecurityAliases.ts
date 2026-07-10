@@ -855,9 +855,12 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
   }
   if (typeof value === 'object' && value !== null) {
     const entries = Object.entries(value);
-    const normalized = entries.map(([k, v]) => [k, deepNormalizeNumericStrings(v)] as const);
-    if (normalized.every(([, v], i) => v === entries[i][1])) return value;
-    return Object.fromEntries(normalized);
+    const normalized = entries.map(([k, v]) => {
+      const normalizedValue = deepNormalizeNumericStrings(v);
+      return { entry: [k, normalizedValue] as const, changed: normalizedValue !== v };
+    });
+    if (normalized.every(({ changed }) => !changed)) return value;
+    return Object.fromEntries(normalized.map(({ entry }) => entry));
   }
   return value;
 }
