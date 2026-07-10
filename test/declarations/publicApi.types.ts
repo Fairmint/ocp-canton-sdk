@@ -2,6 +2,7 @@
 /** Compile-time smoke tests for declarations exported by the built SDK. */
 
 import {
+  applyCommandContext,
   authorizeIssuer,
   buildCreateIssuerCommand,
   CapTableBatch,
@@ -66,6 +67,19 @@ void withdrawAuthorization;
 
 declare const createIssuerParams: CreateIssuerParams;
 buildCreateIssuerCommand(createIssuerParams);
+
+const paramsWithCallerMetadata = {
+  commands: [],
+  actAs: ['issuer::party'],
+  callerMetadata: 'preserved' as const,
+};
+const contextualizedParams = applyCommandContext(paramsWithCallerMetadata);
+const publishedContextPreservesCallerSubtype: Assert<
+  IsExactly<typeof contextualizedParams, typeof paramsWithCallerMetadata>
+> = true;
+const preservedCallerMetadata: 'preserved' = contextualizedParams.callerMetadata;
+void publishedContextPreservesCallerSubtype;
+void preservedCallerMetadata;
 
 // @ts-expect-error generated DAML wire unions are intentionally not root exports
 type RemovedGeneratedWireType = import('../../dist').OcfCreateData;

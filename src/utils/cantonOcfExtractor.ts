@@ -484,7 +484,7 @@ export async function extractCantonOcfManifest(
             objectId: issuerId,
             contractId: issuerCid,
             attempts: issuerAttempts,
-            ...ledgerReadScope(options),
+            ...readScopeOpts,
           },
         });
         if (failOnReadErrors) {
@@ -605,7 +605,7 @@ export async function extractCantonOcfManifest(
               objectId,
               contractId,
               attempts: readAttempts,
-              ...ledgerReadScope(options),
+              ...readScopeOpts,
             },
           });
           if (failOnReadErrors) {

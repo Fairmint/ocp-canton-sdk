@@ -54,12 +54,12 @@ function runBestEffort(callback: (() => unknown) | undefined): void {
   }
 }
 
-export function applyCommandContext(
-  params: SubmitTransactionTreeParams,
+export function applyCommandContext<T extends SubmitTransactionTreeParams>(
+  params: T,
   options?: CommandObservabilityOptions
-): SubmitTransactionTreeParams {
+): T {
   const context = mergeCommandContext(options?.defaultContext, options?.context);
-  return applyMergedCommandContext(params, context);
+  return applyMergedCommandContext(params, context) as T;
 }
 
 export async function submitObservedTransactionTree(
