@@ -20,5 +20,19 @@ const sourceContextPreservesCallerSubtype: Assert<
 > = true;
 const preservedCallerMetadata: 'preserved' = contextualizedParams.callerMetadata;
 
+const paramsWithLiteralCommandId = {
+  ...paramsWithCallerMetadata,
+  commandId: 'command-from-params' as const,
+};
+const contextualizedWithCommandOverride = applyCommandContext(paramsWithLiteralCommandId, {
+  context: { commandId: 'command-from-context' },
+});
+const sourceContextWidensOverriddenLiteral: Assert<
+  IsExactly<typeof contextualizedWithCommandOverride.commandId, string>
+> = true;
+const sourceOverridePreservesCallerMetadata: 'preserved' = contextualizedWithCommandOverride.callerMetadata;
+
 void sourceContextPreservesCallerSubtype;
 void preservedCallerMetadata;
+void sourceContextWidensOverriddenLiteral;
+void sourceOverridePreservesCallerMetadata;

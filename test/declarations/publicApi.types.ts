@@ -90,8 +90,22 @@ const publishedContextPreservesCallerSubtype: Assert<
   IsExactly<typeof contextualizedParams, typeof paramsWithCallerMetadata>
 > = true;
 const preservedCallerMetadata: 'preserved' = contextualizedParams.callerMetadata;
+
+const paramsWithLiteralCommandId = {
+  ...paramsWithCallerMetadata,
+  commandId: 'command-from-params' as const,
+};
+const contextualizedWithCommandOverride = applyCommandContext(paramsWithLiteralCommandId, {
+  context: { commandId: 'command-from-context' },
+});
+const publishedContextWidensOverriddenLiteral: Assert<
+  IsExactly<typeof contextualizedWithCommandOverride.commandId, string>
+> = true;
+const publishedOverridePreservesCallerMetadata: 'preserved' = contextualizedWithCommandOverride.callerMetadata;
 void publishedContextPreservesCallerSubtype;
 void preservedCallerMetadata;
+void publishedContextWidensOverriddenLiteral;
+void publishedOverridePreservesCallerMetadata;
 
 // @ts-expect-error generated DAML wire unions are intentionally not root exports
 type RemovedGeneratedWireType = import('../../dist').OcfCreateData;
