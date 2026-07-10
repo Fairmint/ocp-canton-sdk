@@ -131,10 +131,26 @@ const invalidCases: Array<{ name: string; input: Record<string, unknown> }> = [
     },
   },
   {
+    name: 'issuer with null subdivision code',
+    input: { ...issuerBase, country_subdivision_of_formation: null },
+  },
+  {
+    name: 'issuer with null subdivision name',
+    input: { ...issuerBase, country_subdivision_name_of_formation: null },
+  },
+  {
     name: 'named contact without a collection',
     input: { ...stakeholderBase, primary_contact: { name: { legal_name: 'Pat' } } },
   },
+  {
+    name: 'named contact with a null collection',
+    input: { ...stakeholderBase, primary_contact: { name: { legal_name: 'Pat' }, phone_numbers: null } },
+  },
   { name: 'unnamed contact without a collection', input: { ...stakeholderBase, contact_info: {} } },
+  {
+    name: 'unnamed contact with null collections',
+    input: { ...stakeholderBase, contact_info: { phone_numbers: null, emails: null } },
+  },
   { name: 'relationship without started or ended', input: relationshipBase },
   {
     name: 'vesting condition without portion or quantity',

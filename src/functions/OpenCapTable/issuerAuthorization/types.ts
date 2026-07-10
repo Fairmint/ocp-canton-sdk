@@ -1,6 +1,5 @@
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import type { CommandObservabilityOptions } from '../../../observability';
-import type { DisclosedContract } from '../../../types/common';
+import type { DisclosedContract, SubmitAndWaitForTransactionTreeResponse } from '../../../types/common';
 
 /** Parameters for authorizing an issuer through the OCP Factory. */
 export interface AuthorizeIssuerParams extends CommandObservabilityOptions {
