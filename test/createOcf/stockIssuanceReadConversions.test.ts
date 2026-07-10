@@ -55,6 +55,14 @@ describe('damlStockIssuanceDataToNative', () => {
   });
 
   describe('required field extraction', () => {
+    test.each([undefined, null, ''])('rejects missing or invalid id %p', (id) => {
+      const daml = makeMinimalDamlStockIssuance({ id });
+
+      expect(() => damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0])).toThrow(
+        'stockIssuance.id'
+      );
+    });
+
     test('extracts all required fields correctly', () => {
       const daml = makeMinimalDamlStockIssuance();
       const result = damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);

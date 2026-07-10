@@ -38,26 +38,32 @@ import {
 /**
  * Create test stock acceptance data with optional overrides.
  */
-function createTestStockAcceptanceData(overrides: Partial<OcfStockAcceptance> = {}): OcfStockAcceptance {
+function createTestStockAcceptanceData(
+  overrides: Omit<Partial<OcfStockAcceptance>, 'object_type'> = {}
+): OcfStockAcceptance {
   const id = overrides.id ?? generateTestId('stock-accept');
   return {
     id,
     date: generateDateString(0),
     security_id: overrides.security_id ?? generateTestId('stock-security'),
     ...overrides,
+    object_type: 'TX_STOCK_ACCEPTANCE',
   };
 }
 
 /**
  * Create test warrant acceptance data with optional overrides.
  */
-function createTestWarrantAcceptanceData(overrides: Partial<OcfWarrantAcceptance> = {}): OcfWarrantAcceptance {
+function createTestWarrantAcceptanceData(
+  overrides: Omit<Partial<OcfWarrantAcceptance>, 'object_type'> = {}
+): OcfWarrantAcceptance {
   const id = overrides.id ?? generateTestId('warrant-accept');
   return {
     id,
     date: generateDateString(0),
     security_id: overrides.security_id ?? generateTestId('warrant-security'),
     ...overrides,
+    object_type: 'TX_WARRANT_ACCEPTANCE',
   };
 }
 
@@ -65,7 +71,7 @@ function createTestWarrantAcceptanceData(overrides: Partial<OcfWarrantAcceptance
  * Create test convertible acceptance data with optional overrides.
  */
 function createTestConvertibleAcceptanceData(
-  overrides: Partial<OcfConvertibleAcceptance> = {}
+  overrides: Omit<Partial<OcfConvertibleAcceptance>, 'object_type'> = {}
 ): OcfConvertibleAcceptance {
   const id = overrides.id ?? generateTestId('conv-accept');
   return {
@@ -73,6 +79,7 @@ function createTestConvertibleAcceptanceData(
     date: generateDateString(0),
     security_id: overrides.security_id ?? generateTestId('convertible-security'),
     ...overrides,
+    object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
   };
 }
 
@@ -80,7 +87,7 @@ function createTestConvertibleAcceptanceData(
  * Create test equity compensation acceptance data with optional overrides.
  */
 function createTestEquityCompensationAcceptanceData(
-  overrides: Partial<OcfEquityCompensationAcceptance> = {}
+  overrides: Omit<Partial<OcfEquityCompensationAcceptance>, 'object_type'> = {}
 ): OcfEquityCompensationAcceptance {
   const id = overrides.id ?? generateTestId('equity-accept');
   return {
@@ -88,6 +95,7 @@ function createTestEquityCompensationAcceptanceData(
     date: generateDateString(0),
     security_id: overrides.security_id ?? generateTestId('equity-security'),
     ...overrides,
+    object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
   };
 }
 
@@ -446,6 +454,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
       id: generateTestId('no-comments-accept'),
       date: generateDateString(0),
       security_id: stockSecurity.securityId,
+      object_type: 'TX_STOCK_ACCEPTANCE',
     };
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({

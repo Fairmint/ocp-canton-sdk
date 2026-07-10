@@ -26,6 +26,7 @@ describe('Issuer Converters', () => {
       const input = {
         ...baseIssuerData,
         tax_ids: null,
+        object_type: 'ISSUER' as const,
       };
 
       const result = normalizeIssuerData(input);
@@ -37,6 +38,7 @@ describe('Issuer Converters', () => {
       const input = {
         ...baseIssuerData,
         // tax_ids is undefined
+        object_type: 'ISSUER' as const,
       };
 
       const result = normalizeIssuerData(input);
@@ -49,6 +51,7 @@ describe('Issuer Converters', () => {
       const input = {
         ...baseIssuerData,
         tax_ids: taxIds,
+        object_type: 'ISSUER' as const,
       };
 
       const result = normalizeIssuerData(input);
@@ -61,6 +64,7 @@ describe('Issuer Converters', () => {
       const input = {
         ...baseIssuerData,
         tax_ids: taxIds,
+        object_type: 'ISSUER' as const,
       };
 
       const result = normalizeIssuerData(input);
@@ -75,6 +79,7 @@ describe('Issuer Converters', () => {
         dba: 'Test DBA',
         country_subdivision_of_formation: 'DE',
         comments: ['comment 1'],
+        object_type: 'ISSUER' as const,
       };
 
       const result = normalizeIssuerData(input);
@@ -111,6 +116,7 @@ describe('Issuer Converters', () => {
         issuerData: {
           ...baseIssuerData,
           tax_ids: null,
+          object_type: 'ISSUER' as const,
         },
       };
 
@@ -128,6 +134,7 @@ describe('Issuer Converters', () => {
         issuerData: {
           ...baseIssuerData,
           // tax_ids is undefined
+          object_type: 'ISSUER' as const,
         },
       };
 
@@ -145,6 +152,7 @@ describe('Issuer Converters', () => {
         issuerData: {
           ...baseIssuerData,
           tax_ids: [],
+          object_type: 'ISSUER' as const,
         },
       };
 
@@ -162,6 +170,7 @@ describe('Issuer Converters', () => {
         issuerData: {
           ...baseIssuerData,
           tax_ids: [{ country: 'US', tax_id: '12-3456789' }],
+          object_type: 'ISSUER' as const,
         },
       };
 

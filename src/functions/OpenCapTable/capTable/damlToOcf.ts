@@ -10,12 +10,16 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   ENTITY_DATA_FIELD_FALLBACK_MAP,
   ENTITY_DATA_FIELD_MAP,
+  ENTITY_TAG_MAP,
+  ENTITY_TEMPLATE_ID_MAP,
+  type DamlDataTypeFor,
   type OcfDataTypeFor,
   type OcfEntityType,
 } from './batchTypes';
@@ -70,7 +74,7 @@ import { damlWarrantIssuanceDataToNative } from '../warrantIssuance/getWarrantIs
 import { damlWarrantRetractionToNative } from '../warrantRetraction/damlToOcf';
 import { damlWarrantTransferToNative } from '../warrantTransfer/damlToOcf';
 
-export { ENTITY_DATA_FIELD_FALLBACK_MAP, ENTITY_DATA_FIELD_MAP };
+export { ENTITY_DATA_FIELD_FALLBACK_MAP, ENTITY_DATA_FIELD_MAP, ENTITY_TEMPLATE_ID_MAP };
 
 // Note: DAML input type definitions and converter implementations have been moved to their
 // respective entity folders (e.g., stockTransfer/damlToOcf.ts) following the Entity Folder
@@ -81,8 +85,6 @@ export { ENTITY_DATA_FIELD_FALLBACK_MAP, ENTITY_DATA_FIELD_MAP };
  *
  * This dispatcher supports all core OCF entity types. Each converter is imported from its
  * respective entity folder following the Entity Folder Organization pattern.
- *
- * PlanSecurity types are aliases that delegate to EquityCompensation converters.
  */
 export type SupportedOcfReadType = OcfEntityType;
 
@@ -103,251 +105,185 @@ export type SupportedOcfReadType = OcfEntityType;
  * const native = convertToOcf('stockAcceptance', damlData);
  * ```
  */
-export function convertToOcf<T extends SupportedOcfReadType>(
-  type: T,
-  damlData: Record<string, unknown>
-): OcfDataTypeFor<T> {
-  // Cast through unknown to allow conversion from Record<string, unknown> to specific types
-  const data = damlData as unknown;
-
+export function convertToOcf<const EntityType extends SupportedOcfReadType>(
+  type: EntityType,
+  damlData: DamlDataTypeFor<EntityType>
+): OcfDataTypeFor<EntityType>;
+export function convertToOcf(
+  type: SupportedOcfReadType,
+  data: DamlDataTypeFor<SupportedOcfReadType>
+): OcfDataTypeFor<SupportedOcfReadType> {
   switch (type) {
     // ===== Core objects =====
     case 'document':
-      return damlDocumentDataToNative(data as Parameters<typeof damlDocumentDataToNative>[0]) as OcfDataTypeFor<T>;
+      return damlDocumentDataToNative(data as Parameters<typeof damlDocumentDataToNative>[0]);
     case 'issuer':
-      return damlIssuerDataToNative(data as Parameters<typeof damlIssuerDataToNative>[0]) as OcfDataTypeFor<T>;
+      return damlIssuerDataToNative(data as Parameters<typeof damlIssuerDataToNative>[0]);
     case 'stakeholder':
-      return damlStakeholderDataToNative(
-        data as Parameters<typeof damlStakeholderDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStakeholderDataToNative(data as Parameters<typeof damlStakeholderDataToNative>[0]);
     case 'stockClass':
-      return damlStockClassDataToNative(data as Parameters<typeof damlStockClassDataToNative>[0]) as OcfDataTypeFor<T>;
+      return damlStockClassDataToNative(data as Parameters<typeof damlStockClassDataToNative>[0]);
     case 'stockLegendTemplate':
-      return damlStockLegendTemplateDataToNative(
-        data as Parameters<typeof damlStockLegendTemplateDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStockLegendTemplateDataToNative(data as Parameters<typeof damlStockLegendTemplateDataToNative>[0]);
     case 'stockPlan':
-      return damlStockPlanDataToNative(data as Parameters<typeof damlStockPlanDataToNative>[0]) as OcfDataTypeFor<T>;
+      return damlStockPlanDataToNative(data as Parameters<typeof damlStockPlanDataToNative>[0]);
     case 'vestingTerms':
-      return damlVestingTermsDataToNative(
-        data as Parameters<typeof damlVestingTermsDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlVestingTermsDataToNative(data as Parameters<typeof damlVestingTermsDataToNative>[0]);
 
     // ===== Issuance types =====
     case 'convertibleIssuance':
-      return damlConvertibleIssuanceDataToNative(
-        data as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlConvertibleIssuanceDataToNative(data);
     case 'equityCompensationIssuance':
-      return damlEquityCompensationIssuanceDataToNative(
-        data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlEquityCompensationIssuanceDataToNative(data);
     case 'stockIssuance':
-      return damlStockIssuanceDataToNative(
-        data as Parameters<typeof damlStockIssuanceDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStockIssuanceDataToNative(data as Parameters<typeof damlStockIssuanceDataToNative>[0]);
     case 'warrantIssuance':
-      return damlWarrantIssuanceDataToNative(
-        data as Parameters<typeof damlWarrantIssuanceDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlWarrantIssuanceDataToNative(data);
 
     // ===== Acceptance types =====
     case 'stockAcceptance':
-      return damlStockAcceptanceToNative(
-        data as Parameters<typeof damlStockAcceptanceToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStockAcceptanceToNative(data as Parameters<typeof damlStockAcceptanceToNative>[0]);
     case 'convertibleAcceptance':
-      return damlConvertibleAcceptanceToNative(
-        data as Parameters<typeof damlConvertibleAcceptanceToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlConvertibleAcceptanceToNative(data as Parameters<typeof damlConvertibleAcceptanceToNative>[0]);
     case 'equityCompensationAcceptance':
       return damlEquityCompensationAcceptanceToNative(
         data as Parameters<typeof damlEquityCompensationAcceptanceToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      );
     case 'warrantAcceptance':
-      return damlWarrantAcceptanceToNative(
-        data as Parameters<typeof damlWarrantAcceptanceToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlWarrantAcceptanceToNative(data as Parameters<typeof damlWarrantAcceptanceToNative>[0]);
 
     // ===== Exercise types =====
     case 'equityCompensationExercise':
-      return damlEquityCompensationExerciseDataToNative(
-        data as Parameters<typeof damlEquityCompensationExerciseDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlEquityCompensationExerciseDataToNative(data);
 
     // ===== Adjustment types =====
     case 'issuerAuthorizedSharesAdjustment':
-      return damlIssuerAuthorizedSharesAdjustmentDataToNative(
-        data as Parameters<typeof damlIssuerAuthorizedSharesAdjustmentDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlIssuerAuthorizedSharesAdjustmentDataToNative(data);
     case 'stockClassAuthorizedSharesAdjustment':
       return damlStockClassAuthorizedSharesAdjustmentDataToNative(
         data as Parameters<typeof damlStockClassAuthorizedSharesAdjustmentDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      );
     case 'stockPlanPoolAdjustment':
       return damlStockPlanPoolAdjustmentDataToNative(
         data as Parameters<typeof damlStockPlanPoolAdjustmentDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      );
 
     // Stock class adjustments (with converters from entity folders)
     case 'stockClassConversionRatioAdjustment':
       return damlStockClassConversionRatioAdjustmentToNative(
         data as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      );
     case 'stockClassSplit':
-      return damlStockClassSplitToNative(
-        data as Parameters<typeof damlStockClassSplitToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStockClassSplitToNative(data as Parameters<typeof damlStockClassSplitToNative>[0]);
     case 'stockConsolidation':
-      return damlStockConsolidationToNative(
-        data as Parameters<typeof damlStockConsolidationToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStockConsolidationToNative(data as Parameters<typeof damlStockConsolidationToNative>[0]);
 
     // Valuation and vesting (with converters from entity folders)
     case 'valuation':
-      return damlValuationToNative(data as Parameters<typeof damlValuationToNative>[0]) as OcfDataTypeFor<T>;
+      return damlValuationToNative(data as Parameters<typeof damlValuationToNative>[0]);
     case 'vestingAcceleration':
-      return damlVestingAccelerationToNative(
-        data as Parameters<typeof damlVestingAccelerationToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlVestingAccelerationToNative(data as Parameters<typeof damlVestingAccelerationToNative>[0]);
     case 'vestingEvent':
-      return damlVestingEventToNative(data as Parameters<typeof damlVestingEventToNative>[0]) as OcfDataTypeFor<T>;
+      return damlVestingEventToNative(data as Parameters<typeof damlVestingEventToNative>[0]);
     case 'vestingStart':
-      return damlVestingStartToNative(data as Parameters<typeof damlVestingStartToNative>[0]) as OcfDataTypeFor<T>;
+      return damlVestingStartToNative(data as Parameters<typeof damlVestingStartToNative>[0]);
 
     // Types with converters imported from entity folders
     case 'stockRetraction':
-      return damlStockRetractionToNative(
-        data as Parameters<typeof damlStockRetractionToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStockRetractionToNative(data as Parameters<typeof damlStockRetractionToNative>[0]);
     case 'stockConversion':
-      return damlStockConversionToNative(
-        data as Parameters<typeof damlStockConversionToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStockConversionToNative(data as Parameters<typeof damlStockConversionToNative>[0]);
     case 'stockPlanReturnToPool':
-      return damlStockPlanReturnToPoolToNative(
-        data as Parameters<typeof damlStockPlanReturnToPoolToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStockPlanReturnToPoolToNative(data as Parameters<typeof damlStockPlanReturnToPoolToNative>[0]);
     case 'stockReissuance':
-      return damlStockReissuanceToNative(
-        data as Parameters<typeof damlStockReissuanceToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStockReissuanceToNative(data as Parameters<typeof damlStockReissuanceToNative>[0]);
     case 'warrantExercise':
-      return damlWarrantExerciseToNative(
-        data as Parameters<typeof damlWarrantExerciseToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlWarrantExerciseToNative(data);
     case 'warrantRetraction':
-      return damlWarrantRetractionToNative(
-        data as Parameters<typeof damlWarrantRetractionToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlWarrantRetractionToNative(data as Parameters<typeof damlWarrantRetractionToNative>[0]);
     case 'convertibleConversion':
-      return damlConvertibleConversionToNative(
-        data as Parameters<typeof damlConvertibleConversionToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlConvertibleConversionToNative(data as Parameters<typeof damlConvertibleConversionToNative>[0]);
     case 'convertibleRetraction':
-      return damlConvertibleRetractionToNative(
-        data as Parameters<typeof damlConvertibleRetractionToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlConvertibleRetractionToNative(data as Parameters<typeof damlConvertibleRetractionToNative>[0]);
     case 'equityCompensationRelease':
-      return damlEquityCompensationReleaseToNative(
-        data as Parameters<typeof damlEquityCompensationReleaseToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlEquityCompensationReleaseToNative(data as Parameters<typeof damlEquityCompensationReleaseToNative>[0]);
     case 'equityCompensationRepricing':
       return damlEquityCompensationRepricingToNative(
         data as Parameters<typeof damlEquityCompensationRepricingToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      );
     case 'equityCompensationRetraction':
       return damlEquityCompensationRetractionToNative(
         data as Parameters<typeof damlEquityCompensationRetractionToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      );
 
     // Transfer types (with converters from entity folders)
     case 'stockTransfer':
-      return damlStockTransferToNative(data as Parameters<typeof damlStockTransferToNative>[0]) as OcfDataTypeFor<T>;
+      return damlStockTransferToNative(data as Parameters<typeof damlStockTransferToNative>[0]);
     case 'warrantTransfer':
-      return damlWarrantTransferToNative(
-        data as Parameters<typeof damlWarrantTransferToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlWarrantTransferToNative(data as Parameters<typeof damlWarrantTransferToNative>[0]);
     case 'equityCompensationTransfer':
       return damlEquityCompensationTransferToNative(
         data as Parameters<typeof damlEquityCompensationTransferToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      );
     case 'convertibleTransfer':
-      return damlConvertibleTransferToNative(
-        data as Parameters<typeof damlConvertibleTransferToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlConvertibleTransferToNative(data as Parameters<typeof damlConvertibleTransferToNative>[0]);
 
     // Cancellation types (with converters from entity folders)
     case 'stockCancellation':
-      return damlStockCancellationToNative(
-        data as Parameters<typeof damlStockCancellationToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStockCancellationToNative(data as Parameters<typeof damlStockCancellationToNative>[0]);
     case 'warrantCancellation':
-      return damlWarrantCancellationToNative(
-        data as Parameters<typeof damlWarrantCancellationToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlWarrantCancellationToNative(data as Parameters<typeof damlWarrantCancellationToNative>[0]);
     case 'equityCompensationCancellation':
       return damlEquityCompensationCancellationToNative(
         data as Parameters<typeof damlEquityCompensationCancellationToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      );
     case 'convertibleCancellation':
-      return damlConvertibleCancellationToNative(
-        data as Parameters<typeof damlConvertibleCancellationToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlConvertibleCancellationToNative(data as Parameters<typeof damlConvertibleCancellationToNative>[0]);
 
     // Repurchase (with converter from entity folder)
     case 'stockRepurchase':
-      return damlStockRepurchaseToNative(
-        data as Parameters<typeof damlStockRepurchaseToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      return damlStockRepurchaseToNative(data as Parameters<typeof damlStockRepurchaseToNative>[0]);
 
     // Stakeholder events (with converters from entity folders)
     case 'stakeholderRelationshipChangeEvent':
       return damlStakeholderRelationshipChangeEventToNative(
         data as Parameters<typeof damlStakeholderRelationshipChangeEventToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      );
     case 'stakeholderStatusChangeEvent':
       return damlStakeholderStatusChangeEventToNative(
         data as Parameters<typeof damlStakeholderStatusChangeEventToNative>[0]
-      ) as OcfDataTypeFor<T>;
-
-    // PlanSecurity aliases - delegate to EquityCompensation converters
-    case 'planSecurityAcceptance':
-      return damlEquityCompensationAcceptanceToNative(
-        data as Parameters<typeof damlEquityCompensationAcceptanceToNative>[0]
-      ) as OcfDataTypeFor<T>;
-    case 'planSecurityCancellation':
-      return damlEquityCompensationCancellationToNative(
-        data as Parameters<typeof damlEquityCompensationCancellationToNative>[0]
-      ) as OcfDataTypeFor<T>;
-    case 'planSecurityExercise':
-      return damlEquityCompensationExerciseDataToNative(
-        data as Parameters<typeof damlEquityCompensationExerciseDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
-    case 'planSecurityIssuance':
-      return damlEquityCompensationIssuanceDataToNative(
-        data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
-      ) as OcfDataTypeFor<T>;
-    case 'planSecurityRelease':
-      return damlEquityCompensationReleaseToNative(
-        damlData as unknown as Parameters<typeof damlEquityCompensationReleaseToNative>[0]
-      ) as OcfDataTypeFor<T>;
-    case 'planSecurityRetraction':
-      return damlEquityCompensationRetractionToNative(
-        damlData as unknown as Parameters<typeof damlEquityCompensationRetractionToNative>[0]
-      ) as OcfDataTypeFor<T>;
-    case 'planSecurityTransfer':
-      return damlEquityCompensationTransferToNative(
-        data as Parameters<typeof damlEquityCompensationTransferToNative>[0]
-      ) as OcfDataTypeFor<T>;
+      );
 
     default: {
-      throw new OcpParseError(`Unsupported entity type for convertToOcf: ${type}`, {
+      throw new OcpParseError(`Unsupported entity type for convertToOcf: ${String(type)}`, {
         source: 'damlToOcf.convertToOcf',
         code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
       });
     }
   }
+}
+
+/** Decode unknown ledger JSON into the exact generated DAML payload for an entity kind. */
+export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
+  entityType: EntityType,
+  input: unknown
+): DamlDataTypeFor<EntityType>;
+export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
+  const tag = ENTITY_TAG_MAP[entityType].edit;
+  try {
+    return Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value: input }).value;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new OcpParseError(`Invalid DAML data for ${entityType}: ${message}`, {
+      source: `damlToOcf.${entityType}`,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
+    });
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 /**
@@ -368,7 +304,7 @@ export function convertToOcf<T extends SupportedOcfReadType>(
  * ```
  */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
-  if (!createArgument || typeof createArgument !== 'object') {
+  if (!isRecord(createArgument)) {
     throw new OcpParseError('Invalid createArgument: expected an object', {
       source: entityType,
       code: OcpErrorCodes.INVALID_RESPONSE,
@@ -377,7 +313,7 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
 
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
   const fallbackFieldNames = ENTITY_DATA_FIELD_FALLBACK_MAP[entityType] ?? [];
-  const record = createArgument as Record<string, unknown>;
+  const record = createArgument;
   const resolvedDataFieldName =
     dataFieldName in record ? dataFieldName : fallbackFieldNames.find((fieldName) => fieldName in record);
 
@@ -393,14 +329,14 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
   }
 
   const entityData = record[resolvedDataFieldName];
-  if (!entityData || typeof entityData !== 'object') {
+  if (!isRecord(entityData)) {
     throw new OcpParseError(`Entity data field '${resolvedDataFieldName}' is not an object for ${entityType}`, {
       source: entityType,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
     });
   }
 
-  return entityData as Record<string, unknown>;
+  return entityData;
 }
 
 export { extractCreateArgument } from '../shared/singleContractRead';
@@ -454,14 +390,16 @@ export async function getEntityAsOcf<T extends SupportedOcfReadType>(
     {
       operation: `getEntityAsOcf(${entityType})`,
       missingDataError: 'parse',
+      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
     }
   );
 
   // Extract entity-specific data field
   const entityData = extractEntityData(entityType, createArgument);
+  const decodedEntityData = decodeDamlEntityData(entityType, entityData);
 
   // Convert DAML data to native OCF format
-  const nativeData = convertToOcf(entityType, entityData);
+  const nativeData = convertToOcf(entityType, decodedEntityData);
 
   return {
     data: nativeData,

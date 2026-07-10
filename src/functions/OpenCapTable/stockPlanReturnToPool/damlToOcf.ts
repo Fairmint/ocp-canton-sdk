@@ -27,6 +27,7 @@ export interface DamlStockPlanReturnToPoolData {
  */
 export function damlStockPlanReturnToPoolToNative(d: DamlStockPlanReturnToPoolData): OcfStockPlanReturnToPool {
   return {
+    object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

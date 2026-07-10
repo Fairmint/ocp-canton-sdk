@@ -510,6 +510,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
       getEventsByContractId: jest.fn().mockResolvedValue({
         created: {
           createdEvent: {
+            templateId: Fairmint.OpenCapTable.OCF.StockRetraction.StockRetraction.templateId,
             createArgument: {
               retraction_data: {
                 id: 'ret-1',

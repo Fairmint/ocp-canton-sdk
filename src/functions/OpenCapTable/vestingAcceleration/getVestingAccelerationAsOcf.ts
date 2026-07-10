@@ -8,7 +8,7 @@ import { damlVestingAccelerationToNative, type DamlVestingAccelerationData } fro
 export type GetVestingAccelerationAsOcfParams = GetByContractIdParams;
 
 export interface GetVestingAccelerationAsOcfResult {
-  vestingAcceleration: OcfVestingAcceleration & { object_type: 'TX_VESTING_ACCELERATION' };
+  vestingAcceleration: OcfVestingAcceleration;
   contractId: string;
 }
 
@@ -59,10 +59,7 @@ export async function getVestingAccelerationAsOcf(
 
   const native = damlVestingAccelerationToNative(accelerationData);
   return {
-    vestingAcceleration: {
-      object_type: 'TX_VESTING_ACCELERATION' as const,
-      ...native,
-    },
+    vestingAcceleration: native,
     contractId: params.contractId,
   };
 }

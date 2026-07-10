@@ -43,6 +43,7 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
     });
   }
   const out: OcfIssuerInput = {
+    object_type: 'ISSUER',
     id: dataWithId.id,
     legal_name: damlData.legal_name,
     country_of_formation: damlData.country_of_formation,
@@ -101,10 +102,7 @@ export async function getIssuerAsOcf(
   const issuerData = createArgument.issuer_data as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
   const native = damlIssuerDataToNative(issuerData);
 
-  const data: OcfIssuerOutput = {
-    object_type: 'ISSUER',
-    ...native,
-  };
+  const data: OcfIssuerOutput = native;
 
   return { data, contractId: params.contractId };
 }

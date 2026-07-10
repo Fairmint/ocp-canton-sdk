@@ -160,6 +160,10 @@ describe('PlanSecurity alias utilities', () => {
       expect(result).toBe(input);
     });
 
+    it.each([[], new Date('2026-01-01T00:00:00.000Z')])('rejects non-plain object input', (input) => {
+      expect(() => normalizeOcfData(input)).toThrow('Invalid OCF data: expected a plain object');
+    });
+
     it('strips date field from DOCUMENT objects (not modeled in DAML)', () => {
       const input = {
         object_type: 'DOCUMENT',
@@ -225,7 +229,7 @@ describe('PlanSecurity alias utilities', () => {
         current_relationship: 'INVESTOR',
       };
 
-      const result = normalizeOcfData(input) as Record<string, unknown>;
+      const result = normalizeOcfData(input);
 
       expect(result.current_relationships).toEqual(['INVESTOR']);
       expect(result).not.toHaveProperty('current_relationship');
@@ -560,7 +564,7 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
-      const resultRecord = result as Record<string, unknown>;
+      const resultRecord = result;
       await validateOcfObject(resultRecord);
 
       expect(resultRecord.compensation_type).toBe('OPTION');
@@ -612,7 +616,7 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
-      const resultRecord = result as Record<string, unknown>;
+      const resultRecord = result;
       await validateOcfObject(resultRecord);
 
       expect(resultRecord.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
@@ -673,7 +677,7 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
-      const resultRecord = result as Record<string, unknown>;
+      const resultRecord = result;
       await validateOcfObject(resultRecord);
 
       expect(resultRecord.resulting_security_id).toBe('sec-new-1');
@@ -704,7 +708,7 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
-      const resultRecord = result as Record<string, unknown>;
+      const resultRecord = result;
       await validateOcfObject(resultRecord);
 
       expect(resultRecord.quantity_converted).toBe('100');
@@ -722,7 +726,7 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
-      const resultRecord = result as Record<string, unknown>;
+      const resultRecord = result;
       await validateOcfObject(resultRecord);
 
       expect(resultRecord.split_ratio).toEqual({
@@ -744,7 +748,7 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       const result = normalizeOcfData(input);
-      const resultRecord = result as Record<string, unknown>;
+      const resultRecord = result;
       await validateOcfObject(resultRecord);
 
       expect(resultRecord.new_ratio_conversion_mechanism).toEqual({

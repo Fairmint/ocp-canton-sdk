@@ -30,6 +30,7 @@ describe('Stock Class Adjustment Converters', () => {
   describe('OCF to DAML (ocfToDaml)', () => {
     describe('stockClassSplit', () => {
       const baseData: OcfStockClassSplit = {
+        object_type: 'TX_STOCK_CLASS_SPLIT',
         id: 'split-001',
         date: '2024-01-15',
         stock_class_id: 'class-001',
@@ -106,6 +107,7 @@ describe('Stock Class Adjustment Converters', () => {
 
     describe('stockClassConversionRatioAdjustment', () => {
       const baseData: OcfStockClassConversionRatioAdjustment = {
+        object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
         id: 'adj-001',
         date: '2024-02-01',
         stock_class_id: 'class-002',
@@ -184,6 +186,7 @@ describe('Stock Class Adjustment Converters', () => {
 
     describe('stockConsolidation', () => {
       const baseData: OcfStockConsolidation = {
+        object_type: 'TX_STOCK_CONSOLIDATION',
         id: 'consolidation-001',
         date: '2024-03-01',
         security_ids: ['sec-001', 'sec-002', 'sec-003'],
@@ -228,6 +231,7 @@ describe('Stock Class Adjustment Converters', () => {
 
     describe('stockReissuance', () => {
       const baseData: OcfStockReissuance = {
+        object_type: 'TX_STOCK_REISSUANCE',
         id: 'reissue-001',
         date: '2024-04-01',
         security_id: 'sec-cancelled-001',
@@ -295,6 +299,7 @@ describe('Stock Class Adjustment Converters', () => {
         const result = damlStockClassSplitToNative(damlData);
 
         expect(result).toEqual({
+          object_type: 'TX_STOCK_CLASS_SPLIT',
           id: 'split-001',
           date: '2024-01-15',
           stock_class_id: 'class-001',
@@ -341,6 +346,7 @@ describe('Stock Class Adjustment Converters', () => {
         const result = damlStockClassConversionRatioAdjustmentToNative(damlData);
 
         expect(result).toEqual({
+          object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
           id: 'adj-001',
           date: '2024-02-01',
           stock_class_id: 'class-002',
@@ -372,6 +378,7 @@ describe('Stock Class Adjustment Converters', () => {
         const result = damlStockConsolidationToNative(damlData);
 
         expect(result).toEqual({
+          object_type: 'TX_STOCK_CONSOLIDATION',
           id: 'consolidation-001',
           date: '2024-03-01',
           security_ids: ['sec-001', 'sec-002'],
@@ -412,6 +419,7 @@ describe('Stock Class Adjustment Converters', () => {
         const result = damlStockReissuanceToNative(damlData);
 
         expect(result).toEqual({
+          object_type: 'TX_STOCK_REISSUANCE',
           id: 'reissue-001',
           date: '2024-04-01',
           security_id: 'sec-cancelled-001',

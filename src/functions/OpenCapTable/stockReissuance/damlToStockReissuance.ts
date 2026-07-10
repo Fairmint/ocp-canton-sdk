@@ -20,6 +20,7 @@ export interface DamlStockReissuanceData {
  */
 export function damlStockReissuanceToNative(d: DamlStockReissuanceData): OcfStockReissuance {
   return {
+    object_type: 'TX_STOCK_REISSUANCE',
     id: d.id,
     date: d.date.split('T')[0],
     security_id: d.security_id,

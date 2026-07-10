@@ -31,6 +31,7 @@ export { convertToDaml } from './ocfToDaml';
 export {
   ENTITY_DATA_FIELD_MAP,
   convertToOcf,
+  decodeDamlEntityData,
   extractCreateArgument,
   extractEntityData,
   getEntityAsOcf,

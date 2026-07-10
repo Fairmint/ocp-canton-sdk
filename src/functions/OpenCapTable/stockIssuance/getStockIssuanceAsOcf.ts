@@ -1,14 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
-import type {
-  Monetary,
-  OcfStockIssuance,
-  SecurityExemption,
-  ShareNumberRange,
-  StockIssuanceType,
-} from '../../../types/native';
+import type { OcfStockIssuance, SecurityExemption, ShareNumberRange, StockIssuanceType } from '../../../types/native';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -42,9 +36,16 @@ export function damlStockIssuanceDataToNative(
   d: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData
 ): OcfStockIssuance {
   const anyD = d as unknown as Record<string, unknown>;
-  const dataWithId = anyD as { id?: string };
+  const { id } = anyD;
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new OcpValidationError('stockIssuance.id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: id,
+    });
+  }
   return {
-    id: dataWithId.id ?? '',
+    object_type: 'TX_STOCK_ISSUANCE',
+    id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     custom_id: d.custom_id,
@@ -98,18 +99,7 @@ export interface GetStockIssuanceAsOcfParams extends GetByContractIdParams {}
 
 export interface GetStockIssuanceAsOcfResult {
   contractId: string;
-  stockIssuance: Partial<OcfStockIssuance> & {
-    object_type: 'TX_STOCK_ISSUANCE';
-    id: string;
-    date: string;
-    security_id: string;
-    custom_id: string;
-    stakeholder_id: string;
-    stock_class_id: string;
-    share_price: Monetary;
-    quantity: string | number;
-    security_law_exemptions?: SecurityExemption[];
-  };
+  stockIssuance: OcfStockIssuance;
 }
 
 /**
@@ -142,7 +132,6 @@ export async function getStockIssuanceAsOcf(
   const { share_numbers_issued, vestings, comments, issuance_type, ...rest } = native;
 
   const ocf = {
-    object_type: 'TX_STOCK_ISSUANCE' as const,
     ...rest,
     ...(share_numbers_issued && share_numbers_issued.length > 0 ? { share_numbers_issued } : {}),
     ...(vestings && vestings.length > 0 ? { vestings } : {}),

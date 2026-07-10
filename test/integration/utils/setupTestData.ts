@@ -114,7 +114,7 @@ export function generateDateString(daysFromNow = 0): string {
 }
 
 /** Create test issuer data with optional overrides. */
-export function createTestIssuerData(overrides: Partial<OcfIssuer> = {}): OcfIssuer {
+export function createTestIssuerData(overrides: Omit<Partial<OcfIssuer>, 'object_type'> = {}): OcfIssuer {
   const id = overrides.id ?? generateTestId('issuer');
   return {
     id,
@@ -124,11 +124,14 @@ export function createTestIssuerData(overrides: Partial<OcfIssuer> = {}): OcfIss
     country_subdivision_of_formation: 'DE',
     tax_ids: [],
     ...overrides,
+    object_type: 'ISSUER',
   };
 }
 
 /** Create test stakeholder data with optional overrides. */
-export function createTestStakeholderData(overrides: Partial<OcfStakeholder> = {}): OcfStakeholder {
+export function createTestStakeholderData(
+  overrides: Omit<Partial<OcfStakeholder>, 'object_type'> = {}
+): OcfStakeholder {
   const id = overrides.id ?? generateTestId('stakeholder');
   return {
     id,
@@ -137,11 +140,12 @@ export function createTestStakeholderData(overrides: Partial<OcfStakeholder> = {
     },
     stakeholder_type: 'INDIVIDUAL',
     ...overrides,
+    object_type: 'STAKEHOLDER',
   };
 }
 
 /** Create test stock class data with optional overrides. */
-export function createTestStockClassData(overrides: Partial<OcfStockClass> = {}): OcfStockClass {
+export function createTestStockClassData(overrides: Omit<Partial<OcfStockClass>, 'object_type'> = {}): OcfStockClass {
   const id = overrides.id ?? generateTestId('stock-class');
   return {
     id,
@@ -153,12 +157,13 @@ export function createTestStockClassData(overrides: Partial<OcfStockClass> = {})
     votes_per_share: '1',
     price_per_share: { amount: '1.00', currency: 'USD' },
     ...overrides,
+    object_type: 'STOCK_CLASS',
   };
 }
 
 /** Create test stock legend template data with optional overrides. */
 export function createTestStockLegendTemplateData(
-  overrides: Partial<OcfStockLegendTemplate> = {}
+  overrides: Omit<Partial<OcfStockLegendTemplate>, 'object_type'> = {}
 ): OcfStockLegendTemplate {
   const id = overrides.id ?? generateTestId('legend');
   return {
@@ -166,22 +171,26 @@ export function createTestStockLegendTemplateData(
     name: `Legend Template ${id}`,
     text: 'This is a test stock legend template text.',
     ...overrides,
+    object_type: 'STOCK_LEGEND_TEMPLATE',
   };
 }
 
 /** Create test document data with optional overrides. */
-export function createTestDocumentData(overrides: Partial<OcfDocument> = {}): OcfDocument {
+export function createTestDocumentData(overrides: Omit<Partial<OcfDocument>, 'object_type'> = {}): OcfDocument {
   const id = overrides.id ?? generateTestId('document');
   return {
     id,
     md5: '00000000000000000000000000000000', // Placeholder MD5 hash
     path: `/documents/${id}.pdf`, // Default path (required: document must have path or uri)
     ...overrides,
+    object_type: 'DOCUMENT',
   };
 }
 
 /** Create test valuation data with optional overrides. */
-export function createTestValuationData(overrides: Partial<OcfValuation> & { stock_class_id: string }): OcfValuation {
+export function createTestValuationData(
+  overrides: Omit<Partial<OcfValuation>, 'object_type'> & { stock_class_id: string }
+): OcfValuation {
   const id = overrides.id ?? generateTestId('valuation');
   const { stock_class_id, ...rest } = overrides;
   return {
@@ -193,12 +202,13 @@ export function createTestValuationData(overrides: Partial<OcfValuation> & { sto
     provider: 'Test Valuation Provider',
     board_approval_date: generateDateString(-35),
     ...rest,
+    object_type: 'VALUATION',
   };
 }
 
 /** Create test vesting start data with optional overrides. */
 export function createTestVestingStartData(
-  overrides: Partial<OcfVestingStart> & { security_id: string; vesting_condition_id: string }
+  overrides: Omit<Partial<OcfVestingStart>, 'object_type'> & { security_id: string; vesting_condition_id: string }
 ): OcfVestingStart {
   const id = overrides.id ?? generateTestId('vesting-start');
   const { security_id, vesting_condition_id, ...rest } = overrides;
@@ -208,12 +218,13 @@ export function createTestVestingStartData(
     security_id,
     vesting_condition_id,
     ...rest,
+    object_type: 'TX_VESTING_START',
   };
 }
 
 /** Create test vesting event data with optional overrides. */
 export function createTestVestingEventData(
-  overrides: Partial<OcfVestingEvent> & { security_id: string; vesting_condition_id: string }
+  overrides: Omit<Partial<OcfVestingEvent>, 'object_type'> & { security_id: string; vesting_condition_id: string }
 ): OcfVestingEvent {
   const id = overrides.id ?? generateTestId('vesting-event');
   const { security_id, vesting_condition_id, ...rest } = overrides;
@@ -223,12 +234,13 @@ export function createTestVestingEventData(
     security_id,
     vesting_condition_id,
     ...rest,
+    object_type: 'TX_VESTING_EVENT',
   };
 }
 
 /** Create test vesting acceleration data with optional overrides. */
 export function createTestVestingAccelerationData(
-  overrides: Partial<OcfVestingAcceleration> & { security_id: string }
+  overrides: Omit<Partial<OcfVestingAcceleration>, 'object_type'> & { security_id: string }
 ): OcfVestingAcceleration {
   const id = overrides.id ?? generateTestId('vesting-acceleration');
   const { security_id, ...rest } = overrides;
@@ -239,11 +251,14 @@ export function createTestVestingAccelerationData(
     quantity: '10000',
     reason_text: 'Company acquisition - single-trigger acceleration',
     ...rest,
+    object_type: 'TX_VESTING_ACCELERATION',
   };
 }
 
 /** Create test vesting terms data with optional overrides. */
-export function createTestVestingTermsData(overrides: Partial<OcfVestingTerms> = {}): OcfVestingTerms {
+export function createTestVestingTermsData(
+  overrides: Omit<Partial<OcfVestingTerms>, 'object_type'> = {}
+): OcfVestingTerms {
   const id = overrides.id ?? generateTestId('vesting-terms');
   return {
     id,
@@ -292,12 +307,13 @@ export function createTestVestingTermsData(overrides: Partial<OcfVestingTerms> =
       },
     ],
     ...overrides,
+    object_type: 'VESTING_TERMS',
   };
 }
 
 /** Create test stock plan data with optional overrides. */
 export function createTestStockPlanData(
-  overrides: Partial<OcfStockPlan> & { stock_class_ids: string[] }
+  overrides: Omit<Partial<OcfStockPlan>, 'object_type'> & { stock_class_ids: string[] }
 ): OcfStockPlan {
   const id = overrides.id ?? generateTestId('stock-plan');
   const { stock_class_ids, ...rest } = overrides;
@@ -309,12 +325,13 @@ export function createTestStockPlanData(
     default_cancellation_behavior: 'RETURN_TO_POOL',
     board_approval_date: generateDateString(-90),
     ...rest,
+    object_type: 'STOCK_PLAN',
   };
 }
 
 /** Create test stock issuance data with optional overrides. */
 export function createTestStockIssuanceData(
-  overrides: Partial<OcfStockIssuance> & {
+  overrides: Omit<Partial<OcfStockIssuance>, 'object_type'> & {
     stakeholder_id: string;
     stock_class_id: string;
   }
@@ -334,12 +351,13 @@ export function createTestStockIssuanceData(
     security_law_exemptions: [],
     stock_legend_ids: [],
     ...rest,
+    object_type: 'TX_STOCK_ISSUANCE',
   };
 }
 
 /** Create test equity compensation issuance data with optional overrides. */
 export function createTestEquityCompensationIssuanceData(
-  overrides: Partial<OcfEquityCompensationIssuance> & {
+  overrides: Omit<Partial<OcfEquityCompensationIssuance>, 'object_type'> & {
     stakeholder_id: string;
     stock_plan_id?: string;
     stock_class_id?: string;
@@ -363,6 +381,7 @@ export function createTestEquityCompensationIssuanceData(
     security_law_exemptions: [],
     termination_exercise_windows: [],
     ...rest,
+    object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
   };
 }
 
@@ -370,7 +389,7 @@ export function createTestEquityCompensationIssuanceData(
 
 /** Create test warrant exercise data with optional overrides. */
 export function createTestWarrantExerciseData(
-  overrides: Partial<OcfWarrantExercise> & {
+  overrides: Omit<Partial<OcfWarrantExercise>, 'object_type'> & {
     security_id: string;
     resulting_security_ids: string[];
   }
@@ -384,12 +403,13 @@ export function createTestWarrantExerciseData(
     trigger_id: trigger_id ?? generateTestId('trigger'),
     resulting_security_ids,
     ...rest,
+    object_type: 'TX_WARRANT_EXERCISE',
   };
 }
 
 /** Create test convertible conversion data with optional overrides. */
 export function createTestConvertibleConversionData(
-  overrides: Partial<OcfConvertibleConversion> & {
+  overrides: Omit<Partial<OcfConvertibleConversion>, 'object_type'> & {
     security_id: string;
     resulting_security_ids: string[];
   }
@@ -404,12 +424,13 @@ export function createTestConvertibleConversionData(
     trigger_id: generateTestId('trigger'),
     resulting_security_ids,
     ...rest,
+    object_type: 'TX_CONVERTIBLE_CONVERSION',
   };
 }
 
 /** Create test stock conversion data with optional overrides. */
 export function createTestStockConversionData(
-  overrides: Partial<OcfStockConversion> & {
+  overrides: Omit<Partial<OcfStockConversion>, 'object_type'> & {
     security_id: string;
     resulting_security_ids: string[];
   }
@@ -423,6 +444,7 @@ export function createTestStockConversionData(
     quantity_converted: '1000',
     resulting_security_ids,
     ...rest,
+    object_type: 'TX_STOCK_CONVERSION',
   };
 }
 
@@ -430,7 +452,7 @@ export function createTestStockConversionData(
 
 /** Create test stock retraction data with optional overrides. */
 export function createTestStockRetractionData(
-  overrides: Partial<OcfStockRetraction> & { security_id: string }
+  overrides: Omit<Partial<OcfStockRetraction>, 'object_type'> & { security_id: string }
 ): OcfStockRetraction {
   const id = overrides.id ?? generateTestId('stock-retraction');
   const { security_id, ...rest } = overrides;
@@ -440,12 +462,13 @@ export function createTestStockRetractionData(
     security_id,
     reason_text: 'Issued in error',
     ...rest,
+    object_type: 'TX_STOCK_RETRACTION',
   };
 }
 
 /** Create test warrant retraction data with optional overrides. */
 export function createTestWarrantRetractionData(
-  overrides: Partial<OcfWarrantRetraction> & { security_id: string }
+  overrides: Omit<Partial<OcfWarrantRetraction>, 'object_type'> & { security_id: string }
 ): OcfWarrantRetraction {
   const id = overrides.id ?? generateTestId('warrant-retraction');
   const { security_id, ...rest } = overrides;
@@ -455,12 +478,13 @@ export function createTestWarrantRetractionData(
     security_id,
     reason_text: 'Warrant voided',
     ...rest,
+    object_type: 'TX_WARRANT_RETRACTION',
   };
 }
 
 /** Create test convertible retraction data with optional overrides. */
 export function createTestConvertibleRetractionData(
-  overrides: Partial<OcfConvertibleRetraction> & { security_id: string }
+  overrides: Omit<Partial<OcfConvertibleRetraction>, 'object_type'> & { security_id: string }
 ): OcfConvertibleRetraction {
   const id = overrides.id ?? generateTestId('convertible-retraction');
   const { security_id, ...rest } = overrides;
@@ -470,12 +494,13 @@ export function createTestConvertibleRetractionData(
     security_id,
     reason_text: 'Terms renegotiated',
     ...rest,
+    object_type: 'TX_CONVERTIBLE_RETRACTION',
   };
 }
 
 /** Create test equity compensation retraction data with optional overrides. */
 export function createTestEquityCompensationRetractionData(
-  overrides: Partial<OcfEquityCompensationRetraction> & { security_id: string }
+  overrides: Omit<Partial<OcfEquityCompensationRetraction>, 'object_type'> & { security_id: string }
 ): OcfEquityCompensationRetraction {
   const id = overrides.id ?? generateTestId('equity-comp-retraction');
   const { security_id, ...rest } = overrides;
@@ -485,12 +510,13 @@ export function createTestEquityCompensationRetractionData(
     security_id,
     reason_text: 'Grant voided due to termination',
     ...rest,
+    object_type: 'TX_EQUITY_COMPENSATION_RETRACTION',
   };
 }
 
 /** Create test equity compensation release data with optional overrides. */
 export function createTestEquityCompensationReleaseData(
-  overrides: Partial<OcfEquityCompensationRelease> & { security_id: string }
+  overrides: Omit<Partial<OcfEquityCompensationRelease>, 'object_type'> & { security_id: string }
 ): OcfEquityCompensationRelease {
   const id = overrides.id ?? generateTestId('equity-comp-release');
   const { security_id, ...rest } = overrides;
@@ -503,12 +529,13 @@ export function createTestEquityCompensationReleaseData(
     quantity: '1000',
     resulting_security_ids: [generateTestId('resulting-security')],
     ...rest,
+    object_type: 'TX_EQUITY_COMPENSATION_RELEASE',
   };
 }
 
 /** Create test equity compensation repricing data with optional overrides. */
 export function createTestEquityCompensationRepricingData(
-  overrides: Partial<OcfEquityCompensationRepricing> & { security_id: string }
+  overrides: Omit<Partial<OcfEquityCompensationRepricing>, 'object_type'> & { security_id: string }
 ): OcfEquityCompensationRepricing {
   const id = overrides.id ?? generateTestId('equity-comp-repricing');
   const { security_id, ...rest } = overrides;
@@ -518,12 +545,13 @@ export function createTestEquityCompensationRepricingData(
     security_id,
     new_exercise_price: { amount: '0.25', currency: 'USD' },
     ...rest,
+    object_type: 'TX_EQUITY_COMPENSATION_REPRICING',
   };
 }
 
 /** Create test stock plan return to pool data with optional overrides. */
 export function createTestStockPlanReturnToPoolData(
-  overrides: Partial<OcfStockPlanReturnToPool> & { stock_plan_id: string; security_id: string }
+  overrides: Omit<Partial<OcfStockPlanReturnToPool>, 'object_type'> & { stock_plan_id: string; security_id: string }
 ): OcfStockPlanReturnToPool {
   const id = overrides.id ?? generateTestId('stock-plan-return');
   const { stock_plan_id, security_id, ...rest } = overrides;
@@ -535,12 +563,13 @@ export function createTestStockPlanReturnToPoolData(
     quantity: '5000',
     reason_text: 'Employee termination - unvested shares returned',
     ...rest,
+    object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
   };
 }
 
 /** Create test stakeholder relationship change event data with optional overrides. */
 export function createTestStakeholderRelationshipChangeData(
-  overrides: Partial<OcfStakeholderRelationshipChangeEvent> & { stakeholder_id: string }
+  overrides: Omit<Partial<OcfStakeholderRelationshipChangeEvent>, 'object_type'> & { stakeholder_id: string }
 ): OcfStakeholderRelationshipChangeEvent {
   const id = overrides.id ?? generateTestId('relationship-change');
   const { stakeholder_id, ...rest } = overrides;
@@ -550,12 +579,13 @@ export function createTestStakeholderRelationshipChangeData(
     stakeholder_id,
     relationship_started: 'EMPLOYEE',
     ...rest,
+    object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
   };
 }
 
 /** Create test stakeholder status change event data with optional overrides. */
 export function createTestStakeholderStatusChangeData(
-  overrides: Partial<OcfStakeholderStatusChangeEvent> & { stakeholder_id: string }
+  overrides: Omit<Partial<OcfStakeholderStatusChangeEvent>, 'object_type'> & { stakeholder_id: string }
 ): OcfStakeholderStatusChangeEvent {
   const id = overrides.id ?? generateTestId('status-change');
   const { stakeholder_id, ...rest } = overrides;
@@ -565,6 +595,7 @@ export function createTestStakeholderStatusChangeData(
     stakeholder_id,
     new_status: 'ACTIVE',
     ...rest,
+    object_type: 'CE_STAKEHOLDER_STATUS',
   };
 }
 
@@ -793,7 +824,7 @@ export async function setupTestStakeholder(
 
 /** Create test stock transfer data with optional overrides. */
 export function createTestStockTransferData(
-  overrides: Partial<OcfStockTransfer> & { security_id: string }
+  overrides: Omit<Partial<OcfStockTransfer>, 'object_type'> & { security_id: string }
 ): OcfStockTransfer {
   const id = overrides.id ?? generateTestId('stock-transfer');
   const { security_id, ...rest } = overrides;
@@ -804,12 +835,13 @@ export function createTestStockTransferData(
     quantity: rest.quantity ?? '1000',
     resulting_security_ids: rest.resulting_security_ids ?? [generateTestId('result-security')],
     ...rest,
+    object_type: 'TX_STOCK_TRANSFER',
   };
 }
 
 /** Create test convertible transfer data with optional overrides. */
 export function createTestConvertibleTransferData(
-  overrides: Partial<OcfConvertibleTransfer> & { security_id: string }
+  overrides: Omit<Partial<OcfConvertibleTransfer>, 'object_type'> & { security_id: string }
 ): OcfConvertibleTransfer {
   const id = overrides.id ?? generateTestId('convertible-transfer');
   const { security_id, ...rest } = overrides;
@@ -820,12 +852,13 @@ export function createTestConvertibleTransferData(
     amount: rest.amount ?? { amount: '50000', currency: 'USD' },
     resulting_security_ids: rest.resulting_security_ids ?? [generateTestId('result-security')],
     ...rest,
+    object_type: 'TX_CONVERTIBLE_TRANSFER',
   };
 }
 
 /** Create test equity compensation transfer data with optional overrides. */
 export function createTestEquityCompensationTransferData(
-  overrides: Partial<OcfEquityCompensationTransfer> & { security_id: string }
+  overrides: Omit<Partial<OcfEquityCompensationTransfer>, 'object_type'> & { security_id: string }
 ): OcfEquityCompensationTransfer {
   const id = overrides.id ?? generateTestId('equity-comp-transfer');
   const { security_id, ...rest } = overrides;
@@ -836,12 +869,13 @@ export function createTestEquityCompensationTransferData(
     quantity: rest.quantity ?? '5000',
     resulting_security_ids: rest.resulting_security_ids ?? [generateTestId('result-security')],
     ...rest,
+    object_type: 'TX_EQUITY_COMPENSATION_TRANSFER',
   };
 }
 
 /** Create test warrant transfer data with optional overrides. */
 export function createTestWarrantTransferData(
-  overrides: Partial<OcfWarrantTransfer> & { security_id: string }
+  overrides: Omit<Partial<OcfWarrantTransfer>, 'object_type'> & { security_id: string }
 ): OcfWarrantTransfer {
   const id = overrides.id ?? generateTestId('warrant-transfer');
   const { security_id, ...rest } = overrides;
@@ -852,6 +886,7 @@ export function createTestWarrantTransferData(
     quantity: rest.quantity ?? '2500',
     resulting_security_ids: rest.resulting_security_ids ?? [generateTestId('result-security')],
     ...rest,
+    object_type: 'TX_WARRANT_TRANSFER',
   };
 }
 
@@ -913,7 +948,7 @@ export interface ConvertibleSecuritySetup {
 
 /** Create test warrant issuance data with optional overrides. */
 export function createTestWarrantIssuanceData(
-  overrides: Partial<OcfWarrantIssuance> & { stakeholder_id: string }
+  overrides: Omit<Partial<OcfWarrantIssuance>, 'object_type'> & { stakeholder_id: string }
 ): OcfWarrantIssuance {
   const id = overrides.id ?? generateTestId('warrant-issuance');
   const securityId = overrides.security_id ?? generateTestId('warrant-security');
@@ -930,12 +965,13 @@ export function createTestWarrantIssuanceData(
     exercise_triggers: [],
     security_law_exemptions: [],
     ...rest,
+    object_type: 'TX_WARRANT_ISSUANCE',
   };
 }
 
 /** Create test convertible issuance data with optional overrides. */
 export function createTestConvertibleIssuanceData(
-  overrides: Partial<OcfConvertibleIssuance> & { stakeholder_id: string }
+  overrides: Omit<Partial<OcfConvertibleIssuance>, 'object_type'> & { stakeholder_id: string }
 ): OcfConvertibleIssuance {
   const id = overrides.id ?? generateTestId('convertible-issuance');
   const securityId = overrides.security_id ?? generateTestId('convertible-security');
@@ -966,6 +1002,7 @@ export function createTestConvertibleIssuanceData(
     ],
     seniority: 1,
     ...rest,
+    object_type: 'TX_CONVERTIBLE_ISSUANCE',
   };
 }
 

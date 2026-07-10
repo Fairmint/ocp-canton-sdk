@@ -25,6 +25,7 @@ export interface DamlVestingEventData {
  */
 export function damlVestingEventToNative(d: DamlVestingEventData): OcfVestingEvent {
   return {
+    object_type: 'TX_VESTING_EVENT',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

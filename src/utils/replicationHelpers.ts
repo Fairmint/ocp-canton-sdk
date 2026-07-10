@@ -13,7 +13,7 @@ import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchType
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
-import { normalizeEntityType, normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
+import { normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
 
 // ============================================================================
 // Categorized Type Mapping
@@ -206,15 +206,6 @@ const ENTITY_TYPE_LABELS: Record<OcfEntityType, [string, string]> = {
   equityCompensationRelease: ['Equity Compensation Release', 'Equity Compensation Releases'],
   equityCompensationRepricing: ['Equity Compensation Repricing', 'Equity Compensation Repricings'],
   equityCompensationRetraction: ['Equity Compensation Retraction', 'Equity Compensation Retractions'],
-
-  // Plan Security aliases (use same labels as Equity Compensation)
-  planSecurityIssuance: ['Plan Security Issuance', 'Plan Security Issuances'],
-  planSecurityCancellation: ['Plan Security Cancellation', 'Plan Security Cancellations'],
-  planSecurityTransfer: ['Plan Security Transfer', 'Plan Security Transfers'],
-  planSecurityAcceptance: ['Plan Security Acceptance', 'Plan Security Acceptances'],
-  planSecurityExercise: ['Plan Security Exercise', 'Plan Security Exercises'],
-  planSecurityRelease: ['Plan Security Release', 'Plan Security Releases'],
-  planSecurityRetraction: ['Plan Security Retraction', 'Plan Security Retractions'],
 
   // Convertibles (6 types)
   convertibleIssuance: ['Convertible Issuance', 'Convertible Issuances'],
@@ -583,29 +574,24 @@ export function computeReplicationDiff(
     const sourceData = getSourceDataObject(item);
     const objectId = getSourceObjectId(item, sourceData);
 
-    // Normalize planSecurity types to equityCompensation for Canton lookup
-    // Canton stores planSecurity items under equity_compensation_* fields
-    const normalizedType = normalizeEntityType(item.entityType) as OcfEntityType;
+    const { entityType } = item;
 
-    // Skip duplicate items (same canonical object ID + normalized entityType)
-    // Use normalized type because aliased types (e.g., planSecurityIssuance and
-    // equityCompensationIssuance) map to the same Canton entity
-    const itemKey = `${normalizedType}:${objectId}`;
+    // Skip duplicate items with the same canonical object ID and entity type.
+    const itemKey = `${entityType}:${objectId}`;
     if (seenItems.has(itemKey)) {
       continue;
     }
     seenItems.add(itemKey);
 
-    // Track for delete detection (using normalized type to match Canton's storage)
-    let typeIds = sourceIdsByType.get(normalizedType);
+    // Track for delete detection.
+    let typeIds = sourceIdsByType.get(entityType);
     if (!typeIds) {
       typeIds = new Set();
-      sourceIdsByType.set(normalizedType, typeIds);
+      sourceIdsByType.set(entityType, typeIds);
     }
     typeIds.add(objectId);
 
-    // Check if exists in Canton (using normalized type)
-    const cantonIds = cantonState.entities.get(normalizedType) ?? new Set();
+    const cantonIds = cantonState.entities.get(entityType) ?? new Set();
     const existsInCanton = cantonIds.has(objectId);
 
     if (!existsInCanton) {
@@ -621,10 +607,10 @@ export function computeReplicationDiff(
       // The DAML contract enforces security_id uniqueness via *_by_security_id maps.
       // If the source has a new object ID but reuses a security_id already on Canton,
       // the create will be rejected. Detect this early with an actionable message.
-      if (securityIds && ISSUANCE_ENTITY_TYPES.has(normalizedType)) {
+      if (securityIds && ISSUANCE_ENTITY_TYPES.has(entityType)) {
         const securityId = typeof sourceData.security_id === 'string' ? sourceData.security_id : undefined;
         if (securityId) {
-          const cantonSecurityIds = securityIds.get(normalizedType);
+          const cantonSecurityIds = securityIds.get(entityType);
           if (cantonSecurityIds?.has(securityId)) {
             conflicts.push({
               id: objectId,
@@ -640,14 +626,14 @@ export function computeReplicationDiff(
       }
     } else if (cantonOcfData) {
       // Deep comparison: compare actual OCF data to detect changes
-      const cantonTypeData = cantonOcfData.get(normalizedType);
+      const cantonTypeData = cantonOcfData.get(entityType);
       const cantonItemData = cantonTypeData?.get(objectId);
 
       if (cantonItemData === undefined) {
         // cantonOcfData was provided but this item's data wasn't found
         // This indicates cantonOcfData is incomplete or inconsistent with cantonState.entities
         throw new Error(
-          `Inconsistent cantonOcfData: missing OCF data for entityType="${normalizedType}", ` +
+          `Inconsistent cantonOcfData: missing OCF data for entityType="${entityType}", ` +
             `id="${objectId}" even though the ID exists in cantonState.entities. ` +
             `Ensure cantonOcfData is built from the same Canton state.`
         );

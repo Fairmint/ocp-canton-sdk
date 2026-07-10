@@ -13,15 +13,17 @@
  * 4. Fields are properly transformed to DAML format
  */
 
-import { OcpValidationError } from '../../src/errors';
-import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
+import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { planSecurityExerciseDataToDaml } from '../../src/functions/OpenCapTable/planSecurityExercise';
+import { planSecurityIssuanceDataToDaml } from '../../src/functions/OpenCapTable/planSecurityIssuance';
 import type { OcfPlanSecurityExercise, OcfPlanSecurityIssuance } from '../../src/types/native';
 
 describe('PlanSecurity Type Converters', () => {
-  describe('OCF→DAML Converters (convertToDaml)', () => {
+  describe('standalone legacy OCF→DAML converters', () => {
     describe('planSecurityIssuance', () => {
       it('converts OPTION plan security type to OcfCompensationTypeOption', () => {
         const input: OcfPlanSecurityIssuance = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
           id: 'psi-001',
           date: '2025-01-15',
           security_id: 'sec-001',
@@ -42,7 +44,7 @@ describe('PlanSecurity Type Converters', () => {
           comments: ['Initial grant'],
         };
 
-        const result = convertToDaml('planSecurityIssuance', input);
+        const result = planSecurityIssuanceDataToDaml(input);
 
         // Verify compensation_type mapping from plan_security_type
         expect(result.compensation_type).toBe('OcfCompensationTypeOption');
@@ -83,6 +85,7 @@ describe('PlanSecurity Type Converters', () => {
 
       it('preserves supported equity-compensation fields when provided', () => {
         const input: OcfPlanSecurityIssuance = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
           id: 'psi-extended',
           date: '2025-01-15',
           security_id: 'sec-extended',
@@ -102,7 +105,7 @@ describe('PlanSecurity Type Converters', () => {
           security_law_exemptions: [],
         };
 
-        const result = convertToDaml('planSecurityIssuance', input);
+        const result = planSecurityIssuanceDataToDaml(input);
 
         expect(result.base_price).toEqual({ amount: '0.25', currency: 'USD' });
         expect(result.early_exercisable).toBe(true);
@@ -115,6 +118,7 @@ describe('PlanSecurity Type Converters', () => {
 
       it('converts RSU plan security type to OcfCompensationTypeRSU', () => {
         const input: OcfPlanSecurityIssuance = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
           id: 'psi-002',
           date: '2025-02-01',
           security_id: 'sec-002',
@@ -128,7 +132,7 @@ describe('PlanSecurity Type Converters', () => {
           security_law_exemptions: [],
         };
 
-        const result = convertToDaml('planSecurityIssuance', input);
+        const result = planSecurityIssuanceDataToDaml(input);
 
         // Verify RSU compensation_type mapping
         expect(result.compensation_type).toBe('OcfCompensationTypeRSU');
@@ -142,8 +146,9 @@ describe('PlanSecurity Type Converters', () => {
         expect(result.exercise_price).toBeNull();
       });
 
-      it('throws OcpValidationError when compensation_type is missing', () => {
+      it('throws OcpParseError when compensation_type is missing', () => {
         const input = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
           id: 'psi-003',
           date: '2025-03-01',
           security_id: 'sec-003',
@@ -156,19 +161,20 @@ describe('PlanSecurity Type Converters', () => {
           security_law_exemptions: [],
         } as unknown as OcfPlanSecurityIssuance;
 
-        expect(() => convertToDaml('planSecurityIssuance', input)).toThrow(OcpValidationError);
+        expect(() => planSecurityIssuanceDataToDaml(input)).toThrow(OcpParseError);
 
         try {
-          convertToDaml('planSecurityIssuance', input);
+          planSecurityIssuanceDataToDaml(input);
         } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toContain('compensation_type');
+          expect(error).toBeInstanceOf(OcpParseError);
+          const parseError = error as OcpParseError;
+          expect(parseError.source).toContain('compensation_type');
         }
       });
 
       it('throws OcpValidationError when id is missing', () => {
         const input = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
           date: '2025-01-15',
           security_id: 'sec-001',
           custom_id: 'custom-001',
@@ -180,11 +186,12 @@ describe('PlanSecurity Type Converters', () => {
           security_law_exemptions: [],
         } as unknown as OcfPlanSecurityIssuance;
 
-        expect(() => convertToDaml('planSecurityIssuance', input)).toThrow(OcpValidationError);
+        expect(() => planSecurityIssuanceDataToDaml(input)).toThrow(OcpValidationError);
       });
 
-      it('throws OcpValidationError when compensation_type is undefined', () => {
+      it('throws OcpParseError when compensation_type is undefined', () => {
         const input = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
           id: 'psi-004',
           date: '2025-01-15',
           security_id: 'sec-001',
@@ -197,19 +204,20 @@ describe('PlanSecurity Type Converters', () => {
           security_law_exemptions: [],
         } as unknown as OcfPlanSecurityIssuance;
 
-        expect(() => convertToDaml('planSecurityIssuance', input)).toThrow(OcpValidationError);
+        expect(() => planSecurityIssuanceDataToDaml(input)).toThrow(OcpParseError);
 
         try {
-          convertToDaml('planSecurityIssuance', input);
+          planSecurityIssuanceDataToDaml(input);
         } catch (error) {
-          expect(error).toBeInstanceOf(OcpValidationError);
-          const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toContain('compensation_type');
+          expect(error).toBeInstanceOf(OcpParseError);
+          const parseError = error as OcpParseError;
+          expect(parseError.source).toContain('compensation_type');
         }
       });
 
       it('handles minimal required fields', () => {
         const input: OcfPlanSecurityIssuance = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
           id: 'psi-minimal',
           date: '2025-05-01',
           security_id: 'sec-minimal',
@@ -224,7 +232,7 @@ describe('PlanSecurity Type Converters', () => {
           security_law_exemptions: [],
         };
 
-        const result = convertToDaml('planSecurityIssuance', input);
+        const result = planSecurityIssuanceDataToDaml(input);
 
         expect(result.id).toBe('psi-minimal');
         expect(result.compensation_type).toBe('OcfCompensationTypeOption');
@@ -245,6 +253,7 @@ describe('PlanSecurity Type Converters', () => {
     describe('planSecurityExercise', () => {
       it('converts plan security exercise with all fields', () => {
         const input: OcfPlanSecurityExercise = {
+          object_type: 'TX_PLAN_SECURITY_EXERCISE',
           id: 'pse-001',
           date: '2026-01-15',
           security_id: 'sec-001',
@@ -254,7 +263,7 @@ describe('PlanSecurity Type Converters', () => {
           comments: ['Partial exercise'],
         };
 
-        const result = convertToDaml('planSecurityExercise', input);
+        const result = planSecurityExerciseDataToDaml(input);
 
         expect(result.id).toBe('pse-001');
         expect(result.security_id).toBe('sec-001');
@@ -269,6 +278,7 @@ describe('PlanSecurity Type Converters', () => {
 
       it('converts plan security exercise with minimal fields', () => {
         const input: OcfPlanSecurityExercise = {
+          object_type: 'TX_PLAN_SECURITY_EXERCISE',
           id: 'pse-002',
           date: '2026-02-01',
           security_id: 'sec-002',
@@ -276,7 +286,7 @@ describe('PlanSecurity Type Converters', () => {
           resulting_security_ids: ['result-003'],
         };
 
-        const result = convertToDaml('planSecurityExercise', input);
+        const result = planSecurityExerciseDataToDaml(input);
 
         expect(result.id).toBe('pse-002');
         expect(result.security_id).toBe('sec-002');
@@ -290,25 +300,27 @@ describe('PlanSecurity Type Converters', () => {
 
       it('throws OcpValidationError when id is missing', () => {
         const input = {
+          object_type: 'TX_PLAN_SECURITY_EXERCISE',
           date: '2026-01-15',
           security_id: 'sec-001',
           quantity: '2500',
           resulting_security_ids: ['result-001'],
         } as OcfPlanSecurityExercise;
 
-        expect(() => convertToDaml('planSecurityExercise', input)).toThrow(OcpValidationError);
+        expect(() => planSecurityExerciseDataToDaml(input)).toThrow(OcpValidationError);
 
         try {
-          convertToDaml('planSecurityExercise', input);
+          planSecurityExerciseDataToDaml(input);
         } catch (error) {
           expect(error).toBeInstanceOf(OcpValidationError);
           const validationError = error as OcpValidationError;
-          expect(validationError.fieldPath).toBe('id');
+          expect(validationError.fieldPath).toContain('id');
         }
       });
 
       it('handles numeric quantity values', () => {
         const input: OcfPlanSecurityExercise = {
+          object_type: 'TX_PLAN_SECURITY_EXERCISE',
           id: 'pse-numeric',
           date: '2026-03-01',
           security_id: 'sec-numeric',
@@ -316,7 +328,7 @@ describe('PlanSecurity Type Converters', () => {
           resulting_security_ids: ['result-004'],
         };
 
-        const result = convertToDaml('planSecurityExercise', input);
+        const result = planSecurityExerciseDataToDaml(input);
 
         // Quantity should be converted to string for DAML
         expect(result.quantity).toBe('5000');

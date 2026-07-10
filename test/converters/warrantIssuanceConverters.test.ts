@@ -16,7 +16,7 @@ function roundTrip(ocfInput: Parameters<typeof warrantIssuanceDataToDaml>[0]): R
   const daml = warrantIssuanceDataToDaml(ocfInput);
   // daml is the DAML representation. Convert it back via the readback function.
   const native = damlWarrantIssuanceDataToNative(daml);
-  return { object_type: 'TX_WARRANT_ISSUANCE', ...native };
+  return { ...native, object_type: 'TX_WARRANT_ISSUANCE' };
 }
 
 describe('WarrantIssuance round-trip equivalence', () => {
@@ -46,10 +46,11 @@ describe('WarrantIssuance round-trip equivalence', () => {
         },
       },
     ],
+    object_type: 'TX_WARRANT_ISSUANCE' as const,
   };
 
   test('basic warrant issuance survives round-trip', () => {
-    const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...baseWarrantIssuance } as Record<string, unknown>;
+    const dbData = { ...baseWarrantIssuance, object_type: 'TX_WARRANT_ISSUANCE' } as Record<string, unknown>;
     const cantonData = roundTrip(baseWarrantIssuance);
 
     expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
@@ -58,9 +59,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
   test('warrant issuance with numeric amount as JS number survives round-trip', () => {
     // DB JSONB can store amount as a number instead of a string
     const dbData = {
-      object_type: 'TX_WARRANT_ISSUANCE',
       ...baseWarrantIssuance,
       purchase_price: { amount: 22500, currency: 'USD' },
+      object_type: 'TX_WARRANT_ISSUANCE',
     };
     const cantonData = roundTrip(baseWarrantIssuance);
 
@@ -69,7 +70,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
   test('warrant issuance with undefined quantity and no quantity_source survives round-trip', () => {
     const input = { ...baseWarrantIssuance };
-    const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input };
+    const dbData = { ...input, object_type: 'TX_WARRANT_ISSUANCE' };
     const cantonData = roundTrip(input);
 
     expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
@@ -80,7 +81,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     // The OCF-to-DAML converter must treat null the same as undefined to avoid
     // injecting quantity_source: UNSPECIFIED that the DB doesn't have.
     const input = { ...baseWarrantIssuance, quantity: null as unknown as string };
-    const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input } as Record<string, unknown>;
+    const dbData = { ...input, object_type: 'TX_WARRANT_ISSUANCE' } as Record<string, unknown>;
     const cantonData = roundTrip(input);
 
     expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
@@ -91,7 +92,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     // The OCF-to-DAML converter sets quantity_source: OcfQuantityUnspecified,
     // and the readback must include it for the comparison to pass.
     const input = { ...baseWarrantIssuance, quantity_source: 'UNSPECIFIED' as const };
-    const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input };
+    const dbData = { ...input, object_type: 'TX_WARRANT_ISSUANCE' };
     const cantonData = roundTrip(input);
 
     expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
@@ -103,7 +104,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       quantity: '1000',
       quantity_source: 'INSTRUMENT_FIXED' as const,
     };
-    const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input };
+    const dbData = { ...input, object_type: 'TX_WARRANT_ISSUANCE' };
     const cantonData = roundTrip(input);
 
     expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
@@ -111,7 +112,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
   test('warrant issuance with empty comments array survives round-trip', () => {
     const input = { ...baseWarrantIssuance, comments: [] as string[] };
-    const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input };
+    const dbData = { ...input, object_type: 'TX_WARRANT_ISSUANCE' };
     const cantonData = roundTrip(input);
 
     expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
@@ -122,7 +123,6 @@ describe('WarrantIssuance round-trip equivalence', () => {
     // The comparison must treat null as undefined-like.
     const input = { ...baseWarrantIssuance };
     const dbData = {
-      object_type: 'TX_WARRANT_ISSUANCE',
       ...input,
       exercise_triggers: [
         {
@@ -133,6 +133,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
           },
         },
       ],
+      object_type: 'TX_WARRANT_ISSUANCE',
     };
     const cantonData = roundTrip(input);
 
@@ -147,7 +148,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       consideration_text: 'Cash and services',
       vestings: [{ date: '2024-01-01', amount: '100' }],
     };
-    const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input };
+    const dbData = { ...input, object_type: 'TX_WARRANT_ISSUANCE' };
     const cantonData = roundTrip(input);
 
     expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
@@ -221,7 +222,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(sr.conversion_price.amount).toBe('10');
     expect(sr.conversion_price.currency).toBe('USD');
 
-    const dbData = { object_type: 'TX_WARRANT_ISSUANCE', ...input } as Record<string, unknown>;
+    const dbData = { ...input, object_type: 'TX_WARRANT_ISSUANCE' } as Record<string, unknown>;
     const cantonData = roundTrip(input);
     expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
   });
@@ -387,7 +388,6 @@ describe('WarrantIssuance round-trip equivalence', () => {
     };
     // DB stores the quantity as a number
     const dbData = {
-      object_type: 'TX_WARRANT_ISSUANCE',
       ...input,
       exercise_triggers: [
         {
@@ -401,6 +401,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
           },
         },
       ],
+      object_type: 'TX_WARRANT_ISSUANCE',
     };
     const cantonData = roundTrip(input);
 

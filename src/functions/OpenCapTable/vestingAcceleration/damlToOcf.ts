@@ -26,6 +26,7 @@ export interface DamlVestingAccelerationData {
  */
 export function damlVestingAccelerationToNative(d: DamlVestingAccelerationData): OcfVestingAcceleration {
   return {
+    object_type: 'TX_VESTING_ACCELERATION',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

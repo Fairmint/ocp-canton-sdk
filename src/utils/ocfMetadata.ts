@@ -1,7 +1,7 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 
-/** OCF object types supported by the SDK */
-export type OcfObjectType =
+/** OCF object types covered by the legacy template-metadata registry. */
+export type OcfMetadataObjectType =
   | 'STOCK_CLASS'
   | 'STAKEHOLDER'
   | 'STOCK_PLAN'
@@ -30,7 +30,7 @@ interface OcfTypeMetadata {
 }
 
 /** Central registry of OCF type metadata Maps each OCF object type to its DAML template ID and OCF ID extraction path */
-export const OCF_METADATA: Record<OcfObjectType, OcfTypeMetadata> = {
+export const OCF_METADATA: Record<OcfMetadataObjectType, OcfTypeMetadata> = {
   STOCK_CLASS: {
     templateId: Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
     ocfIdPath: ['stock_class_data', 'id'],
@@ -107,16 +107,16 @@ export const OCF_METADATA: Record<OcfObjectType, OcfTypeMetadata> = {
 };
 
 /** Get metadata for a specific OCF object type */
-export function getOcfMetadata(type: OcfObjectType): OcfTypeMetadata {
+export function getOcfMetadata(type: OcfMetadataObjectType): OcfTypeMetadata {
   return OCF_METADATA[type];
 }
 
 /** Get all supported OCF object types */
-export function getAllOcfTypes(): OcfObjectType[] {
-  return Object.keys(OCF_METADATA) as OcfObjectType[];
+export function getAllOcfTypes(): OcfMetadataObjectType[] {
+  return Object.keys(OCF_METADATA) as OcfMetadataObjectType[];
 }
 
 /** Check if a given string is a valid OCF object type */
-export function isValidOcfType(type: string): type is OcfObjectType {
+export function isValidOcfType(type: string): type is OcfMetadataObjectType {
   return type in OCF_METADATA;
 }

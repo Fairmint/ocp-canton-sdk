@@ -13,7 +13,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
 import { OcpValidationError } from '../errors/OcpValidationError';
-import { ENTITY_OBJECT_TYPE_MAP, type OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
+import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
@@ -514,7 +514,7 @@ export async function extractCantonOcfManifest(
             result.vestingTerms.push(vestingTerms as unknown as Record<string, unknown>);
           } else if (entityType === 'stockIssuance') {
             const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(stockIssuance);
+            result.transactions.push(stockIssuance as unknown as Record<string, unknown>);
           } else if (entityType === 'convertibleIssuance') {
             const { event } = await getConvertibleIssuanceAsOcf(client, { contractId, ...readScopeOpts });
             result.transactions.push(event as unknown as Record<string, unknown>);
@@ -558,25 +558,14 @@ export async function extractCantonOcfManifest(
             // Handle remaining transaction types with the generic dispatcher
             const supportedType = entityType as SupportedOcfReadType;
             const { data } = await getEntityAsOcf(client, supportedType, contractId, readScopeOpts);
-            const txData = data as unknown as Record<string, unknown>;
-
-            // Ensure object_type is present for correct sorting
-            // Generic converters may not include it, so we add it from our mapping
-            const existingObjectType = typeof txData.object_type === 'string' ? txData.object_type : null;
-            const mappedObjectType = ENTITY_OBJECT_TYPE_MAP[entityType];
-
-            if (!existingObjectType && !mappedObjectType) {
+            const txData: Record<string, unknown> = { ...data };
+            if (typeof txData.object_type !== 'string') {
               throw new OcpValidationError(
                 'object_type',
-                `Missing object_type mapping for transaction entity type: ${entityType}`,
+                `Converter returned a transaction without object_type: ${entityType}`,
                 { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
               );
             }
-
-            if (!existingObjectType && mappedObjectType) {
-              txData.object_type = mappedObjectType;
-            }
-
             result.transactions.push(txData);
           }
           // Unsupported types are silently skipped

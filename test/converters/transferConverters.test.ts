@@ -22,6 +22,7 @@ describe('Transfer Type Converters', () => {
     describe('stockTransfer', () => {
       it('converts stock transfer with all fields', () => {
         const input: OcfStockTransfer = {
+          object_type: 'TX_STOCK_TRANSFER',
           id: 'st-001',
           date: '2025-08-05',
           security_id: 'sec-001',
@@ -47,6 +48,7 @@ describe('Transfer Type Converters', () => {
 
       it('converts stock transfer with minimal fields', () => {
         const input: OcfStockTransfer = {
+          object_type: 'TX_STOCK_TRANSFER',
           id: 'st-002',
           date: '2025-08-06',
           security_id: 'sec-002',
@@ -66,6 +68,7 @@ describe('Transfer Type Converters', () => {
 
       it('throws OcpValidationError when resulting_security_ids is empty', () => {
         const input: OcfStockTransfer = {
+          object_type: 'TX_STOCK_TRANSFER',
           id: 'st-error-1',
           date: '2025-08-05',
           security_id: 'sec-001',
@@ -87,6 +90,7 @@ describe('Transfer Type Converters', () => {
     describe('convertibleTransfer', () => {
       it('converts convertible transfer with all fields', () => {
         const input: OcfConvertibleTransfer = {
+          object_type: 'TX_CONVERTIBLE_TRANSFER',
           id: 'ct-001',
           date: '2025-08-10',
           security_id: 'conv-sec-001',
@@ -109,6 +113,7 @@ describe('Transfer Type Converters', () => {
 
       it('converts convertible transfer with minimal fields', () => {
         const input: OcfConvertibleTransfer = {
+          object_type: 'TX_CONVERTIBLE_TRANSFER',
           id: 'ct-002',
           date: '2025-08-11',
           security_id: 'conv-sec-002',
@@ -126,6 +131,7 @@ describe('Transfer Type Converters', () => {
 
       it('throws OcpValidationError when id is missing', () => {
         const input = {
+          object_type: 'TX_CONVERTIBLE_TRANSFER',
           date: '2025-08-10',
           security_id: 'conv-sec-001',
           amount: { amount: '50000', currency: 'USD' },
@@ -144,6 +150,7 @@ describe('Transfer Type Converters', () => {
 
       it('throws OcpValidationError when resulting_security_ids is empty', () => {
         const input: OcfConvertibleTransfer = {
+          object_type: 'TX_CONVERTIBLE_TRANSFER',
           id: 'ct-error-1',
           date: '2025-08-10',
           security_id: 'conv-sec-001',
@@ -165,6 +172,7 @@ describe('Transfer Type Converters', () => {
     describe('equityCompensationTransfer', () => {
       it('converts equity compensation transfer with all fields', () => {
         const input: OcfEquityCompensationTransfer = {
+          object_type: 'TX_EQUITY_COMPENSATION_TRANSFER',
           id: 'ect-001',
           date: '2025-08-15',
           security_id: 'eq-sec-001',
@@ -187,6 +195,7 @@ describe('Transfer Type Converters', () => {
 
       it('converts equity compensation transfer with minimal fields', () => {
         const input: OcfEquityCompensationTransfer = {
+          object_type: 'TX_EQUITY_COMPENSATION_TRANSFER',
           id: 'ect-002',
           date: '2025-08-16',
           security_id: 'eq-sec-002',
@@ -204,6 +213,7 @@ describe('Transfer Type Converters', () => {
 
       it('throws OcpValidationError when id is missing', () => {
         const input = {
+          object_type: 'TX_EQUITY_COMPENSATION_TRANSFER',
           date: '2025-08-15',
           security_id: 'eq-sec-001',
           quantity: '10000',
@@ -222,6 +232,7 @@ describe('Transfer Type Converters', () => {
 
       it('throws OcpValidationError when resulting_security_ids is empty', () => {
         const input: OcfEquityCompensationTransfer = {
+          object_type: 'TX_EQUITY_COMPENSATION_TRANSFER',
           id: 'ect-error-1',
           date: '2025-08-15',
           security_id: 'eq-sec-001',
@@ -243,6 +254,7 @@ describe('Transfer Type Converters', () => {
     describe('warrantTransfer', () => {
       it('converts warrant transfer with all fields', () => {
         const input: OcfWarrantTransfer = {
+          object_type: 'TX_WARRANT_TRANSFER',
           id: 'wt-001',
           date: '2025-08-20',
           security_id: 'warrant-sec-001',
@@ -265,6 +277,7 @@ describe('Transfer Type Converters', () => {
 
       it('converts warrant transfer with minimal fields', () => {
         const input: OcfWarrantTransfer = {
+          object_type: 'TX_WARRANT_TRANSFER',
           id: 'wt-002',
           date: '2025-08-21',
           security_id: 'warrant-sec-002',
@@ -282,6 +295,7 @@ describe('Transfer Type Converters', () => {
 
       it('throws OcpValidationError when id is missing', () => {
         const input = {
+          object_type: 'TX_WARRANT_TRANSFER',
           date: '2025-08-20',
           security_id: 'warrant-sec-001',
           quantity: '2500',
@@ -300,6 +314,7 @@ describe('Transfer Type Converters', () => {
 
       it('throws OcpValidationError when resulting_security_ids is empty', () => {
         const input: OcfWarrantTransfer = {
+          object_type: 'TX_WARRANT_TRANSFER',
           id: 'wt-error-1',
           date: '2025-08-20',
           security_id: 'warrant-sec-001',
@@ -322,6 +337,7 @@ describe('Transfer Type Converters', () => {
   describe('Numeric quantity handling', () => {
     it('handles string quantity', () => {
       const input: OcfStockTransfer = {
+        object_type: 'TX_STOCK_TRANSFER',
         id: 'st-num-1',
         date: '2025-08-05',
         security_id: 'sec-001',
@@ -335,6 +351,7 @@ describe('Transfer Type Converters', () => {
 
     it('handles string quantity', () => {
       const input: OcfStockTransfer = {
+        object_type: 'TX_STOCK_TRANSFER',
         id: 'st-num-2',
         date: '2025-08-05',
         security_id: 'sec-001',
@@ -350,6 +367,7 @@ describe('Transfer Type Converters', () => {
   describe('Date conversion', () => {
     it('converts date string to DAML time format', () => {
       const input: OcfStockTransfer = {
+        object_type: 'TX_STOCK_TRANSFER',
         id: 'st-date-1',
         date: '2025-08-05',
         security_id: 'sec-001',
@@ -366,6 +384,7 @@ describe('Transfer Type Converters', () => {
   describe('Comments handling', () => {
     it('filters empty comments array', () => {
       const input: OcfStockTransfer = {
+        object_type: 'TX_STOCK_TRANSFER',
         id: 'st-comments-1',
         date: '2025-08-05',
         security_id: 'sec-001',
@@ -380,6 +399,7 @@ describe('Transfer Type Converters', () => {
 
     it('preserves non-empty comments', () => {
       const input: OcfStockTransfer = {
+        object_type: 'TX_STOCK_TRANSFER',
         id: 'st-comments-2',
         date: '2025-08-05',
         security_id: 'sec-001',

@@ -7,7 +7,7 @@ import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetStockPlanPoolAdjustmentAsOcfParams extends GetByContractIdParams {}
 export interface GetStockPlanPoolAdjustmentAsOcfResult {
-  event: OcfStockPlanPoolAdjustment & { object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT' };
+  event: OcfStockPlanPoolAdjustment;
   contractId: string;
 }
 
@@ -29,6 +29,7 @@ export function damlStockPlanPoolAdjustmentDataToNative(
   const sharesReservedStr = typeof sharesReserved === 'number' ? sharesReserved.toString() : sharesReserved;
 
   return {
+    object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
     id: data.id,
     date: data.date.split('T')[0],
     stock_plan_id: data.stock_plan_id,
@@ -52,10 +53,5 @@ export async function getStockPlanPoolAdjustmentAsOcf(
   const contract = createArgument as StockPlanPoolAdjustmentCreateArgument;
 
   const native = damlStockPlanPoolAdjustmentDataToNative(contract.adjustment_data);
-  // Add object_type to create the full event type
-  const event = {
-    object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT' as const,
-    ...native,
-  };
-  return { event, contractId: params.contractId };
+  return { event: native, contractId: params.contractId };
 }

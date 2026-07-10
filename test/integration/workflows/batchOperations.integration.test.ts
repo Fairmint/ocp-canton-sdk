@@ -69,6 +69,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       id: generateTestId('batch-sh-1'),
       name: { legal_name: 'Batch Stakeholder 1' },
       stakeholder_type: 'INDIVIDUAL' as const,
+      object_type: 'STAKEHOLDER' as const,
     };
 
     const cmd1 = buildUpdateCapTableCommand(
@@ -131,6 +132,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       id: generateTestId('batch-stakeholder'),
       name: { legal_name: 'Batch Stakeholder' },
       stakeholder_type: 'INDIVIDUAL' as const,
+      object_type: 'STAKEHOLDER' as const,
     };
 
     const stakeholderCmd = buildUpdateCapTableCommand(
@@ -310,6 +312,7 @@ createIntegrationTestSuite('Batch operations', (getContext) => {
       id: generateTestId('txbatch-stakeholder'),
       name: { legal_name: 'TxBatch Stakeholder' },
       stakeholder_type: 'INDIVIDUAL' as const,
+      object_type: 'STAKEHOLDER' as const,
     };
 
     const cmd = buildUpdateCapTableCommand(

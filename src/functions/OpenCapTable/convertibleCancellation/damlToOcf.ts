@@ -41,6 +41,7 @@ export function damlConvertibleCancellationToNative(d: DamlConvertibleCancellati
   }
 
   return {
+    object_type: 'TX_CONVERTIBLE_CANCELLATION',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

@@ -27,6 +27,7 @@ export function damlEquityCompensationRetractionToNative(
   d: DamlEquityCompensationRetractionData
 ): OcfEquityCompensationRetraction {
   return {
+    object_type: 'TX_EQUITY_COMPENSATION_RETRACTION',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

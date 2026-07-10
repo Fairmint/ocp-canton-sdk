@@ -22,7 +22,7 @@ import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetWarrantIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetWarrantIssuanceAsOcfResult {
-  warrantIssuance: OcfWarrantIssuance & { object_type: 'TX_WARRANT_ISSUANCE' };
+  warrantIssuance: OcfWarrantIssuance;
   contractId: string;
 }
 
@@ -453,6 +453,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
   }
 
   return {
+    object_type: 'TX_WARRANT_ISSUANCE',
     id: d.id,
     date: d.date.split('T')[0],
     security_id: d.security_id,
@@ -524,11 +525,5 @@ export async function getWarrantIssuanceAsOcf(
   const d = arg.issuance_data as Record<string, unknown>;
 
   const native = damlWarrantIssuanceDataToNative(d);
-
-  const warrantIssuance = {
-    object_type: 'TX_WARRANT_ISSUANCE' as const,
-    ...native,
-  };
-
-  return { warrantIssuance, contractId: params.contractId };
+  return { warrantIssuance: native, contractId: params.contractId };
 }

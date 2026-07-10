@@ -396,7 +396,8 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
 /**
  * Parse and validate OCF input for a specific SDK entity type.
  *
- * If object_type is missing, the canonical object_type for the entity is injected before validation.
+ * Typed SDK inputs must provide the exact canonical object_type for the entity.
+ * Legacy aliases remain supported only by the raw {@link parseOcfObject} ingestion boundary.
  */
 export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
   if (!isRecord(input)) {
@@ -409,24 +410,38 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
 
   const expectedObjectType = resolveSchemaObjectType(ENTITY_OBJECT_TYPE_MAP[entityType]);
   const objectInput = input;
+  const receivedObjectType = objectInput.object_type;
+  if (typeof receivedObjectType !== 'string' || receivedObjectType.length === 0) {
+    throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: expectedObjectType,
+      receivedValue: receivedObjectType,
+    });
+  }
+  if (receivedObjectType !== expectedObjectType) {
+    throw new OcpValidationError(
+      'object_type',
+      `Entity type "${entityType}" expects object_type "${expectedObjectType}", received "${receivedObjectType}"`,
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: expectedObjectType,
+        receivedValue: receivedObjectType,
+      }
+    );
+  }
 
-  const withObjectType =
-    typeof objectInput.object_type === 'string' && objectInput.object_type.length > 0
-      ? objectInput
-      : { ...objectInput, object_type: expectedObjectType };
-
-  const parsed = parseOcfObject(withObjectType);
+  const parsed = parseOcfObject(objectInput);
   if (!isParsedEntityType<T>(parsed, expectedObjectType)) {
-    const receivedObjectType = parsed.object_type;
+    const parsedObjectType = parsed.object_type;
     const receivedObjectTypeMessage =
-      typeof receivedObjectType === 'string' ? receivedObjectType : JSON.stringify(receivedObjectType);
+      typeof parsedObjectType === 'string' ? parsedObjectType : JSON.stringify(parsedObjectType);
     throw new OcpValidationError(
       'object_type',
       `Entity type "${entityType}" expects object_type "${expectedObjectType}", received "${receivedObjectTypeMessage}"`,
       {
         code: OcpErrorCodes.INVALID_FORMAT,
         expectedType: expectedObjectType,
-        receivedValue: receivedObjectType,
+        receivedValue: parsedObjectType,
       }
     );
   }

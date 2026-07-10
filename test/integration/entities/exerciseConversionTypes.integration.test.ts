@@ -294,6 +294,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
         security_id: 'warrant-sec',
         trigger_id: 'trigger-001',
         resulting_security_ids: ['stock-sec'],
+        object_type: 'TX_WARRANT_EXERCISE',
       })
     ).toThrow('warrantExercise.id');
 
@@ -306,6 +307,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
         security_id: 'convertible-sec',
         trigger_id: 'trigger-002',
         resulting_security_ids: ['stock-sec'],
+        object_type: 'TX_CONVERTIBLE_CONVERSION',
       })
     ).toThrow('convertibleConversion.id');
 
@@ -317,6 +319,7 @@ createIntegrationTestSuite('Exercise and Conversion Types', (getContext) => {
         security_id: 'stock-sec',
         quantity_converted: '5000',
         resulting_security_ids: ['preferred-sec'],
+        object_type: 'TX_STOCK_CONVERSION',
       })
     ).toThrow('stockConversion.id');
   });

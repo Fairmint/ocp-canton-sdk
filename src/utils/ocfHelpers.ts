@@ -9,7 +9,13 @@
  * @module ocfHelpers
  */
 
-import { getAllOcfTypes, getOcfMetadata, isValidOcfType, OCF_METADATA, type OcfObjectType } from './ocfMetadata';
+import {
+  getAllOcfTypes,
+  getOcfMetadata,
+  isValidOcfType,
+  OCF_METADATA,
+  type OcfMetadataObjectType,
+} from './ocfMetadata';
 
 /**
  * Get the data field name used in DAML contracts for a given OCF type.
@@ -20,7 +26,7 @@ import { getAllOcfTypes, getOcfMetadata, isValidOcfType, OCF_METADATA, type OcfO
  * @param type - The OCF object type
  * @returns The data field name (e.g., 'stakeholder_data', 'issuance_data')
  */
-export function getOcfDataFieldName(type: OcfObjectType): string {
+export function getOcfDataFieldName(type: OcfMetadataObjectType): string {
   const metadata = getOcfMetadata(type);
   // The first element of ocfIdPath is the data field name
   return metadata.ocfIdPath[0];
@@ -35,7 +41,7 @@ export function getOcfDataFieldName(type: OcfObjectType): string {
  * @param createArgs - The contract's create arguments from a transaction tree
  * @returns The OCF ID string, or undefined if not found
  */
-export function extractOcfIdFromCreateArgs(type: OcfObjectType, createArgs: unknown): string | undefined {
+export function extractOcfIdFromCreateArgs(type: OcfMetadataObjectType, createArgs: unknown): string | undefined {
   if (!createArgs || typeof createArgs !== 'object') {
     return undefined;
   }
@@ -62,9 +68,9 @@ export function extractOcfIdFromCreateArgs(type: OcfObjectType, createArgs: unkn
  * @param count - Number of items (for pluralization)
  * @returns Human-readable label (e.g., '1 Stakeholder', '5 Stakeholders')
  */
-export function getOcfTypeLabel(type: OcfObjectType, count: number): string {
+export function getOcfTypeLabel(type: OcfMetadataObjectType, count: number): string {
   // Convert type to title case and handle special cases
-  const labelMap: Partial<Record<OcfObjectType, { singular: string; plural: string }>> = {
+  const labelMap: Partial<Record<OcfMetadataObjectType, { singular: string; plural: string }>> = {
     STOCK_CLASS: { singular: 'Stock Class', plural: 'Stock Classes' },
     STAKEHOLDER: { singular: 'Stakeholder', plural: 'Stakeholders' },
     STOCK_PLAN: { singular: 'Stock Plan', plural: 'Stock Plans' },
@@ -117,4 +123,4 @@ export function getOcfTypeLabel(type: OcfObjectType, count: number): string {
 }
 
 // Re-export types and functions from ocfMetadata for convenience
-export { getAllOcfTypes, getOcfMetadata, isValidOcfType, OCF_METADATA, type OcfObjectType };
+export { getAllOcfTypes, getOcfMetadata, isValidOcfType, OCF_METADATA, type OcfMetadataObjectType };

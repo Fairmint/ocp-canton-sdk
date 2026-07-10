@@ -29,6 +29,7 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderData: OcfStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -47,14 +48,19 @@ describe('CapTableBatch', () => {
       });
 
       const invalidStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
         unexpected_field: 'not allowed by strict schema',
       };
 
-      expect(() => batch.create('stakeholder', invalidStakeholder as OcfStakeholder)).toThrow(OcpValidationError);
-      expect(() => batch.create('stakeholder', invalidStakeholder as OcfStakeholder)).toThrow('unexpected_field');
+      expect(() => batch.create('stakeholder', invalidStakeholder as unknown as OcfStakeholder)).toThrow(
+        OcpValidationError
+      );
+      expect(() => batch.create('stakeholder', invalidStakeholder as unknown as OcfStakeholder)).toThrow(
+        'unexpected_field'
+      );
     });
 
     it('should accept deprecated stakeholder relationship field via canonicalization', () => {
@@ -64,6 +70,7 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderWithDeprecatedField = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -81,6 +88,7 @@ describe('CapTableBatch', () => {
       });
 
       const legacySplitData = {
+        object_type: 'TX_STOCK_CLASS_SPLIT',
         id: 'split-123',
         date: '2024-01-15',
         stock_class_id: 'sc-123',
@@ -105,6 +113,7 @@ describe('CapTableBatch', () => {
       });
 
       const legacyRatioData: OcfStockClassConversionRatioAdjustment = {
+        object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
         id: 'ratio-123',
         date: '2024-01-15',
         stock_class_id: 'sc-123',
@@ -133,12 +142,14 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderData: OcfStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
       };
 
       const stockClassData: OcfStockClass = {
+        object_type: 'STOCK_CLASS',
         id: 'sc-123',
         name: 'Common Stock',
         class_type: 'COMMON',
@@ -164,6 +175,7 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderData: OcfStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -183,6 +195,7 @@ describe('CapTableBatch', () => {
       });
 
       const issuerData = {
+        object_type: 'ISSUER' as const,
         id: 'issuer-123',
         legal_name: 'Test Corp',
         formation_date: '2024-01-01',
@@ -229,6 +242,7 @@ describe('CapTableBatch', () => {
       });
 
       const issuerData = {
+        object_type: 'ISSUER' as const,
         id: 'issuer-123',
         legal_name: 'Updated Test Corp',
         formation_date: '2024-01-01',
@@ -273,6 +287,7 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderData: OcfStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -312,6 +327,7 @@ describe('CapTableBatch', () => {
       });
 
       const stakeholderData: OcfStakeholder = {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'Jane Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -403,6 +419,7 @@ describe('CapTableBatch', () => {
       );
 
       batch.create('stakeholder', {
+        object_type: 'STAKEHOLDER',
         id: 'sh-123',
         name: { legal_name: 'John Doe' },
         stakeholder_type: 'INDIVIDUAL',
@@ -427,11 +444,13 @@ describe('CapTableBatch', () => {
 
       batch
         .create('stakeholder', {
+          object_type: 'STAKEHOLDER',
           id: 'sh-123',
           name: { legal_name: 'John Doe' },
           stakeholder_type: 'INDIVIDUAL',
         })
         .edit('stockClass', {
+          object_type: 'STOCK_CLASS',
           id: 'sc-123',
           name: 'Common Stock',
           class_type: 'COMMON',
@@ -709,6 +728,7 @@ describe('JSON-safety guard', () => {
     });
 
     const stakeholderData: OcfStakeholder = {
+      object_type: 'STAKEHOLDER',
       id: 'sh-123',
       name: { legal_name: 'John Doe' },
       stakeholder_type: 'INDIVIDUAL',
@@ -748,6 +768,7 @@ describe('JSON-safety guard', () => {
 describe('buildUpdateCapTableCommand', () => {
   it('should build command from operations object', () => {
     const stakeholderData: OcfStakeholder = {
+      object_type: 'STAKEHOLDER',
       id: 'sh-123',
       name: { legal_name: 'John Doe' },
       stakeholder_type: 'INDIVIDUAL',
@@ -803,11 +824,10 @@ describe('ENTITY_TAG_MAP', () => {
     });
   });
 
-  it('should have all 55 entity types (47 base + 7 PlanSecurity aliases + 1 issuer)', () => {
-    // The DAML contract supports 47 entity types in the CapTable maps
-    // Plus 7 PlanSecurity alias types that map to EquityCompensation types
-    // Plus 1 issuer type (edit-only, stored as a single reference not a map)
-    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(55);
+  it('should have all 48 canonical entity types', () => {
+    // Legacy PlanSecurity values normalize to EquityCompensation before typed batch operations.
+    // Issuer is the one edit-only entity stored as a single reference rather than a map.
+    expect(Object.keys(ENTITY_TAG_MAP)).toHaveLength(48);
   });
 
   it('should have correct tags for stakeholder event types', () => {

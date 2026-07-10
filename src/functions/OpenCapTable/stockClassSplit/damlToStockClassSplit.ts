@@ -29,6 +29,7 @@ export function damlStockClassSplitToNative(d: DamlStockClassSplitData): OcfStoc
     typeof d.split_ratio.denominator === 'number' ? d.split_ratio.denominator.toString() : d.split_ratio.denominator;
 
   return {
+    object_type: 'TX_STOCK_CLASS_SPLIT',
     id: d.id,
     date: d.date.split('T')[0],
     stock_class_id: d.stock_class_id,

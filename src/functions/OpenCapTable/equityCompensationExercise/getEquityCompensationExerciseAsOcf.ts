@@ -48,6 +48,7 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
   }
 
   return {
+    object_type: 'TX_EQUITY_COMPENSATION_EXERCISE',
     id: d.id,
     date: d.date.split('T')[0],
     security_id: d.security_id,
@@ -61,7 +62,7 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
 export interface GetEquityCompensationExerciseAsOcfParams extends GetByContractIdParams {}
 
 export interface GetEquityCompensationExerciseAsOcfResult {
-  event: OcfEquityCompensationExercise & { object_type: 'TX_EQUITY_COMPENSATION_EXERCISE' };
+  event: OcfEquityCompensationExercise;
   contractId: string;
 }
 
@@ -91,11 +92,5 @@ export async function getEquityCompensationExerciseAsOcf(
   const d = exerciseData as Record<string, unknown>;
 
   const native = damlEquityCompensationExerciseDataToNative(d);
-  // Add object_type to create the full event type
-  const event = {
-    object_type: 'TX_EQUITY_COMPENSATION_EXERCISE' as const,
-    ...native,
-  };
-
-  return { event, contractId: params.contractId };
+  return { event: native, contractId: params.contractId };
 }

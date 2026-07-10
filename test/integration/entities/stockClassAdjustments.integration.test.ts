@@ -75,6 +75,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         stock_class_id: stockSecurity.stockClassId,
         split_ratio: { numerator: '2', denominator: '1' },
         comments: ['2-for-1 stock split'],
+        object_type: 'TX_STOCK_CLASS_SPLIT',
       })
       .execute();
 
@@ -132,6 +133,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
           rounding_type: 'NORMAL',
         },
         comments: ['Anti-dilution adjustment'],
+        object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
       })
       .execute();
 
@@ -221,6 +223,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         security_ids: [stockSecurity1.securityId, stockSecurity2.securityId, stockSecurity3.securityId],
         resulting_security_id: 'new-sec-001',
         comments: ['10-for-1 reverse split consolidation'],
+        object_type: 'TX_STOCK_CONSOLIDATION',
       })
       .execute();
 
@@ -277,6 +280,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         security_id: stockSecurity.securityId,
         resulting_security_ids: ['sec-new-001'],
         comments: ['Reissued after forfeiture period'],
+        object_type: 'TX_STOCK_REISSUANCE',
       })
       .execute();
 
@@ -365,6 +369,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         security_ids: [stockSecurity1.securityId, stockSecurity2.securityId],
         resulting_security_id: 'batch-new-sec-001',
         comments: ['Batch consolidation'],
+        object_type: 'TX_STOCK_CONSOLIDATION',
       })
       .create('stockReissuance', {
         id: generateTestId('batch-reissue'),
@@ -372,6 +377,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         security_id: stockSecurity3.securityId,
         resulting_security_ids: ['batch-new-sec-002'],
         comments: ['Batch reissuance'],
+        object_type: 'TX_STOCK_REISSUANCE',
       })
       .execute();
 
@@ -413,6 +419,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
         board_approval_date: generateDateString(-5),
         stockholder_approval_date: generateDateString(-2),
         comments: ['Split with full approval chain'],
+        object_type: 'TX_STOCK_CLASS_SPLIT',
       })
     ).toThrow('board_approval_date');
   });

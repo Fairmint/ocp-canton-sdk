@@ -46,6 +46,7 @@ describe('Acceptance Type Converters', () => {
     describe('stockAcceptance', () => {
       test('converts minimal stockAcceptance to DAML format', () => {
         const ocfData: OcfStockAcceptance = {
+          object_type: 'TX_STOCK_ACCEPTANCE',
           id: 'stock-accept-001',
           date: '2024-01-15',
           security_id: 'stock-sec-001',
@@ -63,6 +64,7 @@ describe('Acceptance Type Converters', () => {
 
       test('converts stockAcceptance with comments to DAML format', () => {
         const ocfData: OcfStockAcceptance = {
+          object_type: 'TX_STOCK_ACCEPTANCE',
           id: 'stock-accept-002',
           date: '2024-02-20',
           security_id: 'stock-sec-002',
@@ -81,6 +83,7 @@ describe('Acceptance Type Converters', () => {
 
       test('throws error when id is missing', () => {
         const ocfData = {
+          object_type: 'TX_STOCK_ACCEPTANCE',
           id: '',
           date: '2024-01-15',
           security_id: 'stock-sec-001',
@@ -92,6 +95,7 @@ describe('Acceptance Type Converters', () => {
 
       test('rejects date values that include time portion', () => {
         const ocfData: OcfStockAcceptance = {
+          object_type: 'TX_STOCK_ACCEPTANCE',
           id: 'stock-accept-003',
           date: '2024-01-15T10:30:00.000Z',
           security_id: 'stock-sec-003',
@@ -102,6 +106,7 @@ describe('Acceptance Type Converters', () => {
 
       test('filters empty comments', () => {
         const ocfData: OcfStockAcceptance = {
+          object_type: 'TX_STOCK_ACCEPTANCE',
           id: 'stock-accept-004',
           date: '2024-01-15',
           security_id: 'stock-sec-004',
@@ -117,6 +122,7 @@ describe('Acceptance Type Converters', () => {
     describe('warrantAcceptance', () => {
       test('converts minimal warrantAcceptance to DAML format', () => {
         const ocfData: OcfWarrantAcceptance = {
+          object_type: 'TX_WARRANT_ACCEPTANCE',
           id: 'warrant-accept-001',
           date: '2024-03-10',
           security_id: 'warrant-sec-001',
@@ -134,6 +140,7 @@ describe('Acceptance Type Converters', () => {
 
       test('converts warrantAcceptance with comments', () => {
         const ocfData: OcfWarrantAcceptance = {
+          object_type: 'TX_WARRANT_ACCEPTANCE',
           id: 'warrant-accept-002',
           date: '2024-03-15',
           security_id: 'warrant-sec-002',
@@ -152,6 +159,7 @@ describe('Acceptance Type Converters', () => {
 
       test('throws error when id is missing', () => {
         const ocfData = {
+          object_type: 'TX_WARRANT_ACCEPTANCE',
           id: '',
           date: '2024-03-10',
           security_id: 'warrant-sec-001',
@@ -165,6 +173,7 @@ describe('Acceptance Type Converters', () => {
     describe('convertibleAcceptance', () => {
       test('converts minimal convertibleAcceptance to DAML format', () => {
         const ocfData: OcfConvertibleAcceptance = {
+          object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
           id: 'conv-accept-001',
           date: '2024-04-05',
           security_id: 'conv-sec-001',
@@ -182,6 +191,7 @@ describe('Acceptance Type Converters', () => {
 
       test('converts convertibleAcceptance with comments', () => {
         const ocfData: OcfConvertibleAcceptance = {
+          object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
           id: 'conv-accept-002',
           date: '2024-04-10',
           security_id: 'conv-sec-002',
@@ -200,6 +210,7 @@ describe('Acceptance Type Converters', () => {
 
       test('throws error when id is missing', () => {
         const ocfData = {
+          object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
           id: '',
           date: '2024-04-05',
           security_id: 'conv-sec-001',
@@ -213,6 +224,7 @@ describe('Acceptance Type Converters', () => {
     describe('equityCompensationAcceptance', () => {
       test('converts minimal equityCompensationAcceptance to DAML format', () => {
         const ocfData: OcfEquityCompensationAcceptance = {
+          object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
           id: 'equity-accept-001',
           date: '2024-05-01',
           security_id: 'equity-sec-001',
@@ -230,6 +242,7 @@ describe('Acceptance Type Converters', () => {
 
       test('converts equityCompensationAcceptance with comments', () => {
         const ocfData: OcfEquityCompensationAcceptance = {
+          object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
           id: 'equity-accept-002',
           date: '2024-05-15',
           security_id: 'equity-sec-002',
@@ -248,6 +261,7 @@ describe('Acceptance Type Converters', () => {
 
       test('throws error when id is missing', () => {
         const ocfData = {
+          object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
           id: '',
           date: '2024-05-01',
           security_id: 'equity-sec-001',
@@ -279,6 +293,7 @@ describe('Acceptance Type Converters', () => {
         const result = damlStockAcceptanceToNative(baseDamlData);
 
         expect(result).toEqual({
+          object_type: 'TX_STOCK_ACCEPTANCE',
           id: 'test-accept-001',
           date: '2024-06-15',
           security_id: 'test-sec-001',
@@ -289,6 +304,7 @@ describe('Acceptance Type Converters', () => {
         const result = damlStockAcceptanceToNative(damlDataWithComments);
 
         expect(result).toEqual({
+          object_type: 'TX_STOCK_ACCEPTANCE',
           id: 'test-accept-002',
           date: '2024-06-20',
           security_id: 'test-sec-002',
@@ -308,6 +324,7 @@ describe('Acceptance Type Converters', () => {
         const result = damlWarrantAcceptanceToNative(baseDamlData);
 
         expect(result).toEqual({
+          object_type: 'TX_WARRANT_ACCEPTANCE',
           id: 'test-accept-001',
           date: '2024-06-15',
           security_id: 'test-sec-001',
@@ -318,6 +335,7 @@ describe('Acceptance Type Converters', () => {
         const result = damlWarrantAcceptanceToNative(damlDataWithComments);
 
         expect(result).toEqual({
+          object_type: 'TX_WARRANT_ACCEPTANCE',
           id: 'test-accept-002',
           date: '2024-06-20',
           security_id: 'test-sec-002',
@@ -331,6 +349,7 @@ describe('Acceptance Type Converters', () => {
         const result = damlConvertibleAcceptanceToNative(baseDamlData);
 
         expect(result).toEqual({
+          object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
           id: 'test-accept-001',
           date: '2024-06-15',
           security_id: 'test-sec-001',
@@ -341,6 +360,7 @@ describe('Acceptance Type Converters', () => {
         const result = damlConvertibleAcceptanceToNative(damlDataWithComments);
 
         expect(result).toEqual({
+          object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
           id: 'test-accept-002',
           date: '2024-06-20',
           security_id: 'test-sec-002',
@@ -354,6 +374,7 @@ describe('Acceptance Type Converters', () => {
         const result = damlEquityCompensationAcceptanceToNative(baseDamlData);
 
         expect(result).toEqual({
+          object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
           id: 'test-accept-001',
           date: '2024-06-15',
           security_id: 'test-sec-001',
@@ -364,6 +385,7 @@ describe('Acceptance Type Converters', () => {
         const result = damlEquityCompensationAcceptanceToNative(damlDataWithComments);
 
         expect(result).toEqual({
+          object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
           id: 'test-accept-002',
           date: '2024-06-20',
           security_id: 'test-sec-002',
@@ -376,6 +398,7 @@ describe('Acceptance Type Converters', () => {
   describe('Round-trip conversion', () => {
     test('OCF → DAML → OCF preserves stockAcceptance data', () => {
       const original: OcfStockAcceptance = {
+        object_type: 'TX_STOCK_ACCEPTANCE',
         id: 'round-trip-001',
         date: '2024-07-01',
         security_id: 'rt-sec-001',
@@ -390,6 +413,7 @@ describe('Acceptance Type Converters', () => {
 
     test('OCF → DAML → OCF preserves warrantAcceptance data', () => {
       const original: OcfWarrantAcceptance = {
+        object_type: 'TX_WARRANT_ACCEPTANCE',
         id: 'round-trip-002',
         date: '2024-07-02',
         security_id: 'rt-sec-002',
@@ -404,6 +428,7 @@ describe('Acceptance Type Converters', () => {
 
     test('OCF → DAML → OCF preserves convertibleAcceptance data', () => {
       const original: OcfConvertibleAcceptance = {
+        object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
         id: 'round-trip-003',
         date: '2024-07-03',
         security_id: 'rt-sec-003',
@@ -418,6 +443,7 @@ describe('Acceptance Type Converters', () => {
 
     test('OCF → DAML → OCF preserves equityCompensationAcceptance data', () => {
       const original: OcfEquityCompensationAcceptance = {
+        object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
         id: 'round-trip-004',
         date: '2024-07-04',
         security_id: 'rt-sec-004',
@@ -434,6 +460,7 @@ describe('Acceptance Type Converters', () => {
 
     test('OCF → DAML → OCF preserves data without optional comments', () => {
       const original: OcfStockAcceptance = {
+        object_type: 'TX_STOCK_ACCEPTANCE',
         id: 'round-trip-005',
         date: '2024-07-05',
         security_id: 'rt-sec-005',

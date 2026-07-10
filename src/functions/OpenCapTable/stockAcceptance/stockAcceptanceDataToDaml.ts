@@ -41,6 +41,7 @@ export function stockAcceptanceDataToDaml(d: OcfStockAcceptance): Record<string,
  */
 export function damlStockAcceptanceToNative(damlData: DamlStockAcceptanceData): OcfStockAcceptance {
   return {
+    object_type: 'TX_STOCK_ACCEPTANCE',
     id: damlData.id,
     date: damlTimeToDateString(damlData.date),
     security_id: damlData.security_id,

@@ -41,6 +41,7 @@ export function convertibleAcceptanceDataToDaml(d: OcfConvertibleAcceptance): Re
  */
 export function damlConvertibleAcceptanceToNative(damlData: DamlConvertibleAcceptanceData): OcfConvertibleAcceptance {
   return {
+    object_type: 'TX_CONVERTIBLE_ACCEPTANCE',
     id: damlData.id,
     date: damlTimeToDateString(damlData.date),
     security_id: damlData.security_id,

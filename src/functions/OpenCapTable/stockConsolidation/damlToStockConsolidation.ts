@@ -21,6 +21,7 @@ export interface DamlStockConsolidationData {
  */
 export function damlStockConsolidationToNative(d: DamlStockConsolidationData): OcfStockConsolidation {
   return {
+    object_type: 'TX_STOCK_CONSOLIDATION',
     id: d.id,
     date: d.date.split('T')[0],
     security_ids: d.security_ids,

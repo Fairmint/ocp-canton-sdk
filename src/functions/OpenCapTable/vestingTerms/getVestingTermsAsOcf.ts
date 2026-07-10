@@ -4,6 +4,7 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
   AllocationType,
+  OcfVestingTerms,
   VestingCondition,
   VestingConditionPortion,
   VestingDayOfMonth,
@@ -30,8 +31,8 @@ function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.Oc
     case 'OcfAllocationFractional':
       return 'FRACTIONAL';
     default: {
-      const _exhaustiveCheck: never = t;
-      throw new OcpParseError(`Unknown DAML allocation type: ${String(t)}`, {
+      const exhaustiveCheck: never = t;
+      throw new OcpParseError(`Unknown DAML allocation type: ${String(exhaustiveCheck)}`, {
         source: 'vestingTerms.allocation_type',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
@@ -293,7 +294,7 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
 
 export function damlVestingTermsDataToNative(
   d: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
-): Omit<OcfVestingTermsOutput, 'object_type'> {
+): OcfVestingTerms {
   const dataWithId = d as unknown as { id?: string };
 
   // Validate required fields - fail fast if missing
@@ -321,6 +322,7 @@ export function damlVestingTermsDataToNative(
     : [];
 
   return {
+    object_type: 'VESTING_TERMS',
     id: dataWithId.id,
     name: d.name,
     description: d.description,
@@ -330,20 +332,10 @@ export function damlVestingTermsDataToNative(
   };
 }
 
-interface OcfVestingTermsOutput {
-  object_type: 'VESTING_TERMS';
-  id?: string;
-  name: string;
-  description: string;
-  allocation_type: string;
-  vesting_conditions: VestingCondition[];
-  comments?: string[];
-}
-
 export interface GetVestingTermsAsOcfParams extends GetByContractIdParams {}
 
 export interface GetVestingTermsAsOcfResult {
-  vestingTerms: OcfVestingTermsOutput;
+  vestingTerms: OcfVestingTerms;
   contractId: string;
 }
 
@@ -379,12 +371,7 @@ export async function getVestingTermsAsOcf(
     });
   }
 
-  const native = damlVestingTermsDataToNative(createArgument.vesting_terms_data);
+  const vestingTerms = damlVestingTermsDataToNative(createArgument.vesting_terms_data);
 
-  const ocf: OcfVestingTermsOutput = {
-    object_type: 'VESTING_TERMS',
-    ...native,
-  };
-
-  return { vestingTerms: ocf, contractId: params.contractId };
+  return { vestingTerms, contractId: params.contractId };
 }

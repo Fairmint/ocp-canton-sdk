@@ -11,7 +11,13 @@
 
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
-import type { OcfDataTypeFor, OcfEntityArguments } from './batchTypes';
+import type {
+  OcfCreateOperation,
+  OcfDataTypeFor,
+  OcfEditOperation,
+  OcfEntityArguments,
+  OcfEntityType,
+} from './batchTypes';
 
 // Import converters from entity folders
 import { convertibleAcceptanceDataToDaml } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -31,8 +37,6 @@ import { equityCompensationRetractionDataToDaml } from '../equityCompensationRet
 import { equityCompensationTransferDataToDaml } from '../equityCompensationTransfer/equityCompensationTransferDataToDaml';
 import { issuerDataToDaml } from '../issuer/createIssuer';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
-import { planSecurityExerciseDataToDaml } from '../planSecurityExercise/planSecurityExerciseDataToDaml';
-import { planSecurityIssuanceDataToDaml } from '../planSecurityIssuance/planSecurityIssuanceDataToDaml';
 import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
 import { stakeholderRelationshipChangeEventDataToDaml } from '../stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
 import { stakeholderStatusChangeEventDataToDaml } from '../stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
@@ -74,6 +78,15 @@ import { warrantTransferDataToDaml } from '../warrantTransfer/warrantTransferDat
  */
 export function convertToDaml(...args: OcfEntityArguments): Record<string, unknown> {
   const [type, data] = args;
+  return convertEntityToDaml(type, data);
+}
+
+/** Convert a correlated create/edit operation object to its generated DAML payload. */
+export function convertOperationToDaml(operation: OcfCreateOperation | OcfEditOperation): Record<string, unknown> {
+  return convertEntityToDaml(operation.type, operation.data);
+}
+
+function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntityType>): Record<string, unknown> {
   const d = parseOcfEntityInput(type, data);
 
   switch (type) {
@@ -175,22 +188,6 @@ export function convertToDaml(...args: OcfEntityArguments): Record<string, unkno
       return equityCompensationRetractionDataToDaml(d as OcfDataTypeFor<'equityCompensationRetraction'>);
     case 'equityCompensationTransfer':
       return equityCompensationTransferDataToDaml(d as OcfDataTypeFor<'equityCompensationTransfer'>);
-
-    // PlanSecurity aliases - delegate to dedicated converters or EquityCompensation converters
-    case 'planSecurityIssuance':
-      return planSecurityIssuanceDataToDaml(d as OcfDataTypeFor<'planSecurityIssuance'>);
-    case 'planSecurityExercise':
-      return planSecurityExerciseDataToDaml(d as OcfDataTypeFor<'planSecurityExercise'>);
-    case 'planSecurityCancellation':
-      return equityCompensationCancellationDataToDaml(d as unknown as OcfDataTypeFor<'equityCompensationCancellation'>);
-    case 'planSecurityAcceptance':
-      return equityCompensationAcceptanceDataToDaml(d as unknown as OcfDataTypeFor<'equityCompensationAcceptance'>);
-    case 'planSecurityRelease':
-      return equityCompensationReleaseDataToDaml(d as unknown as OcfDataTypeFor<'equityCompensationRelease'>);
-    case 'planSecurityRetraction':
-      return equityCompensationRetractionDataToDaml(d as unknown as OcfDataTypeFor<'equityCompensationRetraction'>);
-    case 'planSecurityTransfer':
-      return equityCompensationTransferDataToDaml(d as unknown as OcfDataTypeFor<'equityCompensationTransfer'>);
 
     // Stakeholder change events
     case 'stakeholderRelationshipChangeEvent':

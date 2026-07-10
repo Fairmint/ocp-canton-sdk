@@ -41,6 +41,7 @@ export function warrantAcceptanceDataToDaml(d: OcfWarrantAcceptance): Record<str
  */
 export function damlWarrantAcceptanceToNative(damlData: DamlWarrantAcceptanceData): OcfWarrantAcceptance {
   return {
+    object_type: 'TX_WARRANT_ACCEPTANCE',
     id: damlData.id,
     date: damlTimeToDateString(damlData.date),
     security_id: damlData.security_id,

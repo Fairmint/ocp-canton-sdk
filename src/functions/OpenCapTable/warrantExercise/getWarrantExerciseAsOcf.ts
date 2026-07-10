@@ -10,9 +10,7 @@ import { damlWarrantExerciseToNative } from './damlToOcf';
  * OCF Warrant Exercise Event with object_type discriminator OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/exercise/WarrantExercise.schema.json
  */
-export interface OcfWarrantExerciseEvent extends OcfWarrantExercise {
-  object_type: 'TX_WARRANT_EXERCISE';
-}
+export type OcfWarrantExerciseEvent = OcfWarrantExercise;
 
 export type GetWarrantExerciseAsOcfParams = GetByContractIdParams;
 
@@ -43,12 +41,5 @@ export async function getWarrantExerciseAsOcf(
   const d = exerciseData;
 
   const native = damlWarrantExerciseToNative(d);
-  // Add object_type to create the full event type
-  // Note: quantity is typed as string | number in OcfWarrantExercise but normalizeNumericString always returns string
-  const event: OcfWarrantExerciseEvent = {
-    object_type: 'TX_WARRANT_EXERCISE',
-    ...native,
-  };
-
-  return { event, contractId: params.contractId };
+  return { event: native, contractId: params.contractId };
 }

@@ -14,6 +14,7 @@ describe('Required Field Validation', () => {
   describe('stakeholderDataToDaml', () => {
     test('throws OcpValidationError when id is missing', () => {
       const invalidData = {
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
       } as unknown as OcfStakeholder;
@@ -25,6 +26,7 @@ describe('Required Field Validation', () => {
     test('throws OcpValidationError when id is empty string', () => {
       const invalidData = {
         id: '',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
       } as OcfStakeholder;
@@ -36,6 +38,7 @@ describe('Required Field Validation', () => {
     test('succeeds with valid minimal data', () => {
       const validData: OcfStakeholder = {
         id: 'sh-001',
+        object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test Stakeholder' },
         stakeholder_type: 'INDIVIDUAL',
       };
@@ -49,6 +52,7 @@ describe('Required Field Validation', () => {
   describe('stockIssuanceDataToDaml', () => {
     const validBaseData = {
       id: 'iss-001',
+      object_type: 'TX_STOCK_ISSUANCE' as const,
       security_id: 'sec-001',
       custom_id: 'CS-001',
       stakeholder_id: 'sh-001',

@@ -15,6 +15,7 @@ describe('StockPlan Converters', () => {
   describe('OCF → DAML (stockPlanDataToDaml)', () => {
     test('converts minimal stock plan data', () => {
       const ocfData: OcfStockPlan = {
+        object_type: 'STOCK_PLAN',
         id: 'sp-001',
         plan_name: 'Employee Stock Option Pool',
         initial_shares_reserved: '1000000',
@@ -31,6 +32,7 @@ describe('StockPlan Converters', () => {
 
     test('converts stock plan with all optional fields', () => {
       const ocfData: OcfStockPlan = {
+        object_type: 'STOCK_PLAN',
         id: 'sp-002',
         plan_name: 'Full Stock Plan',
         initial_shares_reserved: '2000000',
@@ -53,6 +55,7 @@ describe('StockPlan Converters', () => {
 
     test('handles numeric initial_shares_reserved', () => {
       const ocfData: OcfStockPlan = {
+        object_type: 'STOCK_PLAN',
         id: 'sp-003',
         plan_name: 'Test Plan',
         initial_shares_reserved: '500000',
@@ -66,6 +69,7 @@ describe('StockPlan Converters', () => {
 
     test('throws OcpValidationError when id is missing', () => {
       const ocfData = {
+        object_type: 'STOCK_PLAN',
         id: '',
         plan_name: 'Test Plan',
         initial_shares_reserved: '1000000',
@@ -79,6 +83,7 @@ describe('StockPlan Converters', () => {
     describe('stock_class_ids field handling (incl. deprecated stock_class_id)', () => {
       test('passes through stock_class_ids directly', () => {
         const ocfData: OcfStockPlan = {
+          object_type: 'STOCK_PLAN',
           id: 'sp-001',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
@@ -94,6 +99,7 @@ describe('StockPlan Converters', () => {
         // Reproduces the DEV-MEZ incident: OCF schema allows stock_class_id (deprecated)
         // as a valid alternative to stock_class_ids via oneOf.
         const ocfData = {
+          object_type: 'STOCK_PLAN',
           id: 'stock-plan_eca1ad4ba4d9',
           plan_name: 'Stock Option and Equity Incentive Plan',
           initial_shares_reserved: '900000',
@@ -114,6 +120,7 @@ describe('StockPlan Converters', () => {
 
       test('prefers stock_class_ids over deprecated stock_class_id when both present', () => {
         const ocfData = {
+          object_type: 'STOCK_PLAN',
           id: 'sp-both',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
@@ -128,6 +135,7 @@ describe('StockPlan Converters', () => {
 
       test('throws OcpValidationError when neither stock_class_ids nor stock_class_id is present', () => {
         const ocfData = {
+          object_type: 'STOCK_PLAN',
           id: 'sp-missing',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
@@ -139,6 +147,7 @@ describe('StockPlan Converters', () => {
 
       test('throws OcpValidationError when stock_class_ids is empty and stock_class_id is absent', () => {
         const ocfData: OcfStockPlan = {
+          object_type: 'STOCK_PLAN',
           id: 'sp-empty',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
@@ -152,6 +161,7 @@ describe('StockPlan Converters', () => {
     describe('cancellation behavior enum conversion', () => {
       test('converts RETIRE cancellation behavior', () => {
         const ocfData: OcfStockPlan = {
+          object_type: 'STOCK_PLAN',
           id: 'sp-cancel-001',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
@@ -166,6 +176,7 @@ describe('StockPlan Converters', () => {
 
       test('converts RETURN_TO_POOL cancellation behavior', () => {
         const ocfData: OcfStockPlan = {
+          object_type: 'STOCK_PLAN',
           id: 'sp-cancel-002',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
@@ -180,6 +191,7 @@ describe('StockPlan Converters', () => {
 
       test('converts HOLD_AS_CAPITAL_STOCK cancellation behavior', () => {
         const ocfData: OcfStockPlan = {
+          object_type: 'STOCK_PLAN',
           id: 'sp-cancel-003',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
@@ -194,6 +206,7 @@ describe('StockPlan Converters', () => {
 
       test('converts DEFINED_PER_PLAN_SECURITY cancellation behavior', () => {
         const ocfData: OcfStockPlan = {
+          object_type: 'STOCK_PLAN',
           id: 'sp-cancel-004',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
@@ -208,6 +221,7 @@ describe('StockPlan Converters', () => {
 
       test('handles undefined cancellation behavior', () => {
         const ocfData: OcfStockPlan = {
+          object_type: 'STOCK_PLAN',
           id: 'sp-cancel-005',
           plan_name: 'Test Plan',
           initial_shares_reserved: '1000000',
@@ -224,6 +238,7 @@ describe('StockPlan Converters', () => {
   describe('convertToDaml dispatches correctly', () => {
     test('converts stock plan via convertToDaml', () => {
       const data: OcfStockPlan = {
+        object_type: 'STOCK_PLAN',
         id: 'sp-batch-001',
         plan_name: 'Batch Plan',
         initial_shares_reserved: '1000000',

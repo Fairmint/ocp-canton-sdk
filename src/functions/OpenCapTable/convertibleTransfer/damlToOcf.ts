@@ -28,6 +28,7 @@ export interface DamlConvertibleTransferData {
  */
 export function damlConvertibleTransferToNative(d: DamlConvertibleTransferData): OcfConvertibleTransfer {
   return {
+    object_type: 'TX_CONVERTIBLE_TRANSFER',
     id: d.id,
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,

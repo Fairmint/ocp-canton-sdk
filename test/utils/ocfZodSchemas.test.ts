@@ -1,4 +1,9 @@
 import { OcpValidationError } from '../../src/errors';
+import {
+  ENTITY_OBJECT_TYPE_MAP,
+  ENTITY_REGISTRY,
+  type OcfEntityType,
+} from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from './productionFixtures';
 
@@ -14,6 +19,27 @@ const schemaAvailabilityError = (() => {
 function toRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
+
+function captureValidationError(parse: () => unknown): OcpValidationError {
+  try {
+    parse();
+  } catch (error) {
+    expect(error).toBeInstanceOf(OcpValidationError);
+    return error as OcpValidationError;
+  }
+
+  throw new Error('Expected parsing to throw OcpValidationError');
+}
+
+const entityTypes = Object.keys(ENTITY_REGISTRY) as OcfEntityType[];
+const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
+  const mismatchedEntityType = entityTypes[(index + 1) % entityTypes.length];
+  return {
+    entityType,
+    expectedObjectType: ENTITY_OBJECT_TYPE_MAP[entityType],
+    mismatchedObjectType: ENTITY_OBJECT_TYPE_MAP[mismatchedEntityType],
+  };
+});
 
 describe('ocfZodSchemas', () => {
   beforeAll(() => {
@@ -42,7 +68,57 @@ describe('ocfZodSchemas', () => {
     expect(parseInvalid).toThrow('__unexpected_field');
   });
 
-  it('canonicalizes legacy plan security issuance + option_grant_type before validation', () => {
+  describe('typed entity discriminator preflight', () => {
+    it('derives one unique canonical discriminator for every registry entry', () => {
+      expect(entityDiscriminatorCases).toHaveLength(entityTypes.length);
+      expect(new Set(entityDiscriminatorCases.map(({ expectedObjectType }) => expectedObjectType)).size).toBe(
+        entityTypes.length
+      );
+    });
+
+    it.each(entityDiscriminatorCases)(
+      'rejects missing object_type for $entityType before schema validation',
+      ({ entityType, expectedObjectType }) => {
+        const error = captureValidationError(() => parseOcfEntityInput(entityType, { id: 'preflight-id' }));
+
+        expect(error.fieldPath).toBe('object_type');
+        expect(error.expectedType).toBe(expectedObjectType);
+        expect(error.receivedValue).toBeUndefined();
+      }
+    );
+
+    it.each(entityDiscriminatorCases)(
+      'rejects mismatched object_type for $entityType before schema validation',
+      ({ entityType, expectedObjectType, mismatchedObjectType }) => {
+        const error = captureValidationError(() =>
+          parseOcfEntityInput(entityType, {
+            object_type: mismatchedObjectType,
+          })
+        );
+
+        expect(error.fieldPath).toBe('object_type');
+        expect(error.expectedType).toBe(expectedObjectType);
+        expect(error.receivedValue).toBe(mismatchedObjectType);
+        expect(error.message).toContain(`Entity type "${entityType}" expects object_type "${expectedObjectType}"`);
+      }
+    );
+
+    it.each(entityDiscriminatorCases)(
+      'accepts the exact object_type preflight for $entityType',
+      ({ entityType, expectedObjectType }) => {
+        try {
+          const parsed = parseOcfEntityInput(entityType, { object_type: expectedObjectType });
+          expect(parsed.object_type).toBe(expectedObjectType);
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          expect((error as OcpValidationError).fieldPath).not.toBe('object_type');
+          expect((error as Error).message).not.toContain('expects object_type');
+        }
+      }
+    );
+  });
+
+  it('raw parsing canonicalizes legacy plan security issuance + option_grant_type before validation', () => {
     const fixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
     );
@@ -54,7 +130,7 @@ describe('ocfZodSchemas', () => {
     delete legacyFixture.compensation_type;
     delete legacyFixture.quantity_source;
 
-    const parsed = parseOcfEntityInput('planSecurityIssuance', legacyFixture);
+    const parsed = parseOcfObject(legacyFixture);
     const parsedRecord = toRecord(parsed);
 
     expect(parsedRecord.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
@@ -62,7 +138,7 @@ describe('ocfZodSchemas', () => {
     expect(parsedRecord).not.toHaveProperty('option_grant_type');
   });
 
-  it('canonicalizes legacy plan security issuance + plan_security_type before validation', () => {
+  it('raw parsing canonicalizes legacy plan security issuance + plan_security_type before validation', () => {
     const fixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-nso')
     );
@@ -75,7 +151,7 @@ describe('ocfZodSchemas', () => {
     delete legacyFixture.option_grant_type;
     delete legacyFixture.quantity_source;
 
-    const parsed = parseOcfEntityInput('planSecurityIssuance', legacyFixture);
+    const parsed = parseOcfObject(legacyFixture);
     const parsedRecord = toRecord(parsed);
 
     expect(parsedRecord.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
@@ -91,7 +167,7 @@ describe('ocfZodSchemas', () => {
       reason_text: 'Legacy reason',
     };
 
-    const parsed = parseOcfEntityInput('stakeholderStatusChangeEvent', legacyFixture);
+    const parsed = parseOcfObject(legacyFixture);
     const parsedRecord = toRecord(parsed);
 
     expect(parsedRecord.object_type).toBe('CE_STAKEHOLDER_STATUS');
@@ -109,7 +185,7 @@ describe('ocfZodSchemas', () => {
       new_relationships: ['ADVISOR'],
     };
 
-    const parsed = parseOcfEntityInput('stakeholderRelationshipChangeEvent', legacyFixture);
+    const parsed = parseOcfObject(legacyFixture);
     const parsedRecord = toRecord(parsed);
 
     expect(parsedRecord.object_type).toBe('CE_STAKEHOLDER_RELATIONSHIP');
@@ -127,9 +203,7 @@ describe('ocfZodSchemas', () => {
       new_relationships: ['ADVISOR', 'INVESTOR'],
     };
 
-    expect(() => parseOcfEntityInput('stakeholderRelationshipChangeEvent', legacyFixture)).toThrow(
-      'legacy new_relationships with multiple entries is ambiguous'
-    );
+    expect(() => parseOcfObject(legacyFixture)).toThrow('legacy new_relationships with multiple entries is ambiguous');
   });
 
   it('canonicalizes stock consolidation legacy resulting_security_ids field', () => {
@@ -149,5 +223,38 @@ describe('ocfZodSchemas', () => {
     const parseMismatched = () => parseOcfEntityInput('stockIssuance', stakeholderFixture);
     expect(parseMismatched).toThrow(OcpValidationError);
     expect(parseMismatched).toThrow('expects object_type "TX_STOCK_ISSUANCE"');
+  });
+
+  it('typed parsing accepts the exact canonical object_type', () => {
+    const fixture = stripSourceMetadata(
+      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
+    );
+
+    const parsed = parseOcfEntityInput('equityCompensationIssuance', fixture);
+
+    expect(parsed.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
+  });
+
+  it('typed parsing rejects a missing object_type', () => {
+    const fixture = stripSourceMetadata(loadProductionFixture<Record<string, unknown>>('stakeholder', 'individual'));
+    const { object_type: _, ...withoutObjectType } = fixture;
+
+    const parseMissing = () => parseOcfEntityInput('stakeholder', withoutObjectType);
+    expect(parseMissing).toThrow(OcpValidationError);
+    expect(parseMissing).toThrow('Required field is missing or invalid');
+  });
+
+  it('typed parsing rejects legacy object_type aliases', () => {
+    const fixture = stripSourceMetadata(
+      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
+    );
+    const legacyFixture = {
+      ...fixture,
+      object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+    };
+
+    const parseLegacy = () => parseOcfEntityInput('equityCompensationIssuance', legacyFixture);
+    expect(parseLegacy).toThrow(OcpValidationError);
+    expect(parseLegacy).toThrow('expects object_type "TX_EQUITY_COMPENSATION_ISSUANCE"');
   });
 });
