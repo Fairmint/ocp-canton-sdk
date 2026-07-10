@@ -38,8 +38,21 @@ function triggerTypeToDaml(
   }
 }
 
+function invalidQuantitySource(value: unknown): never {
+  throw new OcpValidationError(
+    'warrantIssuance.quantity_source',
+    'Expected a canonical quantity source when provided; omit the property when absent (explicit null is invalid)',
+    {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'QuantitySourceType or omitted property',
+      receivedValue: value,
+    }
+  );
+}
+
 function quantitySourceToDaml(value: unknown): Fairmint.OpenCapTable.Types.Stock.OcfQuantitySourceType | null {
   if (value === undefined) return null;
+  if (value === null) return invalidQuantitySource(value);
   switch (value) {
     case 'HUMAN_ESTIMATED':
       return 'OcfQuantityHumanEstimated';
@@ -54,15 +67,7 @@ function quantitySourceToDaml(value: unknown): Fairmint.OpenCapTable.Types.Stock
     case 'INSTRUMENT_MIN':
       return 'OcfQuantityInstrumentMin';
   }
-  throw new OcpValidationError(
-    'warrantIssuance.quantity_source',
-    'Expected a canonical quantity source when provided; omit the property when absent (explicit null is invalid)',
-    {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'QuantitySourceType or omitted property',
-      receivedValue: value,
-    }
-  );
+  return invalidQuantitySource(value);
 }
 
 function requireStockClassTarget(right: StockClassConversionRight): string {
