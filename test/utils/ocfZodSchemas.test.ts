@@ -4,6 +4,7 @@ import {
   ENTITY_REGISTRY,
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import type { StakeholderRelationshipType } from '../../src/types/native';
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
 import { requireDefined } from '../../src/utils/requireDefined';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from './productionFixtures';
@@ -33,6 +34,27 @@ function captureValidationError(parse: () => unknown): OcpValidationError {
 }
 
 const entityTypes = Object.keys(ENTITY_REGISTRY) as OcfEntityType[];
+const stakeholderRelationshipTypes = [
+  'ADVISOR',
+  'BOARD_MEMBER',
+  'CONSULTANT',
+  'EMPLOYEE',
+  'EX_ADVISOR',
+  'EX_CONSULTANT',
+  'EX_EMPLOYEE',
+  'EXECUTIVE',
+  'FOUNDER',
+  'INVESTOR',
+  'NON_US_EMPLOYEE',
+  'OFFICER',
+  'OTHER',
+] as const satisfies readonly StakeholderRelationshipType[];
+type MissingStakeholderRelationshipType = Exclude<
+  StakeholderRelationshipType,
+  (typeof stakeholderRelationshipTypes)[number]
+>;
+const stakeholderRelationshipTypeCoverageIsExhaustive: MissingStakeholderRelationshipType extends never ? true : never =
+  true;
 const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
   const mismatchedEntityType = entityTypes[(index + 1) % entityTypes.length];
   return {
@@ -44,6 +66,8 @@ const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
 });
 
 describe('ocfZodSchemas', () => {
+  void stakeholderRelationshipTypeCoverageIsExhaustive;
+
   beforeAll(() => {
     if (schemaAvailabilityError) {
       throw schemaAvailabilityError;
@@ -202,6 +226,85 @@ describe('ocfZodSchemas', () => {
     };
 
     expect(() => parseOcfObject(legacyFixture)).toThrow('legacy new_relationships with multiple entries is ambiguous');
+  });
+
+  it.each(stakeholderRelationshipTypes)('strictly parses raw legacy %s relationship input', (relationship) => {
+    const parsed = parseOcfObject({
+      object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+      id: `legacy-relationship-${relationship.toLowerCase()}`,
+      date: '2025-03-01',
+      stakeholder_id: 'stakeholder-1',
+      new_relationships: [relationship],
+    });
+
+    expect(parsed).toMatchObject({
+      object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+      relationship_started: relationship,
+    });
+    expect(parsed).not.toHaveProperty('new_relationships');
+  });
+
+  it('rejects mixed legacy and canonical relationship representations', () => {
+    const parseMixedRepresentation = () =>
+      parseOcfObject({
+        object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT',
+        id: 'mixed-relationship-event',
+        date: '2025-03-01',
+        stakeholder_id: 'stakeholder-1',
+        relationship_started: 'ADVISOR',
+        new_relationships: ['UNKNOWN_RELATIONSHIP'],
+      });
+
+    expect(parseMixedRepresentation).toThrow(OcpValidationError);
+    expect(parseMixedRepresentation).toThrow('cannot mix legacy new_relationships');
+  });
+
+  describe('canonical stakeholder relationship events', () => {
+    it.each(stakeholderRelationshipTypes)('strictly parses the %s relationship value', (relationship) => {
+      const input = {
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+        id: `relationship-${relationship.toLowerCase()}`,
+        date: '2025-03-01',
+        stakeholder_id: 'stakeholder-1',
+        relationship_started: relationship,
+        relationship_ended: relationship,
+      };
+
+      const parsed = parseOcfEntityInput('stakeholderRelationshipChangeEvent', input);
+
+      expect(parsed.relationship_started).toBe(relationship);
+      expect(parsed.relationship_ended).toBe(relationship);
+    });
+
+    it.each(['advisor', ' ADVISOR', 'ADVISOR '])(
+      'rejects the non-canonical value %j instead of coercing it',
+      (value) => {
+        const input = {
+          object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+          id: 'relationship-invalid-enum',
+          date: '2025-03-01',
+          stakeholder_id: 'stakeholder-1',
+          relationship_started: value,
+        };
+
+        expect(() => parseOcfEntityInput('stakeholderRelationshipChangeEvent', input)).toThrow(OcpValidationError);
+      }
+    );
+
+    it('rejects the legacy new_relationships field on a canonical event', () => {
+      const input = {
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+        id: 'relationship-with-legacy-field',
+        date: '2025-03-01',
+        stakeholder_id: 'stakeholder-1',
+        relationship_started: 'ADVISOR',
+        new_relationships: ['FOUNDER'],
+      };
+
+      const parseCanonicalWithLegacyField = () => parseOcfEntityInput('stakeholderRelationshipChangeEvent', input);
+      expect(parseCanonicalWithLegacyField).toThrow(OcpValidationError);
+      expect(parseCanonicalWithLegacyField).toThrow('new_relationships');
+    });
   });
 
   it('rejects stock consolidation legacy resulting_security_ids field', () => {

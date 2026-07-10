@@ -1,4 +1,4 @@
-import type { CompensationType, StakeholderRelationshipType } from '../types/native';
+import type { CompensationType } from '../types/native';
 import { normalizeNumericString } from './typeConversions';
 
 /**
@@ -299,24 +299,13 @@ function normalizePlanSecurityType(data: Record<string, unknown>): Record<string
   };
 }
 
-const VALID_STAKEHOLDER_RELATIONSHIPS: ReadonlySet<StakeholderRelationshipType> = new Set([
-  'EMPLOYEE',
-  'ADVISOR',
-  'INVESTOR',
-  'FOUNDER',
-  'BOARD_MEMBER',
-  'OFFICER',
-  'OTHER',
-]);
-
-function isStakeholderRelationshipType(value: string): value is StakeholderRelationshipType {
-  return VALID_STAKEHOLDER_RELATIONSHIPS.has(value as StakeholderRelationshipType);
-}
-
 /**
- * Canonicalize stakeholder relationship change events to latest OCF format.
+ * Canonicalize raw legacy stakeholder relationship change events to latest OCF format.
  *
- * Latest schema fields:
+ * Canonical inputs are returned untouched so the source-of-truth OCF schema owns
+ * enum, casing, required-field, and additional-property validation.
+ *
+ * Canonical schema fields:
  * - object_type: CE_STAKEHOLDER_RELATIONSHIP
  * - relationship_started?: StakeholderRelationship
  * - relationship_ended?: StakeholderRelationship
@@ -326,6 +315,8 @@ function isStakeholderRelationshipType(value: string): value is StakeholderRelat
  * - new_relationships: StakeholderRelationship[]
  */
 function normalizeStakeholderRelationshipChangeEvent(data: Record<string, unknown>): Record<string, unknown> {
+  if (data.object_type === 'CE_STAKEHOLDER_RELATIONSHIP') return data;
+
   const normalizedObjectType = normalizeObjectType(typeof data.object_type === 'string' ? data.object_type : '');
   const isRelationshipEvent = normalizedObjectType === 'CE_STAKEHOLDER_RELATIONSHIP';
   if (!isRelationshipEvent) return data;
@@ -340,6 +331,11 @@ function normalizeStakeholderRelationshipChangeEvent(data: Record<string, unknow
     if (!Array.isArray(legacyRelationships)) {
       throw new Error(`Invalid new_relationships: expected array, got ${typeof legacyRelationships}`);
     }
+    if (result.relationship_started !== undefined || result.relationship_ended !== undefined) {
+      throw new Error(
+        'Invalid stakeholder relationship change event: cannot mix legacy new_relationships with canonical relationship_started/relationship_ended fields'
+      );
+    }
 
     const normalizedRelationships = legacyRelationships.map((relationship) => {
       if (typeof relationship !== 'string') {
@@ -349,27 +345,16 @@ function normalizeStakeholderRelationshipChangeEvent(data: Record<string, unknow
       if (!trimmed) {
         throw new Error('Invalid new_relationships entry: empty string');
       }
-      if (!isStakeholderRelationshipType(trimmed)) {
-        throw new Error(`Invalid new_relationships entry: unknown relationship "${relationship}"`);
-      }
       return trimmed;
     });
 
-    if (
-      normalizedRelationships.length > 1 &&
-      result.relationship_started === undefined &&
-      result.relationship_ended === undefined
-    ) {
+    if (normalizedRelationships.length > 1) {
       throw new Error(
         'Invalid stakeholder relationship change event: legacy new_relationships with multiple entries is ambiguous; provide canonical relationship_started/relationship_ended fields'
       );
     }
 
-    if (
-      normalizedRelationships.length === 1 &&
-      result.relationship_started === undefined &&
-      result.relationship_ended === undefined
-    ) {
+    if (normalizedRelationships.length === 1) {
       result.relationship_started = normalizedRelationships[0];
     }
 
@@ -391,16 +376,10 @@ function normalizeStakeholderRelationshipChangeEvent(data: Record<string, unknow
   }
   if (typeof relationshipStarted === 'string') {
     const normalizedRelationshipStarted = relationshipStarted.trim().toUpperCase();
-    if (!isStakeholderRelationshipType(normalizedRelationshipStarted)) {
-      throw new Error(`Invalid relationship_started: unknown relationship "${relationshipStarted}"`);
-    }
     result.relationship_started = normalizedRelationshipStarted;
   }
   if (typeof relationshipEnded === 'string') {
     const normalizedRelationshipEnded = relationshipEnded.trim().toUpperCase();
-    if (!isStakeholderRelationshipType(normalizedRelationshipEnded)) {
-      throw new Error(`Invalid relationship_ended: unknown relationship "${relationshipEnded}"`);
-    }
     result.relationship_ended = normalizedRelationshipEnded;
   }
 

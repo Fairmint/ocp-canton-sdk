@@ -2,6 +2,7 @@
  * Tests for PlanSecurity to EquityCompensation alias functionality.
  */
 
+import { parseOcfObject } from '../../src/utils/ocfZodSchemas';
 import {
   isLegacyObjectType,
   isPlanSecurityEntityType,
@@ -487,7 +488,24 @@ describe('PlanSecurity alias utilities', () => {
         new_relationships: ['UNKNOWN_RELATIONSHIP'],
       };
 
-      expect(() => normalizeOcfData(input)).toThrow('unknown relationship');
+      expect(() => parseOcfObject(input)).toThrow('relationship_started');
+    });
+
+    it('leaves canonical stakeholder relationship events untouched for strict validation', () => {
+      const input = {
+        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
+        id: 'event-1',
+        date: '2024-01-15',
+        stakeholder_id: 'stakeholder-1',
+        relationship_started: ' advisor ',
+        new_relationships: ['INVESTOR'],
+      };
+
+      const result = normalizeOcfData(input);
+
+      expect(result).toBe(input);
+      expect(result.relationship_started).toBe(' advisor ');
+      expect(result.new_relationships).toEqual(['INVESTOR']);
     });
 
     it('canonicalizes stock class conversion ratio legacy fields to conversion mechanism', async () => {
