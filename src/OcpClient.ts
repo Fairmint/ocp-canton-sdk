@@ -765,7 +765,7 @@ function hasCompleteFactoryCoordinates(factory: unknown): factory is OcpFactoryC
 
 function validateFactoryCoordinates(factory: unknown): asserts factory is OcpFactoryCoordinates | undefined {
   if (factory !== undefined && !hasCompleteFactoryCoordinates(factory)) {
-    throw new OcpValidationError('factory', 'factory override must include contractId and templateId', {
+    throw new OcpValidationError('factory', 'factory override must include non-empty contractId and templateId', {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: 'object with non-empty string contractId and templateId properties',
       receivedValue: factory,
