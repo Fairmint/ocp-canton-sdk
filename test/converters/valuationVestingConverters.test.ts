@@ -188,6 +188,11 @@ describe('Valuation Converters', () => {
       expect(() => damlValuationTypeToNative('UnknownType')).toThrow(OcpParseError);
       expect(() => damlValuationTypeToNative('UnknownType')).toThrow('Unknown DAML valuation type');
     });
+
+    test.each(['constructor', 'toString'])('rejects inherited prototype key %s', (prototypeKey) => {
+      expect(() => damlValuationTypeToNative(prototypeKey)).toThrow(OcpParseError);
+      expect(() => damlValuationTypeToNative(prototypeKey)).toThrow(`Unknown DAML valuation type: ${prototypeKey}`);
+    });
   });
 
   describe('round-trip conversion', () => {
