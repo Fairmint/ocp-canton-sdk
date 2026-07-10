@@ -1007,7 +1007,7 @@ export function createTestConvertibleIssuanceData(
 }
 
 /** Helper to extract a contract ID from a createdCids array by type tag. */
-function extractCreatedCid(createdCids: Array<Record<string, unknown>>, tagPrefix: string): string {
+function extractCreatedCid(createdCids: ReadonlyArray<Record<string, unknown>>, tagPrefix: string): string {
   for (const cid of createdCids) {
     const { tag, value: taggedValue } = cid;
     if (typeof tag === 'string' && tag.startsWith(tagPrefix) && typeof taggedValue === 'string') {

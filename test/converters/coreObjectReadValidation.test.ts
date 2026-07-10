@@ -1,4 +1,6 @@
-import { damlDocumentDataToNative, damlStakeholderDataToNative, OcpValidationError } from '../../src';
+import { OcpValidationError } from '../../src';
+import { damlDocumentDataToNative } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
+import { damlStakeholderDataToNative } from '../../src/functions/OpenCapTable/stakeholder/getStakeholderAsOcf';
 
 const minimalStakeholder = {
   id: 'stakeholder-read-1',
