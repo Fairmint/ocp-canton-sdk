@@ -296,7 +296,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
     expect(mockedAuthorizeIssuer).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps client-level observability defaults when per-call fields are undefined', async () => {
+  it('keeps client-level observability defaults when per-call fields are omitted', async () => {
     const ledger = createLedgerJsonApiClient(config);
     const logger = {
       debug: jest.fn(),
@@ -318,9 +318,6 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
 
     await ocp.OpenCapTable.issuerAuthorization.authorize({
       issuer: 'issuer::party',
-      logger: undefined,
-      metrics: undefined,
-      defaultContext: undefined,
       context: { commandId: 'command-call' },
     });
 

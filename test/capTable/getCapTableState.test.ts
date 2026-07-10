@@ -41,14 +41,16 @@ function mockActiveContractsForCapTableState(
   responses: { current?: unknown[] }
 ): void {
   const current = responses.current ?? [];
-  mockClient.getActiveContracts.mockImplementation(async (req: { templateIds?: string[] }) => {
-    await Promise.resolve();
-    const ids = req.templateIds;
-    if (isCurrentTemplateQuery(ids)) {
-      return current as never;
+  mockClient.getActiveContracts.mockImplementation(
+    async (req: Parameters<LedgerJsonApiClient['getActiveContracts']>[0]) => {
+      await Promise.resolve();
+      const ids = req.templateIds;
+      if (isCurrentTemplateQuery(ids)) {
+        return current as never;
+      }
+      throw new Error(`Unexpected getActiveContracts templateIds in test: ${JSON.stringify(ids)}`);
     }
-    throw new Error(`Unexpected getActiveContracts templateIds in test: ${JSON.stringify(ids)}`);
-  });
+  );
 }
 
 /**

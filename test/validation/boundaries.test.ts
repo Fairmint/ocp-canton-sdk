@@ -192,13 +192,12 @@ describe('Boundary Condition Tests', () => {
   });
 
   describe('Null vs Undefined Handling', () => {
-    test('DAML optional fields use null, not undefined', () => {
+    test('omitted OCF optional fields become null in DAML', () => {
       const data: OcfStakeholder = {
         id: 'sh-null-test',
         object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test' },
         stakeholder_type: 'INDIVIDUAL',
-        issuer_assigned_id: undefined, // Should become null in DAML
       };
 
       const result = stakeholderDataToDaml(data);

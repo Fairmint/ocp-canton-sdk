@@ -83,6 +83,13 @@ export function generateTestId(prefix: string): string {
   return `${prefix}-${timestamp}-${random}`;
 }
 
+/** Omit optional disclosed-contract input rather than materializing it as `undefined`. */
+export function withCapTableContractDetails<T extends { templateId: string }>(
+  capTableContractDetails: T | undefined
+): { capTableContractDetails?: T } {
+  return capTableContractDetails === undefined ? {} : { capTableContractDetails };
+}
+
 /** Get updated CapTable contract details after a batch operation. */
 export async function getCapTableDetails(
   ocp: OcpClient,
@@ -405,8 +412,8 @@ export function createTestEquityCompensationIssuanceData(
     security_id: securityId,
     custom_id: `OPT-${securityId.substring(0, 8)}`,
     stakeholder_id,
-    stock_plan_id,
-    stock_class_id,
+    ...(stock_plan_id === undefined ? {} : { stock_plan_id }),
+    ...(stock_class_id === undefined ? {} : { stock_class_id }),
     compensation_type: 'OPTION_ISO',
     quantity: '50000',
     exercise_price: { amount: '0.50', currency: 'USD' },
@@ -823,7 +830,7 @@ export async function setupTestStakeholder(
   const cmd = buildUpdateCapTableCommand(
     {
       capTableContractId: options.issuerContractId,
-      capTableContractDetails: options.capTableContractDetails,
+      ...withCapTableContractDetails(options.capTableContractDetails),
     },
     { creates: [{ type: 'stakeholder', data: stakeholderData }] }
   );
@@ -1087,7 +1094,7 @@ export async function setupStockSecurity(
 
     const batch1 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      capTableContractDetails,
+      ...withCapTableContractDetails(capTableContractDetails),
       actAs: [options.issuerParty],
     });
     const result1 = await batch1.create('stakeholder', stakeholderData).execute();
@@ -1113,7 +1120,7 @@ export async function setupStockSecurity(
 
     const batch2 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      capTableContractDetails,
+      ...withCapTableContractDetails(capTableContractDetails),
       actAs: [options.issuerParty],
     });
     const result2 = await batch2.create('stockClass', stockClassData).execute();
@@ -1140,7 +1147,7 @@ export async function setupStockSecurity(
 
   const batch3 = ocp.OpenCapTable.capTable.update({
     capTableContractId,
-    capTableContractDetails,
+    ...withCapTableContractDetails(capTableContractDetails),
     actAs: [options.issuerParty],
   });
   const result3 = await batch3.create('stockIssuance', stockIssuanceData).execute();
@@ -1185,7 +1192,7 @@ export async function setupWarrantSecurity(
 
     const batch1 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      capTableContractDetails,
+      ...withCapTableContractDetails(capTableContractDetails),
       actAs: [options.issuerParty],
     });
     const result1 = await batch1.create('stakeholder', stakeholderData).execute();
@@ -1211,7 +1218,7 @@ export async function setupWarrantSecurity(
 
   const batch2 = ocp.OpenCapTable.capTable.update({
     capTableContractId,
-    capTableContractDetails,
+    ...withCapTableContractDetails(capTableContractDetails),
     actAs: [options.issuerParty],
   });
   const result2 = await batch2.create('warrantIssuance', warrantIssuanceData).execute();
@@ -1257,7 +1264,7 @@ export async function setupEquityCompensationSecurity(
 
     const batch1 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      capTableContractDetails,
+      ...withCapTableContractDetails(capTableContractDetails),
       actAs: [options.issuerParty],
     });
     const result1 = await batch1.create('stakeholder', stakeholderData).execute();
@@ -1283,7 +1290,7 @@ export async function setupEquityCompensationSecurity(
 
     const batch2 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      capTableContractDetails,
+      ...withCapTableContractDetails(capTableContractDetails),
       actAs: [options.issuerParty],
     });
     const result2 = await batch2.create('stockClass', stockClassData).execute();
@@ -1310,7 +1317,7 @@ export async function setupEquityCompensationSecurity(
 
   const batch3 = ocp.OpenCapTable.capTable.update({
     capTableContractId,
-    capTableContractDetails,
+    ...withCapTableContractDetails(capTableContractDetails),
     actAs: [options.issuerParty],
   });
   const result3 = await batch3.create('equityCompensationIssuance', eqCompIssuanceData).execute();
@@ -1358,7 +1365,7 @@ export async function setupConvertibleSecurity(
 
     const batch1 = ocp.OpenCapTable.capTable.update({
       capTableContractId,
-      capTableContractDetails,
+      ...withCapTableContractDetails(capTableContractDetails),
       actAs: [options.issuerParty],
     });
     const result1 = await batch1.create('stakeholder', stakeholderData).execute();
@@ -1384,7 +1391,7 @@ export async function setupConvertibleSecurity(
 
   const batch2 = ocp.OpenCapTable.capTable.update({
     capTableContractId,
-    capTableContractDetails,
+    ...withCapTableContractDetails(capTableContractDetails),
     actAs: [options.issuerParty],
   });
   const result2 = await batch2.create('convertibleIssuance', convertibleIssuanceData).execute();
