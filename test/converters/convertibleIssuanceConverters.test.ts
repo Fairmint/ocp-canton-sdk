@@ -550,6 +550,19 @@ describe('convertible issuance approval-date read boundaries', () => {
 });
 
 describe('convertible issuance write date boundaries', () => {
+  test('reports the contextual field path for an invalid required date', () => {
+    expectInvalidDate(
+      () =>
+        convertibleIssuanceDataToDaml({
+          ...BASE_INPUT,
+          date: '',
+          conversion_triggers: [SAFE_TRIGGER_BASE],
+        }),
+      'convertibleIssuance.date',
+      ''
+    );
+  });
+
   test.each(['board_approval_date', 'stockholder_approval_date'] as const)(
     'validates a present %s instead of treating a falsy value as absent',
     (field) => {
