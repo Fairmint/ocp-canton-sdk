@@ -1,6 +1,7 @@
 /** Unit tests for stock issuance DAML→OCF read conversions. */
 
 import { damlStockIssuanceDataToNative } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
+import { parseOcfEntityInput } from '../../src/utils/ocfZodSchemas';
 
 function makeMinimalDamlStockIssuance(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -115,6 +116,24 @@ describe('damlStockIssuanceDataToNative', () => {
   });
 
   describe('array field handling', () => {
+    test('omits empty vestings so the output remains OCF-schema valid', () => {
+      const daml = makeMinimalDamlStockIssuance({ vestings: [] });
+      const result = damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
+
+      expect(result).not.toHaveProperty('vestings');
+      expect(() => parseOcfEntityInput('stockIssuance', result)).not.toThrow();
+    });
+
+    test('includes non-empty vestings', () => {
+      const daml = makeMinimalDamlStockIssuance({
+        vestings: [{ date: '2025-06-01T00:00:00Z', amount: '10.00' }],
+      });
+      const result = damlStockIssuanceDataToNative(daml as Parameters<typeof damlStockIssuanceDataToNative>[0]);
+
+      expect(result.vestings).toEqual([{ date: '2025-06-01', amount: '10' }]);
+      expect(() => parseOcfEntityInput('stockIssuance', result)).not.toThrow();
+    });
+
     test('handles security_law_exemptions array', () => {
       const daml = makeMinimalDamlStockIssuance({
         security_law_exemptions: [{ description: 'SEC Rule 701', jurisdiction: 'US' }],
