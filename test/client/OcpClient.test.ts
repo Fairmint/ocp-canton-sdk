@@ -65,7 +65,19 @@ describe('OcpClient', () => {
           ledger,
           factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
         })
-    ).toThrow('factory override must include contractId and templateId');
+    ).toThrow('factory override must include non-empty contractId and templateId');
+  });
+
+  it('describes blank client-level factory coordinates as non-empty requirements', () => {
+    const ledger = createLedgerJsonApiClient(config);
+
+    expect(
+      () =>
+        new OcpClient({
+          ledger,
+          factory: { contractId: '   ', templateId: 'factory-tid' },
+        })
+    ).toThrow('factory override must include non-empty contractId and templateId');
   });
 
   it('rejects injected environment labels that do not match the ledger network', () => {
@@ -222,7 +234,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
           templateId: string;
         },
       })
-    ).rejects.toThrow('factory override must include contractId and templateId');
+    ).rejects.toThrow('factory override must include non-empty contractId and templateId');
 
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
