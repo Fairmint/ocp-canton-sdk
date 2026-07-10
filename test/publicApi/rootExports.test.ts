@@ -1,6 +1,19 @@
+import packageJson from '../../package.json';
 import * as sdk from '../../src';
 
 describe('package root exports', () => {
+  it('exports only the SDK root and package metadata subpaths', () => {
+    expect(packageJson.exports).toEqual({
+      '.': {
+        types: './dist/index.d.ts',
+        import: './dist/index.js',
+        require: './dist/index.js',
+        default: './dist/index.js',
+      },
+      './package.json': './package.json',
+    });
+  });
+
   it('exposes only the curated high-level runtime surface', () => {
     expect(Object.keys(sdk).sort()).toEqual([
       'CUSTOM_PRESET',
