@@ -224,6 +224,10 @@ export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = {
   VESTING_TERMS: 'vestingTerms',
 } as const satisfies Record<string, OcfEntityType>;
 
+type MappedOcfEntityType = (typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE)[keyof typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE];
+const ALL_OCF_ENTITY_TYPES_ARE_MAPPED: [OcfEntityType] extends [MappedOcfEntityType] ? true : never = true;
+void ALL_OCF_ENTITY_TYPES_ARE_MAPPED;
+
 /** OCF object types supported by the high-level entity readers. */
 export type OcfReadableObjectType = keyof typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE;
 
