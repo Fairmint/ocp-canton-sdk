@@ -1,19 +1,16 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfConvertibleTransfer } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString, toNonEmptyArray } from '../../../utils/typeConversions';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlConvertibleTransferToNative } from './damlToOcf';
 
 /**
  * OCF Convertible Transfer Event with object_type discriminator OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/ConvertibleTransfer.schema.json
  */
-export interface OcfConvertibleTransferEvent extends Omit<OcfConvertibleTransfer, 'amount'> {
-  object_type: 'TX_CONVERTIBLE_TRANSFER';
-  /** Amount as Monetary type with string amount for OCF JSON serialization */
-  amount: { amount: string; currency: string };
-}
+export type OcfConvertibleTransferEvent = OcfConvertibleTransfer;
 
 export type GetConvertibleTransferAsOcfParams = GetByContractIdParams;
 
@@ -22,36 +19,15 @@ export interface GetConvertibleTransferAsOcfResult {
   contractId: string;
 }
 
-/** Type alias for DAML ConvertibleTransfer contract createArgument */
-type ConvertibleTransferCreateArgument = Fairmint.OpenCapTable.OCF.ConvertibleTransfer.ConvertibleTransfer;
-
 export async function getConvertibleTransferAsOcf(
   client: LedgerJsonApiClient,
   params: GetConvertibleTransferAsOcfParams
 ): Promise<GetConvertibleTransferAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getConvertibleTransferAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.convertibleTransfer,
   });
-  const contract = createArgument as ConvertibleTransferCreateArgument;
-  const data = contract.transfer_data;
-
-  // Convert amount to string for normalization (DAML Numeric may come as number at runtime)
-  const amountValue = data.amount.amount as string | number;
-  const amountStr = typeof amountValue === 'number' ? amountValue.toString() : amountValue;
-
-  const event: OcfConvertibleTransferEvent = {
-    object_type: 'TX_CONVERTIBLE_TRANSFER',
-    id: data.id,
-    date: damlTimeToDateString(data.date, 'convertibleTransfer.date'),
-    security_id: data.security_id,
-    amount: {
-      amount: normalizeNumericString(amountStr),
-      currency: data.amount.currency,
-    },
-    resulting_security_ids: toNonEmptyArray(data.resulting_security_ids, 'convertibleTransfer.resulting_security_ids'),
-    ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
-    ...(data.consideration_text ? { consideration_text: data.consideration_text } : {}),
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
+  const data = extractAndDecodeDamlEntityData('convertibleTransfer', createArgument);
+  const event = damlConvertibleTransferToNative(data);
   return { event, contractId: params.contractId };
 }

@@ -1,19 +1,16 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfWarrantTransfer } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString, toNonEmptyArray } from '../../../utils/typeConversions';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlWarrantTransferToNative } from './damlToOcf';
 
 /**
  * OCF Warrant Transfer Event with object_type discriminator OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/WarrantTransfer.schema.json
  */
-export interface OcfWarrantTransferEvent extends Omit<OcfWarrantTransfer, 'quantity'> {
-  object_type: 'TX_WARRANT_TRANSFER';
-  /** Quantity as string for OCF JSON serialization */
-  quantity: string;
-}
+export type OcfWarrantTransferEvent = OcfWarrantTransfer;
 
 export type GetWarrantTransferAsOcfParams = GetByContractIdParams;
 
@@ -22,33 +19,15 @@ export interface GetWarrantTransferAsOcfResult {
   contractId: string;
 }
 
-/** Type alias for DAML WarrantTransfer contract createArgument */
-type WarrantTransferCreateArgument = Fairmint.OpenCapTable.OCF.WarrantTransfer.WarrantTransfer;
-
 export async function getWarrantTransferAsOcf(
   client: LedgerJsonApiClient,
   params: GetWarrantTransferAsOcfParams
 ): Promise<GetWarrantTransferAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getWarrantTransferAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.warrantTransfer,
   });
-  const contract = createArgument as WarrantTransferCreateArgument;
-  const data = contract.transfer_data;
-
-  // Convert quantity to string for normalization (DAML Numeric may come as number at runtime)
-  const quantity = data.quantity as string | number;
-  const quantityStr = typeof quantity === 'number' ? quantity.toString() : quantity;
-
-  const event: OcfWarrantTransferEvent = {
-    object_type: 'TX_WARRANT_TRANSFER',
-    id: data.id,
-    date: damlTimeToDateString(data.date, 'warrantTransfer.date'),
-    security_id: data.security_id,
-    quantity: normalizeNumericString(quantityStr),
-    resulting_security_ids: toNonEmptyArray(data.resulting_security_ids, 'warrantTransfer.resulting_security_ids'),
-    ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
-    ...(data.consideration_text ? { consideration_text: data.consideration_text } : {}),
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
+  const data = extractAndDecodeDamlEntityData('warrantTransfer', createArgument);
+  const event = damlWarrantTransferToNative(data);
   return { event, contractId: params.contractId };
 }

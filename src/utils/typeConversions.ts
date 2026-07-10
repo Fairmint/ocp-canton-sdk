@@ -585,9 +585,9 @@ export interface DamlQuantityTransferData {
   security_id: string;
   quantity: string;
   resulting_security_ids: string[];
-  balance_security_id?: string;
-  consideration_text?: string;
-  comments?: string[];
+  balance_security_id: string | null;
+  consideration_text: string | null;
+  comments: string[];
 }
 
 /**
