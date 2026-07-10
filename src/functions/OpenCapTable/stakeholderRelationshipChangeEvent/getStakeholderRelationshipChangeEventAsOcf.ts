@@ -10,7 +10,7 @@ import {
   damlStakeholderRelationshipToNative,
   type DamlStakeholderRelationshipType,
 } from '../../../utils/enumConversions';
-import { isRecord } from '../../../utils/typeConversions';
+import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /** Parameters for getting a stakeholder relationship change event as OCF */
@@ -149,7 +149,7 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
   const common = {
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: damlTimeToDateString(data.date, 'stakeholderRelationshipChangeEvent.date'),
     stakeholder_id: data.stakeholder_id,
     ...(data.comments.length ? { comments: data.comments } : {}),
   } as const;

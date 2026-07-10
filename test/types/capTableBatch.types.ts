@@ -8,8 +8,9 @@
 
 import {
   type CapTableBatch,
+  type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
-  convertToDaml,
+  type OcfContractId,
   type OcfCreateOperation,
   type OcfEntityDataMap,
   type OcfEntityType,
@@ -19,9 +20,7 @@ import {
   type OcfStakeholder,
   type OcfStockAcceptance,
   type OcfStockClass,
-  type OcfVestingEvent,
   type OcfVestingStart,
-  type OcfWarrantAcceptance,
 } from '../../src';
 
 type Assert<T extends true> = T;
@@ -44,15 +43,23 @@ const publicOcfObjectExcludesLegacyPlanSecurity: Assert<
 void publicOcfObjectIsExact;
 void publicOcfObjectExcludesLegacyPlanSecurity;
 
+declare const executeResult: CapTableBatchExecuteResult;
+const returnedContractIds: readonly OcfContractId[] = executeResult.createdCids;
+const stakeholderContractId: OcfContractId = { tag: 'CidStakeholder', value: 'stakeholder-cid' };
+void returnedContractIds;
+void stakeholderContractId;
+
+// @ts-expect-error batch results expose only canonical entity contract-id tags
+const legacyContractId: OcfContractId = { tag: 'CidPlanSecurityIssuance', value: 'legacy-cid' };
+void legacyContractId;
+
 function verifyCapTableBatchContract(
   batch: CapTableBatch,
   stakeholder: OcfStakeholder,
   stockClass: OcfStockClass,
   issuer: OcfIssuer,
   stockAcceptance: OcfStockAcceptance,
-  warrantAcceptance: OcfWarrantAcceptance,
-  vestingStart: OcfVestingStart,
-  vestingEvent: OcfVestingEvent
+  vestingStart: OcfVestingStart
 ): void {
   batch.create('stakeholder', stakeholder);
   batch.create('stockClass', stockClass);
@@ -79,20 +86,11 @@ function verifyCapTableBatchContract(
   // @ts-expect-error explicit union type arguments cannot bypass kind/payload correlation
   batch.edit(widenedKind, stakeholder);
 
-  // @ts-expect-error the converter uses the same kind/payload correlation as the batch API
-  convertToDaml(widenedKind, stakeholder);
-
   // @ts-expect-error identical payload fields cannot erase stock vs warrant identity
   batch.create('warrantAcceptance', stockAcceptance);
 
   // @ts-expect-error the discriminator also separates vesting start from vesting event
   batch.create('vestingEvent', vestingStart);
-
-  // @ts-expect-error converter dispatch cannot reinterpret a warrant acceptance as stock
-  convertToDaml('stockAcceptance', warrantAcceptance);
-
-  // @ts-expect-error converter dispatch cannot reinterpret a vesting event as vesting start
-  convertToDaml('vestingStart', vestingEvent);
 
   // @ts-expect-error every top-level OCF object requires its canonical discriminator
   const missingObjectType: OcfStockAcceptance = {

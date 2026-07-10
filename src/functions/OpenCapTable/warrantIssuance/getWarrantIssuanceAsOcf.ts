@@ -15,6 +15,7 @@ import type {
 import {
   damlMonetaryToNative,
   damlMonetaryToNativeWithValidation,
+  damlTimeToDateString,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
 } from '../../../utils/typeConversions';
@@ -347,13 +348,19 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
         const trigger_description: string | undefined =
           typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
         const trigger_date: string | undefined =
-          typeof r.trigger_date === 'string' && r.trigger_date.length ? r.trigger_date.split('T')[0] : undefined;
+          typeof r.trigger_date === 'string' && r.trigger_date.length
+            ? damlTimeToDateString(r.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date')
+            : undefined;
         const trigger_condition: string | undefined =
           typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
         const start_date: string | undefined =
-          typeof r.start_date === 'string' && r.start_date.length ? r.start_date.split('T')[0] : undefined;
+          typeof r.start_date === 'string' && r.start_date.length
+            ? damlTimeToDateString(r.start_date, 'warrantIssuance.exercise_triggers[].start_date')
+            : undefined;
         const end_date: string | undefined =
-          typeof r.end_date === 'string' && r.end_date.length ? r.end_date.split('T')[0] : undefined;
+          typeof r.end_date === 'string' && r.end_date.length
+            ? damlTimeToDateString(r.end_date, 'warrantIssuance.exercise_triggers[].end_date')
+            : undefined;
 
         const conversion_right: WarrantTriggerConversionRight = mapAnyConversionRightFromDaml(r.conversion_right);
 
@@ -414,7 +421,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
             });
           }
           return {
-            date: v.date.split('T')[0],
+            date: damlTimeToDateString(v.date, 'warrantIssuance.vestings[].date'),
             amount: normalizeNumericString(amountStr),
           };
         })
@@ -455,7 +462,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
   return {
     object_type: 'TX_WARRANT_ISSUANCE',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: damlTimeToDateString(d.date, 'warrantIssuance.date'),
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
@@ -488,14 +495,26 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
       return {};
     })(),
     ...(d.warrant_expiration_date
-      ? { warrant_expiration_date: (d.warrant_expiration_date as string).split('T')[0] }
+      ? {
+          warrant_expiration_date: damlTimeToDateString(
+            d.warrant_expiration_date,
+            'warrantIssuance.warrant_expiration_date'
+          ),
+        }
       : {}),
     ...(d.vesting_terms_id && typeof d.vesting_terms_id === 'string' ? { vesting_terms_id: d.vesting_terms_id } : {}),
     ...(d.board_approval_date && typeof d.board_approval_date === 'string'
-      ? { board_approval_date: d.board_approval_date.split('T')[0] }
+      ? {
+          board_approval_date: damlTimeToDateString(d.board_approval_date, 'warrantIssuance.board_approval_date'),
+        }
       : {}),
     ...(d.stockholder_approval_date && typeof d.stockholder_approval_date === 'string'
-      ? { stockholder_approval_date: d.stockholder_approval_date.split('T')[0] }
+      ? {
+          stockholder_approval_date: damlTimeToDateString(
+            d.stockholder_approval_date,
+            'warrantIssuance.stockholder_approval_date'
+          ),
+        }
       : {}),
     ...(typeof d.consideration_text === 'string' && d.consideration_text.length > 0
       ? { consideration_text: d.consideration_text }

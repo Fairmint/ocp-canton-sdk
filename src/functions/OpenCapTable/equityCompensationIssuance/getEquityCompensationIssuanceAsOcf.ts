@@ -8,7 +8,11 @@ import type {
   TerminationWindowReason,
   Vesting,
 } from '../../../types/native';
-import { damlMonetaryToNativeWithValidation, normalizeNumericString } from '../../../utils/typeConversions';
+import {
+  damlMonetaryToNativeWithValidation,
+  damlTimeToDateString,
+  normalizeNumericString,
+} from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetEquityCompensationIssuanceAsOcfParams extends GetByContractIdParams {}
@@ -69,7 +73,7 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
           // Convert to string after validation
           const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
           return {
-            date: v.date.split('T')[0],
+            date: damlTimeToDateString(v.date, 'equityCompensationIssuance.vestings[].date'),
             amount: normalizeNumericString(amountStr),
           };
         }) as Vesting[])
@@ -200,22 +204,36 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
   return {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: damlTimeToDateString(d.date, 'equityCompensationIssuance.date'),
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
     compensation_type: compensationType,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
-    expiration_date: d.expiration_date ? (d.expiration_date as string).split('T')[0] : null,
+    expiration_date: d.expiration_date
+      ? damlTimeToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date')
+      : null,
     termination_exercise_windows: termination_exercise_windows ?? [],
     ...(exercise_price ? { exercise_price } : {}),
     ...(base_price ? { base_price } : {}),
     ...(d.early_exercisable !== null && d.early_exercisable !== undefined
       ? { early_exercisable: Boolean(d.early_exercisable) }
       : {}),
-    ...(d.board_approval_date ? { board_approval_date: (d.board_approval_date as string).split('T')[0] } : {}),
+    ...(d.board_approval_date
+      ? {
+          board_approval_date: damlTimeToDateString(
+            d.board_approval_date,
+            'equityCompensationIssuance.board_approval_date'
+          ),
+        }
+      : {}),
     ...(d.stockholder_approval_date
-      ? { stockholder_approval_date: (d.stockholder_approval_date as string).split('T')[0] }
+      ? {
+          stockholder_approval_date: damlTimeToDateString(
+            d.stockholder_approval_date,
+            'equityCompensationIssuance.stockholder_approval_date'
+          ),
+        }
       : {}),
     ...(typeof d.consideration_text === 'string' && d.consideration_text
       ? { consideration_text: d.consideration_text }

@@ -1,11 +1,11 @@
 import {
-  ENTITY_REGISTRY,
   isOcfCreatableEntityType,
   isOcfDeletableEntityType,
   isOcfEditableEntityType,
   isOcfEntityType,
   type OcfEntityType,
 } from '../../src';
+import { ENTITY_REGISTRY } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 
 const entityTypes = Object.keys(ENTITY_REGISTRY) as OcfEntityType[];
 

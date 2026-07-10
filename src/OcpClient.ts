@@ -69,34 +69,37 @@ import {
 } from './environment';
 import { OcpErrorCodes, OcpValidationError } from './errors';
 import {
-  authorizeIssuer,
-  buildCreateIssuerCommand,
-  getEntityAsOcf,
-  withdrawAuthorization,
-  type AuthorizeIssuerParams,
-  type AuthorizeIssuerResult,
-  type CreateIssuerParams,
-  type WithdrawAuthorizationParams,
-  type WithdrawAuthorizationResult,
-} from './functions';
-import {
   archiveCapTable,
-  CapTableBatch,
-  classifyIssuerCapTables,
-  getCapTableState,
-  mapOcfObjectTypeToEntityType,
   type ArchiveCapTableParams,
   type ArchiveCapTableResult,
-  type CapTableState,
-  type IssuerCapTableClassification,
+} from './functions/OpenCapTable/capTable/archiveCapTable';
+import { CapTableBatch, type CapTableBatchParams } from './functions/OpenCapTable/capTable/CapTableBatch';
+import { getEntityAsOcf } from './functions/OpenCapTable/capTable/damlToOcf';
+import {
+  mapOcfObjectTypeToEntityType,
   type OcfDataTypeFor,
   type OcfEntityType,
   type OcfReadableDataForObjectType,
   type OcfReadableObjectType,
-} from './functions/OpenCapTable/capTable';
+} from './functions/OpenCapTable/capTable/entityTypes';
+import {
+  classifyIssuerCapTables,
+  getCapTableState,
+  type CapTableState,
+  type IssuerCapTableClassification,
+} from './functions/OpenCapTable/capTable/getCapTableState';
+import { buildCreateIssuerCommand } from './functions/OpenCapTable/issuer/api';
+import type { CreateIssuerParams } from './functions/OpenCapTable/issuer/types';
+import { authorizeIssuer } from './functions/OpenCapTable/issuerAuthorization/authorizeIssuer';
+import type {
+  AuthorizeIssuerParams,
+  AuthorizeIssuerResult,
+  WithdrawAuthorizationParams,
+  WithdrawAuthorizationResult,
+} from './functions/OpenCapTable/issuerAuthorization/types';
+import { withdrawAuthorization } from './functions/OpenCapTable/issuerAuthorization/withdrawAuthorization';
 import { mergeCommandContext, type CommandObservabilityOptions, type OcpObservabilityOptions } from './observability';
-import type { CommandWithDisclosedContracts } from './types';
-import type { ContractResult, GetByContractIdParams } from './types/common';
+import type { CommandWithDisclosedContracts, ContractResult, GetByContractIdParams } from './types/common';
 import type {
   OcfConvertibleAcceptanceOutput,
   OcfConvertibleCancellationOutput,
@@ -824,21 +827,7 @@ export interface GetByObjectTypeParams<
 }
 
 /** Parameters for creating a batch cap table update */
-interface CapTableUpdateParams extends CommandObservabilityOptions {
-  /** The contract ID of the CapTable to update */
-  capTableContractId: string;
-  /** Optional contract details for the CapTable (used to get correct templateId from ledger) */
-  capTableContractDetails?: { templateId: string };
-  /**
-   * Optional deterministic command ID for idempotent retry handling.
-   * Takes precedence over `defaultContext.commandId` and `context.commandId`.
-   */
-  commandId?: string;
-  /** Party IDs to act as (signatories) */
-  actAs: string[];
-  /** Optional additional party IDs for read access */
-  readAs?: string[];
-}
+type CapTableUpdateParams = CapTableBatchParams;
 
 /** Entity namespace with a single `get()` method */
 interface EntityReader<T> {

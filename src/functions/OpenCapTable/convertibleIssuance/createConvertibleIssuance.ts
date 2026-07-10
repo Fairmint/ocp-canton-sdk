@@ -188,9 +188,14 @@ function mechanismInputToDamlEnum(
             ? arr.map((ir) => ({
                 rate: ir?.rate != null ? normalizeNumericString(String(ir.rate)) : null,
                 accrual_start_date: ir?.accrual_start_date
-                  ? dateStringToDAMLTime(ir.accrual_start_date as string)
+                  ? dateStringToDAMLTime(
+                      ir.accrual_start_date,
+                      'convertibleIssuance.interest_rates[].accrual_start_date'
+                    )
                   : null,
-                accrual_end_date: ir?.accrual_end_date ? dateStringToDAMLTime(ir.accrual_end_date as string) : null,
+                accrual_end_date: ir?.accrual_end_date
+                  ? dateStringToDAMLTime(ir.accrual_end_date, 'convertibleIssuance.interest_rates[].accrual_end_date')
+                  : null,
               }))
             : [];
         const accrualToDaml = (v: unknown): string => {
