@@ -21,6 +21,7 @@ import {
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
 export interface GetWarrantIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetWarrantIssuanceAsOcfResult {
@@ -348,14 +349,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
           typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
         const trigger_description: string | undefined =
           typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-        const trigger_date = optionalDamlTimeToDateString(
-          r.trigger_date,
-          'warrantIssuance.exercise_triggers[].trigger_date'
-        );
-        const trigger_condition: string | undefined =
-          typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
-        const start_date = optionalDamlTimeToDateString(r.start_date, 'warrantIssuance.exercise_triggers[].start_date');
-        const end_date = optionalDamlTimeToDateString(r.end_date, 'warrantIssuance.exercise_triggers[].end_date');
+        const triggerFields = triggerFieldsFromDaml(r, type, 'warrantIssuance.exercise_triggers[]');
 
         const conversion_right: WarrantTriggerConversionRight = mapAnyConversionRightFromDaml(r.conversion_right);
 
@@ -365,10 +359,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
           conversion_right,
           ...(nickname ? { nickname } : {}),
           ...(trigger_description ? { trigger_description } : {}),
-          ...(trigger_date !== undefined ? { trigger_date } : {}),
-          ...(trigger_condition ? { trigger_condition } : {}),
-          ...(start_date !== undefined ? { start_date } : {}),
-          ...(end_date !== undefined ? { end_date } : {}),
+          ...triggerFields,
         };
         return t;
       })
