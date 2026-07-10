@@ -151,9 +151,7 @@ export function damlPhoneTypeToNative(damlType: DamlPhoneType): PhoneType {
  * @returns DAML stakeholder type enum value
  * @throws Error if stakeholderType is not a valid value
  */
-export function stakeholderTypeToDaml(
-  stakeholderType: StakeholderType
-): DamlStakeholderType {
+export function stakeholderTypeToDaml(stakeholderType: StakeholderType): DamlStakeholderType {
   switch (stakeholderType) {
     case 'INDIVIDUAL':
       return 'OcfStakeholderTypeIndividual';
@@ -176,9 +174,7 @@ export function stakeholderTypeToDaml(
  * @returns Native stakeholder type
  * @throws Error if damlType is not a valid value
  */
-export function damlStakeholderTypeToNative(
-  damlType: DamlStakeholderType
-): StakeholderType {
+export function damlStakeholderTypeToNative(damlType: DamlStakeholderType): StakeholderType {
   switch (damlType) {
     case 'OcfStakeholderTypeIndividual':
       return 'INDIVIDUAL';
