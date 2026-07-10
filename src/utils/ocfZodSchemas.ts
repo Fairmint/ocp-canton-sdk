@@ -380,6 +380,16 @@ function addCanonicalConversionIssues(
           message: `${objectType} does not permit conversion right ${rightType}`,
         });
       }
+      if (
+        rightType === 'STOCK_CLASS_CONVERSION_RIGHT' &&
+        (typeof value.converts_to_stock_class_id !== 'string' || value.converts_to_stock_class_id.length === 0)
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [...segments, 'converts_to_stock_class_id'],
+          message: 'STOCK_CLASS_CONVERSION_RIGHT requires a non-empty converts_to_stock_class_id',
+        });
+      }
       const mechanism = value.conversion_mechanism;
       const mechanismType = isRecord(mechanism) ? mechanism.type : undefined;
       const allowed = CONVERSION_RIGHT_MECHANISMS[rightType];

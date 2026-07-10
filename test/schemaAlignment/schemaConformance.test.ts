@@ -144,6 +144,17 @@ describe('intentional SDK semantic refinements', () => {
     }
   });
 
+  it('requires the stock-class destination needed by the generated DAML contract', () => {
+    const rawSchema = JSON.parse(
+      fs.readFileSync(path.join(SCHEMA_ROOT, 'types/conversion_rights/StockClassConversionRight.schema.json'), 'utf8')
+    ) as { required?: string[] };
+    expect(rawSchema.required).not.toContain('converts_to_stock_class_id');
+
+    const targetProperty = getNamedTypeProperty(REPO_ROOT, 'StockClassConversionRight', 'converts_to_stock_class_id');
+    expect(targetProperty.optional).toBe(false);
+    expect(targetProperty.type).toBe('string');
+  });
+
   it('records the PPS discount exclusivity that is stricter than the pinned draft-07 schema', () => {
     const ppsSchema = dereferencePinnedSchemaFile(
       SCHEMA_ROOT,
