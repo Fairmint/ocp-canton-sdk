@@ -3,8 +3,12 @@
 
 import {
   convertToDaml,
+  getOcfObjectTypeCapability,
+  validateOcfCapTableSnapshot,
   type CapTableBatch,
   type CapTableBatchOperations,
+  type OcfCapTableSnapshotObject,
+  type OcfCapTableSnapshotValidationResult,
   type OcfCreateOperation,
   type OcfEntityDataMap,
   type OcfEntityType,
@@ -38,6 +42,17 @@ const publishedOcfObjectExcludesLegacyPlanSecurity: Assert<
 
 void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesLegacyPlanSecurity;
+
+const snapshot: readonly OcfCapTableSnapshotObject[] = [{ object_type: 'ISSUER', id: 'issuer-1' }];
+const snapshotResult: OcfCapTableSnapshotValidationResult = validateOcfCapTableSnapshot(snapshot);
+const financingCapability = getOcfObjectTypeCapability('FINANCING');
+
+if (financingCapability.support === 'schema-only') {
+  const financingObjectType: 'FINANCING' = financingCapability.objectType;
+  void financingObjectType;
+}
+
+void snapshotResult;
 
 function verifyPublishedBatchApi(
   batch: CapTableBatch,

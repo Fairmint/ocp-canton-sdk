@@ -1,0 +1,41 @@
+[
+  {
+    "object_type": "ISSUER",
+    "id": "issuer-synthetic",
+    "legal_name": "Synthetic Example, Inc.",
+    "formation_date": "2024-01-01",
+    "country_of_formation": "US"
+  },
+  {
+    "object_type": "STOCK_CLASS",
+    "id": "stock-class-common",
+    "class_type": "COMMON",
+    "default_id_prefix": "CS-",
+    "initial_shares_authorized": "1000000",
+    "name": "Common Stock",
+    "seniority": "1",
+    "votes_per_share": "1"
+  },
+  {
+    "object_type": "STOCK_LEGEND_TEMPLATE",
+    "id": "legend-standard",
+    "name": "Standard legend",
+    "text": "Synthetic legend text"
+  },
+  {
+    "object_type": "TX_STOCK_ISSUANCE",
+    "id": "stock-issuance-orphaned",
+    "date": "2024-02-01",
+    "security_id": "security-orphaned",
+    "custom_id": "CS-1",
+    "stakeholder_id": "stakeholder-moved-to-another-portal",
+    "stock_class_id": "stock-class-common",
+    "security_law_exemptions": [],
+    "share_price": {
+      "amount": "1",
+      "currency": "USD"
+    },
+    "quantity": "100",
+    "stock_legend_ids": ["legend-standard"]
+  }
+]
