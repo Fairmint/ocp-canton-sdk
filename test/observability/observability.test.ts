@@ -5,6 +5,7 @@ describe('observability helpers', () => {
     const params = {
       commands: [],
       actAs: ['issuer::party'],
+      commandId: 'command-from-params' as const,
       callerMetadata: 'preserved' as const,
     };
 
@@ -20,7 +21,7 @@ describe('observability helpers', () => {
       },
     });
 
-    const { callerMetadata }: { callerMetadata: 'preserved' } = result;
+    const { callerMetadata, commandId }: { callerMetadata: 'preserved'; commandId: string } = result;
 
     expect(result).toMatchObject({
       workflowId: 'workflow-default',
@@ -29,6 +30,7 @@ describe('observability helpers', () => {
       traceContext: { traceId: 'trace-1', spanId: 'span-1' },
       callerMetadata,
     });
+    expect(commandId).toBe('command-call');
   });
 
   it('emits success logs and metrics around command submission', async () => {

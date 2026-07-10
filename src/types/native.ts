@@ -435,7 +435,7 @@ export interface TaxId {
 export interface StockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
   conversion_mechanism: RatioConversionMechanism;
-  converts_to_stock_class_id?: string;
+  converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }
 
@@ -478,13 +478,6 @@ export type OcfObjectType =
   | 'TX_EQUITY_COMPENSATION_RETRACTION'
   | 'TX_EQUITY_COMPENSATION_TRANSFER'
   | 'TX_EQUITY_COMPENSATION_REPRICING'
-  | 'TX_PLAN_SECURITY_ACCEPTANCE'
-  | 'TX_PLAN_SECURITY_CANCELLATION'
-  | 'TX_PLAN_SECURITY_EXERCISE'
-  | 'TX_PLAN_SECURITY_ISSUANCE'
-  | 'TX_PLAN_SECURITY_RELEASE'
-  | 'TX_PLAN_SECURITY_RETRACTION'
-  | 'TX_PLAN_SECURITY_TRANSFER'
   | 'TX_STOCK_ACCEPTANCE'
   | 'TX_STOCK_CANCELLATION'
   | 'TX_STOCK_CONVERSION'
@@ -981,9 +974,6 @@ export interface OcfStockPlan extends OcfObjectBase<'STOCK_PLAN'> {
 // ===== Equity Compensation Issuance Types =====
 
 export type CompensationType = 'OPTION_NSO' | 'OPTION_ISO' | 'OPTION' | 'RSU' | 'CSAR' | 'SSAR';
-
-/** @deprecated OCF OptionType (NSO, ISO, INTL). Prefer CompensationType for option grants. */
-export type OptionType = 'NSO' | 'ISO' | 'INTL';
 
 export interface Vesting {
   /** Date when vesting occurs */
@@ -1792,187 +1782,6 @@ export interface OcfEquityCompensationRepricing extends OcfObjectBase<'TX_EQUITY
   security_id: string;
   /** Updated exercise price after repricing */
   new_exercise_price: Monetary;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-// ===== Plan Security Transaction Types =====
-
-/**
- * Object - Plan Security Issuance Transaction Object describing a plan security issuance transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/issuance/PlanSecurityIssuance.schema.json
- */
-export interface OcfPlanSecurityIssuance extends OcfObjectBase<'TX_PLAN_SECURITY_ISSUANCE'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the security being issued */
-  security_id: string;
-  /** A custom ID for this security */
-  custom_id: string;
-  /** Identifier for the stakeholder receiving the security */
-  stakeholder_id: string;
-  /** Identifier for the stock plan */
-  stock_plan_id?: string;
-  /** Identifier for the stock class */
-  stock_class_id?: string;
-  /** Canonical compensation type */
-  compensation_type: CompensationType;
-  /** @deprecated Use compensation_type instead */
-  option_grant_type?: OptionType;
-  /** @internal Extension field — not in OCF schema */
-  plan_security_type?: 'OPTION' | 'RSU' | 'OTHER';
-  /** Quantity of plan securities being issued */
-  quantity: string;
-  /** Exercise price per share/unit */
-  exercise_price?: Monetary;
-  /** Base price per share/unit (for SARs) */
-  base_price?: Monetary;
-  /** Whether security is early exercisable */
-  early_exercisable?: boolean;
-  /** Inline vesting installments */
-  vestings?: NonEmptyArray<Vesting>;
-  /** Expiration date for this security */
-  expiration_date: string | null;
-  /** Termination exercise windows */
-  termination_exercise_windows: TerminationWindow[];
-  /** Identifier for the vesting terms */
-  vesting_terms_id?: string;
-  /** Date on which the board approved the issuance */
-  board_approval_date?: string;
-  /** Date on which stockholders approved the issuance */
-  stockholder_approval_date?: string;
-  /** Unstructured text description of consideration */
-  consideration_text?: string;
-  /** Security law exemptions */
-  security_law_exemptions: SecurityExemption[];
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Exercise Transaction Object describing a plan security exercise transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/exercise/PlanSecurityExercise.schema.json
- */
-export interface OcfPlanSecurityExercise extends OcfObjectBase<'TX_PLAN_SECURITY_EXERCISE'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being exercised */
-  security_id: string;
-  /** Quantity being exercised */
-  quantity: string;
-  /** Array of identifiers for new securities resulting from the exercise */
-  resulting_security_ids: string[];
-  /** @internal DAML pass-through — not in OCF schema */
-  balance_security_id?: string;
-  /** Unstructured text description of consideration */
-  consideration_text?: string;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Cancellation Transaction Object describing a plan security cancellation transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/cancellation/PlanSecurityCancellation.schema.json
- */
-export interface OcfPlanSecurityCancellation extends OcfObjectBase<'TX_PLAN_SECURITY_CANCELLATION'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being cancelled */
-  security_id: string;
-  /** Quantity being cancelled */
-  quantity: string;
-  /** Identifier for the security that holds the remainder balance (for partial cancellations) */
-  balance_security_id?: string;
-  /** Reason for the cancellation */
-  reason_text: string;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Acceptance Transaction Object describing a plan security acceptance transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/acceptance/PlanSecurityAcceptance.schema.json
- */
-export interface OcfPlanSecurityAcceptance extends OcfObjectBase<'TX_PLAN_SECURITY_ACCEPTANCE'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being accepted */
-  security_id: string;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Release Transaction Object describing a plan security release transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/release/PlanSecurityRelease.schema.json
- */
-export interface OcfPlanSecurityRelease extends OcfObjectBase<'TX_PLAN_SECURITY_RELEASE'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being released */
-  security_id: string;
-  /** Quantity being released */
-  quantity: string;
-  /** Price used to value the released security at release time */
-  release_price: Monetary;
-  /** Array of identifiers for new securities resulting from the release */
-  resulting_security_ids: string[];
-  /** @internal DAML pass-through — not in OCF schema */
-  balance_security_id?: string;
-  /** Settlement date for the release */
-  settlement_date: string;
-  /** Unstructured text description of consideration */
-  consideration_text?: string;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Retraction Transaction Object describing a plan security retraction transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/retraction/PlanSecurityRetraction.schema.json
- */
-export interface OcfPlanSecurityRetraction extends OcfObjectBase<'TX_PLAN_SECURITY_RETRACTION'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being retracted */
-  security_id: string;
-  /** Reason for the retraction */
-  reason_text: string;
-  /** Unstructured text comments related to and stored for the object */
-  comments?: string[];
-}
-
-/**
- * Object - Plan Security Transfer Transaction Object describing a plan security transfer transaction OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/transfer/PlanSecurityTransfer.schema.json
- */
-export interface OcfPlanSecurityTransfer extends OcfObjectBase<'TX_PLAN_SECURITY_TRANSFER'> {
-  /** Identifier for the object */
-  id: string;
-  /** Date on which the transaction occurred */
-  date: string;
-  /** Identifier for the plan security being transferred */
-  security_id: string;
-  /** Quantity being transferred */
-  quantity: string;
-  /** Array of identifiers for new securities resulting from the transfer */
-  resulting_security_ids: NonEmptyArray<string>;
-  /** Identifier for the security that holds the remainder balance (for partial transfers) */
-  balance_security_id?: string;
-  /** Unstructured text description of consideration */
-  consideration_text?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

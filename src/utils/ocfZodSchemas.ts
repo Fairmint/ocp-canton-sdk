@@ -10,7 +10,7 @@ import {
   type OcfDataTypeFor,
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/entityTypes';
-import { normalizeOcfData } from './planSecurityAliases';
+import { normalizeOcfData } from './ocfNormalization';
 
 const ENTITY_OBJECT_TYPE_MAP = Object.fromEntries(
   Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).map(([objectType, entityType]) => [entityType, objectType])
@@ -66,15 +66,6 @@ export const OCF_OBJECT_SCHEMA_PATHS = {
   TX_EQUITY_COMPENSATION_RETRACTION: 'transactions/retraction/EquityCompensationRetraction.schema.json',
   TX_EQUITY_COMPENSATION_TRANSFER: 'transactions/transfer/EquityCompensationTransfer.schema.json',
   TX_EQUITY_COMPENSATION_REPRICING: 'transactions/repricing/EquityCompensationRepricing.schema.json',
-
-  // PlanSecurity compatibility wrappers
-  TX_PLAN_SECURITY_ACCEPTANCE: 'transactions/acceptance/PlanSecurityAcceptance.schema.json',
-  TX_PLAN_SECURITY_CANCELLATION: 'transactions/cancellation/PlanSecurityCancellation.schema.json',
-  TX_PLAN_SECURITY_EXERCISE: 'transactions/exercise/PlanSecurityExercise.schema.json',
-  TX_PLAN_SECURITY_ISSUANCE: 'transactions/issuance/PlanSecurityIssuance.schema.json',
-  TX_PLAN_SECURITY_RELEASE: 'transactions/release/PlanSecurityRelease.schema.json',
-  TX_PLAN_SECURITY_RETRACTION: 'transactions/retraction/PlanSecurityRetraction.schema.json',
-  TX_PLAN_SECURITY_TRANSFER: 'transactions/transfer/PlanSecurityTransfer.schema.json',
 
   // Stock
   TX_STOCK_ACCEPTANCE: 'transactions/acceptance/StockAcceptance.schema.json',
@@ -380,6 +371,16 @@ function addCanonicalConversionIssues(
           message: `${objectType} does not permit conversion right ${rightType}`,
         });
       }
+      if (
+        rightType === 'STOCK_CLASS_CONVERSION_RIGHT' &&
+        (typeof value.converts_to_stock_class_id !== 'string' || value.converts_to_stock_class_id.length === 0)
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [...segments, 'converts_to_stock_class_id'],
+          message: 'STOCK_CLASS_CONVERSION_RIGHT requires a non-empty converts_to_stock_class_id',
+        });
+      }
       const mechanism = value.conversion_mechanism;
       const mechanismType = isRecord(mechanism) ? mechanism.type : undefined;
       const allowed = CONVERSION_RIGHT_MECHANISMS[rightType];
@@ -518,6 +519,7 @@ const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Record<string, readonly string[]>> =
   STAKEHOLDER: ['current_relationship'],
   TX_STOCK_CONVERSION: ['quantity'],
   TX_EQUITY_COMPENSATION_RELEASE: ['balance_security_id'],
+  TX_EQUITY_COMPENSATION_ISSUANCE: ['plan_security_type'],
   TX_STOCK_CLASS_SPLIT: [
     'split_ratio_numerator',
     'split_ratio_denominator',
@@ -566,7 +568,7 @@ function parseWithOcfSchema(input: Record<string, unknown>, objectType: string):
  *
  * Non-schema and obsolete DTO fields are rejected, and the declared source
  * shape is validated before schema-supported aliases are normalized to the
- * SDK's canonical forms.
+ * SDK's canonical forms. Retired PlanSecurity object types are rejected.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
   if (!isRecord(input)) {
@@ -620,7 +622,8 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
  * Parse and validate OCF input for a specific SDK entity type.
  *
  * Typed SDK inputs must provide the exact canonical object_type for the entity.
- * Schema-supported aliases remain available only through the raw {@link parseOcfObject} ingestion boundary.
+ * Compatibility fields that normalize to canonical DTOs remain available only through the raw
+ * {@link parseOcfObject} ingestion boundary.
  */
 export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
   if (!isRecord(input)) {

@@ -202,8 +202,7 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_STATUS_CHANGE_EVENT']).toBeUndefined();
   });
 
-  it('keeps schema-supported PlanSecurity aliases out of the canonical lookup map', () => {
-    // PlanSecurity values normalize to EquityCompensation before this canonical map is consulted.
+  it('does not expose retired PlanSecurity discriminators in the canonical lookup map', () => {
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_ISSUANCE']).toBeUndefined();
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_EXERCISE']).toBeUndefined();
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_CANCELLATION']).toBeUndefined();
@@ -600,6 +599,23 @@ describe('buildCantonOcfDataMap', () => {
       ]);
 
       expect(() => buildCantonOcfDataMap(manifest)).toThrow('Unsupported transaction object_type: STAKEHOLDER');
+    });
+
+    it.each([
+      'TX_PLAN_SECURITY_ACCEPTANCE',
+      'TX_PLAN_SECURITY_CANCELLATION',
+      'TX_PLAN_SECURITY_EXERCISE',
+      'TX_PLAN_SECURITY_ISSUANCE',
+      'TX_PLAN_SECURITY_RELEASE',
+      'TX_PLAN_SECURITY_RETRACTION',
+      'TX_PLAN_SECURITY_TRANSFER',
+    ])('rejects retired PlanSecurity transaction input %s', (objectType) => {
+      const manifest = createEmptyManifest();
+      manifest.transactions = asInvalidManifestValue<OcfManifest['transactions']>([
+        { id: 'legacy-plan-security', object_type: objectType },
+      ]);
+
+      expect(() => buildCantonOcfDataMap(manifest)).toThrow(`Unsupported transaction object_type: ${objectType}`);
     });
 
     it('throws when transaction object_type is an inherited object property', () => {

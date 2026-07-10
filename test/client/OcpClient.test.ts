@@ -65,7 +65,19 @@ describe('OcpClient', () => {
           ledger,
           factory: { contractId: 'factory-cid' } as unknown as { contractId: string; templateId: string },
         })
-    ).toThrow('factory override must include contractId and templateId');
+    ).toThrow('factory override must include non-empty contractId and templateId');
+  });
+
+  it('describes blank client-level factory coordinates as non-empty requirements', () => {
+    const ledger = createLedgerJsonApiClient(config);
+
+    expect(
+      () =>
+        new OcpClient({
+          ledger,
+          factory: { contractId: '   ', templateId: 'factory-tid' },
+        })
+    ).toThrow('factory override must include non-empty contractId and templateId');
   });
 
   it('rejects injected environment labels that do not match the ledger network', () => {
@@ -222,7 +234,7 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
           templateId: string;
         },
       })
-    ).rejects.toThrow('factory override must include contractId and templateId');
+    ).rejects.toThrow('factory override must include non-empty contractId and templateId');
 
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
@@ -409,9 +421,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
   it('exports one canonical OCF object_type mapping for each readable registry entry', () => {
     const expected = Object.fromEntries(
-      Object.entries(ENTITY_REGISTRY)
-        .filter(([entityType]) => !entityType.startsWith('planSecurity'))
-        .map(([entityType, entry]) => [entry.objectType, entityType])
+      Object.entries(ENTITY_REGISTRY).map(([entityType, entry]) => [entry.objectType, entityType])
     );
 
     expect(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).toEqual(expected);

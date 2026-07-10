@@ -19,7 +19,7 @@ export type DamlStockCancellationData = DamlQuantityCancellationData;
  */
 export function damlStockCancellationToNative(d: DamlStockCancellationData): OcfStockCancellation {
   return {
-    ...quantityCancellationToNative(d),
+    ...quantityCancellationToNative(d, 'stockCancellation.date'),
     object_type: 'TX_STOCK_CANCELLATION',
   };
 }

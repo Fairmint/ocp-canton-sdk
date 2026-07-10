@@ -25,11 +25,13 @@ import {
   OCF_CONDITIONAL_COVERAGE,
   PINNED_CANONICAL_NON_EMPTY_ARRAYS,
   PINNED_REACHABLE_SCHEMA_FINGERPRINT,
+  RETIRED_PLAN_SECURITY_SCHEMA_PAIRS,
 } from './schemaConformanceRegistry';
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const SCHEMA_ROOT = path.join(REPO_ROOT, 'libs', 'Open-Cap-Format-OCF', 'schema');
 const CANONICAL_INVENTORY_PATH = path.join(__dirname, 'canonicalOcfObjectInventory.json');
+const PPS_SCHEMA_PATH = 'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json';
 
 function readCanonicalInventory(): CanonicalOcfObjectInventoryEntry[] {
   return JSON.parse(fs.readFileSync(CANONICAL_INVENTORY_PATH, 'utf8')) as CanonicalOcfObjectInventoryEntry[];
@@ -68,6 +70,26 @@ describe('schema-driven OCF conformance guardrail', () => {
     };
 
     expect(resolveJsonPointer(document, '/a~1b/m~0n/~01', 'synthetic.schema.json')).toBe('escaped-value');
+  });
+
+  it.each(['/01', '/-0', '/1e0'])('rejects non-canonical array JSON Pointer index %s', (fragment) => {
+    expect(() => resolveJsonPointer(['zero', 'one'], fragment, 'synthetic.schema.json')).toThrow(
+      'Invalid array JSON Pointer segment'
+    );
+  });
+
+  it('rejects invalid JSON Pointer escape sequences', () => {
+    expect(() => resolveJsonPointer({ '~2': 'invalid' }, '/~2', 'synthetic.schema.json')).toThrow(
+      'Invalid JSON Pointer escape sequence'
+    );
+  });
+
+  it('resolves canonical array indices and rejects out-of-bounds indices', () => {
+    expect(resolveJsonPointer(['zero', 'one'], '/0', 'synthetic.schema.json')).toBe('zero');
+    expect(resolveJsonPointer(['zero', 'one'], '/1', 'synthetic.schema.json')).toBe('one');
+    expect(() => resolveJsonPointer(['zero', 'one'], '/2', 'synthetic.schema.json')).toThrow(
+      'Invalid array JSON Pointer segment'
+    );
   });
 
   it('fails on any reachable pinned schema content drift', () => {
@@ -123,6 +145,35 @@ describe('schema-driven OCF conformance guardrail', () => {
     expect(
       compareCanonicalOcfPropertySets(compilerInventory, pinnedPropertyInventory, CANONICAL_PROPERTY_PARITY_EXCLUSIONS)
     ).toEqual([]);
+  });
+
+  it('keeps all seven retired PlanSecurity wrappers schema-identical but outside the public union', () => {
+    const compilerInventory = inventoryCanonicalOcfObjects(REPO_ROOT);
+    const pinnedPropertyInventory = inventoryPinnedOcfObjectProperties(SCHEMA_ROOT);
+    const publicDiscriminators = new Set(compilerInventory.map(({ discriminator }) => discriminator));
+
+    expect(RETIRED_PLAN_SECURITY_SCHEMA_PAIRS).toHaveLength(7);
+    for (const pair of RETIRED_PLAN_SECURITY_SCHEMA_PAIRS) {
+      expect(publicDiscriminators.has(pair.retiredDiscriminator)).toBe(false);
+      expect(publicDiscriminators.has(pair.canonicalDiscriminator)).toBe(true);
+
+      const canonicalSchemas = pinnedPropertyInventory.filter(
+        ({ discriminator }) => discriminator === pair.canonicalDiscriminator
+      );
+      expect(canonicalSchemas).toHaveLength(1);
+      const canonicalSchema = canonicalSchemas[0];
+      if (!canonicalSchema) throw new Error(`Missing pinned schema for ${pair.canonicalDiscriminator}`);
+
+      const retiredSchemas = pinnedPropertyInventory.filter(
+        ({ discriminator }) => discriminator === pair.retiredDiscriminator
+      );
+      expect(retiredSchemas.map(({ schemaPath }) => schemaPath).sort()).toEqual(
+        [canonicalSchema.schemaPath, pair.wrapperSchemaPath].sort()
+      );
+      for (const retiredSchema of retiredSchemas) {
+        expect(retiredSchema.properties).toEqual(canonicalSchema.properties);
+      }
+    }
   });
 
   it('detects a newly introduced public DTO property even when the snapshot is regenerated', () => {
@@ -278,17 +329,6 @@ describe('schema-driven OCF conformance guardrail', () => {
       },
     ]);
   });
-
-  it('keeps deprecated root-exported PlanSecurity aliases aligned with inherited minItems constraints', () => {
-    expect(getNamedTypeProperty(REPO_ROOT, 'OcfPlanSecurityIssuance', 'vestings')).toEqual({
-      optional: true,
-      type: 'NonEmptyArray<Vesting>',
-    });
-    expect(getNamedTypeProperty(REPO_ROOT, 'OcfPlanSecurityTransfer', 'resulting_security_ids')).toEqual({
-      optional: false,
-      type: 'NonEmptyArray<string>',
-    });
-  });
 });
 
 describe('intentional SDK semantic refinements', () => {
@@ -324,20 +364,32 @@ describe('intentional SDK semantic refinements', () => {
     }
   });
 
-  it('records the PPS discount exclusivity that is stricter than the pinned draft-07 schema', () => {
-    const ppsSchema = dereferencePinnedSchemaFile(
-      SCHEMA_ROOT,
-      'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json'
-    );
+  it('requires the stock-class destination needed by the generated DAML contract', () => {
+    const rawSchema = JSON.parse(
+      fs.readFileSync(path.join(SCHEMA_ROOT, 'types/conversion_rights/StockClassConversionRight.schema.json'), 'utf8')
+    ) as { required?: string[] };
+    expect(rawSchema.required).not.toContain('converts_to_stock_class_id');
+
+    const targetProperty = getNamedTypeProperty(REPO_ROOT, 'StockClassConversionRight', 'converts_to_stock_class_id');
+    expect(targetProperty.optional).toBe(false);
+    expect(targetProperty.type).toBe('string');
+  });
+
+  it('enforces PPS discount exclusivity beyond the pinned draft-07 schema gap', () => {
+    const ppsSchema = dereferencePinnedSchemaFile(SCHEMA_ROOT, PPS_SCHEMA_PATH);
     const validate = new Ajv({ allErrors: true, strict: false }).compile(ppsSchema);
     const schemaLoophole = {
       type: 'PPS_BASED_CONVERSION',
-      description: '20% discount',
+      description: 'Stale discount details remain',
       discount: false,
       discount_percentage: '0.2',
     };
 
     expect(validate(schemaLoophole)).toBe(true);
+
+    const ppsRegistrations = OCF_CONDITIONAL_COVERAGE.filter((entry) => entry.path.startsWith(PPS_SCHEMA_PATH));
+    expect(ppsRegistrations).toHaveLength(4);
+    expect(ppsRegistrations.every((entry) => entry.refinement === 'pps-discount-exclusivity')).toBe(true);
     expect(EXPECTED_SEMANTIC_REFINEMENTS).toContainEqual(
       expect.objectContaining({
         expectedSdkContract: expect.stringContaining('discount=false with neither field'),

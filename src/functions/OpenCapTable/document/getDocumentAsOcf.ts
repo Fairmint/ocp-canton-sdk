@@ -71,19 +71,19 @@ function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType)
     case 'OcfObjTxEquityCompensationRepricing':
       return 'TX_EQUITY_COMPENSATION_REPRICING';
     case 'OcfObjTxPlanSecurityAcceptance':
-      return 'TX_PLAN_SECURITY_ACCEPTANCE';
+      return 'TX_EQUITY_COMPENSATION_ACCEPTANCE';
     case 'OcfObjTxPlanSecurityCancellation':
-      return 'TX_PLAN_SECURITY_CANCELLATION';
+      return 'TX_EQUITY_COMPENSATION_CANCELLATION';
     case 'OcfObjTxPlanSecurityExercise':
-      return 'TX_PLAN_SECURITY_EXERCISE';
+      return 'TX_EQUITY_COMPENSATION_EXERCISE';
     case 'OcfObjTxPlanSecurityIssuance':
-      return 'TX_PLAN_SECURITY_ISSUANCE';
+      return 'TX_EQUITY_COMPENSATION_ISSUANCE';
     case 'OcfObjTxPlanSecurityRelease':
-      return 'TX_PLAN_SECURITY_RELEASE';
+      return 'TX_EQUITY_COMPENSATION_RELEASE';
     case 'OcfObjTxPlanSecurityRetraction':
-      return 'TX_PLAN_SECURITY_RETRACTION';
+      return 'TX_EQUITY_COMPENSATION_RETRACTION';
     case 'OcfObjTxPlanSecurityTransfer':
-      return 'TX_PLAN_SECURITY_TRANSFER';
+      return 'TX_EQUITY_COMPENSATION_TRANSFER';
     case 'OcfObjTxStockAcceptance':
       return 'TX_STOCK_ACCEPTANCE';
     case 'OcfObjTxStockCancellation':

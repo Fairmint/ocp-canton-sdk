@@ -4,8 +4,6 @@ import type {
   OcfEquityCompensationIssuance,
   OcfEquityCompensationTransfer,
   OcfFinancing,
-  OcfPlanSecurityIssuance,
-  OcfPlanSecurityTransfer,
   OcfStockConsolidation,
   OcfStockIssuance,
   OcfStockPlan,
@@ -64,16 +62,6 @@ const stockConsolidationEmptySecurityIds: Pick<OcfStockConsolidation, 'security_
   security_ids: [],
 };
 
-// These deprecated aliases remain root-exported and inherit the same pinned constraints.
-const planSecurityIssuanceEmptyVestings: Pick<OcfPlanSecurityIssuance, 'vestings'> = {
-  // @ts-expect-error when present, vestings requires at least one item
-  vestings: [],
-};
-const planSecurityTransferEmptyResults: Pick<OcfPlanSecurityTransfer, 'resulting_security_ids'> = {
-  // @ts-expect-error resulting_security_ids requires at least one item
-  resulting_security_ids: [],
-};
-
 void stockPlanEmptyStockClassIds;
 void vestingTermsEmptyConditions;
 void financingEmptyIssuanceIds;
@@ -86,5 +74,3 @@ void warrantTransferEmptyResults;
 void convertibleTransferEmptyResults;
 void equityCompensationTransferEmptyResults;
 void stockConsolidationEmptySecurityIds;
-void planSecurityIssuanceEmptyVestings;
-void planSecurityTransferEmptyResults;
