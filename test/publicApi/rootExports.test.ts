@@ -19,6 +19,7 @@ describe('package root exports', () => {
       'OcpParseError',
       'OcpValidationError',
       'SCRATCHNET_PRESET',
+      'STAKEHOLDER_RELATIONSHIP_TYPES',
       'TESTNET_PRESET',
       'applyCommandContext',
       'authorizeIssuer',

@@ -2,6 +2,7 @@
  * Unit tests for entity validators.
  */
 import { OcpValidationError } from '../../src/errors';
+import { STAKEHOLDER_RELATIONSHIP_TYPES } from '../../src/types';
 import {
   validateAddress,
   validateContactInfo,
@@ -348,6 +349,26 @@ describe('Entity Validators', () => {
       expect(() =>
         validateStakeholderData({ ...validStakeholder, current_status: 'ACTIVE' }, 'stakeholder')
       ).not.toThrow();
+    });
+
+    it.each(STAKEHOLDER_RELATIONSHIP_TYPES)('passes for canonical current_relationships value %s', (relationship) => {
+      expect(() =>
+        validateStakeholderData({ ...validStakeholder, current_relationships: [relationship] }, 'stakeholder')
+      ).not.toThrow();
+    });
+
+    it('rejects an unknown current_relationships value with its structured field path', () => {
+      try {
+        validateStakeholderData(
+          { ...validStakeholder, current_relationships: ['ADVISOR', 'UNKNOWN_RELATIONSHIP'] },
+          'stakeholder'
+        );
+        throw new Error('Expected validateStakeholderData to reject an unknown relationship');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect((error as OcpValidationError).fieldPath).toBe('stakeholder.current_relationships[1]');
+        expect((error as OcpValidationError).receivedValue).toBe('UNKNOWN_RELATIONSHIP');
+      }
     });
   });
 

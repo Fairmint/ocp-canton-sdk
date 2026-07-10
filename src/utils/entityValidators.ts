@@ -16,6 +16,7 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { Address, Email, Monetary, Phone } from '../types';
+import { STAKEHOLDER_RELATIONSHIP_TYPES } from '../types/native';
 import {
   validateEnum,
   validateOptionalArray,
@@ -50,16 +51,6 @@ const STAKEHOLDER_STATUSES = [
   'TERMINATION_INVOLUNTARY_DEATH',
   'TERMINATION_INVOLUNTARY_DISABILITY',
   'TERMINATION_INVOLUNTARY_WITH_CAUSE',
-] as const;
-
-const STAKEHOLDER_RELATIONSHIPS = [
-  'EMPLOYEE',
-  'ADVISOR',
-  'INVESTOR',
-  'FOUNDER',
-  'BOARD_MEMBER',
-  'OFFICER',
-  'OTHER',
 ] as const;
 
 // ===== Helper Validators =====
@@ -380,7 +371,7 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
     }
     const relationships = value.current_relationships;
     for (let i = 0; i < relationships.length; i++) {
-      validateEnum(relationships[i], `${fieldPath}.current_relationships[${i}]`, STAKEHOLDER_RELATIONSHIPS);
+      validateEnum(relationships[i], `${fieldPath}.current_relationships[${i}]`, STAKEHOLDER_RELATIONSHIP_TYPES);
     }
   }
 

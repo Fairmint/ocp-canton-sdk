@@ -5,8 +5,9 @@
  * special edge cases.
  */
 
+import { OcpValidationError } from '../../src/errors';
 import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
-import type { OcfStakeholder } from '../../src/types';
+import { STAKEHOLDER_RELATIONSHIP_TYPES, type OcfStakeholder } from '../../src/types';
 import {
   damlStakeholderRelationshipToNative,
   type DamlStakeholderRelationshipType,
@@ -189,23 +190,31 @@ describe('Boundary Condition Tests', () => {
       expect(stakeholderDataToDaml(institution).stakeholder_type).toBe('OcfStakeholderTypeInstitution');
     });
 
-    test('relationship types are normalized correctly', () => {
+    test('all canonical relationship types are converted to DAML', () => {
       const dataWithRelationships: OcfStakeholder = {
         id: 'sh-relationships',
         object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test' },
         stakeholder_type: 'INDIVIDUAL',
-        current_relationships: ['EMPLOYEE', 'INVESTOR', 'FOUNDER', 'BOARD_MEMBER', 'ADVISOR', 'OFFICER', 'OTHER'],
+        current_relationships: [...STAKEHOLDER_RELATIONSHIP_TYPES],
       };
 
       const result = stakeholderDataToDaml(dataWithRelationships);
-      expect(result.current_relationships).toContain('OcfRelEmployee');
-      expect(result.current_relationships).toContain('OcfRelInvestor');
-      expect(result.current_relationships).toContain('OcfRelFounder');
-      expect(result.current_relationships).toContain('OcfRelBoardMember');
-      expect(result.current_relationships).toContain('OcfRelAdvisor');
-      expect(result.current_relationships).toContain('OcfRelOfficer');
-      expect(result.current_relationships).toContain('OcfRelOther');
+      expect(result.current_relationships).toEqual([
+        'OcfRelAdvisor',
+        'OcfRelBoardMember',
+        'OcfRelConsultant',
+        'OcfRelEmployee',
+        'OcfRelExAdvisor',
+        'OcfRelExConsultant',
+        'OcfRelExEmployee',
+        'OcfRelExecutive',
+        'OcfRelFounder',
+        'OcfRelInvestor',
+        'OcfRelNonUsEmployee',
+        'OcfRelOfficer',
+        'OcfRelOther',
+      ]);
     });
 
     test('fails fast for invalid current_relationships values', () => {
@@ -217,8 +226,13 @@ describe('Boundary Condition Tests', () => {
         current_relationships: ['INVALID_RELATIONSHIP' as never],
       };
 
-      expect(() => stakeholderDataToDaml(invalidRelationshipArrayData)).toThrow();
-      expect(() => stakeholderDataToDaml(invalidRelationshipArrayData)).toThrow('current_relationships[0]');
+      try {
+        stakeholderDataToDaml(invalidRelationshipArrayData);
+        throw new Error('Expected stakeholderDataToDaml to reject an unknown relationship');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect((error as OcpValidationError).fieldPath).toBe('stakeholder.current_relationships[0]');
+      }
     });
   });
 
