@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export interface OcfStockConsolidationEvent {
@@ -35,7 +36,7 @@ export async function getStockConsolidationAsOcf(
   const event: OcfStockConsolidationEvent = {
     object_type: 'TX_STOCK_CONSOLIDATION',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: damlTimeToDateString(data.date, 'stockConsolidation.date'),
     security_ids: data.security_ids,
     resulting_security_id: data.resulting_security_id,
     ...(data.reason_text ? { reason_text: data.reason_text } : {}),

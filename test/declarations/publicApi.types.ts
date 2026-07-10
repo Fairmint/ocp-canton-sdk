@@ -1,3 +1,4 @@
+/* eslint @typescript-eslint/no-redundant-type-constituents: off */
 /** Compile-time smoke tests for declarations exported by the built SDK. */
 
 import {

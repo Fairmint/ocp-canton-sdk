@@ -8,6 +8,7 @@ import type {
 } from '../../../types/native';
 import {
   damlMonetaryToNativeWithValidation,
+  damlTimeToDateString,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
   safeString,
@@ -367,9 +368,17 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
                 }
                 return {
                   rate: normalizeNumericString(typeof irObj.rate === 'number' ? irObj.rate.toString() : irObj.rate),
-                  accrual_start_date: irObj.accrual_start_date.split('T')[0],
+                  accrual_start_date: damlTimeToDateString(
+                    irObj.accrual_start_date,
+                    'convertibleIssuance.interest_rates[].accrual_start_date'
+                  ),
                   ...(irObj.accrual_end_date
-                    ? { accrual_end_date: (irObj.accrual_end_date as string).split('T')[0] }
+                    ? {
+                        accrual_end_date: damlTimeToDateString(
+                          irObj.accrual_end_date,
+                          'convertibleIssuance.interest_rates[].accrual_end_date'
+                        ),
+                      }
                     : {}),
                 };
               })
@@ -513,13 +522,19 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
     const trigger_description: string | undefined =
       typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
     const trigger_date: string | undefined =
-      typeof r.trigger_date === 'string' && r.trigger_date.length ? r.trigger_date.split('T')[0] : undefined;
+      typeof r.trigger_date === 'string' && r.trigger_date.length
+        ? damlTimeToDateString(r.trigger_date, 'convertibleIssuance.conversion_triggers[].trigger_date')
+        : undefined;
     const trigger_condition: string | undefined =
       typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
     const start_date: string | undefined =
-      typeof r.start_date === 'string' && r.start_date.length ? r.start_date.split('T')[0] : undefined;
+      typeof r.start_date === 'string' && r.start_date.length
+        ? damlTimeToDateString(r.start_date, 'convertibleIssuance.conversion_triggers[].start_date')
+        : undefined;
     const end_date: string | undefined =
-      typeof r.end_date === 'string' && r.end_date.length ? r.end_date.split('T')[0] : undefined;
+      typeof r.end_date === 'string' && r.end_date.length
+        ? damlTimeToDateString(r.end_date, 'convertibleIssuance.conversion_triggers[].end_date')
+        : undefined;
 
     // Parse conversion_right if present and convertible variant is used
     let conversion_right: ConvertibleConversionRight | undefined;
@@ -636,15 +651,22 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
   const issuance = {
     object_type: 'TX_CONVERTIBLE_ISSUANCE',
     id: d.id,
-    date: d.date.split('T')[0],
+    date: damlTimeToDateString(d.date, 'convertibleIssuance.date'),
     security_id: d.security_id,
     custom_id: d.custom_id as string,
     stakeholder_id: d.stakeholder_id as string,
     ...(typeof d.board_approval_date === 'string' && d.board_approval_date.length
-      ? { board_approval_date: d.board_approval_date.split('T')[0] }
+      ? {
+          board_approval_date: damlTimeToDateString(d.board_approval_date, 'convertibleIssuance.board_approval_date'),
+        }
       : {}),
     ...(typeof d.stockholder_approval_date === 'string' && d.stockholder_approval_date.length
-      ? { stockholder_approval_date: d.stockholder_approval_date.split('T')[0] }
+      ? {
+          stockholder_approval_date: damlTimeToDateString(
+            d.stockholder_approval_date,
+            'convertibleIssuance.stockholder_approval_date'
+          ),
+        }
       : {}),
     investment_amount: {
       amount: normalizeNumericString(investmentAmountStr),
