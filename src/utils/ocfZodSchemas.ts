@@ -6,11 +6,17 @@ import path from 'path';
 import { z, ZodError, type ZodType } from 'zod';
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import {
-  ENTITY_OBJECT_TYPE_MAP,
+  OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfDataTypeFor,
   type OcfEntityType,
-} from '../functions/OpenCapTable/capTable/batchTypes';
+} from '../functions/OpenCapTable/capTable/entityTypes';
 import { normalizeOcfData } from './planSecurityAliases';
+
+const ENTITY_OBJECT_TYPE_MAP = Object.fromEntries(
+  Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).map(([objectType, entityType]) => [entityType, objectType])
+) as {
+  readonly [EntityType in OcfEntityType]: OcfDataTypeFor<EntityType>['object_type'];
+};
 
 /**
  * Canonical source-of-truth OCF object schema paths.
@@ -96,14 +102,6 @@ export const OCF_OBJECT_SCHEMA_PATHS = {
 } as const;
 
 export type OcfSchemaObjectType = keyof typeof OCF_OBJECT_SCHEMA_PATHS;
-
-/**
- * Legacy object_type aliases accepted as input and normalized to canonical schema keys.
- */
-const LEGACY_OBJECT_TYPE_ALIASES: Partial<Record<string, OcfSchemaObjectType>> = {
-  TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'CE_STAKEHOLDER_RELATIONSHIP',
-  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'CE_STAKEHOLDER_STATUS',
-};
 
 const OBJECTS_DIR_RELATIVE_PATH = 'objects';
 const SCHEMA_FILE_SUFFIX = '.schema.json';
@@ -206,11 +204,6 @@ function ensureAjvInitialized(): { ajv: Ajv; schemaRootDir: string } {
 function resolveSchemaObjectType(objectType: string): OcfSchemaObjectType {
   if (Object.prototype.hasOwnProperty.call(OCF_OBJECT_SCHEMA_PATHS, objectType)) {
     return objectType as OcfSchemaObjectType;
-  }
-
-  const alias = LEGACY_OBJECT_TYPE_ALIASES[objectType];
-  if (alias) {
-    return alias;
   }
 
   throw new OcpValidationError('object_type', `Unsupported OCF object_type: ${objectType}`, {
@@ -352,10 +345,22 @@ function isParsedEntityType<T extends OcfEntityType>(
   return value.object_type === expectedObjectType;
 }
 
+function parseWithOcfSchema(input: Record<string, unknown>, objectType: string): Record<string, unknown> {
+  const schema = getOcfSchema(objectType);
+  try {
+    return schema.parse(input);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      throw convertZodErrorToValidationError(error, 'ocfObject');
+    }
+    throw error;
+  }
+}
+
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
- * Deprecated/legacy aliases are normalized to canonical latest forms prior to strict validation.
+ * The declared source shape is validated before schema-supported aliases are normalized to the SDK's canonical forms.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
   if (!isRecord(input)) {
@@ -366,9 +371,20 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
+  const declaredObjectType = input.object_type;
+  if (typeof declaredObjectType !== 'string' || declaredObjectType.length === 0) {
+    throw new OcpValidationError('object_type', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string',
+      receivedValue: declaredObjectType,
+    });
+  }
+
+  const source = parseWithOcfSchema(input, declaredObjectType);
+
   let normalized: Record<string, unknown>;
   try {
-    normalized = normalizeOcfData(input);
+    normalized = normalizeOcfData(source);
   } catch (error) {
     if (error instanceof OcpValidationError) {
       throw error;
@@ -376,7 +392,7 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     const message = error instanceof Error ? error.message : 'Failed to normalize OCF data';
     throw new OcpValidationError('ocfObject', message, {
       code: OcpErrorCodes.INVALID_FORMAT,
-      receivedValue: input,
+      receivedValue: source,
     });
   }
   const objectType = normalized.object_type;
@@ -388,22 +404,14 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
     });
   }
 
-  const schema = getOcfSchema(objectType);
-  try {
-    return schema.parse(normalized);
-  } catch (error) {
-    if (error instanceof ZodError) {
-      throw convertZodErrorToValidationError(error, 'ocfObject');
-    }
-    throw error;
-  }
+  return parseWithOcfSchema(normalized, objectType);
 }
 
 /**
  * Parse and validate OCF input for a specific SDK entity type.
  *
  * Typed SDK inputs must provide the exact canonical object_type for the entity.
- * Legacy aliases remain supported only by the raw {@link parseOcfObject} ingestion boundary.
+ * Schema-supported aliases remain available only through the raw {@link parseOcfObject} ingestion boundary.
  */
 export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
   if (!isRecord(input)) {
