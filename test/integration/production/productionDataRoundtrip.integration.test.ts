@@ -2024,12 +2024,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent');
-      const legacyPrepared = {
+      const canonicalInput = {
         ...prepareFixture(fixture, 'status-change'),
         stakeholder_id: stakeholderSetup.stakeholderData.id,
       };
-      expect(legacyPrepared.object_type).toBe('TX_STAKEHOLDER_STATUS_CHANGE_EVENT');
-      const prepared = parseOcfEntityInput('stakeholderStatusChangeEvent', normalizeOcfData(legacyPrepared));
+      expect(canonicalInput.object_type).toBe('CE_STAKEHOLDER_STATUS');
+      const prepared = parseOcfEntityInput('stakeholderStatusChangeEvent', canonicalInput);
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stakeholderSetup.newCapTableContractId,
