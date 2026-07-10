@@ -39,11 +39,28 @@ describe('schema-driven OCF conformance guardrail', () => {
     expect(JSON.stringify(dereferenced)).not.toContain('"$ref"');
   });
 
-  it('distinguishes the document root from an empty-key JSON Pointer member', () => {
-    const document = { '': { type: 'string' }, marker: 'root' };
+  it('resolves an empty JSON Pointer fragment to the document root', () => {
+    const document = { marker: 'root' };
 
     expect(resolveJsonPointer(document, '', 'synthetic.schema.json')).toBe(document);
+  });
+
+  it('resolves a slash JSON Pointer to the empty-string member', () => {
+    const document = { '': { type: 'string' }, marker: 'root' };
+
     expect(resolveJsonPointer(document, '/', 'synthetic.schema.json')).toEqual({ type: 'string' });
+  });
+
+  it('decodes escaped slash and tilde JSON Pointer segments in RFC 6901 order', () => {
+    const document = {
+      'a/b': {
+        'm~n': {
+          '~1': 'escaped-value',
+        },
+      },
+    };
+
+    expect(resolveJsonPointer(document, '/a~1b/m~0n/~01', 'synthetic.schema.json')).toBe('escaped-value');
   });
 
   it('fails on any reachable pinned schema content drift', () => {
