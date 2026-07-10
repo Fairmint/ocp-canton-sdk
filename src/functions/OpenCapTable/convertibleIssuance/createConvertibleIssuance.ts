@@ -10,6 +10,7 @@ import {
   optionalString,
   safeString,
 } from '../../../utils/typeConversions';
+import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 type ConversionTriggerTypeInput =
   | 'AUTOMATIC_ON_CONDITION'
@@ -430,23 +431,15 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
   const { trigger_id } = t;
   const nickname = typeof t === 'object' && t.nickname ? t.nickname : null;
   const trigger_description = typeof t === 'object' && t.trigger_description ? t.trigger_description : null;
-  const trigger_condition = typeof t === 'object' && t.trigger_condition ? t.trigger_condition : null;
   const conversion_right = buildConvertibleRight(t);
-  const start_date = optionalDateStringToDAMLTime(t.start_date, 'convertibleIssuance.conversion_triggers[].start_date');
-  const end_date = optionalDateStringToDAMLTime(t.end_date, 'convertibleIssuance.conversion_triggers[].end_date');
+  const triggerFields = triggerFieldsToDaml(t, normalized, 'convertibleIssuance.conversion_triggers[]');
   return {
     type_: typeEnum,
     trigger_id,
     nickname,
     trigger_description,
     conversion_right,
-    trigger_date: optionalDateStringToDAMLTime(
-      t.trigger_date,
-      'convertibleIssuance.conversion_triggers[].trigger_date'
-    ),
-    trigger_condition,
-    start_date,
-    end_date,
+    ...triggerFields,
   };
 }
 
