@@ -7,7 +7,7 @@
 
 import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
-import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
+import type { Address, AddressType, ConversionTriggerType, Monetary, NonEmptyArray } from '../types/native';
 
 // ===== Type Guards =====
 
@@ -439,6 +439,26 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
   return [];
 }
 
+/** Return a non-empty tuple or fail when an external array violates its schema cardinality. */
+export function toNonEmptyArray<T>(values: readonly T[], fieldPath: string): NonEmptyArray<T> {
+  if (values.length === 0) {
+    throw new OcpValidationError(fieldPath, 'Array must contain at least one item', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'array with at least one item',
+      receivedValue: values,
+    });
+  }
+  const [first, ...rest] = values as readonly [T, ...T[]];
+  return [first, ...rest];
+}
+
+/** Omit an optional array when empty; otherwise preserve its non-empty cardinality in the return type. */
+export function nonEmptyArrayOrUndefined<T>(values: readonly T[]): NonEmptyArray<T> | undefined {
+  if (values.length === 0) return undefined;
+  const [first, ...rest] = values as readonly [T, ...T[]];
+  return [first, ...rest];
+}
+
 /**
  * Filter out empty string entries from a comments array.
  * Defensively handles null values that may appear at runtime despite TypeScript types.
@@ -474,7 +494,7 @@ export interface NativeQuantityTransferData {
   date: string;
   security_id: string;
   quantity: string;
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   balance_security_id?: string;
   consideration_text?: string;
   comments?: string[];
@@ -493,7 +513,7 @@ export function quantityTransferToNative(d: DamlQuantityTransferData): NativeQua
     date: damlTimeToDateString(d.date),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
-    resulting_security_ids: d.resulting_security_ids,
+    resulting_security_ids: toNonEmptyArray(d.resulting_security_ids, 'transfer.resulting_security_ids'),
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),

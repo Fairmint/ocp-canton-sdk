@@ -73,6 +73,7 @@ describe('Transfer Type Converters', () => {
           date: '2025-08-05',
           security_id: 'sec-001',
           quantity: '1000',
+          // @ts-expect-error exercise runtime validation for untyped callers
           resulting_security_ids: [], // Empty array should throw
         };
 
@@ -130,13 +131,14 @@ describe('Transfer Type Converters', () => {
       });
 
       it('throws OcpValidationError when id is missing', () => {
-        const input = {
+        // @ts-expect-error exercise runtime validation for untyped callers
+        const input: OcfConvertibleTransfer = {
           object_type: 'TX_CONVERTIBLE_TRANSFER',
           date: '2025-08-10',
           security_id: 'conv-sec-001',
           amount: { amount: '50000', currency: 'USD' },
           resulting_security_ids: ['conv-result-001'],
-        } as OcfConvertibleTransfer;
+        };
 
         expect(() => convertToDaml('convertibleTransfer', input)).toThrow(OcpValidationError);
         try {
@@ -155,6 +157,7 @@ describe('Transfer Type Converters', () => {
           date: '2025-08-10',
           security_id: 'conv-sec-001',
           amount: { amount: '50000', currency: 'USD' },
+          // @ts-expect-error exercise runtime validation for untyped callers
           resulting_security_ids: [], // Empty array should throw
         };
 
@@ -212,13 +215,14 @@ describe('Transfer Type Converters', () => {
       });
 
       it('throws OcpValidationError when id is missing', () => {
-        const input = {
+        // @ts-expect-error exercise runtime validation for untyped callers
+        const input: OcfEquityCompensationTransfer = {
           object_type: 'TX_EQUITY_COMPENSATION_TRANSFER',
           date: '2025-08-15',
           security_id: 'eq-sec-001',
           quantity: '10000',
           resulting_security_ids: ['eq-result-001'],
-        } as OcfEquityCompensationTransfer;
+        };
 
         expect(() => convertToDaml('equityCompensationTransfer', input)).toThrow(OcpValidationError);
         try {
@@ -237,6 +241,7 @@ describe('Transfer Type Converters', () => {
           date: '2025-08-15',
           security_id: 'eq-sec-001',
           quantity: '10000',
+          // @ts-expect-error exercise runtime validation for untyped callers
           resulting_security_ids: [], // Empty array should throw
         };
 
@@ -294,13 +299,14 @@ describe('Transfer Type Converters', () => {
       });
 
       it('throws OcpValidationError when id is missing', () => {
-        const input = {
+        // @ts-expect-error exercise runtime validation for untyped callers
+        const input: OcfWarrantTransfer = {
           object_type: 'TX_WARRANT_TRANSFER',
           date: '2025-08-20',
           security_id: 'warrant-sec-001',
           quantity: '2500',
           resulting_security_ids: ['warrant-result-001'],
-        } as OcfWarrantTransfer;
+        };
 
         expect(() => convertToDaml('warrantTransfer', input)).toThrow(OcpValidationError);
         try {
@@ -319,6 +325,7 @@ describe('Transfer Type Converters', () => {
           date: '2025-08-20',
           security_id: 'warrant-sec-001',
           quantity: '2500',
+          // @ts-expect-error exercise runtime validation for untyped callers
           resulting_security_ids: [], // Empty array should throw
         };
 

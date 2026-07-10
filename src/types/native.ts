@@ -802,10 +802,10 @@ export interface OcfStockIssuance extends OcfObjectBase<'TX_STOCK_ISSUANCE'> {
   /** Reference to vesting terms object, if used instead of inline vestings */
   vesting_terms_id?: string;
   /** Vesting schedule entries associated directly with this issuance */
-  vestings?: VestingSimple[];
+  vestings?: NonEmptyArray<VestingSimple>;
   /** Cost basis for the shares issued */
   cost_basis?: Monetary;
-  /** Stock legends that apply to this issuance (schema minItems: 1; implementation may allow empty) */
+  /** Stock legends that apply to this issuance */
   stock_legend_ids: string[];
   /** Type of stock issuance (e.g., RSA, Founders) */
   issuance_type?: StockIssuanceType;
@@ -947,7 +947,7 @@ export interface OcfVestingTerms extends OcfObjectBase<'VESTING_TERMS'> {
   /** Allocation/rounding type for the vesting schedule */
   allocation_type: AllocationType;
   /** Conditions and triggers that describe the graph of vesting schedules and events */
-  vesting_conditions: VestingCondition[];
+  vesting_conditions: NonEmptyArray<VestingCondition>;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1035,7 +1035,7 @@ interface OcfEquityCompensationIssuanceFields extends OcfObjectBase<'TX_EQUITY_C
   /** List of security law exemptions (and applicable jurisdictions) for this security */
   security_law_exemptions: SecurityExemption[];
   /** Vesting events for the grant */
-  vestings?: Vesting[];
+  vestings?: NonEmptyArray<Vesting>;
   /** Expiration date of instrument */
   expiration_date: string | null;
   /** Termination exercise windows after termination events */
@@ -1113,7 +1113,7 @@ export interface OcfConvertibleIssuance extends OcfObjectBase<'TX_CONVERTIBLE_IS
   /** What kind of convertible instrument is this (of the supported, enumerated types) */
   convertible_type: ConvertibleType;
   /** Convertible - Conversion Trigger Array */
-  conversion_triggers: ConvertibleConversionTrigger[];
+  conversion_triggers: NonEmptyArray<ConvertibleConversionTrigger>;
   /** If different convertible instruments have seniority over one another, use this value to build a seniority stack */
   seniority: number;
   /** What pro-rata (if any) is the holder entitled to buy at the next round? (decimal string) */
@@ -1152,7 +1152,7 @@ export interface OcfWarrantIssuance extends OcfObjectBase<'TX_WARRANT_ISSUANCE'>
   /** Identifier of the VestingTerms to which this security is subject */
   vesting_terms_id?: string;
   /** Vesting schedule entries associated directly with this issuance */
-  vestings?: VestingSimple[];
+  vestings?: NonEmptyArray<VestingSimple>;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1285,7 +1285,7 @@ export interface OcfStockTransfer extends OcfObjectBase<'TX_STOCK_TRANSFER'> {
   /** Quantity of non-monetary security units transferred */
   quantity: string;
   /** Array of identifiers for new securities created as a result of the transfer (min 1 item) */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Identifier for the security that holds the remainder balance (for partial transfers) */
   balance_security_id?: string;
   /** Unstructured text description of consideration provided in exchange for security transfer */
@@ -1333,7 +1333,7 @@ export interface OcfWarrantTransfer extends OcfObjectBase<'TX_WARRANT_TRANSFER'>
   /** Quantity of warrants being transferred */
   quantity: string;
   /** Array of identifiers for new securities created as a result of the transfer (min 1 item) */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Identifier for the security that holds the remainder balance (for partial transfers) */
   balance_security_id?: string;
   /** Unstructured text description of consideration provided in exchange for security transfer */
@@ -1356,7 +1356,7 @@ export interface OcfConvertibleTransfer extends OcfObjectBase<'TX_CONVERTIBLE_TR
   /** Amount of convertible being transferred */
   amount: Monetary;
   /** Array of identifiers for new securities created as a result of the transfer (min 1 item) */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Identifier for the security that holds the remainder balance (for partial transfers) */
   balance_security_id?: string;
   /** Unstructured text description of consideration provided in exchange for security transfer */
@@ -1379,7 +1379,7 @@ export interface OcfEquityCompensationTransfer extends OcfObjectBase<'TX_EQUITY_
   /** Quantity of equity compensation being transferred */
   quantity: string;
   /** Array of identifiers for new securities created as a result of the transfer (min 1 item) */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Identifier for the security that holds the remainder balance (for partial transfers) */
   balance_security_id?: string;
   /** Unstructured text description of consideration provided in exchange for security transfer */
@@ -1767,7 +1767,7 @@ export interface OcfStockConsolidation extends OcfObjectBase<'TX_STOCK_CONSOLIDA
   /** Date on which the transaction occurred */
   date: string;
   /** Array of identifiers for securities being consolidated */
-  security_ids: string[];
+  security_ids: NonEmptyArray<string>;
   /** Identifier for the new consolidated security (canonical field) */
   resulting_security_id: string;
   /** Reason for the consolidation */
@@ -1832,7 +1832,7 @@ export interface OcfPlanSecurityIssuance extends OcfObjectBase<'TX_PLAN_SECURITY
   /** Whether security is early exercisable */
   early_exercisable?: boolean;
   /** Inline vesting installments */
-  vestings?: Vesting[];
+  vestings?: NonEmptyArray<Vesting>;
   /** Expiration date for this security */
   expiration_date: string | null;
   /** Termination exercise windows */
@@ -1968,7 +1968,7 @@ export interface OcfPlanSecurityTransfer extends OcfObjectBase<'TX_PLAN_SECURITY
   /** Quantity being transferred */
   quantity: string;
   /** Array of identifiers for new securities resulting from the transfer */
-  resulting_security_ids: string[];
+  resulting_security_ids: NonEmptyArray<string>;
   /** Identifier for the security that holds the remainder balance (for partial transfers) */
   balance_security_id?: string;
   /** Unstructured text description of consideration */
@@ -1992,7 +1992,7 @@ export interface OcfFinancing extends OcfObjectBase<'FINANCING'> {
   /** Name for the financing */
   name: string;
   /** Array of issuance IDs associated with the financing (minItems: 1) */
-  issuance_ids: string[];
+  issuance_ids: NonEmptyArray<string>;
   /** Date on which the financing event occurred (YYYY-MM-DD) */
   date: string;
   /** Unstructured text comments related to and stored for the object */

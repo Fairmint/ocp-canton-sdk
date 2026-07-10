@@ -37,6 +37,24 @@ export interface PinnedOcfObjectPropertyInventoryEntry {
   schemaPath: string;
 }
 
+export interface NonEmptyArrayPropertyInventoryEntry {
+  discriminator: string;
+  property: string;
+}
+
+export interface PinnedOcfNonEmptyArrayInventoryEntry extends NonEmptyArrayPropertyInventoryEntry {
+  minItems: number;
+  schemaPath: string;
+}
+
+export interface NonEmptyArrayParityProblem {
+  discriminator: string;
+  kind: 'duplicate-schema' | 'schema-only' | 'sdk-only' | 'unsupported-min-items';
+  minItems?: number;
+  property: string;
+  schemaPath?: string;
+}
+
 export interface CanonicalPropertyParityExclusion {
   discriminator: string;
   kind: 'schema-only' | 'sdk-only';
@@ -353,6 +371,47 @@ function collectComposedObjectProperties(schema: unknown, properties: Set<string
   }
 }
 
+function guaranteedMinItems(schema: unknown): number {
+  if (!isJsonObject(schema)) return 0;
+
+  let minimum =
+    typeof schema.minItems === 'number' && Number.isInteger(schema.minItems) && schema.minItems >= 0
+      ? schema.minItems
+      : 0;
+
+  const { allOf } = schema;
+  if (Array.isArray(allOf)) {
+    minimum = Math.max(minimum, ...allOf.map((branch) => guaranteedMinItems(branch)));
+  }
+
+  for (const keyword of ['anyOf', 'oneOf'] as const) {
+    const branches = schema[keyword];
+    if (Array.isArray(branches) && branches.length > 0) {
+      minimum = Math.max(minimum, Math.min(...branches.map((branch) => guaranteedMinItems(branch))));
+    }
+  }
+
+  return minimum;
+}
+
+function collectUnconditionalTopLevelNonEmptyArrays(schema: unknown, properties: Map<string, number>): void {
+  if (!isJsonObject(schema)) return;
+
+  if (isJsonObject(schema.properties)) {
+    for (const [property, propertySchema] of Object.entries(schema.properties)) {
+      const minItems = guaranteedMinItems(propertySchema);
+      if (minItems >= 1) {
+        properties.set(property, Math.max(properties.get(property) ?? 0, minItems));
+      }
+    }
+  }
+
+  const { allOf } = schema;
+  if (Array.isArray(allOf)) {
+    allOf.forEach((branch) => collectUnconditionalTopLevelNonEmptyArrays(branch, properties));
+  }
+}
+
 function getObjectSchemaDiscriminators(schema: JsonObject, source: string): string[] {
   const { properties } = schema;
   if (!isJsonObject(properties)) throw new Error(`Object schema has no properties object: ${source}`);
@@ -394,6 +453,99 @@ export function inventoryPinnedOcfObjectProperties(schemaRoot: string): PinnedOc
       }));
     })
     .sort((left, right) => left.discriminator.localeCompare(right.discriminator));
+}
+
+/** Inventory unconditional top-level array properties whose pinned schema requires at least one item. */
+export function inventoryPinnedOcfNonEmptyArrays(schemaRoot: string): PinnedOcfNonEmptyArrayInventoryEntry[] {
+  const objectRoot = path.join(schemaRoot, 'objects');
+  return listSchemaFiles(objectRoot)
+    .flatMap((schemaPath) => {
+      const dereferenced = dereferenceValue(
+        readSchemaFile(schemaPath),
+        schemaPath,
+        schemaRoot,
+        new Set([`${schemaPath}#`])
+      );
+      assertJsonObject(dereferenced, `dereferenced ${schemaPath}`);
+      const properties = new Map<string, number>();
+      collectUnconditionalTopLevelNonEmptyArrays(dereferenced, properties);
+      const relativeSchemaPath = `schema/objects/${normalizeSlashes(path.relative(objectRoot, schemaPath))}`;
+      return getObjectSchemaDiscriminators(dereferenced, schemaPath).flatMap((discriminator) =>
+        [...properties]
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([property, minItems]) => ({ discriminator, minItems, property, schemaPath: relativeSchemaPath }))
+      );
+    })
+    .sort(
+      (left, right) =>
+        left.discriminator.localeCompare(right.discriminator) || left.property.localeCompare(right.property)
+    );
+}
+
+function nonEmptyArrayPropertyKey(discriminator: string, property: string): string {
+  return `${discriminator}:${property}`;
+}
+
+/** Compare pinned non-empty arrays with the canonical public properties that use NonEmptyArray. */
+export function compareCanonicalNonEmptyArrays(
+  canonicalInventory: readonly CanonicalOcfObjectInventoryEntry[],
+  sdkInventory: readonly NonEmptyArrayPropertyInventoryEntry[],
+  schemaInventory: readonly PinnedOcfNonEmptyArrayInventoryEntry[]
+): NonEmptyArrayParityProblem[] {
+  const canonicalDiscriminators = new Set(canonicalInventory.map((entry) => entry.discriminator));
+  const schemaByKey = new Map<string, PinnedOcfNonEmptyArrayInventoryEntry>();
+  const problems: NonEmptyArrayParityProblem[] = [];
+
+  for (const entry of schemaInventory) {
+    if (!canonicalDiscriminators.has(entry.discriminator)) continue;
+    const key = nonEmptyArrayPropertyKey(entry.discriminator, entry.property);
+    if (schemaByKey.has(key)) {
+      problems.push({
+        discriminator: entry.discriminator,
+        kind: 'duplicate-schema',
+        property: entry.property,
+        schemaPath: entry.schemaPath,
+      });
+      continue;
+    }
+    schemaByKey.set(key, entry);
+    if (entry.minItems !== 1) {
+      problems.push({
+        discriminator: entry.discriminator,
+        kind: 'unsupported-min-items',
+        minItems: entry.minItems,
+        property: entry.property,
+        schemaPath: entry.schemaPath,
+      });
+    }
+  }
+
+  const sdkByKey = new Map(
+    sdkInventory.map((entry) => [nonEmptyArrayPropertyKey(entry.discriminator, entry.property), entry] as const)
+  );
+  for (const [key, schema] of schemaByKey) {
+    if (!sdkByKey.has(key)) {
+      problems.push({
+        discriminator: schema.discriminator,
+        kind: 'schema-only',
+        minItems: schema.minItems,
+        property: schema.property,
+        schemaPath: schema.schemaPath,
+      });
+    }
+  }
+  for (const [key, sdk] of sdkByKey) {
+    if (!schemaByKey.has(key)) {
+      problems.push({ discriminator: sdk.discriminator, kind: 'sdk-only', property: sdk.property });
+    }
+  }
+
+  return problems.sort(
+    (left, right) =>
+      left.discriminator.localeCompare(right.discriminator) ||
+      left.kind.localeCompare(right.kind) ||
+      left.property.localeCompare(right.property)
+  );
 }
 
 function propertyDifferenceKey(
@@ -721,6 +873,63 @@ export function inventoryCanonicalOcfObjects(repoRoot: string): CanonicalOcfObje
   }
 
   return inventory.sort((left, right) => left.discriminator.localeCompare(right.discriminator));
+}
+
+function isNonEmptyArrayAlias(type: ts.Type): boolean {
+  const members = type.isUnion()
+    ? type.types.filter((member) => (member.flags & (ts.TypeFlags.Null | ts.TypeFlags.Undefined)) === 0)
+    : [type];
+  return members.length > 0 && members.every((member) => member.aliasSymbol?.getName() === 'NonEmptyArray');
+}
+
+/** Inventory canonical public properties that are explicitly modeled with NonEmptyArray. */
+export function inventoryCanonicalOcfNonEmptyArrays(repoRoot: string): NonEmptyArrayPropertyInventoryEntry[] {
+  const { checker, program } = loadTypeScriptContext(repoRoot);
+  const outputPath = path.join(repoRoot, 'src', 'types', 'output.ts');
+  const sourceFile = program.getSourceFile(outputPath);
+  if (!sourceFile) throw new Error(`TypeScript program did not load ${outputPath}`);
+  const moduleSymbol = checker.getSymbolAtLocation(sourceFile);
+  if (!moduleSymbol) throw new Error('Could not resolve the output.ts module symbol');
+  const ocfObjectSymbol = checker.getExportsOfModule(moduleSymbol).find((symbol) => symbol.name === 'OcfObject');
+  if (!ocfObjectSymbol) throw new Error('Could not resolve exported OcfObject type');
+  const ocfObjectType = checker.getDeclaredTypeOfSymbol(ocfObjectSymbol);
+  const variants = ocfObjectType.isUnion() ? ocfObjectType.types : [ocfObjectType];
+
+  const variantsByDiscriminator = new Map<string, ts.Type[]>();
+  for (const variant of variants) {
+    const objectType = checker.getPropertyOfType(variant, 'object_type');
+    if (!objectType) throw new Error(`OcfObject variant has no object_type: ${checker.typeToString(variant)}`);
+    const discriminators = literalStrings(checker.getTypeOfSymbolAtLocation(objectType, sourceFile));
+    if (discriminators.length !== 1 || discriminators[0] === undefined) {
+      throw new Error(`OcfObject variant must have one literal object_type: ${checker.typeToString(variant)}`);
+    }
+    const discriminator = discriminators[0];
+    const existing = variantsByDiscriminator.get(discriminator) ?? [];
+    existing.push(variant);
+    variantsByDiscriminator.set(discriminator, existing);
+  }
+
+  const inventory: NonEmptyArrayPropertyInventoryEntry[] = [];
+  for (const [discriminator, discriminatorVariants] of variantsByDiscriminator) {
+    const propertyNames = new Set<string>();
+    discriminatorVariants.forEach((variant) =>
+      checker.getPropertiesOfType(variant).forEach((property) => propertyNames.add(property.name))
+    );
+    for (const property of [...propertyNames].sort((left, right) => left.localeCompare(right))) {
+      const nonEmptyInEveryVariant = discriminatorVariants.every((variant) => {
+        const propertySymbol = checker.getPropertyOfType(variant, property);
+        if (!propertySymbol) return false;
+        const location = propertySymbol.valueDeclaration ?? propertySymbol.declarations?.[0] ?? sourceFile;
+        return isNonEmptyArrayAlias(checker.getTypeOfSymbolAtLocation(propertySymbol, location));
+      });
+      if (nonEmptyInEveryVariant) inventory.push({ discriminator, property });
+    }
+  }
+
+  return inventory.sort(
+    (left, right) =>
+      left.discriminator.localeCompare(right.discriminator) || left.property.localeCompare(right.property)
+  );
 }
 
 export function getNamedTypeProperty(

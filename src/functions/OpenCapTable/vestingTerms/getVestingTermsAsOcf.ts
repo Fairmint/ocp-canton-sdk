@@ -11,7 +11,7 @@ import type {
   VestingPeriod,
   VestingTrigger,
 } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString, toNonEmptyArray } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
@@ -347,7 +347,10 @@ export function damlVestingTermsDataToNative(
     name: d.name,
     description: d.description,
     allocation_type: damlAllocationTypeToNative(d.allocation_type),
-    vesting_conditions: d.vesting_conditions.map(damlVestingConditionToNative),
+    vesting_conditions: toNonEmptyArray(
+      d.vesting_conditions.map(damlVestingConditionToNative),
+      'vestingTerms.vesting_conditions'
+    ),
     ...(comments.length > 0 ? { comments } : {}),
   };
 }

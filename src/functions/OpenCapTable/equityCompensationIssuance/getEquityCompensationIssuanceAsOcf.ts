@@ -11,6 +11,7 @@ import type {
 import {
   damlMonetaryToNativeWithValidation,
   damlTimeToDateString,
+  nonEmptyArrayOrUndefined,
   normalizeNumericString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -60,9 +61,9 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
   );
   const basePrice = damlMonetaryToNativeWithValidation(d.base_price as Record<string, unknown> | null | undefined);
 
-  const vestings =
-    Array.isArray(d.vestings) && d.vestings.length > 0
-      ? ((d.vestings as Array<{ date: string; amount?: unknown }>).map((v) => {
+  const vestings = Array.isArray(d.vestings)
+    ? nonEmptyArrayOrUndefined(
+        (d.vestings as Array<{ date: string; amount?: unknown }>).map((v) => {
           // Validate vesting amount
           if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
             throw new OcpValidationError('vesting.amount', `Must be string or number, got ${typeof v.amount}`, {
@@ -77,8 +78,9 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
             date: damlTimeToDateString(v.date, 'equityCompensationIssuance.vestings[].date'),
             amount: normalizeNumericString(amountStr),
           };
-        }) as Vesting[])
-      : undefined;
+        }) as Vesting[]
+      )
+    : undefined;
 
   const termination_exercise_windows =
     Array.isArray(d.termination_exercise_windows) && d.termination_exercise_windows.length > 0

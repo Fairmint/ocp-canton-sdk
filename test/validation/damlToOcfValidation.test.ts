@@ -203,7 +203,16 @@ describe('DAML to OCF Validation', () => {
       name: 'Standard 4-year Vesting',
       description: 'Standard vesting with 1-year cliff',
       allocation_type: 'OcfAllocationCumulativeRounding',
-      vesting_conditions: [],
+      vesting_conditions: [
+        {
+          id: 'condition-001',
+          description: null,
+          quantity: '1',
+          portion: null,
+          trigger: 'OcfVestingStartTrigger',
+          next_condition_ids: [],
+        },
+      ],
     };
 
     test('throws OcpValidationError when id is missing', async () => {

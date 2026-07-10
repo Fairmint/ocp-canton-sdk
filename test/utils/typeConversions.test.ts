@@ -5,8 +5,10 @@ import {
   damlMonetaryToNative,
   ensureArray,
   monetaryToDaml,
+  nonEmptyArrayOrUndefined,
   normalizeNumericString,
   parseDamlMap,
+  toNonEmptyArray,
 } from '../../src/utils/typeConversions';
 
 describe('normalizeNumericString', () => {
@@ -106,6 +108,28 @@ describe('ensureArray', () => {
       const input = ['comment 1', 'comment 2'];
       expect(ensureArray(input)).toBe(input);
     });
+  });
+});
+
+describe('non-empty array helpers', () => {
+  test('returns a non-empty tuple without changing its values', () => {
+    expect(toNonEmptyArray(['first', 'second'], 'items')).toEqual(['first', 'second']);
+  });
+
+  test('uses array length for cardinality even when the element type includes undefined', () => {
+    const values: Array<string | undefined> = [undefined];
+    expect(toNonEmptyArray(values, 'items')).toEqual([undefined]);
+    expect(nonEmptyArrayOrUndefined(values)).toEqual([undefined]);
+  });
+
+  test('rejects an empty required array with field context', () => {
+    expect(() => toNonEmptyArray([], 'transfer.resulting_security_ids')).toThrow(OcpValidationError);
+    expect(() => toNonEmptyArray([], 'transfer.resulting_security_ids')).toThrow('transfer.resulting_security_ids');
+  });
+
+  test('converts optional arrays to a non-empty tuple or undefined', () => {
+    expect(nonEmptyArrayOrUndefined([])).toBeUndefined();
+    expect(nonEmptyArrayOrUndefined(['only'])).toEqual(['only']);
   });
 });
 

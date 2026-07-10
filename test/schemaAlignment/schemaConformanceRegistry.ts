@@ -2,6 +2,7 @@ import type {
   CanonicalPropertyParityExclusion,
   ConditionalCoverageRegistration,
   CoverageReference,
+  PinnedOcfNonEmptyArrayInventoryEntry,
   SemanticRefinement,
 } from './schemaConformanceHarness';
 
@@ -27,6 +28,82 @@ export const CANONICAL_PROPERTY_PARITY_EXCLUSIONS: CanonicalPropertyParityExclus
     property: 'option_grant_type',
     rationale:
       'The pinned schema retains deprecated option_grant_type; the canonical SDK models the grant through compensation_type.',
+  },
+];
+
+/** Exact pinned canonical top-level array properties whose schema requires at least one item. */
+export const PINNED_CANONICAL_NON_EMPTY_ARRAYS: PinnedOcfNonEmptyArrayInventoryEntry[] = [
+  {
+    discriminator: 'FINANCING',
+    minItems: 1,
+    property: 'issuance_ids',
+    schemaPath: 'schema/objects/Financing.schema.json',
+  },
+  {
+    discriminator: 'STOCK_PLAN',
+    minItems: 1,
+    property: 'stock_class_ids',
+    schemaPath: 'schema/objects/StockPlan.schema.json',
+  },
+  {
+    discriminator: 'TX_CONVERTIBLE_ISSUANCE',
+    minItems: 1,
+    property: 'conversion_triggers',
+    schemaPath: 'schema/objects/transactions/issuance/ConvertibleIssuance.schema.json',
+  },
+  {
+    discriminator: 'TX_CONVERTIBLE_TRANSFER',
+    minItems: 1,
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/ConvertibleTransfer.schema.json',
+  },
+  {
+    discriminator: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+    minItems: 1,
+    property: 'vestings',
+    schemaPath: 'schema/objects/transactions/issuance/EquityCompensationIssuance.schema.json',
+  },
+  {
+    discriminator: 'TX_EQUITY_COMPENSATION_TRANSFER',
+    minItems: 1,
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/EquityCompensationTransfer.schema.json',
+  },
+  {
+    discriminator: 'TX_STOCK_CONSOLIDATION',
+    minItems: 1,
+    property: 'security_ids',
+    schemaPath: 'schema/objects/transactions/consolidation/StockConsolidation.schema.json',
+  },
+  {
+    discriminator: 'TX_STOCK_ISSUANCE',
+    minItems: 1,
+    property: 'vestings',
+    schemaPath: 'schema/objects/transactions/issuance/StockIssuance.schema.json',
+  },
+  {
+    discriminator: 'TX_STOCK_TRANSFER',
+    minItems: 1,
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/StockTransfer.schema.json',
+  },
+  {
+    discriminator: 'TX_WARRANT_ISSUANCE',
+    minItems: 1,
+    property: 'vestings',
+    schemaPath: 'schema/objects/transactions/issuance/WarrantIssuance.schema.json',
+  },
+  {
+    discriminator: 'TX_WARRANT_TRANSFER',
+    minItems: 1,
+    property: 'resulting_security_ids',
+    schemaPath: 'schema/objects/transactions/transfer/WarrantTransfer.schema.json',
+  },
+  {
+    discriminator: 'VESTING_TERMS',
+    minItems: 1,
+    property: 'vesting_conditions',
+    schemaPath: 'schema/objects/VestingTerms.schema.json',
   },
 ];
 

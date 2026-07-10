@@ -3,7 +3,12 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockIssuance, SecurityExemption, ShareNumberRange, StockIssuanceType } from '../../../types/native';
-import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import {
+  damlMonetaryToNative,
+  damlTimeToDateString,
+  nonEmptyArrayOrUndefined,
+  normalizeNumericString,
+} from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.Stock.OcfSecurityExemption): SecurityExemption {
@@ -47,11 +52,13 @@ export function damlStockIssuanceDataToNative(
     });
   }
   const vestings = Array.isArray((anyD as { vestings?: unknown }).vestings)
-    ? (anyD as { vestings: Array<{ date: string; amount: string }> }).vestings.map((vesting) => ({
-        date: damlTimeToDateString(vesting.date),
-        amount: normalizeNumericString(vesting.amount),
-      }))
-    : [];
+    ? nonEmptyArrayOrUndefined(
+        (anyD as { vestings: Array<{ date: string; amount: string }> }).vestings.map((vesting) => ({
+          date: damlTimeToDateString(vesting.date),
+          amount: normalizeNumericString(vesting.amount),
+        }))
+      )
+    : undefined;
   const issuanceType = damlStockIssuanceTypeToNative(anyD.issuance_type);
 
   return {
@@ -83,7 +90,7 @@ export function damlStockIssuanceDataToNative(
     share_price: damlMonetaryToNative(d.share_price),
     quantity: normalizeNumericString(d.quantity),
     ...(d.vesting_terms_id && { vesting_terms_id: d.vesting_terms_id }),
-    ...(vestings.length > 0 ? { vestings } : {}),
+    ...(vestings ? { vestings } : {}),
     ...(d.cost_basis && { cost_basis: damlMonetaryToNative(d.cost_basis) }),
     stock_legend_ids: Array.isArray((d as unknown as { stock_legend_ids?: unknown }).stock_legend_ids)
       ? (d as unknown as { stock_legend_ids: string[] }).stock_legend_ids

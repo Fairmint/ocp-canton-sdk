@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfWarrantTransfer } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString, toNonEmptyArray } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -45,7 +45,7 @@ export async function getWarrantTransferAsOcf(
     date: damlTimeToDateString(data.date, 'warrantTransfer.date'),
     security_id: data.security_id,
     quantity: normalizeNumericString(quantityStr),
-    resulting_security_ids: data.resulting_security_ids,
+    resulting_security_ids: toNonEmptyArray(data.resulting_security_ids, 'warrantTransfer.resulting_security_ids'),
     ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
     ...(data.consideration_text ? { consideration_text: data.consideration_text } : {}),
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),

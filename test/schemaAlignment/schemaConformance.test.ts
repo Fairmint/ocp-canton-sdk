@@ -2,13 +2,16 @@ import Ajv from 'ajv';
 import fs from 'fs';
 import path from 'path';
 import {
+  compareCanonicalNonEmptyArrays,
   compareCanonicalOcfPropertySets,
   compareConditionalRegistry,
   dereferencePinnedObjectSchemas,
   dereferencePinnedSchemaFile,
   discoverConditionalPathsInValue,
   getNamedTypeProperty,
+  inventoryCanonicalOcfNonEmptyArrays,
   inventoryCanonicalOcfObjects,
+  inventoryPinnedOcfNonEmptyArrays,
   inventoryPinnedOcfObjectProperties,
   inventoryReachableObjectSchemas,
   validateCoverageReferences,
@@ -19,6 +22,7 @@ import {
   CANONICAL_PROPERTY_PARITY_EXCLUSIONS,
   EXPECTED_SEMANTIC_REFINEMENTS,
   OCF_CONDITIONAL_COVERAGE,
+  PINNED_CANONICAL_NON_EMPTY_ARRAYS,
   PINNED_REACHABLE_SCHEMA_FINGERPRINT,
 } from './schemaConformanceRegistry';
 
@@ -158,6 +162,107 @@ describe('schema-driven OCF conformance guardrail', () => {
         property: 'retired_schema_field',
       },
     ]);
+  });
+
+  it('marks a property-parity exclusion stale once the underlying property sets match', () => {
+    expect(
+      compareCanonicalOcfPropertySets(
+        [{ discriminator: 'SYNTHETIC', optionalProperties: [], requiredProperties: ['id', 'object_type'] }],
+        [
+          {
+            discriminator: 'SYNTHETIC',
+            properties: ['id', 'object_type'],
+            schemaPath: 'schema/objects/Synthetic.schema.json',
+          },
+        ],
+        [
+          {
+            discriminator: 'SYNTHETIC',
+            kind: 'schema-only',
+            property: 'retired_schema_field',
+            rationale: 'Synthetic exclusion that should become stale.',
+          },
+        ]
+      )
+    ).toEqual([
+      {
+        discriminator: 'SYNTHETIC',
+        kind: 'stale-exclusion',
+        property: 'retired_schema_field',
+      },
+    ]);
+  });
+
+  it('matches every pinned canonical minItems constraint to an SDK NonEmptyArray property', () => {
+    const canonicalInventory = inventoryCanonicalOcfObjects(REPO_ROOT);
+    const canonicalDiscriminators = new Set(canonicalInventory.map((entry) => entry.discriminator));
+    const pinnedInventory = inventoryPinnedOcfNonEmptyArrays(SCHEMA_ROOT).filter((entry) =>
+      canonicalDiscriminators.has(entry.discriminator)
+    );
+    const sdkInventory = inventoryCanonicalOcfNonEmptyArrays(REPO_ROOT);
+
+    expect(pinnedInventory).toEqual(PINNED_CANONICAL_NON_EMPTY_ARRAYS);
+    expect(compareCanonicalNonEmptyArrays(canonicalInventory, sdkInventory, pinnedInventory)).toEqual([]);
+  });
+
+  it('detects missing, extra, and unsupported NonEmptyArray mappings', () => {
+    const canonical = [
+      { discriminator: 'SYNTHETIC', optionalProperties: ['optional_items'], requiredProperties: ['items'] },
+    ];
+    expect(
+      compareCanonicalNonEmptyArrays(
+        canonical,
+        [
+          { discriminator: 'SYNTHETIC', property: 'extra_items' },
+          { discriminator: 'SYNTHETIC', property: 'optional_items' },
+        ],
+        [
+          {
+            discriminator: 'SYNTHETIC',
+            minItems: 1,
+            property: 'items',
+            schemaPath: 'schema/objects/Synthetic.schema.json',
+          },
+          {
+            discriminator: 'SYNTHETIC',
+            minItems: 2,
+            property: 'optional_items',
+            schemaPath: 'schema/objects/Synthetic.schema.json',
+          },
+        ]
+      )
+    ).toEqual([
+      {
+        discriminator: 'SYNTHETIC',
+        kind: 'schema-only',
+        minItems: 1,
+        property: 'items',
+        schemaPath: 'schema/objects/Synthetic.schema.json',
+      },
+      {
+        discriminator: 'SYNTHETIC',
+        kind: 'sdk-only',
+        property: 'extra_items',
+      },
+      {
+        discriminator: 'SYNTHETIC',
+        kind: 'unsupported-min-items',
+        minItems: 2,
+        property: 'optional_items',
+        schemaPath: 'schema/objects/Synthetic.schema.json',
+      },
+    ]);
+  });
+
+  it('keeps deprecated root-exported PlanSecurity aliases aligned with inherited minItems constraints', () => {
+    expect(getNamedTypeProperty(REPO_ROOT, 'OcfPlanSecurityIssuance', 'vestings')).toEqual({
+      optional: true,
+      type: 'NonEmptyArray<Vesting>',
+    });
+    expect(getNamedTypeProperty(REPO_ROOT, 'OcfPlanSecurityTransfer', 'resulting_security_ids')).toEqual({
+      optional: false,
+      type: 'NonEmptyArray<string>',
+    });
   });
 });
 

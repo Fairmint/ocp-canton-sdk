@@ -3,6 +3,7 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
   Monetary,
+  NonEmptyArray,
   OcfWarrantIssuance,
   QuantitySourceType,
   StockClassConversionRight,
@@ -16,6 +17,7 @@ import {
   damlTimeToDateString,
   isRecord,
   mapDamlTriggerTypeToOcf,
+  nonEmptyArrayOrUndefined,
   normalizeNumericString,
 } from '../../../utils/typeConversions';
 import { ratioMechanismFromDaml, warrantMechanismFromDaml } from '../shared/conversionMechanisms';
@@ -202,7 +204,7 @@ function quantitySourceFromDaml(value: unknown): QuantitySourceType | undefined 
   }
 }
 
-function vestingsFromDaml(value: unknown): VestingSimple[] | undefined {
+function vestingsFromDaml(value: unknown): NonEmptyArray<VestingSimple> | undefined {
   if (value === null || value === undefined) return undefined;
   if (!Array.isArray(value)) throw invalid('warrantIssuance.vestings', 'vestings must be an array', value);
   const vestings = value.map((item, index) => {
@@ -216,7 +218,7 @@ function vestingsFromDaml(value: unknown): VestingSimple[] | undefined {
       amount: normalizeNumericString(amount),
     };
   });
-  return vestings.length > 0 ? vestings : undefined;
+  return nonEmptyArrayOrUndefined(vestings);
 }
 
 function securityLawExemptionsFromDaml(value: unknown): Array<{ description: string; jurisdiction: string }> {

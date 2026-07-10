@@ -13,6 +13,7 @@ import {
   isRecord,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
+  toNonEmptyArray,
 } from '../../../utils/typeConversions';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -218,7 +219,10 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
       currency: requireString(investmentAmount.currency, 'convertibleIssuance.investment_amount.currency'),
     },
     convertible_type: convertibleTypeFromDaml(data.convertible_type),
-    conversion_triggers: conversionTriggers.map(conversionTriggerFromDaml),
+    conversion_triggers: toNonEmptyArray(
+      conversionTriggers.map(conversionTriggerFromDaml),
+      'convertibleIssuance.conversion_triggers'
+    ),
     seniority,
     security_law_exemptions: securityLawExemptionsFromDaml(data.security_law_exemptions),
     ...(boardApprovalDate ? { board_approval_date: damlTimeToDateString(boardApprovalDate) } : {}),
