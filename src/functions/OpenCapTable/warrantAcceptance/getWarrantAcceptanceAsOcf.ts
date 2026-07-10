@@ -1,39 +1,21 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { OcfWarrantAcceptance } from '../../../types';
 import type { GetByContractIdParams } from '../../../types/common';
-import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlWarrantAcceptanceToNative } from './warrantAcceptanceDataToDaml';
 
 /**
  * OCF Warrant Acceptance event with object_type discriminator.
  */
-export interface OcfWarrantAcceptanceEvent extends OcfWarrantAcceptance {
-  object_type: 'TX_WARRANT_ACCEPTANCE';
-}
+export type OcfWarrantAcceptanceEvent = OcfWarrantAcceptance;
 
 export type GetWarrantAcceptanceAsOcfParams = GetByContractIdParams;
 
 export interface GetWarrantAcceptanceAsOcfResult {
   event: OcfWarrantAcceptanceEvent;
   contractId: string;
-}
-
-/**
- * DAML WarrantAcceptance contract createArgument structure.
- */
-interface WarrantAcceptanceCreateArgument {
-  acceptance_data: {
-    id: string;
-    date: string;
-    security_id: string;
-    comments: string[];
-  };
-}
-
-function hasWarrantAcceptanceData(arg: unknown): arg is WarrantAcceptanceCreateArgument {
-  const record = arg as { acceptance_data?: unknown };
-  return typeof record.acceptance_data === 'object' && record.acceptance_data !== null;
 }
 
 /**
@@ -49,24 +31,10 @@ export async function getWarrantAcceptanceAsOcf(
 ): Promise<GetWarrantAcceptanceAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getWarrantAcceptanceAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.warrantAcceptance,
   });
-  if (!hasWarrantAcceptanceData(createArgument)) {
-    throw new OcpParseError('WarrantAcceptance data not found in contract create argument', {
-      source: 'WarrantAcceptance.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const contract = createArgument;
-  const data = contract.acceptance_data;
-
-  const event: OcfWarrantAcceptanceEvent = {
-    object_type: 'TX_WARRANT_ACCEPTANCE',
-    id: data.id,
-    date: damlTimeToDateString(data.date),
-    security_id: data.security_id,
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
+  const data = extractAndDecodeDamlEntityData('warrantAcceptance', createArgument);
+  const event = damlWarrantAcceptanceToNative(data);
 
   return { event, contractId: params.contractId };
 }
