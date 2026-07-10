@@ -3,6 +3,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfDocument, OcfObjectReference } from '../../../types/native';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType): OcfObjectReference['object_type'] {
@@ -130,7 +131,8 @@ function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType)
 }
 
 export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData): OcfDocument {
-  const { id } = d as unknown as { id?: unknown };
+  const { id: generatedId, comments: generatedComments } = d;
+  const id: unknown = generatedId;
   if (typeof id !== 'string' || id.length === 0) {
     throw new OcpValidationError('document.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -139,6 +141,7 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
   }
   const path = typeof d.path === 'string' ? d.path : undefined;
   const uri = typeof d.uri === 'string' ? d.uri : undefined;
+  const comments: unknown = generatedComments;
   const common = {
     object_type: 'DOCUMENT',
     id,
@@ -147,9 +150,7 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
       object_type: objectTypeToNative(r.object_type),
       object_id: r.object_id,
     })),
-    comments: Array.isArray((d as unknown as { comments?: unknown }).comments)
-      ? (d as unknown as { comments: string[] }).comments
-      : [],
+    comments: Array.isArray(comments) && comments.every((comment) => typeof comment === 'string') ? comments : [],
   } as const;
 
   if (path !== undefined && uri === undefined) return { ...common, path };
@@ -177,21 +178,7 @@ export async function getDocumentAsOcf(
     operation: 'getDocumentAsOcf',
     expectedTemplateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
   });
-
-  function hasDocumentData(arg: unknown): arg is { document_data: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData } {
-    const record = arg as Record<string, unknown>;
-    return (
-      typeof arg === 'object' && arg !== null && 'document_data' in record && typeof record.document_data === 'object'
-    );
-  }
-
-  if (!hasDocumentData(createArgument)) {
-    throw new OcpParseError('Unexpected createArgument shape for Document', {
-      source: 'Document.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const native = damlDocumentDataToNative(createArgument.document_data);
+  const documentData = extractAndDecodeDamlEntityData('document', createArgument);
+  const native = damlDocumentDataToNative(documentData);
   return { document: native, contractId: params.contractId };
 }

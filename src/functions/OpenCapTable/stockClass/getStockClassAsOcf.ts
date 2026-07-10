@@ -10,6 +10,7 @@ import {
   isRecord,
   normalizeNumericString,
 } from '../../../utils/typeConversions';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { ratioMechanismFromDaml } from '../shared/conversionMechanisms';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -186,22 +187,7 @@ export async function getStockClassAsOcf(
     operation: 'getStockClassAsOcf',
     expectedTemplateId: Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId,
   });
-
-  // Type guard to ensure we have the expected stock class data structure
-  function hasStockClassData(
-    arg: unknown
-  ): arg is { stock_class_data: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData } {
-    return isRecord(arg) && isRecord(arg.stock_class_data);
-  }
-
-  if (!hasStockClassData(createArgument)) {
-    throw new OcpParseError('Stock class data not found in contract create argument', {
-      source: 'StockClass.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const stockClassData = createArgument.stock_class_data;
+  const stockClassData = extractAndDecodeDamlEntityData('stockClass', createArgument);
 
   // Use the shared conversion function from typeConversions.ts
   const nativeStockClassData = damlStockClassDataToNative(stockClassData);

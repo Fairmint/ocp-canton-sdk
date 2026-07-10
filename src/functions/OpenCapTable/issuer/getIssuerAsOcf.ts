@@ -5,7 +5,13 @@ import type { ContractResult, GetByContractIdParams } from '../../../types/commo
 import type { OcfIssuer as OcfIssuerInput } from '../../../types/native';
 import type { OcfIssuerOutput } from '../../../types/output';
 import { damlEmailTypeToNative, damlPhoneTypeToNative } from '../../../utils/enumConversions';
-import { damlAddressToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import {
+  damlAddressToNative,
+  damlTimeToDateString,
+  isRecord,
+  normalizeNumericString,
+} from '../../../utils/typeConversions';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(
@@ -27,18 +33,18 @@ function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.Contact.OcfPhone):
 export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
   const normalizeInitialSharesValue = (v: unknown): OcfIssuerInput['initial_shares_authorized'] | undefined => {
     if (typeof v === 'string' || typeof v === 'number') return normalizeNumericString(String(v));
-    if (v && typeof v === 'object' && 'tag' in (v as { tag: string })) {
-      const i = v as { tag: 'OcfInitialSharesNumeric' | 'OcfInitialSharesEnum'; value?: unknown };
-      if (i.tag === 'OcfInitialSharesNumeric' && typeof i.value === 'string') return normalizeNumericString(i.value);
-      if (i.tag === 'OcfInitialSharesEnum' && typeof i.value === 'string') {
-        return i.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
+    if (isRecord(v)) {
+      if (v.tag === 'OcfInitialSharesNumeric' && typeof v.value === 'string') return normalizeNumericString(v.value);
+      if (v.tag === 'OcfInitialSharesEnum' && typeof v.value === 'string') {
+        return v.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
       }
     }
     return undefined;
   };
 
-  const dataWithId = damlData as unknown as { id?: string };
-  if (!dataWithId.id) {
+  const { id: generatedId, comments: generatedComments } = damlData;
+  const id: unknown = generatedId;
+  if (typeof id !== 'string' || id.length === 0) {
     throw new OcpParseError('Issuer contract is missing required field: id', {
       source: 'getIssuerAsOcf',
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -60,7 +66,7 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
         : {};
   const out: OcfIssuerInput = {
     object_type: 'ISSUER',
-    id: dataWithId.id,
+    id,
     legal_name: damlData.legal_name,
     country_of_formation: damlData.country_of_formation,
     formation_date: damlTimeToDateString(damlData.formation_date),
@@ -74,11 +80,12 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
   if (damlData.email) out.email = damlEmailToNative(damlData.email);
   if (damlData.phone) out.phone = damlPhoneToNative(damlData.phone);
   if (damlData.address) out.address = damlAddressToNative(damlData.address);
-  if ((damlData as unknown as { comments?: string[] }).comments) {
-    out.comments = (damlData as unknown as { comments: string[] }).comments;
+  const comments: unknown = generatedComments;
+  if (Array.isArray(comments) && comments.every((comment) => typeof comment === 'string')) {
+    out.comments = comments;
   }
 
-  const isa = (damlData as unknown as { initial_shares_authorized?: unknown }).initial_shares_authorized;
+  const isa: unknown = damlData.initial_shares_authorized;
   const normalizedIsa = normalizeInitialSharesValue(isa);
   if (normalizedIsa !== undefined) out.initial_shares_authorized = normalizedIsa;
 
@@ -103,14 +110,7 @@ export async function getIssuerAsOcf(
     operation: 'getIssuerAsOcf',
     expectedTemplateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
   });
-  if (!('issuer_data' in createArgument)) {
-    throw new OcpParseError('Issuer data not found in contract create argument', {
-      source: 'Issuer.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const issuerData = createArgument.issuer_data as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
+  const issuerData = extractAndDecodeDamlEntityData('issuer', createArgument);
   const native = damlIssuerDataToNative(issuerData);
 
   const data: OcfIssuerOutput = native;

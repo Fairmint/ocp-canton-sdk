@@ -9,6 +9,7 @@ import {
   nonEmptyArrayOrUndefined,
   normalizeNumericString,
 } from '../../../utils/typeConversions';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlSecurityExemptionToNative(e: Fairmint.OpenCapTable.Types.Stock.OcfSecurityExemption): SecurityExemption {
@@ -43,23 +44,21 @@ function damlStockIssuanceTypeToNative(t: unknown): StockIssuanceType | undefine
 export function damlStockIssuanceDataToNative(
   d: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData
 ): OcfStockIssuance {
-  const anyD = d as unknown as Record<string, unknown>;
-  const { id } = anyD;
+  const { id: generatedId } = d;
+  const id: unknown = generatedId;
   if (typeof id !== 'string' || id.length === 0) {
     throw new OcpValidationError('stockIssuance.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: id,
     });
   }
-  const vestings = Array.isArray((anyD as { vestings?: unknown }).vestings)
-    ? nonEmptyArrayOrUndefined(
-        (anyD as { vestings: Array<{ date: string; amount: string }> }).vestings.map((vesting) => ({
-          date: damlTimeToDateString(vesting.date),
-          amount: normalizeNumericString(vesting.amount),
-        }))
-      )
-    : undefined;
-  const issuanceType = damlStockIssuanceTypeToNative(anyD.issuance_type);
+  const vestings = nonEmptyArrayOrUndefined(
+    d.vestings.map((vesting) => ({
+      date: damlTimeToDateString(vesting.date),
+      amount: normalizeNumericString(vesting.amount),
+    }))
+  );
+  const issuanceType = damlStockIssuanceTypeToNative(d.issuance_type);
 
   return {
     object_type: 'TX_STOCK_ISSUANCE',
@@ -75,32 +74,18 @@ export function damlStockIssuanceDataToNative(
       stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
     }),
     ...(d.consideration_text && { consideration_text: d.consideration_text }),
-    security_law_exemptions: (Array.isArray((anyD as { security_law_exemptions?: unknown }).security_law_exemptions)
-      ? (anyD as { security_law_exemptions: Fairmint.OpenCapTable.Types.Stock.OcfSecurityExemption[] })
-          .security_law_exemptions
-      : []
-    ).map(damlSecurityExemptionToNative),
+    security_law_exemptions: d.security_law_exemptions.map(damlSecurityExemptionToNative),
     stock_class_id: d.stock_class_id,
     ...(d.stock_plan_id && { stock_plan_id: d.stock_plan_id }),
-    share_numbers_issued: Array.isArray((anyD as { share_numbers_issued?: unknown }).share_numbers_issued)
-      ? (
-          anyD as { share_numbers_issued: Fairmint.OpenCapTable.Types.Stock.OcfShareNumberRange[] }
-        ).share_numbers_issued.map(damlShareNumberRangeToNative)
-      : [],
+    share_numbers_issued: d.share_numbers_issued.map(damlShareNumberRangeToNative),
     share_price: damlMonetaryToNative(d.share_price),
     quantity: normalizeNumericString(d.quantity),
     ...(d.vesting_terms_id && { vesting_terms_id: d.vesting_terms_id }),
     ...(vestings ? { vestings } : {}),
     ...(d.cost_basis && { cost_basis: damlMonetaryToNative(d.cost_basis) }),
-    stock_legend_ids: Array.isArray((d as unknown as { stock_legend_ids?: unknown }).stock_legend_ids)
-      ? (d as unknown as { stock_legend_ids: string[] }).stock_legend_ids
-      : [],
+    stock_legend_ids: d.stock_legend_ids,
     ...(issuanceType !== undefined ? { issuance_type: issuanceType } : {}),
-    comments:
-      (anyD as { comments?: unknown }).comments !== undefined &&
-      Array.isArray((anyD as { comments?: unknown }).comments)
-        ? (anyD as { comments: string[] }).comments
-        : [],
+    comments: d.comments,
   };
 }
 
@@ -127,17 +112,8 @@ export async function getStockIssuanceAsOcf(
     operation: 'getStockIssuanceAsOcf',
     expectedTemplateId: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId,
   });
-  const arg = createArgument as Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance;
-  const argWithData = arg as unknown as {
-    issuance_data?: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData;
-  };
-  if (!argWithData.issuance_data) {
-    throw new OcpParseError('Missing issuance_data in StockIssuance', {
-      source: 'StockIssuance.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-  const native = damlStockIssuanceDataToNative(argWithData.issuance_data);
+  const issuanceData = extractAndDecodeDamlEntityData('stockIssuance', createArgument);
+  const native = damlStockIssuanceDataToNative(issuanceData);
   const { share_numbers_issued, vestings, comments, issuance_type, ...rest } = native;
 
   const ocf = {

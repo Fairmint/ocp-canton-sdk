@@ -1,6 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
   ContactInfo,
@@ -18,7 +18,8 @@ import {
   damlStakeholderStatusToNative,
   damlStakeholderTypeToNative,
 } from '../../../utils/enumConversions';
-import { damlAddressToNative } from '../../../utils/typeConversions';
+import { damlAddressToNative, isRecord } from '../../../utils/typeConversions';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): Email {
@@ -72,8 +73,8 @@ function damlContactInfoWithoutNameToNative(
 export function damlStakeholderDataToNative(
   damlData: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData
 ): OcfStakeholder {
-  const dAny = damlData as unknown as Record<string, unknown>;
-  const { id } = dAny;
+  const { id: generatedId } = damlData;
+  const id: unknown = generatedId;
   if (typeof id !== 'string' || id.length === 0) {
     throw new OcpValidationError('stakeholder.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -81,34 +82,31 @@ export function damlStakeholderDataToNative(
     });
   }
 
-  const nameData = dAny.name;
-  if (typeof nameData !== 'object' || nameData === null || Array.isArray(nameData)) {
+  const nameData: unknown = damlData.name;
+  if (!isRecord(nameData)) {
     throw new OcpValidationError('stakeholder.name', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: nameData,
     });
   }
-  const legalName = (nameData as Record<string, unknown>).legal_name;
+  const legalName = nameData.legal_name;
   if (typeof legalName !== 'string' || legalName.length === 0) {
     throw new OcpValidationError('stakeholder.name.legal_name', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: legalName,
     });
   }
-  const nameRecord = nameData as Record<string, unknown>;
   const name: Name = {
     legal_name: legalName,
-    ...(typeof nameRecord.first_name === 'string' && nameRecord.first_name.length > 0
-      ? { first_name: nameRecord.first_name }
+    ...(typeof nameData.first_name === 'string' && nameData.first_name.length > 0
+      ? { first_name: nameData.first_name }
       : {}),
-    ...(typeof nameRecord.last_name === 'string' && nameRecord.last_name.length > 0
-      ? { last_name: nameRecord.last_name }
+    ...(typeof nameData.last_name === 'string' && nameData.last_name.length > 0
+      ? { last_name: nameData.last_name }
       : {}),
   };
-  const relationships: StakeholderRelationshipType[] = Array.isArray(dAny.current_relationships)
-    ? (dAny.current_relationships as string[]).map((r) =>
-        damlStakeholderRelationshipToNative(r as Fairmint.OpenCapTable.Types.Stakeholder.OcfStakeholderRelationshipType)
-      )
+  const relationships: StakeholderRelationshipType[] = Array.isArray(damlData.current_relationships)
+    ? damlData.current_relationships.map(damlStakeholderRelationshipToNative)
     : [];
   const native: OcfStakeholder = {
     object_type: 'STAKEHOLDER',
@@ -117,11 +115,9 @@ export function damlStakeholderDataToNative(
     stakeholder_type: damlStakeholderTypeToNative(damlData.stakeholder_type),
     ...(damlData.issuer_assigned_id ? { issuer_assigned_id: damlData.issuer_assigned_id } : {}),
     current_relationships: relationships,
-    ...(dAny.current_status
+    ...(damlData.current_status
       ? {
-          current_status: damlStakeholderStatusToNative(
-            dAny.current_status as Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderStatusType
-          ),
+          current_status: damlStakeholderStatusToNative(damlData.current_status),
         }
       : {}),
     ...(damlData.primary_contact && {
@@ -132,9 +128,7 @@ export function damlStakeholderDataToNative(
     }),
     addresses: damlData.addresses.map(damlAddressToNative),
     tax_ids: damlData.tax_ids,
-    ...(Array.isArray((dAny as { comments?: unknown }).comments) && (dAny as { comments: string[] }).comments.length > 0
-      ? { comments: (dAny as { comments: string[] }).comments }
-      : {}),
+    ...(Array.isArray(damlData.comments) && damlData.comments.length > 0 ? { comments: damlData.comments } : {}),
   };
   return native;
 }
@@ -163,27 +157,8 @@ export async function getStakeholderAsOcf(
     expectedTemplateId: Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId,
     missingDataError: 'parse',
   });
-
-  function hasStakeholderData(
-    arg: unknown
-  ): arg is { stakeholder_data: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData } {
-    const record = arg as Record<string, unknown>;
-    return (
-      typeof arg === 'object' &&
-      arg !== null &&
-      'stakeholder_data' in record &&
-      typeof record.stakeholder_data === 'object'
-    );
-  }
-
-  if (!hasStakeholderData(createArgument)) {
-    throw new OcpParseError('Stakeholder data not found in contract create argument', {
-      source: 'stakeholder contract',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const stakeholder = damlStakeholderDataToNative(createArgument.stakeholder_data);
+  const stakeholderData = extractAndDecodeDamlEntityData('stakeholder', createArgument);
+  const stakeholder = damlStakeholderDataToNative(stakeholderData);
 
   return { stakeholder, contractId: params.contractId };
 }

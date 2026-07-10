@@ -4,6 +4,7 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlCancellationBehaviorToNative(b: string | null | undefined): StockPlanCancellationBehavior | undefined {
@@ -30,15 +31,14 @@ function isNonEmptyStringArray(value: unknown): value is [string, ...string[]] {
 }
 
 export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData): OcfStockPlan {
-  // Access fields via Record type to handle DAML types that may vary from the SDK definition
-  const damlRecord = d as Record<string, unknown>;
-  const dataWithId = damlRecord as { id?: string };
+  const { id: generatedId } = d;
+  const id: unknown = generatedId;
 
   // Validate required fields - fail fast if missing
-  if (typeof dataWithId.id !== 'string' || dataWithId.id.length === 0) {
+  if (typeof id !== 'string' || id.length === 0) {
     throw new OcpValidationError('stockPlan.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: dataWithId.id,
+      receivedValue: id,
     });
   }
   if (!d.plan_name) {
@@ -47,7 +47,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
       receivedValue: d.plan_name,
     });
   }
-  const initialSharesReserved = damlRecord.initial_shares_reserved;
+  const initialSharesReserved: unknown = d.initial_shares_reserved;
   if (initialSharesReserved === undefined || initialSharesReserved === null) {
     throw new OcpValidationError('stockPlan.initial_shares_reserved', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -60,7 +60,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
       receivedValue: initialSharesReserved,
     });
   }
-  const stockClassIds = damlRecord.stock_class_ids;
+  const stockClassIds: unknown = d.stock_class_ids;
   if (!isNonEmptyStringArray(stockClassIds)) {
     throw new OcpValidationError('stockPlan.stock_class_ids', 'Expected at least one stock class identifier', {
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -72,7 +72,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
 
   return {
     object_type: 'STOCK_PLAN',
-    id: dataWithId.id,
+    id,
     plan_name: d.plan_name,
     ...(d.board_approval_date && {
       board_approval_date: damlTimeToDateString(d.board_approval_date),
@@ -85,9 +85,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
       ? { default_cancellation_behavior: defaultCancellationBehavior }
       : {}),
     stock_class_ids: stockClassIds,
-    comments: Array.isArray((d as unknown as { comments?: unknown }).comments)
-      ? (d as unknown as { comments: string[] }).comments
-      : [],
+    comments: d.comments,
   };
 }
 
@@ -112,16 +110,8 @@ export async function getStockPlanAsOcf(
     expectedTemplateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
   });
 
-  if (!('plan_data' in createArgument)) {
-    throw new OcpParseError('plan_data not found in contract create argument', {
-      source: 'StockPlan.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const stockPlan = damlStockPlanDataToNative(
-    createArgument.plan_data as Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData
-  );
+  const planData = extractAndDecodeDamlEntityData('stockPlan', createArgument);
+  const stockPlan = damlStockPlanDataToNative(planData);
 
   return { stockPlan, contractId: params.contractId };
 }

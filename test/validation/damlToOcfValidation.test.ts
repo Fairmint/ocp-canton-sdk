@@ -7,14 +7,22 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { getEquityCompensationIssuanceAsOcf } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
 import { getStakeholderStatusChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
 import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
+import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
+import { stockPlanDataToDaml } from '../../src/functions/OpenCapTable/stockPlan/createStockPlan';
 import { getStockPlanAsOcf } from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
+import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
 import { getVestingTermsAsOcf } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
+import {
+  createTestStockClassData,
+  createTestStockPlanData,
+  createTestVestingTermsData,
+} from '../integration/utils/setupTestData';
 import { validateOcfObject } from '../utils/ocfSchemaValidator';
 
 /** Ledger template ids for mocks — must match `readSingleContract` `expectedTemplateId` on each getter. */
@@ -32,7 +40,7 @@ const MOCK_LEDGER_TEMPLATE_IDS = {
  */
 function createMockClient(
   dataKey: string,
-  data: Record<string, unknown>,
+  data: object,
   ledgerMeta?: { templateId?: string; packageName?: string }
 ): LedgerJsonApiClient {
   const createdEvent: Record<string, unknown> = {
@@ -198,53 +206,42 @@ describe('DAML to OCF Validation', () => {
   });
 
   describe('getVestingTermsAsOcf', () => {
-    const validVestingData = {
-      id: 'vt-001',
-      name: 'Standard 4-year Vesting',
-      description: 'Standard vesting with 1-year cliff',
-      allocation_type: 'OcfAllocationCumulativeRounding',
-      vesting_conditions: [
-        {
-          id: 'condition-001',
-          description: null,
-          quantity: '1',
-          portion: null,
-          trigger: 'OcfVestingStartTrigger',
-          next_condition_ids: [],
-        },
-      ],
-    };
+    const validVestingData = vestingTermsDataToDaml(
+      createTestVestingTermsData({
+        id: 'vt-001',
+        name: 'Standard 4-year Vesting',
+        description: 'Standard vesting with 1-year cliff',
+      })
+    );
 
-    test('throws OcpValidationError when id is missing', async () => {
+    test('throws OcpParseError when id is structurally missing', async () => {
       const { id: _, ...invalidData } = validVestingData;
       const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
       });
 
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('vestingTerms.id');
+      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      });
+      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpParseError);
     });
 
-    test('throws OcpValidationError when name is missing', async () => {
+    test('throws OcpParseError when name is structurally missing', async () => {
       const { name: _, ...invalidData } = validVestingData;
       const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
       });
 
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('vestingTerms.name');
+      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpParseError);
     });
 
-    test('throws OcpValidationError when description is missing', async () => {
+    test('throws OcpParseError when description is structurally missing', async () => {
       const { description: _, ...invalidData } = validVestingData;
       const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
       });
 
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'vestingTerms.description'
-      );
+      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpParseError);
     });
 
     test('succeeds with valid data', async () => {
@@ -259,35 +256,24 @@ describe('DAML to OCF Validation', () => {
   });
 
   describe('getStockClassAsOcf', () => {
-    const validStockClassData = {
-      id: 'sc-001',
-      name: 'Common Stock',
-      class_type: 'OcfStockClassTypeCommon',
-      default_id_prefix: 'CS',
-      initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '10000000' },
-      votes_per_share: '1',
-      seniority: '1',
-      conversion_rights: [],
-    };
+    const validStockClassData = stockClassDataToDaml(createTestStockClassData({ id: 'sc-001', name: 'Common Stock' }));
 
-    test('throws OcpValidationError when id is missing', async () => {
+    test('throws OcpParseError when id is structurally missing', async () => {
       const { id: _, ...invalidData } = validStockClassData;
       const client = createMockClient('stock_class_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
       });
 
-      await expect(getStockClassAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getStockClassAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('stockClass.id');
+      await expect(getStockClassAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpParseError);
     });
 
-    test('throws OcpValidationError when name is missing', async () => {
+    test('throws OcpParseError when name is structurally missing', async () => {
       const { name: _, ...invalidData } = validStockClassData;
       const client = createMockClient('stock_class_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockClass,
       });
 
-      await expect(getStockClassAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getStockClassAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('stockClass.name');
+      await expect(getStockClassAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpParseError);
     });
 
     test('handles zero values for votes_per_share correctly', async () => {
@@ -322,31 +308,31 @@ describe('DAML to OCF Validation', () => {
   });
 
   describe('getStockPlanAsOcf', () => {
-    const validStockPlanData = {
-      id: 'sp-001',
-      plan_name: '2024 Equity Incentive Plan',
-      initial_shares_reserved: '1000000',
-      stock_class_ids: ['sc-001'],
-    };
+    const validStockPlanData = stockPlanDataToDaml(
+      createTestStockPlanData({
+        id: 'sp-001',
+        plan_name: '2024 Equity Incentive Plan',
+        initial_shares_reserved: '1000000',
+        stock_class_ids: ['sc-001'],
+      })
+    );
 
-    test('throws OcpValidationError when id is missing', async () => {
+    test('throws OcpParseError when id is structurally missing', async () => {
       const { id: _, ...invalidData } = validStockPlanData;
       const client = createMockClient('plan_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
       });
 
-      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('stockPlan.id');
+      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpParseError);
     });
 
-    test('throws OcpValidationError when plan_name is missing', async () => {
+    test('throws OcpParseError when plan_name is structurally missing', async () => {
       const { plan_name: _, ...invalidData } = validStockPlanData;
       const client = createMockClient('plan_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
       });
 
-      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('stockPlan.plan_name');
+      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpParseError);
     });
 
     test('handles zero values for initial_shares_reserved correctly', async () => {

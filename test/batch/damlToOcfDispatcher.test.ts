@@ -15,11 +15,21 @@ import {
   getEntityAsOcf,
   type SupportedOcfReadType,
 } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
+import { issuerDataToDaml } from '../../src/functions/OpenCapTable/issuer/createIssuer';
 import { getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import { getStakeholderAsOcf } from '../../src/functions/OpenCapTable/stakeholder/getStakeholderAsOcf';
+import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
 import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
+import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
+import { stockIssuanceDataToDaml } from '../../src/functions/OpenCapTable/stockIssuance/createStockIssuance';
 import { getStockIssuanceAsOcf } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { getStockTransferAsOcf } from '../../src/functions/OpenCapTable/stockTransfer/getStockTransferAsOcf';
+import {
+  createTestIssuerData,
+  createTestStakeholderData,
+  createTestStockClassData,
+  createTestStockIssuanceData,
+} from '../integration/utils/setupTestData';
 
 function buildCreatedEventsResponse(createArgument: Record<string, unknown>, templateId?: string) {
   return {
@@ -148,13 +158,7 @@ describe('damlToOcf dispatcher', () => {
           getIssuerAsOcf(client, { contractId: 'issuer-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            issuer_data: {
-              id: 'iss-1',
-              legal_name: 'Issuer Corp',
-              country_of_formation: 'US',
-              formation_date: '2025-01-01T00:00:00Z',
-              tax_ids: [],
-            },
+            issuer_data: issuerDataToDaml(createTestIssuerData({ id: 'iss-1', legal_name: 'Issuer Corp' })),
           },
           Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId
         ),
@@ -165,13 +169,7 @@ describe('damlToOcf dispatcher', () => {
           getStakeholderAsOcf(client, { contractId: 'stakeholder-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            stakeholder_data: {
-              id: 'sh-1',
-              name: { legal_name: 'Holder 1' },
-              stakeholder_type: 'OcfStakeholderTypeIndividual',
-              addresses: [],
-              tax_ids: [],
-            },
+            stakeholder_data: stakeholderDataToDaml(createTestStakeholderData({ id: 'sh-1' })),
           },
           Fairmint.OpenCapTable.OCF.Stakeholder.Stakeholder.templateId
         ),
@@ -182,17 +180,7 @@ describe('damlToOcf dispatcher', () => {
           getStockClassAsOcf(client, { contractId: 'stock-class-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            stock_class_data: {
-              id: 'sc-1',
-              name: 'Common',
-              class_type: 'OcfStockClassTypeCommon',
-              default_id_prefix: 'CS-',
-              initial_shares_authorized: '1000',
-              votes_per_share: '1',
-              seniority: '1',
-              conversion_rights: [],
-              comments: [],
-            },
+            stock_class_data: stockClassDataToDaml(createTestStockClassData({ id: 'sc-1', name: 'Common' })),
           },
           Fairmint.OpenCapTable.OCF.StockClass.StockClass.templateId
         ),
@@ -203,21 +191,15 @@ describe('damlToOcf dispatcher', () => {
           getStockIssuanceAsOcf(client, { contractId: 'stock-issuance-cid', readAs: ['issuer::p'] }),
         buildCreatedEventsResponse(
           {
-            issuance_data: {
-              id: 'tx-1',
-              date: '2025-01-01T00:00:00Z',
-              security_id: 'sec-1',
-              custom_id: 'custom-sec-1',
-              stakeholder_id: 'sh-1',
-              stock_class_id: 'sc-1',
-              share_price: { amount: '1.00', currency: 'USD' },
-              quantity: '10',
-              security_law_exemptions: [],
-              share_numbers_issued: [],
-              vestings: [],
-              stock_legend_ids: [],
-              comments: [],
-            },
+            issuance_data: stockIssuanceDataToDaml(
+              createTestStockIssuanceData({
+                id: 'tx-1',
+                security_id: 'sec-1',
+                stakeholder_id: 'sh-1',
+                stock_class_id: 'sc-1',
+                quantity: '10',
+              })
+            ),
           },
           Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuance.templateId
         ),

@@ -195,7 +195,9 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         share_price: { amount: '1.00', currency: 'USD' },
         quantity: '100',
         security_law_exemptions: [],
+        share_numbers_issued: [],
         stock_legend_ids: [],
+        vestings: [],
         comments: [],
         issuance_type: null,
       };
@@ -216,7 +218,9 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         share_price: { amount: '1.00', currency: 'USD' },
         quantity: '100',
         security_law_exemptions: [],
+        share_numbers_issued: [],
         stock_legend_ids: [],
+        vestings: [],
         comments: [],
       };
       delete (daml as Record<string, unknown>).issuance_type;
