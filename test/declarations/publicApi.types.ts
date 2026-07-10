@@ -1,3 +1,4 @@
+/* eslint @typescript-eslint/no-redundant-type-constituents: off */
 /** Compile-time smoke tests for declarations exported by the built SDK. */
 
 import {
@@ -20,8 +21,6 @@ import {
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-// This file is linted before `dist` exists in a clean checkout, so its declaration-only imports appear as error types.
-// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType] | OcfFinancing;
 type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_ACCEPTANCE'
