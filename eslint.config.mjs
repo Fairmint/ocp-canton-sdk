@@ -12,6 +12,7 @@ const eslintConfig = [
       '**/node_modules/**',
       '**/coverage/**',
       '**/docs/**',
+      '**/test/declarations/**',
       '**/*.js',
       '**/*.mjs',
       '**/libs/**',
