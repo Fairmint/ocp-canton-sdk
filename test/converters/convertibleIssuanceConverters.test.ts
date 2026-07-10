@@ -57,6 +57,32 @@ function expectInvalidDate(
   }
 }
 
+const NOTE_INTEREST_RATE_PATH =
+  'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[]';
+
+function buildConvertibleNoteInput(interestRate: Record<string, unknown>) {
+  return {
+    ...BASE_INPUT,
+    convertible_type: 'NOTE',
+    conversion_triggers: [
+      {
+        ...SAFE_TRIGGER_BASE,
+        conversion_right: {
+          type: 'CONVERTIBLE_CONVERSION_RIGHT',
+          conversion_mechanism: {
+            type: 'CONVERTIBLE_NOTE_CONVERSION',
+            interest_rates: [interestRate],
+            day_count_convention: 'ACTUAL_365',
+            interest_payout: 'CASH',
+            interest_accrual_period: 'ANNUAL',
+            compounding_type: 'SIMPLE',
+          },
+        },
+      },
+    ],
+  } as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0];
+}
+
 describe('SAFE conversion_timing DAML constructor names', () => {
   it('emits OcfConvTimingPostMoney for POST_MONEY (not OcfConversionTimingPostMoney)', () => {
     const input = {
@@ -522,7 +548,7 @@ describe('convertible issuance approval-date read boundaries', () => {
           convertible_type: 'OcfConvertibleNote',
           conversion_triggers: [trigger],
         }),
-      'convertibleIssuance.interest_rates[].accrual_end_date',
+      `${NOTE_INTEREST_RATE_PATH}.accrual_end_date`,
       invalidDate,
       code
     );
@@ -579,6 +605,33 @@ describe('convertible issuance write date boundaries', () => {
     }
   );
 
+  test.each(['board_approval_date', 'stockholder_approval_date'] as const)(
+    'rejects a present non-string %s and accepts null/undefined as absent',
+    (field) => {
+      const invalidDate = { seconds: 1 };
+      expectInvalidDate(
+        () =>
+          convertibleIssuanceDataToDaml({
+            ...BASE_INPUT,
+            conversion_triggers: [SAFE_TRIGGER_BASE],
+            [field]: invalidDate,
+          }),
+        `convertibleIssuance.${field}`,
+        invalidDate,
+        OcpErrorCodes.INVALID_TYPE
+      );
+
+      for (const value of [null, undefined]) {
+        const result = convertibleIssuanceDataToDaml({
+          ...BASE_INPUT,
+          conversion_triggers: [SAFE_TRIGGER_BASE],
+          [field]: value,
+        });
+        expect(result[field]).toBeNull();
+      }
+    }
+  );
+
   test.each(['trigger_date', 'start_date', 'end_date'] as const)(
     'validates a present conversion trigger %s instead of treating a falsy value as absent',
     (field) => {
@@ -594,36 +647,71 @@ describe('convertible issuance write date boundaries', () => {
     }
   );
 
-  test.each(['accrual_start_date', 'accrual_end_date'] as const)(
-    'validates a present note %s instead of treating a falsy value as absent',
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'rejects a present non-string conversion trigger %s and accepts null/undefined as absent',
     (field) => {
-      const noteTrigger = {
-        ...SAFE_TRIGGER_BASE,
-        conversion_right: {
-          type: 'CONVERTIBLE_CONVERSION_RIGHT' as const,
-          conversion_mechanism: {
-            type: 'CONVERTIBLE_NOTE_CONVERSION' as const,
-            interest_rates: [{ rate: '0.05', accrual_start_date: '2024-01-15', [field]: '' }],
-            day_count_convention: 'ACTUAL_365',
-            interest_payout: 'CASH',
-            interest_accrual_period: 'ANNUAL',
-            compounding_type: 'SIMPLE',
-          },
-        },
-      };
-
+      const invalidDate = { seconds: 1 };
       expectInvalidDate(
         () =>
           convertibleIssuanceDataToDaml({
             ...BASE_INPUT,
-            convertible_type: 'NOTE',
-            conversion_triggers: [noteTrigger],
-          } as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]),
-        `convertibleIssuance.interest_rates[].${field}`,
-        ''
+            conversion_triggers: [{ ...SAFE_TRIGGER_BASE, [field]: invalidDate }],
+          }),
+        `convertibleIssuance.conversion_triggers[].${field}`,
+        invalidDate,
+        OcpErrorCodes.INVALID_TYPE
       );
+
+      for (const value of [null, undefined]) {
+        const result = convertibleIssuanceDataToDaml({
+          ...BASE_INPUT,
+          conversion_triggers: [{ ...SAFE_TRIGGER_BASE, [field]: value }],
+        });
+        expect(result.conversion_triggers[0]?.[field]).toBeNull();
+      }
     }
   );
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['undefined', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['empty', '', OcpErrorCodes.INVALID_FORMAT],
+    ['non-string', { seconds: 1 }, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('rejects a required note accrual_start_date when %s', (_case, value, code) => {
+    expectInvalidDate(
+      () => convertibleIssuanceDataToDaml(buildConvertibleNoteInput({ rate: '0.05', accrual_start_date: value })),
+      `${NOTE_INTEREST_RATE_PATH}.accrual_start_date`,
+      value,
+      code
+    );
+  });
+
+  test.each([
+    ['empty', '', OcpErrorCodes.INVALID_FORMAT],
+    ['non-string', { seconds: 1 }, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('rejects a present optional note accrual_end_date when %s', (_case, value, code) => {
+    expectInvalidDate(
+      () =>
+        convertibleIssuanceDataToDaml(
+          buildConvertibleNoteInput({ rate: '0.05', accrual_start_date: '2024-01-15', accrual_end_date: value })
+        ),
+      `${NOTE_INTEREST_RATE_PATH}.accrual_end_date`,
+      value,
+      code
+    );
+  });
+
+  test.each([null, undefined])('accepts optional note accrual_end_date %p as absent', (value) => {
+    const result = convertibleIssuanceDataToDaml(
+      buildConvertibleNoteInput({ rate: '0.05', accrual_start_date: '2024-01-15', accrual_end_date: value })
+    );
+    const trigger = result.conversion_triggers[0];
+    const right = trigger.conversion_right as {
+      conversion_mechanism?: { value?: { interest_rates?: Array<{ accrual_end_date: string | null }> } };
+    };
+
+    expect(right.conversion_mechanism?.value?.interest_rates?.[0]?.accrual_end_date).toBeNull();
+  });
 });
 
 /**

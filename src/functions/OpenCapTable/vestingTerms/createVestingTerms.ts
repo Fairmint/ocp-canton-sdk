@@ -13,7 +13,6 @@ import {
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
-import { isIsoDateString } from '../../../utils/typeGuards';
 
 function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType {
   switch (t) {
@@ -136,20 +135,10 @@ function vestingTriggerToDaml(t: VestingTrigger): Fairmint.OpenCapTable.OCF.Vest
       };
 
     case 'VESTING_SCHEDULE_ABSOLUTE':
-      if (!isIsoDateString(t.date)) {
-        throw new OcpValidationError(
-          'vestingTrigger.date',
-          'Vesting absolute trigger requires date in ISO format (YYYY-MM-DD)',
-          {
-            code: OcpErrorCodes.INVALID_FORMAT,
-            receivedValue: t.date,
-          }
-        );
-      }
       return {
         tag: 'OcfVestingScheduleAbsoluteTrigger',
         value: {
-          date: dateStringToDAMLTime(t.date),
+          date: dateStringToDAMLTime(t.date, 'vestingTerms.vesting_conditions[].trigger.date'),
         },
       };
 

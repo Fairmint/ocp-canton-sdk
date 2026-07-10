@@ -121,12 +121,13 @@ describe('Primitive Type Guards', () => {
       expect(isIsoDateString('24-01-15')).toBe(false);
     });
 
-    it('returns false for dates with invalid month', () => {
+    it('returns false for impossible calendar dates', () => {
       expect(isIsoDateString('2024-13-01')).toBe(false);
+      expect(isIsoDateString('2024-02-30')).toBe(false);
+      expect(isIsoDateString('2023-02-29')).toBe(false);
+      expect(isIsoDateString('2100-02-29')).toBe(false);
+      expect(isIsoDateString('2000-02-29')).toBe(true);
     });
-
-    // Note: JavaScript Date is permissive with day overflow (2024-02-30 becomes 2024-03-01)
-    // So we only test clearly invalid month values
 
     it('returns false for non-strings', () => {
       expect(isIsoDateString(null)).toBe(false);

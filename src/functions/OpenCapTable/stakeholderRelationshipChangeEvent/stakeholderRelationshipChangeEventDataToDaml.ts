@@ -63,7 +63,7 @@ export function stakeholderRelationshipChangeEventDataToDaml(
 
   return {
     id: data.id,
-    date: dateStringToDAMLTime(data.date),
+    date: dateStringToDAMLTime(data.date, 'stakeholderRelationshipChangeEvent.date'),
     stakeholder_id: data.stakeholder_id,
     relationship_started: relationshipStarted ? stakeholderRelationshipTypeToDaml(relationshipStarted) : null,
     relationship_ended: relationshipEnded ? stakeholderRelationshipTypeToDaml(relationshipEnded) : null,
