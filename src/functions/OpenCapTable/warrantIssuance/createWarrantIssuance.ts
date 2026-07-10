@@ -6,6 +6,7 @@ import type {
   StockClassConversionRight,
   WarrantExerciseTrigger,
 } from '../../../types/native';
+import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -72,17 +73,16 @@ function requireStockClassTarget(right: StockClassConversionRight): string {
 
 function storageTrigger(
   trigger: WarrantExerciseTrigger,
-  convertsToStockClassId: string
+  convertsToStockClassId: string,
+  source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+  const timing = triggerTimingToDaml(trigger, source);
   return {
     type_: triggerTypeToDaml(trigger.type),
     trigger_id: trigger.trigger_id,
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
-    trigger_date: trigger.trigger_date ? dateStringToDAMLTime(trigger.trigger_date) : null,
-    trigger_condition: optionalString(trigger.trigger_condition),
-    start_date: trigger.start_date ? dateStringToDAMLTime(trigger.start_date) : null,
-    end_date: trigger.end_date ? dateStringToDAMLTime(trigger.end_date) : null,
+    ...timing,
     conversion_right: {
       tag: 'OcfRightConvertible',
       value: {
@@ -100,7 +100,8 @@ function storageTrigger(
 
 function stockClassRightToDaml(
   trigger: WarrantExerciseTrigger,
-  right: StockClassConversionRight
+  right: StockClassConversionRight,
+  source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   const convertsToStockClassId = requireStockClassTarget(right);
   const mechanism = ratioMechanismToDaml(right.conversion_mechanism);
@@ -109,7 +110,7 @@ function stockClassRightToDaml(
     value: {
       type_: 'STOCK_CLASS_CONVERSION_RIGHT',
       conversion_mechanism: mechanism.conversion_mechanism,
-      conversion_trigger: storageTrigger(trigger, convertsToStockClassId),
+      conversion_trigger: storageTrigger(trigger, convertsToStockClassId, source),
       converts_to_stock_class_id: convertsToStockClassId,
       ratio: mechanism.ratio,
       conversion_price: mechanism.conversion_price,
@@ -128,7 +129,8 @@ function stockClassRightToDaml(
 }
 
 function conversionRightToDaml(
-  trigger: WarrantExerciseTrigger
+  trigger: WarrantExerciseTrigger,
+  source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   const { conversion_right: right } = trigger;
   switch (right.type) {
@@ -143,7 +145,7 @@ function conversionRightToDaml(
         },
       };
     case 'STOCK_CLASS_CONVERSION_RIGHT':
-      return stockClassRightToDaml(trigger, right);
+      return stockClassRightToDaml(trigger, right, source);
     default: {
       const unexpected: unknown = right;
       const type =
@@ -158,17 +160,54 @@ function conversionRightToDaml(
   }
 }
 
-function triggerToDaml(trigger: WarrantExerciseTrigger): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+function triggerTimingToDaml(trigger: WarrantExerciseTrigger, source: string) {
+  switch (trigger.type) {
+    case 'AUTOMATIC_ON_CONDITION':
+    case 'ELECTIVE_ON_CONDITION':
+      return {
+        trigger_date: null,
+        trigger_condition: trigger.trigger_condition,
+        start_date: null,
+        end_date: null,
+      };
+    case 'AUTOMATIC_ON_DATE':
+      return {
+        trigger_date: dateStringToDAMLTime(trigger.trigger_date, `${source}.trigger_date`),
+        trigger_condition: null,
+        start_date: null,
+        end_date: null,
+      };
+    case 'ELECTIVE_IN_RANGE':
+      return {
+        trigger_date: null,
+        trigger_condition: null,
+        start_date: dateStringToDAMLTime(trigger.start_date, `${source}.start_date`),
+        end_date: dateStringToDAMLTime(trigger.end_date, `${source}.end_date`),
+      };
+    case 'ELECTIVE_AT_WILL':
+    case 'UNSPECIFIED':
+      return {
+        trigger_date: null,
+        trigger_condition: null,
+        start_date: null,
+        end_date: null,
+      };
+  }
+}
+
+function triggerToDaml(
+  trigger: WarrantExerciseTrigger,
+  index: number
+): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+  const source = `warrantIssuance.exercise_triggers.${index}`;
+  const parsed = parseConversionTriggerFields(trigger, source);
   return {
-    type_: triggerTypeToDaml(trigger.type),
-    trigger_id: trigger.trigger_id,
-    conversion_right: conversionRightToDaml(trigger),
-    nickname: optionalString(trigger.nickname),
-    trigger_description: optionalString(trigger.trigger_description),
-    trigger_date: trigger.trigger_date ? dateStringToDAMLTime(trigger.trigger_date) : null,
-    trigger_condition: optionalString(trigger.trigger_condition),
-    start_date: trigger.start_date ? dateStringToDAMLTime(trigger.start_date) : null,
-    end_date: trigger.end_date ? dateStringToDAMLTime(trigger.end_date) : null,
+    type_: triggerTypeToDaml(parsed.type),
+    trigger_id: parsed.trigger_id,
+    conversion_right: conversionRightToDaml(parsed, source),
+    nickname: optionalString(parsed.nickname),
+    trigger_description: optionalString(parsed.trigger_description),
+    ...triggerTimingToDaml(parsed, source),
   };
 }
 
