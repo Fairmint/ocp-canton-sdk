@@ -18,6 +18,7 @@ import {
   type OcfVestingStart,
   type OcfWarrantAcceptance,
 } from '../../dist';
+import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -102,7 +103,6 @@ function verifyPublishedBatchApi(
     security_id: 'security-2',
   };
   void wrongObjectType;
-
   const operations: CapTableBatchOperations = {
     creates: [{ type: 'stakeholder', data: stakeholder }],
     edits: [{ type: 'issuer', data: issuer }],
@@ -118,4 +118,12 @@ function verifyPublishedBatchApi(
   void invalidIdentityOperation;
 }
 
+function verifyPublishedUtilsApi(candidateEntityType: string): void {
+  if (isOcfEntityTypeFromUtils(candidateEntityType)) {
+    const narrowedEntityType: OcfEntityType = candidateEntityType;
+    void narrowedEntityType;
+  }
+}
+
 void verifyPublishedBatchApi;
+void verifyPublishedUtilsApi;
