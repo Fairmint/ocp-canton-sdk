@@ -21,6 +21,7 @@ import {
   EXPECTED_SEMANTIC_REFINEMENTS,
   OCF_CONDITIONAL_COVERAGE,
   PINNED_REACHABLE_SCHEMA_FINGERPRINT,
+  RETIRED_PLAN_SECURITY_SCHEMA_PAIRS,
 } from './schemaConformanceRegistry';
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -119,6 +120,35 @@ describe('schema-driven OCF conformance guardrail', () => {
     expect(
       compareCanonicalOcfPropertySets(compilerInventory, pinnedPropertyInventory, CANONICAL_PROPERTY_PARITY_EXCLUSIONS)
     ).toEqual([]);
+  });
+
+  it('keeps all seven retired PlanSecurity wrappers schema-identical but outside the public union', () => {
+    const compilerInventory = inventoryCanonicalOcfObjects(REPO_ROOT);
+    const pinnedPropertyInventory = inventoryPinnedOcfObjectProperties(SCHEMA_ROOT);
+    const publicDiscriminators = new Set(compilerInventory.map(({ discriminator }) => discriminator));
+
+    expect(RETIRED_PLAN_SECURITY_SCHEMA_PAIRS).toHaveLength(7);
+    for (const pair of RETIRED_PLAN_SECURITY_SCHEMA_PAIRS) {
+      expect(publicDiscriminators.has(pair.retiredDiscriminator)).toBe(false);
+      expect(publicDiscriminators.has(pair.canonicalDiscriminator)).toBe(true);
+
+      const canonicalSchemas = pinnedPropertyInventory.filter(
+        ({ discriminator }) => discriminator === pair.canonicalDiscriminator
+      );
+      expect(canonicalSchemas).toHaveLength(1);
+      const canonicalSchema = canonicalSchemas[0];
+      if (!canonicalSchema) throw new Error(`Missing pinned schema for ${pair.canonicalDiscriminator}`);
+
+      const retiredSchemas = pinnedPropertyInventory.filter(
+        ({ discriminator }) => discriminator === pair.retiredDiscriminator
+      );
+      expect(retiredSchemas.map(({ schemaPath }) => schemaPath).sort()).toEqual(
+        [canonicalSchema.schemaPath, pair.wrapperSchemaPath].sort()
+      );
+      for (const retiredSchema of retiredSchemas) {
+        expect(retiredSchema.properties).toEqual(canonicalSchema.properties);
+      }
+    }
   });
 
   it('detects a newly introduced public DTO property even when the snapshot is regenerated', () => {

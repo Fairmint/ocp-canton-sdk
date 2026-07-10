@@ -421,9 +421,7 @@ describe('OcpClient OpenCapTable entity facade', () => {
 
   it('exports one canonical OCF object_type mapping for each readable registry entry', () => {
     const expected = Object.fromEntries(
-      Object.entries(ENTITY_REGISTRY)
-        .filter(([entityType]) => !entityType.startsWith('planSecurity'))
-        .map(([entityType, entry]) => [entry.objectType, entityType])
+      Object.entries(ENTITY_REGISTRY).map(([entityType, entry]) => [entry.objectType, entityType])
     );
 
     expect(OCF_OBJECT_TYPE_TO_ENTITY_TYPE).toEqual(expected);
