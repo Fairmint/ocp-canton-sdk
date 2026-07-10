@@ -14,11 +14,15 @@ import {
   ratioMechanismToDaml,
   warrantMechanismToDaml,
 } from '../shared/conversionMechanisms';
+import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
 export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
   readonly object_type?: 'TX_WARRANT_ISSUANCE';
 };
+
+/** Canonical warrant trigger discriminator accepted by the strongly typed writer. */
+export type WarrantTriggerTypeInput = WarrantExerciseTrigger['type'];
 
 function triggerTypeToDaml(
   value: WarrantExerciseTrigger['type']
@@ -86,18 +90,13 @@ function storageTrigger(
   trigger: WarrantExerciseTrigger,
   convertsToStockClassId: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+  const triggerFields = triggerFieldsToDaml(trigger, trigger.type, 'warrantIssuance.exercise_triggers[]');
   return {
     type_: triggerTypeToDaml(trigger.type),
     trigger_id: trigger.trigger_id,
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
-    trigger_date: optionalDateStringToDAMLTime(
-      trigger.trigger_date,
-      'warrantIssuance.exercise_triggers[].trigger_date'
-    ),
-    trigger_condition: optionalString(trigger.trigger_condition),
-    start_date: optionalDateStringToDAMLTime(trigger.start_date, 'warrantIssuance.exercise_triggers[].start_date'),
-    end_date: optionalDateStringToDAMLTime(trigger.end_date, 'warrantIssuance.exercise_triggers[].end_date'),
+    ...triggerFields,
     conversion_right: {
       tag: 'OcfRightConvertible',
       value: {
@@ -174,19 +173,14 @@ function conversionRightToDaml(
 }
 
 function triggerToDaml(trigger: WarrantExerciseTrigger): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+  const triggerFields = triggerFieldsToDaml(trigger, trigger.type, 'warrantIssuance.exercise_triggers[]');
   return {
     type_: triggerTypeToDaml(trigger.type),
     trigger_id: trigger.trigger_id,
     conversion_right: conversionRightToDaml(trigger),
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
-    trigger_date: optionalDateStringToDAMLTime(
-      trigger.trigger_date,
-      'warrantIssuance.exercise_triggers[].trigger_date'
-    ),
-    trigger_condition: optionalString(trigger.trigger_condition),
-    start_date: optionalDateStringToDAMLTime(trigger.start_date, 'warrantIssuance.exercise_triggers[].start_date'),
-    end_date: optionalDateStringToDAMLTime(trigger.end_date, 'warrantIssuance.exercise_triggers[].end_date'),
+    ...triggerFields,
   };
 }
 

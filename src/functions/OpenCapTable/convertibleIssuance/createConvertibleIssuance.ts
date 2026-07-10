@@ -8,6 +8,7 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 import { canonicalOptionalNumericToDaml, convertibleMechanismToDaml } from '../shared/conversionMechanisms';
+import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
 export type ConvertibleIssuanceInput = Omit<OcfConvertibleIssuance, 'object_type'> & {
@@ -58,22 +59,14 @@ function conversionRightToDaml(
 function triggerToDaml(
   trigger: ConvertibleConversionTrigger
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.OcfConvertibleConversionTrigger {
+  const triggerFields = triggerFieldsToDaml(trigger, trigger.type, 'convertibleIssuance.conversion_triggers[]');
   return {
     type_: triggerTypeToDaml(trigger.type),
     trigger_id: trigger.trigger_id,
     conversion_right: conversionRightToDaml(trigger.conversion_right),
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
-    trigger_date: optionalDateStringToDAMLTime(
-      trigger.trigger_date,
-      'convertibleIssuance.conversion_triggers[].trigger_date'
-    ),
-    trigger_condition: optionalString(trigger.trigger_condition),
-    start_date: optionalDateStringToDAMLTime(
-      trigger.start_date,
-      'convertibleIssuance.conversion_triggers[].start_date'
-    ),
-    end_date: optionalDateStringToDAMLTime(trigger.end_date, 'convertibleIssuance.conversion_triggers[].end_date'),
+    ...triggerFields,
   };
 }
 

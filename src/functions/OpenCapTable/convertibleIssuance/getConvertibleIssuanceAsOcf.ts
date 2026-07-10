@@ -16,6 +16,7 @@ import {
 } from '../../../utils/typeConversions';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
 import { readSingleContract } from '../shared/singleContractRead';
+import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
 export type OcfConvertibleIssuanceEvent = OcfConvertibleIssuance;
 
@@ -118,26 +119,15 @@ function conversionTriggerFromDaml(value: unknown): ConvertibleConversionTrigger
   const trigger = requireRecord(value, 'conversion_trigger');
   const nickname = optionalString(trigger.nickname, 'conversion_trigger.nickname');
   const description = optionalString(trigger.trigger_description, 'conversion_trigger.trigger_description');
-  const date = optionalDamlTimeToDateString(
-    trigger.trigger_date,
-    'convertibleIssuance.conversion_triggers[].trigger_date'
-  );
-  const condition = optionalString(trigger.trigger_condition, 'conversion_trigger.trigger_condition');
-  const startDate = optionalDamlTimeToDateString(
-    trigger.start_date,
-    'convertibleIssuance.conversion_triggers[].start_date'
-  );
-  const endDate = optionalDamlTimeToDateString(trigger.end_date, 'convertibleIssuance.conversion_triggers[].end_date');
+  const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, 'conversion_trigger.type'));
+  const triggerFields = triggerFieldsFromDaml(trigger, type, 'convertibleIssuance.conversion_triggers[]');
   return {
-    type: mapDamlTriggerTypeToOcf(requireString(trigger.type_, 'conversion_trigger.type')),
+    type,
     trigger_id: requireString(trigger.trigger_id, 'conversion_trigger.trigger_id'),
     conversion_right: conversionRightFromDaml(trigger.conversion_right),
     ...(nickname ? { nickname } : {}),
     ...(description ? { trigger_description: description } : {}),
-    ...(date !== undefined ? { trigger_date: date } : {}),
-    ...(condition ? { trigger_condition: condition } : {}),
-    ...(startDate !== undefined ? { start_date: startDate } : {}),
-    ...(endDate !== undefined ? { end_date: endDate } : {}),
+    ...triggerFields,
   };
 }
 

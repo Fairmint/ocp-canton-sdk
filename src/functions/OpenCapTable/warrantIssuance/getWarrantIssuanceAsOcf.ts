@@ -20,6 +20,7 @@ import {
 } from '../../../utils/typeConversions';
 import { ratioMechanismFromDaml, warrantMechanismFromDaml } from '../shared/conversionMechanisms';
 import { readSingleContract } from '../shared/singleContractRead';
+import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
 export interface GetWarrantIssuanceAsOcfParams extends GetByContractIdParams {}
 
@@ -157,20 +158,15 @@ function triggerFromDaml(value: unknown): WarrantExerciseTrigger {
     trigger.trigger_description,
     'warrantIssuance.exercise_trigger.trigger_description'
   );
-  const date = optionalDamlTimeToDateString(trigger.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date');
-  const condition = optionalString(trigger.trigger_condition, 'warrantIssuance.exercise_trigger.trigger_condition');
-  const startDate = optionalDamlTimeToDateString(trigger.start_date, 'warrantIssuance.exercise_triggers[].start_date');
-  const endDate = optionalDamlTimeToDateString(trigger.end_date, 'warrantIssuance.exercise_triggers[].end_date');
+  const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, 'warrantIssuance.exercise_trigger.type'));
+  const triggerFields = triggerFieldsFromDaml(trigger, type, 'warrantIssuance.exercise_triggers[]');
   return {
-    type: mapDamlTriggerTypeToOcf(requireString(trigger.type_, 'warrantIssuance.exercise_trigger.type')),
+    type,
     trigger_id: requireString(trigger.trigger_id, 'warrantIssuance.exercise_trigger.trigger_id'),
     conversion_right: conversionRightFromDaml(trigger.conversion_right),
     ...(nickname ? { nickname } : {}),
     ...(description ? { trigger_description: description } : {}),
-    ...(date !== undefined ? { trigger_date: date } : {}),
-    ...(condition ? { trigger_condition: condition } : {}),
-    ...(startDate !== undefined ? { start_date: startDate } : {}),
-    ...(endDate !== undefined ? { end_date: endDate } : {}),
+    ...triggerFields,
   };
 }
 
