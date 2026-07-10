@@ -1,14 +1,8 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { ConvertibleConversionTrigger, ConvertibleType, OcfConvertibleIssuance } from '../../../types/native';
 import { conversionTriggerTimingToDaml, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  monetaryToDaml,
-  normalizeNumericString,
-  optionalString,
-} from '../../../utils/typeConversions';
-import { convertibleMechanismToDaml } from '../shared/conversionMechanisms';
+import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
+import { canonicalOptionalNumericToDaml, convertibleMechanismToDaml } from '../shared/conversionMechanisms';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
 export type ConvertibleIssuanceInput = Omit<OcfConvertibleIssuance, 'object_type'> & {
@@ -91,7 +85,7 @@ export function convertibleIssuanceDataToDaml(
     investment_amount: monetaryToDaml(input.investment_amount),
     convertible_type: convertibleTypeToDaml(input.convertible_type),
     conversion_triggers: input.conversion_triggers.map(triggerToDaml),
-    pro_rata: input.pro_rata === undefined ? null : normalizeNumericString(input.pro_rata),
+    pro_rata: canonicalOptionalNumericToDaml(input.pro_rata, 'convertibleIssuance.pro_rata'),
     seniority: input.seniority.toString(),
     comments: cleanComments(input.comments),
   };
