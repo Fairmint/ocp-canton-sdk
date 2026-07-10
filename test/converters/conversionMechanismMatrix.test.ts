@@ -334,6 +334,10 @@ describe('strict optional numeric issuance fields', () => {
       warrantIssuanceDataToDaml(warrantInput({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1000' }))
         .quantity
     ).toBeNull();
+    expect(
+      warrantIssuanceDataToDaml(warrantInput({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1000' }))
+        .quantity_source
+    ).toBeNull();
   });
 
   it('rejects an explicit null convertible pro_rata at the JavaScript boundary', () => {
@@ -363,6 +367,22 @@ describe('strict optional numeric issuance fields', () => {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'decimal string or omitted property',
       fieldPath: 'warrantIssuance.quantity',
+      receivedValue: null,
+    });
+    expect(error.message).toContain('explicit null is invalid');
+  });
+
+  it('rejects an explicit null warrant quantity source at the JavaScript boundary', () => {
+    const input = {
+      ...warrantInput({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1000' }),
+      quantity_source: null,
+    } as unknown as WarrantIssuanceInput;
+
+    const error = captureValidationError(() => warrantIssuanceDataToDaml(input));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'QuantitySourceType or omitted property',
+      fieldPath: 'warrantIssuance.quantity_source',
       receivedValue: null,
     });
     expect(error.message).toContain('explicit null is invalid');
