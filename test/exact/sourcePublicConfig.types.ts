@@ -6,7 +6,7 @@ import type {
   OcpFactoryCoordinates,
 } from '../../src/clientOptions';
 import type { EnvironmentConfig, EnvironmentConfigInput } from '../../src/environment';
-import { OcpNetworkError } from '../../src/errors';
+import { OcpNetworkError, type OcpValidationError } from '../../src/errors';
 import type { AuthorizeIssuerParams } from '../../src/functions/OpenCapTable/issuerAuthorization/types';
 
 type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
@@ -42,6 +42,9 @@ const factory: OcpFactoryCoordinates = { contractId: 'factory-cid', templateId: 
 const authorization: AuthorizeIssuerParams = { issuer: 'issuer::party', factory };
 const resolvedValidatorUrlIsRequired: IsOptional<EnvironmentConfig, 'validatorApiUrl'> = false;
 const errorEndpointIsRequired: IsOptional<OcpNetworkError, 'endpoint'> = false;
+const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
+declare const validationError: OcpValidationError;
+const validationReceivedValue: unknown = validationError.receivedValue;
 
 const optionalValidatorUrl: string | undefined = resolved.validatorApiUrl;
 if (resolved.authMode === 'oauth2') {
@@ -87,6 +90,8 @@ void dependencies;
 void authorization;
 void resolvedValidatorUrlIsRequired;
 void errorEndpointIsRequired;
+void validationReceivedValueIsRequired;
+void validationReceivedValue;
 void optionalValidatorUrl;
 void incompleteOAuth;
 void mainnetSharedSecret;
