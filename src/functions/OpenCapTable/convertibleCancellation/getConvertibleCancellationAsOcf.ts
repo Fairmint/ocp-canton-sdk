@@ -1,7 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfConvertibleCancellation } from '../../../types/native';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlConvertibleCancellationToNative } from './damlToOcf';
 
@@ -21,9 +22,6 @@ export interface GetConvertibleCancellationAsOcfResult {
   contractId: string;
 }
 
-/** Type alias for DAML ConvertibleCancellation contract createArgument */
-type ConvertibleCancellationCreateArgument = Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation;
-
 /**
  * Get a convertible cancellation contract and convert it to OCF format.
  *
@@ -37,18 +35,9 @@ export async function getConvertibleCancellationAsOcf(
 ): Promise<GetConvertibleCancellationAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getConvertibleCancellationAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.convertibleCancellation,
   });
-  const contract = createArgument as ConvertibleCancellationCreateArgument;
-  const data = contract.cancellation_data;
-
-  const event = damlConvertibleCancellationToNative({
-    id: data.id,
-    date: data.date,
-    security_id: data.security_id,
-    amount: data.amount,
-    ...(data.balance_security_id ? { balance_security_id: data.balance_security_id } : {}),
-    reason_text: data.reason_text,
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  });
+  const data = extractAndDecodeDamlEntityData('convertibleCancellation', createArgument);
+  const event = damlConvertibleCancellationToNative(data);
   return { event, contractId: params.contractId };
 }

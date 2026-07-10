@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError } from '../../src/errors';
+import { ENTITY_TEMPLATE_ID_MAP } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { getConvertibleCancellationAsOcf } from '../../src/functions/OpenCapTable/convertibleCancellation';
 
 function createMockClient(createArgument: Record<string, unknown>): LedgerJsonApiClient {
@@ -7,6 +8,8 @@ function createMockClient(createArgument: Record<string, unknown>): LedgerJsonAp
     getEventsByContractId: jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
+          contractId: 'convertible-cancellation-contract-1',
+          templateId: ENTITY_TEMPLATE_ID_MAP.convertibleCancellation,
           createArgument,
         },
       },
@@ -54,12 +57,21 @@ describe('Convertible cancellation converters', () => {
         date: '2026-07-09T00:00:00.000Z',
         security_id: 'convertible-security-2',
         reason_text: 'Missing amount',
+        balance_security_id: null,
         comments: [],
       },
     });
 
     await expect(
       getConvertibleCancellationAsOcf(client, { contractId: 'convertible-cancellation-contract-2' })
-    ).rejects.toThrow(OcpValidationError);
+    ).rejects.toMatchObject({
+      name: OcpParseError.name,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: {
+        entityType: 'convertibleCancellation',
+        decoderPath: expect.any(String),
+        decoderMessage: expect.stringContaining('amount'),
+      },
+    });
   });
 });

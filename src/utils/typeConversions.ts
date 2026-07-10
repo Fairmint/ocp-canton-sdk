@@ -635,7 +635,7 @@ export interface DamlQuantityCancellationData {
   security_id: string;
   quantity: string;
   reason_text: string;
-  balance_security_id?: string;
+  balance_security_id?: string | null;
   comments?: string[];
 }
 

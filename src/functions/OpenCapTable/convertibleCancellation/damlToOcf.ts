@@ -23,7 +23,7 @@ export interface DamlConvertibleCancellationData {
   security_id: string;
   amount?: DamlMonetary;
   reason_text: string;
-  balance_security_id?: string;
+  balance_security_id?: string | null;
   comments?: string[];
 }
 
