@@ -1,16 +1,31 @@
 import { countManifestObjects, type OcfManifest } from '../../src/utils/cantonOcfExtractor';
+import {
+  createTestDocumentData,
+  createTestIssuerData,
+  createTestStakeholderData,
+  createTestStockClassData,
+  createTestStockIssuanceData,
+  createTestStockRetractionData,
+  createTestStockTransferData,
+  createTestValuationData,
+  createTestVestingTermsData,
+} from '../integration/utils';
 
 describe('countManifestObjects', () => {
   const fullManifest: OcfManifest = {
-    issuer: { id: 'issuer-1', object_type: 'ISSUER' },
-    stakeholders: [{ id: 's1' }, { id: 's2' }] as OcfManifest['stakeholders'],
-    stockClasses: [{ id: 'sc1' }] as OcfManifest['stockClasses'],
-    stockPlans: [] as OcfManifest['stockPlans'],
-    vestingTerms: [{ id: 'vt1' }] as OcfManifest['vestingTerms'],
-    transactions: [{ id: 't1' }, { id: 't2' }, { id: 't3' }] as OcfManifest['transactions'],
-    valuations: [{ id: 'v1' }] as OcfManifest['valuations'],
-    documents: [{ id: 'd1' }, { id: 'd2' }] as OcfManifest['documents'],
-    stockLegendTemplates: [] as OcfManifest['stockLegendTemplates'],
+    issuer: createTestIssuerData({ id: 'issuer-1' }),
+    stakeholders: [createTestStakeholderData({ id: 's1' }), createTestStakeholderData({ id: 's2' })],
+    stockClasses: [createTestStockClassData({ id: 'sc1' })],
+    stockPlans: [],
+    vestingTerms: [createTestVestingTermsData({ id: 'vt1' })],
+    transactions: [
+      createTestStockIssuanceData({ id: 't1', stakeholder_id: 's1', stock_class_id: 'sc1' }),
+      createTestStockTransferData({ id: 't2', security_id: 'security-1' }),
+      createTestStockRetractionData({ id: 't3', security_id: 'security-2' }),
+    ],
+    valuations: [createTestValuationData({ id: 'v1', stock_class_id: 'sc1' })],
+    documents: [createTestDocumentData({ id: 'd1' }), createTestDocumentData({ id: 'd2' })],
+    stockLegendTemplates: [],
   };
 
   test('counts all objects in a full manifest', () => {

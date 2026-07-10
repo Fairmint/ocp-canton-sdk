@@ -9,11 +9,12 @@
  * @module replicationHelpers
  */
 
-import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
+import type { OcfEntityDataMap, OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
+import { mapOcfObjectTypeToEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
-import { normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
+import { normalizeOcfData } from './planSecurityAliases';
 
 // ============================================================================
 // Categorized Type Mapping
@@ -299,10 +300,14 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
  * ```
  */
 export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
-  const result: CantonOcfDataMap = new Map();
+  const result = new CantonOcfDataMap();
 
   // Helper to add an item to the map with validation
-  const addItem = (entityType: OcfEntityType, item: Record<string, unknown>, context: string): void => {
+  const addItem = <EntityType extends OcfEntityType>(
+    entityType: EntityType,
+    item: OcfEntityDataMap[EntityType],
+    context: string
+  ): void => {
     const { id } = item;
     if (typeof id !== 'string') {
       throw new Error(`Invalid ${context}: missing or invalid 'id' field. Got: ${JSON.stringify(id)}`);
@@ -310,7 +315,7 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
 
     let typeMap = result.get(entityType);
     if (!typeMap) {
-      typeMap = new Map();
+      typeMap = new Map<string, OcfEntityDataMap[EntityType]>();
       result.set(entityType, typeMap);
     }
     typeMap.set(id, item);
@@ -344,7 +349,7 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
     addItem('stockLegendTemplate', stockLegendTemplate, 'stockLegendTemplate');
   }
 
-  // Process transactions - categorize by object_type using existing TRANSACTION_SUBTYPE_MAP
+  // Process transactions using the canonical registry-backed object-type mapping.
   for (const tx of manifest.transactions) {
     const objectType = tx['object_type'];
     if (typeof objectType !== 'string') {
@@ -353,13 +358,15 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
       );
     }
 
-    // Normalize TX_PLAN_SECURITY_* to TX_EQUITY_COMPENSATION_* for lookup
-    // Canton can return legacy plan security types that need to be mapped to equity compensation
-    const normalizedObjectType = normalizeObjectType(objectType);
-
-    // Check if the normalized object type is a known transaction type
-    const entityType = getOwnEntityType(TRANSACTION_SUBTYPE_MAP, normalizedObjectType);
-    if (entityType === undefined) {
+    // The manifest is canonical-only and this category accepts transactions only.
+    // Legacy categorized inputs are handled by mapCategorizedTypeToEntityType
+    // before they reach this typed boundary.
+    if (!objectType.startsWith('TX_') && !objectType.startsWith('CE_')) {
+      throw new Error(`Unsupported transaction object_type: ${objectType}`);
+    }
+    const runtimeObjectType: string = objectType;
+    const entityType = mapOcfObjectTypeToEntityType(runtimeObjectType);
+    if (entityType === null) {
       throw new Error(`Unsupported transaction object_type: ${objectType}`);
     }
     addItem(entityType, tx, `transaction (${objectType})`);
@@ -453,7 +460,40 @@ export interface ReplicationDiff {
  * Canton OCF data map for deep comparison.
  * Maps entityType to a map of canonical object ID to OCF data object.
  */
-export type CantonOcfDataMap = Map<OcfEntityType, Map<string, Record<string, unknown>>>;
+type CantonOcfDataByEntity = {
+  [EntityType in OcfEntityType]?: Map<string, OcfEntityDataMap[EntityType]>;
+};
+
+/**
+ * Canonical Canton data grouped by its exact OCF entity kind.
+ *
+ * Generic accessors preserve the correlation between an entity key and the
+ * canonical object shape stored under that key.
+ */
+export class CantonOcfDataMap {
+  readonly #data: CantonOcfDataByEntity = {};
+
+  /** Number of entity-kind buckets currently stored. */
+  get size(): number {
+    return Object.keys(this.#data).length;
+  }
+
+  get<EntityType extends OcfEntityType>(entityType: EntityType): Map<string, OcfEntityDataMap[EntityType]> | undefined {
+    return this.#data[entityType];
+  }
+
+  set<EntityType extends OcfEntityType>(entityType: EntityType, data: Map<string, OcfEntityDataMap[EntityType]>): this {
+    // TypeScript loses mapped-key correlation for generic indexed writes. The
+    // public signature above enforces it before this private storage boundary.
+    Object.defineProperty(this.#data, entityType, {
+      configurable: true,
+      enumerable: true,
+      value: data,
+      writable: true,
+    });
+    return this;
+  }
+}
 
 /**
  * Options for computing the replication diff.
@@ -465,7 +505,8 @@ export interface ComputeReplicationDiffOptions {
    * semantic OCF equality (ocfDeepEqual). Only items with actual data differences
    * are marked for edit.
    *
-   * The map should be structured as: Map<OcfEntityType, Map<objectId, ocfDataObject>>
+   * Construct this value with `CantonOcfDataMap` so each entity-kind key stays
+   * correlated with its exact canonical OCF object type.
    *
    * This enables propagating database corrections to Canton without blindly updating
    * all existing items.

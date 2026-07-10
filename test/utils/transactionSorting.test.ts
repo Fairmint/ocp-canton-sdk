@@ -222,7 +222,7 @@ describe('sortTransactions', () => {
       { id: 'tx-3', date: '2025-03-17', object_type: 'TX_STOCK_ISSUANCE' },
       { id: 'tx-1', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE' },
       { id: 'tx-2', date: '2025-03-16', object_type: 'TX_STOCK_ISSUANCE' },
-    ];
+    ] as const;
 
     const sorted = sortTransactions(transactions);
 
@@ -233,7 +233,7 @@ describe('sortTransactions', () => {
     const transactions = [
       { id: 'exercise', date: '2025-03-15', object_type: 'TX_EQUITY_COMPENSATION_EXERCISE' },
       { id: 'issuance', date: '2025-03-15', object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE' },
-    ];
+    ] as const;
 
     const sorted = sortTransactions(transactions);
 
@@ -246,7 +246,7 @@ describe('sortTransactions', () => {
       { id: 'transfer', date: '2025-03-15', object_type: 'TX_STOCK_TRANSFER' },
       { id: 'issuance', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE' },
       { id: 'adjustment', date: '2025-03-15', object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT' },
-    ];
+    ] as const;
 
     const sorted = sortTransactions(transactions);
 
@@ -260,7 +260,7 @@ describe('sortTransactions', () => {
       { id: 'tx-a1', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE', security_id: 'sec-a' },
       { id: 'tx-b2', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE', security_id: 'sec-b' },
       { id: 'tx-a2', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE', security_id: 'sec-a' },
-    ];
+    ] as const;
 
     const sorted = sortTransactions(transactions);
 
@@ -287,7 +287,7 @@ describe('sortTransactions', () => {
         security_id: 'sec-a',
         createdAt: '2025-03-15T09:00:00.000Z',
       },
-    ];
+    ] as const;
 
     const sorted = sortTransactions(transactions);
 
@@ -298,7 +298,7 @@ describe('sortTransactions', () => {
     const transactions = [
       { id: 'tx-zzz', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE' },
       { id: 'tx-aaa', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE' },
-    ];
+    ] as const;
 
     const sorted = sortTransactions(transactions);
 
@@ -311,7 +311,7 @@ describe('sortTransactions', () => {
   });
 
   it('returns single-element array unchanged', () => {
-    const transactions = [{ id: 'tx-1', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE' }];
+    const transactions = [{ id: 'tx-1', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE' }] as const;
     const sorted = sortTransactions(transactions);
     expect(sorted).toEqual(transactions);
   });
@@ -320,7 +320,7 @@ describe('sortTransactions', () => {
     const transactions = [
       { id: 'tx-2', date: '2025-03-16', object_type: 'TX_STOCK_ISSUANCE' },
       { id: 'tx-1', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE' },
-    ];
+    ] as const;
     const original = [...transactions];
 
     sortTransactions(transactions);
@@ -337,7 +337,7 @@ describe('sortTransactions', () => {
       { id: 'issuance-1', date: '2025-03-15', object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE', security_id: 'sec-b' },
       { id: 'transfer-1', date: '2025-03-15', object_type: 'TX_STOCK_TRANSFER', security_id: 'sec-a' },
       { id: 'adjustment-1', date: '2025-03-15', object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT' },
-    ];
+    ] as const;
 
     const sorted = sortTransactions(transactions);
     const ids = sorted.map((tx) => tx.id);

@@ -13,26 +13,20 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
 import { OcpValidationError } from '../errors/OcpValidationError';
-import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
-import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
-import { getConvertibleIssuanceAsOcf } from '../functions/OpenCapTable/convertibleIssuance';
-import { getDocumentAsOcf } from '../functions/OpenCapTable/document';
-import { getEquityCompensationExerciseAsOcf } from '../functions/OpenCapTable/equityCompensationExercise';
-import { getEquityCompensationIssuanceAsOcf } from '../functions/OpenCapTable/equityCompensationIssuance';
 import { getIssuerAsOcf } from '../functions/OpenCapTable/issuer';
-import { getIssuerAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/issuerAuthorizedSharesAdjustment';
-import { getStakeholderAsOcf } from '../functions/OpenCapTable/stakeholder';
-import { getStockClassAsOcf } from '../functions/OpenCapTable/stockClass';
-import { getStockClassAuthorizedSharesAdjustmentAsOcf } from '../functions/OpenCapTable/stockClassAuthorizedSharesAdjustment';
-import { getStockIssuanceAsOcf } from '../functions/OpenCapTable/stockIssuance';
-import { getStockLegendTemplateAsOcf } from '../functions/OpenCapTable/stockLegendTemplate';
-import { getStockPlanAsOcf } from '../functions/OpenCapTable/stockPlan';
-import { getStockPlanPoolAdjustmentAsOcf } from '../functions/OpenCapTable/stockPlanPoolAdjustment';
-import { getValuationAsOcf } from '../functions/OpenCapTable/valuation';
-import { getVestingTermsAsOcf } from '../functions/OpenCapTable/vestingTerms';
-import { getWarrantIssuanceAsOcf } from '../functions/OpenCapTable/warrantIssuance';
+import type {
+  OcfDocument,
+  OcfIssuer,
+  OcfStakeholder,
+  OcfStockClass,
+  OcfStockLegendTemplate,
+  OcfStockPlan,
+  OcfValuation,
+  OcfVestingTerms,
+} from '../types/native';
+import type { OcfTransaction } from '../types/output';
 import {
   analyzeContractReadFailure,
   contractReadFailureCode,
@@ -61,6 +55,26 @@ export function getTimestampOrNull(input: unknown): number | null {
   return null;
 }
 
+/** Canonical minimum accepted by the public transaction sorter. */
+export interface SortableOcfTransaction {
+  readonly id: OcfTransaction['id'];
+  readonly date: OcfTransaction['date'];
+  readonly object_type: OcfTransaction['object_type'];
+  readonly security_id?: string;
+  readonly createdAt?: string | number;
+  readonly created_at?: string | number;
+}
+
+/** Loose runtime boundary retained for diagnostic helpers that validate malformed input. */
+interface TransactionSortCandidate {
+  readonly id?: unknown;
+  readonly date?: unknown;
+  readonly object_type?: unknown;
+  readonly security_id?: unknown;
+  readonly createdAt?: unknown;
+  readonly created_at?: unknown;
+}
+
 /**
  * Compute intra-day ordering weight for a transaction.
  *
@@ -71,7 +85,7 @@ export function getTimestampOrNull(input: unknown): number | null {
  * Weights are ported from libs/api/service-ocp/utils/transactionSort.js
  * to ensure parity between DB and Canton data processing.
  */
-export function txWeight(tx: Record<string, unknown>): number {
+export function txWeight(tx: Pick<TransactionSortCandidate, 'object_type'>): number {
   switch (tx.object_type) {
     // Administrative adjustments early in the day
     case 'TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT':
@@ -193,7 +207,7 @@ export function txWeight(tx: Record<string, unknown>): number {
  *
  * @throws OcpValidationError if tx.date is missing or invalid - fail fast on malformed records
  */
-export function buildTransactionSortKey(tx: Record<string, unknown>): string {
+export function buildTransactionSortKey(tx: TransactionSortCandidate): string {
   const dateMs = getTimestampOrNull(tx.date);
   if (dateMs === null) {
     const txId = typeof tx.id === 'string' ? tx.id : 'unknown';
@@ -227,7 +241,9 @@ export function buildTransactionSortKey(tx: Record<string, unknown>): string {
  * Uses decorate-sort-undecorate pattern to avoid recomputing sort keys
  * during comparisons, which is more efficient for large transaction lists.
  */
-export function sortTransactions(transactions: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
+export function sortTransactions<const Transaction extends SortableOcfTransaction>(
+  transactions: readonly Transaction[]
+): Transaction[] {
   // Decorate: precompute sort keys once per transaction
   const decorated = transactions.map((tx) => ({
     tx,
@@ -242,122 +258,18 @@ export function sortTransactions(transactions: Array<Record<string, unknown>>): 
 }
 
 /**
- * Entity types that are classified as transactions for buildCaptableInput.
- * All entity types except core objects and a few non-transaction types.
- */
-const TRANSACTION_ENTITY_TYPES: Set<OcfEntityType> = new Set([
-  // Stock Transactions
-  'stockIssuance',
-  'stockTransfer',
-  'stockCancellation',
-  'stockRetraction',
-  'stockRepurchase',
-  'stockAcceptance',
-  'stockReissuance',
-  'stockConversion',
-  'stockConsolidation',
-  // Stock Class Adjustments
-  'stockClassAuthorizedSharesAdjustment',
-  'stockClassConversionRatioAdjustment',
-  'stockClassSplit',
-  'issuerAuthorizedSharesAdjustment',
-  // Stock Plan Events
-  'stockPlanPoolAdjustment',
-  'stockPlanReturnToPool',
-  // Convertible Transactions
-  'convertibleIssuance',
-  'convertibleTransfer',
-  'convertibleCancellation',
-  'convertibleRetraction',
-  'convertibleAcceptance',
-  'convertibleConversion',
-  // Warrant Transactions
-  'warrantIssuance',
-  'warrantTransfer',
-  'warrantCancellation',
-  'warrantAcceptance',
-  'warrantExercise',
-  'warrantRetraction',
-  // Equity Compensation Transactions
-  'equityCompensationIssuance',
-  'equityCompensationTransfer',
-  'equityCompensationCancellation',
-  'equityCompensationRetraction',
-  'equityCompensationAcceptance',
-  'equityCompensationRelease',
-  'equityCompensationExercise',
-  'equityCompensationRepricing',
-  // Stakeholder Events
-  'stakeholderRelationshipChangeEvent',
-  'stakeholderStatusChangeEvent',
-  // Vesting Events
-  'vestingAcceleration',
-  'vestingEvent',
-  'vestingStart',
-]);
-
-/**
- * Entity types supported by getEntityAsOcf dispatcher.
- * This matches the SupportedOcfReadType from damlToOcf.ts.
- */
-const SUPPORTED_READ_TYPES: Set<SupportedOcfReadType> = new Set<SupportedOcfReadType>([
-  // Acceptance types
-  'stockAcceptance',
-  'convertibleAcceptance',
-  'equityCompensationAcceptance',
-  'warrantAcceptance',
-  // Stock class adjustments
-  'stockClassConversionRatioAdjustment',
-  'stockClassSplit',
-  'stockConsolidation',
-  // Valuation and vesting
-  'valuation',
-  'vestingAcceleration',
-  'vestingEvent',
-  'vestingStart',
-  // Other stock operations
-  'stockRetraction',
-  'stockConversion',
-  'stockPlanReturnToPool',
-  'stockReissuance',
-  'stockRepurchase',
-  // Warrant operations
-  'warrantExercise',
-  'warrantRetraction',
-  'warrantTransfer',
-  'warrantCancellation',
-  // Convertible operations
-  'convertibleConversion',
-  'convertibleRetraction',
-  'convertibleTransfer',
-  'convertibleCancellation',
-  // Equity compensation
-  'equityCompensationRelease',
-  'equityCompensationRepricing',
-  'equityCompensationRetraction',
-  'equityCompensationTransfer',
-  'equityCompensationCancellation',
-  // Transfer/cancellation
-  'stockTransfer',
-  'stockCancellation',
-  // Stakeholder events
-  'stakeholderRelationshipChangeEvent',
-  'stakeholderStatusChangeEvent',
-]);
-
-/**
  * OCF manifest structure compatible with processCapTable / buildCaptableInput.
  */
 export interface OcfManifest {
-  issuer: Record<string, unknown> | null;
-  stockClasses: Array<Record<string, unknown>>;
-  stockPlans: Array<Record<string, unknown>>;
-  stakeholders: Array<Record<string, unknown>>;
-  transactions: Array<Record<string, unknown>>;
-  vestingTerms: Array<Record<string, unknown>>;
-  valuations: Array<Record<string, unknown>>;
-  documents: Array<Record<string, unknown>>;
-  stockLegendTemplates: Array<Record<string, unknown>>;
+  issuer: OcfIssuer | null;
+  stockClasses: OcfStockClass[];
+  stockPlans: OcfStockPlan[];
+  stakeholders: OcfStakeholder[];
+  transactions: OcfTransaction[];
+  vestingTerms: OcfVestingTerms[];
+  valuations: OcfValuation[];
+  documents: OcfDocument[];
+  stockLegendTemplates: OcfStockLegendTemplate[];
 }
 
 /**
@@ -400,11 +312,11 @@ async function sleep(ms: number): Promise<void> {
  *
  * @example
  * ```typescript
- * import { getCapTableState, extractCantonOcfManifest } from '@open-captable-protocol/canton';
+ * import { extractCantonOcfManifest } from '@open-captable-protocol/canton';
  *
- * const cantonState = await getCapTableState(client, issuerPartyId);
+ * const cantonState = await ocp.OpenCapTable.capTable.getState(issuerPartyId);
  * if (cantonState) {
- *   const manifest = await extractCantonOcfManifest(client, cantonState);
+ *   const manifest = await extractCantonOcfManifest(ocp.ledger, cantonState);
  *   // manifest.stakeholders, manifest.stockClasses, manifest.transactions, etc.
  * }
  * ```
@@ -506,76 +418,39 @@ export async function extractCantonOcfManifest(
       for (let attempt = 0; attempt < 2; attempt++) {
         readAttempts = attempt + 1;
         try {
-          // Handle core objects with their specific functions
-          if (entityType === 'stakeholder') {
-            const { stakeholder } = await getStakeholderAsOcf(client, { contractId, ...readScopeOpts });
-            result.stakeholders.push(stakeholder as unknown as Record<string, unknown>);
-          } else if (entityType === 'stockClass') {
-            const { stockClass } = await getStockClassAsOcf(client, { contractId, ...readScopeOpts });
-            result.stockClasses.push(stockClass as unknown as Record<string, unknown>);
-          } else if (entityType === 'stockPlan') {
-            const { stockPlan } = await getStockPlanAsOcf(client, { contractId, ...readScopeOpts });
-            result.stockPlans.push(stockPlan as unknown as Record<string, unknown>);
-          } else if (entityType === 'vestingTerms') {
-            const { vestingTerms } = await getVestingTermsAsOcf(client, { contractId, ...readScopeOpts });
-            result.vestingTerms.push(vestingTerms as unknown as Record<string, unknown>);
-          } else if (entityType === 'stockIssuance') {
-            const { stockIssuance } = await getStockIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(stockIssuance as unknown as Record<string, unknown>);
-          } else if (entityType === 'convertibleIssuance') {
-            const { event } = await getConvertibleIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
-          } else if (entityType === 'warrantIssuance') {
-            const { warrantIssuance } = await getWarrantIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(warrantIssuance as unknown as Record<string, unknown>);
-          } else if (entityType === 'equityCompensationIssuance') {
-            const { event } = await getEquityCompensationIssuanceAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
-          } else if (entityType === 'equityCompensationExercise') {
-            const { event } = await getEquityCompensationExerciseAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
-          } else if (entityType === 'stockClassAuthorizedSharesAdjustment') {
-            const { event } = await getStockClassAuthorizedSharesAdjustmentAsOcf(client, {
-              contractId,
-              ...readScopeOpts,
-            });
-            result.transactions.push(event as unknown as Record<string, unknown>);
-          } else if (entityType === 'issuerAuthorizedSharesAdjustment') {
-            const { event } = await getIssuerAuthorizedSharesAdjustmentAsOcf(client, {
-              contractId,
-              ...readScopeOpts,
-            });
-            result.transactions.push(event as unknown as Record<string, unknown>);
-          } else if (entityType === 'stockPlanPoolAdjustment') {
-            const { event } = await getStockPlanPoolAdjustmentAsOcf(client, { contractId, ...readScopeOpts });
-            result.transactions.push(event as unknown as Record<string, unknown>);
-          } else if (entityType === 'valuation') {
-            const { valuation } = await getValuationAsOcf(client, { contractId, ...readScopeOpts });
-            result.valuations.push(valuation as unknown as Record<string, unknown>);
-          } else if (entityType === 'document') {
-            const { document } = await getDocumentAsOcf(client, { contractId, ...readScopeOpts });
-            result.documents.push(document);
-          } else if (entityType === 'stockLegendTemplate') {
-            const { stockLegendTemplate } = await getStockLegendTemplateAsOcf(client, {
-              contractId,
-              ...readScopeOpts,
-            });
-            result.stockLegendTemplates.push(stockLegendTemplate as unknown as Record<string, unknown>);
-          } else if (SUPPORTED_READ_TYPES.has(entityType) && TRANSACTION_ENTITY_TYPES.has(entityType)) {
-            // Handle remaining transaction types with the generic dispatcher
-            const supportedType = entityType as SupportedOcfReadType;
-            const { data } = await getEntityAsOcf(client, supportedType, contractId, readScopeOpts);
-            const txData: Record<string, unknown> = { ...data };
-            if (typeof txData.object_type !== 'string') {
-              throw new OcpValidationError(
-                'object_type',
-                `Converter returned a transaction without object_type: ${entityType}`,
-                { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-              );
+          const { data } = await getEntityAsOcf(client, entityType, contractId, readScopeOpts);
+          // Transactions intentionally share the default branch below; the assignment
+          // there keeps this exhaustive for any future non-transaction category.
+          // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
+          switch (data.object_type) {
+            case 'STAKEHOLDER':
+              result.stakeholders.push(data);
+              break;
+            case 'STOCK_CLASS':
+              result.stockClasses.push(data);
+              break;
+            case 'STOCK_PLAN':
+              result.stockPlans.push(data);
+              break;
+            case 'VESTING_TERMS':
+              result.vestingTerms.push(data);
+              break;
+            case 'VALUATION':
+              result.valuations.push(data);
+              break;
+            case 'DOCUMENT':
+              result.documents.push(data);
+              break;
+            case 'STOCK_LEGEND_TEMPLATE':
+              result.stockLegendTemplates.push(data);
+              break;
+            default: {
+              // This assignment is deliberately exhaustive: adding a new non-transaction
+              // entity to the SDK must also add an explicit manifest category above.
+              const transaction: OcfTransaction = data;
+              result.transactions.push(transaction);
             }
-            result.transactions.push(txData);
           }
-          // Unsupported types are silently skipped
           lastError = null;
           break;
         } catch (error) {
