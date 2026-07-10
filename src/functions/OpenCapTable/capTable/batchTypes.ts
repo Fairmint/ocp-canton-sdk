@@ -438,7 +438,8 @@ export const ENTITY_REGISTRY = {
   stockPlan: {
     objectType: 'STOCK_PLAN',
     templateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
-    dataField: 'stock_plan_data',
+    dataField: 'plan_data',
+    dataFieldFallbacks: ['stock_plan_data'],
     capTableField: 'stock_plans',
     operations: mutableEntityOperations('StockPlan'),
   },
