@@ -24,17 +24,65 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 // ===== Date and Time Conversion Helpers =====
 
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const RFC3339_DATE_TIME_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
+
+const DATE_EXPECTED_TYPE = 'YYYY-MM-DD or RFC 3339 date-time string with Z or numeric offset';
+
+function isValidCalendarDate(value: string): boolean {
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+
+  if (month < 1 || month > 12 || day < 1) return false;
+
+  const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = month === 2 ? (isLeapYear ? 29 : 28) : [4, 6, 9, 11].includes(month) ? 30 : 31;
+  return day <= daysInMonth;
+}
+
 /**
- * Convert a date string (YYYY-MM-DD) to DAML Time format (ISO string with 0 timestamp) DAML Time expects a string in
- * the format YYYY-MM-DDTHH:MM:SS.000Z Since we only care about the date, we use 00:00:00.000Z for the time portion If
- * the date already has a time portion, return it as-is
+ * Return the lexical date prefix for a valid OCF date or RFC 3339 date-time.
+ *
+ * This deliberately does not convert through `Date`: an offset timestamp such as
+ * `2024-01-15T23:30:00-05:00` represents the OCF date `2024-01-15`, even though
+ * its UTC representation falls on the following day.
  */
-export function dateStringToDAMLTime(dateString: string): string {
-  // If already has time portion, return as-is
-  if (dateString.includes('T')) {
-    return dateString;
+export function tryIsoDateToDateString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  if (!DATE_ONLY_PATTERN.test(value) && !RFC3339_DATE_TIME_PATTERN.test(value)) return null;
+  if (!isValidCalendarDate(value)) return null;
+  return value.slice(0, 10);
+}
+
+function requireIsoDate(value: unknown, fieldPath: string): { source: string; date: string } {
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, 'Expected a date string', {
+      expectedType: DATE_EXPECTED_TYPE,
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
   }
-  return `${dateString}T00:00:00.000Z`;
+
+  const date = tryIsoDateToDateString(value);
+  if (date !== null) return { source: value, date };
+
+  throw new OcpValidationError(fieldPath, `Expected a valid ${DATE_EXPECTED_TYPE}`, {
+    expectedType: DATE_EXPECTED_TYPE,
+    receivedValue: value,
+    code: OcpErrorCodes.INVALID_FORMAT,
+  });
+}
+
+/**
+ * Convert a valid OCF date to DAML Time format. RFC 3339 date-times are validated and preserved exactly; date-only
+ * values receive a UTC midnight suffix.
+ */
+export function dateStringToDAMLTime(value: string, fieldPath?: string): string;
+export function dateStringToDAMLTime(value: unknown, fieldPath = 'date'): string {
+  const { source, date } = requireIsoDate(value, fieldPath);
+  return source === date ? `${date}T00:00:00.000Z` : source;
 }
 
 /**
@@ -45,10 +93,12 @@ export function relTimeToDAML(microseconds: string): { microseconds: string } {
   return { microseconds };
 }
 
-/** Convert a DAML Time string back to a date string (YYYY-MM-DD) Extract only the date portion and return as string */
-export function damlTimeToDateString(timeString: string): string {
-  // Extract just the date portion (YYYY-MM-DD)
-  return timeString.split('T')[0];
+/**
+ * Convert a DAML Time value to its OCF date prefix after validating the runtime value. Date-only values are accepted so
+ * already-normalized data can safely cross the same boundary.
+ */
+export function damlTimeToDateString(value: unknown, fieldPath = 'date'): string {
+  return requireIsoDate(value, fieldPath).date;
 }
 
 /**

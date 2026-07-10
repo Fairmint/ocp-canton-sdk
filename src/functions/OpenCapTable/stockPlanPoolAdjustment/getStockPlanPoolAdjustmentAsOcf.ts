@@ -2,7 +2,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlanPoolAdjustment } from '../../../types/native';
-import { normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export interface GetStockPlanPoolAdjustmentAsOcfParams extends GetByContractIdParams {}
@@ -31,12 +31,24 @@ export function damlStockPlanPoolAdjustmentDataToNative(
   return {
     object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
     id: data.id,
-    date: data.date.split('T')[0],
+    date: damlTimeToDateString(data.date, 'stockPlanPoolAdjustment.date'),
     stock_plan_id: data.stock_plan_id,
     shares_reserved: normalizeNumericString(sharesReservedStr),
-    ...(data.board_approval_date ? { board_approval_date: data.board_approval_date.split('T')[0] } : {}),
+    ...(data.board_approval_date
+      ? {
+          board_approval_date: damlTimeToDateString(
+            data.board_approval_date,
+            'stockPlanPoolAdjustment.board_approval_date'
+          ),
+        }
+      : {}),
     ...(data.stockholder_approval_date
-      ? { stockholder_approval_date: data.stockholder_approval_date.split('T')[0] }
+      ? {
+          stockholder_approval_date: damlTimeToDateString(
+            data.stockholder_approval_date,
+            'stockPlanPoolAdjustment.stockholder_approval_date'
+          ),
+        }
       : {}),
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
