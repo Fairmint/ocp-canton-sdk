@@ -39,7 +39,7 @@ describe('validateEquityCompensationPricing', () => {
       exercisePrice: null,
       basePrice: undefined,
       field: 'exercise_price',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      code: OcpErrorCodes.INVALID_TYPE,
     },
     {
       name: 'option with malformed exercise price',
@@ -71,7 +71,7 @@ describe('validateEquityCompensationPricing', () => {
       exercisePrice: undefined,
       basePrice: null,
       field: 'base_price',
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      code: OcpErrorCodes.INVALID_TYPE,
     },
     {
       name: 'SAR with exercise price',
@@ -103,7 +103,7 @@ describe('validateEquityCompensationPricing', () => {
       exercisePrice: null,
       basePrice: undefined,
       field: 'exercise_price',
-      code: OcpErrorCodes.INVALID_FORMAT,
+      code: OcpErrorCodes.INVALID_TYPE,
     },
   ])('rejects $name', ({ compensationType, exercisePrice, basePrice, field, code }) => {
     try {

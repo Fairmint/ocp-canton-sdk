@@ -360,6 +360,16 @@ function hasPresentField(value: Record<string, unknown>, field: string): boolean
 function validateCanonicalSemanticRefinements(value: Record<string, unknown>): void {
   if (value.object_type !== 'TX_EQUITY_COMPENSATION_ISSUANCE') return;
 
+  for (const field of ['exercise_price', 'base_price'] as const) {
+    if (value[field] === null) {
+      throw new OcpValidationError(field, `${field} must be a Monetary object when provided`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'Monetary or omitted',
+        receivedValue: value[field],
+      });
+    }
+  }
+
   const compensationType = value.compensation_type;
   const hasExercisePrice = hasPresentField(value, 'exercise_price');
   const hasBasePrice = hasPresentField(value, 'base_price');

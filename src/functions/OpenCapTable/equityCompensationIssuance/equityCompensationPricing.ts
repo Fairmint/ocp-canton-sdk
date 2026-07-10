@@ -40,10 +40,19 @@ function validateRequiredPrice(
   source: string,
   compensationType: CompensationType
 ): asserts value is Monetary {
-  if (value === undefined || value === null) {
+  if (value === undefined) {
     requiredPrice(field, source, compensationType);
   }
   validateRequiredMonetary(value, `${source}.${field}`);
+}
+
+function rejectNullPrice(value: unknown, field: 'exercise_price' | 'base_price', source: string): void {
+  if (value !== null) return;
+  throw new OcpValidationError(`${source}.${field}`, `${field} must be a Monetary object when provided`, {
+    code: OcpErrorCodes.INVALID_TYPE,
+    expectedType: 'Monetary or omitted',
+    receivedValue: value,
+  });
 }
 
 function forbiddenPrice(
@@ -69,6 +78,9 @@ export function validateEquityCompensationPricing(
   basePrice: unknown,
   source: string
 ): EquityCompensationPricing {
+  rejectNullPrice(exercisePrice, 'exercise_price', source);
+  rejectNullPrice(basePrice, 'base_price', source);
+
   switch (compensationType) {
     case 'OPTION':
     case 'OPTION_ISO':
