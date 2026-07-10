@@ -132,13 +132,15 @@ export function convertToOcf(
 
     // ===== Issuance types =====
     case 'convertibleIssuance':
-      return damlConvertibleIssuanceDataToNative(data);
+      return damlConvertibleIssuanceDataToNative(data as Parameters<typeof damlConvertibleIssuanceDataToNative>[0]);
     case 'equityCompensationIssuance':
-      return damlEquityCompensationIssuanceDataToNative(data);
+      return damlEquityCompensationIssuanceDataToNative(
+        data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
+      );
     case 'stockIssuance':
       return damlStockIssuanceDataToNative(data as Parameters<typeof damlStockIssuanceDataToNative>[0]);
     case 'warrantIssuance':
-      return damlWarrantIssuanceDataToNative(data);
+      return damlWarrantIssuanceDataToNative(data as Parameters<typeof damlWarrantIssuanceDataToNative>[0]);
 
     // ===== Acceptance types =====
     case 'stockAcceptance':

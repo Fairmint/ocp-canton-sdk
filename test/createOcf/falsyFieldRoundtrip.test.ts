@@ -4,6 +4,7 @@
  */
 
 import { damlConvertibleConversionToNative } from '../../src/functions/OpenCapTable/convertibleConversion/damlToOcf';
+import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { damlStockIssuanceDataToNative } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
@@ -13,38 +14,36 @@ import { requireFirst } from '../../src/utils/requireDefined';
 describe('falsy field preservation in DAML-to-OCF converters', () => {
   describe('boolean false fields', () => {
     test('conversion_mfn: false is preserved in Note conversion mechanism', () => {
-      const daml = {
+      const daml = convertibleIssuanceDataToDaml({
         id: 'ci-1',
         date: '2024-01-15T00:00:00Z',
         security_id: 'sec-1',
         custom_id: '',
         stakeholder_id: 'sh-1',
         investment_amount: { amount: '1000', currency: 'USD' },
-        convertible_type: 'OcfConvertibleNote',
+        convertible_type: 'NOTE',
         conversion_triggers: [
           {
-            type_: 'OcfTriggerTypeTypeAutomaticOnDate',
+            type: 'AUTOMATIC_ON_DATE',
             trigger_id: 't1',
             trigger_date: '2025-01-01T00:00:00Z',
             conversion_right: {
-              type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+              type: 'CONVERTIBLE_CONVERSION_RIGHT',
               conversion_mechanism: {
-                tag: 'OcfConvMechNote',
-                value: {
-                  interest_rates: [{ rate: '0.05', accrual_start_date: '2024-01-01' }],
-                  day_count_convention: 'OcfDayCountActual365',
-                  interest_payout: 'OcfInterestPayoutDeferred',
-                  interest_accrual_period: 'OcfAccrualAnnual',
-                  compounding_type: 'OcfSimple',
-                  conversion_mfn: false,
-                },
+                type: 'CONVERTIBLE_NOTE_CONVERSION',
+                interest_rates: [{ rate: '0.05', accrual_start_date: '2024-01-01' }],
+                day_count_convention: 'ACTUAL_365',
+                interest_payout: 'DEFERRED',
+                interest_accrual_period: 'ANNUAL',
+                compounding_type: 'SIMPLE',
+                conversion_mfn: false,
               },
             },
           },
         ],
         seniority: 1,
         security_law_exemptions: [],
-      };
+      });
       const result = damlConvertibleIssuanceDataToNative(daml);
       const mechanism = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
         .conversion_mechanism;
@@ -54,31 +53,31 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
     });
 
     test('conversion_mfn: false is preserved in SAFE conversion mechanism', () => {
-      const daml = {
+      const daml = convertibleIssuanceDataToDaml({
         id: 'ci-2',
         date: '2024-01-15T00:00:00Z',
         security_id: 'sec-1',
         custom_id: '',
         stakeholder_id: 'sh-1',
         investment_amount: { amount: '1000', currency: 'USD' },
-        convertible_type: 'OcfConvertibleSafe',
+        convertible_type: 'SAFE',
         conversion_triggers: [
           {
-            type_: 'OcfTriggerTypeTypeAutomaticOnDate',
+            type: 'AUTOMATIC_ON_DATE',
             trigger_id: 't1',
             trigger_date: '2025-01-01T00:00:00Z',
             conversion_right: {
-              type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+              type: 'CONVERTIBLE_CONVERSION_RIGHT',
               conversion_mechanism: {
-                tag: 'OcfConvMechSAFE',
-                value: { conversion_mfn: false },
+                type: 'SAFE_CONVERSION',
+                conversion_mfn: false,
               },
             },
           },
         ],
         seniority: 1,
         security_law_exemptions: [],
-      };
+      });
       const result = damlConvertibleIssuanceDataToNative(daml);
       const mechanism = requireFirst(result.conversion_triggers, 'native conversion trigger').conversion_right
         .conversion_mechanism;

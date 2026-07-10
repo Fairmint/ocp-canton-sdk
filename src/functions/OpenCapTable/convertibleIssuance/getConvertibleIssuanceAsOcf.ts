@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
+import type { PkgConvertibleIssuanceOcfData } from '../../../types/daml';
 import type {
   ConvertibleConversionRight,
   ConvertibleConversionTrigger,
@@ -15,12 +16,15 @@ import {
   normalizeNumericString,
   toNonEmptyArray,
 } from '../../../utils/typeConversions';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export type OcfConvertibleIssuanceEvent = OcfConvertibleIssuance;
+export type DamlConvertibleIssuanceData = PkgConvertibleIssuanceOcfData;
 
-export interface GetConvertibleIssuanceAsOcfParams extends GetByContractIdParams {}
+export type GetConvertibleIssuanceAsOcfParams = GetByContractIdParams;
 
 export interface GetConvertibleIssuanceAsOcfResult {
   event: OcfConvertibleIssuanceEvent;
@@ -168,7 +172,7 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 }
 
 /** Convert decoded DAML ConvertibleIssuance data to its canonical OCF shape. */
-export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConvertibleIssuance {
+export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuanceData): OcfConvertibleIssuance {
   const data = requireRecord(value, 'convertibleIssuance');
   const id = requireString(data.id, 'convertibleIssuance.id');
   const date = requireString(data.date, 'convertibleIssuance.date');
@@ -240,13 +244,9 @@ export async function getConvertibleIssuanceAsOcf(
 ): Promise<GetConvertibleIssuanceAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getConvertibleIssuanceAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.convertibleIssuance,
   });
-  if (!isRecord(createArgument) || !('issuance_data' in createArgument)) {
-    throw new OcpParseError('Unexpected createArgument for ConvertibleIssuance', {
-      source: 'ConvertibleIssuance.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-  const native = damlConvertibleIssuanceDataToNative(createArgument.issuance_data);
+  const data = extractAndDecodeDamlEntityData('convertibleIssuance', createArgument);
+  const native = damlConvertibleIssuanceDataToNative(data);
   return { event: native, contractId: params.contractId };
 }

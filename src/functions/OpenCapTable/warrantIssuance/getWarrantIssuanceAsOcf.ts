@@ -1,6 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
+import type { PkgWarrantIssuanceOcfData } from '../../../types/daml';
 import type {
   Monetary,
   NonEmptyArray,
@@ -20,10 +21,13 @@ import {
   nonEmptyArrayOrUndefined,
   normalizeNumericString,
 } from '../../../utils/typeConversions';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { ratioMechanismFromDaml, warrantMechanismFromDaml } from '../shared/conversionMechanisms';
 import { readSingleContract } from '../shared/singleContractRead';
 
-export interface GetWarrantIssuanceAsOcfParams extends GetByContractIdParams {}
+export type DamlWarrantIssuanceData = PkgWarrantIssuanceOcfData;
+export type GetWarrantIssuanceAsOcfParams = GetByContractIdParams;
 
 export interface GetWarrantIssuanceAsOcfResult {
   warrantIssuance: OcfWarrantIssuance;
@@ -246,7 +250,7 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 }
 
 /** Convert decoded DAML WarrantIssuance data to its canonical OCF shape. */
-export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssuance {
+export function damlWarrantIssuanceDataToNative(value: DamlWarrantIssuanceData): OcfWarrantIssuance {
   const data = requireRecord(value, 'warrantIssuance');
   const exerciseTriggers = data.exercise_triggers;
   if (!Array.isArray(exerciseTriggers)) {
@@ -302,13 +306,9 @@ export async function getWarrantIssuanceAsOcf(
 ): Promise<GetWarrantIssuanceAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getWarrantIssuanceAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.warrantIssuance,
   });
-  if (!isRecord(createArgument) || !('issuance_data' in createArgument)) {
-    throw new OcpParseError('Unexpected createArgument for WarrantIssuance', {
-      source: 'WarrantIssuance.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-  const native = damlWarrantIssuanceDataToNative(createArgument.issuance_data);
+  const data = extractAndDecodeDamlEntityData('warrantIssuance', createArgument);
+  const native = damlWarrantIssuanceDataToNative(data);
   return { warrantIssuance: native, contractId: params.contractId };
 }

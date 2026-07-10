@@ -7,7 +7,8 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError } from '../../src/errors';
+import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
 import { getEquityCompensationIssuanceAsOcf } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
 import { getStakeholderStatusChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
@@ -17,6 +18,7 @@ import { stockPlanDataToDaml } from '../../src/functions/OpenCapTable/stockPlan/
 import { getStockPlanAsOcf } from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
 import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
 import { getVestingTermsAsOcf } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
+import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import {
   createTestStockClassData,
@@ -73,74 +75,60 @@ describe('DAML to OCF Validation', () => {
   });
 
   describe('getEquityCompensationIssuanceAsOcf', () => {
-    const validIssuanceData = {
+    const validIssuanceData = equityCompensationIssuanceDataToDaml({
+      object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
       id: 'ec-001',
-      date: '2024-01-15T00:00:00.000Z',
+      date: '2024-01-15',
       security_id: 'sec-001',
       custom_id: 'ECI-001',
       stakeholder_id: 'sh-001',
-      compensation_type: 'OcfCompensationTypeOption',
+      compensation_type: 'OPTION',
       quantity: '1000',
       exercise_price: { amount: '1.00', currency: 'USD' },
       expiration_date: null,
       termination_exercise_windows: [],
       security_law_exemptions: [],
-    };
+    });
 
-    test('throws OcpValidationError when id is missing', async () => {
+    async function expectStructuralFailure(data: object, field: string): Promise<void> {
+      const client = createMockClient('issuance_data', data, {
+        templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
+      });
+
+      try {
+        await getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' });
+        throw new Error(`Expected equity issuance decoder to reject ${field}`);
+      } catch (error: unknown) {
+        expect(error).toMatchObject({
+          name: 'OcpParseError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          context: { entityType: 'equityCompensationIssuance' },
+        });
+        const parseError = error as OcpParseError;
+        expect(`${String(parseError.context?.decoderPath)} ${String(parseError.context?.decoderMessage)}`).toContain(
+          field
+        );
+      }
+    }
+
+    test('throws OcpParseError when id is structurally missing', async () => {
       const { id: _, ...invalidData } = validIssuanceData;
-      const client = createMockClient('issuance_data', invalidData, {
-        templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
-      });
-
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'equityCompensationIssuance.id'
-      );
+      await expectStructuralFailure(invalidData, 'id');
     });
 
-    test('throws OcpValidationError when date is missing', async () => {
+    test('throws OcpParseError when date is structurally missing', async () => {
       const { date: _, ...invalidData } = validIssuanceData;
-      const client = createMockClient('issuance_data', invalidData, {
-        templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
-      });
-
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'equityCompensationIssuance.date'
-      );
+      await expectStructuralFailure(invalidData, 'date');
     });
 
-    test('throws OcpValidationError when security_id is missing', async () => {
+    test('throws OcpParseError when security_id is structurally missing', async () => {
       const { security_id: _, ...invalidData } = validIssuanceData;
-      const client = createMockClient('issuance_data', invalidData, {
-        templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
-      });
-
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'equityCompensationIssuance.security_id'
-      );
+      await expectStructuralFailure(invalidData, 'security_id');
     });
 
-    test('throws OcpValidationError when compensation_type is unknown', async () => {
+    test('throws OcpParseError when compensation_type is structurally unknown', async () => {
       const invalidData = { ...validIssuanceData, compensation_type: 'UnknownType' };
-      const client = createMockClient('issuance_data', invalidData, {
-        templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
-      });
-
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'compensation_type'
-      );
+      await expectStructuralFailure(invalidData, 'compensation_type');
     });
 
     test('succeeds with valid data', async () => {
@@ -155,43 +143,47 @@ describe('DAML to OCF Validation', () => {
   });
 
   describe('getWarrantIssuanceAsOcf', () => {
-    const validWarrantData = {
+    const validWarrantData = warrantIssuanceDataToDaml({
+      object_type: 'TX_WARRANT_ISSUANCE',
       id: 'wi-001',
-      date: '2024-01-15T00:00:00.000Z',
+      date: '2024-01-15',
       security_id: 'sec-001',
       custom_id: 'WI-001',
       stakeholder_id: 'sh-001',
       purchase_price: { amount: '1.00', currency: 'USD' },
       exercise_triggers: [],
       security_law_exemptions: [],
-    };
-
-    test('throws OcpValidationError when id is missing', async () => {
-      const { id: _, ...invalidData } = validWarrantData;
-      const client = createMockClient('issuance_data', invalidData, {
-        templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
-      });
-
-      await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'warrantIssuance.id'
-      );
     });
 
-    test('throws OcpValidationError when stakeholder_id is missing', async () => {
-      const { stakeholder_id: _, ...invalidData } = validWarrantData;
-      const client = createMockClient('issuance_data', invalidData, {
+    async function expectStructuralFailure(data: object, field: string): Promise<void> {
+      const client = createMockClient('issuance_data', data, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.warrantIssuance,
       });
 
-      await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        OcpValidationError
-      );
-      await expect(getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(
-        'warrantIssuance.stakeholder_id'
-      );
+      try {
+        await getWarrantIssuanceAsOcf(client, { contractId: 'test-contract' });
+        throw new Error(`Expected warrant issuance decoder to reject ${field}`);
+      } catch (error: unknown) {
+        expect(error).toMatchObject({
+          name: 'OcpParseError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          context: { entityType: 'warrantIssuance' },
+        });
+        const parseError = error as OcpParseError;
+        expect(`${String(parseError.context?.decoderPath)} ${String(parseError.context?.decoderMessage)}`).toContain(
+          field
+        );
+      }
+    }
+
+    test('throws OcpParseError when id is structurally missing', async () => {
+      const { id: _, ...invalidData } = validWarrantData;
+      await expectStructuralFailure(invalidData, 'id');
+    });
+
+    test('throws OcpParseError when stakeholder_id is structurally missing', async () => {
+      const { stakeholder_id: _, ...invalidData } = validWarrantData;
+      await expectStructuralFailure(invalidData, 'stakeholder_id');
     });
 
     test('succeeds with valid data', async () => {
