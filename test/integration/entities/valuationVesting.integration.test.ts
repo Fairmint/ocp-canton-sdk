@@ -29,6 +29,7 @@ import {
   requireCreatedEventBlob,
   setupStockSecurity,
   setupTestIssuer,
+  withCapTableContractDetails,
 } from '../utils';
 
 function extractContractIdString(cid: { value: unknown }): string {
@@ -193,7 +194,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails: updatedCapTableDetails,
+      ...withCapTableContractDetails(updatedCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -254,7 +255,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails: updatedCapTableDetails,
+      ...withCapTableContractDetails(updatedCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -314,7 +315,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails: updatedCapTableDetails,
+      ...withCapTableContractDetails(updatedCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -365,7 +366,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
     const stockSecurity2 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: stockSecurity1.capTableContractId,
       issuerParty: ctx.issuerParty,
-      capTableContractDetails: currentCapTableDetails,
+      ...withCapTableContractDetails(currentCapTableDetails),
     });
 
     events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
@@ -380,7 +381,7 @@ createIntegrationTestSuite('Valuation and Vesting types via batch API', (getCont
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity2.capTableContractId,
-      capTableContractDetails: finalCapTableDetails,
+      ...withCapTableContractDetails(finalCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 

@@ -33,6 +33,7 @@ import {
   setupStockSecurity,
   setupTestIssuer,
   setupWarrantSecurity,
+  withCapTableContractDetails,
 } from '../utils';
 
 /**
@@ -141,7 +142,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails: updatedCapTableDetails,
+      ...withCapTableContractDetails(updatedCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -189,7 +190,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: warrantSecurity.capTableContractId,
-      capTableContractDetails: updatedCapTableDetails,
+      ...withCapTableContractDetails(updatedCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -239,7 +240,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: convertibleSecurity.capTableContractId,
-      capTableContractDetails: updatedCapTableDetails,
+      ...withCapTableContractDetails(updatedCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -287,7 +288,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: eqCompSecurity.capTableContractId,
-      capTableContractDetails: updatedCapTableDetails,
+      ...withCapTableContractDetails(updatedCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -336,7 +337,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     const warrantSecurity = await setupWarrantSecurity(ctx.ocp, {
       issuerContractId: stockSecurity.capTableContractId,
       issuerParty: ctx.issuerParty,
-      capTableContractDetails: currentCapTableDetails,
+      ...withCapTableContractDetails(currentCapTableDetails),
     });
 
     events = await ctx.ocp.ledger.getEventsByContractId({ contractId: warrantSecurity.capTableContractId });
@@ -353,7 +354,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     const convertibleSecurity = await setupConvertibleSecurity(ctx.ocp, {
       issuerContractId: warrantSecurity.capTableContractId,
       issuerParty: ctx.issuerParty,
-      capTableContractDetails: currentCapTableDetails,
+      ...withCapTableContractDetails(currentCapTableDetails),
     });
 
     events = await ctx.ocp.ledger.getEventsByContractId({ contractId: convertibleSecurity.capTableContractId });
@@ -370,7 +371,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     const eqCompSecurity = await setupEquityCompensationSecurity(ctx.ocp, {
       issuerContractId: convertibleSecurity.capTableContractId,
       issuerParty: ctx.issuerParty,
-      capTableContractDetails: currentCapTableDetails,
+      ...withCapTableContractDetails(currentCapTableDetails),
     });
 
     events = await ctx.ocp.ledger.getEventsByContractId({ contractId: eqCompSecurity.capTableContractId });
@@ -402,7 +403,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: eqCompSecurity.capTableContractId,
-      capTableContractDetails: finalCapTableDetails,
+      ...withCapTableContractDetails(finalCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -459,7 +460,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails: updatedCapTableDetails,
+      ...withCapTableContractDetails(updatedCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -512,7 +513,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     // Create the acceptance first
     const createBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails: currentCapTableDetails,
+      ...withCapTableContractDetails(currentCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -594,7 +595,7 @@ createIntegrationTestSuite('Acceptance Type operations', (getContext) => {
     // Create the acceptance first
     const createBatch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails: currentCapTableDetails,
+      ...withCapTableContractDetails(currentCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
