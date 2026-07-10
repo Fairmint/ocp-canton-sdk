@@ -307,3 +307,23 @@ describe('canonical conversion mechanism matrices', () => {
     );
   });
 });
+
+describe('optional numeric issuance fields', () => {
+  it('treats a null convertible pro_rata value as absent at the JavaScript boundary', () => {
+    const input = {
+      ...convertibleInput({ type: 'CUSTOM_CONVERSION', custom_conversion_description: 'Custom conversion' }),
+      pro_rata: null,
+    } as unknown as ConvertibleIssuanceInput;
+
+    expect(convertibleIssuanceDataToDaml(input).pro_rata).toBeNull();
+  });
+
+  it('treats a null warrant quantity value as absent at the JavaScript boundary', () => {
+    const input = {
+      ...warrantInput({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1000' }),
+      quantity: null,
+    } as unknown as WarrantIssuanceInput;
+
+    expect(warrantIssuanceDataToDaml(input).quantity).toBeNull();
+  });
+});

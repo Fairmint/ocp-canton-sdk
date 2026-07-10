@@ -190,7 +190,7 @@ export function warrantIssuanceDataToDaml(
       : null,
     consideration_text: optionalString(input.consideration_text),
     security_law_exemptions: input.security_law_exemptions,
-    quantity: input.quantity === undefined ? null : normalizeNumericString(input.quantity),
+    quantity: input.quantity == null ? null : normalizeNumericString(input.quantity),
     quantity_source: quantitySource,
     exercise_price: input.exercise_price ? monetaryToDaml(input.exercise_price) : null,
     purchase_price: monetaryToDaml(input.purchase_price),

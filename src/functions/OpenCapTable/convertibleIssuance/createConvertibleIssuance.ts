@@ -89,7 +89,7 @@ export function convertibleIssuanceDataToDaml(
     investment_amount: monetaryToDaml(input.investment_amount),
     convertible_type: convertibleTypeToDaml(input.convertible_type),
     conversion_triggers: input.conversion_triggers.map(triggerToDaml),
-    pro_rata: input.pro_rata === undefined ? null : normalizeNumericString(input.pro_rata),
+    pro_rata: input.pro_rata == null ? null : normalizeNumericString(input.pro_rata),
     seniority: input.seniority.toString(),
     comments: cleanComments(input.comments),
   };
