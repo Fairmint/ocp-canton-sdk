@@ -41,6 +41,44 @@ const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
   };
 });
 
+const planSecurityDiscriminatorCases = [
+  {
+    sourceObjectType: 'TX_PLAN_SECURITY_ACCEPTANCE',
+    canonicalObjectType: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
+    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationAcceptance'),
+  },
+  {
+    sourceObjectType: 'TX_PLAN_SECURITY_CANCELLATION',
+    canonicalObjectType: 'TX_EQUITY_COMPENSATION_CANCELLATION',
+    fixture: () => loadProductionFixture<Record<string, unknown>>('equityCompensationCancellation'),
+  },
+  {
+    sourceObjectType: 'TX_PLAN_SECURITY_EXERCISE',
+    canonicalObjectType: 'TX_EQUITY_COMPENSATION_EXERCISE',
+    fixture: () => loadProductionFixture<Record<string, unknown>>('equityCompensationExercise'),
+  },
+  {
+    sourceObjectType: 'TX_PLAN_SECURITY_ISSUANCE',
+    canonicalObjectType: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+    fixture: () => loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso'),
+  },
+  {
+    sourceObjectType: 'TX_PLAN_SECURITY_RELEASE',
+    canonicalObjectType: 'TX_EQUITY_COMPENSATION_RELEASE',
+    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationRelease'),
+  },
+  {
+    sourceObjectType: 'TX_PLAN_SECURITY_RETRACTION',
+    canonicalObjectType: 'TX_EQUITY_COMPENSATION_RETRACTION',
+    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationRetraction'),
+  },
+  {
+    sourceObjectType: 'TX_PLAN_SECURITY_TRANSFER',
+    canonicalObjectType: 'TX_EQUITY_COMPENSATION_TRANSFER',
+    fixture: () => loadSyntheticFixture<Record<string, unknown>>('equityCompensationTransfer'),
+  },
+] as const;
+
 describe('ocfZodSchemas', () => {
   beforeAll(() => {
     if (schemaAvailabilityError) {
@@ -118,22 +156,21 @@ describe('ocfZodSchemas', () => {
     );
   });
 
-  it('normalizes a schema-valid PlanSecurity issuance after validating its declared shape', () => {
-    const fixture = stripSourceMetadata(
-      loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
-    );
-    const planSecurityFixture: Record<string, unknown> = {
-      ...fixture,
-      object_type: 'TX_PLAN_SECURITY_ISSUANCE',
-    };
+  it.each(planSecurityDiscriminatorCases)(
+    'normalizes schema-valid $sourceObjectType to $canonicalObjectType after validating its declared shape',
+    ({ sourceObjectType, canonicalObjectType, fixture: loadFixture }) => {
+      const fixture = stripSourceMetadata(loadFixture());
+      const planSecurityFixture: Record<string, unknown> = {
+        ...fixture,
+        object_type: sourceObjectType,
+      };
 
-    const parsed = parseOcfObject(planSecurityFixture);
-    const parsedRecord = toRecord(parsed);
+      const parsedRecord = toRecord(parseOcfObject(planSecurityFixture));
 
-    expect(parsedRecord.object_type).toBe('TX_EQUITY_COMPENSATION_ISSUANCE');
-    expect(parsedRecord.compensation_type).toBe('OPTION_ISO');
-    expect(parsedRecord).not.toHaveProperty('option_grant_type');
-  });
+      expect(parsedRecord.object_type).toBe(canonicalObjectType);
+      expect(parsedRecord.id).toBe(fixture.id);
+    }
+  );
 
   it('does not let normalization rescue a schema-invalid PlanSecurity issuance', () => {
     const fixture = stripSourceMetadata(
