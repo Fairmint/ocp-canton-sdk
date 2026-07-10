@@ -3,6 +3,7 @@ import {
   isOcfDeletableEntityType,
   isOcfEditableEntityType,
   isOcfEntityType,
+  OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   type OcfEntityType,
 } from '../../src';
 import { ENTITY_REGISTRY } from '../../src/functions/OpenCapTable/capTable/batchTypes';
@@ -10,6 +11,10 @@ import { ENTITY_REGISTRY } from '../../src/functions/OpenCapTable/capTable/batch
 const entityTypes = Object.keys(ENTITY_REGISTRY) as OcfEntityType[];
 
 describe('batch entity capabilities', () => {
+  it('maps every registered entity type from a canonical OCF object type', () => {
+    expect(new Set(Object.values(OCF_OBJECT_TYPE_TO_ENTITY_TYPE))).toEqual(new Set(entityTypes));
+  });
+
   it.each(entityTypes)('recognizes %s as a supported entity type', (entityType) => {
     expect(isOcfEntityType(entityType)).toBe(true);
   });

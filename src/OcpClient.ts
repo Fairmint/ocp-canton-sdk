@@ -641,7 +641,7 @@ export class OcpClient {
       // ===== Authorization =====
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
-          const factory = params.factory ?? this.factory;
+          const factory = selectFactoryCoordinates(params.factory, this.factory);
           validateFactoryCoordinates(factory);
           if (factory === undefined && requiresExplicitFactory(this.environment)) {
             throw new OcpValidationError(
@@ -739,19 +739,36 @@ function requiresExplicitFactory(environment: OcpEnvironment | undefined): boole
   return environment === 'localnet' || environment === 'custom' || environment === 'scratchnet';
 }
 
-function hasCompleteFactoryCoordinates(factory: OcpFactoryCoordinates | undefined): factory is OcpFactoryCoordinates {
+function selectFactoryCoordinates(
+  perCallFactory: unknown,
+  clientFactory: Readonly<OcpFactoryCoordinates> | undefined
+): unknown {
+  if (perCallFactory !== undefined) {
+    return perCallFactory;
+  }
+  return clientFactory;
+}
+
+function hasCompleteFactoryCoordinates(factory: unknown): factory is OcpFactoryCoordinates {
+  if (typeof factory !== 'object' || factory === null) {
+    return false;
+  }
+
+  const candidate = factory as Record<string, unknown>;
   return (
-    typeof factory?.contractId === 'string' &&
-    factory.contractId.trim().length > 0 &&
-    typeof factory.templateId === 'string' &&
-    factory.templateId.trim().length > 0
+    typeof candidate.contractId === 'string' &&
+    candidate.contractId.trim().length > 0 &&
+    typeof candidate.templateId === 'string' &&
+    candidate.templateId.trim().length > 0
   );
 }
 
-function validateFactoryCoordinates(factory: OcpFactoryCoordinates | undefined): void {
+function validateFactoryCoordinates(factory: unknown): asserts factory is OcpFactoryCoordinates | undefined {
   if (factory !== undefined && !hasCompleteFactoryCoordinates(factory)) {
     throw new OcpValidationError('factory', 'factory override must include contractId and templateId', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'object with non-empty string contractId and templateId properties',
+      receivedValue: factory,
     });
   }
 }
