@@ -4,6 +4,7 @@ import {
   LOCALNET_PRESET,
   resolveEnvironmentConfig,
   toCantonConfig,
+  toResolvedCantonConfig,
   validateConfig,
 } from '../../src/environment';
 
@@ -202,6 +203,48 @@ describe('environment configuration', () => {
     });
   });
 
+  it('resolves OAuth2 input into an exhaustive discriminated runtime state', () => {
+    const config = resolveEnvironmentConfig({
+      environment: 'devnet',
+      ledgerApiUrl: 'https://ledger.devnet.example.com',
+      authMode: 'oauth2',
+      authUrl: 'https://auth.example.com/token',
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+    });
+
+    expect(config.authMode).toBe('oauth2');
+    if (config.authMode !== 'oauth2') {
+      throw new Error('Expected OAuth2 configuration');
+    }
+    expect(config.authUrl).toBe('https://auth.example.com/token');
+    expect(config.clientId).toBe('client-id');
+    expect(config.clientSecret).toBe('client-secret');
+    expect(config.sharedSecret).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(config, 'sharedSecret')).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(config, 'validatorApiUrl')).toBe(true);
+  });
+
+  it('resolves LocalNet into shared-secret state without OAuth2 credential placeholders', () => {
+    const config = resolveEnvironmentConfig({ environment: 'localnet' });
+
+    expect(config.authMode).toBe('shared-secret');
+    if (config.authMode !== 'shared-secret') {
+      throw new Error('Expected shared-secret configuration');
+    }
+    expect(config.sharedSecret).toBe('unsafe');
+    expect(config.clientId).toBe('ocp-sdk');
+    expect(config.authUrl).toBeUndefined();
+    expect(config.clientSecret).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(config, 'authUrl')).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(config, 'clientSecret')).toBe(true);
+
+    const cantonConfig = toResolvedCantonConfig(config);
+    expect(cantonConfig).not.toHaveProperty('authUrl');
+    expect(cantonConfig.apis?.LEDGER_JSON_API?.auth).not.toHaveProperty('clientSecret');
+    expect(cantonConfig.apis?.LEDGER_JSON_API?.auth.tokenGenerator).toEqual(expect.any(Function));
+  });
+
   it('converts a resolved config to Canton SDK config', () => {
     const cantonConfig = toCantonConfig({
       environment: 'custom',
@@ -236,7 +279,7 @@ describe('environment configuration', () => {
   });
 
   it('creates shared-secret token generators without external JWT dependencies', async () => {
-    const cantonConfig = toCantonConfig(resolveEnvironmentConfig({ environment: 'localnet' }));
+    const cantonConfig = toResolvedCantonConfig(resolveEnvironmentConfig({ environment: 'localnet' }));
     const tokenGenerator = cantonConfig.apis?.LEDGER_JSON_API?.auth.tokenGenerator;
 
     expect(tokenGenerator).toBeDefined();

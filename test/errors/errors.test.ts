@@ -17,6 +17,9 @@ describe('OcpError', () => {
     expect(error.code).toBe('CHOICE_FAILED');
     expect(error.name).toBe('OcpError');
     expect(error.cause).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(error, 'cause')).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(error, 'classification')).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(error, 'context')).toBe(true);
   });
 
   it('should include cause when provided', () => {
@@ -44,6 +47,9 @@ describe('OcpValidationError', () => {
     expect(error.fieldPath).toBe('stakeholder.id');
     expect(error.code).toBe('REQUIRED_FIELD_MISSING');
     expect(error.name).toBe('OcpValidationError');
+    expect(error.context).toEqual({ fieldPath: 'stakeholder.id' });
+    expect(Object.prototype.hasOwnProperty.call(error.context ?? {}, 'expectedType')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(error.context ?? {}, 'receivedValue')).toBe(false);
   });
 
   it('should include expected type and received value', () => {
@@ -71,6 +77,7 @@ describe('OcpValidationError', () => {
     });
 
     expect(error.receivedValue).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(error.context ?? {}, 'receivedValue')).toBe(false);
   });
 
   it('should handle null received value', () => {
@@ -158,6 +165,9 @@ describe('OcpNetworkError', () => {
     expect(error.message).toBe('Connection refused');
     expect(error.code).toBe('CONNECTION_FAILED');
     expect(error.name).toBe('OcpNetworkError');
+    expect(error.context).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(error, 'endpoint')).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(error, 'statusCode')).toBe(true);
   });
 
   it('should include network details', () => {
@@ -200,6 +210,8 @@ describe('OcpParseError', () => {
     expect(error.message).toBe('Failed to parse response');
     expect(error.code).toBe('INVALID_RESPONSE');
     expect(error.name).toBe('OcpParseError');
+    expect(error.context).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(error, 'source')).toBe(true);
   });
 
   it('should include source information', () => {

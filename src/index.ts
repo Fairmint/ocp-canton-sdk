@@ -7,6 +7,7 @@
  * implementation details.
  */
 
+export * from './clientOptions';
 export * from './environment';
 export * from './errors';
 export * from './observability';
