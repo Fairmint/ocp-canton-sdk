@@ -5,9 +5,24 @@
  * have been moved to their respective function files.
  */
 
-import type { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary, NonEmptyArray } from '../types/native';
+
+// Public conversion helpers use stable structural wire shapes. Generated DAML
+// package declarations stay private to the ledger implementation boundary.
+interface DamlMonetary {
+  amount: string;
+  currency: string;
+}
+type DamlAddressType = 'OcfAddressTypeLegal' | 'OcfAddressTypeContact' | 'OcfAddressTypeOther';
+interface DamlAddress {
+  address_type: DamlAddressType;
+  country: string;
+  city: string | null;
+  country_subdivision: string | null;
+  postal_code: string | null;
+  street_suite: string | null;
+}
 
 // ===== Type Guards =====
 
@@ -26,7 +41,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const RFC3339_DATE_TIME_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
+  /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
 
 const DATE_EXPECTED_TYPE = 'YYYY-MM-DD or RFC 3339 date-time string with Z or numeric offset';
 
@@ -209,14 +224,14 @@ export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
 
 // ===== Monetary Value Conversions =====
 
-export function monetaryToDaml(monetary: Monetary): Fairmint.OpenCapTable.Types.Monetary.OcfMonetary {
+export function monetaryToDaml(monetary: Monetary): DamlMonetary {
   return {
     amount: normalizeNumericString(monetary.amount),
     currency: monetary.currency,
   };
 }
 
-export function damlMonetaryToNative(damlMonetary: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary): Monetary {
+export function damlMonetaryToNative(damlMonetary: DamlMonetary): Monetary {
   return {
     amount: normalizeNumericString(damlMonetary.amount),
     currency: damlMonetary.currency,
@@ -268,7 +283,12 @@ export function damlMonetaryToNativeWithValidation(
 // ===== Initial Shares Authorized Conversions =====
 
 /** DAML type for OcfInitialSharesAuthorized union */
-type DamlInitialSharesAuthorized = Fairmint.OpenCapTable.Types.Stock.OcfInitialSharesAuthorized;
+type DamlInitialSharesAuthorized =
+  | { tag: 'OcfInitialSharesNumeric'; value: string }
+  | {
+      tag: 'OcfInitialSharesEnum';
+      value: 'OcfAuthorizedSharesNotApplicable' | 'OcfAuthorizedSharesUnlimited';
+    };
 
 /**
  * Convert initial_shares_authorized value to DAML tagged union format.
@@ -305,7 +325,7 @@ export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesA
 
 // ===== Address Conversions =====
 
-function addressTypeToDaml(addressType: AddressType): Fairmint.OpenCapTable.Types.Monetary.OcfAddressType {
+function addressTypeToDaml(addressType: AddressType): DamlAddressType {
   switch (addressType) {
     case 'LEGAL':
       return 'OcfAddressTypeLegal';
@@ -323,7 +343,7 @@ function addressTypeToDaml(addressType: AddressType): Fairmint.OpenCapTable.Type
   }
 }
 
-function damlAddressTypeToNative(damlType: Fairmint.OpenCapTable.Types.Monetary.OcfAddressType): AddressType {
+function damlAddressTypeToNative(damlType: DamlAddressType): AddressType {
   switch (damlType) {
     case 'OcfAddressTypeLegal':
       return 'LEGAL';
@@ -341,7 +361,7 @@ function damlAddressTypeToNative(damlType: Fairmint.OpenCapTable.Types.Monetary.
   }
 }
 
-export function addressToDaml(address: Address): Fairmint.OpenCapTable.Types.Monetary.OcfAddress {
+export function addressToDaml(address: Address): DamlAddress {
   return {
     address_type: addressTypeToDaml(address.address_type),
     street_suite: optionalString(address.street_suite),
@@ -352,7 +372,7 @@ export function addressToDaml(address: Address): Fairmint.OpenCapTable.Types.Mon
   };
 }
 
-export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Monetary.OcfAddress): Address {
+export function damlAddressToNative(damlAddress: DamlAddress): Address {
   return {
     address_type: damlAddressTypeToNative(damlAddress.address_type),
     country: damlAddress.country,

@@ -118,7 +118,7 @@ type OcfEntityRegistry = {
 /**
  * Single source of truth for entity-level metadata.
  *
- * Legacy PlanSecurity objects normalize to the canonical EquityCompensation family
+ * Schema-supported PlanSecurity objects normalize to the canonical EquityCompensation family
  * before reaching typed batch operations.
  */
 export const ENTITY_REGISTRY = {
@@ -343,7 +343,6 @@ export const ENTITY_REGISTRY = {
     objectType: 'STOCK_PLAN',
     templateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
     dataField: 'plan_data',
-    dataFieldFallbacks: ['stock_plan_data'],
     capTableField: 'stock_plans',
     operations: mutableEntityOperations('StockPlan'),
   },
