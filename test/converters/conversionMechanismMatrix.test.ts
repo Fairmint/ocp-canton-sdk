@@ -5,11 +5,16 @@ import type {
   RatioConversionMechanism,
   WarrantConversionMechanism,
 } from '../../src';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {
   convertibleIssuanceDataToDaml,
   type ConvertibleIssuanceInput,
 } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
+import {
+  convertibleMechanismFromDaml,
+  convertibleMechanismToDaml,
+} from '../../src/functions/OpenCapTable/shared/conversionMechanisms';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import {
@@ -23,6 +28,16 @@ function requireFirst<T>(values: readonly T[], description: string): T {
   const [first] = values;
   if (first === undefined) throw new Error(`Missing ${description}`);
   return first;
+}
+
+function captureValidationError(action: () => unknown): OcpValidationError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof OcpValidationError) return error;
+    throw error;
+  }
+  throw new Error('Expected OcpValidationError');
 }
 
 const RULES: CapitalizationDefinitionRules = {
@@ -306,4 +321,89 @@ describe('canonical conversion mechanism matrices', () => {
       requireFirst(input.exercise_triggers, 'input warrant trigger').conversion_right
     );
   });
+});
+
+describe('strict optional numeric issuance fields', () => {
+  it('encodes omitted values as DAML null', () => {
+    expect(
+      convertibleIssuanceDataToDaml(
+        convertibleInput({ type: 'CUSTOM_CONVERSION', custom_conversion_description: 'Custom conversion' })
+      ).pro_rata
+    ).toBeNull();
+    expect(
+      warrantIssuanceDataToDaml(warrantInput({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1000' }))
+        .quantity
+    ).toBeNull();
+  });
+
+  it('rejects an explicit null convertible pro_rata at the JavaScript boundary', () => {
+    const input = {
+      ...convertibleInput({ type: 'CUSTOM_CONVERSION', custom_conversion_description: 'Custom conversion' }),
+      pro_rata: null,
+    } as unknown as ConvertibleIssuanceInput;
+
+    const error = captureValidationError(() => convertibleIssuanceDataToDaml(input));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'decimal string or omitted property',
+      fieldPath: 'convertibleIssuance.pro_rata',
+      receivedValue: null,
+    });
+    expect(error.message).toContain('explicit null is invalid');
+  });
+
+  it('rejects an explicit null warrant quantity at the JavaScript boundary', () => {
+    const input = {
+      ...warrantInput({ type: 'FIXED_AMOUNT_CONVERSION', converts_to_quantity: '1000' }),
+      quantity: null,
+    } as unknown as WarrantIssuanceInput;
+
+    const error = captureValidationError(() => warrantIssuanceDataToDaml(input));
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'decimal string or omitted property',
+      fieldPath: 'warrantIssuance.quantity',
+      receivedValue: null,
+    });
+    expect(error.message).toContain('explicit null is invalid');
+  });
+});
+
+describe('canonical DAML conversion timing constructors', () => {
+  test.each([
+    ['PRE_MONEY', 'OcfConvTimingPreMoney'],
+    ['POST_MONEY', 'OcfConvTimingPostMoney'],
+  ] as const)('round-trips %s through %s', (conversionTiming, damlConstructor) => {
+    const mechanism: ConvertibleConversionMechanism = {
+      type: 'SAFE_CONVERSION',
+      conversion_mfn: false,
+      conversion_timing: conversionTiming,
+    };
+
+    const encoded = convertibleMechanismToDaml(mechanism);
+    expect(encoded).toMatchObject({
+      tag: 'OcfConvMechSAFE',
+      value: { conversion_timing: damlConstructor },
+    });
+    expect(convertibleMechanismFromDaml(encoded)).toEqual(mechanism);
+  });
+
+  test.each(['OcfConversionTimingPreMoney', 'OcfConversionTimingPostMoney'])(
+    'rejects non-canonical legacy alias %s',
+    (legacyAlias) => {
+      const encoded = convertibleMechanismToDaml({
+        type: 'SAFE_CONVERSION',
+        conversion_mfn: false,
+        conversion_timing: 'POST_MONEY',
+      });
+      if (encoded.tag !== 'OcfConvMechSAFE') throw new Error('Expected SAFE conversion mechanism');
+      const malformed = {
+        ...encoded,
+        value: { ...encoded.value, conversion_timing: legacyAlias },
+      };
+
+      expect(() => convertibleMechanismFromDaml(malformed)).toThrow(OcpParseError);
+      expect(() => convertibleMechanismFromDaml(malformed)).toThrow(`Unknown conversion_timing: ${legacyAlias}`);
+    }
+  );
 });

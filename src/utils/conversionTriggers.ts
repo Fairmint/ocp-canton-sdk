@@ -1,5 +1,6 @@
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { ConversionTriggerFor, ConversionTriggerType } from '../types/native';
+import { dateStringToDAMLTime } from './typeConversions';
 
 const CONVERSION_TRIGGER_TYPES: ReadonlySet<string> = new Set([
   'AUTOMATIC_ON_CONDITION',
@@ -53,6 +54,13 @@ function requireString(value: unknown, source: string, field: string): string {
     throw new OcpValidationError(fieldPath(source, field), `${field} is required and must be a string`, {
       code: value === undefined || value === null ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
       expectedType: 'string',
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
+    throw new OcpValidationError(fieldPath(source, field), `${field} is required and must be a non-empty string`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-empty string',
       receivedValue: value,
     });
   }
@@ -212,5 +220,51 @@ export function parseConversionTriggerFields(
       rejectPresent(triggerFields.end_date, source, 'end_date', type, nullIsAbsent);
       return { ...common, type };
     }
+  }
+}
+
+export interface DamlConversionTriggerTiming {
+  trigger_date: string | null;
+  trigger_condition: string | null;
+  start_date: string | null;
+  end_date: string | null;
+}
+
+/** Convert the timing fields of an already-validated trigger to their canonical DAML representation. */
+export function conversionTriggerTimingToDaml<ConversionRight>(
+  trigger: ConversionTriggerFor<ConversionRight>,
+  source: string
+): DamlConversionTriggerTiming {
+  switch (trigger.type) {
+    case 'AUTOMATIC_ON_CONDITION':
+    case 'ELECTIVE_ON_CONDITION':
+      return {
+        trigger_date: null,
+        trigger_condition: trigger.trigger_condition,
+        start_date: null,
+        end_date: null,
+      };
+    case 'AUTOMATIC_ON_DATE':
+      return {
+        trigger_date: dateStringToDAMLTime(trigger.trigger_date, `${source}.trigger_date`),
+        trigger_condition: null,
+        start_date: null,
+        end_date: null,
+      };
+    case 'ELECTIVE_IN_RANGE':
+      return {
+        trigger_date: null,
+        trigger_condition: null,
+        start_date: dateStringToDAMLTime(trigger.start_date, `${source}.start_date`),
+        end_date: dateStringToDAMLTime(trigger.end_date, `${source}.end_date`),
+      };
+    case 'ELECTIVE_AT_WILL':
+    case 'UNSPECIFIED':
+      return {
+        trigger_date: null,
+        trigger_condition: null,
+        start_date: null,
+        end_date: null,
+      };
   }
 }
