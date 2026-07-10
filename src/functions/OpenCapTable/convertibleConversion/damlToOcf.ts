@@ -2,7 +2,7 @@
  * DAML to OCF converters for ConvertibleConversion entities.
  */
 
-import type { OcfConvertibleConversion } from '../../../types';
+import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 
 /**
@@ -17,7 +17,7 @@ export interface DamlConvertibleConversionData {
   trigger_id: string;
   resulting_security_ids: string[];
   balance_security_id?: string | null;
-  capitalization_definition?: Record<string, unknown> | null;
+  capitalization_definition?: CapitalizationDefinition | null;
   quantity_converted?: string | null;
   comments: string[];
 }

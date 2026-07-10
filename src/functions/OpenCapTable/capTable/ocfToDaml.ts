@@ -107,11 +107,9 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
     case 'equityCompensationIssuance':
       return equityCompensationIssuanceDataToDaml(d as OcfDataTypeFor<'equityCompensationIssuance'>);
     case 'convertibleIssuance':
-      // The converter expects a specific input type, cast through unknown
-      return convertibleIssuanceDataToDaml(d as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]);
+      return convertibleIssuanceDataToDaml(d as OcfDataTypeFor<'convertibleIssuance'>);
     case 'warrantIssuance':
-      // The converter expects a specific input type, cast through unknown
-      return warrantIssuanceDataToDaml(d as unknown as Parameters<typeof warrantIssuanceDataToDaml>[0]);
+      return warrantIssuanceDataToDaml(d as OcfDataTypeFor<'warrantIssuance'>);
     case 'stockCancellation':
       return stockCancellationDataToDaml(d as OcfDataTypeFor<'stockCancellation'>);
     case 'equityCompensationExercise':

@@ -875,8 +875,7 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
  * 7. Canonicalizes StockConversion quantity (`quantity` -> `quantity_converted`)
  * 8. Canonicalizes StockClassSplit legacy ratio fields
  * 9. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
- * 10. Normalizes capitalization_definition_rules booleans for convertible issuances
- * 11. Normalizes numeric string formatting (strips trailing zeros from decimals)
+ * 10. Normalizes numeric string formatting (strips trailing zeros from decimals)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -953,138 +952,9 @@ export function normalizeOcfData(data: object): Record<string, unknown> {
 
   result = normalizeVestingTermsDefaults(result);
 
-  result = normalizeConversionMechanismRoundTrip(result);
-
-  result = normalizeCapitalizationDefinitionRules(result);
-
   result = deepNormalizeNumericStrings(result);
 
   return result;
-}
-
-/**
- * The 8 boolean fields in the DAML OcfCapitalizationDefinitionRules type.
- * When the DB has a partial object (e.g., only 6 of 8), the toDaml converter
- * fills missing ones with `false`. After round-trip, Canton has all 8 fields.
- * Normalizing missing booleans to `false` on the DB side prevents permanent
- * non-converging edits.
- */
-const CAPITALIZATION_DEFINITION_RULES_BOOL_FIELDS = [
-  'include_outstanding_shares',
-  'include_outstanding_options',
-  'include_outstanding_unissued_options',
-  'include_this_security',
-  'include_other_converting_securities',
-  'include_option_pool_topup_for_promised_options',
-  'include_additional_option_pool_topup',
-  'include_new_money',
-] as const;
-
-/**
- * Normalize `capitalization_definition_rules` inside conversion triggers for
- * TX_CONVERTIBLE_ISSUANCE objects.
- *
- * The DAML type requires all 8 boolean fields. When the DB stores a partial
- * object (e.g., only 6 booleans), the toDaml converter defaults missing ones
- * to `false`. After round-trip, Canton has all 8 fields while the DB still
- * has the partial object. The comparison sees DB `undefined` vs Canton `false`
- * as a diff, causing a permanent non-converging edit.
- *
- * This function walks `conversion_triggers[*].conversion_right.conversion_mechanism
- * .capitalization_definition_rules` and sets any missing boolean field to `false`.
- */
-function normalizeCapitalizationDefinitionRules(data: Record<string, unknown>): Record<string, unknown> {
-  if (data.object_type !== 'TX_CONVERTIBLE_ISSUANCE') return data;
-
-  const triggers = data.conversion_triggers;
-  if (!Array.isArray(triggers) || triggers.length === 0) return data;
-
-  const normalizedTriggers = triggers.map((trigger: unknown) => {
-    if (!trigger || typeof trigger !== 'object' || Array.isArray(trigger)) return trigger;
-    const t = trigger as Record<string, unknown>;
-    const right = t.conversion_right;
-    if (!right || typeof right !== 'object' || Array.isArray(right)) return trigger;
-    const r = right as Record<string, unknown>;
-    const mechanism = r.conversion_mechanism;
-    if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return trigger;
-    const m = mechanism as Record<string, unknown>;
-    const rules = m.capitalization_definition_rules;
-    if (!rules || typeof rules !== 'object' || Array.isArray(rules)) return trigger;
-
-    const rulesObj = rules as Record<string, unknown>;
-    const needsFill = CAPITALIZATION_DEFINITION_RULES_BOOL_FIELDS.some(
-      (field) => rulesObj[field] === undefined || rulesObj[field] === null
-    );
-    if (!needsFill) return trigger;
-
-    const normalizedRules: Record<string, unknown> = { ...rulesObj };
-    for (const field of CAPITALIZATION_DEFINITION_RULES_BOOL_FIELDS) {
-      normalizedRules[field] ??= false;
-    }
-
-    return {
-      ...t,
-      conversion_right: {
-        ...r,
-        conversion_mechanism: {
-          ...m,
-          capitalization_definition_rules: normalizedRules,
-        },
-      },
-    };
-  });
-
-  const changed = normalizedTriggers.some((t, i) => t !== triggers[i]);
-  if (!changed) return data;
-  return { ...data, conversion_triggers: normalizedTriggers };
-}
-
-/**
- * Strip fields from conversion_mechanism objects that DAML does not store,
- * so DB-sourced and Canton-sourced data compare identically.
- *
- * The DAML StockClass contract stores conversion_mechanism as an enum string
- * with ratio and conversion_price as separate top-level optional fields.
- * Fields like rounding_type exist in the OCF schema but are not stored in
- * the DAML contract, so they cannot survive the round-trip.
- *
- * Schema-default equivalence: When conversion_rights has exactly one
- * RATIO_CONVERSION right with ratio 1:1, normalize to empty. The OCP Canton
- * SDK reader (getStockClassAsOcf) fills in { numerator: '1', denominator: '1' }
- * when DAML has no explicit ratio, while the DB omits conversion_rights for
- * 1:1 preferred stock. Both are semantically equivalent.
- */
-function normalizeConversionMechanismRoundTrip(data: Record<string, unknown>): Record<string, unknown> {
-  if (data.object_type !== 'STOCK_CLASS') return data;
-  const rights = data.conversion_rights;
-  if (!Array.isArray(rights) || rights.length === 0) return data;
-
-  const normalized = (rights as Array<Record<string, unknown>>).map((right) => {
-    const mechanism = right.conversion_mechanism;
-    if (!mechanism || typeof mechanism !== 'object' || Array.isArray(mechanism)) return right;
-
-    const mech = { ...(mechanism as Record<string, unknown>) };
-    delete mech.rounding_type;
-
-    return { ...right, conversion_mechanism: mech };
-  });
-
-  // Schema-default: single 1:1 RATIO_CONVERSION → empty (matches DB omission)
-  if (normalized.length === 1) {
-    const right = normalized[0];
-    const mech = right.conversion_mechanism as Record<string, unknown> | undefined;
-    if (mech?.type === 'RATIO_CONVERSION') {
-      const ratio = mech.ratio as { numerator?: string | number; denominator?: string | number } | undefined;
-      const num = ratio?.numerator;
-      const den = ratio?.denominator;
-      const isOneToOne = (num === '1' || num === 1) && (den === '1' || den === 1);
-      if (isOneToOne && right.converts_to_future_round !== true) {
-        return { ...data, conversion_rights: [] };
-      }
-    }
-  }
-
-  return { ...data, conversion_rights: normalized };
 }
 
 /**

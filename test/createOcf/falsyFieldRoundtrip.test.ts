@@ -25,10 +25,15 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
             type_: 'OcfTriggerTypeTypeAutomaticOnDate',
             trigger_id: 't1',
             conversion_right: {
+              type_: 'CONVERTIBLE_CONVERSION_RIGHT',
               conversion_mechanism: {
                 tag: 'OcfConvMechNote',
                 value: {
                   interest_rates: [{ rate: '0.05', accrual_start_date: '2024-01-01' }],
+                  day_count_convention: 'OcfDayCountActual365',
+                  interest_payout: 'OcfInterestPayoutDeferred',
+                  interest_accrual_period: 'OcfAccrualAnnual',
+                  compounding_type: 'OcfSimple',
                   conversion_mfn: false,
                 },
               },
@@ -59,6 +64,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
             type_: 'OcfTriggerTypeTypeAutomaticOnDate',
             trigger_id: 't1',
             conversion_right: {
+              type_: 'CONVERTIBLE_CONVERSION_RIGHT',
               conversion_mechanism: {
                 tag: 'OcfConvMechSAFE',
                 value: { conversion_mfn: false },
