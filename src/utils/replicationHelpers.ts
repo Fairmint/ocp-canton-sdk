@@ -15,6 +15,9 @@ import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
 import { normalizeEntityType, normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
 
+// Preserve the public utils import path while keeping the registry as the single implementation.
+export { isOcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
+
 // ============================================================================
 // Categorized Type Mapping
 // ============================================================================

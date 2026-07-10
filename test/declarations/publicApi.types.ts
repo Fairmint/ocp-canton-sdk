@@ -4,10 +4,12 @@ import {
   convertToDaml,
   type CapTableBatch,
   type CapTableBatchOperations,
+  type OcfEntityType,
   type OcfIssuer,
   type OcfStakeholder,
   type OcfStockClass,
 } from '../../dist';
+import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
 
 function verifyPublishedBatchApi(
   batch: CapTableBatch,
@@ -48,4 +50,12 @@ function verifyPublishedBatchApi(
   void operations;
 }
 
+function verifyPublishedUtilsApi(candidateEntityType: string): void {
+  if (isOcfEntityTypeFromUtils(candidateEntityType)) {
+    const narrowedEntityType: OcfEntityType = candidateEntityType;
+    void narrowedEntityType;
+  }
+}
+
 void verifyPublishedBatchApi;
+void verifyPublishedUtilsApi;
