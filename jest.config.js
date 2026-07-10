@@ -9,10 +9,10 @@ module.exports = {
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageThreshold: {
     global: {
-      branches: 60,
-      functions: 68,
-      lines: 72,
-      statements: 72,
+      branches: 68,
+      functions: 76,
+      lines: 75,
+      statements: 75,
     },
   },
   setupFilesAfterEnv: ['<rootDir>/test/setupTests.ts'],

@@ -5,23 +5,35 @@ import {
   authorizeIssuer,
   buildCreateIssuerCommand,
   CapTableBatch,
+  isContractId,
+  isOcfId,
+  isPartyId,
+  isSecurityId,
   OcpClient,
   OcpValidationError,
+  toContractId,
+  toOcfId,
+  toPartyId,
+  toSecurityId,
   withdrawAuthorization,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
+  type ContractId,
   type CreateIssuerParams,
   type OcfContractId,
   type OcfCreateOperation,
   type OcfEntityDataMap,
   type OcfEntityType,
   type OcfFinancing,
+  type OcfId,
   type OcfIssuer,
   type OcfObject,
   type OcfStakeholder,
   type OcfStockAcceptance,
   type OcfStockClass,
   type OcfVestingStart,
+  type PartyId,
+  type SecurityId,
 } from '../../dist';
 
 type Assert<T extends true> = T;
@@ -35,6 +47,10 @@ type RemovedRootValue = Extract<
   | 'ENTITY_TAG_MAP'
   | 'getIssuerAsOcf'
   | 'getStakeholderAsOcf'
+  | 'unsafeToContractId'
+  | 'unsafeToOcfId'
+  | 'unsafeToPartyId'
+  | 'unsafeToSecurityId'
 >;
 // This file is linted before `dist` exists in a clean checkout, so its declaration-only imports appear as error types.
 
@@ -63,6 +79,47 @@ void CapTableBatch;
 void OcpClient;
 void OcpValidationError;
 void withdrawAuthorization;
+
+declare const rawIdentifier: string;
+const contractIdBrand: ContractId = toContractId(rawIdentifier);
+const ocfIdBrand: OcfId = toOcfId(rawIdentifier);
+const partyIdBrand: PartyId = toPartyId(rawIdentifier);
+const securityIdBrand: SecurityId = toSecurityId(rawIdentifier);
+
+// @ts-expect-error distinct identifier brands cannot be mixed
+const wrongContractIdBrand: ContractId = partyIdBrand;
+
+declare const unknownIdentifier: unknown;
+const parsedContractIdBrand: ContractId = toContractId(unknownIdentifier);
+const parsedOcfIdBrand: OcfId = toOcfId(unknownIdentifier);
+const parsedPartyIdBrand: PartyId = toPartyId(unknownIdentifier);
+const parsedSecurityIdBrand: SecurityId = toSecurityId(unknownIdentifier);
+if (isContractId(unknownIdentifier)) {
+  const narrowed: ContractId = unknownIdentifier;
+  void narrowed;
+}
+if (isOcfId(unknownIdentifier)) {
+  const narrowed: OcfId = unknownIdentifier;
+  void narrowed;
+}
+if (isPartyId(unknownIdentifier)) {
+  const narrowed: PartyId = unknownIdentifier;
+  void narrowed;
+}
+if (isSecurityId(unknownIdentifier)) {
+  const narrowed: SecurityId = unknownIdentifier;
+  void narrowed;
+}
+
+void contractIdBrand;
+void ocfIdBrand;
+void partyIdBrand;
+void securityIdBrand;
+void wrongContractIdBrand;
+void parsedContractIdBrand;
+void parsedOcfIdBrand;
+void parsedPartyIdBrand;
+void parsedSecurityIdBrand;
 
 declare const createIssuerParams: CreateIssuerParams;
 buildCreateIssuerCommand(createIssuerParams);

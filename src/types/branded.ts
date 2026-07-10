@@ -143,79 +143,45 @@ export const isSecurityId = createBrandedTypeGuard<SecurityId>();
 // ===== Conversion Functions =====
 
 /**
- * Convert a string to ContractId after validation.
+ * Convert an unknown value to ContractId after validating that it is a non-empty string.
  * Throws if the value is not a valid contract ID.
  */
-export function toContractId(value: string): ContractId {
+export function toContractId(value: unknown): ContractId {
   if (!isContractId(value)) {
-    throw new Error(`Invalid ContractId: ${value}`);
+    throw new Error(`Invalid ContractId: ${String(value)}`);
   }
   return value;
 }
 
 /**
- * Convert a string to PartyId after validation.
+ * Convert an unknown value to PartyId after validating that it is a non-empty string.
  * Throws if the value is not a valid party ID.
  */
-export function toPartyId(value: string): PartyId {
+export function toPartyId(value: unknown): PartyId {
   if (!isPartyId(value)) {
-    throw new Error(`Invalid PartyId: ${value}`);
+    throw new Error(`Invalid PartyId: ${String(value)}`);
   }
   return value;
 }
 
 /**
- * Convert a string to OcfId after validation.
+ * Convert an unknown value to OcfId after validating that it is a non-empty string.
  * Throws if the value is not a valid OCF ID.
  */
-export function toOcfId(value: string): OcfId {
+export function toOcfId(value: unknown): OcfId {
   if (!isOcfId(value)) {
-    throw new Error(`Invalid OcfId: ${value}`);
+    throw new Error(`Invalid OcfId: ${String(value)}`);
   }
   return value;
 }
 
 /**
- * Convert a string to SecurityId after validation.
+ * Convert an unknown value to SecurityId after validating that it is a non-empty string.
  * Throws if the value is not a valid security ID.
  */
-export function toSecurityId(value: string): SecurityId {
+export function toSecurityId(value: unknown): SecurityId {
   if (!isSecurityId(value)) {
-    throw new Error(`Invalid SecurityId: ${value}`);
+    throw new Error(`Invalid SecurityId: ${String(value)}`);
   }
   return value;
-}
-
-// ===== Unsafe Conversion Functions =====
-
-/**
- * Unsafe conversion from string to ContractId without validation.
- * Use only when you are certain the string is a valid contract ID.
- */
-export function unsafeToContractId(value: string): ContractId {
-  return value as ContractId;
-}
-
-/**
- * Unsafe conversion from string to PartyId without validation.
- * Use only when you are certain the string is a valid party ID.
- */
-export function unsafeToPartyId(value: string): PartyId {
-  return value as PartyId;
-}
-
-/**
- * Unsafe conversion from string to OcfId without validation.
- * Use only when you are certain the string is a valid OCF ID.
- */
-export function unsafeToOcfId(value: string): OcfId {
-  return value as OcfId;
-}
-
-/**
- * Unsafe conversion from string to SecurityId without validation.
- * Use only when you are certain the string is a valid security ID.
- */
-export function unsafeToSecurityId(value: string): SecurityId {
-  return value as SecurityId;
 }

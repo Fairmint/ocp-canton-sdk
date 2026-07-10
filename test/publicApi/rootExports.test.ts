@@ -47,10 +47,6 @@ describe('package root exports', () => {
       'toPartyId',
       'toResolvedCantonConfig',
       'toSecurityId',
-      'unsafeToContractId',
-      'unsafeToOcfId',
-      'unsafeToPartyId',
-      'unsafeToSecurityId',
       'validateConfig',
       'withdrawAuthorization',
     ]);
