@@ -524,6 +524,8 @@ const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Record<string, readonly string[]>> =
   TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT: ['board_approval_date', 'stockholder_approval_date'],
   TX_STOCK_CONSOLIDATION: ['resulting_security_ids'],
   TX_EQUITY_COMPENSATION_REPRICING: ['resulting_security_ids'],
+  TX_WARRANT_ISSUANCE: ['ratio_numerator', 'ratio_denominator', 'percent_of_outstanding', 'conversion_triggers'],
+  TX_WARRANT_EXERCISE: ['quantity', 'balance_security_id'],
   CE_STAKEHOLDER_STATUS: ['reason_text'],
   TX_STAKEHOLDER_STATUS_CHANGE_EVENT: ['reason_text'],
 };

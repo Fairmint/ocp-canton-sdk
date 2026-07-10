@@ -8,6 +8,8 @@ import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/funct
 import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../../src/functions/OpenCapTable/stockConsolidation/damlToStockConsolidation';
 import { damlStockConversionToNative } from '../../src/functions/OpenCapTable/stockConversion/damlToOcf';
+import { damlWarrantExerciseToNative } from '../../src/functions/OpenCapTable/warrantExercise/damlToOcf';
+import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { parseOcfEntityInput, parseOcfObject } from '../../src/utils/ocfZodSchemas';
 
 const canonicalCases = [
@@ -116,6 +118,43 @@ const canonicalCases = [
       comments: ['Status changed'],
     },
     forbiddenFields: [['reason_text', 'Status changed']],
+  },
+  {
+    entityType: 'warrantIssuance',
+    canonical: {
+      object_type: 'TX_WARRANT_ISSUANCE',
+      id: 'warrant-issuance-1',
+      date: '2026-01-01',
+      security_id: 'warrant-1',
+      custom_id: 'W-1',
+      stakeholder_id: 'stakeholder-1',
+      security_law_exemptions: [],
+      quantity: '100',
+      quantity_source: 'UNSPECIFIED',
+      purchase_price: { amount: '1', currency: 'USD' },
+      exercise_triggers: [],
+    },
+    forbiddenFields: [
+      ['ratio_numerator', '1'],
+      ['ratio_denominator', '1'],
+      ['percent_of_outstanding', '10'],
+      ['conversion_triggers', []],
+    ],
+  },
+  {
+    entityType: 'warrantExercise',
+    canonical: {
+      object_type: 'TX_WARRANT_EXERCISE',
+      id: 'warrant-exercise-1',
+      date: '2026-01-01',
+      security_id: 'warrant-1',
+      trigger_id: 'trigger-1',
+      resulting_security_ids: ['security-1'],
+    },
+    forbiddenFields: [
+      ['quantity', '100'],
+      ['balance_security_id', 'warrant-balance'],
+    ],
   },
 ] as const;
 
@@ -282,5 +321,51 @@ describe('DAML readers emit canonical public DTO fields only', () => {
 
     expect(result.comments).toEqual(['Status changed']);
     expect(result).not.toHaveProperty('reason_text');
+  });
+
+  it('does not emit non-schema aliases for warrant issuances', () => {
+    const result = damlWarrantIssuanceDataToNative({
+      id: 'warrant-issuance-1',
+      custom_id: 'W-1',
+      date: '2026-01-01T00:00:00.000Z',
+      purchase_price: { amount: '1.0000000000', currency: 'USD' },
+      security_id: 'warrant-1',
+      stakeholder_id: 'stakeholder-1',
+      comments: [],
+      exercise_triggers: [],
+      security_law_exemptions: [],
+      vestings: [],
+      board_approval_date: null,
+      consideration_text: null,
+      exercise_price: null,
+      quantity: '100.0000000000',
+      quantity_source: 'OcfQuantityUnspecified',
+      stockholder_approval_date: null,
+      vesting_terms_id: null,
+      warrant_expiration_date: null,
+    });
+
+    expect(result.quantity).toBe('100');
+    expect(result).not.toHaveProperty('ratio_numerator');
+    expect(result).not.toHaveProperty('ratio_denominator');
+    expect(result).not.toHaveProperty('percent_of_outstanding');
+    expect(result).not.toHaveProperty('conversion_triggers');
+  });
+
+  it('does not emit ledger-only warrant exercise fields', () => {
+    const result = damlWarrantExerciseToNative({
+      id: 'warrant-exercise-1',
+      date: '2026-01-01T00:00:00.000Z',
+      security_id: 'warrant-1',
+      trigger_id: 'trigger-1',
+      quantity: '100.0000000000',
+      balance_security_id: 'warrant-balance',
+      resulting_security_ids: ['security-1'],
+      consideration_text: null,
+      comments: [],
+    });
+
+    expect(result).not.toHaveProperty('quantity');
+    expect(result).not.toHaveProperty('balance_security_id');
   });
 });

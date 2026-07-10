@@ -1106,12 +1106,6 @@ export interface OcfWarrantIssuance extends OcfObjectBase<'TX_WARRANT_ISSUANCE'>
   quantity?: string;
   /** Source of quantity (human/machine estimated, instrument-derived, etc.) */
   quantity_source?: QuantitySourceType;
-  /** @internal DAML pass-through — not in OCF schema */
-  ratio_numerator?: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  ratio_denominator?: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  percent_of_outstanding?: string;
   /** The exercise price of the warrant */
   exercise_price?: Monetary;
   /** Actual purchase price of the warrant (sum up purported value of all consideration, including in-kind) */
@@ -1124,8 +1118,6 @@ export interface OcfWarrantIssuance extends OcfObjectBase<'TX_WARRANT_ISSUANCE'>
   vesting_terms_id?: string;
   /** Vesting schedule entries associated directly with this issuance */
   vestings?: VestingSimple[];
-  /** @internal DAML pass-through — not in OCF schema */
-  conversion_triggers?: WarrantExerciseTrigger[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1510,12 +1502,8 @@ export interface OcfWarrantExercise extends OcfObjectBase<'TX_WARRANT_EXERCISE'>
   security_id: string;
   /** Identifier for the warrant's exercise trigger that resulted in this exercise */
   trigger_id: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  quantity?: string;
   /** Array of identifiers for new securities resulting from the exercise */
   resulting_security_ids: string[];
-  /** @internal DAML pass-through — not in OCF schema */
-  balance_security_id?: string;
   /** Unstructured text description of consideration provided in exchange for security exercise */
   consideration_text?: string;
   /** Unstructured text comments related to and stored for the object */

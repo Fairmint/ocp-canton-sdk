@@ -90,6 +90,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.id).toBe('we-001');
         expect(result.date).toBe('2024-01-15T00:00:00.000Z');
         expect(result.security_id).toBe('warrant-sec-001');
+        expect(result.quantity).toBeNull();
         expect(result.resulting_security_ids).toEqual(['stock-sec-001', 'stock-sec-002']);
         expect(result.consideration_text).toBe('Exercise consideration');
         expect(result.comments).toEqual(['Test comment']);
@@ -161,7 +162,7 @@ describe('Exercise and Conversion Type Converters', () => {
         expect(result.event.date).toBe('2024-01-15');
         expect(result.event.security_id).toBe('warrant-sec-001');
         expect(result.event.trigger_id).toBe('trigger-001');
-        expect(result.event.quantity).toBe('5000');
+        expect(result.event).not.toHaveProperty('quantity');
         expect(result.event.resulting_security_ids).toEqual(['stock-sec-001', 'stock-sec-002']);
         expect(result.event.consideration_text).toBe('Exercise consideration');
         expect(result.event.comments).toEqual(['Test comment']);
@@ -182,7 +183,7 @@ describe('Exercise and Conversion Type Converters', () => {
         );
       });
 
-      test('handles numeric quantity from DAML', async () => {
+      test('does not expose ledger-only quantity from DAML', async () => {
         const mockClient = createMockClient({
           exercise_data: {
             id: 'we-002',
@@ -195,7 +196,7 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         const result = await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
-        expect(result.event.quantity).toBe('5000');
+        expect(result.event).not.toHaveProperty('quantity');
       });
 
       test('omits optional fields when not present', async () => {
@@ -228,7 +229,7 @@ describe('Exercise and Conversion Type Converters', () => {
         });
 
         const result = await getWarrantExerciseAsOcf(mockClient, { contractId: 'test-contract' });
-        expect(result.event.quantity).toBeUndefined();
+        expect(result.event).not.toHaveProperty('quantity');
       });
 
       test('throws OcpValidationError when resulting_security_ids is empty', async () => {

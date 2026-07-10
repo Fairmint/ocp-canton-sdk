@@ -9,6 +9,8 @@ import type {
   OcfStockClassSplit,
   OcfStockConsolidation,
   OcfStockConversion,
+  OcfWarrantExercise,
+  OcfWarrantIssuance,
 } from '../../src';
 
 declare const stakeholder: OcfStakeholder;
@@ -50,3 +52,19 @@ equityCompensationRepricing.resulting_security_ids;
 declare const stakeholderStatusChange: OcfStakeholderStatusChangeEvent;
 // @ts-expect-error canonical status changes use comments for free-form text
 stakeholderStatusChange.reason_text;
+
+declare const warrantIssuance: OcfWarrantIssuance;
+// @ts-expect-error ratio_numerator is not a WarrantIssuance schema field
+warrantIssuance.ratio_numerator;
+// @ts-expect-error ratio_denominator is not a WarrantIssuance schema field
+warrantIssuance.ratio_denominator;
+// @ts-expect-error percent_of_outstanding is not a WarrantIssuance schema field
+warrantIssuance.percent_of_outstanding;
+// @ts-expect-error canonical WarrantIssuance uses exercise_triggers
+warrantIssuance.conversion_triggers;
+
+declare const warrantExercise: OcfWarrantExercise;
+// @ts-expect-error quantity is ledger-only for WarrantExercise
+warrantExercise.quantity;
+// @ts-expect-error balance_security_id is not a WarrantExercise schema field
+warrantExercise.balance_security_id;

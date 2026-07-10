@@ -9,6 +9,8 @@ import type {
   OcfStockClassSplit,
   OcfStockConsolidation,
   OcfStockConversion,
+  OcfWarrantExercise,
+  OcfWarrantIssuance,
 } from '../../dist';
 
 declare const stakeholder: OcfStakeholder;
@@ -50,3 +52,19 @@ equityCompensationRepricing.resulting_security_ids;
 declare const stakeholderStatusChange: OcfStakeholderStatusChangeEvent;
 // @ts-expect-error built status changes use comments for free-form text
 stakeholderStatusChange.reason_text;
+
+declare const warrantIssuance: OcfWarrantIssuance;
+// @ts-expect-error built WarrantIssuance declarations exclude ratio_numerator
+warrantIssuance.ratio_numerator;
+// @ts-expect-error built WarrantIssuance declarations exclude ratio_denominator
+warrantIssuance.ratio_denominator;
+// @ts-expect-error built WarrantIssuance declarations exclude percent_of_outstanding
+warrantIssuance.percent_of_outstanding;
+// @ts-expect-error built WarrantIssuance declarations use exercise_triggers
+warrantIssuance.conversion_triggers;
+
+declare const warrantExercise: OcfWarrantExercise;
+// @ts-expect-error built WarrantExercise declarations exclude ledger-only quantity
+warrantExercise.quantity;
+// @ts-expect-error built WarrantExercise declarations exclude balance_security_id
+warrantExercise.balance_security_id;

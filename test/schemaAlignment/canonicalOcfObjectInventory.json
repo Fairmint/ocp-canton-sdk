@@ -340,7 +340,7 @@
   },
   {
     "discriminator": "TX_WARRANT_EXERCISE",
-    "optionalProperties": ["balance_security_id", "comments", "consideration_text", "quantity"],
+    "optionalProperties": ["comments", "consideration_text"],
     "requiredProperties": ["date", "id", "object_type", "resulting_security_ids", "security_id", "trigger_id"]
   },
   {
@@ -349,13 +349,9 @@
       "board_approval_date",
       "comments",
       "consideration_text",
-      "conversion_triggers",
       "exercise_price",
-      "percent_of_outstanding",
       "quantity",
       "quantity_source",
-      "ratio_denominator",
-      "ratio_numerator",
       "stockholder_approval_date",
       "vesting_terms_id",
       "vestings",
