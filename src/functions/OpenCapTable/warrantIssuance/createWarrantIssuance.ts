@@ -9,6 +9,7 @@ import {
   optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
+import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 export interface SimpleVesting {
   date: string;
@@ -209,15 +210,13 @@ function warrantNestedConversionTrigger(
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
   const normalized = normalizeTriggerType(t.type);
   const typeEnum = triggerTypeToDamlEnum(normalized);
+  const triggerFields = triggerFieldsToDaml(t, normalized, 'warrantIssuance.exercise_triggers[]');
   return {
     type_: typeEnum,
     trigger_id: t.trigger_id,
     nickname: typeof t.nickname === 'string' ? t.nickname : null,
     trigger_description: typeof t.trigger_description === 'string' ? t.trigger_description : null,
-    trigger_date: optionalDateStringToDAMLTime(t.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date'),
-    trigger_condition: typeof t.trigger_condition === 'string' ? t.trigger_condition : null,
-    start_date: optionalDateStringToDAMLTime(t.start_date, 'warrantIssuance.exercise_triggers[].start_date'),
-    end_date: optionalDateStringToDAMLTime(t.end_date, 'warrantIssuance.exercise_triggers[].end_date'),
+    ...triggerFields,
     conversion_right: {
       tag: 'OcfRightConvertible',
       value: {
@@ -388,7 +387,8 @@ function quantitySourceToDamlEnum(
 }
 
 function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _ocfId: string) {
-  const typeEnum = triggerTypeToDamlEnum(normalizeTriggerType(t.type));
+  const normalized = normalizeTriggerType(t.type);
+  const typeEnum = triggerTypeToDamlEnum(normalized);
   if (!t.trigger_id) {
     throw new OcpValidationError(
       'warrantTrigger.trigger_id',
@@ -397,16 +397,14 @@ function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _oc
     );
   }
   const conversion_right = buildWarrantRight(t);
+  const triggerFields = triggerFieldsToDaml(t, normalized, 'warrantIssuance.exercise_triggers[]');
   return {
     type_: typeEnum,
     trigger_id: t.trigger_id,
     nickname: typeof t.nickname === 'string' ? t.nickname : null,
     trigger_description: typeof t.trigger_description === 'string' ? t.trigger_description : null,
     conversion_right,
-    trigger_date: optionalDateStringToDAMLTime(t.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date'),
-    trigger_condition: typeof t.trigger_condition === 'string' ? t.trigger_condition : null,
-    start_date: optionalDateStringToDAMLTime(t.start_date, 'warrantIssuance.exercise_triggers[].start_date'),
-    end_date: optionalDateStringToDAMLTime(t.end_date, 'warrantIssuance.exercise_triggers[].end_date'),
+    ...triggerFields,
   };
 }
 
