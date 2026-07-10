@@ -27,7 +27,7 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { JsGetActiveContractsResponseItem } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/state';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 
-import { OcpContractError, OcpErrorCodes } from '../../../errors';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import {
   classifyContractReadFailure,
   contractReadFailureCode,
@@ -59,6 +59,41 @@ const PINNED_CAP_TABLE_PACKAGE_LINE = (() => {
   const moduleEntityPath = withoutHash.slice(firstColon + 1);
   return { packageName, moduleEntityPath };
 })();
+
+const CAP_TABLE_MAP_ENTRY_SCHEMA = {
+  key: {
+    expectedType: 'non-empty string identifier',
+    is: (value: unknown): value is string => typeof value === 'string' && value.length > 0,
+  },
+  value: {
+    expectedType: 'non-empty string contract ID',
+    is: (value: unknown): value is string => typeof value === 'string' && value.length > 0,
+  },
+};
+
+function parseRequiredContractIdMap(payload: Record<string, unknown>, field: string): Array<[string, string]> {
+  const source = `CapTable.createArgument.${field}`;
+  const hasField = Object.prototype.hasOwnProperty.call(payload, field);
+  const fieldData = payload[field];
+
+  if (!hasField || fieldData === undefined || fieldData === null) {
+    const receivedType = !hasField ? 'missing' : fieldData === null ? 'null' : 'undefined';
+    throw new OcpParseError(`CapTable createArgument requires map field '${field}'; received ${receivedType}`, {
+      source,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: {
+        field,
+        expectedType: 'array of [identifier, contract ID] tuples',
+        receivedType,
+      },
+    });
+  }
+
+  return parseDamlMap(fieldData, {
+    ...CAP_TABLE_MAP_ENTRY_SCHEMA,
+    source,
+  });
+}
 
 /**
  * Type guard to check if a contract entry is a JsActiveContract with complete structure.
@@ -242,17 +277,13 @@ async function buildCapTableStateFromCreatedEvent(
   const contractIds = new Map<OcfEntityType, Map<string, string>>();
 
   for (const [field, entityType] of Object.entries(FIELD_TO_ENTITY_TYPE)) {
-    const fieldData = payload[field];
+    const entries = parseRequiredContractIdMap(payload, field);
 
-    if (fieldData) {
-      // DAML Map is serialized as array of tuples: [[key, value], [key, value], ...]
-      const entries = parseDamlMap<string, string>(fieldData);
-
-      if (entries.length > 0) {
-        const objectIds = new Set(entries.map(([key]) => key));
-        entities.set(entityType, objectIds);
-        contractIds.set(entityType, new Map(entries));
-      }
+    // DAML Map is serialized as array of tuples: [[key, value], [key, value], ...]
+    if (entries.length > 0) {
+      const objectIds = new Set(entries.map(([key]) => key));
+      entities.set(entityType, objectIds);
+      contractIds.set(entityType, new Map(entries));
     }
   }
 
@@ -261,14 +292,10 @@ async function buildCapTableStateFromCreatedEvent(
   const securityIds = new Map<OcfEntityType, Set<string>>();
 
   for (const [field, entityType] of Object.entries(SECURITY_ID_FIELD_TO_ENTITY_TYPE)) {
-    const fieldData = payload[field];
+    const entries = parseRequiredContractIdMap(payload, field);
 
-    if (fieldData) {
-      const entries = parseDamlMap<string, string>(fieldData);
-
-      if (entries.length > 0) {
-        securityIds.set(entityType, new Set(entries.map(([key]) => key)));
-      }
+    if (entries.length > 0) {
+      securityIds.set(entityType, new Set(entries.map(([key]) => key)));
     }
   }
 

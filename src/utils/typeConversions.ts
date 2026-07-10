@@ -374,42 +374,147 @@ export function damlAddressToNative(damlAddress: Fairmint.OpenCapTable.Types.Mon
  * `[[key1, value1], [key2, value2], ...]`
  *
  * @param data - Raw DAML Map data from JSON API response (array of tuples)
+ * @param schema - Runtime schema used to validate and infer every tuple key and value
  * @returns Array of [key, value] tuples, or empty array if data is null/undefined
  * @throws OcpParseError if the data format is invalid
  *
  * @example
  * ```typescript
  * const arrayData = [['id1', 'contract1'], ['id2', 'contract2']];
- * parseDamlMap(arrayData); // Returns [['id1', 'contract1'], ['id2', 'contract2']]
+ * const stringEntries = {
+ *   key: {
+ *     expectedType: 'string',
+ *     is: (value: unknown): value is string => typeof value === 'string',
+ *   },
+ *   value: {
+ *     expectedType: 'string',
+ *     is: (value: unknown): value is string => typeof value === 'string',
+ *   },
+ * };
+ * parseDamlMap(arrayData, stringEntries); // Returns [['id1', 'contract1'], ['id2', 'contract2']]
  *
- * const entries = parseDamlMap(data);
+ * const entries = parseDamlMap(data, stringEntries);
  * const map = new Map(entries);
  * ```
  */
-export function parseDamlMap<K extends string, V>(data: unknown): Array<[K, V]> {
+export interface DamlMapElementSchema<Element> {
+  /** Human-readable type used in parse diagnostics. */
+  readonly expectedType: string;
+  /** Runtime guard whose predicate also determines the returned element type. */
+  readonly is: (value: unknown) => value is Element;
+}
+
+export interface DamlMapSchema<Key extends string, Value> {
+  /** Runtime schema for every tuple key. */
+  readonly key: DamlMapElementSchema<Key>;
+  /** Runtime schema for every tuple value. */
+  readonly value: DamlMapElementSchema<Value>;
+  /** Optional ledger field/path used as the parse-error source. */
+  readonly source?: string;
+}
+
+function damlMapReceivedType(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+}
+
+function damlMapParseError(
+  message: string,
+  context: Record<string, unknown>,
+  source: string | undefined
+): OcpParseError {
+  return new OcpParseError(message, {
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    ...(source !== undefined ? { source } : {}),
+    context,
+  });
+}
+
+export function parseDamlMap<Key extends string, Value>(
+  data: unknown,
+  schema: DamlMapSchema<Key, Value>
+): Array<[Key, Value]> {
   if (data == null) {
     return [];
   }
 
   if (!Array.isArray(data)) {
-    throw new OcpParseError(`parseDamlMap: Expected array of tuples, got ${typeof data}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-    });
+    const receivedType = damlMapReceivedType(data);
+    throw damlMapParseError(
+      `parseDamlMap: Expected array of tuples, got ${receivedType}`,
+      {
+        location: 'map',
+        expectedType: 'array of [string, value] tuples',
+        receivedType,
+      },
+      schema.source
+    );
   }
 
-  return data.map((entry, index) => {
+  const firstTupleIndexByKey = new Map<Key, number>();
+
+  return data.map((entry, index): [Key, Value] => {
     if (!Array.isArray(entry) || entry.length !== 2) {
-      throw new OcpParseError(`parseDamlMap: Invalid entry at index ${index} - expected [key, value] tuple`, {
-        code: OcpErrorCodes.INVALID_FORMAT,
-      });
+      throw damlMapParseError(
+        `parseDamlMap: Invalid tuple at index ${index} - expected [key, value]`,
+        {
+          tupleIndex: index,
+          expectedType: '[string, value] tuple',
+          receivedType: damlMapReceivedType(entry),
+          ...(Array.isArray(entry) ? { receivedLength: entry.length } : {}),
+        },
+        schema.source
+      );
     }
-    const [key, value] = entry as [unknown, unknown];
-    if (typeof key !== 'string') {
-      throw new OcpParseError(`parseDamlMap: Invalid key type at index ${index} - expected string, got ${typeof key}`, {
-        code: OcpErrorCodes.INVALID_TYPE,
-      });
+    const key: unknown = entry[0];
+    const value: unknown = entry[1];
+    if (!schema.key.is(key)) {
+      const receivedType = damlMapReceivedType(key);
+      throw damlMapParseError(
+        `parseDamlMap: Invalid key at tuple index ${index} - expected ${schema.key.expectedType}, got ${receivedType}`,
+        {
+          tupleIndex: index,
+          tuplePosition: 'key',
+          expectedType: schema.key.expectedType,
+          receivedType,
+        },
+        schema.source
+      );
     }
-    return [key as K, value as V];
+
+    const originalTupleIndex = firstTupleIndexByKey.get(key);
+    if (originalTupleIndex !== undefined) {
+      throw damlMapParseError(
+        `parseDamlMap: Duplicate key at tuple index ${index}; first seen at tuple index ${originalTupleIndex}`,
+        {
+          tupleIndex: index,
+          tuplePosition: 'key',
+          tupleKey: key,
+          duplicateTupleIndex: index,
+          originalTupleIndex,
+        },
+        schema.source
+      );
+    }
+
+    if (!schema.value.is(value)) {
+      const receivedType = damlMapReceivedType(value);
+      throw damlMapParseError(
+        `parseDamlMap: Invalid value at tuple index ${index} - expected ${schema.value.expectedType}, got ${receivedType}`,
+        {
+          tupleIndex: index,
+          tuplePosition: 'value',
+          tupleKey: key,
+          expectedType: schema.value.expectedType,
+          receivedType,
+        },
+        schema.source
+      );
+    }
+
+    firstTupleIndexByKey.set(key, index);
+    return [key, value];
   });
 }
 

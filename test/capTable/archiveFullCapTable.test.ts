@@ -7,6 +7,7 @@ import {
 } from '../../src/functions/OpenCapTable/capTable/archiveFullCapTable';
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { requireDefined } from '../../src/utils/requireDefined';
+import { completeCapTableCreateArgument } from './capTableTestFixtures';
 
 const mockArchiveCapTable = jest.fn();
 const mockBatchDelete = jest.fn();
@@ -92,13 +93,13 @@ function buildMockCapTableContract(params: {
         createdEvent: {
           contractId: params.contractId,
           templateId,
-          createArgument: {
+          createArgument: completeCapTableCreateArgument({
             issuer: params.issuerContractId,
             context: {
               system_operator: params.systemOperatorPartyId,
             },
             stakeholders: [],
-          },
+          }),
           createdEventBlob: 'blob-data',
           witnessParties: ['party-1'],
           signatories: ['party-1'],

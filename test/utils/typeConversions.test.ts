@@ -1,7 +1,8 @@
 /** Unit tests for typeConversions utility functions. */
 
-import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {
+  type DamlMapSchema,
   damlMonetaryToNative,
   ensureArray,
   monetaryToDaml,
@@ -10,6 +11,21 @@ import {
   parseDamlMap,
   toNonEmptyArray,
 } from '../../src/utils/typeConversions';
+
+const STRING_DAML_MAP_SCHEMA = {
+  key: {
+    expectedType: 'string',
+    is: (value: unknown): value is string => typeof value === 'string',
+  },
+  value: {
+    expectedType: 'string',
+    is: (value: unknown): value is string => typeof value === 'string',
+  },
+} satisfies DamlMapSchema<string, string>;
+
+function parseStringDamlMap(data: unknown): Array<[string, string]> {
+  return parseDamlMap(data, STRING_DAML_MAP_SCHEMA);
+}
 
 describe('normalizeNumericString', () => {
   describe('valid inputs', () => {
@@ -136,11 +152,11 @@ describe('non-empty array helpers', () => {
 describe('parseDamlMap', () => {
   describe('null/undefined handling', () => {
     test('returns empty array for null', () => {
-      expect(parseDamlMap(null)).toEqual([]);
+      expect(parseStringDamlMap(null)).toEqual([]);
     });
 
     test('returns empty array for undefined', () => {
-      expect(parseDamlMap(undefined)).toEqual([]);
+      expect(parseStringDamlMap(undefined)).toEqual([]);
     });
   });
 
@@ -150,26 +166,26 @@ describe('parseDamlMap', () => {
         ['id1', 'contract1'],
         ['id2', 'contract2'],
       ];
-      expect(parseDamlMap(input)).toEqual([
+      expect(parseStringDamlMap(input)).toEqual([
         ['id1', 'contract1'],
         ['id2', 'contract2'],
       ]);
     });
 
     test('handles empty array', () => {
-      expect(parseDamlMap([])).toEqual([]);
+      expect(parseStringDamlMap([])).toEqual([]);
     });
 
     test('throws on non-array entry', () => {
       const input = [['id1', 'contract1'], 'invalid'];
-      expect(() => parseDamlMap(input)).toThrow(OcpParseError);
-      expect(() => parseDamlMap(input)).toThrow('Invalid entry at index 1');
+      expect(() => parseStringDamlMap(input)).toThrow(OcpParseError);
+      expect(() => parseStringDamlMap(input)).toThrow('Invalid tuple at index 1');
     });
 
     test('throws on wrong length tuple', () => {
       const input = [['id1', 'contract1'], ['id2']];
-      expect(() => parseDamlMap(input)).toThrow(OcpParseError);
-      expect(() => parseDamlMap(input)).toThrow('expected [key, value] tuple');
+      expect(() => parseStringDamlMap(input)).toThrow(OcpParseError);
+      expect(() => parseStringDamlMap(input)).toThrow('expected [key, value]');
     });
 
     test('throws on non-string key', () => {
@@ -177,34 +193,105 @@ describe('parseDamlMap', () => {
         ['id1', 'contract1'],
         [123, 'contract2'],
       ];
-      expect(() => parseDamlMap(input)).toThrow(OcpParseError);
-      expect(() => parseDamlMap(input)).toThrow('expected string, got number');
+      expect(() => parseStringDamlMap(input)).toThrow(OcpParseError);
+      expect(() => parseStringDamlMap(input)).toThrow('expected string, got number');
+    });
+
+    test('rejects a value that does not satisfy the required runtime schema', () => {
+      const input = [
+        ['id1', 'contract1'],
+        ['id2', 123],
+      ];
+
+      expect(() => parseStringDamlMap(input)).toThrow('Invalid value at tuple index 1 - expected string, got number');
+
+      try {
+        parseStringDamlMap(input);
+        throw new Error('Expected parseStringDamlMap to throw');
+      } catch (error: unknown) {
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          context: {
+            tupleIndex: 1,
+            tuplePosition: 'value',
+            tupleKey: 'id2',
+            expectedType: 'string',
+            receivedType: 'number',
+          },
+        });
+      }
+    });
+
+    test('reports exact tuple position for an invalid key', () => {
+      const input = [[123, 'contract1']];
+
+      try {
+        parseStringDamlMap(input);
+        throw new Error('Expected parseStringDamlMap to throw');
+      } catch (error: unknown) {
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          context: {
+            tupleIndex: 0,
+            tuplePosition: 'key',
+            expectedType: 'string',
+            receivedType: 'number',
+          },
+        });
+      }
+    });
+
+    test('rejects duplicate keys with both tuple indexes', () => {
+      const input = [
+        ['id1', 'contract1'],
+        ['id2', 'contract2'],
+        ['id1', 'contract3'],
+      ];
+
+      try {
+        parseStringDamlMap(input);
+        throw new Error('Expected parseStringDamlMap to throw');
+      } catch (error: unknown) {
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          message: 'parseDamlMap: Duplicate key at tuple index 2; first seen at tuple index 0',
+          context: {
+            tupleIndex: 2,
+            tuplePosition: 'key',
+            tupleKey: 'id1',
+            duplicateTupleIndex: 2,
+            originalTupleIndex: 0,
+          },
+        });
+      }
     });
   });
 
   describe('invalid formats', () => {
     test('throws for object input', () => {
       const input = { id1: 'contract1', id2: 'contract2' };
-      expect(() => parseDamlMap(input)).toThrow(OcpParseError);
+      expect(() => parseStringDamlMap(input)).toThrow(OcpParseError);
     });
 
     test('throws for empty object', () => {
-      expect(() => parseDamlMap({})).toThrow(OcpParseError);
+      expect(() => parseStringDamlMap({})).toThrow(OcpParseError);
     });
 
     test('throws on string input', () => {
-      expect(() => parseDamlMap('invalid')).toThrow(OcpParseError);
-      expect(() => parseDamlMap('invalid')).toThrow('Expected array of tuples');
+      expect(() => parseStringDamlMap('invalid')).toThrow(OcpParseError);
+      expect(() => parseStringDamlMap('invalid')).toThrow('Expected array of tuples');
     });
 
     test('throws on number input', () => {
-      expect(() => parseDamlMap(123)).toThrow(OcpParseError);
-      expect(() => parseDamlMap(123)).toThrow('got number');
+      expect(() => parseStringDamlMap(123)).toThrow(OcpParseError);
+      expect(() => parseStringDamlMap(123)).toThrow('got number');
     });
 
     test('throws on boolean input', () => {
-      expect(() => parseDamlMap(true)).toThrow(OcpParseError);
-      expect(() => parseDamlMap(true)).toThrow('got boolean');
+      expect(() => parseStringDamlMap(true)).toThrow(OcpParseError);
+      expect(() => parseStringDamlMap(true)).toThrow('got boolean');
     });
   });
 });

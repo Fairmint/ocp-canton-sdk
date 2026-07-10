@@ -9,9 +9,10 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
 import { CapTable } from '@fairmint/open-captable-protocol-daml-js/lib/Fairmint/OpenCapTable/CapTable/module';
-import { OcpErrorCodes } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError } from '../../src/errors';
 import { classifyIssuerCapTables, getCapTableState } from '../../src/functions/OpenCapTable/capTable';
 import { requireDefined } from '../../src/utils/requireDefined';
+import { completeCapTableCreateArgument } from './capTableTestFixtures';
 
 // Mock the canton-node-sdk
 jest.mock('@fairmint/canton-node-sdk');
@@ -98,11 +99,11 @@ function buildMockCapTableContract(params: {
         createdEvent: {
           contractId: params.contractId,
           templateId,
-          createArgument: {
+          createArgument: completeCapTableCreateArgument({
             issuer: params.issuerContractId,
             context: { system_operator: 'system-op::party' },
             ...params.createArgument,
-          },
+          }),
           createdEventBlob: 'blob-data',
           witnessParties: ['party-1'],
           signatories: ['party-1'],
@@ -149,7 +150,7 @@ describe('getCapTableState', () => {
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
                 // This is the correct field name per Canton JSON API v2
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
                   context: { system_operator: 'system-op::party' },
                   stakeholders: [
@@ -166,7 +167,7 @@ describe('getCapTableState', () => {
                   stock_cancellations: [],
                   stock_transfers: [],
                   // ... other empty fields
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -249,6 +250,140 @@ describe('getCapTableState', () => {
       expect(stakeholderContractIds).toBeDefined();
       expect(stakeholderContractIds!.get('stakeholder-1')).toBe('stakeholder-contract-1');
       expect(stakeholderContractIds!.get('stakeholder-2')).toBe('stakeholder-contract-2');
+    });
+
+    it.each([
+      {
+        caseName: 'numeric entity-map contract ID',
+        field: 'stakeholders',
+        malformedMap: [['stakeholder-1', 42]],
+        tupleKey: 'stakeholder-1',
+        receivedType: 'number',
+      },
+      {
+        caseName: 'object security-index contract ID',
+        field: 'stock_issuances_by_security_id',
+        malformedMap: [['security-1', { contractId: 'not-a-string' }]],
+        tupleKey: 'security-1',
+        receivedType: 'object',
+      },
+      {
+        caseName: 'empty entity-map contract ID',
+        field: 'stakeholders',
+        malformedMap: [['stakeholder-2', '']],
+        tupleKey: 'stakeholder-2',
+        receivedType: 'string',
+      },
+    ])('rejects a $caseName', async ({ field, malformedMap, receivedType, tupleKey }) => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-malformed-map',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            createArgument: { [field]: malformedMap },
+          }),
+        ],
+      });
+
+      const read = getCapTableState(mockClient, 'issuer::party-123');
+
+      await expect(read).rejects.toBeInstanceOf(OcpParseError);
+      await expect(read).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `CapTable.createArgument.${field}`,
+        context: {
+          source: `CapTable.createArgument.${field}`,
+          tupleIndex: 0,
+          tuplePosition: 'value',
+          tupleKey,
+          expectedType: 'non-empty string contract ID',
+          receivedType,
+        },
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['object ID', 'stakeholders'],
+      ['security ID', 'stock_issuances_by_security_id'],
+    ])('rejects an empty %s map key', async (_case, field) => {
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-empty-map-key',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            createArgument: { [field]: [['', 'contract-id']] },
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `CapTable.createArgument.${field}`,
+        context: {
+          source: `CapTable.createArgument.${field}`,
+          tupleIndex: 0,
+          tuplePosition: 'key',
+          expectedType: 'non-empty string identifier',
+          receivedType: 'string',
+        },
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing required entity-map field', async () => {
+      const row = buildMockCapTableContract({
+        contractId: 'cap-table-missing-map',
+        issuerContractId: 'issuer-contract-456',
+        packageName: CURRENT_OCP_PACKAGE_NAME,
+      });
+      delete row.contractEntry.JsActiveContract.createdEvent.createArgument.stakeholders;
+      mockActiveContractsForCapTableState(mockClient, { current: [row] });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'CapTable.createArgument.stakeholders',
+        message: "CapTable createArgument requires map field 'stakeholders'; received missing",
+        context: {
+          source: 'CapTable.createArgument.stakeholders',
+          field: 'stakeholders',
+          expectedType: 'array of [identifier, contract ID] tuples',
+          receivedType: 'missing',
+        },
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
+    });
+
+    it('rejects a null required security-ID map field', async () => {
+      const field = 'stock_issuances_by_security_id';
+      mockActiveContractsForCapTableState(mockClient, {
+        current: [
+          buildMockCapTableContract({
+            contractId: 'cap-table-null-map',
+            issuerContractId: 'issuer-contract-456',
+            packageName: CURRENT_OCP_PACKAGE_NAME,
+            createArgument: { [field]: null },
+          }),
+        ],
+      });
+
+      await expect(getCapTableState(mockClient, 'issuer::party-123')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `CapTable.createArgument.${field}`,
+        message: `CapTable createArgument requires map field '${field}'; received null`,
+        context: {
+          source: `CapTable.createArgument.${field}`,
+          field,
+          expectedType: 'array of [identifier, contract ID] tuples',
+          receivedType: 'null',
+        },
+      });
+      expect(mockClient.getEventsByContractId).not.toHaveBeenCalled();
     });
 
     it('should return null when no cap table exists', async () => {
@@ -430,7 +565,7 @@ describe('getCapTableState', () => {
               createdEvent: {
                 contractId: 'cap-table-contract-array-format',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-789',
                   context: { system_operator: 'system-op::party' },
                   // Array-of-tuples format for DAML Maps
@@ -446,7 +581,7 @@ describe('getCapTableState', () => {
                     ['issuance-1', 'issuance-contract-1'],
                     ['issuance-2', 'issuance-contract-2'],
                   ],
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -515,14 +650,14 @@ describe('getCapTableState', () => {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
                   context: { system_operator: 'system-op::party' },
                   stakeholders: [],
                   stock_classes: [],
                   stock_plans: [],
                   // All entity maps are empty
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -572,11 +707,11 @@ describe('getCapTableState', () => {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
                   context: { system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -630,11 +765,11 @@ describe('getCapTableState', () => {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
                   context: { system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -678,11 +813,11 @@ describe('getCapTableState', () => {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
                   context: { system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -743,11 +878,11 @@ describe('getCapTableState', () => {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
                   context: { system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
@@ -808,11 +943,11 @@ describe('getCapTableState', () => {
               createdEvent: {
                 contractId: 'cap-table-contract-123',
                 templateId: CURRENT_CAP_TABLE_TEMPLATE_ID,
-                createArgument: {
+                createArgument: completeCapTableCreateArgument({
                   issuer: 'issuer-contract-456',
                   context: { system_operator: 'system-op::party' },
                   stakeholders: [['stakeholder-1', 'stakeholder-contract-1']],
-                },
+                }),
                 createdEventBlob: 'blob-data',
                 witnessParties: ['party-1'],
                 signatories: ['party-1'],
