@@ -34,7 +34,7 @@ export function damlStakeholderRelationshipChangeEventToNative(
   return {
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, 'stakeholderRelationshipChangeEvent.date'),
     stakeholder_id: d.stakeholder_id,
     ...(d.relationship_started
       ? { relationship_started: damlStakeholderRelationshipToNative(d.relationship_started) }

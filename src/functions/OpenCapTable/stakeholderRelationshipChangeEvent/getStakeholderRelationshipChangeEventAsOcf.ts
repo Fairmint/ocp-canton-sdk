@@ -27,7 +27,7 @@ export interface GetStakeholderRelationshipChangeEventAsOcfResult {
 /** Type for DAML StakeholderRelationshipChangeEvent createArgument */
 interface DamlStakeholderRelationshipChangeEventData {
   id: string;
-  date: string;
+  date?: unknown;
   stakeholder_id: string;
   relationship_started: DamlStakeholderRelationshipType | null;
   relationship_ended: DamlStakeholderRelationshipType | null;
@@ -64,7 +64,6 @@ function isDamlStakeholderRelationshipChangeEventData(
 
   return (
     typeof value.id === 'string' &&
-    typeof value.date === 'string' &&
     typeof value.stakeholder_id === 'string' &&
     (typeof value.relationship_started === 'string' || value.relationship_started === null) &&
     (typeof value.relationship_ended === 'string' || value.relationship_ended === null) &&

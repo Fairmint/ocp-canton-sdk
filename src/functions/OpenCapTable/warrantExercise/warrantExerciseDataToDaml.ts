@@ -33,7 +33,7 @@ export function warrantExerciseDataToDaml(d: OcfWarrantExercise): Record<string,
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'warrantExercise.date'),
     security_id: d.security_id,
     trigger_id: d.trigger_id,
     quantity: d.quantity ? normalizeNumericString(d.quantity) : null,

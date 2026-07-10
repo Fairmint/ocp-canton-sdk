@@ -3,7 +3,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { normalizeNumericString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlCancellationBehaviorToNative(b: string | null): StockPlanCancellationBehavior | undefined {
@@ -57,16 +57,18 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
     });
   }
 
+  const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'stockPlan.board_approval_date');
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    d.stockholder_approval_date,
+    'stockPlan.stockholder_approval_date'
+  );
+
   return {
     object_type: 'STOCK_PLAN',
     id: dataWithId.id,
     plan_name: d.plan_name,
-    ...(d.board_approval_date && {
-      board_approval_date: damlTimeToDateString(d.board_approval_date),
-    }),
-    ...(d.stockholder_approval_date && {
-      stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
-    }),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     initial_shares_reserved: normalizeNumericString(initialSharesReserved.toString()),
     ...(d.default_cancellation_behavior && {
       default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior),

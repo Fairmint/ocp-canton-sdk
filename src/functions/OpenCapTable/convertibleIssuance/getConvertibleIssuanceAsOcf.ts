@@ -11,6 +11,7 @@ import {
   damlTimeToDateString,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
+  optionalDamlTimeToDateString,
   safeString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -334,18 +335,20 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
           return mech;
         }
         case 'OcfConvMechNote': {
+          const interestRatePath =
+            'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[]';
           const interest_rates = Array.isArray(value.interest_rates)
             ? value.interest_rates.map((ir: unknown) => {
                 const irObj = ir as Record<string, unknown>;
                 // Validate interest rate
                 if (irObj.rate === undefined || irObj.rate === null) {
-                  throw new OcpValidationError('interest_rate.rate', 'Required field is missing', {
+                  throw new OcpValidationError(`${interestRatePath}.rate`, 'Required field is missing', {
                     code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
                   });
                 }
                 if (typeof irObj.rate !== 'string' && typeof irObj.rate !== 'number') {
                   throw new OcpValidationError(
-                    'interest_rate.rate',
+                    `${interestRatePath}.rate`,
                     `Must be string or number, got ${typeof irObj.rate}`,
                     {
                       code: OcpErrorCodes.INVALID_TYPE,
@@ -354,32 +357,17 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
                     }
                   );
                 }
-                // Validate accrual_start_date
-                if (typeof irObj.accrual_start_date !== 'string' || !irObj.accrual_start_date) {
-                  throw new OcpValidationError(
-                    'interest_rate.accrual_start_date',
-                    'Required field must be a non-empty string',
-                    {
-                      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-                      expectedType: 'string',
-                      receivedValue: irObj.accrual_start_date,
-                    }
-                  );
-                }
+                const accrualEndDate = optionalDamlTimeToDateString(
+                  irObj.accrual_end_date,
+                  `${interestRatePath}.accrual_end_date`
+                );
                 return {
                   rate: normalizeNumericString(typeof irObj.rate === 'number' ? irObj.rate.toString() : irObj.rate),
                   accrual_start_date: damlTimeToDateString(
                     irObj.accrual_start_date,
-                    'convertibleIssuance.interest_rates[].accrual_start_date'
+                    `${interestRatePath}.accrual_start_date`
                   ),
-                  ...(irObj.accrual_end_date !== null && irObj.accrual_end_date !== undefined
-                    ? {
-                        accrual_end_date: damlTimeToDateString(
-                          irObj.accrual_end_date,
-                          'convertibleIssuance.interest_rates[].accrual_end_date'
-                        ),
-                      }
-                    : {}),
+                  ...(accrualEndDate !== undefined ? { accrual_end_date: accrualEndDate } : {}),
                 };
               })
             : null;
@@ -521,20 +509,17 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
     const nickname: string | undefined = typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
     const trigger_description: string | undefined =
       typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-    const trigger_date: string | undefined =
-      r.trigger_date === null || r.trigger_date === undefined
-        ? undefined
-        : damlTimeToDateString(r.trigger_date, 'convertibleIssuance.conversion_triggers[].trigger_date');
+    const trigger_date = optionalDamlTimeToDateString(
+      r.trigger_date,
+      'convertibleIssuance.conversion_triggers[].trigger_date'
+    );
     const trigger_condition: string | undefined =
       typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
-    const start_date: string | undefined =
-      r.start_date === null || r.start_date === undefined
-        ? undefined
-        : damlTimeToDateString(r.start_date, 'convertibleIssuance.conversion_triggers[].start_date');
-    const end_date: string | undefined =
-      r.end_date === null || r.end_date === undefined
-        ? undefined
-        : damlTimeToDateString(r.end_date, 'convertibleIssuance.conversion_triggers[].end_date');
+    const start_date = optionalDamlTimeToDateString(
+      r.start_date,
+      'convertibleIssuance.conversion_triggers[].start_date'
+    );
+    const end_date = optionalDamlTimeToDateString(r.end_date, 'convertibleIssuance.conversion_triggers[].end_date');
 
     // Parse conversion_right if present and convertible variant is used
     let conversion_right: ConvertibleConversionRight | undefined;
@@ -584,10 +569,10 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
       conversion_right,
       ...(nickname ? { nickname } : {}),
       ...(trigger_description ? { trigger_description } : {}),
-      ...(trigger_date ? { trigger_date } : {}),
+      ...(trigger_date !== undefined ? { trigger_date } : {}),
       ...(trigger_condition ? { trigger_condition } : {}),
-      ...(start_date ? { start_date } : {}),
-      ...(end_date ? { end_date } : {}),
+      ...(start_date !== undefined ? { start_date } : {}),
+      ...(end_date !== undefined ? { end_date } : {}),
     };
     return trigger;
   });
@@ -600,12 +585,6 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
     throw new OcpValidationError('convertibleIssuance.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.id,
-    });
-  }
-  if (typeof d.date !== 'string' || !d.date) {
-    throw new OcpValidationError('convertibleIssuance.date', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.date,
     });
   }
   if (typeof d.security_id !== 'string' || !d.security_id) {
@@ -648,6 +627,15 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
   const investmentAmountStr =
     typeof investmentAmount.amount === 'number' ? investmentAmount.amount.toString() : investmentAmount.amount;
 
+  const boardApprovalDate = optionalDamlTimeToDateString(
+    d.board_approval_date,
+    'convertibleIssuance.board_approval_date'
+  );
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    d.stockholder_approval_date,
+    'convertibleIssuance.stockholder_approval_date'
+  );
+
   const issuance = {
     object_type: 'TX_CONVERTIBLE_ISSUANCE',
     id: d.id,
@@ -655,19 +643,8 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
     security_id: d.security_id,
     custom_id: d.custom_id as string,
     stakeholder_id: d.stakeholder_id as string,
-    ...(d.board_approval_date !== null && d.board_approval_date !== undefined
-      ? {
-          board_approval_date: damlTimeToDateString(d.board_approval_date, 'convertibleIssuance.board_approval_date'),
-        }
-      : {}),
-    ...(d.stockholder_approval_date !== null && d.stockholder_approval_date !== undefined
-      ? {
-          stockholder_approval_date: damlTimeToDateString(
-            d.stockholder_approval_date,
-            'convertibleIssuance.stockholder_approval_date'
-          ),
-        }
-      : {}),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     investment_amount: {
       amount: normalizeNumericString(investmentAmountStr),
       currency: investmentAmount.currency,

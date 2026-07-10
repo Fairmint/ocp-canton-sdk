@@ -21,7 +21,7 @@ export function stockConsolidationDataToDaml(d: OcfStockConsolidation): Record<s
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'stockConsolidation.date'),
     security_ids: d.security_ids,
     resulting_security_id: d.resulting_security_id,
     reason_text: optionalString(d.reason_text),

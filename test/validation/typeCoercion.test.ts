@@ -10,6 +10,10 @@ import {
   damlTimeToDateString,
   dateStringToDAMLTime,
   normalizeNumericString,
+  nullableDamlTimeToDateString,
+  nullableDateStringToDAMLTime,
+  optionalDamlTimeToDateString,
+  optionalDateStringToDAMLTime,
   optionalNumberToString,
   optionalString,
   safeString,
@@ -85,7 +89,7 @@ describe('Type Coercion Utilities', () => {
 
   describe('dateStringToDAMLTime', () => {
     test.each(['2024-01-15', '2000-02-29', '1900-12-31'])('converts the valid date %s to UTC midnight', (date) => {
-      expect(dateStringToDAMLTime(date)).toBe(`${date}T00:00:00.000Z`);
+      expect(dateStringToDAMLTime(date, 'test.date')).toBe(`${date}T00:00:00.000Z`);
     });
 
     test.each([
@@ -93,8 +97,43 @@ describe('Type Coercion Utilities', () => {
       '2024-01-15T14:30:00.000000Z',
       '2024-01-15T23:59:59+14:00',
       '2024-01-15T00:00:00-05:30',
-    ])('preserves the valid RFC 3339 date-time %s exactly', (dateTime) => {
-      expect(dateStringToDAMLTime(dateTime)).toBe(dateTime);
+    ])('normalizes the valid RFC 3339 date-time %s to lexical-date UTC midnight', (dateTime) => {
+      expect(dateStringToDAMLTime(dateTime, 'test.date')).toBe('2024-01-15T00:00:00.000Z');
+    });
+
+    test('prevents an offset timestamp from changing OCF dates after ledger normalization', () => {
+      const damlTime = dateStringToDAMLTime('2024-01-15T23:30:00-05:00', 'transaction.date');
+
+      expect(damlTime).toBe('2024-01-15T00:00:00.000Z');
+      expect(damlTimeToDateString(damlTime, 'transaction.date')).toBe('2024-01-15');
+    });
+  });
+
+  describe('optional and required-nullable date helpers', () => {
+    test('optional dates treat only null and undefined as absent', () => {
+      expect(optionalDateStringToDAMLTime(null, 'optional.date')).toBeNull();
+      expect(optionalDateStringToDAMLTime(undefined, 'optional.date')).toBeNull();
+      expect(() => optionalDateStringToDAMLTime('', 'optional.date')).toThrow(OcpValidationError);
+      expect(() => optionalDateStringToDAMLTime({ seconds: 1 }, 'optional.date')).toThrow(OcpValidationError);
+    });
+
+    test('required-nullable dates accept null but reject undefined and malformed present values', () => {
+      expect(nullableDateStringToDAMLTime(null, 'nullable.date')).toBeNull();
+      expect(() => nullableDateStringToDAMLTime(undefined, 'nullable.date')).toThrow(OcpValidationError);
+      expect(() => nullableDateStringToDAMLTime('', 'nullable.date')).toThrow(OcpValidationError);
+      expect(() => nullableDateStringToDAMLTime({ seconds: 1 }, 'nullable.date')).toThrow(OcpValidationError);
+    });
+
+    test('read helpers preserve optional and nullable output shapes without dropping present invalid values', () => {
+      expect(optionalDamlTimeToDateString(null, 'optional.date')).toBeUndefined();
+      expect(optionalDamlTimeToDateString(undefined, 'optional.date')).toBeUndefined();
+      expect(nullableDamlTimeToDateString(null, 'nullable.date')).toBeNull();
+      expect(() => nullableDamlTimeToDateString(undefined, 'nullable.date')).toThrow(OcpValidationError);
+
+      for (const value of ['', 0, false, { seconds: 1 }]) {
+        expect(() => optionalDamlTimeToDateString(value, 'optional.date')).toThrow(OcpValidationError);
+        expect(() => nullableDamlTimeToDateString(value, 'nullable.date')).toThrow(OcpValidationError);
+      }
     });
   });
 
@@ -105,11 +144,11 @@ describe('Type Coercion Utilities', () => {
       '2024-01-15T23:30:00-05:00',
       '2024-01-15T00:30:00+14:00',
     ])('extracts the lexical date prefix from %s', (dateTime) => {
-      expect(damlTimeToDateString(dateTime)).toBe('2024-01-15');
+      expect(damlTimeToDateString(dateTime, 'test.date')).toBe('2024-01-15');
     });
 
     test('returns date-only string as-is', () => {
-      expect(damlTimeToDateString('2024-01-15')).toBe('2024-01-15');
+      expect(damlTimeToDateString('2024-01-15', 'test.date')).toBe('2024-01-15');
     });
   });
 
@@ -150,8 +189,8 @@ describe('Type Coercion Utilities', () => {
     });
 
     test.each(invalidValues)('both conversion boundaries reject invalid input %#', (value) => {
-      expect(() => dateStringToDAMLTime(value)).toThrow(OcpValidationError);
-      expect(() => damlTimeToDateString(value)).toThrow(OcpValidationError);
+      expect(() => dateStringToDAMLTime(value, 'test.date')).toThrow(OcpValidationError);
+      expect(() => damlTimeToDateString(value, 'test.date')).toThrow(OcpValidationError);
     });
 
     test('accepts Gregorian leap days only when the year is valid', () => {
@@ -165,12 +204,12 @@ describe('Type Coercion Utilities', () => {
       const tenDigits = '2024-01-15T23:59:59.1234567890Z';
 
       expect(tryIsoDateToDateString(nineDigits)).toBe('2024-01-15');
-      expect(dateStringToDAMLTime(nineDigits)).toBe(nineDigits);
-      expect(damlTimeToDateString(nineDigits)).toBe('2024-01-15');
+      expect(dateStringToDAMLTime(nineDigits, 'test.date')).toBe('2024-01-15T00:00:00.000Z');
+      expect(damlTimeToDateString(nineDigits, 'test.date')).toBe('2024-01-15');
 
       expect(tryIsoDateToDateString(tenDigits)).toBeNull();
-      expect(() => dateStringToDAMLTime(tenDigits)).toThrow(OcpValidationError);
-      expect(() => damlTimeToDateString(tenDigits)).toThrow(OcpValidationError);
+      expect(() => dateStringToDAMLTime(tenDigits, 'test.date')).toThrow(OcpValidationError);
+      expect(() => damlTimeToDateString(tenDigits, 'test.date')).toThrow(OcpValidationError);
     });
 
     test('reports the caller field path and invalid value', () => {

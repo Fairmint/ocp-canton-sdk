@@ -38,6 +38,7 @@ import type {
   OcfWarrantIssuance,
 } from '../types/native';
 import { getOcfSchema } from './ocfZodSchemas';
+import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Primitive Type Guards =====
 
@@ -67,11 +68,7 @@ export function isNumericValue(value: unknown): value is string {
  * Check if a value is a valid ISO date string (YYYY-MM-DD format).
  */
 export function isIsoDateString(value: unknown): value is string {
-  if (typeof value !== 'string') return false;
-  const match = /^\d{4}-\d{2}-\d{2}$/.exec(value);
-  if (!match) return false;
-  const date = new Date(value);
-  return !Number.isNaN(date.getTime());
+  return typeof value === 'string' && tryIsoDateToDateString(value) === value;
 }
 
 /**

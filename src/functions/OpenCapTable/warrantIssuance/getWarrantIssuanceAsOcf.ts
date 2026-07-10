@@ -18,6 +18,7 @@ import {
   damlTimeToDateString,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
+  optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -347,20 +348,14 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
           typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
         const trigger_description: string | undefined =
           typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-        const trigger_date: string | undefined =
-          r.trigger_date === null || r.trigger_date === undefined
-            ? undefined
-            : damlTimeToDateString(r.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date');
+        const trigger_date = optionalDamlTimeToDateString(
+          r.trigger_date,
+          'warrantIssuance.exercise_triggers[].trigger_date'
+        );
         const trigger_condition: string | undefined =
           typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
-        const start_date: string | undefined =
-          r.start_date === null || r.start_date === undefined
-            ? undefined
-            : damlTimeToDateString(r.start_date, 'warrantIssuance.exercise_triggers[].start_date');
-        const end_date: string | undefined =
-          r.end_date === null || r.end_date === undefined
-            ? undefined
-            : damlTimeToDateString(r.end_date, 'warrantIssuance.exercise_triggers[].end_date');
+        const start_date = optionalDamlTimeToDateString(r.start_date, 'warrantIssuance.exercise_triggers[].start_date');
+        const end_date = optionalDamlTimeToDateString(r.end_date, 'warrantIssuance.exercise_triggers[].end_date');
 
         const conversion_right: WarrantTriggerConversionRight = mapAnyConversionRightFromDaml(r.conversion_right);
 
@@ -370,10 +365,10 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
           conversion_right,
           ...(nickname ? { nickname } : {}),
           ...(trigger_description ? { trigger_description } : {}),
-          ...(trigger_date ? { trigger_date } : {}),
+          ...(trigger_date !== undefined ? { trigger_date } : {}),
           ...(trigger_condition ? { trigger_condition } : {}),
-          ...(start_date ? { start_date } : {}),
-          ...(end_date ? { end_date } : {}),
+          ...(start_date !== undefined ? { start_date } : {}),
+          ...(end_date !== undefined ? { end_date } : {}),
         };
         return t;
       })
@@ -414,12 +409,6 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
             );
           }
           const amountStr = typeof v.amount === 'number' ? v.amount.toString() : v.amount;
-          if (typeof v.date !== 'string' || !v.date) {
-            throw new OcpValidationError('warrantIssuance.vestings.date', 'Required field is missing or invalid', {
-              code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-              receivedValue: v.date,
-            });
-          }
           return {
             date: damlTimeToDateString(v.date, 'warrantIssuance.vestings[].date'),
             amount: normalizeNumericString(amountStr),
@@ -432,12 +421,6 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
     throw new OcpValidationError('warrantIssuance.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.id,
-    });
-  }
-  if (typeof d.date !== 'string' || !d.date) {
-    throw new OcpValidationError('warrantIssuance.date', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.date,
     });
   }
   if (typeof d.security_id !== 'string' || !d.security_id) {
@@ -458,6 +441,16 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
       receivedValue: d.stakeholder_id,
     });
   }
+
+  const warrantExpirationDate = optionalDamlTimeToDateString(
+    d.warrant_expiration_date,
+    'warrantIssuance.warrant_expiration_date'
+  );
+  const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'warrantIssuance.board_approval_date');
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    d.stockholder_approval_date,
+    'warrantIssuance.stockholder_approval_date'
+  );
 
   return {
     object_type: 'TX_WARRANT_ISSUANCE',
@@ -494,28 +487,10 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
       }
       return {};
     })(),
-    ...(d.warrant_expiration_date !== null && d.warrant_expiration_date !== undefined
-      ? {
-          warrant_expiration_date: damlTimeToDateString(
-            d.warrant_expiration_date,
-            'warrantIssuance.warrant_expiration_date'
-          ),
-        }
-      : {}),
+    ...(warrantExpirationDate !== undefined ? { warrant_expiration_date: warrantExpirationDate } : {}),
     ...(d.vesting_terms_id && typeof d.vesting_terms_id === 'string' ? { vesting_terms_id: d.vesting_terms_id } : {}),
-    ...(d.board_approval_date !== null && d.board_approval_date !== undefined
-      ? {
-          board_approval_date: damlTimeToDateString(d.board_approval_date, 'warrantIssuance.board_approval_date'),
-        }
-      : {}),
-    ...(d.stockholder_approval_date !== null && d.stockholder_approval_date !== undefined
-      ? {
-          stockholder_approval_date: damlTimeToDateString(
-            d.stockholder_approval_date,
-            'warrantIssuance.stockholder_approval_date'
-          ),
-        }
-      : {}),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(typeof d.consideration_text === 'string' && d.consideration_text.length > 0
       ? { consideration_text: d.consideration_text }
       : {}),
