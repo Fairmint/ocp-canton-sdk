@@ -15,7 +15,10 @@
  */
 
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
-import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
+import {
+  type DamlStockClassConversionRatioAdjustmentData,
+  damlStockClassConversionRatioAdjustmentToNative,
+} from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
 import { damlStockClassSplitToNative } from '../../src/functions/OpenCapTable/stockClassSplit/damlToStockClassSplit';
 import { damlStockConsolidationToNative } from '../../src/functions/OpenCapTable/stockConsolidation/damlToStockConsolidation';
 import { damlStockReissuanceToNative } from '../../src/functions/OpenCapTable/stockReissuance/damlToStockReissuance';
@@ -352,7 +355,7 @@ describe('Stock Class Adjustment Converters', () => {
             rounding_type: 'OcfRoundingNormal',
           },
           comments: ['Anti-dilution adjustment'],
-        };
+        } satisfies DamlStockClassConversionRatioAdjustmentData;
 
         const result = damlStockClassConversionRatioAdjustmentToNative(damlData);
 

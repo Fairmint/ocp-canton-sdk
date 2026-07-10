@@ -2,23 +2,38 @@
  * DAML to OCF converter for StockClassConversionRatioAdjustment.
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
 
 /** DAML StockClassConversionRatioAdjustmentOcfData structure */
-export interface DamlStockClassConversionRatioAdjustmentData {
-  id: string;
-  date: string;
-  stock_class_id: string;
-  new_ratio_conversion_mechanism: {
-    conversion_price: { amount: string; currency: string };
-    ratio: {
-      numerator: string | number;
-      denominator: string | number;
-    };
-    rounding_type: string;
-  };
-  comments: string[];
+export type DamlStockClassConversionRatioAdjustmentData = DamlDataTypeFor<'stockClassConversionRatioAdjustment'>;
+
+function unreachableRoundingType(value: never): never {
+  throw new OcpValidationError(
+    'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type',
+    'Unsupported DAML rounding type',
+    {
+      code: OcpErrorCodes.INVALID_TYPE,
+      receivedValue: value,
+    }
+  );
+}
+
+function roundingTypeToNative(
+  value: DamlStockClassConversionRatioAdjustmentData['new_ratio_conversion_mechanism']['rounding_type']
+): 'CEILING' | 'FLOOR' | 'NORMAL' {
+  switch (value) {
+    case 'OcfRoundingCeiling':
+      return 'CEILING';
+    case 'OcfRoundingFloor':
+      return 'FLOOR';
+    case 'OcfRoundingNormal':
+      return 'NORMAL';
+    default:
+      return unreachableRoundingType(value);
+  }
 }
 
 /**
@@ -29,15 +44,6 @@ export interface DamlStockClassConversionRatioAdjustmentData {
 export function damlStockClassConversionRatioAdjustmentToNative(
   d: DamlStockClassConversionRatioAdjustmentData
 ): OcfStockClassConversionRatioAdjustment {
-  const numeratorStr =
-    typeof d.new_ratio_conversion_mechanism.ratio.numerator === 'number'
-      ? d.new_ratio_conversion_mechanism.ratio.numerator.toString()
-      : d.new_ratio_conversion_mechanism.ratio.numerator;
-  const denominatorStr =
-    typeof d.new_ratio_conversion_mechanism.ratio.denominator === 'number'
-      ? d.new_ratio_conversion_mechanism.ratio.denominator.toString()
-      : d.new_ratio_conversion_mechanism.ratio.denominator;
-
   return {
     object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
     id: d.id,
@@ -47,16 +53,11 @@ export function damlStockClassConversionRatioAdjustmentToNative(
       type: 'RATIO_CONVERSION',
       conversion_price: damlMonetaryToNative(d.new_ratio_conversion_mechanism.conversion_price),
       ratio: {
-        numerator: normalizeNumericString(numeratorStr),
-        denominator: normalizeNumericString(denominatorStr),
+        numerator: normalizeNumericString(d.new_ratio_conversion_mechanism.ratio.numerator),
+        denominator: normalizeNumericString(d.new_ratio_conversion_mechanism.ratio.denominator),
       },
-      rounding_type:
-        d.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingCeiling'
-          ? 'CEILING'
-          : d.new_ratio_conversion_mechanism.rounding_type === 'OcfRoundingFloor'
-            ? 'FLOOR'
-            : 'NORMAL',
+      rounding_type: roundingTypeToNative(d.new_ratio_conversion_mechanism.rounding_type),
     },
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
+    ...(d.comments.length ? { comments: d.comments } : {}),
   };
 }

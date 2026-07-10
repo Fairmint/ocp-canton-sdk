@@ -1,17 +1,12 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import type { OcfStockClassSplit } from '../../../types/native';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlStockClassSplitToNative } from './damlToStockClassSplit';
 
-export interface OcfStockClassSplitEvent {
-  object_type: 'TX_STOCK_CLASS_SPLIT';
-  id: string;
-  date: string;
-  stock_class_id: string;
-  split_ratio: { numerator: string; denominator: string };
-  comments?: string[];
-}
+export type OcfStockClassSplitEvent = OcfStockClassSplit;
 
 export type GetStockClassSplitAsOcfParams = GetByContractIdParams;
 export interface GetStockClassSplitAsOcfResult {
@@ -19,38 +14,15 @@ export interface GetStockClassSplitAsOcfResult {
   contractId: string;
 }
 
-/** Type alias for DAML StockClassSplit contract createArgument */
-type StockClassSplitCreateArgument = Fairmint.OpenCapTable.OCF.StockClassSplit.StockClassSplit;
-
 export async function getStockClassSplitAsOcf(
   client: LedgerJsonApiClient,
   params: GetStockClassSplitAsOcfParams
 ): Promise<GetStockClassSplitAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getStockClassSplitAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockClassSplit,
   });
-  const contract = createArgument as StockClassSplitCreateArgument;
-  const data = contract.split_data;
-
-  // Extract numerator and denominator from the split_ratio (OcfRatio type)
-  const splitRatioNumerator = data.split_ratio.numerator as string | number;
-  const splitRatioNumeratorStr =
-    typeof splitRatioNumerator === 'number' ? splitRatioNumerator.toString() : splitRatioNumerator;
-
-  const splitRatioDenominator = data.split_ratio.denominator as string | number;
-  const splitRatioDenominatorStr =
-    typeof splitRatioDenominator === 'number' ? splitRatioDenominator.toString() : splitRatioDenominator;
-
-  const event: OcfStockClassSplitEvent = {
-    object_type: 'TX_STOCK_CLASS_SPLIT',
-    id: data.id,
-    date: damlTimeToDateString(data.date, 'stockClassSplit.date'),
-    stock_class_id: data.stock_class_id,
-    split_ratio: {
-      numerator: normalizeNumericString(splitRatioNumeratorStr),
-      denominator: normalizeNumericString(splitRatioDenominatorStr),
-    },
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
-  };
+  const data = extractAndDecodeDamlEntityData('stockClassSplit', createArgument);
+  const event = damlStockClassSplitToNative(data);
   return { event, contractId: params.contractId };
 }

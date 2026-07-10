@@ -4,17 +4,10 @@
 
 import type { OcfStockReissuance } from '../../../types/native';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
 
 /** DAML StockReissuanceOcfData structure */
-export interface DamlStockReissuanceData {
-  id: string;
-  date: string;
-  security_id: string;
-  resulting_security_ids: string[];
-  reason_text: string | null;
-  split_transaction_id: string | null;
-  comments: string[];
-}
+export type DamlStockReissuanceData = DamlDataTypeFor<'stockReissuance'>;
 
 /**
  * Convert DAML StockReissuance data to native OCF format.
@@ -28,6 +21,6 @@ export function damlStockReissuanceToNative(d: DamlStockReissuanceData): OcfStoc
     resulting_security_ids: d.resulting_security_ids,
     ...(d.reason_text ? { reason_text: d.reason_text } : {}),
     ...(d.split_transaction_id ? { split_transaction_id: d.split_transaction_id } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),
+    ...(d.comments.length ? { comments: d.comments } : {}),
   };
 }

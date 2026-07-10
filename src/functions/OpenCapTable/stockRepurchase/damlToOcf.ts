@@ -4,21 +4,13 @@
 
 import type { OcfStockRepurchase } from '../../../types';
 import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
 
 /**
  * DAML StockRepurchase data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export interface DamlStockRepurchaseData {
-  id: string;
-  date: string;
-  security_id: string;
-  quantity: string;
-  price: { amount: string; currency: string };
-  balance_security_id?: string;
-  consideration_text?: string;
-  comments?: string[];
-}
+export type DamlStockRepurchaseData = DamlDataTypeFor<'stockRepurchase'>;
 
 /**
  * Convert DAML StockRepurchase data to native OCF format.
@@ -30,12 +22,12 @@ export function damlStockRepurchaseToNative(d: DamlStockRepurchaseData): OcfStoc
   return {
     object_type: 'TX_STOCK_REPURCHASE',
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, 'stockRepurchase.date'),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     price: damlMonetaryToNative(d.price),
     ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
     ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
-    ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
+    ...(d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }
