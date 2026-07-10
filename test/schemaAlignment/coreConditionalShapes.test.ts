@@ -1,4 +1,5 @@
-import { OcpValidationError, parseOcfObject } from '../../src';
+import { OcpValidationError } from '../../src/errors';
+import { parseOcfObject } from '../../src/utils/ocfZodSchemas';
 
 const documentBase = {
   object_type: 'DOCUMENT',
