@@ -219,6 +219,17 @@ describe('Entity Validators', () => {
       expect(() => validateContactInfo({ name: { legal_name: 'John Doe' } }, 'contact')).toThrow(OcpValidationError);
     });
 
+    it.each([
+      ['null phone collection', { name: { legal_name: 'John Doe' }, phone_numbers: null }],
+      ['null email collection', { name: { legal_name: 'John Doe' }, emails: null }],
+      [
+        'null phone collection alongside valid emails',
+        { name: { legal_name: 'John Doe' }, phone_numbers: null, emails: [] },
+      ],
+    ])('throws for %s', (_case, contact) => {
+      expect(() => validateContactInfo(contact, 'contact')).toThrow(OcpValidationError);
+    });
+
     it('throws for missing name', () => {
       expect(() => validateContactInfo({}, 'contact')).toThrow(OcpValidationError);
     });
@@ -251,6 +262,15 @@ describe('Entity Validators', () => {
 
     it('throws for empty contact info', () => {
       expect(() => validateContactInfoWithoutName({}, 'contact')).toThrow(OcpValidationError);
+    });
+
+    it.each([
+      ['null phone collection', { phone_numbers: null }],
+      ['null email collection', { emails: null }],
+      ['two null collections', { phone_numbers: null, emails: null }],
+      ['null email collection alongside valid phones', { phone_numbers: [], emails: null }],
+    ])('throws for %s', (_case, contact) => {
+      expect(() => validateContactInfoWithoutName(contact, 'contact')).toThrow(OcpValidationError);
     });
   });
 
@@ -309,6 +329,17 @@ describe('Entity Validators', () => {
           'issuer'
         )
       ).toThrow(OcpValidationError);
+    });
+
+    it.each([
+      ['subdivision code', { country_subdivision_of_formation: null }],
+      ['subdivision name', { country_subdivision_name_of_formation: null }],
+      [
+        'both subdivision fields',
+        { country_subdivision_of_formation: null, country_subdivision_name_of_formation: null },
+      ],
+    ])('rejects explicit null for %s', (_case, subdivision) => {
+      expect(() => validateIssuerData({ ...validIssuer, ...subdivision }, 'issuer')).toThrow(OcpValidationError);
     });
   });
 
@@ -512,6 +543,13 @@ describe('Entity Validators', () => {
       expect(() =>
         validateDocumentData({ ...validDocumentWithPath, uri: 'https://example.com/contract.pdf' }, 'document')
       ).toThrow(OcpValidationError);
+    });
+
+    it.each([
+      ['path', { ...validDocumentWithPath, path: '' }],
+      ['uri', { ...validDocumentWithUri, uri: '' }],
+    ])('throws for an empty %s', (_field, document) => {
+      expect(() => validateDocumentData(document, 'document')).toThrow(OcpValidationError);
     });
   });
 
