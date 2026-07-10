@@ -35,7 +35,7 @@ function isValidCalendarDate(value: string): boolean {
   const month = Number(value.slice(5, 7));
   const day = Number(value.slice(8, 10));
 
-  if (month < 1 || month > 12 || day < 1) return false;
+  if (year < 1 || month < 1 || month > 12 || day < 1) return false;
 
   const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
   const daysInMonth = month === 2 ? (isLeapYear ? 29 : 28) : [4, 6, 9, 11].includes(month) ? 30 : 31;
