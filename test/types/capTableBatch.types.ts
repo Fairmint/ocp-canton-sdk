@@ -43,6 +43,7 @@ const publicOcfObjectExcludesLegacyPlanSecurity: Assert<
 
 void publicOcfObjectIsExact;
 void publicOcfObjectExcludesLegacyPlanSecurity;
+
 function verifyCapTableBatchContract(
   batch: CapTableBatch,
   stakeholder: OcfStakeholder,
@@ -109,6 +110,7 @@ function verifyCapTableBatchContract(
     security_id: 'security-2',
   };
   void wrongObjectType;
+
   const createOperation: OcfCreateOperation = {
     type: 'stakeholder',
     data: stakeholder,
@@ -121,6 +123,7 @@ function verifyCapTableBatchContract(
     data: stockAcceptance,
   };
   void invalidIdentityOperation;
+
   const operations: CapTableBatchOperations = {
     creates: [
       { type: 'stakeholder', data: stakeholder },

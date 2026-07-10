@@ -103,6 +103,7 @@ function verifyPublishedBatchApi(
     security_id: 'security-2',
   };
   void wrongObjectType;
+
   const operations: CapTableBatchOperations = {
     creates: [{ type: 'stakeholder', data: stakeholder }],
     edits: [{ type: 'issuer', data: issuer }],

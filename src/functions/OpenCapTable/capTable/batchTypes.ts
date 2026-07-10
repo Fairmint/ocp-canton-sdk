@@ -615,6 +615,7 @@ export type DamlDataTypeFor<EntityType extends OcfEntityType> = Extract<
 export type DamlEntityArguments = {
   [EntityType in OcfEntityType]: readonly [type: EntityType, damlData: DamlDataTypeFor<EntityType>];
 }[OcfEntityType];
+
 /** Correlated entity-kind and native-data tuples accepted by the converter dispatcher. */
 export type OcfEntityArguments = {
   [EntityType in OcfEntityType]: readonly [type: EntityType, data: OcfDataTypeFor<EntityType>];
