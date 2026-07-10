@@ -9,6 +9,7 @@
 import {
   type CapTableBatch,
   type CapTableBatchOperations,
+  convertOperationToDaml,
   convertToDaml,
   type OcfCreateOperation,
   type OcfEntityDataMap,
@@ -115,7 +116,11 @@ function verifyCapTableBatchContract(
     type: 'stakeholder',
     data: stakeholder,
   };
+  convertOperationToDaml(createOperation);
   void createOperation;
+
+  // @ts-expect-error operation conversion preserves the entity kind/payload correlation
+  convertOperationToDaml({ type: 'stockClass', data: stakeholder });
 
   // @ts-expect-error operation objects preserve identity for structurally identical payloads
   const invalidIdentityOperation: OcfCreateOperation = {

@@ -2,6 +2,7 @@
 /** Compile-time smoke tests for declarations exported by the built SDK. */
 
 import {
+  convertOperationToDaml,
   convertToDaml,
   type CapTableBatch,
   type CapTableBatchOperations,
@@ -110,6 +111,15 @@ function verifyPublishedBatchApi(
     deletes: [{ type: 'stockClass', id: stockClass.id }],
   };
   void operations;
+
+  const createOperation: OcfCreateOperation = {
+    type: 'stakeholder',
+    data: stakeholder,
+  };
+  convertOperationToDaml(createOperation);
+
+  // @ts-expect-error published operation converter preserves exact kind/payload correlation
+  convertOperationToDaml({ type: 'stockClass', data: stakeholder });
 
   // @ts-expect-error published operation declarations preserve exact payload identity
   const invalidIdentityOperation: OcfCreateOperation = {

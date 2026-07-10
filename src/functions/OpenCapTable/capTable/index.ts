@@ -25,7 +25,7 @@ export {
   type BatchItemMeta,
   type CapTableBatchParams,
 } from './CapTableBatch';
-export { convertToDaml } from './ocfToDaml';
+export { convertOperationToDaml, convertToDaml } from './ocfToDaml';
 
 // DAML to OCF conversion (read operations)
 export {

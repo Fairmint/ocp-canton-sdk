@@ -180,6 +180,7 @@ describe('PlanSecurity Type Converters', () => {
           custom_id: 'custom-001',
           stakeholder_id: 'stakeholder-001',
           stock_plan_id: 'plan-001',
+          compensation_type: 'OPTION',
           quantity: '10000',
           expiration_date: null,
           termination_exercise_windows: [],
