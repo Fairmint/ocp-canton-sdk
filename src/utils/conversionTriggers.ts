@@ -1,6 +1,6 @@
 import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../errors';
+import { triggerFieldsToDaml } from '../functions/OpenCapTable/shared/triggerFields';
 import type { ConversionTriggerFor, ConversionTriggerType } from '../types/native';
-import { dateStringToDAMLTime } from './typeConversions';
 
 const CONVERSION_TRIGGER_TYPES: ReadonlySet<string> = new Set([
   'AUTOMATIC_ON_CONDITION',
@@ -336,45 +336,10 @@ export interface DamlConversionTriggerTiming {
   end_date: string | null;
 }
 
-function requiredTriggerDateToDaml(value: unknown, dateFieldPath: string): string {
-  return dateStringToDAMLTime(value, dateFieldPath);
-}
-
 /** Convert the timing fields of an already-validated trigger to their canonical DAML representation. */
 export function conversionTriggerTimingToDaml<ConversionRight>(
   trigger: ConversionTriggerFor<ConversionRight>,
   source: string
 ): DamlConversionTriggerTiming {
-  switch (trigger.type) {
-    case 'AUTOMATIC_ON_CONDITION':
-    case 'ELECTIVE_ON_CONDITION':
-      return {
-        trigger_date: null,
-        trigger_condition: trigger.trigger_condition,
-        start_date: null,
-        end_date: null,
-      };
-    case 'AUTOMATIC_ON_DATE':
-      return {
-        trigger_date: requiredTriggerDateToDaml(trigger.trigger_date, `${source}.trigger_date`),
-        trigger_condition: null,
-        start_date: null,
-        end_date: null,
-      };
-    case 'ELECTIVE_IN_RANGE':
-      return {
-        trigger_date: null,
-        trigger_condition: null,
-        start_date: requiredTriggerDateToDaml(trigger.start_date, `${source}.start_date`),
-        end_date: requiredTriggerDateToDaml(trigger.end_date, `${source}.end_date`),
-      };
-    case 'ELECTIVE_AT_WILL':
-    case 'UNSPECIFIED':
-      return {
-        trigger_date: null,
-        trigger_condition: null,
-        start_date: null,
-        end_date: null,
-      };
-  }
+  return triggerFieldsToDaml(trigger, trigger.type, source);
 }

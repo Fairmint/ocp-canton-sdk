@@ -303,7 +303,7 @@ describe('exact conversion-trigger converter behavior', () => {
     requireFirst(daml.conversion_triggers, 'DAML convertible trigger').trigger_condition = 'not allowed';
 
     expect(() => damlConvertibleIssuanceDataToNative(daml)).toThrow(
-      /trigger_condition is not valid for conversion trigger type ELECTIVE_AT_WILL/
+      /trigger_condition is not allowed for ELECTIVE_AT_WILL triggers/
     );
   });
 

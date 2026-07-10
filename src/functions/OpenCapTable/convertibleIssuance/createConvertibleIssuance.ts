@@ -1,6 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { ConvertibleConversionTrigger, ConvertibleType, OcfConvertibleIssuance } from '../../../types/native';
-import { conversionTriggerTimingToDaml, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -9,6 +9,7 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 import { canonicalOptionalNumericToDaml, convertibleMechanismToDaml } from '../shared/conversionMechanisms';
+import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
 export type ConvertibleIssuanceInput = Omit<OcfConvertibleIssuance, 'object_type'> & {
@@ -62,6 +63,7 @@ function triggerToDaml(
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.OcfConvertibleConversionTrigger {
   const source = `convertibleIssuance.conversion_triggers.${index}`;
   const parsed = parseConversionTriggerFields(trigger, source);
+  const triggerFields = triggerFieldsToDaml(parsed, parsed.type, source);
 
   return {
     type_: triggerTypeToDaml(parsed.type),
@@ -69,7 +71,7 @@ function triggerToDaml(
     conversion_right: conversionRightToDaml(parsed.conversion_right),
     nickname: optionalString(parsed.nickname),
     trigger_description: optionalString(parsed.trigger_description),
-    ...conversionTriggerTimingToDaml(parsed, source),
+    ...triggerFields,
   };
 }
 
