@@ -21,6 +21,7 @@ import {
 } from '../../../utils/typeConversions';
 import { ratioMechanismFromDaml, warrantMechanismFromDaml } from '../shared/conversionMechanisms';
 import { readSingleContract } from '../shared/singleContractRead';
+import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
 export interface GetWarrantIssuanceAsOcfParams extends GetByContractIdParams {}
 
@@ -155,17 +156,16 @@ function triggerFromDaml(value: unknown, index: number): WarrantExerciseTrigger 
   const source = `warrantIssuance.exercise_triggers.${index}`;
   const trigger = requireRecord(value, source);
   assertDamlConversionTriggerFieldNames(trigger, source);
+  const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, `${source}.type`));
+  const triggerFields = triggerFieldsFromDaml(trigger, type, source);
   return parseConversionTriggerFields(
     {
-      type: mapDamlTriggerTypeToOcf(requireString(trigger.type_, `${source}.type`)),
+      type,
       trigger_id: requireString(trigger.trigger_id, `${source}.trigger_id`),
       conversion_right: conversionRightFromDaml(trigger.conversion_right),
       nickname: trigger.nickname,
       trigger_description: trigger.trigger_description,
-      trigger_date: optionalDamlTimeToDateString(trigger.trigger_date, `${source}.trigger_date`),
-      trigger_condition: trigger.trigger_condition,
-      start_date: optionalDamlTimeToDateString(trigger.start_date, `${source}.start_date`),
-      end_date: optionalDamlTimeToDateString(trigger.end_date, `${source}.end_date`),
+      ...triggerFields,
     },
     source,
     { nullIsAbsent: true, unexpectedFieldCode: OcpErrorCodes.SCHEMA_MISMATCH }

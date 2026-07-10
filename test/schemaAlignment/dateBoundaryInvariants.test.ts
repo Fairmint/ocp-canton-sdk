@@ -15,14 +15,13 @@ const DATE_CONVERTERS = new Set([
 ]);
 
 const REQUIRED_DATE_CONVERTERS = new Set(['dateStringToDAMLTime', 'damlTimeToDateString']);
+const DISCRIMINATED_TRIGGER_DATE_FIELDS = new Set(['trigger_date', 'start_date', 'end_date']);
+const TRIGGER_FIELDS_HELPER = `${path.sep}shared${path.sep}triggerFields.ts`;
 const OPTIONAL_DATE_FIELDS = new Set([
   'accrual_end_date',
   'board_approval_date',
-  'end_date',
   'expires_at',
-  'start_date',
   'stockholder_approval_date',
-  'trigger_date',
   'warrant_expiration_date',
 ]);
 
@@ -82,10 +81,14 @@ describe('date boundary source invariants', () => {
             const literalPath = ts.isStringLiteralLike(fieldPath) ? fieldPath.text : undefined;
             const templatePath = ts.isTemplateExpression(fieldPath) && fieldPath.getText(sourceFile).includes('.');
             const forwardedPath = ts.isIdentifier(fieldPath) && ['fieldPath', 'dateFieldPath'].includes(fieldPath.text);
+            const constructedPath =
+              ts.isCallExpression(fieldPath) &&
+              ts.isIdentifier(fieldPath.expression) &&
+              fieldPath.expression.text === 'fieldPath';
 
             if (literalPath !== undefined && (!literalPath.includes('.') || literalPath === 'date')) {
               violations.push(`${location(sourceFile, fieldPath)} date fieldPath must be entity-specific`);
-            } else if (literalPath === undefined && !templatePath && !forwardedPath) {
+            } else if (literalPath === undefined && !templatePath && !forwardedPath && !constructedPath) {
               violations.push(
                 `${location(sourceFile, fieldPath)} date fieldPath must be literal or explicitly forwarded`
               );
@@ -94,6 +97,11 @@ describe('date boundary source invariants', () => {
 
           if (value !== undefined && ts.isPropertyAccessExpression(value)) {
             const field = value.name.text;
+            if (DISCRIMINATED_TRIGGER_DATE_FIELDS.has(field) && !file.endsWith(TRIGGER_FIELDS_HELPER)) {
+              violations.push(
+                `${location(sourceFile, node)} discriminated ${field} must use the shared trigger-fields boundary`
+              );
+            }
             if (OPTIONAL_DATE_FIELDS.has(field) && REQUIRED_DATE_CONVERTERS.has(node.expression.text)) {
               violations.push(`${location(sourceFile, node)} optional ${field} must use an optional date converter`);
             }

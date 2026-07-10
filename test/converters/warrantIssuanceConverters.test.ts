@@ -7,7 +7,10 @@
  */
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError, type OcpErrorCode } from '../../src/errors';
-import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
+import {
+  warrantIssuanceDataToDaml,
+  type WarrantTriggerTypeInput,
+} from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import type { RatioConversionMechanism, WarrantExerciseTrigger } from '../../src/types/native';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
@@ -89,10 +92,9 @@ describe('WarrantIssuance round-trip equivalence', () => {
   }
 
   function stockClassTrigger(overrides: Record<string, unknown> = {}) {
-    return {
-      type: 'AUTOMATIC_ON_CONDITION' as const,
+    const triggerType = (overrides.type ?? 'AUTOMATIC_ON_CONDITION') as WarrantTriggerTypeInput;
+    const trigger = {
       trigger_id: 'w_stock_ratio',
-      trigger_condition: 'X',
       conversion_right: {
         type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
         converts_to_stock_class_id: '16faa6e5-b13a-4dda-bad2-885fccd2975a',
@@ -104,7 +106,11 @@ describe('WarrantIssuance round-trip equivalence', () => {
         },
       },
       ...overrides,
+      type: triggerType,
     };
+    return triggerType === 'AUTOMATIC_ON_CONDITION' || triggerType === 'ELECTIVE_ON_CONDITION'
+      ? { trigger_condition: 'X', ...trigger }
+      : trigger;
   }
 
   function stockClassTriggerWithTiming(timing: Record<string, unknown>): WarrantExerciseTrigger {
@@ -270,6 +276,57 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(damlWarrantIssuanceDataToNative(withoutExpiration).warrant_expiration_date).toBeUndefined();
   });
 
+  it('decodes only the required AUTOMATIC_ON_DATE trigger_date', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const trigger = {
+      ...daml.exercise_triggers[0],
+      type_: 'OcfTriggerTypeTypeAutomaticOnDate',
+      trigger_date: '2024-01-15T23:30:00-05:00',
+      trigger_condition: null,
+      start_date: null,
+      end_date: null,
+    };
+    const result = damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: [trigger] });
+
+    expect(result.exercise_triggers[0]).toMatchObject({ type: 'AUTOMATIC_ON_DATE', trigger_date: '2024-01-15' });
+    expect(result.exercise_triggers[0]).not.toHaveProperty('start_date');
+    expect(result.exercise_triggers[0]).not.toHaveProperty('end_date');
+  });
+
+  it('decodes only the required ELECTIVE_IN_RANGE dates', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const trigger = {
+      ...daml.exercise_triggers[0],
+      type_: 'OcfTriggerTypeTypeElectiveInRange',
+      trigger_date: null,
+      trigger_condition: null,
+      start_date: '2024-01-15T00:00:00Z',
+      end_date: '2024-02-15T00:00:00Z',
+    };
+    const result = damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: [trigger] });
+
+    expect(result.exercise_triggers[0]).toMatchObject({
+      type: 'ELECTIVE_IN_RANGE',
+      start_date: '2024-01-15',
+      end_date: '2024-02-15',
+    });
+    expect(result.exercise_triggers[0]).not.toHaveProperty('trigger_date');
+  });
+
+  it('rejects date fields forbidden by the trigger discriminator on readback', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    expectInvalidWarrantDate(
+      () =>
+        damlWarrantIssuanceDataToNative({
+          ...daml,
+          exercise_triggers: [{ ...daml.exercise_triggers[0], trigger_date: '2024-01-15T00:00:00Z' }],
+        }),
+      'warrantIssuance.exercise_triggers.0.trigger_date',
+      '2024-01-15T00:00:00Z',
+      OcpErrorCodes.SCHEMA_MISMATCH
+    );
+  });
+
   test.each(['trigger_date', 'start_date', 'end_date'] as const)(
     'rejects a present non-string exercise trigger %s on readback',
     (field) => {
@@ -280,20 +337,16 @@ describe('WarrantIssuance round-trip equivalence', () => {
       });
       const trigger = daml.exercise_triggers[0];
 
-      try {
-        damlWarrantIssuanceDataToNative({
-          ...daml,
-          exercise_triggers: [{ ...trigger, [field]: invalidDate }],
-        });
-        throw new Error('Expected trigger date validation to fail');
-      } catch (error) {
-        expect(error).toBeInstanceOf(OcpValidationError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_TYPE,
-          fieldPath: `warrantIssuance.exercise_triggers.0.${field}`,
-          receivedValue: invalidDate,
-        });
-      }
+      expectInvalidWarrantDate(
+        () =>
+          damlWarrantIssuanceDataToNative({
+            ...daml,
+            exercise_triggers: [{ ...trigger, [field]: invalidDate }],
+          }),
+        `warrantIssuance.exercise_triggers.0.${field}`,
+        invalidDate,
+        OcpErrorCodes.INVALID_TYPE
+      );
     }
   );
 
@@ -306,20 +359,16 @@ describe('WarrantIssuance round-trip equivalence', () => {
       });
       const trigger = daml.exercise_triggers[0];
 
-      try {
-        damlWarrantIssuanceDataToNative({
-          ...daml,
-          exercise_triggers: [{ ...trigger, [field]: '' }],
-        });
-        throw new Error('Expected trigger date validation to fail');
-      } catch (error) {
-        expect(error).toBeInstanceOf(OcpValidationError);
-        expect(error).toMatchObject({
-          code: OcpErrorCodes.INVALID_FORMAT,
-          fieldPath: `warrantIssuance.exercise_triggers.0.${field}`,
-          receivedValue: '',
-        });
-      }
+      expectInvalidWarrantDate(
+        () =>
+          damlWarrantIssuanceDataToNative({
+            ...daml,
+            exercise_triggers: [{ ...trigger, [field]: '' }],
+          }),
+        `warrantIssuance.exercise_triggers.0.${field}`,
+        '',
+        OcpErrorCodes.INVALID_FORMAT
+      );
     }
   );
 
@@ -381,6 +430,21 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   );
 
+  it('rejects date fields forbidden by the trigger discriminator on write', () => {
+    expectInvalidWarrantDate(
+      () =>
+        warrantIssuanceDataToDaml({
+          ...baseWarrantIssuance,
+          exercise_triggers: [
+            { ...baseExerciseTrigger, trigger_date: '2024-01-15' } as unknown as WarrantExerciseTrigger,
+          ],
+        }),
+      'warrantIssuance.exercise_triggers.0.trigger_date',
+      '2024-01-15',
+      OcpErrorCodes.INVALID_FORMAT
+    );
+  });
+
   test.each(['trigger_date', 'start_date', 'end_date'] as const)(
     'enforces required outer trigger write boundary semantics for %s',
     (field) => {
@@ -429,7 +493,12 @@ describe('WarrantIssuance round-trip equivalence', () => {
           type: 'AUTOMATIC_ON_DATE',
           trigger_date: '2024-01-15T23:30:00-05:00',
         }),
-        expected: { trigger_date: '2024-01-15T00:00:00.000Z' },
+        expected: {
+          trigger_date: '2024-01-15T00:00:00.000Z',
+          trigger_condition: null,
+          start_date: null,
+          end_date: null,
+        },
       },
       {
         trigger: stockClassTriggerWithTiming({
@@ -438,6 +507,8 @@ describe('WarrantIssuance round-trip equivalence', () => {
           end_date: '2024-01-15T12:00:00Z',
         }),
         expected: {
+          trigger_date: null,
+          trigger_condition: null,
           start_date: '2024-01-15T00:00:00.000Z',
           end_date: '2024-01-15T00:00:00.000Z',
         },
