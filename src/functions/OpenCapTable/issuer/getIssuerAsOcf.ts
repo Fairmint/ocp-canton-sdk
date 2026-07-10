@@ -80,7 +80,7 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
     id: dataWithId.id,
     legal_name: damlData.legal_name,
     country_of_formation: damlData.country_of_formation,
-    formation_date: damlTimeToDateString(damlData.formation_date),
+    formation_date: damlTimeToDateString(damlData.formation_date, 'issuer.formation_date'),
     ...subdivision,
     tax_ids: [],
     comments: [],

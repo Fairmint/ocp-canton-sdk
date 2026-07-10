@@ -6,7 +6,8 @@ import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import type { DamlConvertibleConversionData } from './damlToOcf';
 
-type DamlConvertibleConversionInput = Pick<DamlConvertibleConversionData, 'id' | 'date' | 'security_id'> & {
+type DamlConvertibleConversionInput = Pick<DamlConvertibleConversionData, 'id' | 'security_id'> & {
+  date?: unknown;
   reason_text?: string | null;
   trigger_id?: string | null;
   resulting_security_ids?: string[] | null;
@@ -21,7 +22,6 @@ function isDamlConvertibleConversionData(value: unknown): value is DamlConvertib
 
   return (
     typeof value.id === 'string' &&
-    typeof value.date === 'string' &&
     typeof value.security_id === 'string' &&
     (value.reason_text === undefined || value.reason_text === null || typeof value.reason_text === 'string') &&
     (value.trigger_id === undefined || value.trigger_id === null || typeof value.trigger_id === 'string') &&

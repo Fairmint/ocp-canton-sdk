@@ -336,6 +336,10 @@ export interface DamlConversionTriggerTiming {
   end_date: string | null;
 }
 
+function requiredTriggerDateToDaml(value: unknown, dateFieldPath: string): string {
+  return dateStringToDAMLTime(value, dateFieldPath);
+}
+
 /** Convert the timing fields of an already-validated trigger to their canonical DAML representation. */
 export function conversionTriggerTimingToDaml<ConversionRight>(
   trigger: ConversionTriggerFor<ConversionRight>,
@@ -352,7 +356,7 @@ export function conversionTriggerTimingToDaml<ConversionRight>(
       };
     case 'AUTOMATIC_ON_DATE':
       return {
-        trigger_date: dateStringToDAMLTime(trigger.trigger_date, `${source}.trigger_date`),
+        trigger_date: requiredTriggerDateToDaml(trigger.trigger_date, `${source}.trigger_date`),
         trigger_condition: null,
         start_date: null,
         end_date: null,
@@ -361,8 +365,8 @@ export function conversionTriggerTimingToDaml<ConversionRight>(
       return {
         trigger_date: null,
         trigger_condition: null,
-        start_date: dateStringToDAMLTime(trigger.start_date, `${source}.start_date`),
-        end_date: dateStringToDAMLTime(trigger.end_date, `${source}.end_date`),
+        start_date: requiredTriggerDateToDaml(trigger.start_date, `${source}.start_date`),
+        end_date: requiredTriggerDateToDaml(trigger.end_date, `${source}.end_date`),
       };
     case 'ELECTIVE_AT_WILL':
     case 'UNSPECIFIED':
