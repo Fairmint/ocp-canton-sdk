@@ -286,7 +286,13 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
     next_condition_ids: c.next_condition_ids,
   };
   const quantity = typeof c.quantity === 'string' ? normalizeNumericString(c.quantity) : undefined;
-  const portion = c.portion === null ? undefined : damlVestingConditionPortionToNative(c.portion);
+  const rawPortion: unknown = c.portion;
+  const portion =
+    rawPortion === null || rawPortion === undefined
+      ? undefined
+      : damlVestingConditionPortionToNative(
+          rawPortion as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion
+        );
 
   if (portion !== undefined && quantity === undefined) return { ...common, portion };
   if (quantity !== undefined && portion === undefined) return { ...common, quantity };
