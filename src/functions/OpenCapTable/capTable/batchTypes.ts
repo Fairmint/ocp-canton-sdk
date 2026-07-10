@@ -214,7 +214,7 @@ type OcfEntityRegistry = {
 /**
  * Single source of truth for entity-level metadata.
  *
- * Legacy PlanSecurity objects normalize to the canonical EquityCompensation family
+ * Schema-supported PlanSecurity objects normalize to the canonical EquityCompensation family
  * before reaching typed batch operations.
  */
 export const ENTITY_REGISTRY = {
@@ -439,7 +439,6 @@ export const ENTITY_REGISTRY = {
     objectType: 'STOCK_PLAN',
     templateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
     dataField: 'plan_data',
-    dataFieldFallbacks: ['stock_plan_data'],
     capTableField: 'stock_plans',
     operations: mutableEntityOperations('StockPlan'),
   },
@@ -708,7 +707,8 @@ type OcfObjectTypeToEntityTypeMap = {
  * Canonical ledger-backed OCF `object_type` to SDK entity reader mapping.
  *
  * This is derived from {@link ENTITY_REGISTRY}; it must not become a second
- * hand-maintained entity registry. Legacy aliases normalize before lookup.
+ * hand-maintained entity registry. Schema-supported PlanSecurity wrappers normalize
+ * to EquityCompensation before lookup.
  */
 export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = Object.fromEntries(
   Object.entries(ENTITY_REGISTRY).map(([entityType, entry]) => [entry.objectType, entityType])
