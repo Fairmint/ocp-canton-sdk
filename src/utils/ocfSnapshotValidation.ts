@@ -416,7 +416,7 @@ export function validateOcfCapTableSnapshot(
         message: `Duplicate security_id ${securityId}`,
         path: 'security_id',
         referenceId: securityId,
-        targetObjectTypes: matches.map((match) => match.canonicalObjectType).sort(compareText),
+        targetObjectTypes: [...new Set(matches.map((match) => match.canonicalObjectType))].sort(compareText),
         count: matches.length,
       });
     }

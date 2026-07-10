@@ -322,6 +322,21 @@ describe('validateOcfCapTableSnapshot', () => {
     ]);
   });
 
+  it('reports each canonical object type once for a duplicate security id', () => {
+    const result = validateOcfCapTableSnapshot([
+      { object_type: 'ISSUER', id: 'issuer-1' },
+      { object_type: 'TX_STOCK_ISSUANCE', id: 'stock-1', security_id: 'duplicate-security' },
+      { object_type: 'TX_STOCK_ISSUANCE', id: 'stock-2', security_id: 'duplicate-security' },
+    ]);
+
+    expect(result.issues.find((issue) => issue.code === 'DUPLICATE_SECURITY_ID')).toEqual(
+      expect.objectContaining({
+        targetObjectTypes: ['TX_STOCK_ISSUANCE'],
+        count: 2,
+      })
+    );
+  });
+
   it('validates vesting condition identity and trigger kind from the referenced issuance', () => {
     const objects: OcfCapTableSnapshotObject[] = [
       { object_type: 'ISSUER', id: 'issuer-1' },
