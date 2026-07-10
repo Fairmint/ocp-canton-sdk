@@ -348,19 +348,19 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
         const trigger_description: string | undefined =
           typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
         const trigger_date: string | undefined =
-          typeof r.trigger_date === 'string' && r.trigger_date.length
-            ? damlTimeToDateString(r.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date')
-            : undefined;
+          r.trigger_date === null || r.trigger_date === undefined
+            ? undefined
+            : damlTimeToDateString(r.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date');
         const trigger_condition: string | undefined =
           typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
         const start_date: string | undefined =
-          typeof r.start_date === 'string' && r.start_date.length
-            ? damlTimeToDateString(r.start_date, 'warrantIssuance.exercise_triggers[].start_date')
-            : undefined;
+          r.start_date === null || r.start_date === undefined
+            ? undefined
+            : damlTimeToDateString(r.start_date, 'warrantIssuance.exercise_triggers[].start_date');
         const end_date: string | undefined =
-          typeof r.end_date === 'string' && r.end_date.length
-            ? damlTimeToDateString(r.end_date, 'warrantIssuance.exercise_triggers[].end_date')
-            : undefined;
+          r.end_date === null || r.end_date === undefined
+            ? undefined
+            : damlTimeToDateString(r.end_date, 'warrantIssuance.exercise_triggers[].end_date');
 
         const conversion_right: WarrantTriggerConversionRight = mapAnyConversionRightFromDaml(r.conversion_right);
 

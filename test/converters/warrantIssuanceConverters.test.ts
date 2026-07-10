@@ -174,6 +174,75 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   );
 
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'rejects a present non-string exercise trigger %s on readback',
+    (field) => {
+      const invalidDate = { seconds: 1 };
+      const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+      const trigger = daml.exercise_triggers[0];
+
+      try {
+        damlWarrantIssuanceDataToNative({
+          ...daml,
+          exercise_triggers: [{ ...trigger, [field]: invalidDate }],
+        });
+        throw new Error('Expected trigger date validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: `warrantIssuance.exercise_triggers[].${field}`,
+          receivedValue: invalidDate,
+        });
+      }
+    }
+  );
+
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'rejects a present empty exercise trigger %s on readback',
+    (field) => {
+      const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+      const trigger = daml.exercise_triggers[0];
+
+      try {
+        damlWarrantIssuanceDataToNative({
+          ...daml,
+          exercise_triggers: [{ ...trigger, [field]: '' }],
+        });
+        throw new Error('Expected trigger date validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `warrantIssuance.exercise_triggers[].${field}`,
+          receivedValue: '',
+        });
+      }
+    }
+  );
+
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'omits a null or absent exercise trigger %s on readback',
+    (field) => {
+      const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+      const trigger = { ...daml.exercise_triggers[0] } as unknown as Record<string, unknown>;
+      const absentTrigger = { ...trigger };
+      delete absentTrigger[field];
+
+      const withNull = damlWarrantIssuanceDataToNative({
+        ...daml,
+        exercise_triggers: [{ ...trigger, [field]: null }],
+      }).exercise_triggers[0] as unknown as Record<string, unknown>;
+      const withoutField = damlWarrantIssuanceDataToNative({
+        ...daml,
+        exercise_triggers: [absentTrigger],
+      }).exercise_triggers[0] as unknown as Record<string, unknown>;
+
+      expect(withNull[field]).toBeUndefined();
+      expect(withoutField[field]).toBeUndefined();
+    }
+  );
+
   test('STOCK_CLASS_CONVERSION_RIGHT rejects non-NORMAL rounding_type (not persisted in DAML)', () => {
     const input = {
       ...baseWarrantIssuance,
