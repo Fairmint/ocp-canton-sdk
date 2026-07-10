@@ -7,6 +7,7 @@ import {
   dateStringToDAMLTime,
   monetaryToDaml,
   normalizeNumericString,
+  optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
 
@@ -48,9 +49,12 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
     stock_class_id: d.stock_class_id,
-    date: dateStringToDAMLTime(d.date),
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    date: dateStringToDAMLTime(d.date, 'stockIssuance.date'),
+    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockIssuance.board_approval_date'),
+    stockholder_approval_date: optionalDateStringToDAMLTime(
+      d.stockholder_approval_date,
+      'stockIssuance.stockholder_approval_date'
+    ),
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions.map((e) => ({
       description: e.description,
@@ -73,7 +77,7 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
         return parseFloat(normalized) > 0;
       })
       .map((v) => ({
-        date: dateStringToDAMLTime(v.date),
+        date: dateStringToDAMLTime(v.date, 'stockIssuance.vestings[].date'),
         amount: normalizeNumericString(v.amount),
       })),
     cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,

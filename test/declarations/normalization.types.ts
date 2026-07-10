@@ -1,12 +1,6 @@
 /** Compile-time contracts for canonicalization helpers in the built SDK declarations. */
 
-import type { OcfPlanSecurityIssuance } from '../../dist/types/native';
-import {
-  deepNormalizeNumericStrings,
-  normalizeEntityType,
-  normalizeObjectType,
-  normalizeOcfData,
-} from '../../dist/utils/planSecurityAliases';
+import { deepNormalizeNumericStrings, normalizeOcfData } from '../../dist/utils/ocfNormalization';
 
 const normalizedNumericString: string = deepNormalizeNumericStrings('1.00' as const);
 void normalizedNumericString;
@@ -15,18 +9,6 @@ void normalizedNumericString;
 const staleNumericLiteral: '1.00' = deepNormalizeNumericStrings('1.00' as const);
 void staleNumericLiteral;
 
-const normalizedEntity = normalizeEntityType('planSecurityIssuance');
-const exactEntity: 'equityCompensationIssuance' = normalizedEntity;
-void exactEntity;
-
-const normalizedObjectType = normalizeObjectType('TX_PLAN_SECURITY_ISSUANCE');
-const exactObjectType: 'TX_EQUITY_COMPENSATION_ISSUANCE' = normalizedObjectType;
-void exactObjectType;
-
-declare const planSecurityIssuance: OcfPlanSecurityIssuance;
-const normalizedData: Record<string, unknown> = normalizeOcfData(planSecurityIssuance);
+declare const ocfData: Record<string, unknown>;
+const normalizedData: Record<string, unknown> = normalizeOcfData(ocfData);
 void normalizedData;
-
-// @ts-expect-error built declarations must not claim normalization preserves a PlanSecurity object shape
-const unsoundPlanSecurityClaim: OcfPlanSecurityIssuance = normalizeOcfData(planSecurityIssuance);
-void unsoundPlanSecurityClaim;

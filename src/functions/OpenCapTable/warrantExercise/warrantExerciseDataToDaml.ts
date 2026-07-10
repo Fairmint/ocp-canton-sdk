@@ -31,7 +31,7 @@ export function warrantExerciseDataToDaml(d: OcfWarrantExercise): DamlWarrantExe
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'warrantExercise.date'),
     security_id: d.security_id,
     trigger_id: d.trigger_id,
     // DAML retains this ledger-only field; canonical OCF has no corresponding input.

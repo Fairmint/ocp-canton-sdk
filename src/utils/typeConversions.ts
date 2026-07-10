@@ -71,7 +71,7 @@ export function tryIsoDateToDateString(value: unknown): string | null {
   return value.slice(0, 10);
 }
 
-function requireIsoDate(value: unknown, fieldPath: string): { source: string; date: string } {
+function requireIsoDate(value: unknown, fieldPath: string): string {
   if (typeof value !== 'string') {
     throw new OcpValidationError(fieldPath, 'Expected a date string', {
       expectedType: DATE_EXPECTED_TYPE,
@@ -81,7 +81,7 @@ function requireIsoDate(value: unknown, fieldPath: string): { source: string; da
   }
 
   const date = tryIsoDateToDateString(value);
-  if (date !== null) return { source: value, date };
+  if (date !== null) return date;
 
   throw new OcpValidationError(fieldPath, `Expected a valid ${DATE_EXPECTED_TYPE}`, {
     expectedType: DATE_EXPECTED_TYPE,
@@ -91,13 +91,33 @@ function requireIsoDate(value: unknown, fieldPath: string): { source: string; da
 }
 
 /**
- * Convert a valid OCF date to DAML Time format. RFC 3339 date-times are validated and preserved exactly; date-only
- * values receive a UTC midnight suffix.
+ * Convert a valid OCF date to canonical DAML Time format.
+ *
+ * OCF dates are lexical calendar dates, even when callers provide an RFC 3339
+ * date-time with an offset. Always encode the validated date prefix as UTC
+ * midnight so ledger normalization cannot shift it to a different OCF date.
  */
-export function dateStringToDAMLTime(value: string, fieldPath?: string): string;
-export function dateStringToDAMLTime(value: unknown, fieldPath = 'date'): string {
-  const { source, date } = requireIsoDate(value, fieldPath);
-  return source === date ? `${date}T00:00:00.000Z` : source;
+export function dateStringToDAMLTime(value: unknown, fieldPath: string): string {
+  const date = requireIsoDate(value, fieldPath);
+  return `${date}T00:00:00.000Z`;
+}
+
+/**
+ * Convert an optional OCF date to DAML Time. Only null and undefined mean
+ * "absent"; every present runtime value is validated by the required
+ * converter so malformed values cannot be silently discarded.
+ */
+export function optionalDateStringToDAMLTime(value: unknown, fieldPath: string): string | null {
+  return value === null || value === undefined ? null : dateStringToDAMLTime(value, fieldPath);
+}
+
+/**
+ * Convert a required-but-nullable OCF date to DAML Time. Explicit null is the
+ * only absent representation; undefined and every other runtime value must
+ * satisfy the required date validator.
+ */
+export function nullableDateStringToDAMLTime(value: unknown, fieldPath: string): string | null {
+  return value === null ? null : dateStringToDAMLTime(value, fieldPath);
 }
 
 /**
@@ -112,8 +132,21 @@ export function relTimeToDAML(microseconds: string): { microseconds: string } {
  * Convert a DAML Time value to its OCF date prefix after validating the runtime value. Date-only values are accepted so
  * already-normalized data can safely cross the same boundary.
  */
-export function damlTimeToDateString(value: unknown, fieldPath = 'date'): string {
-  return requireIsoDate(value, fieldPath).date;
+export function damlTimeToDateString(value: unknown, fieldPath: string): string {
+  return requireIsoDate(value, fieldPath);
+}
+
+/**
+ * Convert an optional DAML Time to an optional OCF date. Only null and
+ * undefined mean "absent"; every present runtime value is validated.
+ */
+export function optionalDamlTimeToDateString(value: unknown, fieldPath: string): string | undefined {
+  return value === null || value === undefined ? undefined : damlTimeToDateString(value, fieldPath);
+}
+
+/** Convert a required-but-nullable DAML Time; only explicit null is absent. */
+export function nullableDamlTimeToDateString(value: unknown, fieldPath: string): string | null {
+  return value === null ? null : damlTimeToDateString(value, fieldPath);
 }
 
 /**
@@ -525,12 +558,16 @@ export interface NativeQuantityTransferData {
  * Used by Stock, Warrant, and EquityCompensation transfer converters.
  *
  * @param d - The DAML transfer data object
+ * @param dateFieldPath - Contextual path for date validation failures
  * @returns The native transfer object (without object_type)
  */
-export function quantityTransferToNative(d: DamlQuantityTransferData): NativeQuantityTransferData {
+export function quantityTransferToNative(
+  d: DamlQuantityTransferData,
+  dateFieldPath: string
+): NativeQuantityTransferData {
   return {
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, dateFieldPath),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     resulting_security_ids: toNonEmptyArray(d.resulting_security_ids, 'transfer.resulting_security_ids'),
@@ -573,12 +610,16 @@ export interface NativeQuantityCancellationData {
  * Used by Stock, Warrant, and EquityCompensation cancellation converters.
  *
  * @param d - The DAML cancellation data object
+ * @param dateFieldPath - Contextual path for date validation failures
  * @returns The native cancellation object (without object_type)
  */
-export function quantityCancellationToNative(d: DamlQuantityCancellationData): NativeQuantityCancellationData {
+export function quantityCancellationToNative(
+  d: DamlQuantityCancellationData,
+  dateFieldPath: string
+): NativeQuantityCancellationData {
   return {
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, dateFieldPath),
     security_id: d.security_id,
     quantity: normalizeNumericString(d.quantity),
     reason_text: d.reason_text,

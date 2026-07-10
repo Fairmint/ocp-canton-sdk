@@ -6,6 +6,45 @@ import type {
   SemanticRefinement,
 } from './schemaConformanceHarness';
 
+/** Pinned compatibility wrappers deliberately excluded from the canonical SDK surface. */
+export const RETIRED_PLAN_SECURITY_SCHEMA_PAIRS = [
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_ACCEPTANCE',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_ACCEPTANCE',
+    wrapperSchemaPath: 'schema/objects/transactions/acceptance/PlanSecurityAcceptance.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_CANCELLATION',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_CANCELLATION',
+    wrapperSchemaPath: 'schema/objects/transactions/cancellation/PlanSecurityCancellation.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_EXERCISE',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_EXERCISE',
+    wrapperSchemaPath: 'schema/objects/transactions/exercise/PlanSecurityExercise.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_ISSUANCE',
+    wrapperSchemaPath: 'schema/objects/transactions/issuance/PlanSecurityIssuance.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_RELEASE',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_RELEASE',
+    wrapperSchemaPath: 'schema/objects/transactions/release/PlanSecurityRelease.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_RETRACTION',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_RETRACTION',
+    wrapperSchemaPath: 'schema/objects/transactions/retraction/PlanSecurityRetraction.schema.json',
+  },
+  {
+    canonicalDiscriminator: 'TX_EQUITY_COMPENSATION_TRANSFER',
+    retiredDiscriminator: 'TX_PLAN_SECURITY_TRANSFER',
+    wrapperSchemaPath: 'schema/objects/transactions/transfer/PlanSecurityTransfer.schema.json',
+  },
+] as const;
+
 /** Deliberate public DTO differences from the pinned top-level object schemas. */
 export const CANONICAL_PROPERTY_PARITY_EXCLUSIONS: CanonicalPropertyParityExclusion[] = [
   {
@@ -153,6 +192,39 @@ const schemaRefinementRuntime: CoverageReference = {
   target: 'intentional SDK semantic refinements',
 };
 
+const ppsUpstreamGapRuntime: CoverageReference = {
+  file: 'test/utils/conversionSemanticRefinements.test.ts',
+  kind: 'runtime',
+  target: 'typed and raw parsers reject PPS $name accepted by the upstream schema gap',
+};
+
+const ppsDiscountedRuntime: CoverageReference = {
+  file: 'test/utils/conversionSemanticRefinements.test.ts',
+  kind: 'runtime',
+  target: 'typed and raw parsers reject discounted PPS $name',
+};
+
+function ppsSourceTypes(target: string): CoverageReference {
+  return { file: 'test/types/conversionMechanisms.types.ts', kind: 'type', target };
+}
+
+function ppsBuiltTypes(target: string): CoverageReference {
+  return { file: 'test/declarations/conversionMechanisms.types.ts', kind: 'type', target };
+}
+
+const ppsRefinementCoverage: CoverageReference[] = [
+  ppsUpstreamGapRuntime,
+  ppsDiscountedRuntime,
+  ppsSourceTypes('ppsWithoutDiscount'),
+  ppsSourceTypes('falseWithDetails'),
+  ppsSourceTypes('trueWithoutDetails'),
+  ppsSourceTypes('trueWithBothDetails'),
+  ppsBuiltTypes('ppsWithoutDiscount'),
+  ppsBuiltTypes('falseWithDetails'),
+  ppsBuiltTypes('trueWithoutDetails'),
+  ppsBuiltTypes('trueWithBothDetails'),
+];
+
 function registration(
   path: string,
   coverage: CoverageReference[],
@@ -225,22 +297,22 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
   ]),
   registration(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf',
-    [schemaRefinementRuntime],
+    ppsRefinementCoverage,
     'pps-discount-exclusivity'
   ),
   registration(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/0/not',
-    [schemaRefinementRuntime],
+    ppsRefinementCoverage,
     'pps-discount-exclusivity'
   ),
   registration(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/1/not',
-    [schemaRefinementRuntime],
+    ppsRefinementCoverage,
     'pps-discount-exclusivity'
   ),
   registration(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/2/not',
-    [schemaRefinementRuntime],
+    ppsRefinementCoverage,
     'pps-discount-exclusivity'
   ),
   registration('schema/types/conversion_mechanisms/ValuationBasedConversionMechanism.schema.json#/oneOf', [
