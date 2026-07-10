@@ -37,7 +37,10 @@ export function damlStockClassAuthorizedSharesAdjustmentDataToNative(
     id: data.id,
     date: damlTimeToDateString(data.date, 'stockClassAuthorizedSharesAdjustment.date'),
     stock_class_id: data.stock_class_id,
-    new_shares_authorized: normalizeNumericString(data.new_shares_authorized),
+    new_shares_authorized: normalizeNumericString(
+      data.new_shares_authorized,
+      'stockClassAuthorizedSharesAdjustment.new_shares_authorized'
+    ),
     ...(data.board_approval_date !== null
       ? {
           board_approval_date: damlTimeToDateString(

@@ -78,6 +78,16 @@ describe('normalizeNumericString', () => {
       expect(() => normalizeNumericString('12,345')).toThrow(OcpValidationError);
     });
 
+    test.each(['1e3', 'not-a-number'])('uses a caller-provided field path for invalid value %s', (value) => {
+      expect(() => normalizeNumericString(value, 'adjustment.shares_reserved')).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'adjustment.shares_reserved',
+          receivedValue: value,
+        })
+      );
+    });
+
     test('rejects empty or invalid formats with OcpValidationError', () => {
       expect(() => normalizeNumericString('')).toThrow(OcpValidationError);
       expect(() => normalizeNumericString('')).toThrow('Invalid numeric string format');

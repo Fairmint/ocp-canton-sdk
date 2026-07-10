@@ -35,7 +35,7 @@ export function damlStockPlanPoolAdjustmentDataToNative(
     id: data.id,
     date: damlTimeToDateString(data.date, 'stockPlanPoolAdjustment.date'),
     stock_plan_id: data.stock_plan_id,
-    shares_reserved: normalizeNumericString(data.shares_reserved),
+    shares_reserved: normalizeNumericString(data.shares_reserved, 'stockPlanPoolAdjustment.shares_reserved'),
     ...(data.board_approval_date !== null
       ? {
           board_approval_date: damlTimeToDateString(

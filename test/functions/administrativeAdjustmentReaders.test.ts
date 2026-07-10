@@ -227,15 +227,26 @@ describe('decoder-backed administrative adjustment readers', () => {
     }
   );
 
-  it.each(adjustmentReaderCases)('$entityType rejects semantically invalid numeric strings', async (testCase) => {
-    const { client } = createMockClient(testCase, { ...testCase.validData(), [testCase.numericField]: '1e3' });
+  it.each(
+    adjustmentReaderCases.flatMap((testCase) =>
+      (['1e3', 'not-a-number'] as const).map((invalidValue) => ({ invalidValue, testCase }))
+    )
+  )(
+    '$testCase.entityType rejects semantically invalid numeric string $invalidValue at its exact field path',
+    async ({ invalidValue, testCase }) => {
+      const { client } = createMockClient(testCase, {
+        ...testCase.validData(),
+        [testCase.numericField]: invalidValue,
+      });
 
-    await expect(testCase.invoke(client)).rejects.toMatchObject({
-      name: 'OcpValidationError',
-      code: OcpErrorCodes.INVALID_FORMAT,
-      fieldPath: 'numericString',
-    });
-  });
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `${testCase.entityType}.${testCase.numericField}`,
+        receivedValue: invalidValue,
+      });
+    }
+  );
 
   it.each(adjustmentReaderCases)('$entityType rejects semantically invalid transaction dates', async (testCase) => {
     const { client } = createMockClient(testCase, { ...testCase.validData(), date: '2026-99-99' });
