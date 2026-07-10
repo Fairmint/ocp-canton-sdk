@@ -8,6 +8,7 @@ import {
   OcpClient,
   OcpValidationError,
   withdrawAuthorization,
+  type AuthorizeIssuerResult,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
   type CreateIssuerParams,
@@ -22,6 +23,8 @@ import {
   type OcfStockAcceptance,
   type OcfStockClass,
   type OcfVestingStart,
+  type SubmitAndWaitForTransactionTreeResponse,
+  type WithdrawAuthorizationResult,
 } from '../../dist';
 
 type Assert<T extends true> = T;
@@ -53,10 +56,18 @@ const publishedOcfObjectExcludesLegacyPlanSecurity: Assert<
   IsExactly<Extract<OcfObject, { readonly object_type: LegacyPlanSecurityObjectType }>, never>
 > = true;
 const generatedAndLegacyValuesAreNotRootExports: Assert<IsExactly<RemovedRootValue, never>> = true;
+const authorizeIssuerResponseUsesPublicLedgerType: Assert<
+  IsExactly<AuthorizeIssuerResult['response'], SubmitAndWaitForTransactionTreeResponse>
+> = true;
+const withdrawAuthorizationResponseUsesPublicLedgerType: Assert<
+  IsExactly<WithdrawAuthorizationResult['response'], SubmitAndWaitForTransactionTreeResponse>
+> = true;
 
 void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesLegacyPlanSecurity;
 void generatedAndLegacyValuesAreNotRootExports;
+void authorizeIssuerResponseUsesPublicLedgerType;
+void withdrawAuthorizationResponseUsesPublicLedgerType;
 void authorizeIssuer;
 void buildCreateIssuerCommand;
 void CapTableBatch;
