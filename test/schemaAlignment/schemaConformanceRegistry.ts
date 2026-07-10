@@ -50,6 +50,12 @@ const schemaRefinementRuntime: CoverageReference = {
   target: 'intentional SDK semantic refinements',
 };
 
+const deferredPpsRuntime: CoverageReference = {
+  file: 'test/schemaAlignment/schemaConformance.test.ts',
+  kind: 'runtime',
+  target: 'defers PPS discount exclusivity until the SDK contract enforces it',
+};
+
 function registration(
   path: string,
   coverage: CoverageReference[],
@@ -120,26 +126,18 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
     coreRuntime,
     coreTypes('contactWithoutCollection'),
   ]),
-  registration(
-    'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf',
-    [schemaRefinementRuntime],
-    'pps-discount-exclusivity'
-  ),
-  registration(
-    'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/0/not',
-    [schemaRefinementRuntime],
-    'pps-discount-exclusivity'
-  ),
-  registration(
-    'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/1/not',
-    [schemaRefinementRuntime],
-    'pps-discount-exclusivity'
-  ),
-  registration(
-    'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/2/not',
-    [schemaRefinementRuntime],
-    'pps-discount-exclusivity'
-  ),
+  registration('schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf', [
+    deferredPpsRuntime,
+  ]),
+  registration('schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/0/not', [
+    deferredPpsRuntime,
+  ]),
+  registration('schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/1/not', [
+    deferredPpsRuntime,
+  ]),
+  registration('schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/2/not', [
+    deferredPpsRuntime,
+  ]),
   registration('schema/types/conversion_mechanisms/ValuationBasedConversionMechanism.schema.json#/oneOf', [
     convertibleRuntime,
     warrantRuntime,
@@ -185,14 +183,6 @@ export const EXPECTED_SEMANTIC_REFINEMENTS: SemanticRefinement[] = [
       'schema/types/conversion_rights/StockClassConversionRight.schema.json',
       'schema/types/conversion_rights/WarrantConversionRight.schema.json',
     ],
-  },
-  {
-    expectedSdkContract:
-      'PPS semantics are discount=true with exactly one discount_percentage or discount_amount, or discount=false with neither field.',
-    id: 'pps-discount-exclusivity',
-    rationale:
-      'The draft-07 PPS branches do not require discount and the discount=false branch only forbids both discount fields together, permitting one.',
-    schemaPaths: ['schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json'],
   },
 ];
 
