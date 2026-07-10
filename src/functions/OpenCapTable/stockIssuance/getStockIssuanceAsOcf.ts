@@ -8,6 +8,7 @@ import {
   damlTimeToDateString,
   nonEmptyArrayOrUndefined,
   normalizeNumericString,
+  optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
@@ -54,26 +55,28 @@ export function damlStockIssuanceDataToNative(
   const vestings = Array.isArray((anyD as { vestings?: unknown }).vestings)
     ? nonEmptyArrayOrUndefined(
         (anyD as { vestings: Array<{ date: string; amount: string }> }).vestings.map((vesting) => ({
-          date: damlTimeToDateString(vesting.date),
+          date: damlTimeToDateString(vesting.date, 'stockIssuance.vestings[].date'),
           amount: normalizeNumericString(vesting.amount),
         }))
       )
     : undefined;
   const issuanceType = damlStockIssuanceTypeToNative(anyD.issuance_type);
 
+  const boardApprovalDate = optionalDamlTimeToDateString(d.board_approval_date, 'stockIssuance.board_approval_date');
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    d.stockholder_approval_date,
+    'stockIssuance.stockholder_approval_date'
+  );
+
   return {
     object_type: 'TX_STOCK_ISSUANCE',
     id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, 'stockIssuance.date'),
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    ...(d.board_approval_date && {
-      board_approval_date: damlTimeToDateString(d.board_approval_date),
-    }),
-    ...(d.stockholder_approval_date && {
-      stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
-    }),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(d.consideration_text && { consideration_text: d.consideration_text }),
     security_law_exemptions: (Array.isArray((anyD as { security_law_exemptions?: unknown }).security_law_exemptions)
       ? (anyD as { security_law_exemptions: Fairmint.OpenCapTable.Types.Stock.OcfSecurityExemption[] })

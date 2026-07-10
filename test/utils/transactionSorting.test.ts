@@ -59,7 +59,6 @@ describe('txWeight', () => {
   it('returns weight 10 for issuances', () => {
     expect(txWeight({ object_type: 'TX_STOCK_ISSUANCE' })).toBe(10);
     expect(txWeight({ object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE' })).toBe(10);
-    expect(txWeight({ object_type: 'TX_PLAN_SECURITY_ISSUANCE' })).toBe(10);
     expect(txWeight({ object_type: 'TX_CONVERTIBLE_ISSUANCE' })).toBe(10);
     expect(txWeight({ object_type: 'TX_WARRANT_ISSUANCE' })).toBe(10);
   });
@@ -67,7 +66,6 @@ describe('txWeight', () => {
   it('returns weight 11 for acceptances', () => {
     expect(txWeight({ object_type: 'TX_STOCK_ACCEPTANCE' })).toBe(11);
     expect(txWeight({ object_type: 'TX_EQUITY_COMPENSATION_ACCEPTANCE' })).toBe(11);
-    expect(txWeight({ object_type: 'TX_PLAN_SECURITY_ACCEPTANCE' })).toBe(11);
   });
 
   it('returns weight 15 for splits', () => {
@@ -84,7 +82,6 @@ describe('txWeight', () => {
   it('returns weight 20 for transfers', () => {
     expect(txWeight({ object_type: 'TX_STOCK_TRANSFER' })).toBe(20);
     expect(txWeight({ object_type: 'TX_EQUITY_COMPENSATION_TRANSFER' })).toBe(20);
-    expect(txWeight({ object_type: 'TX_PLAN_SECURITY_TRANSFER' })).toBe(20);
   });
 
   it('returns weight 25 for releases', () => {
@@ -93,7 +90,6 @@ describe('txWeight', () => {
 
   it('returns weight 30 for exercises', () => {
     expect(txWeight({ object_type: 'TX_EQUITY_COMPENSATION_EXERCISE' })).toBe(30);
-    expect(txWeight({ object_type: 'TX_PLAN_SECURITY_EXERCISE' })).toBe(30);
     expect(txWeight({ object_type: 'TX_WARRANT_EXERCISE' })).toBe(30);
   });
 
@@ -106,7 +102,6 @@ describe('txWeight', () => {
     expect(txWeight({ object_type: 'TX_STOCK_REPURCHASE' })).toBe(40);
     expect(txWeight({ object_type: 'TX_STOCK_CANCELLATION' })).toBe(40);
     expect(txWeight({ object_type: 'TX_EQUITY_COMPENSATION_CANCELLATION' })).toBe(40);
-    expect(txWeight({ object_type: 'TX_PLAN_SECURITY_CANCELLATION' })).toBe(40);
     expect(txWeight({ object_type: 'TX_WARRANT_CANCELLATION' })).toBe(40);
     expect(txWeight({ object_type: 'TX_CONVERTIBLE_CANCELLATION' })).toBe(40);
   });
@@ -120,6 +115,17 @@ describe('txWeight', () => {
     expect(txWeight({ object_type: 'TX_UNKNOWN_TYPE' })).toBe(50);
     expect(txWeight({ object_type: 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT' })).toBe(50);
     expect(txWeight({ object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT' })).toBe(50);
+    for (const objectType of [
+      'TX_PLAN_SECURITY_ACCEPTANCE',
+      'TX_PLAN_SECURITY_CANCELLATION',
+      'TX_PLAN_SECURITY_EXERCISE',
+      'TX_PLAN_SECURITY_ISSUANCE',
+      'TX_PLAN_SECURITY_RELEASE',
+      'TX_PLAN_SECURITY_RETRACTION',
+      'TX_PLAN_SECURITY_TRANSFER',
+    ]) {
+      expect(txWeight({ object_type: objectType })).toBe(50);
+    }
     expect(txWeight({ object_type: undefined })).toBe(50);
     expect(txWeight({})).toBe(50);
   });

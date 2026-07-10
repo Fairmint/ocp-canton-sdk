@@ -6,6 +6,8 @@ import {
   dateStringToDAMLTime,
   monetaryToDaml,
   normalizeNumericString,
+  nullableDateStringToDAMLTime,
+  optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
 import { validateEquityCompensationPricing } from './equityCompensationPricing';
@@ -88,9 +90,15 @@ export function equityCompensationIssuanceDataToDaml(
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    date: dateStringToDAMLTime(d.date),
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    date: dateStringToDAMLTime(d.date, 'equityCompensationIssuance.date'),
+    board_approval_date: optionalDateStringToDAMLTime(
+      d.board_approval_date,
+      'equityCompensationIssuance.board_approval_date'
+    ),
+    stockholder_approval_date: optionalDateStringToDAMLTime(
+      d.stockholder_approval_date,
+      'equityCompensationIssuance.stockholder_approval_date'
+    ),
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions.map((e) => ({
       description: e.description,
@@ -105,10 +113,10 @@ export function equityCompensationIssuanceDataToDaml(
     base_price: pricing.base_price ? monetaryToDaml(pricing.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
     vestings: filteredVestings.map((v) => ({
-      date: dateStringToDAMLTime(v.date),
+      date: dateStringToDAMLTime(v.date, 'equityCompensationIssuance.vestings[].date'),
       amount: normalizeNumericString(v.amount),
     })),
-    expiration_date: d.expiration_date ? dateStringToDAMLTime(d.expiration_date) : null,
+    expiration_date: nullableDateStringToDAMLTime(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
     termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
       reason: terminationWindowReasonMap[w.reason],
       period: w.period.toString(),

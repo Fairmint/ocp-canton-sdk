@@ -13,7 +13,7 @@ import type { OcfEntityType } from '../functions/OpenCapTable/capTable/entityTyp
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
-import { normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
+import { normalizeOcfData } from './ocfNormalization';
 
 // Preserve the public utils import path while keeping the protocol-native guard implementation centralized.
 export { isOcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
@@ -352,12 +352,7 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
       );
     }
 
-    // Normalize TX_PLAN_SECURITY_* to TX_EQUITY_COMPENSATION_* for lookup
-    // Canton can return schema-supported PlanSecurity types that map to EquityCompensation
-    const normalizedObjectType = normalizeObjectType(objectType);
-
-    // Check if the normalized object type is a known transaction type
-    const entityType = getOwnEntityType(TRANSACTION_SUBTYPE_MAP, normalizedObjectType);
+    const entityType = getOwnEntityType(TRANSACTION_SUBTYPE_MAP, objectType);
     if (entityType === undefined) {
       throw new Error(`Unsupported transaction object_type: ${objectType}`);
     }
@@ -644,9 +639,7 @@ export function computeReplicationDiff(
         );
       }
 
-      // Normalize both objects before comparison:
-      // - object_type aliases (TX_PLAN_SECURITY_* → TX_EQUITY_COMPENSATION_*)
-      // - quantity_source defaults (add/strip UNSPECIFIED based on quantity presence)
+      // Normalize both objects before comparison, including quantity_source defaults.
       const normalizedSourceData = normalizeOcfData(sourceData);
       const normalizedCantonData = normalizeOcfData(cantonItemData);
 

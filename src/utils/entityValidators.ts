@@ -312,14 +312,25 @@ export function validateIssuerData(data: unknown, fieldPath: string): void {
     'country_subdivision_name_of_formation',
   ] as const) {
     const subdivision = value[subdivisionField];
-    if (subdivision === null) {
-      throw new OcpValidationError(`${fieldPath}.${subdivisionField}`, 'Optional OCF fields cannot be null', {
-        expectedType: 'string or omitted',
+    if (subdivision === undefined) continue;
+    if (typeof subdivision !== 'string') {
+      throw new OcpValidationError(`${fieldPath}.${subdivisionField}`, 'Optional subdivision must be a string', {
+        expectedType: 'non-blank string or omitted',
         receivedValue: subdivision,
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
-    validateOptionalString(subdivision, `${fieldPath}.${subdivisionField}`);
+    if (subdivision.trim().length === 0) {
+      throw new OcpValidationError(
+        `${fieldPath}.${subdivisionField}`,
+        'Optional subdivision fields must be non-blank when provided',
+        {
+          expectedType: 'non-blank string or omitted',
+          receivedValue: subdivision,
+          code: OcpErrorCodes.INVALID_FORMAT,
+        }
+      );
+    }
   }
   if (
     value.country_subdivision_of_formation !== undefined &&

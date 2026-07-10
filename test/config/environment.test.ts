@@ -99,6 +99,21 @@ describe('environment configuration', () => {
     });
   });
 
+  it('maps CANTON_PARTY to canonical partyId while keeping party override-only', () => {
+    const config = loadEnvironmentConfigFromEnv({ CANTON_PARTY: ' issuer::party ' });
+
+    expect(config.partyId).toBe('issuer::party');
+    expect(config.party).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(config, 'party')).toBe(true);
+  });
+
+  it('preserves an explicit party override while canonicalizing partyId', () => {
+    const config = loadEnvironmentConfigFromEnv({}, { party: ' issuer::party ' });
+
+    expect(config.partyId).toBe('issuer::party');
+    expect(config.party).toBe('issuer::party');
+  });
+
   it('keeps LocalNet preset defaults when env variables are omitted', () => {
     const config = loadEnvironmentConfigFromEnv({});
 

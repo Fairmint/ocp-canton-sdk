@@ -12,6 +12,12 @@ export type {
 
 type SubmitTransactionTreeParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransactionTree']>[0];
 type SubmitTransactionTreeResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
+/** Preserve caller-specific fields while widening context fields that runtime merging may replace. */
+type AppliedCommandContext<T extends SubmitTransactionTreeParams> = {
+  [K in keyof T]: K extends keyof CommandContext
+    ? Exclude<CommandContext[K], undefined> | (undefined extends T[K] ? undefined : never)
+    : T[K];
+};
 
 export function mergeCommandContext(
   ...contexts: Array<Partial<CommandContext> | undefined>
@@ -29,11 +35,11 @@ export function mergeCommandContext(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-function applyMergedCommandContext(
-  params: SubmitTransactionTreeParams,
+function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(
+  params: T,
   context: CommandContext | undefined
-): SubmitTransactionTreeParams {
-  if (!context) return params;
+): AppliedCommandContext<T> {
+  if (!context) return params as AppliedCommandContext<T>;
 
   return {
     ...params,
@@ -41,7 +47,7 @@ function applyMergedCommandContext(
     ...(context.commandId !== undefined ? { commandId: context.commandId } : {}),
     ...(context.submissionId !== undefined ? { submissionId: context.submissionId } : {}),
     ...(context.traceContext !== undefined ? { traceContext: context.traceContext } : {}),
-  };
+  } as AppliedCommandContext<T>;
 }
 
 function runBestEffort(callback: (() => unknown) | undefined): void {
@@ -57,9 +63,9 @@ function runBestEffort(callback: (() => unknown) | undefined): void {
 export function applyCommandContext<T extends SubmitTransactionTreeParams>(
   params: T,
   options?: CommandObservabilityOptions
-): T {
+): AppliedCommandContext<T> {
   const context = mergeCommandContext(options?.defaultContext, options?.context);
-  return applyMergedCommandContext(params, context) as T;
+  return applyMergedCommandContext(params, context);
 }
 
 export async function submitObservedTransactionTree(

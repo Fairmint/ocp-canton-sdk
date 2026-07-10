@@ -157,6 +157,7 @@ import type {
   OcfWarrantRetractionOutput,
   OcfWarrantTransferOutput,
 } from './types/output';
+import { validateFactoryCoordinates } from './utils/factoryCoordinates';
 
 type WithClientObservability<T extends CommandObservabilityOptions> = Omit<T, keyof OcpObservabilityOptions> &
   OcpObservabilityOptions;
@@ -747,30 +748,6 @@ function selectFactoryCoordinates(
     return perCallFactory;
   }
   return clientFactory;
-}
-
-function hasCompleteFactoryCoordinates(factory: unknown): factory is OcpFactoryCoordinates {
-  if (typeof factory !== 'object' || factory === null) {
-    return false;
-  }
-
-  const candidate = factory as Record<string, unknown>;
-  return (
-    typeof candidate.contractId === 'string' &&
-    candidate.contractId.trim().length > 0 &&
-    typeof candidate.templateId === 'string' &&
-    candidate.templateId.trim().length > 0
-  );
-}
-
-function validateFactoryCoordinates(factory: unknown): asserts factory is OcpFactoryCoordinates | undefined {
-  if (factory !== undefined && !hasCompleteFactoryCoordinates(factory)) {
-    throw new OcpValidationError('factory', 'factory override must include contractId and templateId', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'object with non-empty string contractId and templateId properties',
-      receivedValue: factory,
-    });
-  }
 }
 
 function validateInjectedEnvironment(environment: OcpEnvironment | undefined, ledger: LedgerJsonApiClient): void {
