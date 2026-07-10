@@ -285,7 +285,13 @@ function convertZodErrorToValidationError(error: ZodError, contextField: string)
     });
   }
 
-  const firstIssue = error.issues[0];
+  const [firstIssue] = error.issues;
+  if (firstIssue === undefined) {
+    return new OcpValidationError(contextField, 'OCF schema validation failed', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      receivedValue: error.issues,
+    });
+  }
   const firstIssuePath = firstIssue.path.join('.');
   const issuePath = firstIssuePath.length > 0 ? firstIssuePath : contextField;
   const issueMessage = error.issues

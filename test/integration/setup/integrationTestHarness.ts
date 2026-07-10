@@ -15,6 +15,7 @@
 
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { OcpClient } from '../../../src/OcpClient';
+import { requireFirst } from '../../../src/utils/requireDefined';
 import { createLedgerAndValidatorClients } from '../../utils/cantonNodeSdkCompat';
 import { buildIntegrationTestClientConfig } from '../../utils/testConfig';
 import { createFeaturedAppRight, deployAndCreateFactory, type DeploymentResult } from './contractDeployment';
@@ -115,7 +116,7 @@ async function initializeHarness(): Promise<void> {
     const appProviderParty = partyDetails.find(
       (p) => p.party.toLowerCase().includes('app_provider') || p.party.toLowerCase().includes('provider')
     );
-    const authenticatedParty = appProviderParty?.party ?? partyDetails[0].party;
+    const authenticatedParty = appProviderParty?.party ?? requireFirst(partyDetails, 'authenticated party').party;
 
     console.log(`   Available parties: ${partyDetails.map((p) => p.party.split('::')[0]).join(', ')}`);
     console.log(`   Using party: ${authenticatedParty}`);
