@@ -9,11 +9,14 @@
  * @module replicationHelpers
  */
 
-import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
+import type { OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
 import { normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
+
+// Preserve the public utils import path while keeping the protocol-native guard implementation centralized.
+export { isOcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 
 // ============================================================================
 // Categorized Type Mapping
@@ -123,10 +126,6 @@ export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
   // Stakeholder Events (2 types)
   CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
   CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
-
-  // Legacy aliases kept for backward compatibility with historical exports
-  TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'stakeholderRelationshipChangeEvent',
-  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'stakeholderStatusChangeEvent',
 };
 
 /** Read only mappings owned by the registry object, never inherited prototype properties. */
@@ -354,7 +353,7 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
     }
 
     // Normalize TX_PLAN_SECURITY_* to TX_EQUITY_COMPENSATION_* for lookup
-    // Canton can return legacy plan security types that need to be mapped to equity compensation
+    // Canton can return schema-supported PlanSecurity types that map to EquityCompensation
     const normalizedObjectType = normalizeObjectType(objectType);
 
     // Check if the normalized object type is a known transaction type

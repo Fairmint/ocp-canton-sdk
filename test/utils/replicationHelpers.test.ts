@@ -24,8 +24,7 @@ import { validateOcfObject } from './ocfSchemaValidator';
 describe('TRANSACTION_SUBTYPE_MAP', () => {
   it('has correct count of transaction types', () => {
     // 9 stock + 8 equity comp + 6 convertible + 6 warrant + 4 stock class adj + 2 stock plan + 3 vesting + 2 stakeholder
-    // + 2 legacy stakeholder aliases = 42
-    expect(Object.keys(TRANSACTION_SUBTYPE_MAP)).toHaveLength(42);
+    expect(Object.keys(TRANSACTION_SUBTYPE_MAP)).toHaveLength(40);
   });
 
   describe('Stock Transactions (9 types)', () => {
@@ -129,12 +128,10 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     });
   });
 
-  describe('Stakeholder Events (canonical + legacy aliases)', () => {
+  describe('Stakeholder Events', () => {
     const stakeholderTypes: Array<[string, OcfEntityType]> = [
       ['CE_STAKEHOLDER_RELATIONSHIP', 'stakeholderRelationshipChangeEvent'],
       ['CE_STAKEHOLDER_STATUS', 'stakeholderStatusChangeEvent'],
-      ['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'stakeholderRelationshipChangeEvent'], // legacy
-      ['TX_STAKEHOLDER_STATUS_CHANGE_EVENT', 'stakeholderStatusChangeEvent'], // legacy
     ];
 
     it.each(stakeholderTypes)('maps %s to %s', (objectType, entityType) => {
@@ -142,8 +139,13 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     });
   });
 
-  it('does not include deprecated Plan Security types', () => {
-    // Plan Security types were removed after confirming no data exists in dev/prod
+  it('does not map non-schema stakeholder event names', () => {
+    expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT']).toBeUndefined();
+    expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_STATUS_CHANGE_EVENT']).toBeUndefined();
+  });
+
+  it('keeps schema-supported PlanSecurity aliases out of the canonical lookup map', () => {
+    // PlanSecurity values normalize to EquityCompensation before this canonical map is consulted.
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_ISSUANCE']).toBeUndefined();
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_EXERCISE']).toBeUndefined();
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_CANCELLATION']).toBeUndefined();
