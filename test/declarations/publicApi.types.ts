@@ -18,7 +18,7 @@ import {
   type OcfVestingStart,
   type OcfWarrantAcceptance,
 } from '../../dist';
-import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
+import { dateStringToDAMLTime, isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -36,9 +36,12 @@ const publishedOcfObjectIsExact: Assert<IsExactly<OcfObject, IntendedCanonicalOc
 const publishedOcfObjectExcludesLegacyPlanSecurity: Assert<
   IsExactly<Extract<OcfObject, { readonly object_type: LegacyPlanSecurityObjectType }>, never>
 > = true;
+declare const unknownDateInput: unknown;
+const validatedDamlTime: string = dateStringToDAMLTime(unknownDateInput, 'transaction.date');
 
 void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesLegacyPlanSecurity;
+void validatedDamlTime;
 
 function verifyPublishedBatchApi(
   batch: CapTableBatch,
