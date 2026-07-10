@@ -36,7 +36,7 @@
       "phone_numbers": []
     },
     "stakeholder_type": "INDIVIDUAL",
-    "current_relationship": "BOARD_MEMBER"
+    "current_relationships": ["BOARD_MEMBER"]
   },
   "request": {
     "ExerciseCommand": {

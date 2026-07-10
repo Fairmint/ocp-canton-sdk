@@ -6,7 +6,7 @@
   },
   {
     "discriminator": "CE_STAKEHOLDER_STATUS",
-    "optionalProperties": ["comments", "reason_text"],
+    "optionalProperties": ["comments"],
     "requiredProperties": ["date", "id", "new_status", "object_type", "stakeholder_id"]
   },
   {
@@ -40,7 +40,6 @@
       "addresses",
       "comments",
       "contact_info",
-      "current_relationship",
       "current_relationships",
       "current_status",
       "issuer_assigned_id",
@@ -189,7 +188,7 @@
   },
   {
     "discriminator": "TX_EQUITY_COMPENSATION_RELEASE",
-    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "optionalProperties": ["comments", "consideration_text"],
     "requiredProperties": [
       "date",
       "id",
@@ -203,7 +202,7 @@
   },
   {
     "discriminator": "TX_EQUITY_COMPENSATION_REPRICING",
-    "optionalProperties": ["comments", "resulting_security_ids"],
+    "optionalProperties": ["comments"],
     "requiredProperties": ["date", "id", "new_exercise_price", "object_type", "security_id"]
   },
   {
@@ -238,28 +237,22 @@
   },
   {
     "discriminator": "TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT",
-    "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+    "optionalProperties": ["comments"],
     "requiredProperties": ["date", "id", "new_ratio_conversion_mechanism", "object_type", "stock_class_id"]
   },
   {
     "discriminator": "TX_STOCK_CLASS_SPLIT",
-    "optionalProperties": [
-      "board_approval_date",
-      "comments",
-      "split_ratio_denominator",
-      "split_ratio_numerator",
-      "stockholder_approval_date"
-    ],
+    "optionalProperties": ["comments"],
     "requiredProperties": ["date", "id", "object_type", "split_ratio", "stock_class_id"]
   },
   {
     "discriminator": "TX_STOCK_CONSOLIDATION",
-    "optionalProperties": ["comments", "reason_text", "resulting_security_ids"],
+    "optionalProperties": ["comments", "reason_text"],
     "requiredProperties": ["date", "id", "object_type", "resulting_security_id", "security_ids"]
   },
   {
     "discriminator": "TX_STOCK_CONVERSION",
-    "optionalProperties": ["balance_security_id", "comments", "quantity"],
+    "optionalProperties": ["balance_security_id", "comments"],
     "requiredProperties": ["date", "id", "object_type", "quantity_converted", "resulting_security_ids", "security_id"]
   },
   {
