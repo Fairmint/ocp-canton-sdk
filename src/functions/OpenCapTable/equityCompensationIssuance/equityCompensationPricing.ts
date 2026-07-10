@@ -1,5 +1,6 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CompensationType, Monetary } from '../../../types';
+import { validateRequiredMonetary } from '../../../utils/validation';
 
 type OptionCompensationType = Extract<CompensationType, 'OPTION' | 'OPTION_ISO' | 'OPTION_NSO'>;
 type SarCompensationType = Extract<CompensationType, 'CSAR' | 'SSAR'>;
@@ -33,6 +34,18 @@ function requiredPrice(
   });
 }
 
+function validateRequiredPrice(
+  value: unknown,
+  field: 'exercise_price' | 'base_price',
+  source: string,
+  compensationType: CompensationType
+): asserts value is Monetary {
+  if (value === undefined || value === null) {
+    requiredPrice(field, source, compensationType);
+  }
+  validateRequiredMonetary(value, `${source}.${field}`);
+}
+
 function forbiddenPrice(
   field: 'exercise_price' | 'base_price',
   source: string,
@@ -52,20 +65,20 @@ function forbiddenPrice(
  */
 export function validateEquityCompensationPricing(
   compensationType: CompensationType,
-  exercisePrice: Monetary | undefined,
-  basePrice: Monetary | undefined,
+  exercisePrice: unknown,
+  basePrice: unknown,
   source: string
 ): EquityCompensationPricing {
   switch (compensationType) {
     case 'OPTION':
     case 'OPTION_ISO':
     case 'OPTION_NSO':
-      if (exercisePrice === undefined) requiredPrice('exercise_price', source, compensationType);
+      validateRequiredPrice(exercisePrice, 'exercise_price', source, compensationType);
       if (basePrice !== undefined) forbiddenPrice('base_price', source, compensationType);
       return { compensation_type: compensationType, exercise_price: exercisePrice };
     case 'CSAR':
     case 'SSAR':
-      if (basePrice === undefined) requiredPrice('base_price', source, compensationType);
+      validateRequiredPrice(basePrice, 'base_price', source, compensationType);
       if (exercisePrice !== undefined) forbiddenPrice('exercise_price', source, compensationType);
       return { compensation_type: compensationType, base_price: basePrice };
     case 'RSU':
