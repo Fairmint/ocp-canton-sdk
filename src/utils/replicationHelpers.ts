@@ -15,7 +15,7 @@ import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
 import { normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
 
-// Preserve the public utils import path while keeping the registry as the single implementation.
+// Preserve the public utils import path while keeping the protocol-native guard implementation centralized.
 export { isOcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 
 // ============================================================================
