@@ -66,7 +66,7 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
 
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'stockClassConversionRatioAdjustment.date'),
     stock_class_id: d.stock_class_id,
     new_ratio_conversion_mechanism: {
       conversion_price: monetaryToDaml(newRatioConversionMechanism.conversion_price),

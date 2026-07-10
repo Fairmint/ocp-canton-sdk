@@ -10,7 +10,11 @@ import type {
   StockClassConversionRight,
 } from '../../../types/native';
 import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
-import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import {
+  damlMonetaryToNative,
+  normalizeNumericString,
+  optionalDamlTimeToDateString,
+} from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -100,6 +104,15 @@ export function damlStockClassDataToNative(
     });
   }
 
+  const boardApprovalDate = optionalDamlTimeToDateString(
+    damlData.board_approval_date,
+    'stockClass.board_approval_date'
+  );
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    damlData.stockholder_approval_date,
+    'stockClass.stockholder_approval_date'
+  );
+
   return {
     object_type: 'STOCK_CLASS',
     id: dataWithId.id,
@@ -111,12 +124,8 @@ export function damlStockClassDataToNative(
     seniority: normalizeNumericString(seniorityValue.toString()),
     conversion_rights: [],
     comments: [],
-    ...(damlData.board_approval_date && {
-      board_approval_date: damlTimeToDateString(damlData.board_approval_date),
-    }),
-    ...(damlData.stockholder_approval_date && {
-      stockholder_approval_date: damlTimeToDateString(damlData.stockholder_approval_date),
-    }),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(damlData.par_value && { par_value: damlMonetaryToNative(damlData.par_value) }),
     ...(damlData.price_per_share && {
       price_per_share: damlMonetaryToNative(damlData.price_per_share),

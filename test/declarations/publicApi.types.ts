@@ -27,7 +27,15 @@ import {
   type SubmitAndWaitForTransactionTreeResponse,
   type WithdrawAuthorizationResult,
 } from '../../dist';
-import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
+import {
+  damlTimeToDateString,
+  dateStringToDAMLTime,
+  isOcfEntityType as isOcfEntityTypeFromUtils,
+  nullableDamlTimeToDateString,
+  nullableDateStringToDAMLTime,
+  optionalDamlTimeToDateString,
+  optionalDateStringToDAMLTime,
+} from '../../dist/utils';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -64,12 +72,28 @@ const authorizeIssuerResponseUsesPublicLedgerType: Assert<
 const withdrawAuthorizationResponseUsesPublicLedgerType: Assert<
   IsExactly<WithdrawAuthorizationResult['response'], SubmitAndWaitForTransactionTreeResponse>
 > = true;
+declare const unknownDateInput: unknown;
+const validatedDamlTime: string = dateStringToDAMLTime(unknownDateInput, 'transaction.date');
+const validatedOcfDate: string = damlTimeToDateString(unknownDateInput, 'transaction.date');
+const optionalDamlTime: string | null = optionalDateStringToDAMLTime(unknownDateInput, 'transaction.date');
+const nullableDamlTime: string | null = nullableDateStringToDAMLTime(unknownDateInput, 'transaction.date');
+const optionalOcfDate: string | undefined = optionalDamlTimeToDateString(unknownDateInput, 'transaction.date');
+const nullableOcfDate: string | null = nullableDamlTimeToDateString(unknownDateInput, 'transaction.date');
+
+// @ts-expect-error every public date conversion requires an entity-specific field path
+dateStringToDAMLTime(unknownDateInput);
 
 void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesLegacyPlanSecurity;
 void generatedAndLegacyValuesAreNotRootExports;
 void authorizeIssuerResponseUsesPublicLedgerType;
 void withdrawAuthorizationResponseUsesPublicLedgerType;
+void validatedDamlTime;
+void validatedOcfDate;
+void optionalDamlTime;
+void nullableDamlTime;
+void optionalOcfDate;
+void nullableOcfDate;
 void authorizeIssuer;
 void buildCreateIssuerCommand;
 void CapTableBatch;
