@@ -9,6 +9,7 @@ import {
   getNamedTypeProperty,
   inventoryCanonicalOcfObjects,
   inventoryReachableObjectSchemas,
+  resolveJsonPointer,
   validateCoverageReferences,
   validateSemanticRefinements,
   type CanonicalOcfObjectInventoryEntry,
@@ -36,6 +37,13 @@ describe('schema-driven OCF conformance guardrail', () => {
       schemaInventory.objectSchemaCount
     );
     expect(JSON.stringify(dereferenced)).not.toContain('"$ref"');
+  });
+
+  it('distinguishes the document root from an empty-key JSON Pointer member', () => {
+    const document = { '': { type: 'string' }, marker: 'root' };
+
+    expect(resolveJsonPointer(document, '', 'synthetic.schema.json')).toBe(document);
+    expect(resolveJsonPointer(document, '/', 'synthetic.schema.json')).toEqual({ type: 'string' });
   });
 
   it('fails on any reachable pinned schema content drift', () => {

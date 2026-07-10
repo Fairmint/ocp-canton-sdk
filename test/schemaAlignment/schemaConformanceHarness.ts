@@ -96,8 +96,8 @@ function readSchemaFile(schemaPath: string): JsonObject {
   return parsed;
 }
 
-function resolveJsonPointer(document: unknown, fragment: string, source: string): unknown {
-  if (fragment === '' || fragment === '/') return document;
+export function resolveJsonPointer(document: unknown, fragment: string, source: string): unknown {
+  if (fragment === '') return document;
   if (!fragment.startsWith('/')) {
     throw new Error(`Only JSON Pointer fragments are supported in ${source}: #${fragment}`);
   }
