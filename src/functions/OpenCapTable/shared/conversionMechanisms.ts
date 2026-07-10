@@ -38,6 +38,30 @@ function requireRecord(value: unknown, field: string): Record<string, unknown> {
   return value;
 }
 
+/**
+ * Require the JSON representation emitted by the generated DAML bindings.
+ *
+ * For non-nullable records such as Monetary and Ratio, `damlTypes.Optional<T>`
+ * is encoded as `T | null`. A `{ tag: 'Some', value: T }` object is not a
+ * generated or JSON API Optional encoding and accepting it would weaken the
+ * ledger boundary with an undocumented compatibility shape.
+ */
+function requireDirectDamlRecord(value: unknown, field: string, recordType: string): Record<string, unknown> {
+  const record = requireRecord(value, field);
+  if (record.tag === 'Some' || record.tag === 'None') {
+    throw new OcpValidationError(
+      field,
+      `${field} must use the generated DAML Optional encoding: a direct ${recordType} record or null`,
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: `direct ${recordType} record or null`,
+        receivedValue: value,
+      }
+    );
+  }
+  return record;
+}
+
 function requireString(value: unknown, field: string): string {
   if (typeof value !== 'string' || value.length === 0) {
     throw validationError(field, `${field} must be a non-empty string`, value);
@@ -88,6 +112,26 @@ export function canonicalOptionalNumericToDaml(value: unknown, field: string): s
   return normalizeNumericString(value);
 }
 
+/** Encode optional canonical OCF text without normalizing invalid blank values into DAML absence. */
+function canonicalOptionalTextToDaml(value: unknown, field: string): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(field, 'Expected text when provided; omit the property when absent', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'non-blank string or omitted property',
+      receivedValue: value,
+    });
+  }
+  if (value.trim().length === 0) {
+    throw new OcpValidationError(field, 'Expected non-blank text when provided; omit the property when absent', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-blank string or omitted property',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
 function optionalStringFromDaml(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
   return requireText(value, field);
@@ -99,7 +143,7 @@ function optionalBooleanFromDaml(value: unknown, field: string): boolean | undef
 }
 
 function monetaryFromDaml(value: unknown, field: string): Monetary {
-  const monetary = requireRecord(value, field);
+  const monetary = requireDirectDamlRecord(value, field, 'Monetary');
   return {
     amount: requireNumeric(monetary.amount, `${field}.amount`),
     currency: requireString(monetary.currency, `${field}.currency`),
@@ -112,7 +156,7 @@ function optionalMonetaryFromDaml(value: unknown, field: string): Monetary | und
 }
 
 function ratioFromDaml(value: unknown, field: string): { numerator: string; denominator: string } {
-  const ratio = requireRecord(value, field);
+  const ratio = requireDirectDamlRecord(value, field, 'Ratio');
   return {
     numerator: requireNumeric(ratio.numerator, `${field}.numerator`),
     denominator: requireNumeric(ratio.denominator, `${field}.denominator`),
@@ -377,7 +421,10 @@ export function convertibleMechanismToDaml(mechanism: ConvertibleConversionMecha
             ? monetaryToDaml(mechanism.conversion_valuation_cap)
             : null,
           conversion_timing: conversionTimingToDaml(mechanism.conversion_timing),
-          capitalization_definition: mechanism.capitalization_definition ?? null,
+          capitalization_definition: canonicalOptionalTextToDaml(
+            mechanism.capitalization_definition,
+            'conversion_mechanism.capitalization_definition'
+          ),
           capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
           exit_multiple: mechanism.exit_multiple
             ? {
@@ -401,7 +448,10 @@ export function convertibleMechanismToDaml(mechanism: ConvertibleConversionMecha
           conversion_valuation_cap: mechanism.conversion_valuation_cap
             ? monetaryToDaml(mechanism.conversion_valuation_cap)
             : null,
-          capitalization_definition: mechanism.capitalization_definition ?? null,
+          capitalization_definition: canonicalOptionalTextToDaml(
+            mechanism.capitalization_definition,
+            'conversion_mechanism.capitalization_definition'
+          ),
           capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
           exit_multiple: mechanism.exit_multiple
             ? {
@@ -422,7 +472,10 @@ export function convertibleMechanismToDaml(mechanism: ConvertibleConversionMecha
         tag: 'OcfConvMechPercentCapitalization',
         value: {
           converts_to_percent: normalizeNumericString(mechanism.converts_to_percent),
-          capitalization_definition: mechanism.capitalization_definition ?? null,
+          capitalization_definition: canonicalOptionalTextToDaml(
+            mechanism.capitalization_definition,
+            'conversion_mechanism.capitalization_definition'
+          ),
           capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
         },
       };
@@ -613,7 +666,10 @@ export function warrantMechanismToDaml(mechanism: WarrantConversionMechanism): D
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
           converts_to_percent: normalizeNumericString(mechanism.converts_to_percent),
-          capitalization_definition: mechanism.capitalization_definition ?? null,
+          capitalization_definition: canonicalOptionalTextToDaml(
+            mechanism.capitalization_definition,
+            'conversion_mechanism.capitalization_definition'
+          ),
           capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
         },
       };
@@ -628,7 +684,10 @@ export function warrantMechanismToDaml(mechanism: WarrantConversionMechanism): D
         value: {
           valuation_type: valuationTypeToDaml(mechanism.valuation_type),
           valuation_amount: mechanism.valuation_amount ? monetaryToDaml(mechanism.valuation_amount) : null,
-          capitalization_definition: mechanism.capitalization_definition ?? null,
+          capitalization_definition: canonicalOptionalTextToDaml(
+            mechanism.capitalization_definition,
+            'conversion_mechanism.capitalization_definition'
+          ),
           capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
         },
       };

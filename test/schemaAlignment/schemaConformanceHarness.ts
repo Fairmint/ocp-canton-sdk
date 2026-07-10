@@ -310,7 +310,7 @@ function dereferenceValue(
 export function dereferencePinnedObjectSchemas(schemaRoot: string): JsonObject {
   const objectSchemaPaths = listSchemaFiles(path.join(schemaRoot, 'objects'));
   return {
-    $schema: 'http://json-schema.org/draft-07/schema',
+    $schema: 'http://json-schema.org/draft-07/schema#',
     properties: Object.fromEntries(
       objectSchemaPaths.map((schemaPath) => {
         const locationKey = `${schemaPath}#`;

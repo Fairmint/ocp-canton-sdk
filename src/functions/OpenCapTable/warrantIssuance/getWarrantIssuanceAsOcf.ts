@@ -116,15 +116,15 @@ function stockClassRightFromDaml(value: Record<string, unknown>): StockClassConv
     value.converts_to_future_round,
     'warrantIssuance.conversion_right.converts_to_future_round'
   );
-  const convertsToStockClassId = optionalString(
+  const convertsToStockClassId = requireString(
     value.converts_to_stock_class_id,
     'warrantIssuance.conversion_right.converts_to_stock_class_id'
   );
   return {
     type: 'STOCK_CLASS_CONVERSION_RIGHT',
     conversion_mechanism: ratioMechanismFromDaml(value, 'warrantIssuance.conversion_right'),
+    converts_to_stock_class_id: convertsToStockClassId,
     ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
-    ...(convertsToStockClassId ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
   };
 }
 
