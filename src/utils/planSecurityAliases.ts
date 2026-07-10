@@ -718,11 +718,12 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
  * // => { object_type: 'STOCK_PLAN', stock_class_ids: ['sc-1'], id: 'sp-1', plan_name: 'Plan', initial_shares_reserved: '1000' }
  * ```
  */
-export function normalizeOcfData(data: object): Record<string, unknown> {
-  if (
-    Array.isArray(data) ||
-    (Object.getPrototypeOf(data) !== Object.prototype && Object.getPrototypeOf(data) !== null)
-  ) {
+export function normalizeOcfData(data: unknown): Record<string, unknown> {
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    throw new Error('Invalid OCF data: expected a plain object');
+  }
+  const prototype = Object.getPrototypeOf(data);
+  if (prototype !== Object.prototype && prototype !== null) {
     throw new Error('Invalid OCF data: expected a plain object');
   }
   const input = data as Record<string, unknown>;

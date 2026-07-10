@@ -140,7 +140,7 @@ describe('PlanSecurity alias utilities', () => {
       expect(result).toBe(input);
     });
 
-    it.each([[], new Date('2026-01-01T00:00:00.000Z')])('rejects non-plain object input', (input) => {
+    it.each([null, [], new Date('2026-01-01T00:00:00.000Z')])('rejects non-plain object input', (input) => {
       expect(() => normalizeOcfData(input)).toThrow('Invalid OCF data: expected a plain object');
     });
 
