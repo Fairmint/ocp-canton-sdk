@@ -414,10 +414,10 @@ export async function extractCantonOcfManifest(
   cantonState: CapTableState,
   options: ExtractCantonOcfOptions = {}
 ): Promise<OcfManifest> {
-  const { verbose = false, failOnReadErrors = true, readAs } = options;
+  const { verbose = false, failOnReadErrors = true } = options;
   // eslint-disable-next-line no-console
   const log = options.logger ?? (verbose ? (msg: string) => console.log(msg) : () => {});
-  const readScopeOpts = ledgerReadScope({ readAs });
+  const readScopeOpts = ledgerReadScope(options);
 
   const result: OcfManifest = {
     issuer: null,
@@ -484,7 +484,7 @@ export async function extractCantonOcfManifest(
             objectId: issuerId,
             contractId: issuerCid,
             attempts: issuerAttempts,
-            ...ledgerReadScope({ readAs }),
+            ...ledgerReadScope(options),
           },
         });
         if (failOnReadErrors) {
@@ -605,7 +605,7 @@ export async function extractCantonOcfManifest(
               objectId,
               contractId,
               attempts: readAttempts,
-              ...ledgerReadScope({ readAs }),
+              ...ledgerReadScope(options),
             },
           });
           if (failOnReadErrors) {

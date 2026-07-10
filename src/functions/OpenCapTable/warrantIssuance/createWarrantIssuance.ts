@@ -1,11 +1,11 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type {
-  CapitalizationDefinitionRules,
-  ConversionTriggerFor,
-  ConversionTriggerType,
-  Monetary,
-} from '../../../types';
+  OcfWarrantIssuance,
+  QuantitySourceType,
+  StockClassConversionRight,
+  WarrantExerciseTrigger,
+} from '../../../types/native';
 import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   cleanComments,
@@ -14,326 +14,37 @@ import {
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
+import { ratioMechanismToDaml, warrantMechanismToDaml } from '../shared/conversionMechanisms';
 
-export interface SimpleVesting {
-  date: string;
-  amount: string;
-}
+/** Strongly typed converter input; object_type is optional for direct helper use. */
+export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
+  readonly object_type?: 'TX_WARRANT_ISSUANCE';
+};
 
-export type WarrantTriggerTypeInput = ConversionTriggerType;
-
-export type WarrantConversionMechanismInput =
-  | { type: 'CUSTOM_CONVERSION'; custom_conversion_description: string }
-  | {
-      type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
-      converts_to_percent: string;
-      capitalization_definition?: string | null;
-      capitalization_definition_rules?: CapitalizationDefinitionRules | null;
-    }
-  | { type: 'FIXED_AMOUNT_CONVERSION'; converts_to_quantity: string }
-  | {
-      type: 'VALUATION_BASED_CONVERSION';
-      valuation_type: string;
-      valuation_amount?: Monetary | null;
-      capitalization_definition?: string | null;
-      capitalization_definition_rules?: CapitalizationDefinitionRules | null;
-    }
-  | {
-      type: 'PPS_BASED_CONVERSION';
-      description: string;
-      discount: boolean;
-      discount_percentage?: string | null;
-      discount_amount?: Monetary | null;
-    };
-
-/** Strict ratio-conversion mechanism for STOCK_CLASS_CONVERSION_RIGHT triggers (OCF RatioConversionMechanism) */
-export interface StockClassRatioConversionMechanismInput {
-  type: 'RATIO_CONVERSION';
-  ratio: { numerator: string; denominator: string };
-  conversion_price: Monetary;
-  rounding_type: 'NORMAL' | 'CEILING' | 'FLOOR';
-}
-
-/** WARRANT_CONVERSION_RIGHT branch of a warrant exercise trigger's conversion_right */
-export interface WarrantConversionRightInput {
-  type: 'WARRANT_CONVERSION_RIGHT';
-  conversion_mechanism: WarrantConversionMechanismInput;
-  converts_to_future_round?: boolean;
-  converts_to_stock_class_id?: string;
-}
-
-/** STOCK_CLASS_CONVERSION_RIGHT branch of a warrant exercise trigger's conversion_right */
-export interface StockClassConversionRightInput {
-  type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: StockClassRatioConversionMechanismInput;
-  converts_to_stock_class_id: string;
-  converts_to_future_round?: boolean;
-}
-
-export type WarrantConversionRightKindInput = WarrantConversionRightInput | StockClassConversionRightInput;
-
-/** The exact six OCF exercise-trigger variants accepted by warrant issuance writes. */
-export type WarrantExerciseTriggerInput = ConversionTriggerFor<WarrantConversionRightKindInput>;
-
-function triggerTypeToDamlEnum(
-  t: WarrantTriggerTypeInput
+function triggerTypeToDaml(
+  value: WarrantExerciseTrigger['type']
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTriggerType {
-  switch (t) {
-    case 'AUTOMATIC_ON_DATE':
-      return 'OcfTriggerTypeTypeAutomaticOnDate';
-    case 'ELECTIVE_AT_WILL':
-      return 'OcfTriggerTypeTypeElectiveAtWill';
-    case 'ELECTIVE_ON_CONDITION':
-      return 'OcfTriggerTypeTypeElectiveOnCondition';
-    case 'ELECTIVE_IN_RANGE':
-      return 'OcfTriggerTypeTypeElectiveInRange';
-    case 'UNSPECIFIED':
-      return 'OcfTriggerTypeTypeUnspecified';
+  switch (value) {
     case 'AUTOMATIC_ON_CONDITION':
       return 'OcfTriggerTypeTypeAutomaticOnCondition';
-    default: {
-      const exhaustiveCheck: never = t;
-      throw new OcpParseError(`Unknown warrant trigger type: ${exhaustiveCheck as string}`, {
-        source: 'warrantTrigger.type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
+    case 'AUTOMATIC_ON_DATE':
+      return 'OcfTriggerTypeTypeAutomaticOnDate';
+    case 'ELECTIVE_IN_RANGE':
+      return 'OcfTriggerTypeTypeElectiveInRange';
+    case 'ELECTIVE_ON_CONDITION':
+      return 'OcfTriggerTypeTypeElectiveOnCondition';
+    case 'ELECTIVE_AT_WILL':
+      return 'OcfTriggerTypeTypeElectiveAtWill';
+    case 'UNSPECIFIED':
+      return 'OcfTriggerTypeTypeUnspecified';
   }
 }
 
-function mapWarrantCapitalizationRules(
-  rules: CapitalizationDefinitionRules | null | undefined
-): Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules | null {
-  if (!rules) return null;
-  return {
-    include_outstanding_shares: rules.include_outstanding_shares ?? false,
-    include_outstanding_options: rules.include_outstanding_options ?? false,
-    include_outstanding_unissued_options: rules.include_outstanding_unissued_options ?? false,
-    include_this_security: rules.include_this_security ?? false,
-    include_other_converting_securities: rules.include_other_converting_securities ?? false,
-    include_option_pool_topup_for_promised_options: rules.include_option_pool_topup_for_promised_options ?? false,
-    include_additional_option_pool_topup: rules.include_additional_option_pool_topup ?? false,
-    include_new_money: rules.include_new_money ?? false,
-  };
-}
-
-function warrantMechanismToDamlVariant(
-  m: WarrantConversionMechanismInput
-): Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism {
-  const raw = m as unknown;
-  if (raw == null || typeof raw !== 'object' || !('type' in raw)) {
-    throw new OcpValidationError(
-      'conversion_right.conversion_mechanism',
-      'conversion_right.conversion_mechanism is required for warrant issuance',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING, receivedValue: raw }
-    );
-  }
-  const mech = raw as WarrantConversionMechanismInput;
-  switch (mech.type) {
-    case 'CUSTOM_CONVERSION':
-      return {
-        tag: 'OcfWarrantMechanismCustom',
-        value: { custom_conversion_description: mech.custom_conversion_description },
-      };
-
-    case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION':
-      return {
-        tag: 'OcfWarrantMechanismPercentCapitalization',
-        value: {
-          converts_to_percent: normalizeNumericString(mech.converts_to_percent),
-          capitalization_definition: optionalString(mech.capitalization_definition ?? undefined),
-          capitalization_definition_rules: mapWarrantCapitalizationRules(mech.capitalization_definition_rules),
-        },
-      };
-
-    case 'FIXED_AMOUNT_CONVERSION':
-      return {
-        tag: 'OcfWarrantMechanismFixedAmount',
-        value: { converts_to_quantity: normalizeNumericString(mech.converts_to_quantity) },
-      };
-
-    case 'VALUATION_BASED_CONVERSION':
-      return {
-        tag: 'OcfWarrantMechanismValuationBased',
-        value: {
-          valuation_type: mech.valuation_type,
-          valuation_amount: mech.valuation_amount ? monetaryToDaml(mech.valuation_amount) : null,
-          capitalization_definition: optionalString(mech.capitalization_definition ?? undefined),
-          capitalization_definition_rules: mapWarrantCapitalizationRules(mech.capitalization_definition_rules),
-        },
-      };
-
-    case 'PPS_BASED_CONVERSION': {
-      const dpct = mech.discount_percentage;
-      return {
-        tag: 'OcfWarrantMechanismPpsBased',
-        value: {
-          description: mech.description,
-          discount: mech.discount,
-          discount_percentage: dpct === '' || dpct == null ? null : normalizeNumericString(dpct),
-          discount_amount: mech.discount_amount ? monetaryToDaml(mech.discount_amount) : null,
-        },
-      };
-    }
-
-    default: {
-      const _exhaustive: never = mech;
-      throw new OcpParseError(
-        `Unknown warrant conversion_mechanism.type: "${(_exhaustive as { type: string }).type}" for WARRANT_CONVERSION_RIGHT`,
-        { code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
-      );
-    }
-  }
-}
-
-type WarrantExerciseTriggerObject = WarrantExerciseTriggerInput;
-
-function warrantNestedConversionTrigger(
-  t: WarrantExerciseTriggerObject,
-  converts_to_stock_class_id: string
-): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
-  const typeEnum = triggerTypeToDamlEnum(t.type);
-  return {
-    type_: typeEnum,
-    trigger_id: t.trigger_id,
-    nickname: t.nickname ?? null,
-    trigger_description: t.trigger_description ?? null,
-    trigger_date:
-      t.type === 'AUTOMATIC_ON_DATE'
-        ? dateStringToDAMLTime(t.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date')
-        : null,
-    trigger_condition:
-      t.type === 'AUTOMATIC_ON_CONDITION' || t.type === 'ELECTIVE_ON_CONDITION' ? t.trigger_condition : null,
-    start_date:
-      t.type === 'ELECTIVE_IN_RANGE'
-        ? dateStringToDAMLTime(t.start_date, 'warrantIssuance.exercise_triggers[].start_date')
-        : null,
-    end_date:
-      t.type === 'ELECTIVE_IN_RANGE'
-        ? dateStringToDAMLTime(t.end_date, 'warrantIssuance.exercise_triggers[].end_date')
-        : null,
-    conversion_right: {
-      tag: 'OcfRightConvertible',
-      value: {
-        type_: 'STOCK_CLASS_CONVERSION_RIGHT',
-        conversion_mechanism: {
-          tag: 'OcfConvMechCustom',
-          value: { custom_conversion_description: 'Stock class conversion' },
-        },
-        converts_to_future_round: null,
-        converts_to_stock_class_id,
-      },
-    },
-  };
-}
-
-/** Typed helper: convert a strict StockClassRatioConversionMechanismInput to DAML ratio fields. */
-function toDamlRatio(mech: StockClassRatioConversionMechanismInput): {
-  ratio: Fairmint.OpenCapTable.Types.Stock.OcfRatio;
-  conversion_price: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary;
-} {
-  // OcfStockClassConversionRight (DAML) has no rounding_type field — only NORMAL round-trips.
-  if (mech.rounding_type !== 'NORMAL') {
-    throw new OcpValidationError(
-      'conversion_right.conversion_mechanism.rounding_type',
-      'Warrant STOCK_CLASS_CONVERSION_RIGHT cannot persist rounding_type in DAML (OcfStockClassConversionRight omits it); use NORMAL or omit this trigger variant',
-      { code: OcpErrorCodes.INVALID_FORMAT, receivedValue: mech.rounding_type }
-    );
-  }
-  return {
-    ratio: {
-      numerator: normalizeNumericString(mech.ratio.numerator),
-      denominator: normalizeNumericString(mech.ratio.denominator),
-    },
-    conversion_price: monetaryToDaml(mech.conversion_price),
-  };
-}
-
-function buildWarrantStockClassConversionRight(
-  exerciseTrigger: WarrantExerciseTriggerObject,
-  details: StockClassConversionRightInput
-): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
-  // Runtime guard: protect against invalid data reaching this path (e.g. from untyped JSON)
-  const mechType = (details.conversion_mechanism as { type: string }).type;
-  if (mechType !== 'RATIO_CONVERSION') {
-    throw new OcpParseError(
-      `Unsupported conversion_mechanism.type "${mechType}" for STOCK_CLASS_CONVERSION_RIGHT on warrant — only RATIO_CONVERSION is supported`,
-      { source: 'conversion_right.conversion_mechanism', code: OcpErrorCodes.UNKNOWN_ENUM_VALUE }
-    );
-  }
-  const { ratio, conversion_price } = toDamlRatio(details.conversion_mechanism);
-  const converts_to_future_round =
-    typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null;
-
-  const value: Fairmint.OpenCapTable.Types.Conversion.OcfStockClassConversionRight = {
-    type_: 'STOCK_CLASS_CONVERSION_RIGHT',
-    conversion_mechanism: 'OcfConversionMechanismRatioConversion',
-    conversion_trigger: warrantNestedConversionTrigger(exerciseTrigger, details.converts_to_stock_class_id),
-    converts_to_stock_class_id: details.converts_to_stock_class_id,
-    ratio,
-    conversion_price,
-    converts_to_future_round,
-    ceiling_price_per_share: null,
-    custom_description: null,
-    discount_rate: null,
-    expires_at: null,
-    floor_price_per_share: null,
-    percent_of_capitalization: null,
-    reference_share_price: null,
-    reference_valuation_price_per_share: null,
-    valuation_cap: null,
-  };
-
-  return { tag: 'OcfRightStockClass', value };
-}
-
-function buildWarrantRight(
-  exerciseTrigger: WarrantExerciseTriggerInput
-): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
-  const cr = exerciseTrigger.conversion_right;
-
-  switch (cr.type) {
-    case 'STOCK_CLASS_CONVERSION_RIGHT': {
-      return buildWarrantStockClassConversionRight(exerciseTrigger, cr);
-    }
-    case 'WARRANT_CONVERSION_RIGHT': {
-      const mechanism = warrantMechanismToDamlVariant(cr.conversion_mechanism);
-      const converts_to_future_round =
-        typeof cr.converts_to_future_round === 'boolean' ? cr.converts_to_future_round : null;
-      const converts_to_stock_class_id = optionalString(cr.converts_to_stock_class_id);
-      return {
-        tag: 'OcfRightWarrant',
-        value: {
-          type_: 'WARRANT_CONVERSION_RIGHT',
-          conversion_mechanism: mechanism,
-          converts_to_future_round,
-          converts_to_stock_class_id,
-        },
-      };
-    }
-    default: {
-      const _exhaustive: never = cr;
-      throw new OcpParseError(`Unknown conversion_right.type: "${(_exhaustive as { type: string }).type}"`, {
-        source: 'conversion_right.type',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
-  }
-}
-
-function quantitySourceToDamlEnum(
-  qs:
-    | 'HUMAN_ESTIMATED'
-    | 'MACHINE_ESTIMATED'
-    | 'UNSPECIFIED'
-    | 'INSTRUMENT_FIXED'
-    | 'INSTRUMENT_MAX'
-    | 'INSTRUMENT_MIN'
-    | null
-    | undefined
+function quantitySourceToDaml(
+  value: QuantitySourceType | undefined
 ): Fairmint.OpenCapTable.Types.Stock.OcfQuantitySourceType | null {
-  if (qs === undefined || qs === null) return null;
-  switch (qs) {
+  if (value === undefined) return null;
+  switch (value) {
     case 'HUMAN_ESTIMATED':
       return 'OcfQuantityHumanEstimated';
     case 'MACHINE_ESTIMATED':
@@ -346,107 +57,191 @@ function quantitySourceToDamlEnum(
       return 'OcfQuantityInstrumentMax';
     case 'INSTRUMENT_MIN':
       return 'OcfQuantityInstrumentMin';
+  }
+}
+
+function requireStockClassTarget(right: StockClassConversionRight): string {
+  if (!right.converts_to_stock_class_id) {
+    throw new OcpValidationError(
+      'warrantTrigger.conversion_right.converts_to_stock_class_id',
+      'The current DAML stock-class right requires converts_to_stock_class_id',
+      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
+    );
+  }
+  return right.converts_to_stock_class_id;
+}
+
+function storageTrigger(
+  trigger: WarrantExerciseTrigger,
+  convertsToStockClassId: string,
+  source: string
+): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+  const timing = triggerTimingToDaml(trigger, source);
+  return {
+    type_: triggerTypeToDaml(trigger.type),
+    trigger_id: trigger.trigger_id,
+    nickname: optionalString(trigger.nickname),
+    trigger_description: optionalString(trigger.trigger_description),
+    ...timing,
+    conversion_right: {
+      tag: 'OcfRightConvertible',
+      value: {
+        type_: 'CONVERTIBLE_CONVERSION_RIGHT',
+        conversion_mechanism: {
+          tag: 'OcfConvMechCustom',
+          value: { custom_conversion_description: 'Stock class conversion' },
+        },
+        converts_to_future_round: null,
+        converts_to_stock_class_id: convertsToStockClassId,
+      },
+    },
+  };
+}
+
+function stockClassRightToDaml(
+  trigger: WarrantExerciseTrigger,
+  right: StockClassConversionRight,
+  source: string
+): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
+  const convertsToStockClassId = requireStockClassTarget(right);
+  const mechanism = ratioMechanismToDaml(right.conversion_mechanism);
+  return {
+    tag: 'OcfRightStockClass',
+    value: {
+      type_: 'STOCK_CLASS_CONVERSION_RIGHT',
+      conversion_mechanism: mechanism.conversion_mechanism,
+      conversion_trigger: storageTrigger(trigger, convertsToStockClassId, source),
+      converts_to_stock_class_id: convertsToStockClassId,
+      ratio: mechanism.ratio,
+      conversion_price: mechanism.conversion_price,
+      converts_to_future_round: right.converts_to_future_round ?? null,
+      ceiling_price_per_share: null,
+      custom_description: null,
+      discount_rate: null,
+      expires_at: null,
+      floor_price_per_share: null,
+      percent_of_capitalization: null,
+      reference_share_price: null,
+      reference_valuation_price_per_share: null,
+      valuation_cap: null,
+    },
+  };
+}
+
+function conversionRightToDaml(
+  trigger: WarrantExerciseTrigger,
+  source: string
+): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
+  const { conversion_right: right } = trigger;
+  switch (right.type) {
+    case 'WARRANT_CONVERSION_RIGHT':
+      return {
+        tag: 'OcfRightWarrant',
+        value: {
+          type_: 'WARRANT_CONVERSION_RIGHT',
+          conversion_mechanism: warrantMechanismToDaml(right.conversion_mechanism),
+          converts_to_future_round: right.converts_to_future_round ?? null,
+          converts_to_stock_class_id: optionalString(right.converts_to_stock_class_id),
+        },
+      };
+    case 'STOCK_CLASS_CONVERSION_RIGHT':
+      return stockClassRightToDaml(trigger, right, source);
     default: {
-      const exhaustiveCheck: never = qs;
-      throw new OcpParseError(`Unknown quantity_source: ${String(exhaustiveCheck)}`, {
-        source: 'warrantIssuance.quantity_source',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      const unexpected: unknown = right;
+      const type =
+        typeof unexpected === 'object' && unexpected !== null && 'type' in unexpected
+          ? String(unexpected.type)
+          : String(unexpected);
+      throw new OcpParseError(`Unknown warrant conversion right type: ${type}`, {
+        source: 'conversion_right.type',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
       });
     }
   }
 }
 
-function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _ocfId: string) {
-  const trigger = parseConversionTriggerFields(t, 'warrantIssuance.exercise_triggers[]');
-  const typeEnum = triggerTypeToDamlEnum(trigger.type);
-  const conversion_right = buildWarrantRight(trigger);
+function triggerTimingToDaml(trigger: WarrantExerciseTrigger, source: string) {
+  switch (trigger.type) {
+    case 'AUTOMATIC_ON_CONDITION':
+    case 'ELECTIVE_ON_CONDITION':
+      return {
+        trigger_date: null,
+        trigger_condition: trigger.trigger_condition,
+        start_date: null,
+        end_date: null,
+      };
+    case 'AUTOMATIC_ON_DATE':
+      return {
+        trigger_date: dateStringToDAMLTime(trigger.trigger_date, `${source}.trigger_date`),
+        trigger_condition: null,
+        start_date: null,
+        end_date: null,
+      };
+    case 'ELECTIVE_IN_RANGE':
+      return {
+        trigger_date: null,
+        trigger_condition: null,
+        start_date: dateStringToDAMLTime(trigger.start_date, `${source}.start_date`),
+        end_date: dateStringToDAMLTime(trigger.end_date, `${source}.end_date`),
+      };
+    case 'ELECTIVE_AT_WILL':
+    case 'UNSPECIFIED':
+      return {
+        trigger_date: null,
+        trigger_condition: null,
+        start_date: null,
+        end_date: null,
+      };
+  }
+}
+
+function triggerToDaml(
+  trigger: WarrantExerciseTrigger,
+  index: number
+): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+  const source = `warrantIssuance.exercise_triggers.${index}`;
+  const parsed = parseConversionTriggerFields(trigger, source);
   return {
-    type_: typeEnum,
-    trigger_id: trigger.trigger_id,
-    nickname: trigger.nickname ?? null,
-    trigger_description: trigger.trigger_description ?? null,
-    conversion_right,
-    trigger_date:
-      trigger.type === 'AUTOMATIC_ON_DATE'
-        ? dateStringToDAMLTime(trigger.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date')
-        : null,
-    trigger_condition:
-      trigger.type === 'AUTOMATIC_ON_CONDITION' || trigger.type === 'ELECTIVE_ON_CONDITION'
-        ? trigger.trigger_condition
-        : null,
-    start_date:
-      trigger.type === 'ELECTIVE_IN_RANGE'
-        ? dateStringToDAMLTime(trigger.start_date, 'warrantIssuance.exercise_triggers[].start_date')
-        : null,
-    end_date:
-      trigger.type === 'ELECTIVE_IN_RANGE'
-        ? dateStringToDAMLTime(trigger.end_date, 'warrantIssuance.exercise_triggers[].end_date')
-        : null,
+    type_: triggerTypeToDaml(parsed.type),
+    trigger_id: parsed.trigger_id,
+    conversion_right: conversionRightToDaml(parsed, source),
+    nickname: optionalString(parsed.nickname),
+    trigger_description: optionalString(parsed.trigger_description),
+    ...triggerTimingToDaml(parsed, source),
   };
 }
 
-export function warrantIssuanceDataToDaml(d: {
-  id: string;
-  date: string;
-  security_id: string;
-  custom_id: string;
-  stakeholder_id: string;
-  board_approval_date?: string;
-  stockholder_approval_date?: string;
-  consideration_text?: string;
-  security_law_exemptions: Array<{ description: string; jurisdiction: string }>;
-  quantity?: string;
-  quantity_source?:
-    | 'HUMAN_ESTIMATED'
-    | 'MACHINE_ESTIMATED'
-    | 'UNSPECIFIED'
-    | 'INSTRUMENT_FIXED'
-    | 'INSTRUMENT_MAX'
-    | 'INSTRUMENT_MIN';
-  exercise_price?: Monetary;
-  purchase_price: Monetary;
-  exercise_triggers: WarrantExerciseTriggerInput[];
-  warrant_expiration_date?: string;
-  vesting_terms_id?: string;
-  vestings?: SimpleVesting[];
-  comments?: string[];
-}): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
-  // Runtime truthiness check: DB JSONB may store quantity as explicit null or empty string
-  // Must match the truthiness check used for the quantity field itself (d.quantity ? ... : null)
-  const hasQuantity = Boolean(d.quantity);
-  const quantitySourceDaml = hasQuantity
-    ? quantitySourceToDamlEnum(d.quantity_source ?? 'UNSPECIFIED')
-    : d.quantity_source
-      ? quantitySourceToDamlEnum(d.quantity_source)
-      : null;
-
+export function warrantIssuanceDataToDaml(
+  input: WarrantIssuanceInput
+): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
+  const quantitySource = input.quantity
+    ? quantitySourceToDaml(input.quantity_source ?? 'UNSPECIFIED')
+    : quantitySourceToDaml(input.quantity_source);
   return {
-    id: d.id,
-    date: dateStringToDAMLTime(d.date),
-    security_id: d.security_id,
-    custom_id: d.custom_id,
-    stakeholder_id: d.stakeholder_id,
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
-    consideration_text: optionalString(d.consideration_text),
-    security_law_exemptions: d.security_law_exemptions,
-    quantity: d.quantity != null ? normalizeNumericString(d.quantity) : null,
-    quantity_source: quantitySourceDaml ?? null,
-    exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
-    purchase_price: monetaryToDaml(d.purchase_price),
-    exercise_triggers: d.exercise_triggers.map((t, idx) => buildWarrantTrigger(t, idx, d.id)),
-    warrant_expiration_date: d.warrant_expiration_date ? dateStringToDAMLTime(d.warrant_expiration_date) : null,
-    vesting_terms_id: optionalString(d.vesting_terms_id),
-    vestings: (d.vestings ?? [])
-      .filter((v) => {
-        // normalizeNumericString validates strict decimal format and rejects scientific notation
-        const normalized = normalizeNumericString(v.amount);
-        return parseFloat(normalized) > 0;
-      })
-      .map((v) => ({
-        date: dateStringToDAMLTime(v.date),
-        amount: normalizeNumericString(v.amount),
+    id: input.id,
+    date: dateStringToDAMLTime(input.date),
+    security_id: input.security_id,
+    custom_id: input.custom_id,
+    stakeholder_id: input.stakeholder_id,
+    board_approval_date: input.board_approval_date ? dateStringToDAMLTime(input.board_approval_date) : null,
+    stockholder_approval_date: input.stockholder_approval_date
+      ? dateStringToDAMLTime(input.stockholder_approval_date)
+      : null,
+    consideration_text: optionalString(input.consideration_text),
+    security_law_exemptions: input.security_law_exemptions,
+    quantity: input.quantity === undefined ? null : normalizeNumericString(input.quantity),
+    quantity_source: quantitySource,
+    exercise_price: input.exercise_price ? monetaryToDaml(input.exercise_price) : null,
+    purchase_price: monetaryToDaml(input.purchase_price),
+    exercise_triggers: input.exercise_triggers.map(triggerToDaml),
+    warrant_expiration_date: input.warrant_expiration_date ? dateStringToDAMLTime(input.warrant_expiration_date) : null,
+    vesting_terms_id: optionalString(input.vesting_terms_id),
+    vestings: (input.vestings ?? [])
+      .filter((vesting) => Number(normalizeNumericString(vesting.amount)) > 0)
+      .map((vesting) => ({
+        date: dateStringToDAMLTime(vesting.date),
+        amount: normalizeNumericString(vesting.amount),
       })),
-    comments: cleanComments(d.comments),
+    comments: cleanComments(input.comments),
   };
 }

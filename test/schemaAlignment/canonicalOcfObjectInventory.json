@@ -1,0 +1,403 @@
+[
+  {
+    "discriminator": "CE_STAKEHOLDER_RELATIONSHIP",
+    "optionalProperties": ["comments", "relationship_ended", "relationship_started"],
+    "requiredProperties": ["date", "id", "object_type", "stakeholder_id"]
+  },
+  {
+    "discriminator": "CE_STAKEHOLDER_STATUS",
+    "optionalProperties": ["comments", "reason_text"],
+    "requiredProperties": ["date", "id", "new_status", "object_type", "stakeholder_id"]
+  },
+  {
+    "discriminator": "DOCUMENT",
+    "optionalProperties": ["comments", "path", "related_objects", "uri"],
+    "requiredProperties": ["id", "md5", "object_type"]
+  },
+  {
+    "discriminator": "FINANCING",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "issuance_ids", "name", "object_type"]
+  },
+  {
+    "discriminator": "ISSUER",
+    "optionalProperties": [
+      "address",
+      "comments",
+      "country_subdivision_name_of_formation",
+      "country_subdivision_of_formation",
+      "dba",
+      "email",
+      "initial_shares_authorized",
+      "phone",
+      "tax_ids"
+    ],
+    "requiredProperties": ["country_of_formation", "formation_date", "id", "legal_name", "object_type"]
+  },
+  {
+    "discriminator": "STAKEHOLDER",
+    "optionalProperties": [
+      "addresses",
+      "comments",
+      "contact_info",
+      "current_relationship",
+      "current_relationships",
+      "current_status",
+      "issuer_assigned_id",
+      "primary_contact",
+      "tax_ids"
+    ],
+    "requiredProperties": ["id", "name", "object_type", "stakeholder_type"]
+  },
+  {
+    "discriminator": "STOCK_CLASS",
+    "optionalProperties": [
+      "board_approval_date",
+      "comments",
+      "conversion_rights",
+      "liquidation_preference_multiple",
+      "par_value",
+      "participation_cap_multiple",
+      "price_per_share",
+      "stockholder_approval_date"
+    ],
+    "requiredProperties": [
+      "class_type",
+      "default_id_prefix",
+      "id",
+      "initial_shares_authorized",
+      "name",
+      "object_type",
+      "seniority",
+      "votes_per_share"
+    ]
+  },
+  {
+    "discriminator": "STOCK_LEGEND_TEMPLATE",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["id", "name", "object_type", "text"]
+  },
+  {
+    "discriminator": "STOCK_PLAN",
+    "optionalProperties": [
+      "board_approval_date",
+      "comments",
+      "default_cancellation_behavior",
+      "stockholder_approval_date"
+    ],
+    "requiredProperties": ["id", "initial_shares_reserved", "object_type", "plan_name", "stock_class_ids"]
+  },
+  {
+    "discriminator": "TX_CONVERTIBLE_ACCEPTANCE",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "security_id"]
+  },
+  {
+    "discriminator": "TX_CONVERTIBLE_CANCELLATION",
+    "optionalProperties": ["balance_security_id", "comments"],
+    "requiredProperties": ["amount", "date", "id", "object_type", "reason_text", "security_id"]
+  },
+  {
+    "discriminator": "TX_CONVERTIBLE_CONVERSION",
+    "optionalProperties": ["balance_security_id", "capitalization_definition", "comments", "quantity_converted"],
+    "requiredProperties": [
+      "date",
+      "id",
+      "object_type",
+      "reason_text",
+      "resulting_security_ids",
+      "security_id",
+      "trigger_id"
+    ]
+  },
+  {
+    "discriminator": "TX_CONVERTIBLE_ISSUANCE",
+    "optionalProperties": [
+      "board_approval_date",
+      "comments",
+      "consideration_text",
+      "pro_rata",
+      "stockholder_approval_date"
+    ],
+    "requiredProperties": [
+      "conversion_triggers",
+      "convertible_type",
+      "custom_id",
+      "date",
+      "id",
+      "investment_amount",
+      "object_type",
+      "security_id",
+      "security_law_exemptions",
+      "seniority",
+      "stakeholder_id"
+    ]
+  },
+  {
+    "discriminator": "TX_CONVERTIBLE_RETRACTION",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
+  },
+  {
+    "discriminator": "TX_CONVERTIBLE_TRANSFER",
+    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "requiredProperties": ["amount", "date", "id", "object_type", "resulting_security_ids", "security_id"]
+  },
+  {
+    "discriminator": "TX_EQUITY_COMPENSATION_ACCEPTANCE",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "security_id"]
+  },
+  {
+    "discriminator": "TX_EQUITY_COMPENSATION_CANCELLATION",
+    "optionalProperties": ["balance_security_id", "comments"],
+    "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
+  },
+  {
+    "discriminator": "TX_EQUITY_COMPENSATION_EXERCISE",
+    "optionalProperties": ["comments", "consideration_text"],
+    "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
+  },
+  {
+    "discriminator": "TX_EQUITY_COMPENSATION_ISSUANCE",
+    "optionalProperties": [
+      "base_price",
+      "board_approval_date",
+      "comments",
+      "consideration_text",
+      "early_exercisable",
+      "exercise_price",
+      "stock_class_id",
+      "stock_plan_id",
+      "stockholder_approval_date",
+      "vesting_terms_id",
+      "vestings"
+    ],
+    "requiredProperties": [
+      "compensation_type",
+      "custom_id",
+      "date",
+      "expiration_date",
+      "id",
+      "object_type",
+      "quantity",
+      "security_id",
+      "security_law_exemptions",
+      "stakeholder_id",
+      "termination_exercise_windows"
+    ]
+  },
+  {
+    "discriminator": "TX_EQUITY_COMPENSATION_RELEASE",
+    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "requiredProperties": [
+      "date",
+      "id",
+      "object_type",
+      "quantity",
+      "release_price",
+      "resulting_security_ids",
+      "security_id",
+      "settlement_date"
+    ]
+  },
+  {
+    "discriminator": "TX_EQUITY_COMPENSATION_REPRICING",
+    "optionalProperties": ["comments", "resulting_security_ids"],
+    "requiredProperties": ["date", "id", "new_exercise_price", "object_type", "security_id"]
+  },
+  {
+    "discriminator": "TX_EQUITY_COMPENSATION_RETRACTION",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
+  },
+  {
+    "discriminator": "TX_EQUITY_COMPENSATION_TRANSFER",
+    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
+  },
+  {
+    "discriminator": "TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT",
+    "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+    "requiredProperties": ["date", "id", "issuer_id", "new_shares_authorized", "object_type"]
+  },
+  {
+    "discriminator": "TX_STOCK_ACCEPTANCE",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "security_id"]
+  },
+  {
+    "discriminator": "TX_STOCK_CANCELLATION",
+    "optionalProperties": ["balance_security_id", "comments"],
+    "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
+  },
+  {
+    "discriminator": "TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT",
+    "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+    "requiredProperties": ["date", "id", "new_shares_authorized", "object_type", "stock_class_id"]
+  },
+  {
+    "discriminator": "TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT",
+    "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+    "requiredProperties": ["date", "id", "new_ratio_conversion_mechanism", "object_type", "stock_class_id"]
+  },
+  {
+    "discriminator": "TX_STOCK_CLASS_SPLIT",
+    "optionalProperties": [
+      "board_approval_date",
+      "comments",
+      "split_ratio_denominator",
+      "split_ratio_numerator",
+      "stockholder_approval_date"
+    ],
+    "requiredProperties": ["date", "id", "object_type", "split_ratio", "stock_class_id"]
+  },
+  {
+    "discriminator": "TX_STOCK_CONSOLIDATION",
+    "optionalProperties": ["comments", "reason_text", "resulting_security_ids"],
+    "requiredProperties": ["date", "id", "object_type", "resulting_security_id", "security_ids"]
+  },
+  {
+    "discriminator": "TX_STOCK_CONVERSION",
+    "optionalProperties": ["balance_security_id", "comments", "quantity"],
+    "requiredProperties": ["date", "id", "object_type", "quantity_converted", "resulting_security_ids", "security_id"]
+  },
+  {
+    "discriminator": "TX_STOCK_ISSUANCE",
+    "optionalProperties": [
+      "board_approval_date",
+      "comments",
+      "consideration_text",
+      "cost_basis",
+      "issuance_type",
+      "share_numbers_issued",
+      "stock_plan_id",
+      "stockholder_approval_date",
+      "vesting_terms_id",
+      "vestings"
+    ],
+    "requiredProperties": [
+      "custom_id",
+      "date",
+      "id",
+      "object_type",
+      "quantity",
+      "security_id",
+      "security_law_exemptions",
+      "share_price",
+      "stakeholder_id",
+      "stock_class_id",
+      "stock_legend_ids"
+    ]
+  },
+  {
+    "discriminator": "TX_STOCK_PLAN_POOL_ADJUSTMENT",
+    "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+    "requiredProperties": ["date", "id", "object_type", "shares_reserved", "stock_plan_id"]
+  },
+  {
+    "discriminator": "TX_STOCK_PLAN_RETURN_TO_POOL",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id", "stock_plan_id"]
+  },
+  {
+    "discriminator": "TX_STOCK_REISSUANCE",
+    "optionalProperties": ["comments", "reason_text", "split_transaction_id"],
+    "requiredProperties": ["date", "id", "object_type", "resulting_security_ids", "security_id"]
+  },
+  {
+    "discriminator": "TX_STOCK_REPURCHASE",
+    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "requiredProperties": ["date", "id", "object_type", "price", "quantity", "security_id"]
+  },
+  {
+    "discriminator": "TX_STOCK_RETRACTION",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
+  },
+  {
+    "discriminator": "TX_STOCK_TRANSFER",
+    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
+  },
+  {
+    "discriminator": "TX_VESTING_ACCELERATION",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
+  },
+  {
+    "discriminator": "TX_VESTING_EVENT",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "security_id", "vesting_condition_id"]
+  },
+  {
+    "discriminator": "TX_VESTING_START",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "security_id", "vesting_condition_id"]
+  },
+  {
+    "discriminator": "TX_WARRANT_ACCEPTANCE",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "security_id"]
+  },
+  {
+    "discriminator": "TX_WARRANT_CANCELLATION",
+    "optionalProperties": ["balance_security_id", "comments"],
+    "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
+  },
+  {
+    "discriminator": "TX_WARRANT_EXERCISE",
+    "optionalProperties": ["balance_security_id", "comments", "consideration_text", "quantity"],
+    "requiredProperties": ["date", "id", "object_type", "resulting_security_ids", "security_id", "trigger_id"]
+  },
+  {
+    "discriminator": "TX_WARRANT_ISSUANCE",
+    "optionalProperties": [
+      "board_approval_date",
+      "comments",
+      "consideration_text",
+      "conversion_triggers",
+      "exercise_price",
+      "percent_of_outstanding",
+      "quantity",
+      "quantity_source",
+      "ratio_denominator",
+      "ratio_numerator",
+      "stockholder_approval_date",
+      "vesting_terms_id",
+      "vestings",
+      "warrant_expiration_date"
+    ],
+    "requiredProperties": [
+      "custom_id",
+      "date",
+      "exercise_triggers",
+      "id",
+      "object_type",
+      "purchase_price",
+      "security_id",
+      "security_law_exemptions",
+      "stakeholder_id"
+    ]
+  },
+  {
+    "discriminator": "TX_WARRANT_RETRACTION",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
+  },
+  {
+    "discriminator": "TX_WARRANT_TRANSFER",
+    "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
+  },
+  {
+    "discriminator": "VALUATION",
+    "optionalProperties": ["board_approval_date", "comments", "provider", "stockholder_approval_date"],
+    "requiredProperties": ["effective_date", "id", "object_type", "price_per_share", "stock_class_id", "valuation_type"]
+  },
+  {
+    "discriminator": "VESTING_TERMS",
+    "optionalProperties": ["comments"],
+    "requiredProperties": ["allocation_type", "description", "id", "name", "object_type", "vesting_conditions"]
+  }
+]

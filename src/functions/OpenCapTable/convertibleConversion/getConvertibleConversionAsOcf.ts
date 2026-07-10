@@ -1,7 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpContractError, OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
-import type { OcfConvertibleConversion } from '../../../types/native';
+import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types/native';
 import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 import type { DamlConvertibleConversionData } from './damlToOcf';
@@ -11,7 +11,7 @@ type DamlConvertibleConversionInput = Pick<DamlConvertibleConversionData, 'id' |
   trigger_id?: string | null;
   resulting_security_ids?: string[] | null;
   balance_security_id?: string | null;
-  capitalization_definition?: Record<string, unknown> | null;
+  capitalization_definition?: CapitalizationDefinition | null;
   quantity_converted?: string | number | null;
   comments?: string[] | null;
 };
@@ -34,7 +34,7 @@ function isDamlConvertibleConversionData(value: unknown): value is DamlConvertib
       typeof value.balance_security_id === 'string') &&
     (value.capitalization_definition === undefined ||
       value.capitalization_definition === null ||
-      isRecord(value.capitalization_definition)) &&
+      isCapitalizationDefinition(value.capitalization_definition)) &&
     (value.quantity_converted === undefined ||
       value.quantity_converted === null ||
       typeof value.quantity_converted === 'string' ||
@@ -43,6 +43,16 @@ function isDamlConvertibleConversionData(value: unknown): value is DamlConvertib
       value.comments === null ||
       (Array.isArray(value.comments) && value.comments.every((comment) => typeof comment === 'string')))
   );
+}
+
+function isCapitalizationDefinition(value: unknown): value is CapitalizationDefinition {
+  if (!isRecord(value)) return false;
+  return [
+    value.include_stock_class_ids,
+    value.include_stock_plans_ids,
+    value.include_security_ids,
+    value.exclude_security_ids,
+  ].every((ids) => Array.isArray(ids) && ids.every((id) => typeof id === 'string'));
 }
 
 /**

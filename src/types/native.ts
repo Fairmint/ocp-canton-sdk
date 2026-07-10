@@ -75,34 +75,6 @@ export interface Name {
 export type StockClassType = 'PREFERRED' | 'COMMON';
 
 /**
- * Conversion Mechanisms (shared) Mechanism by which conversion occurs (see schema for full list) OCF (primitive):
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/primitives/types/conversion_mechanisms/ConversionMechanism.schema.json
- */
-export type ConversionMechanism =
-  | 'RATIO_CONVERSION'
-  | 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION'
-  | 'FIXED_AMOUNT_CONVERSION';
-
-/**
- * OCF may encode conversion_mechanism as an object with a `type` discriminator
- * and optional detail fields (ratio, conversion_price) instead of a plain string.
- */
-export interface ConversionMechanismObject {
-  type: ConversionMechanism;
-  ratio?: { numerator: string; denominator: string };
-  conversion_price?: Monetary;
-  rounding_type?: RoundingType;
-}
-
-/** RATIO_CONVERSION with ratio, price, and rounding required (warrant stock-class path). */
-export interface WarrantRatioConversionMechanism {
-  type: 'RATIO_CONVERSION';
-  ratio: NonNullable<ConversionMechanismObject['ratio']>;
-  conversion_price: NonNullable<ConversionMechanismObject['conversion_price']>;
-  rounding_type: NonNullable<ConversionMechanismObject['rounding_type']>;
-}
-
-/**
  * Enum - Conversion Trigger Type Type of conversion trigger OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/ConversionTriggerType.schema.json
  */
@@ -119,131 +91,19 @@ export type ConversionTriggerType =
  */
 export type ConversionTrigger = ConversionTriggerType;
 
-// ===== Capitalization Definition Rules =====
-
-/** Type - Capitalization Definition Rules Rules for how capitalization is calculated for conversion purposes */
-export interface CapitalizationDefinitionRules {
-  /** Include outstanding shares in capitalization calculation */
-  include_outstanding_shares?: boolean;
-  /** Include outstanding options in capitalization calculation */
-  include_outstanding_options?: boolean;
-  /** Include outstanding unissued options in capitalization calculation */
-  include_outstanding_unissued_options?: boolean;
-  /** Include this security in capitalization calculation */
-  include_this_security?: boolean;
-  /** Include other converting securities in capitalization calculation */
-  include_other_converting_securities?: boolean;
-  /** Include option pool top-up for promised options */
-  include_option_pool_topup_for_promised_options?: boolean;
-  /** Include additional option pool top-up */
-  include_additional_option_pool_topup?: boolean;
-  /** Include new money in capitalization calculation */
-  include_new_money?: boolean;
-}
-
-// ===== Warrant Conversion Mechanism Types =====
-
-/** Warrant Conversion Mechanism - Custom Custom conversion description for non-standard warrant conversions */
-export interface WarrantMechanismCustom {
-  type: 'CUSTOM_CONVERSION';
-  /** Description of custom conversion mechanism */
-  custom_conversion_description: string;
-}
-
-/** Warrant Conversion Mechanism - Fixed Percent of Capitalization Converts to a fixed percentage of capitalization */
-export interface WarrantMechanismPercentCapitalization {
-  type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
-  /** Percentage of capitalization to convert to (as decimal string, e.g., "0.05" for 5%) */
-  converts_to_percent: string;
-  /** Description of capitalization definition */
-  capitalization_definition?: string;
-  /** Rules for capitalization calculation */
-  capitalization_definition_rules?: CapitalizationDefinitionRules;
-}
-
-/** Warrant Conversion Mechanism - Fixed Amount Converts to a fixed quantity of shares */
-export interface WarrantMechanismFixedAmount {
-  type: 'FIXED_AMOUNT_CONVERSION';
-  /** Fixed quantity of shares to convert to */
-  converts_to_quantity: string;
-}
-
-/** Warrant Conversion Mechanism - Valuation Based Conversion based on company valuation */
-export interface WarrantMechanismValuationBased {
-  type: 'VALUATION_BASED_CONVERSION';
-  /** Type of valuation (e.g., "409A", "FMV") */
-  valuation_type?: string;
-  /** Valuation amount */
-  valuation_amount?: { amount: string; currency: string };
-  /** Description of capitalization definition */
-  capitalization_definition?: string;
-  /** Rules for capitalization calculation */
-  capitalization_definition_rules?: CapitalizationDefinitionRules;
-}
-
-/** Warrant Conversion Mechanism - PPS-based (price-per-share-based) conversion with optional discount */
-export interface WarrantMechanismPpsBased {
-  type: 'PPS_BASED_CONVERSION';
-  /** Description of the share price basis */
-  description?: string;
-  /** Whether a discount applies */
-  discount: boolean;
-  /** Discount percentage (as decimal string, e.g., "0.20" for 20%) */
-  discount_percentage?: string;
-  /** Fixed discount amount */
-  discount_amount?: { amount: string; currency: string };
-}
-
-/** Union type for all Warrant Conversion Mechanisms */
-export type WarrantConversionMechanism =
-  | WarrantMechanismCustom
-  | WarrantMechanismPercentCapitalization
-  | WarrantMechanismFixedAmount
-  | WarrantMechanismValuationBased
-  | WarrantMechanismPpsBased;
-
-/** Warrant Conversion Right Describes the conversion rights associated with a warrant */
-export interface WarrantConversionRight {
-  type: 'WARRANT_CONVERSION_RIGHT';
-  /** Mechanism by which conversion occurs */
-  conversion_mechanism: WarrantConversionMechanism;
-  /** Whether this converts to a future financing round */
-  converts_to_future_round?: boolean;
-  /** Stock class ID to convert to (if not future round) */
-  converts_to_stock_class_id?: string;
-}
-
-/**
- * WarrantIssuance ConversionTrigger.oneOf StockClassConversionRight (OCF) — exercised as
- * DAML {@code OcfAnyConversionRight} tag {@code OcfRightStockClass}.
- */
-export interface WarrantStockClassConversionRight {
-  type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: WarrantRatioConversionMechanism;
-  converts_to_stock_class_id: string;
-  converts_to_future_round?: boolean;
-}
-
-/** Union — warrant exercise triggers may carry either variant per OCF {@code ConversionTrigger} schema */
-export type WarrantTriggerConversionRight = WarrantConversionRight | WarrantStockClassConversionRight;
-
 /** Fields shared by every canonical OCF conversion-trigger variant. */
-export interface ConversionTriggerCommon<ConversionRight> {
-  /** Unique identifier for this trigger */
+export interface ConversionTriggerCommon<TRight> {
   trigger_id: string;
-  /** Conversion right associated with this trigger */
-  conversion_right: ConversionRight;
-  /** Human-readable nickname for the trigger */
+  conversion_right: TRight;
   nickname?: string;
-  /** Description of trigger conditions */
   trigger_description?: string;
 }
 
 /** Automatic or elective conversion activated by a legal condition. */
 export type ConversionOnConditionTrigger<
-  ConversionRight,
+  TRight,
   TriggerType extends 'AUTOMATIC_ON_CONDITION' | 'ELECTIVE_ON_CONDITION',
-> = ConversionTriggerCommon<ConversionRight> & {
+> = ConversionTriggerCommon<TRight> & {
   type: TriggerType;
   trigger_condition: string;
   trigger_date?: never;
@@ -251,20 +111,18 @@ export type ConversionOnConditionTrigger<
   end_date?: never;
 };
 
-/** Automatic conversion after the required legal condition is satisfied. */
-export type AutomaticConversionOnConditionTrigger<ConversionRight> = ConversionOnConditionTrigger<
-  ConversionRight,
+export type AutomaticConversionOnConditionTrigger<TRight> = ConversionOnConditionTrigger<
+  TRight,
   'AUTOMATIC_ON_CONDITION'
 >;
 
-/** Elective conversion after the required legal condition is satisfied. */
-export type ElectiveConversionOnConditionTrigger<ConversionRight> = ConversionOnConditionTrigger<
-  ConversionRight,
+export type ElectiveConversionOnConditionTrigger<TRight> = ConversionOnConditionTrigger<
+  TRight,
   'ELECTIVE_ON_CONDITION'
 >;
 
 /** Automatic conversion on one calendar date. */
-export type AutomaticConversionOnDateTrigger<ConversionRight> = ConversionTriggerCommon<ConversionRight> & {
+export type AutomaticConversionOnDateTrigger<TRight> = ConversionTriggerCommon<TRight> & {
   type: 'AUTOMATIC_ON_DATE';
   trigger_date: string;
   trigger_condition?: never;
@@ -273,7 +131,7 @@ export type AutomaticConversionOnDateTrigger<ConversionRight> = ConversionTrigge
 };
 
 /** Elective conversion during an inclusive date range. */
-export type ElectiveConversionInRangeTrigger<ConversionRight> = ConversionTriggerCommon<ConversionRight> & {
+export type ElectiveConversionInRangeTrigger<TRight> = ConversionTriggerCommon<TRight> & {
   type: 'ELECTIVE_IN_RANGE';
   start_date: string;
   end_date: string;
@@ -283,9 +141,9 @@ export type ElectiveConversionInRangeTrigger<ConversionRight> = ConversionTrigge
 
 /** A trigger with no condition or date payload. */
 export type PayloadlessConversionTrigger<
-  ConversionRight,
+  TRight,
   TriggerType extends 'ELECTIVE_AT_WILL' | 'UNSPECIFIED',
-> = ConversionTriggerCommon<ConversionRight> & {
+> = ConversionTriggerCommon<TRight> & {
   type: TriggerType;
   trigger_date?: never;
   trigger_condition?: never;
@@ -293,170 +151,217 @@ export type PayloadlessConversionTrigger<
   end_date?: never;
 };
 
-/** Elective conversion that may be exercised at any time. */
-export type ElectiveConversionAtWillTrigger<ConversionRight> = PayloadlessConversionTrigger<
-  ConversionRight,
-  'ELECTIVE_AT_WILL'
->;
+export type ElectiveConversionAtWillTrigger<TRight> = PayloadlessConversionTrigger<TRight, 'ELECTIVE_AT_WILL'>;
 
-/** A conversion trigger whose timing is intentionally unspecified. */
-export type UnspecifiedConversionTrigger<ConversionRight> = PayloadlessConversionTrigger<
-  ConversionRight,
-  'UNSPECIFIED'
->;
+export type UnspecifiedConversionTrigger<TRight> = PayloadlessConversionTrigger<TRight, 'UNSPECIFIED'>;
 
-/**
- * The six exact conversion-trigger shapes defined by the pinned OCF schemas.
- * Timing fields are deliberately forbidden outside the variant that owns them.
- */
-export type ConversionTriggerFor<ConversionRight> =
-  | AutomaticConversionOnConditionTrigger<ConversionRight>
-  | AutomaticConversionOnDateTrigger<ConversionRight>
-  | ElectiveConversionInRangeTrigger<ConversionRight>
-  | ElectiveConversionOnConditionTrigger<ConversionRight>
-  | ElectiveConversionAtWillTrigger<ConversionRight>
-  | UnspecifiedConversionTrigger<ConversionRight>;
+/** The six exact conversion-trigger shapes defined by the pinned OCF schemas. */
+export type ConversionTriggerFor<TRight> =
+  | AutomaticConversionOnConditionTrigger<TRight>
+  | AutomaticConversionOnDateTrigger<TRight>
+  | ElectiveConversionInRangeTrigger<TRight>
+  | ElectiveConversionOnConditionTrigger<TRight>
+  | ElectiveConversionAtWillTrigger<TRight>
+  | UnspecifiedConversionTrigger<TRight>;
 
-/** Warrant Exercise Trigger Describes when and how a warrant can be exercised */
-export type WarrantExerciseTrigger = ConversionTriggerFor<WarrantTriggerConversionRight>;
+// ===== Capitalization Definition Rules =====
 
-// ===== Convertible Conversion Mechanism Types =====
+/** Type - Capitalization Definition Rules Rules for how capitalization is calculated for conversion purposes */
+export interface CapitalizationDefinitionRules {
+  /** Include outstanding shares in capitalization calculation */
+  include_outstanding_shares: boolean;
+  /** Include outstanding options in capitalization calculation */
+  include_outstanding_options: boolean;
+  /** Include outstanding unissued options in capitalization calculation */
+  include_outstanding_unissued_options: boolean;
+  /** Include this security in capitalization calculation */
+  include_this_security: boolean;
+  /** Include other converting securities in capitalization calculation */
+  include_other_converting_securities: boolean;
+  /** Include option pool top-up for promised options */
+  include_option_pool_topup_for_promised_options: boolean;
+  /** Include additional option pool top-up */
+  include_additional_option_pool_topup: boolean;
+  /** Include new money in capitalization calculation */
+  include_new_money: boolean;
+}
 
-/** Convertible Conversion Mechanism - Custom Custom conversion description for non-standard conversions */
-export interface ConvertibleMechanismCustom {
+/** Concrete securities and pools included in a capitalization calculation. */
+export interface CapitalizationDefinition {
+  include_stock_class_ids: string[];
+  include_stock_plans_ids: string[];
+  include_security_ids: string[];
+  exclude_security_ids: string[];
+}
+
+// ===== Conversion Mechanisms =====
+
+/** Type discriminator shared by every concrete OCF conversion mechanism. */
+export type ConversionMechanismType =
+  | 'SAFE_CONVERSION'
+  | 'CONVERTIBLE_NOTE_CONVERSION'
+  | 'CUSTOM_CONVERSION'
+  | 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION'
+  | 'FIXED_AMOUNT_CONVERSION'
+  | 'RATIO_CONVERSION'
+  | 'VALUATION_BASED_CONVERSION'
+  | 'PPS_BASED_CONVERSION';
+
+/** Conversion Mechanism - Custom. */
+export interface CustomConversionMechanism {
   type: 'CUSTOM_CONVERSION';
-  /** Description of custom conversion mechanism */
-  custom_conversion_description?: string;
+  custom_conversion_description: string;
 }
 
-/** Exit Multiple Ratio Represents a multiplier as a fraction */
-export interface ExitMultiple {
-  numerator: string;
-  denominator: string;
-}
-
-/** Convertible Conversion Mechanism - SAFE Conversion terms for Simple Agreement for Future Equity */
-export interface ConvertibleMechanismSafe {
-  type: 'SAFE_CONVERSION';
-  /** Whether Most Favored Nation clause applies */
-  conversion_mfn: boolean;
-  /** Discount on conversion (as decimal string, e.g., "0.20" for 20%) */
-  conversion_discount?: string;
-  /** Valuation cap for conversion */
-  conversion_valuation_cap?: { amount: string; currency: string };
-  /** Timing of conversion relative to financing */
-  conversion_timing?: 'PRE_MONEY' | 'POST_MONEY';
-  /** Description of capitalization definition */
-  capitalization_definition?: string;
-  /** Rules for capitalization calculation */
-  capitalization_definition_rules?: CapitalizationDefinitionRules;
-  /** Exit multiple for liquidity events */
-  exit_multiple?: ExitMultiple;
-}
-
-/** Convertible Conversion Mechanism - Fixed Percent of Capitalization */
-export interface ConvertibleMechanismPercentCapitalization {
+/** Conversion Mechanism - Fixed Percent of Capitalization. */
+export interface PercentCapitalizationConversionMechanism {
   type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
-  /** Percentage of capitalization to convert to */
   converts_to_percent: string;
-  /** Description of capitalization definition */
   capitalization_definition?: string;
-  /** Rules for capitalization calculation */
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-/** Convertible Conversion Mechanism - Fixed Amount */
-export interface ConvertibleMechanismFixedAmount {
+/** Conversion Mechanism - Fixed Amount. */
+export interface FixedAmountConversionMechanism {
   type: 'FIXED_AMOUNT_CONVERSION';
-  /** Fixed quantity to convert to */
   converts_to_quantity: string;
 }
 
-/** Convertible Conversion Mechanism - Valuation Based */
-export interface ConvertibleMechanismValuationBased {
+/** Conversion Mechanism - Ratio. Every schema field is required. */
+export interface RatioConversionMechanism {
+  type: 'RATIO_CONVERSION';
+  ratio: { numerator: string; denominator: string };
+  conversion_price: Monetary;
+  rounding_type: RoundingType;
+}
+
+interface ValuationBasedConversionMechanismBase {
   type: 'VALUATION_BASED_CONVERSION';
-  /** Type of valuation */
-  valuation_type?: string;
-  /** Valuation amount */
-  valuation_amount?: { amount: string; currency: string };
-  /** Description of capitalization definition */
   capitalization_definition?: string;
-  /** Rules for capitalization calculation */
   capitalization_definition_rules?: CapitalizationDefinitionRules;
 }
 
-/** Convertible Conversion Mechanism - PPS-based (price-per-share-based) */
-export interface ConvertibleMechanismPpsBased {
+/** Valuation CAP and FIXED formulas require the valuation amount used by the formula. */
+export type ValuationBasedConversionMechanism =
+  | (ValuationBasedConversionMechanismBase & {
+      valuation_type: 'CAP' | 'FIXED';
+      valuation_amount: Monetary;
+    })
+  | (ValuationBasedConversionMechanismBase & {
+      valuation_type: 'ACTUAL';
+      valuation_amount?: Monetary;
+    });
+
+interface SharePriceBasedConversionMechanismBase {
   type: 'PPS_BASED_CONVERSION';
-  /** Description of the share price basis */
-  description?: string;
-  /** Whether a discount applies */
-  discount: boolean;
-  /** Discount percentage */
-  discount_percentage?: string;
-  /** Fixed discount amount */
-  discount_amount?: { amount: string; currency: string };
+  description: string;
 }
 
-/** Interest Rate entry for Convertible Notes */
+/**
+ * Conversion Mechanism - Share Price Based.
+ *
+ * A discounted conversion selects exactly one discount representation. A
+ * non-discounted conversion cannot carry stale discount details.
+ */
+export type SharePriceBasedConversionMechanism =
+  | (SharePriceBasedConversionMechanismBase & {
+      discount: true;
+      discount_percentage: string;
+      discount_amount?: never;
+    })
+  | (SharePriceBasedConversionMechanismBase & {
+      discount: true;
+      discount_amount: Monetary;
+      discount_percentage?: never;
+    })
+  | (SharePriceBasedConversionMechanismBase & {
+      discount: false;
+      discount_percentage?: never;
+      discount_amount?: never;
+    });
+
+/** Conversion Mechanism - SAFE. */
+export interface SafeConversionMechanism {
+  type: 'SAFE_CONVERSION';
+  conversion_mfn: boolean;
+  conversion_discount?: string;
+  conversion_valuation_cap?: Monetary;
+  conversion_timing?: 'PRE_MONEY' | 'POST_MONEY';
+  capitalization_definition?: string;
+  capitalization_definition_rules?: CapitalizationDefinitionRules;
+  exit_multiple?: { numerator: string; denominator: string };
+}
+
+/** Interest rate entry for a convertible note. */
 export interface ConvertibleInterestRate {
-  /** Interest rate (as decimal string, e.g., "0.08" for 8%) */
   rate: string;
-  /** Date interest starts accruing (YYYY-MM-DD) */
   accrual_start_date: string;
-  /** Date interest stops accruing (YYYY-MM-DD) */
   accrual_end_date?: string;
 }
 
-/** Convertible Conversion Mechanism - Convertible Note Full conversion terms for convertible promissory notes */
-export interface ConvertibleMechanismNote {
+/** Conversion Mechanism - Convertible Note. */
+export interface NoteConversionMechanism {
   type: 'CONVERTIBLE_NOTE_CONVERSION';
-  /** Interest rate schedule */
-  interest_rates: ConvertibleInterestRate[] | null;
-  /** Day count convention for interest calculation */
-  day_count_convention?: 'ACTUAL_365' | '30_360';
-  /** How interest is paid */
-  interest_payout?: 'DEFERRED' | 'CASH';
-  /** Interest accrual period */
-  interest_accrual_period?: 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL';
-  /** Type of interest compounding */
-  compounding_type?: 'SIMPLE' | 'COMPOUNDING';
-  /** Discount on conversion */
+  interest_rates: ConvertibleInterestRate[];
+  day_count_convention: 'ACTUAL_365' | '30_360';
+  interest_payout: 'DEFERRED' | 'CASH';
+  interest_accrual_period: 'DAILY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUAL' | 'ANNUAL';
+  compounding_type: 'SIMPLE' | 'COMPOUNDING';
   conversion_discount?: string;
-  /** Valuation cap for conversion */
-  conversion_valuation_cap?: { amount: string; currency: string };
-  /** Description of capitalization definition */
+  conversion_valuation_cap?: Monetary;
   capitalization_definition?: string;
-  /** Rules for capitalization calculation */
   capitalization_definition_rules?: CapitalizationDefinitionRules;
-  /** Exit multiple for liquidity events */
-  exit_multiple?: ExitMultiple | null;
-  /** Whether Most Favored Nation clause applies */
+  exit_multiple?: { numerator: string; denominator: string };
   conversion_mfn?: boolean;
 }
 
-/** Union type for all Convertible Conversion Mechanisms */
+/** Every concrete OCF conversion mechanism; plain-string shorthands are deliberately excluded. */
+export type ConversionMechanism =
+  | SafeConversionMechanism
+  | NoteConversionMechanism
+  | CustomConversionMechanism
+  | PercentCapitalizationConversionMechanism
+  | FixedAmountConversionMechanism
+  | RatioConversionMechanism
+  | ValuationBasedConversionMechanism
+  | SharePriceBasedConversionMechanism;
+
+/** Mechanisms permitted by the OCF WarrantConversionRight schema. */
+export type WarrantConversionMechanism =
+  | CustomConversionMechanism
+  | PercentCapitalizationConversionMechanism
+  | FixedAmountConversionMechanism
+  | ValuationBasedConversionMechanism
+  | SharePriceBasedConversionMechanism;
+
+/** Warrant Conversion Right Describes the conversion rights associated with a warrant */
+export interface WarrantConversionRight {
+  type: 'WARRANT_CONVERSION_RIGHT';
+  conversion_mechanism: WarrantConversionMechanism;
+  converts_to_future_round?: boolean;
+  converts_to_stock_class_id?: string;
+}
+
+/** Warrant exercise trigger with discriminator-specific timing fields. */
+export type WarrantExerciseTrigger = ConversionTriggerFor<WarrantTriggerConversionRight>;
+
+/** Mechanisms permitted by the OCF ConvertibleConversionRight schema. */
 export type ConvertibleConversionMechanism =
-  | ConvertibleMechanismCustom
-  | ConvertibleMechanismSafe
-  | ConvertibleMechanismPercentCapitalization
-  | ConvertibleMechanismFixedAmount
-  | ConvertibleMechanismValuationBased
-  | ConvertibleMechanismPpsBased
-  | ConvertibleMechanismNote;
+  | SafeConversionMechanism
+  | NoteConversionMechanism
+  | CustomConversionMechanism
+  | PercentCapitalizationConversionMechanism
+  | FixedAmountConversionMechanism;
 
 /** Convertible Conversion Right Describes the conversion rights associated with a convertible instrument */
 export interface ConvertibleConversionRight {
   type: 'CONVERTIBLE_CONVERSION_RIGHT';
-  /** Mechanism by which conversion occurs */
   conversion_mechanism: ConvertibleConversionMechanism;
-  /** Whether this converts to a future financing round */
   converts_to_future_round?: boolean;
-  /** Stock class ID to convert to (if not future round) */
   converts_to_stock_class_id?: string;
 }
 
-/** Convertible Conversion Trigger Describes when and how a convertible instrument can convert */
+/** Convertible trigger with discriminator-specific timing fields. */
 export type ConvertibleConversionTrigger = ConversionTriggerFor<ConvertibleConversionRight>;
 
 /**
@@ -526,59 +431,19 @@ export interface TaxId {
   tax_id: string;
 }
 
-/**
- * Stock Class Conversion Right (shared) OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/conversion_rights/StockClassConversionRight.schema.json
- *
- * OCF-compliant fields: type, conversion_mechanism, converts_to_future_round, converts_to_stock_class_id.
- * The OCF schema has additionalProperties: false — no other fields are allowed in OCF output.
- *
- * The remaining fields below are DAML-internal passthrough fields. The DAML contract
- * `OcfStockClassConversionRight` stores conversion details flat (ratio, conversion_price, etc.)
- * rather than nested inside the conversion_mechanism object. These fields are accepted on write
- * for backwards compatibility but are NOT included in OCF-compliant reader output.
- */
+/** Stock Class Conversion Right. OCF permits only a complete ratio mechanism. */
 export interface StockClassConversionRight {
-  /** Type descriptor — must be 'STOCK_CLASS_CONVERSION_RIGHT' per OCF schema */
-  type: string;
-  /** Mechanism by which conversion occurs (OCF: RatioConversionMechanism only) */
-  conversion_mechanism: ConversionMechanism | ConversionMechanismObject;
-  /** Identifier of stock class to which this converts */
-  converts_to_stock_class_id: string;
-  /** Is this potentially convertible into a future, as-yet undetermined stock class? */
+  type: 'STOCK_CLASS_CONVERSION_RIGHT';
+  conversion_mechanism: RatioConversionMechanism;
+  converts_to_stock_class_id?: string;
   converts_to_future_round?: boolean;
-
-  // ----- DAML-internal passthrough fields (not in OCF output) -----
-
-  /** @internal DAML passthrough — trigger that would cause conversion */
-  conversion_trigger?: ConversionTrigger;
-  /** @internal DAML passthrough — ratio numerator for RATIO_CONVERSION */
-  ratio_numerator?: string;
-  /** @internal DAML passthrough — ratio denominator for RATIO_CONVERSION */
-  ratio_denominator?: string;
-  /** @internal DAML passthrough — percent of capitalization */
-  percent_of_capitalization?: string;
-  /** @internal DAML passthrough — conversion price per share */
-  conversion_price?: Monetary;
-  /** @internal DAML passthrough — reference share price */
-  reference_share_price?: Monetary;
-  /** @internal DAML passthrough — reference valuation price per share */
-  reference_valuation_price_per_share?: Monetary;
-  /** @internal DAML passthrough — discount rate */
-  discount_rate?: string;
-  /** @internal DAML passthrough — valuation cap */
-  valuation_cap?: Monetary;
-  /** @internal DAML passthrough — floor price per share */
-  floor_price_per_share?: Monetary;
-  /** @internal DAML passthrough — ceiling price per share */
-  ceiling_price_per_share?: Monetary;
-  /** @internal DAML passthrough — custom description */
-  custom_description?: string;
-  /** @internal DAML passthrough — rounding type for fractional shares */
-  rounding_type?: RoundingType;
-  /** @internal DAML passthrough — expiration date (YYYY-MM-DD) */
-  expires_at?: string;
 }
+
+/** Union used by warrant exercise triggers supported by the SDK. */
+export type WarrantTriggerConversionRight = WarrantConversionRight | StockClassConversionRight;
+
+/** Every concrete OCF conversion-right variant. */
+export type ConversionRight = ConvertibleConversionRight | WarrantConversionRight | StockClassConversionRight;
 
 /** Canonical OCF object discriminators supported by this SDK. */
 export type OcfObjectType =
@@ -1744,7 +1609,7 @@ export interface OcfConvertibleConversion extends OcfObjectBase<'TX_CONVERTIBLE_
   /** Optional quantity converted */
   quantity_converted?: string;
   /** Optional capitalization-definition details used in conversion calculations */
-  capitalization_definition?: CapitalizationDefinitionRules;
+  capitalization_definition?: CapitalizationDefinition;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1877,12 +1742,7 @@ export interface OcfStockClassConversionRatioAdjustment extends OcfObjectBase<'T
   /** Identifier for the stock class whose conversion ratio is being adjusted */
   stock_class_id: string;
   /** Canonical conversion mechanism payload */
-  new_ratio_conversion_mechanism: {
-    type: 'RATIO_CONVERSION';
-    conversion_price: Monetary;
-    ratio: { numerator: string; denominator: string };
-    rounding_type: 'NORMAL' | 'CEILING' | 'FLOOR';
-  };
+  new_ratio_conversion_mechanism: RatioConversionMechanism;
   /** @internal Extension field — not in OCF schema */
   board_approval_date?: string;
   /** @internal Extension field — not in OCF schema */

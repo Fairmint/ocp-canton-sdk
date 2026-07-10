@@ -6,8 +6,8 @@ import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
-function damlCancellationBehaviorToNative(b: string | null): StockPlanCancellationBehavior | undefined {
-  if (b === null) return undefined;
+function damlCancellationBehaviorToNative(b: string | null | undefined): StockPlanCancellationBehavior | undefined {
+  if (b === null || b === undefined) return undefined;
   switch (b) {
     case 'OcfPlanCancelRetire':
       return 'RETIRE';
@@ -68,6 +68,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
       receivedValue: stockClassIds,
     });
   }
+  const defaultCancellationBehavior = damlCancellationBehaviorToNative(d.default_cancellation_behavior);
 
   return {
     object_type: 'STOCK_PLAN',
@@ -80,9 +81,9 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
       stockholder_approval_date: damlTimeToDateString(d.stockholder_approval_date),
     }),
     initial_shares_reserved: normalizeNumericString(initialSharesReserved.toString()),
-    ...(d.default_cancellation_behavior && {
-      default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior),
-    }),
+    ...(defaultCancellationBehavior !== undefined
+      ? { default_cancellation_behavior: defaultCancellationBehavior }
+      : {}),
     stock_class_ids: stockClassIds,
     comments: Array.isArray((d as unknown as { comments?: unknown }).comments)
       ? (d as unknown as { comments: string[] }).comments

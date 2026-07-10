@@ -41,7 +41,9 @@ export interface ArchiveCapTableResult {
 export function buildArchiveCapTableCommand(params: ArchiveCapTableParams): CommandWithDisclosedContracts {
   return buildCapTableCommand({
     capTableContractId: params.capTableContractId,
-    capTableContractDetails: params.capTableContractDetails,
+    ...(params.capTableContractDetails !== undefined
+      ? { capTableContractDetails: params.capTableContractDetails }
+      : {}),
     choice: 'ArchiveCapTable',
     choiceArgument: {},
   });
@@ -100,7 +102,11 @@ export async function archiveCapTable(
       disclosedContracts,
     },
     params,
-    { operation: 'archiveCapTable', templateId, choice: 'ArchiveCapTable' }
+    {
+      operation: 'archiveCapTable',
+      ...(templateId !== undefined ? { templateId } : {}),
+      choice: 'ArchiveCapTable',
+    }
   );
 
   return { updateId: result.transactionTree.updateId };

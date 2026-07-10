@@ -2,15 +2,15 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
-import type {
-  ConversionMechanism,
-  ConversionMechanismObject,
-  Monetary,
-  OcfStockClass,
-  StockClassConversionRight,
-} from '../../../types/native';
+import type { OcfStockClass, StockClassConversionRight } from '../../../types/native';
 import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
-import { damlMonetaryToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import {
+  damlMonetaryToNative,
+  damlTimeToDateString,
+  isRecord,
+  normalizeNumericString,
+} from '../../../utils/typeConversions';
+import { ratioMechanismFromDaml } from '../shared/conversionMechanisms';
 import { readSingleContract } from '../shared/singleContractRead';
 
 /**
@@ -20,15 +20,13 @@ import { readSingleContract } from '../shared/singleContractRead';
 export function damlStockClassDataToNative(
   damlData: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData
 ): OcfStockClass {
-  // Access fields via Record type to handle DAML union types that may vary from the SDK definition
-  const damlRecord = damlData as Record<string, unknown>;
-  const dataWithId = damlRecord as { id?: string };
-
   // Validate required fields - fail fast if missing
-  if (!dataWithId.id || typeof dataWithId.id !== 'string') {
+  const { id: generatedId } = damlData;
+  const id: unknown = generatedId;
+  if (!id || typeof id !== 'string') {
     throw new OcpValidationError('stockClass.id', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: dataWithId.id,
+      receivedValue: id,
     });
   }
   if (!damlData.name) {
@@ -43,7 +41,7 @@ export function damlStockClassDataToNative(
       receivedValue: damlData.default_id_prefix,
     });
   }
-  const votesPerShare = damlRecord.votes_per_share;
+  const votesPerShare: unknown = damlData.votes_per_share;
   if (votesPerShare === undefined || votesPerShare === null) {
     throw new OcpValidationError('stockClass.votes_per_share', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -56,7 +54,7 @@ export function damlStockClassDataToNative(
       receivedValue: votesPerShare,
     });
   }
-  const seniorityValue = damlRecord.seniority;
+  const seniorityValue: unknown = damlData.seniority;
   if (seniorityValue === undefined || seniorityValue === null) {
     throw new OcpValidationError('stockClass.seniority', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -72,7 +70,7 @@ export function damlStockClassDataToNative(
 
   // Parse initial_shares_authorized from various formats
   let initialShares: string;
-  const isa = damlRecord.initial_shares_authorized;
+  const isa: unknown = damlData.initial_shares_authorized;
   if (isa === undefined || isa === null) {
     throw new OcpValidationError('stockClass.initial_shares_authorized', 'Required field is missing', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
@@ -81,12 +79,11 @@ export function damlStockClassDataToNative(
   }
   if (typeof isa === 'string' || typeof isa === 'number') {
     initialShares = normalizeNumericString(isa.toString());
-  } else if (typeof isa === 'object' && 'tag' in isa) {
-    const tagged = isa as { tag: string; value?: unknown };
-    if (tagged.tag === 'OcfInitialSharesNumeric' && typeof tagged.value === 'string') {
-      initialShares = normalizeNumericString(tagged.value);
-    } else if (tagged.tag === 'OcfInitialSharesEnum' && typeof tagged.value === 'string') {
-      initialShares = tagged.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
+  } else if (isRecord(isa)) {
+    if (isa.tag === 'OcfInitialSharesNumeric' && typeof isa.value === 'string') {
+      initialShares = normalizeNumericString(isa.value);
+    } else if (isa.tag === 'OcfInitialSharesEnum' && typeof isa.value === 'string') {
+      initialShares = isa.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
     } else {
       throw new OcpValidationError('stockClass.initial_shares_authorized', 'Invalid initial_shares_authorized format', {
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -102,7 +99,7 @@ export function damlStockClassDataToNative(
 
   return {
     object_type: 'STOCK_CLASS',
-    id: dataWithId.id,
+    id,
     name: damlData.name,
     class_type: damlStockClassTypeToNative(damlData.class_type),
     default_id_prefix: damlData.default_id_prefix,
@@ -123,105 +120,26 @@ export function damlStockClassDataToNative(
     }),
     ...(damlData.conversion_rights.length > 0 && {
       conversion_rights: damlData.conversion_rights.map((right) => {
-        const rec = right as unknown as Record<string, unknown>;
-
-        // --- conversion_mechanism: build as OCF RatioConversionMechanism ---
-        // OCF StockClassConversionRight only allows RatioConversionMechanism, which requires:
-        // type, ratio, conversion_price, rounding_type (all required)
-        const mechRaw = rec.conversion_mechanism;
-        let mechanismTag: string;
-        if (typeof mechRaw === 'string') {
-          mechanismTag = mechRaw;
-        } else if (mechRaw && typeof mechRaw === 'object' && 'tag' in mechRaw) {
-          mechanismTag = (mechRaw as { tag: string }).tag;
-        } else {
-          mechanismTag = '';
+        if (right.type_ !== 'STOCK_CLASS_CONVERSION_RIGHT') {
+          throw new OcpParseError(`Unknown stock class conversion right type: ${right.type_}`, {
+            source: 'conversion_right.type',
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+          });
         }
-        const mechanismType: ConversionMechanism = (() => {
-          switch (mechanismTag) {
-            case 'OcfConversionMechanismRatioConversion':
-              return 'RATIO_CONVERSION';
-            case 'OcfConversionMechanismPercentCapitalizationConversion':
-              return 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION';
-            case 'OcfConversionMechanismFixedAmountConversion':
-              return 'FIXED_AMOUNT_CONVERSION';
-            default:
-              throw new OcpParseError(`Unknown stock class conversion mechanism: ${mechanismTag}`, {
-                source: 'conversion_right.conversion_mechanism',
-                code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-              });
-          }
-        })();
-
-        // Extract ratio from DAML Optional(OcfRatio)
-        const extractRatio = (raw: unknown): { numerator: string; denominator: string } | undefined => {
-          if (!raw || typeof raw !== 'object') return undefined;
-          let val: unknown = raw;
-          if ('tag' in (val as Record<string, unknown>)) {
-            const tagged = val as { tag: string; value?: unknown };
-            if (tagged.tag !== 'Some' || !tagged.value) return undefined;
-            val = tagged.value;
-          }
-          const r = val as Record<string, unknown>;
-          if (!('numerator' in r) || !('denominator' in r)) return undefined;
-          const num = r.numerator;
-          const den = r.denominator;
-          if (num == null || den == null) return undefined;
-          const numStr = typeof num === 'string' ? num : typeof num === 'number' ? num.toString() : null;
-          const denStr = typeof den === 'string' ? den : typeof den === 'number' ? den.toString() : null;
-          if (numStr === null || denStr === null) return undefined;
-          return { numerator: normalizeNumericString(numStr), denominator: normalizeNumericString(denStr) };
-        };
-
-        let ratio = extractRatio(rec.ratio);
-        if (!ratio && mechRaw && typeof mechRaw === 'object' && 'value' in mechRaw) {
-          ratio = extractRatio(mechRaw.value);
-        }
-
-        // Extract optional monetary from DAML Optional(OcfMonetary)
-        const extractOptionalMonetary = (raw: unknown): Monetary | undefined => {
-          if (raw && typeof raw === 'object' && 'tag' in raw && raw.tag === 'Some' && 'value' in raw) {
-            return damlMonetaryToNative((raw as { value: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary }).value);
-          }
-          return undefined;
-        };
-
-        const conversionPrice = extractOptionalMonetary(rec.conversion_price);
-
-        // Extract rounding_type from DAML Optional(OcfRoundingType)
-        const extractRoundingType = (raw: unknown): 'CEILING' | 'FLOOR' | 'NORMAL' => {
-          if (!raw || typeof raw !== 'object') return 'NORMAL';
-          const tag =
-            'tag' in (raw as Record<string, unknown>)
-              ? (raw as { tag: string }).tag
-              : 'value' in (raw as Record<string, unknown>)
-                ? (raw as { value: unknown } as Record<string, unknown>).tag
-                : null;
-          if (tag === 'OcfRoundingCeiling') return 'CEILING';
-          if (tag === 'OcfRoundingFloor') return 'FLOOR';
-          if (tag === 'OcfRoundingNormal') return 'NORMAL';
-          return 'NORMAL';
-        };
-        const roundingType = extractRoundingType(rec.rounding_type);
-
-        // Build OCF RatioConversionMechanism (required: type, ratio, conversion_price, rounding_type)
-        // StockClassConversionRight schema only allows RatioConversionMechanism; additionalProperties: false
-        const mechanismObj: ConversionMechanismObject = {
-          type: mechanismType,
-          ratio: ratio ?? { numerator: '1', denominator: '1' },
-          conversion_price: conversionPrice ?? { amount: '0', currency: 'USD' },
-          rounding_type: roundingType,
-        };
-
-        // OCF StockClassConversionRight schema allows ONLY: type, conversion_mechanism,
-        // converts_to_future_round, converts_to_stock_class_id. No conversion_trigger or other fields.
-        const convertsToFutureRound = rec.converts_to_future_round;
+        const conversionMechanism = ratioMechanismFromDaml(
+          {
+            conversion_mechanism: right.conversion_mechanism,
+            ratio: right.ratio,
+            conversion_price: right.conversion_price,
+          },
+          'stockClass.conversion_right'
+        );
         const convRight: StockClassConversionRight = {
           type: 'STOCK_CLASS_CONVERSION_RIGHT',
-          conversion_mechanism: mechanismObj,
-          converts_to_stock_class_id: right.converts_to_stock_class_id,
-          ...(convertsToFutureRound !== undefined && convertsToFutureRound !== null
-            ? { converts_to_future_round: Boolean(convertsToFutureRound) }
+          conversion_mechanism: conversionMechanism,
+          ...(right.converts_to_stock_class_id ? { converts_to_stock_class_id: right.converts_to_stock_class_id } : {}),
+          ...(right.converts_to_future_round !== null
+            ? { converts_to_future_round: right.converts_to_future_round }
             : {}),
         };
 
@@ -234,7 +152,9 @@ export function damlStockClassDataToNative(
     ...(damlData.participation_cap_multiple != null
       ? { participation_cap_multiple: normalizeNumericString(damlData.participation_cap_multiple) }
       : {}),
-    ...(Array.isArray(damlRecord.comments) ? { comments: damlRecord.comments as string[] } : {}),
+    ...(Array.isArray(damlData.comments) && damlData.comments.every((comment) => typeof comment === 'string')
+      ? { comments: damlData.comments }
+      : {}),
   };
 }
 
@@ -271,13 +191,7 @@ export async function getStockClassAsOcf(
   function hasStockClassData(
     arg: unknown
   ): arg is { stock_class_data: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData } {
-    const record = arg as Record<string, unknown>;
-    return (
-      typeof arg === 'object' &&
-      arg !== null &&
-      'stock_class_data' in record &&
-      typeof record.stock_class_data === 'object'
-    );
+    return isRecord(arg) && isRecord(arg.stock_class_data);
   }
 
   if (!hasStockClassData(createArgument)) {

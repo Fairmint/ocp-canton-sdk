@@ -1,4 +1,4 @@
-import type { LedgerJsonApiClient, TraceContext } from '@fairmint/canton-node-sdk';
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { CommandContext, CommandObservabilityOptions, CommandTelemetry } from './observabilityTypes';
 
 export type {
@@ -12,7 +12,6 @@ export type {
 
 type SubmitTransactionTreeParams = Parameters<LedgerJsonApiClient['submitAndWaitForTransactionTree']>[0];
 type SubmitTransactionTreeResponse = Awaited<ReturnType<LedgerJsonApiClient['submitAndWaitForTransactionTree']>>;
-type TraceableSubmitTransactionTreeParams = SubmitTransactionTreeParams & { traceContext?: TraceContext };
 
 export function mergeCommandContext(
   ...contexts: Array<Partial<CommandContext> | undefined>
@@ -30,10 +29,10 @@ export function mergeCommandContext(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-function applyMergedCommandContext<T extends SubmitTransactionTreeParams>(
-  params: T,
+function applyMergedCommandContext(
+  params: SubmitTransactionTreeParams,
   context: CommandContext | undefined
-): T & TraceableSubmitTransactionTreeParams {
+): SubmitTransactionTreeParams {
   if (!context) return params;
 
   return {
@@ -55,10 +54,10 @@ function runBestEffort(callback: (() => unknown) | undefined): void {
   }
 }
 
-export function applyCommandContext<T extends SubmitTransactionTreeParams>(
-  params: T,
+export function applyCommandContext(
+  params: SubmitTransactionTreeParams,
   options?: CommandObservabilityOptions
-): T & TraceableSubmitTransactionTreeParams {
+): SubmitTransactionTreeParams {
   const context = mergeCommandContext(options?.defaultContext, options?.context);
   return applyMergedCommandContext(params, context);
 }

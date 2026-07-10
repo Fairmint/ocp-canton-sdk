@@ -1,14 +1,9 @@
 import { OcpValidationError } from '../../src/errors';
-import {
-  convertibleIssuanceDataToDaml,
-  type ConversionTriggerInput,
-} from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
+import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
-import {
-  warrantIssuanceDataToDaml,
-  type WarrantExerciseTriggerInput,
-} from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
+import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
+import type { ConvertibleConversionTrigger, WarrantExerciseTrigger } from '../../src/types/native';
 import { parseConversionTriggerFields } from '../../src/utils/conversionTriggers';
 import { requireFirst } from '../../src/utils/requireDefined';
 
@@ -28,7 +23,7 @@ const warrantRight = {
   },
 };
 
-const convertibleTriggerVariants: ConversionTriggerInput[] = [
+const convertibleTriggerVariants: ConvertibleConversionTrigger[] = [
   {
     type: 'AUTOMATIC_ON_CONDITION',
     trigger_id: 'automatic-condition',
@@ -66,7 +61,7 @@ const convertibleTriggerVariants: ConversionTriggerInput[] = [
   },
 ];
 
-const warrantTriggerVariants: WarrantExerciseTriggerInput[] = convertibleTriggerVariants.map((trigger) => ({
+const warrantTriggerVariants: WarrantExerciseTrigger[] = convertibleTriggerVariants.map((trigger) => ({
   ...trigger,
   conversion_right: warrantRight,
 }));
@@ -139,7 +134,7 @@ describe('exact conversion-trigger converter behavior', () => {
       trigger_id: 'invalid-at-will',
       trigger_date: '2027-01-01',
       conversion_right: convertibleRight,
-    } as unknown as ConversionTriggerInput;
+    } as unknown as ConvertibleConversionTrigger;
 
     expect(() => convertibleIssuanceDataToDaml({ ...convertibleBase, conversion_triggers: [invalidTrigger] })).toThrow(
       OcpValidationError
@@ -155,7 +150,7 @@ describe('exact conversion-trigger converter behavior', () => {
       trigger_id: 'invalid-range',
       start_date: '2027-01-01',
       conversion_right: warrantRight,
-    } as unknown as WarrantExerciseTriggerInput;
+    } as unknown as WarrantExerciseTrigger;
 
     expect(() => warrantIssuanceDataToDaml({ ...warrantBase, exercise_triggers: [invalidTrigger] })).toThrow(
       /end_date is required and must be a string/
@@ -168,7 +163,7 @@ describe('exact conversion-trigger converter behavior', () => {
       trigger_id: 'null-nickname',
       nickname: null,
       conversion_right: convertibleRight,
-    } as unknown as ConversionTriggerInput;
+    } as unknown as ConvertibleConversionTrigger;
 
     expect(() => convertibleIssuanceDataToDaml({ ...convertibleBase, conversion_triggers: [invalidTrigger] })).toThrow(
       /nickname must be a string when present/
@@ -179,7 +174,7 @@ describe('exact conversion-trigger converter behavior', () => {
     const invalidTrigger = {
       type: 'UNSPECIFIED',
       trigger_id: 'missing-right',
-    } as unknown as ConversionTriggerInput;
+    } as unknown as ConvertibleConversionTrigger;
 
     expect(() => convertibleIssuanceDataToDaml({ ...convertibleBase, conversion_triggers: [invalidTrigger] })).toThrow(
       /conversion_right is required/
@@ -205,6 +200,6 @@ describe('exact conversion-trigger converter behavior', () => {
     });
     requireFirst(daml.exercise_triggers, 'DAML warrant trigger').trigger_id = null as unknown as string;
 
-    expect(() => damlWarrantIssuanceDataToNative(daml)).toThrow(/trigger_id is required and must be a string/);
+    expect(() => damlWarrantIssuanceDataToNative(daml)).toThrow(/trigger_id.*must be a non-empty string/);
   });
 });

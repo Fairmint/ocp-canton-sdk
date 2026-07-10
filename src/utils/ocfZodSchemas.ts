@@ -313,17 +313,120 @@ function createSchemaForObjectType(objectType: OcfSchemaObjectType): ZodType<Rec
   const validator = getAjvValidator(objectType);
   return z.record(z.string(), z.unknown()).superRefine((value, ctx) => {
     const valid = validator(value);
-    if (valid) return;
+    if (!valid) {
+      const errors = validator.errors ?? [];
+      for (const error of errors) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ajvErrorToPath(error),
+          message: formatAjvError(error),
+        });
+      }
+      return;
+    }
 
-    const errors = validator.errors ?? [];
-    for (const error of errors) {
+    addCanonicalConversionIssues(value, ctx, objectType);
+  });
+}
+
+const CONVERSION_RIGHT_MECHANISMS = {
+  CONVERTIBLE_CONVERSION_RIGHT: new Set([
+    'SAFE_CONVERSION',
+    'CONVERTIBLE_NOTE_CONVERSION',
+    'CUSTOM_CONVERSION',
+    'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+    'FIXED_AMOUNT_CONVERSION',
+  ]),
+  WARRANT_CONVERSION_RIGHT: new Set([
+    'CUSTOM_CONVERSION',
+    'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+    'FIXED_AMOUNT_CONVERSION',
+    'VALUATION_BASED_CONVERSION',
+    'PPS_BASED_CONVERSION',
+  ]),
+  STOCK_CLASS_CONVERSION_RIGHT: new Set(['RATIO_CONVERSION']),
+} as const;
+
+type CanonicalConversionRightType = keyof typeof CONVERSION_RIGHT_MECHANISMS;
+
+function isCanonicalConversionRightType(value: string): value is CanonicalConversionRightType {
+  return Object.prototype.hasOwnProperty.call(CONVERSION_RIGHT_MECHANISMS, value);
+}
+
+function addCanonicalConversionIssues(
+  value: unknown,
+  ctx: { addIssue(issue: { code: 'custom'; path: Array<string | number>; message: string }): void },
+  objectType: OcfSchemaObjectType,
+  segments: Array<string | number> = []
+): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => addCanonicalConversionIssues(item, ctx, objectType, [...segments, index]));
+    return;
+  }
+  if (!isRecord(value)) return;
+
+  if ('conversion_mechanism' in value) {
+    const rightType = value.type;
+    if (typeof rightType !== 'string' || !isCanonicalConversionRightType(rightType)) {
       ctx.addIssue({
         code: 'custom',
-        path: ajvErrorToPath(error),
-        message: formatAjvError(error),
+        path: [...segments, 'type'],
+        message: 'A conversion right requires its exact type discriminator',
+      });
+    } else {
+      const rightAllowedByObject =
+        objectType !== 'TX_CONVERTIBLE_ISSUANCE' || rightType === 'CONVERTIBLE_CONVERSION_RIGHT';
+      const rightAllowedByWarrant =
+        objectType !== 'TX_WARRANT_ISSUANCE' ||
+        rightType === 'WARRANT_CONVERSION_RIGHT' ||
+        rightType === 'STOCK_CLASS_CONVERSION_RIGHT';
+      if (!rightAllowedByObject || !rightAllowedByWarrant) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [...segments, 'type'],
+          message: `${objectType} does not permit conversion right ${rightType}`,
+        });
+      }
+      const mechanism = value.conversion_mechanism;
+      const mechanismType = isRecord(mechanism) ? mechanism.type : undefined;
+      const allowed = CONVERSION_RIGHT_MECHANISMS[rightType];
+      if (typeof mechanismType !== 'string' || !allowed.has(mechanismType)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [...segments, 'conversion_mechanism', 'type'],
+          message: `${rightType} does not permit conversion mechanism ${String(mechanismType)}`,
+        });
+      }
+    }
+  }
+
+  if (value.type === 'PPS_BASED_CONVERSION') {
+    const hasPercentage = value.discount_percentage !== undefined;
+    const hasAmount = value.discount_amount !== undefined;
+    if (typeof value.discount !== 'boolean') {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...segments, 'discount'],
+        message: 'PPS_BASED_CONVERSION requires a boolean discount field',
+      });
+    } else if (value.discount && hasPercentage === hasAmount) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...segments, 'discount'],
+        message: 'A discounted PPS conversion requires exactly one discount detail',
+      });
+    } else if (!value.discount && (hasPercentage || hasAmount)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...segments, 'discount'],
+        message: 'A non-discounted PPS conversion cannot include discount details',
       });
     }
-  });
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    addCanonicalConversionIssues(child, ctx, objectType, [...segments, key]);
+  }
 }
 
 /**
