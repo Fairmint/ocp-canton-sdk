@@ -1,14 +1,8 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { ConvertibleConversionTrigger, ConvertibleType, OcfConvertibleIssuance } from '../../../types/native';
-import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  monetaryToDaml,
-  normalizeNumericString,
-  optionalString,
-} from '../../../utils/typeConversions';
-import { convertibleMechanismToDaml } from '../shared/conversionMechanisms';
+import { conversionTriggerTimingToDaml, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
+import { canonicalOptionalNumericToDaml, convertibleMechanismToDaml } from '../shared/conversionMechanisms';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
 export type ConvertibleIssuanceInput = Omit<OcfConvertibleIssuance, 'object_type'> & {
@@ -62,40 +56,6 @@ function triggerToDaml(
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.OcfConvertibleConversionTrigger {
   const source = `convertibleIssuance.conversion_triggers.${index}`;
   const parsed = parseConversionTriggerFields(trigger, source);
-  const timing = (() => {
-    switch (parsed.type) {
-      case 'AUTOMATIC_ON_CONDITION':
-      case 'ELECTIVE_ON_CONDITION':
-        return {
-          trigger_date: null,
-          trigger_condition: parsed.trigger_condition,
-          start_date: null,
-          end_date: null,
-        };
-      case 'AUTOMATIC_ON_DATE':
-        return {
-          trigger_date: dateStringToDAMLTime(parsed.trigger_date, `${source}.trigger_date`),
-          trigger_condition: null,
-          start_date: null,
-          end_date: null,
-        };
-      case 'ELECTIVE_IN_RANGE':
-        return {
-          trigger_date: null,
-          trigger_condition: null,
-          start_date: dateStringToDAMLTime(parsed.start_date, `${source}.start_date`),
-          end_date: dateStringToDAMLTime(parsed.end_date, `${source}.end_date`),
-        };
-      case 'ELECTIVE_AT_WILL':
-      case 'UNSPECIFIED':
-        return {
-          trigger_date: null,
-          trigger_condition: null,
-          start_date: null,
-          end_date: null,
-        };
-    }
-  })();
 
   return {
     type_: triggerTypeToDaml(parsed.type),
@@ -103,7 +63,7 @@ function triggerToDaml(
     conversion_right: conversionRightToDaml(parsed.conversion_right),
     nickname: optionalString(parsed.nickname),
     trigger_description: optionalString(parsed.trigger_description),
-    ...timing,
+    ...conversionTriggerTimingToDaml(parsed, source),
   };
 }
 
@@ -125,7 +85,7 @@ export function convertibleIssuanceDataToDaml(
     investment_amount: monetaryToDaml(input.investment_amount),
     convertible_type: convertibleTypeToDaml(input.convertible_type),
     conversion_triggers: input.conversion_triggers.map(triggerToDaml),
-    pro_rata: input.pro_rata === undefined ? null : normalizeNumericString(input.pro_rata),
+    pro_rata: canonicalOptionalNumericToDaml(input.pro_rata, 'convertibleIssuance.pro_rata'),
     seniority: input.seniority.toString(),
     comments: cleanComments(input.comments),
   };
