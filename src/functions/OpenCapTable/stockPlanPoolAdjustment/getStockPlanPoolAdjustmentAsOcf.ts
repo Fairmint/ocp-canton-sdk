@@ -27,6 +27,8 @@ export function damlStockPlanPoolAdjustmentDataToNative(
   // Convert shares_reserved to string for normalization (DAML Numeric may come as number at runtime)
   const sharesReserved = data.shares_reserved as string | number;
   const sharesReservedStr = typeof sharesReserved === 'number' ? sharesReserved.toString() : sharesReserved;
+  const boardApprovalDate: unknown = data.board_approval_date;
+  const stockholderApprovalDate: unknown = data.stockholder_approval_date;
 
   return {
     object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
@@ -34,18 +36,15 @@ export function damlStockPlanPoolAdjustmentDataToNative(
     date: damlTimeToDateString(data.date, 'stockPlanPoolAdjustment.date'),
     stock_plan_id: data.stock_plan_id,
     shares_reserved: normalizeNumericString(sharesReservedStr),
-    ...(data.board_approval_date
+    ...(boardApprovalDate !== null && boardApprovalDate !== undefined
       ? {
-          board_approval_date: damlTimeToDateString(
-            data.board_approval_date,
-            'stockPlanPoolAdjustment.board_approval_date'
-          ),
+          board_approval_date: damlTimeToDateString(boardApprovalDate, 'stockPlanPoolAdjustment.board_approval_date'),
         }
       : {}),
-    ...(data.stockholder_approval_date
+    ...(stockholderApprovalDate !== null && stockholderApprovalDate !== undefined
       ? {
           stockholder_approval_date: damlTimeToDateString(
-            data.stockholder_approval_date,
+            stockholderApprovalDate,
             'stockPlanPoolAdjustment.stockholder_approval_date'
           ),
         }

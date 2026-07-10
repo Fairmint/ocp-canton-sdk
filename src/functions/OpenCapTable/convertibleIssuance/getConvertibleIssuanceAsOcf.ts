@@ -372,7 +372,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
                     irObj.accrual_start_date,
                     'convertibleIssuance.interest_rates[].accrual_start_date'
                   ),
-                  ...(irObj.accrual_end_date
+                  ...(irObj.accrual_end_date !== null && irObj.accrual_end_date !== undefined
                     ? {
                         accrual_end_date: damlTimeToDateString(
                           irObj.accrual_end_date,

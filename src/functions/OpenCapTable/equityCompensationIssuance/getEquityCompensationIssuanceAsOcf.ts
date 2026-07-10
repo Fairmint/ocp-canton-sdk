@@ -210,16 +210,17 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
     stakeholder_id: d.stakeholder_id,
     compensation_type: compensationType,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
-    expiration_date: d.expiration_date
-      ? damlTimeToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date')
-      : null,
+    expiration_date:
+      d.expiration_date !== null && d.expiration_date !== undefined
+        ? damlTimeToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date')
+        : null,
     termination_exercise_windows: termination_exercise_windows ?? [],
     ...(exercise_price ? { exercise_price } : {}),
     ...(base_price ? { base_price } : {}),
     ...(d.early_exercisable !== null && d.early_exercisable !== undefined
       ? { early_exercisable: Boolean(d.early_exercisable) }
       : {}),
-    ...(d.board_approval_date
+    ...(d.board_approval_date !== null && d.board_approval_date !== undefined
       ? {
           board_approval_date: damlTimeToDateString(
             d.board_approval_date,
@@ -227,7 +228,7 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
           ),
         }
       : {}),
-    ...(d.stockholder_approval_date
+    ...(d.stockholder_approval_date !== null && d.stockholder_approval_date !== undefined
       ? {
           stockholder_approval_date: damlTimeToDateString(
             d.stockholder_approval_date,
