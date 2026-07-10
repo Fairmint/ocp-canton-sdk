@@ -295,15 +295,11 @@ describe('damlToOcf dispatcher', () => {
       expect(extractEntityData('stockPlan', { plan_data: planData })).toEqual(planData);
     });
 
-    it('extracts stockPlan data from the legacy stock_plan_data key', () => {
-      const planData = {
-        id: 'plan-legacy-1',
-        plan_name: 'Legacy Equity Plan',
-        initial_shares_reserved: '1000',
-        stock_class_ids: ['class-1'],
-      };
+    it('rejects the non-contract stock_plan_data key for stockPlan', () => {
+      const extract = () => extractEntityData('stockPlan', { stock_plan_data: { id: 'plan-invalid-1' } });
 
-      expect(extractEntityData('stockPlan', { stock_plan_data: planData })).toEqual(planData);
+      expect(extract).toThrow(OcpParseError);
+      expect(extract).toThrow("Expected field 'plan_data' not found in contract create argument for stockPlan");
     });
 
     it('extracts stakeholderRelationshipChangeEvent data from canonical event_data key', () => {
