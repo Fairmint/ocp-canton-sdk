@@ -88,6 +88,26 @@ export function canonicalOptionalNumericToDaml(value: unknown, field: string): s
   return normalizeNumericString(value);
 }
 
+/** Encode optional canonical OCF text without normalizing invalid blank values into DAML absence. */
+function canonicalOptionalTextToDaml(value: unknown, field: string): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(field, 'Expected text when provided; omit the property when absent', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'non-blank string or omitted property',
+      receivedValue: value,
+    });
+  }
+  if (value.trim().length === 0) {
+    throw new OcpValidationError(field, 'Expected non-blank text when provided; omit the property when absent', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-blank string or omitted property',
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
 function optionalStringFromDaml(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
   return requireText(value, field);
@@ -377,7 +397,10 @@ export function convertibleMechanismToDaml(mechanism: ConvertibleConversionMecha
             ? monetaryToDaml(mechanism.conversion_valuation_cap)
             : null,
           conversion_timing: conversionTimingToDaml(mechanism.conversion_timing),
-          capitalization_definition: mechanism.capitalization_definition ?? null,
+          capitalization_definition: canonicalOptionalTextToDaml(
+            mechanism.capitalization_definition,
+            'conversion_mechanism.capitalization_definition'
+          ),
           capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
           exit_multiple: mechanism.exit_multiple
             ? {
@@ -401,7 +424,10 @@ export function convertibleMechanismToDaml(mechanism: ConvertibleConversionMecha
           conversion_valuation_cap: mechanism.conversion_valuation_cap
             ? monetaryToDaml(mechanism.conversion_valuation_cap)
             : null,
-          capitalization_definition: mechanism.capitalization_definition ?? null,
+          capitalization_definition: canonicalOptionalTextToDaml(
+            mechanism.capitalization_definition,
+            'conversion_mechanism.capitalization_definition'
+          ),
           capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
           exit_multiple: mechanism.exit_multiple
             ? {
@@ -422,7 +448,10 @@ export function convertibleMechanismToDaml(mechanism: ConvertibleConversionMecha
         tag: 'OcfConvMechPercentCapitalization',
         value: {
           converts_to_percent: normalizeNumericString(mechanism.converts_to_percent),
-          capitalization_definition: mechanism.capitalization_definition ?? null,
+          capitalization_definition: canonicalOptionalTextToDaml(
+            mechanism.capitalization_definition,
+            'conversion_mechanism.capitalization_definition'
+          ),
           capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
         },
       };
@@ -613,7 +642,10 @@ export function warrantMechanismToDaml(mechanism: WarrantConversionMechanism): D
         tag: 'OcfWarrantMechanismPercentCapitalization',
         value: {
           converts_to_percent: normalizeNumericString(mechanism.converts_to_percent),
-          capitalization_definition: mechanism.capitalization_definition ?? null,
+          capitalization_definition: canonicalOptionalTextToDaml(
+            mechanism.capitalization_definition,
+            'conversion_mechanism.capitalization_definition'
+          ),
           capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
         },
       };
@@ -628,7 +660,10 @@ export function warrantMechanismToDaml(mechanism: WarrantConversionMechanism): D
         value: {
           valuation_type: valuationTypeToDaml(mechanism.valuation_type),
           valuation_amount: mechanism.valuation_amount ? monetaryToDaml(mechanism.valuation_amount) : null,
-          capitalization_definition: mechanism.capitalization_definition ?? null,
+          capitalization_definition: canonicalOptionalTextToDaml(
+            mechanism.capitalization_definition,
+            'conversion_mechanism.capitalization_definition'
+          ),
           capitalization_definition_rules: capitalizationRulesToDaml(mechanism.capitalization_definition_rules),
         },
       };
