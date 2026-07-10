@@ -20,6 +20,7 @@ import type {
   OcfStockRetraction,
   OcfWarrantRetraction,
 } from '../../src/types';
+import { requireDefined } from '../../src/utils/requireDefined';
 
 describe('Retraction Type Converters', () => {
   describe('stockRetraction', () => {
@@ -48,9 +49,9 @@ describe('Retraction Type Converters', () => {
       };
 
       expect(choiceArg.creates).toHaveLength(1);
-      expect(choiceArg.creates[0].tag).toBe('OcfCreateStockRetraction');
+      expect(requireDefined(choiceArg.creates[0], 'first create operation').tag).toBe('OcfCreateStockRetraction');
 
-      const value = choiceArg.creates[0].value as Record<string, unknown>;
+      const value = requireDefined(choiceArg.creates[0], 'first create operation').value as Record<string, unknown>;
       expect(value.id).toBe('sr-123');
       expect(value.date).toBe('2024-01-15T00:00:00.000Z');
       expect(value.security_id).toBe('sec-001');
@@ -91,9 +92,9 @@ describe('Retraction Type Converters', () => {
       };
 
       expect(choiceArg.creates).toHaveLength(1);
-      expect(choiceArg.creates[0].tag).toBe('OcfCreateWarrantRetraction');
+      expect(requireDefined(choiceArg.creates[0], 'first create operation').tag).toBe('OcfCreateWarrantRetraction');
 
-      const value = choiceArg.creates[0].value as Record<string, unknown>;
+      const value = requireDefined(choiceArg.creates[0], 'first create operation').value as Record<string, unknown>;
       expect(value.id).toBe('wr-123');
       expect(value.security_id).toBe('warrant-001');
       expect(value.reason_text).toBe('Duplicate issuance');
@@ -134,7 +135,7 @@ describe('Retraction Type Converters', () => {
       };
 
       expect(choiceArg.creates).toHaveLength(1);
-      expect(choiceArg.creates[0].tag).toBe('OcfCreateConvertibleRetraction');
+      expect(requireDefined(choiceArg.creates[0], 'first create operation').tag).toBe('OcfCreateConvertibleRetraction');
     });
 
     it('should have correct ENTITY_TAG_MAP entry', () => {
@@ -171,7 +172,9 @@ describe('Retraction Type Converters', () => {
       };
 
       expect(choiceArg.creates).toHaveLength(1);
-      expect(choiceArg.creates[0].tag).toBe('OcfCreateEquityCompensationRetraction');
+      expect(requireDefined(choiceArg.creates[0], 'first create operation').tag).toBe(
+        'OcfCreateEquityCompensationRetraction'
+      );
     });
 
     it('should have correct ENTITY_TAG_MAP entry', () => {
@@ -214,9 +217,11 @@ describe('Equity Compensation Event Converters', () => {
       };
 
       expect(choiceArg.creates).toHaveLength(1);
-      expect(choiceArg.creates[0].tag).toBe('OcfCreateEquityCompensationRelease');
+      expect(requireDefined(choiceArg.creates[0], 'first create operation').tag).toBe(
+        'OcfCreateEquityCompensationRelease'
+      );
 
-      const value = choiceArg.creates[0].value as Record<string, unknown>;
+      const value = requireDefined(choiceArg.creates[0], 'first create operation').value as Record<string, unknown>;
       expect(value.id).toBe('rel-123');
       expect(value.quantity).toBe('1000');
       expect(value.resulting_security_ids).toEqual(['stock-001']);
@@ -262,9 +267,11 @@ describe('Equity Compensation Event Converters', () => {
       };
 
       expect(choiceArg.creates).toHaveLength(1);
-      expect(choiceArg.creates[0].tag).toBe('OcfCreateEquityCompensationRepricing');
+      expect(requireDefined(choiceArg.creates[0], 'first create operation').tag).toBe(
+        'OcfCreateEquityCompensationRepricing'
+      );
 
-      const value = choiceArg.creates[0].value as Record<string, unknown>;
+      const value = requireDefined(choiceArg.creates[0], 'first create operation').value as Record<string, unknown>;
       expect(value.id).toBe('rep-123');
       expect(value.new_exercise_price).toEqual({
         amount: '0.2',
@@ -311,9 +318,9 @@ describe('Stock Plan Event Converters', () => {
       };
 
       expect(choiceArg.creates).toHaveLength(1);
-      expect(choiceArg.creates[0].tag).toBe('OcfCreateStockPlanReturnToPool');
+      expect(requireDefined(choiceArg.creates[0], 'first create operation').tag).toBe('OcfCreateStockPlanReturnToPool');
 
-      const value = choiceArg.creates[0].value as Record<string, unknown>;
+      const value = requireDefined(choiceArg.creates[0], 'first create operation').value as Record<string, unknown>;
       expect(value.id).toBe('rtp-123');
       expect(value.security_id).toBe('sec-123');
       expect(value.stock_plan_id).toBe('plan-2024');
@@ -333,7 +340,7 @@ describe('Stock Plan Event Converters', () => {
 
 describe('Stakeholder Change Event Converters', () => {
   describe('stakeholderRelationshipChangeEvent', () => {
-    it('should convert legacy single-relationship stakeholder relationship change event to DAML format', () => {
+    it('should convert a relationship_started-only event to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
@@ -344,8 +351,8 @@ describe('Stakeholder Change Event Converters', () => {
         id: 'rce-123',
         date: '2024-08-01',
         stakeholder_id: 'sh-001',
-        new_relationships: ['EMPLOYEE'],
-        comments: ['Initial relationship assignment from legacy payload'],
+        relationship_started: 'EMPLOYEE',
+        comments: ['Initial relationship assignment'],
       };
 
       batch.create('stakeholderRelationshipChangeEvent', data);
@@ -358,9 +365,11 @@ describe('Stakeholder Change Event Converters', () => {
       };
 
       expect(choiceArg.creates).toHaveLength(1);
-      expect(choiceArg.creates[0].tag).toBe('OcfCreateStakeholderRelationshipChangeEvent');
+      expect(requireDefined(choiceArg.creates[0], 'first create operation').tag).toBe(
+        'OcfCreateStakeholderRelationshipChangeEvent'
+      );
 
-      const value = choiceArg.creates[0].value as Record<string, unknown>;
+      const value = requireDefined(choiceArg.creates[0], 'first create operation').value as Record<string, unknown>;
       expect(value.id).toBe('rce-123');
       expect(value.stakeholder_id).toBe('sh-001');
       expect(value.relationship_started).toBe('OcfRelEmployee');
@@ -391,28 +400,9 @@ describe('Stakeholder Change Event Converters', () => {
         creates: Array<{ tag: string; value: unknown }>;
       };
 
-      const value = choiceArg.creates[0].value as Record<string, unknown>;
+      const value = requireDefined(choiceArg.creates[0], 'first create operation').value as Record<string, unknown>;
       expect(value.relationship_started).toBe('OcfRelFounder');
       expect(value.relationship_ended).toBe('OcfRelInvestor');
-    });
-
-    it('should reject legacy relationship list with multiple entries', () => {
-      const batch = new CapTableBatch({
-        capTableContractId: 'cap-table-123',
-        actAs: ['party-1'],
-      });
-
-      const data: OcfStakeholderRelationshipChangeEvent = {
-        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-        id: 'rce-invalid',
-        date: '2024-08-20',
-        stakeholder_id: 'sh-003',
-        new_relationships: ['FOUNDER', 'INVESTOR'],
-      };
-
-      expect(() => batch.create('stakeholderRelationshipChangeEvent', data)).toThrow(
-        'new_relationships with multiple entries is ambiguous'
-      );
     });
 
     it('should have correct ENTITY_TAG_MAP entry', () => {
@@ -450,9 +440,11 @@ describe('Stakeholder Change Event Converters', () => {
       };
 
       expect(choiceArg.creates).toHaveLength(1);
-      expect(choiceArg.creates[0].tag).toBe('OcfCreateStakeholderStatusChangeEvent');
+      expect(requireDefined(choiceArg.creates[0], 'first create operation').tag).toBe(
+        'OcfCreateStakeholderStatusChangeEvent'
+      );
 
-      const value = choiceArg.creates[0].value as Record<string, unknown>;
+      const value = requireDefined(choiceArg.creates[0], 'first create operation').value as Record<string, unknown>;
       expect(value.id).toBe('sce-123');
       expect(value.stakeholder_id).toBe('sh-001');
       expect(value.new_status).toBe('OcfStakeholderStatusLeaveOfAbsence');
@@ -503,7 +495,7 @@ describe('Stakeholder Change Event Converters', () => {
           creates: Array<{ tag: string; value: unknown }>;
         };
 
-        const value = choiceArg.creates[0].value as Record<string, unknown>;
+        const value = requireDefined(choiceArg.creates[0], 'first create operation').value as Record<string, unknown>;
         expect(value.new_status).toBe(expected);
       }
     });

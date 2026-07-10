@@ -129,6 +129,11 @@ export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
   TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'stakeholderStatusChangeEvent',
 };
 
+/** Read only mappings owned by the registry object, never inherited prototype properties. */
+function getOwnEntityType(mapping: Readonly<Record<string, OcfEntityType>>, key: string): OcfEntityType | undefined {
+  return Object.prototype.hasOwnProperty.call(mapping, key) ? mapping[key] : undefined;
+}
+
 /**
  * Map categorized OCF type/subtype to OcfEntityType.
  *
@@ -151,18 +156,19 @@ export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
  */
 export function mapCategorizedTypeToEntityType(categoryType: string, subtype: string | null): OcfEntityType | null {
   // Direct mappings
-  if (categoryType in DIRECT_TYPE_MAP) {
-    return DIRECT_TYPE_MAP[categoryType];
+  const directType = getOwnEntityType(DIRECT_TYPE_MAP, categoryType);
+  if (directType !== undefined) {
+    return directType;
   }
 
   // Object subtypes
   if (categoryType === 'OBJECT' && subtype) {
-    return OBJECT_SUBTYPE_MAP[subtype] ?? null;
+    return getOwnEntityType(OBJECT_SUBTYPE_MAP, subtype) ?? null;
   }
 
   // Transaction subtypes
   if (categoryType === 'TRANSACTION' && subtype) {
-    return TRANSACTION_SUBTYPE_MAP[subtype] ?? null;
+    return getOwnEntityType(TRANSACTION_SUBTYPE_MAP, subtype) ?? null;
   }
 
   return null;
@@ -352,10 +358,10 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
     const normalizedObjectType = normalizeObjectType(objectType);
 
     // Check if the normalized object type is a known transaction type
-    if (!(normalizedObjectType in TRANSACTION_SUBTYPE_MAP)) {
+    const entityType = getOwnEntityType(TRANSACTION_SUBTYPE_MAP, normalizedObjectType);
+    if (entityType === undefined) {
       throw new Error(`Unsupported transaction object_type: ${objectType}`);
     }
-    const entityType = TRANSACTION_SUBTYPE_MAP[normalizedObjectType];
     addItem(entityType, tx, `transaction (${objectType})`);
   }
 

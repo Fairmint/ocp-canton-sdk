@@ -3,6 +3,30 @@
  * simple string literals for enums and standard TypeScript objects for complex types.
  */
 
+/** An array whose schema requires at least one item. */
+export type NonEmptyArray<T> = [T, ...T[]];
+
+/** Require exactly one of the selected properties and forbid the others. */
+export type ExactlyOne<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
+  {
+    [Key in Keys]: Required<Pick<T, Key>> & Partial<Record<Exclude<Keys, Key>, never>>;
+  }[Keys];
+
+/** Require one or more of the selected properties. */
+export type AtLeastOne<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
+  {
+    [Key in Keys]: Required<Pick<T, Key>> & Partial<Pick<T, Exclude<Keys, Key>>>;
+  }[Keys];
+
+/** Permit zero or one of the selected properties and forbid multiple selections. */
+export type AtMostOne<T, Keys extends keyof T = keyof T> = Omit<T, Keys> &
+  (
+    | Partial<Record<Keys, never>>
+    | {
+        [Key in Keys]: Required<Pick<T, Key>> & Partial<Record<Exclude<Keys, Key>, never>>;
+      }[Keys]
+  );
+
 /**
  * Enum - Email Type Type of e-mail address OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/enums/EmailType.schema.json
@@ -573,7 +597,7 @@ export interface OcfObjectBase<TObjectType extends OcfObjectType> {
  * Object - Issuer Object describing the issuer of the cap table (the company whose cap table this is). OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Issuer.schema.json
  */
-export interface OcfIssuer extends OcfObjectBase<'ISSUER'> {
+interface OcfIssuerFields extends OcfObjectBase<'ISSUER'> {
   /** Identifier for the object */
   id: string;
   /** Legal name of the issuer */
@@ -589,9 +613,9 @@ export interface OcfIssuer extends OcfObjectBase<'ISSUER'> {
   /** The headquarters address of the issuing company */
   address?: Address;
   /** The code for the state, province, or subdivision where the issuer company was legally formed */
-  country_subdivision_of_formation?: string;
+  country_subdivision_of_formation: string;
   /** Text name of state, province, or subdivision where the issuer was legally formed if the code is not available */
-  country_subdivision_name_of_formation?: string;
+  country_subdivision_name_of_formation: string;
   /** Doing Business As name */
   dba?: string;
   /** A work email that the issuer company can be reached at */
@@ -601,6 +625,15 @@ export interface OcfIssuer extends OcfObjectBase<'ISSUER'> {
   /** A phone number that the issuer company can be reached at */
   phone?: Phone;
 }
+
+/**
+ * Issuer data may use a subdivision code or a free-form subdivision name, but
+ * the OCF schema forbids supplying both.
+ */
+export type OcfIssuer = AtMostOne<
+  OcfIssuerFields,
+  'country_subdivision_of_formation' | 'country_subdivision_name_of_formation'
+>;
 
 /**
  * Object - Stock Class Object describing a class of stock issued by the issuer OCF:
@@ -661,25 +694,31 @@ export type StakeholderType = 'INDIVIDUAL' | 'INSTITUTION';
  * Type - Contact Info OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/ContactInfo.schema.json
  */
-export interface ContactInfo {
+interface ContactInfoFields {
   /** Contact name */
   name: Name;
   /** Phone numbers */
-  phone_numbers?: Phone[];
+  phone_numbers: Phone[];
   /** Email addresses */
-  emails?: Email[];
+  emails: Email[];
 }
+
+/** Named contact with at least one phone or email collection. */
+export type ContactInfo = AtLeastOne<ContactInfoFields, 'phone_numbers' | 'emails'>;
 
 /**
  * Type - Contact Info Without Name OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/ContactInfoWithoutName.schema.json
  */
-export interface ContactInfoWithoutName {
+interface ContactInfoWithoutNameFields {
   /** Phone numbers */
-  phone_numbers?: Phone[];
+  phone_numbers: Phone[];
   /** Email addresses */
-  emails?: Email[];
+  emails: Email[];
 }
+
+/** Contact details with at least one phone or email collection. */
+export type ContactInfoWithoutName = AtLeastOne<ContactInfoWithoutNameFields, 'phone_numbers' | 'emails'>;
 
 /**
  * Object - Stakeholder Object describing a stakeholder in the issuer's cap table OCF:
@@ -745,13 +784,13 @@ export interface OcfObjectReference {
  * Object - Document Object describing a document OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/Document.schema.json
  */
-export interface OcfDocument extends OcfObjectBase<'DOCUMENT'> {
+interface OcfDocumentFields extends OcfObjectBase<'DOCUMENT'> {
   /** Identifier for the object */
   id: string;
   /** Relative file path to the document within the OCF bundle */
-  path?: string;
+  path: string;
   /** External URI to the document (used when the file is hosted elsewhere) */
-  uri?: string;
+  uri: string;
   /** MD5 hash of the document contents (32-character hex) */
   md5: string;
   /** References to related OCF objects */
@@ -759,6 +798,9 @@ export interface OcfDocument extends OcfObjectBase<'DOCUMENT'> {
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
+
+/** Document located by exactly one bundle path or external URI. */
+export type OcfDocument = ExactlyOne<OcfDocumentFields, 'path' | 'uri'>;
 
 /**
  * Enum - Valuation Type Enumeration of valuation types OCF:
@@ -962,20 +1004,23 @@ export interface VestingConditionPortion {
   remainder?: boolean;
 }
 
-export interface VestingCondition {
+interface VestingConditionFields {
   /** Reference identifier for this condition (unique within the vesting terms) */
   id: string;
   /** Detailed description of the condition */
   description?: string;
   /** If specified, the fractional part of the whole security that vests */
-  portion?: VestingConditionPortion;
+  portion: VestingConditionPortion;
   /** If specified, the fixed amount of the whole security to vest (decimal string) */
-  quantity?: string;
+  quantity: string;
   /** Describes how this vesting condition is met */
   trigger: VestingTrigger;
   /** List of ALL VestingCondition IDs that can trigger after this one */
   next_condition_ids: string[];
 }
+
+/** A vesting tranche expressed as exactly one fractional portion or fixed quantity. */
+export type VestingCondition = ExactlyOne<VestingConditionFields, 'portion' | 'quantity'>;
 
 /**
  * Object - Vesting Terms Object describing the terms under which a security vests OCF:
@@ -1015,14 +1060,8 @@ export interface OcfStockPlan extends OcfObjectBase<'STOCK_PLAN'> {
   initial_shares_reserved: string;
   /** Default cancellation behavior if not specified at the security level */
   default_cancellation_behavior?: StockPlanCancellationBehavior;
-  /**
-   * [DEPRECATED] Identifier of the StockClass object this plan is composed of.
-   * Use `stock_class_ids` instead. Accepted for backward compatibility with older OCF data
-   * that uses the deprecated singular field per the OCF StockPlan schema `oneOf`.
-   */
-  stock_class_id?: string;
-  /** List of stock class ids associated with this plan (preferred over deprecated stock_class_id) */
-  stock_class_ids?: string[];
+  /** Non-empty list of stock class ids associated with this plan. */
+  stock_class_ids: NonEmptyArray<string>;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1059,7 +1098,7 @@ export interface TerminationWindow {
   period_type: PeriodType;
 }
 
-export interface OcfEquityCompensationIssuance extends OcfObjectBase<'TX_EQUITY_COMPENSATION_ISSUANCE'> {
+interface OcfEquityCompensationIssuanceFields extends OcfObjectBase<'TX_EQUITY_COMPENSATION_ISSUANCE'> {
   id: string;
   date: string;
   security_id: string;
@@ -1071,15 +1110,13 @@ export interface OcfEquityCompensationIssuance extends OcfObjectBase<'TX_EQUITY_
   stockholder_approval_date?: string;
   consideration_text?: string;
   vesting_terms_id?: string;
-  /** Type of equity compensation instrument */
+  /** Type of equity compensation instrument. Refined by the public issuance union. */
   compensation_type: CompensationType;
-  /** @deprecated Use compensation_type instead. OCF option grant type (NSO, ISO, INTL). */
-  option_grant_type?: OptionType;
   /** Quantity granted/issued (decimal string) */
   quantity: string;
-  /** Exercise price per share/unit */
+  /** Exercise price per share/unit. Required only by option variants. */
   exercise_price?: Monetary;
-  /** Base price used to value compensation (for SARs) */
+  /** Base price used to value compensation. Required only by SAR variants. */
   base_price?: Monetary;
   /** Whether early exercise is permitted */
   early_exercisable?: boolean;
@@ -1094,6 +1131,39 @@ export interface OcfEquityCompensationIssuance extends OcfObjectBase<'TX_EQUITY_
   /** Unstructured text comments */
   comments?: string[];
 }
+
+/** Option grants require an exercise price and cannot carry a SAR base price. */
+export type OcfOptionIssuance = OcfEquityCompensationIssuanceFields & {
+  compensation_type: 'OPTION' | 'OPTION_ISO' | 'OPTION_NSO';
+  exercise_price: Monetary;
+  base_price?: never;
+};
+
+/** Stock appreciation rights require a base price and cannot carry an option exercise price. */
+export type OcfStockAppreciationRightIssuance = OcfEquityCompensationIssuanceFields & {
+  compensation_type: 'CSAR' | 'SSAR';
+  exercise_price?: never;
+  base_price: Monetary;
+};
+
+/** Restricted stock units carry neither an exercise price nor a SAR base price. */
+export type OcfRestrictedStockUnitIssuance = OcfEquityCompensationIssuanceFields & {
+  compensation_type: 'RSU';
+  exercise_price?: never;
+  base_price?: never;
+};
+
+/**
+ * Canonical equity-compensation issuance.
+ *
+ * The compensation discriminator determines the required price field so callers
+ * cannot construct options without exercise prices, SARs without base prices,
+ * or RSUs with inapplicable pricing data.
+ */
+export type OcfEquityCompensationIssuance =
+  | OcfOptionIssuance
+  | OcfStockAppreciationRightIssuance
+  | OcfRestrictedStockUnitIssuance;
 
 // ===== Convertible & Warrant Issuance Types =====
 
@@ -1755,16 +1825,12 @@ export interface OcfStockClassConversionRatioAdjustment extends OcfObjectBase<'T
   /** Identifier for the stock class whose conversion ratio is being adjusted */
   stock_class_id: string;
   /** Canonical conversion mechanism payload */
-  new_ratio_conversion_mechanism?: {
+  new_ratio_conversion_mechanism: {
     type: 'RATIO_CONVERSION';
     conversion_price: Monetary;
     ratio: { numerator: string; denominator: string };
     rounding_type: 'NORMAL' | 'CEILING' | 'FLOOR';
   };
-  /** @internal DAML pass-through — not in OCF schema */
-  new_ratio_numerator?: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  new_ratio_denominator?: string;
   /** @internal Extension field — not in OCF schema */
   board_approval_date?: string;
   /** @internal Extension field — not in OCF schema */
@@ -2104,7 +2170,7 @@ export type StakeholderStatus =
  * issuer OCF:
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/change_event/StakeholderRelationshipChangeEvent.schema.json
  */
-export interface OcfStakeholderRelationshipChangeEvent extends OcfObjectBase<'CE_STAKEHOLDER_RELATIONSHIP'> {
+interface OcfStakeholderRelationshipChangeEventFields extends OcfObjectBase<'CE_STAKEHOLDER_RELATIONSHIP'> {
   /** Identifier for the object */
   id: string;
   /** Date on which the event occurred */
@@ -2112,14 +2178,18 @@ export interface OcfStakeholderRelationshipChangeEvent extends OcfObjectBase<'CE
   /** Identifier for the stakeholder whose relationship is changing */
   stakeholder_id: string;
   /** Relationship that started on this change date */
-  relationship_started?: StakeholderRelationshipType;
+  relationship_started: StakeholderRelationshipType;
   /** Relationship that ended on this change date */
-  relationship_ended?: StakeholderRelationshipType;
-  /** @deprecated Legacy field — not in current OCF schema */
-  new_relationships?: StakeholderRelationshipType[];
+  relationship_ended: StakeholderRelationshipType;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
+
+/** Relationship change containing at least one started or ended relationship. */
+export type OcfStakeholderRelationshipChangeEvent = AtLeastOne<
+  OcfStakeholderRelationshipChangeEventFields,
+  'relationship_started' | 'relationship_ended'
+>;
 
 /**
  * Object - Stakeholder Status Change Event Object describing a change in a stakeholder's status with the issuer OCF:

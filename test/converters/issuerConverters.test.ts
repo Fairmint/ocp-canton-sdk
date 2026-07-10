@@ -2,15 +2,13 @@
  * Unit tests for Issuer type converters.
  *
  * Tests OCF to DAML conversion for:
- * - Issuer data normalization (tax_ids array normalization)
- * - IssuerDataInput type acceptance
- *
- * These tests ensure the SDK handles raw OCF data where optional array fields
- * may be null or undefined, normalizing them to empty arrays as required by DAML.
+ * - Canonical issuer array normalization
+ * - Canonical typed issuer input acceptance
  */
 
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
 import { buildCreateIssuerCommand, normalizeIssuerData } from '../../src/functions/OpenCapTable/issuer/createIssuer';
+import { damlIssuerDataToNative } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import type { OcfIssuer } from '../../src/types/native';
 
 describe('Issuer Converters', () => {
@@ -21,18 +19,6 @@ describe('Issuer Converters', () => {
       formation_date: '2020-01-01',
       country_of_formation: 'US',
     };
-
-    test('normalizes null tax_ids to empty array', () => {
-      const input = {
-        ...baseIssuerData,
-        tax_ids: null,
-        object_type: 'ISSUER' as const,
-      };
-
-      const result = normalizeIssuerData(input);
-
-      expect(result.tax_ids).toEqual([]);
-    });
 
     test('normalizes undefined tax_ids to empty array', () => {
       const input = {
@@ -75,7 +61,7 @@ describe('Issuer Converters', () => {
     test('preserves all other fields unchanged', () => {
       const input = {
         ...baseIssuerData,
-        tax_ids: null,
+        tax_ids: [],
         dba: 'Test DBA',
         country_subdivision_of_formation: 'DE',
         comments: ['comment 1'],
@@ -109,7 +95,7 @@ describe('Issuer Converters', () => {
       country_of_formation: 'US',
     };
 
-    test('accepts issuer data with null tax_ids', () => {
+    test('rejects explicit null tax_ids at the typed boundary', () => {
       const params = {
         issuerAuthorizationContractDetails: mockDisclosedContract,
         issuerParty: 'party-1',
@@ -117,14 +103,10 @@ describe('Issuer Converters', () => {
           ...baseIssuerData,
           tax_ids: null,
           object_type: 'ISSUER' as const,
-        },
+        } as unknown as OcfIssuer,
       };
 
-      // Should not throw
-      const result = buildCreateIssuerCommand(params);
-
-      expect(result.command).toBeDefined();
-      expect(result.disclosedContracts).toBeDefined();
+      expect(() => buildCreateIssuerCommand(params)).toThrow();
     });
 
     test('accepts issuer data with undefined tax_ids', () => {
@@ -179,6 +161,28 @@ describe('Issuer Converters', () => {
 
       expect(result.command).toBeDefined();
       expect(result.disclosedContracts).toBeDefined();
+    });
+  });
+
+  describe('damlIssuerDataToNative', () => {
+    test('rejects a ledger issuer with both subdivision representations', () => {
+      const damlIssuer = {
+        id: 'issuer-read-1',
+        legal_name: 'Invalid Issuer',
+        country_of_formation: 'US',
+        dba: null,
+        formation_date: '2026-01-01T00:00:00.000Z',
+        country_subdivision_of_formation: 'DE',
+        country_subdivision_name_of_formation: 'Delaware',
+        tax_ids: [],
+        email: null,
+        phone: null,
+        address: null,
+        initial_shares_authorized: null,
+        comments: [],
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow('both subdivision code and subdivision name');
     });
   });
 });

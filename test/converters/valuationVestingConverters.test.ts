@@ -39,6 +39,7 @@ import type {
   OcfVestingStart,
   OcfVestingTerms,
 } from '../../src/types';
+import { requireFirst } from '../../src/utils/requireDefined';
 
 describe('Valuation Converters', () => {
   describe('OCF → DAML (valuationDataToDaml)', () => {
@@ -332,7 +333,7 @@ describe('VestingTerms Converters', () => {
         vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
       };
 
-      expect(damlData.vesting_conditions[0].portion).toEqual({
+      expect(requireFirst(damlData.vesting_conditions, 'converted vesting condition').portion).toEqual({
         numerator: '1',
         denominator: '4',
         remainder: false,
@@ -368,11 +369,34 @@ describe('VestingTerms Converters', () => {
         vesting_conditions: Array<{ portion: { numerator: string; denominator: string; remainder: boolean } }>;
       };
 
-      expect(damlData.vesting_conditions[0].portion).toEqual({
+      expect(requireFirst(damlData.vesting_conditions, 'converted vesting condition').portion).toEqual({
         numerator: '1',
         denominator: '4',
         remainder: true,
       });
+    });
+
+    test.each([
+      ['neither amount', {}],
+      ['both amounts', { portion: { numerator: '1', denominator: '4' }, quantity: '250' }],
+    ])('rejects a vesting condition with %s at runtime', (_case, amountFields) => {
+      const ocfData = {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-invalid',
+        name: 'Invalid Vesting',
+        description: 'Invalid conditional shape',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'condition-invalid',
+            ...amountFields,
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: [],
+          },
+        ],
+      } as unknown as OcfVestingTerms;
+
+      expect(() => convertToDaml('vestingTerms', ocfData)).toThrow(OcpValidationError);
     });
   });
 });
@@ -642,19 +666,22 @@ describe('VestingTerms drift regression', () => {
 
   test('preserves remainder: false when explicitly set (truthiness fix)', () => {
     const result = damlVestingTermsDataToNative(makeDamlVestingTerms());
-    expect(result.vesting_conditions[0].portion).toBeDefined();
-    expect(result.vesting_conditions[0].portion!.numerator).toBe('1');
-    expect(result.vesting_conditions[0].portion!.denominator).toBe('4');
-    expect(result.vesting_conditions[0].portion!.remainder).toBe(false);
+    const { portion } = requireFirst(result.vesting_conditions, 'native vesting condition');
+    expect(portion).toBeDefined();
+    expect(portion?.numerator).toBe('1');
+    expect(portion?.denominator).toBe('4');
+    expect(portion?.remainder).toBe(false);
   });
 
   test('preserves remainder: true', () => {
     const daml = makeDamlVestingTerms();
-    (
-      daml as unknown as { vesting_conditions: Array<{ portion: { remainder: boolean } }> }
-    ).vesting_conditions[0].portion.remainder = true;
+    const damlCondition = requireFirst(
+      (daml as unknown as { vesting_conditions: Array<{ portion: { remainder: boolean } }> }).vesting_conditions,
+      'DAML vesting condition'
+    );
+    damlCondition.portion.remainder = true;
     const result = damlVestingTermsDataToNative(daml);
-    expect(result.vesting_conditions[0].portion!.remainder).toBe(true);
+    expect(requireFirst(result.vesting_conditions, 'native vesting condition').portion?.remainder).toBe(true);
   });
 
   test('strips empty comments array', () => {
@@ -666,6 +693,35 @@ describe('VestingTerms drift regression', () => {
   test('preserves non-empty comments', () => {
     const result = damlVestingTermsDataToNative(makeDamlVestingTerms({ comments: ['Board note'] }));
     expect(result.comments).toEqual(['Board note']);
+  });
+
+  test.each([
+    [
+      'neither amount',
+      {
+        id: 'invalid-neither',
+        description: null,
+        quantity: null,
+        portion: null,
+        trigger: 'OcfVestingStartTrigger',
+        next_condition_ids: [],
+      },
+    ],
+    [
+      'both amounts',
+      {
+        id: 'invalid-both',
+        description: null,
+        quantity: '250',
+        portion: { numerator: '1', denominator: '4', remainder: false },
+        trigger: 'OcfVestingStartTrigger',
+        next_condition_ids: [],
+      },
+    ],
+  ])('rejects DAML vesting conditions with %s', (_case, condition) => {
+    expect(() => damlVestingTermsDataToNative(makeDamlVestingTerms({ vesting_conditions: [condition] }))).toThrow(
+      OcpValidationError
+    );
   });
 
   test('round-trip OCF → DAML → OCF preserves remainder when DAML has it', () => {
@@ -690,9 +746,13 @@ describe('VestingTerms drift regression', () => {
       damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0]
     );
 
-    expect(roundTripped.vesting_conditions[0].portion).toBeDefined();
+    const roundTrippedPortion = requireFirst(
+      roundTripped.vesting_conditions,
+      'round-tripped vesting condition'
+    ).portion;
+    expect(roundTrippedPortion).toBeDefined();
     // When OCF omits remainder, convertToDaml may add false as DAML default; we preserve it (truthiness fix)
-    expect(roundTripped.vesting_conditions[0].portion!.remainder).toBe(false);
+    expect(roundTrippedPortion?.remainder).toBe(false);
   });
 
   test('round-trip OCF → DAML → OCF preserves omitted comments', () => {

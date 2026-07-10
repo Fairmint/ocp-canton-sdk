@@ -23,6 +23,7 @@ import {
   stripInternalFields,
 } from '../../../src/utils/ocfComparison';
 import { normalizeOcfData } from '../../../src/utils/planSecurityAliases';
+import { requireFirst } from '../../../src/utils/requireDefined';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
 import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
@@ -167,7 +168,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       // Validate OCF schema
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data);
       expect(readBack.data.object_type).toBe('ISSUER');
     });
 
@@ -264,7 +265,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       // Read back as OCF
       const readBack = await ctx.ocp.OpenCapTable.stakeholder.get({
-        contractId: extractContractIdString(result.createdCids[0]),
+        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
       });
 
       // Validate OCF schema
@@ -297,7 +298,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stakeholder.get({
-        contractId: extractContractIdString(result.createdCids[0]),
+        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
       });
 
       await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
@@ -325,7 +326,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stockLegendTemplate.get({
-        contractId: extractContractIdString(result.createdCids[0]),
+        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
       });
 
       await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
@@ -353,10 +354,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.document.get({
-        contractId: extractContractIdString(result.createdCids[0]),
+        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
       });
 
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data);
     });
 
     /**
@@ -386,7 +387,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.vestingTerms.get({
-        contractId: extractContractIdString(result.createdCids[0]),
+        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
       });
 
       await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
@@ -414,7 +415,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stockPlan.get({
-        contractId: extractContractIdString(result.createdCids[0]),
+        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
       });
 
       await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
@@ -1988,10 +1989,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stakeholderRelationshipChangeEvent.get({
-        contractId: extractContractIdString(result.createdCids[0]),
+        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
       });
 
-      await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
+      await validateOcfObject(readBack.data);
 
       const sourceWithoutId = stripInternalFields(
         normalizeOcfData({
@@ -2000,11 +2001,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
           id: readBack.data.id,
         })
       );
-      compareOcfData(
-        sourceWithoutId,
-        readBack.data as unknown as Record<string, unknown>,
-        'Stakeholder Relationship Change Event synthetic'
-      );
+      compareOcfData(sourceWithoutId, readBack.data, 'Stakeholder Relationship Change Event synthetic');
     });
 
     test('Stakeholder Status Change Event round-trips correctly (synthetic)', async () => {
@@ -2038,7 +2035,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stakeholderStatusChangeEvent.get({
-        contractId: extractContractIdString(result.createdCids[0]),
+        contractId: extractContractIdString(requireFirst(result.createdCids, 'created production fixture contract')),
       });
 
       await validateOcfObject(readBack.data as unknown as Record<string, unknown>);

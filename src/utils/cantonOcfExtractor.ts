@@ -437,7 +437,14 @@ export async function extractCantonOcfManifest(
   // we skip it here to avoid a redundant 404 that would abort extraction.
   const issuerContractEntry = cantonState.contractIds.get('issuer');
   if (issuerContractEntry && issuerContractEntry.size > 0) {
-    const [[issuerId, issuerCid]] = issuerContractEntry;
+    const issuerIteratorResult = issuerContractEntry.entries().next();
+    if (issuerIteratorResult.done) {
+      throw new OcpValidationError('contractIds.issuer', 'Expected a non-empty issuer contract entry', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        receivedValue: issuerContractEntry,
+      });
+    }
+    const [issuerId, issuerCid] = issuerIteratorResult.value;
     let issuerLastError: Error | null = null;
     let issuerAttempts = 0;
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -447,7 +454,7 @@ export async function extractCantonOcfManifest(
           contractId: issuerCid,
           ...readScopeOpts,
         });
-        result.issuer = issuerResult.data as unknown as Record<string, unknown>;
+        result.issuer = issuerResult.data;
         issuerLastError = null;
         break;
       } catch (error) {
@@ -547,7 +554,7 @@ export async function extractCantonOcfManifest(
             result.valuations.push(valuation as unknown as Record<string, unknown>);
           } else if (entityType === 'document') {
             const { document } = await getDocumentAsOcf(client, { contractId, ...readScopeOpts });
-            result.documents.push(document as unknown as Record<string, unknown>);
+            result.documents.push(document);
           } else if (entityType === 'stockLegendTemplate') {
             const { stockLegendTemplate } = await getStockLegendTemplateAsOcf(client, {
               contractId,

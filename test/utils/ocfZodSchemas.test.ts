@@ -5,6 +5,7 @@ import {
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import { parseOcfEntityInput, parseOcfObject, resolveOcfSchemaDir } from '../../src/utils/ocfZodSchemas';
+import { requireDefined } from '../../src/utils/requireDefined';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from './productionFixtures';
 
 const schemaAvailabilityError = (() => {
@@ -37,7 +38,8 @@ const entityDiscriminatorCases = entityTypes.map((entityType, index) => {
   return {
     entityType,
     expectedObjectType: ENTITY_OBJECT_TYPE_MAP[entityType],
-    mismatchedObjectType: ENTITY_OBJECT_TYPE_MAP[mismatchedEntityType],
+    mismatchedObjectType:
+      ENTITY_OBJECT_TYPE_MAP[requireDefined(mismatchedEntityType, `mismatched entity type for ${entityType}`)],
   };
 });
 

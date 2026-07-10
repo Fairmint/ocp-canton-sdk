@@ -21,7 +21,7 @@ export interface CreatedTreeEvent {
  * @param path - Array of keys representing the path to the desired property
  * @returns The value at the path, or undefined if not found
  */
-export function safeGet(obj: unknown, path: string[]): unknown {
+export function safeGet(obj: unknown, path: readonly string[]): unknown {
   let curr = obj as Record<string, unknown> | undefined;
   for (const key of path) {
     if (!curr || typeof curr !== 'object' || !(key in curr)) return undefined;

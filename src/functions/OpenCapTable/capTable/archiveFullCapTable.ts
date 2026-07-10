@@ -56,7 +56,8 @@ function getArchiveMatchByContractId(
   }
 
   const matchedContracts = candidates.filter((match) => match.capTableContractId === expectedCapTableContractId);
-  return matchedContracts.length === 1 ? matchedContracts[0] : null;
+  const [matchedContract] = matchedContracts;
+  return matchedContracts.length === 1 && matchedContract !== undefined ? matchedContract : null;
 }
 
 function getSingletonArchiveMatch(classification: {

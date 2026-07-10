@@ -34,17 +34,12 @@ function phoneToDaml(phone: OcfIssuer['phone']): Fairmint.OpenCapTable.Types.Con
   };
 }
 
-/**
- * Input type for issuer data that may have missing array fields.
- * The SDK normalizes these to empty arrays automatically.
- */
 export type { CreateIssuerParams, IssuerDataInput } from './types';
 
 /**
- * Normalize issuer data by ensuring array fields are arrays (not null/undefined).
- * This allows the SDK to accept raw OCF data where optional array fields may be missing.
+ * Normalize issuer data by ensuring optional array fields are arrays.
  *
- * @param data - Raw issuer data that may have null/undefined array fields
+ * @param data - Canonical issuer data
  * @returns Normalized issuer data with all array fields as arrays
  */
 export function normalizeIssuerData(data: IssuerDataInput): OcfIssuer {
@@ -52,19 +47,6 @@ export function normalizeIssuerData(data: IssuerDataInput): OcfIssuer {
     ...data,
     tax_ids: ensureArray(data.tax_ids),
   };
-}
-
-/**
- * Prepare issuer input for strict schema parsing.
- *
- * OCF schema allows omitted `tax_ids` but rejects explicit `null`.
- * For SDK compatibility we accept `null` and normalize to `[]` after parsing.
- */
-function prepareIssuerDataForSchemaParse(data: IssuerDataInput): IssuerDataInput {
-  if (data.tax_ids !== null) return data;
-
-  const { tax_ids: _, ...rest } = data;
-  return rest;
 }
 
 /**
@@ -90,9 +72,7 @@ function issuerDataToDamlInternal(
   if (skipSchemaParse) {
     parsedData = issuerData;
   } else {
-    const schemaParseInput = prepareIssuerDataForSchemaParse(issuerData);
-    // Parse against strict OCF schema and canonicalize deprecated aliases/defaults.
-    parsedData = parseOcfEntityInput('issuer', schemaParseInput);
+    parsedData = parseOcfEntityInput('issuer', issuerData);
   }
 
   // Normalize once at boundary to enforce OcfIssuer runtime invariant: tax_ids is always an array.

@@ -6,6 +6,7 @@ const NATIVE_TS_PATH = path.join(__dirname, '../../src/types/native.ts');
 interface SchemaMapping {
   schemaFile: string;
   sdkInterface: string;
+  sourceInterface?: string;
   requiredFields: string[];
   optionalFields: string[];
 }
@@ -14,6 +15,7 @@ const SCHEMA_MAPPINGS: SchemaMapping[] = [
   {
     schemaFile: 'Issuer.schema.json',
     sdkInterface: 'OcfIssuer',
+    sourceInterface: 'OcfIssuerFields',
     requiredFields: ['id', 'legal_name', 'formation_date', 'country_of_formation'],
     optionalFields: [
       'comments',
@@ -69,15 +71,8 @@ const SCHEMA_MAPPINGS: SchemaMapping[] = [
   {
     schemaFile: 'StockPlan.schema.json',
     sdkInterface: 'OcfStockPlan',
-    requiredFields: ['id', 'plan_name', 'initial_shares_reserved'],
-    optionalFields: [
-      'comments',
-      'board_approval_date',
-      'stockholder_approval_date',
-      'default_cancellation_behavior',
-      'stock_class_id',
-      'stock_class_ids',
-    ],
+    requiredFields: ['id', 'plan_name', 'initial_shares_reserved', 'stock_class_ids'],
+    optionalFields: ['comments', 'board_approval_date', 'stockholder_approval_date', 'default_cancellation_behavior'],
   },
   {
     schemaFile: 'VestingTerms.schema.json',
@@ -100,6 +95,7 @@ const SCHEMA_MAPPINGS: SchemaMapping[] = [
   {
     schemaFile: 'Document.schema.json',
     sdkInterface: 'OcfDocument',
+    sourceInterface: 'OcfDocumentFields',
     requiredFields: ['id', 'md5'],
     optionalFields: ['comments', 'path', 'uri', 'related_objects'],
   },
@@ -141,6 +137,7 @@ const SCHEMA_MAPPINGS: SchemaMapping[] = [
   {
     schemaFile: 'transactions/issuance/EquityCompensationIssuance.schema.json',
     sdkInterface: 'OcfEquityCompensationIssuance',
+    sourceInterface: 'OcfEquityCompensationIssuanceFields',
     requiredFields: ['id', 'date', 'security_id', 'custom_id', 'stakeholder_id', 'compensation_type', 'quantity'],
     optionalFields: [
       'stock_plan_id',
@@ -226,8 +223,10 @@ const SCHEMA_MAPPINGS: SchemaMapping[] = [
 
 /** Extract interface body from native.ts source using brace counting. */
 function extractInterfaceBody(source: string, interfaceName: string): string | null {
-  const marker = `export interface ${interfaceName}`;
-  const start = source.indexOf(marker);
+  const exportedMarker = `export interface ${interfaceName}`;
+  const internalMarker = `interface ${interfaceName}`;
+  const exportedStart = source.indexOf(exportedMarker);
+  const start = exportedStart === -1 ? source.indexOf(internalMarker) : exportedStart;
   if (start === -1) return null;
   const openBrace = source.indexOf('{', start);
   if (openBrace === -1) return null;
@@ -260,7 +259,7 @@ describe('OCF Object Schema Field Alignment', () => {
 
   for (const mapping of SCHEMA_MAPPINGS) {
     describe(mapping.sdkInterface, () => {
-      const body = extractInterfaceBody(nativeSource, mapping.sdkInterface);
+      const body = extractInterfaceBody(nativeSource, mapping.sourceInterface ?? mapping.sdkInterface);
 
       it('interface exists in native.ts', () => {
         expect(body).not.toBeNull();
