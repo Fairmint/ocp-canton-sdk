@@ -34,6 +34,22 @@ describe('validateEquityCompensationPricing', () => {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     },
     {
+      name: 'option with null exercise price',
+      compensationType: 'OPTION' as const,
+      exercisePrice: null,
+      basePrice: undefined,
+      field: 'exercise_price',
+      code: OcpErrorCodes.INVALID_TYPE,
+    },
+    {
+      name: 'option with malformed exercise price',
+      compensationType: 'OPTION' as const,
+      exercisePrice: { amount: '1' },
+      basePrice: undefined,
+      field: 'exercise_price.currency',
+      code: OcpErrorCodes.INVALID_TYPE,
+    },
+    {
       name: 'option with base price',
       compensationType: 'OPTION_ISO' as const,
       exercisePrice: monetary,
@@ -48,6 +64,14 @@ describe('validateEquityCompensationPricing', () => {
       basePrice: undefined,
       field: 'base_price',
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    },
+    {
+      name: 'SAR with null base price',
+      compensationType: 'CSAR' as const,
+      exercisePrice: undefined,
+      basePrice: null,
+      field: 'base_price',
+      code: OcpErrorCodes.INVALID_TYPE,
     },
     {
       name: 'SAR with exercise price',
@@ -72,6 +96,14 @@ describe('validateEquityCompensationPricing', () => {
       basePrice: monetary,
       field: 'base_price',
       code: OcpErrorCodes.INVALID_FORMAT,
+    },
+    {
+      name: 'RSU with null exercise price',
+      compensationType: 'RSU' as const,
+      exercisePrice: null,
+      basePrice: undefined,
+      field: 'exercise_price',
+      code: OcpErrorCodes.INVALID_TYPE,
     },
   ])('rejects $name', ({ compensationType, exercisePrice, basePrice, field, code }) => {
     try {

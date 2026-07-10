@@ -23,14 +23,10 @@ const normalizedObjectType = normalizeObjectType('TX_PLAN_SECURITY_ISSUANCE');
 const exactObjectType: 'TX_EQUITY_COMPENSATION_ISSUANCE' = normalizedObjectType;
 void exactObjectType;
 
-const normalizedLegacyEvent = normalizeObjectType('TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT');
-const exactLegacyEvent: 'CE_STAKEHOLDER_RELATIONSHIP' = normalizedLegacyEvent;
-void exactLegacyEvent;
-
-declare const legacyIssuance: OcfPlanSecurityIssuance;
-const normalizedData: Record<string, unknown> = normalizeOcfData(legacyIssuance);
+declare const planSecurityIssuance: OcfPlanSecurityIssuance;
+const normalizedData: Record<string, unknown> = normalizeOcfData(planSecurityIssuance);
 void normalizedData;
 
-// @ts-expect-error built declarations must not claim normalization preserves a legacy object shape
-const unsoundLegacyClaim: OcfPlanSecurityIssuance = normalizeOcfData(legacyIssuance);
-void unsoundLegacyClaim;
+// @ts-expect-error built declarations must not claim normalization preserves a PlanSecurity object shape
+const unsoundPlanSecurityClaim: OcfPlanSecurityIssuance = normalizeOcfData(planSecurityIssuance);
+void unsoundPlanSecurityClaim;
