@@ -1,7 +1,7 @@
 /**
  * Unit tests for entity validators.
  */
-import { OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import {
   validateAddress,
   validateContactInfo,
@@ -24,6 +24,16 @@ import {
   validateTransactionBase,
   validateValuationData,
 } from '../../src/utils/entityValidators';
+
+function captureValidationError(action: () => unknown): OcpValidationError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof OcpValidationError) return error;
+    throw error;
+  }
+  throw new Error('Expected OcpValidationError');
+}
 
 describe('Entity Validators', () => {
   // ===== Helper Validators =====
@@ -332,23 +342,31 @@ describe('Entity Validators', () => {
     });
 
     it.each([
-      ['subdivision code', { country_subdivision_of_formation: null }],
-      ['subdivision name', { country_subdivision_name_of_formation: null }],
-      [
-        'both subdivision fields',
-        { country_subdivision_of_formation: null, country_subdivision_name_of_formation: null },
-      ],
-    ])('rejects explicit null for %s', (_case, subdivision) => {
-      expect(() => validateIssuerData({ ...validIssuer, ...subdivision }, 'issuer')).toThrow(OcpValidationError);
+      ['empty subdivision code', 'country_subdivision_of_formation', '', OcpErrorCodes.INVALID_FORMAT],
+      ['blank subdivision code', 'country_subdivision_of_formation', '   ', OcpErrorCodes.INVALID_FORMAT],
+      ['null subdivision code', 'country_subdivision_of_formation', null, OcpErrorCodes.INVALID_TYPE],
+      ['numeric subdivision code', 'country_subdivision_of_formation', 42, OcpErrorCodes.INVALID_TYPE],
+      ['empty subdivision name', 'country_subdivision_name_of_formation', '', OcpErrorCodes.INVALID_FORMAT],
+      ['blank subdivision name', 'country_subdivision_name_of_formation', '\t', OcpErrorCodes.INVALID_FORMAT],
+      ['null subdivision name', 'country_subdivision_name_of_formation', null, OcpErrorCodes.INVALID_TYPE],
+      ['numeric subdivision name', 'country_subdivision_name_of_formation', 42, OcpErrorCodes.INVALID_TYPE],
+    ] as const)('classifies %s', (_case, field, subdivision, code) => {
+      const error = captureValidationError(() =>
+        validateIssuerData({ ...validIssuer, [field]: subdivision }, 'issuer')
+      );
+      expect(error).toMatchObject({
+        code,
+        expectedType: 'non-blank string or omitted',
+        fieldPath: `issuer.${field}`,
+        receivedValue: subdivision,
+      });
     });
 
     it.each([
-      ['empty subdivision code', { country_subdivision_of_formation: '' }],
-      ['blank subdivision code', { country_subdivision_of_formation: '   ' }],
-      ['empty subdivision name', { country_subdivision_name_of_formation: '' }],
-      ['blank subdivision name', { country_subdivision_name_of_formation: '\t' }],
-    ])('rejects %s instead of normalizing it to omission', (_case, subdivision) => {
-      expect(() => validateIssuerData({ ...validIssuer, ...subdivision }, 'issuer')).toThrow(OcpValidationError);
+      ['subdivision code', 'country_subdivision_of_formation', 'DE'],
+      ['subdivision name', 'country_subdivision_name_of_formation', 'Delaware'],
+    ] as const)('accepts a valid %s', (_case, field, subdivision) => {
+      expect(() => validateIssuerData({ ...validIssuer, [field]: subdivision }, 'issuer')).not.toThrow();
     });
   });
 
