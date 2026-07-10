@@ -318,7 +318,7 @@ describe('Property-based tests: Type Conversions', () => {
           ),
           (value) => {
             expect(tryIsoDateToDateString(value)).toBeNull();
-            expect(() => Reflect.apply(dateStringToDAMLTime, undefined, [value])).toThrow();
+            expect(() => dateStringToDAMLTime(value)).toThrow();
           }
         ),
         { numRuns: 300 }

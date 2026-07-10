@@ -94,7 +94,6 @@ function requireIsoDate(value: unknown, fieldPath: string): { source: string; da
  * Convert a valid OCF date to DAML Time format. RFC 3339 date-times are validated and preserved exactly; date-only
  * values receive a UTC midnight suffix.
  */
-export function dateStringToDAMLTime(value: string, fieldPath?: string): string;
 export function dateStringToDAMLTime(value: unknown, fieldPath = 'date'): string {
   const { source, date } = requireIsoDate(value, fieldPath);
   return source === date ? `${date}T00:00:00.000Z` : source;

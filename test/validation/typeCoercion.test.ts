@@ -150,7 +150,7 @@ describe('Type Coercion Utilities', () => {
     });
 
     test.each(invalidValues)('both conversion boundaries reject invalid input %#', (value) => {
-      expect(() => Reflect.apply(dateStringToDAMLTime, undefined, [value])).toThrow(OcpValidationError);
+      expect(() => dateStringToDAMLTime(value)).toThrow(OcpValidationError);
       expect(() => damlTimeToDateString(value)).toThrow(OcpValidationError);
     });
 
@@ -193,7 +193,7 @@ describe('Type Coercion Utilities', () => {
     test('distinguishes wrong runtime types from malformed date strings', () => {
       for (const action of [
         () => damlTimeToDateString({ seconds: 1 }, 'transaction.date'),
-        () => Reflect.apply(dateStringToDAMLTime, undefined, [42, 'transaction.date']),
+        () => dateStringToDAMLTime(42, 'transaction.date'),
       ]) {
         try {
           action();

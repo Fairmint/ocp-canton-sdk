@@ -26,7 +26,7 @@ import {
   type SubmitAndWaitForTransactionTreeResponse,
   type WithdrawAuthorizationResult,
 } from '../../dist';
-import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
+import { dateStringToDAMLTime, isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -63,12 +63,15 @@ const authorizeIssuerResponseUsesPublicLedgerType: Assert<
 const withdrawAuthorizationResponseUsesPublicLedgerType: Assert<
   IsExactly<WithdrawAuthorizationResult['response'], SubmitAndWaitForTransactionTreeResponse>
 > = true;
+declare const unknownDateInput: unknown;
+const validatedDamlTime: string = dateStringToDAMLTime(unknownDateInput, 'transaction.date');
 
 void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesLegacyPlanSecurity;
 void generatedAndLegacyValuesAreNotRootExports;
 void authorizeIssuerResponseUsesPublicLedgerType;
 void withdrawAuthorizationResponseUsesPublicLedgerType;
+void validatedDamlTime;
 void authorizeIssuer;
 void buildCreateIssuerCommand;
 void CapTableBatch;
