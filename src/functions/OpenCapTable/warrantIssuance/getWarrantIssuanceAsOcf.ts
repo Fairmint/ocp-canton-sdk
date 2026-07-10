@@ -16,6 +16,7 @@ import {
   isRecord,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
+  optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { ratioMechanismFromDaml, warrantMechanismFromDaml } from '../shared/conversionMechanisms';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -156,20 +157,20 @@ function triggerFromDaml(value: unknown): WarrantExerciseTrigger {
     trigger.trigger_description,
     'warrantIssuance.exercise_trigger.trigger_description'
   );
-  const date = optionalString(trigger.trigger_date, 'warrantIssuance.exercise_trigger.trigger_date');
+  const date = optionalDamlTimeToDateString(trigger.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date');
   const condition = optionalString(trigger.trigger_condition, 'warrantIssuance.exercise_trigger.trigger_condition');
-  const startDate = optionalString(trigger.start_date, 'warrantIssuance.exercise_trigger.start_date');
-  const endDate = optionalString(trigger.end_date, 'warrantIssuance.exercise_trigger.end_date');
+  const startDate = optionalDamlTimeToDateString(trigger.start_date, 'warrantIssuance.exercise_triggers[].start_date');
+  const endDate = optionalDamlTimeToDateString(trigger.end_date, 'warrantIssuance.exercise_triggers[].end_date');
   return {
     type: mapDamlTriggerTypeToOcf(requireString(trigger.type_, 'warrantIssuance.exercise_trigger.type')),
     trigger_id: requireString(trigger.trigger_id, 'warrantIssuance.exercise_trigger.trigger_id'),
     conversion_right: conversionRightFromDaml(trigger.conversion_right),
     ...(nickname ? { nickname } : {}),
     ...(description ? { trigger_description: description } : {}),
-    ...(date ? { trigger_date: damlTimeToDateString(date) } : {}),
+    ...(date !== undefined ? { trigger_date: date } : {}),
     ...(condition ? { trigger_condition: condition } : {}),
-    ...(startDate ? { start_date: damlTimeToDateString(startDate) } : {}),
-    ...(endDate ? { end_date: damlTimeToDateString(endDate) } : {}),
+    ...(startDate !== undefined ? { start_date: startDate } : {}),
+    ...(endDate !== undefined ? { end_date: endDate } : {}),
   };
 }
 
@@ -210,7 +211,7 @@ function vestingsFromDaml(value: unknown): VestingSimple[] | undefined {
       throw invalid(`warrantIssuance.vestings.${index}.amount`, 'vesting amount must be a decimal string', amount);
     }
     return {
-      date: damlTimeToDateString(requireString(vesting.date, `warrantIssuance.vestings.${index}.date`)),
+      date: damlTimeToDateString(vesting.date, 'warrantIssuance.vestings[].date'),
       amount: normalizeNumericString(amount),
     };
   });
@@ -258,10 +259,16 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
           })();
   const quantitySource = quantitySourceFromDaml(data.quantity_source);
   const exercisePrice = optionalMonetary(data.exercise_price, 'warrantIssuance.exercise_price');
-  const expirationDate = optionalString(data.warrant_expiration_date, 'warrantIssuance.warrant_expiration_date');
+  const expirationDate = optionalDamlTimeToDateString(
+    data.warrant_expiration_date,
+    'warrantIssuance.warrant_expiration_date'
+  );
   const vestingTermsId = optionalString(data.vesting_terms_id, 'warrantIssuance.vesting_terms_id');
-  const boardApprovalDate = optionalString(data.board_approval_date, 'warrantIssuance.board_approval_date');
-  const stockholderApprovalDate = optionalString(
+  const boardApprovalDate = optionalDamlTimeToDateString(
+    data.board_approval_date,
+    'warrantIssuance.board_approval_date'
+  );
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
     data.stockholder_approval_date,
     'warrantIssuance.stockholder_approval_date'
   );
@@ -272,7 +279,7 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
   return {
     object_type: 'TX_WARRANT_ISSUANCE',
     id: requireString(data.id, 'warrantIssuance.id'),
-    date: damlTimeToDateString(requireString(data.date, 'warrantIssuance.date')),
+    date: damlTimeToDateString(data.date, 'warrantIssuance.date'),
     security_id: requireString(data.security_id, 'warrantIssuance.security_id'),
     custom_id: requireText(data.custom_id, 'warrantIssuance.custom_id'),
     stakeholder_id: requireString(data.stakeholder_id, 'warrantIssuance.stakeholder_id'),
@@ -282,10 +289,10 @@ export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssua
     ...(quantity ? { quantity } : {}),
     ...(quantitySource ? { quantity_source: quantitySource } : {}),
     ...(exercisePrice ? { exercise_price: exercisePrice } : {}),
-    ...(expirationDate ? { warrant_expiration_date: damlTimeToDateString(expirationDate) } : {}),
+    ...(expirationDate !== undefined ? { warrant_expiration_date: expirationDate } : {}),
     ...(vestingTermsId ? { vesting_terms_id: vestingTermsId } : {}),
-    ...(boardApprovalDate ? { board_approval_date: damlTimeToDateString(boardApprovalDate) } : {}),
-    ...(stockholderApprovalDate ? { stockholder_approval_date: damlTimeToDateString(stockholderApprovalDate) } : {}),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(considerationText ? { consideration_text: considerationText } : {}),
     ...(vestings ? { vestings } : {}),
     ...(comments ? { comments } : {}),

@@ -25,7 +25,7 @@ export interface GetStakeholderStatusChangeEventAsOcfResult {
 /** Type for DAML StakeholderStatusChangeEvent createArgument */
 interface DamlStakeholderStatusChangeEventData {
   id: string;
-  date: string;
+  date?: unknown;
   stakeholder_id: string;
   new_status: Fairmint.OpenCapTable.OCF.Stakeholder.OcfStakeholderStatusType;
   comments: string[];
@@ -41,7 +41,6 @@ function isDamlStakeholderStatusChangeEventData(value: unknown): value is DamlSt
 
   return (
     typeof value.id === 'string' &&
-    typeof value.date === 'string' &&
     typeof value.stakeholder_id === 'string' &&
     typeof value.new_status === 'string' &&
     Array.isArray(value.comments) &&

@@ -6,6 +6,7 @@ import {
   dateStringToDAMLTime,
   monetaryToDaml,
   normalizeNumericString,
+  optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
 import {
@@ -90,10 +91,13 @@ function storageTrigger(
     trigger_id: trigger.trigger_id,
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
-    trigger_date: trigger.trigger_date ? dateStringToDAMLTime(trigger.trigger_date) : null,
+    trigger_date: optionalDateStringToDAMLTime(
+      trigger.trigger_date,
+      'warrantIssuance.exercise_triggers[].trigger_date'
+    ),
     trigger_condition: optionalString(trigger.trigger_condition),
-    start_date: trigger.start_date ? dateStringToDAMLTime(trigger.start_date) : null,
-    end_date: trigger.end_date ? dateStringToDAMLTime(trigger.end_date) : null,
+    start_date: optionalDateStringToDAMLTime(trigger.start_date, 'warrantIssuance.exercise_triggers[].start_date'),
+    end_date: optionalDateStringToDAMLTime(trigger.end_date, 'warrantIssuance.exercise_triggers[].end_date'),
     conversion_right: {
       tag: 'OcfRightConvertible',
       value: {
@@ -176,10 +180,13 @@ function triggerToDaml(trigger: WarrantExerciseTrigger): Fairmint.OpenCapTable.T
     conversion_right: conversionRightToDaml(trigger),
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
-    trigger_date: trigger.trigger_date ? dateStringToDAMLTime(trigger.trigger_date) : null,
+    trigger_date: optionalDateStringToDAMLTime(
+      trigger.trigger_date,
+      'warrantIssuance.exercise_triggers[].trigger_date'
+    ),
     trigger_condition: optionalString(trigger.trigger_condition),
-    start_date: trigger.start_date ? dateStringToDAMLTime(trigger.start_date) : null,
-    end_date: trigger.end_date ? dateStringToDAMLTime(trigger.end_date) : null,
+    start_date: optionalDateStringToDAMLTime(trigger.start_date, 'warrantIssuance.exercise_triggers[].start_date'),
+    end_date: optionalDateStringToDAMLTime(trigger.end_date, 'warrantIssuance.exercise_triggers[].end_date'),
   };
 }
 
@@ -191,14 +198,15 @@ export function warrantIssuanceDataToDaml(
     : quantitySourceToDaml(input.quantity_source);
   return {
     id: input.id,
-    date: dateStringToDAMLTime(input.date),
+    date: dateStringToDAMLTime(input.date, 'warrantIssuance.date'),
     security_id: input.security_id,
     custom_id: input.custom_id,
     stakeholder_id: input.stakeholder_id,
-    board_approval_date: input.board_approval_date ? dateStringToDAMLTime(input.board_approval_date) : null,
-    stockholder_approval_date: input.stockholder_approval_date
-      ? dateStringToDAMLTime(input.stockholder_approval_date)
-      : null,
+    board_approval_date: optionalDateStringToDAMLTime(input.board_approval_date, 'warrantIssuance.board_approval_date'),
+    stockholder_approval_date: optionalDateStringToDAMLTime(
+      input.stockholder_approval_date,
+      'warrantIssuance.stockholder_approval_date'
+    ),
     consideration_text: optionalString(input.consideration_text),
     security_law_exemptions: input.security_law_exemptions,
     quantity: canonicalOptionalNumericToDaml(input.quantity, 'warrantIssuance.quantity'),
@@ -206,12 +214,15 @@ export function warrantIssuanceDataToDaml(
     exercise_price: input.exercise_price ? monetaryToDaml(input.exercise_price) : null,
     purchase_price: monetaryToDaml(input.purchase_price),
     exercise_triggers: input.exercise_triggers.map(triggerToDaml),
-    warrant_expiration_date: input.warrant_expiration_date ? dateStringToDAMLTime(input.warrant_expiration_date) : null,
+    warrant_expiration_date: optionalDateStringToDAMLTime(
+      input.warrant_expiration_date,
+      'warrantIssuance.warrant_expiration_date'
+    ),
     vesting_terms_id: optionalString(input.vesting_terms_id),
     vestings: (input.vestings ?? [])
       .filter((vesting) => Number(normalizeNumericString(vesting.amount)) > 0)
       .map((vesting) => ({
-        date: dateStringToDAMLTime(vesting.date),
+        date: dateStringToDAMLTime(vesting.date, 'warrantIssuance.vestings[].date'),
         amount: normalizeNumericString(vesting.amount),
       })),
     comments: cleanComments(input.comments),

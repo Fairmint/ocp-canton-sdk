@@ -17,12 +17,6 @@ export function damlEquityCompensationExerciseDataToNative(d: Record<string, unk
       receivedValue: d.id,
     });
   }
-  if (d.date === undefined || d.date === null || typeof d.date !== 'string') {
-    throw new OcpValidationError('equityCompensationExercise.date', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.date,
-    });
-  }
   if (d.security_id === undefined || d.security_id === null || typeof d.security_id !== 'string') {
     throw new OcpValidationError('equityCompensationExercise.security_id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,

@@ -18,6 +18,8 @@ import {
   isRecord,
   monetaryToDaml,
   normalizeNumericString,
+  optionalDamlTimeToDateString,
+  optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
 
 type DamlCapitalizationRules = Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules;
@@ -188,14 +190,17 @@ function describeUnknown(value: unknown): string {
   }
 }
 
-function unknownVariant(value: never, field: string): never {
-  const runtimeValue: unknown = value;
+function throwUnknownVariant(runtimeValue: unknown, field: string): never {
   const type =
     isRecord(runtimeValue) && typeof runtimeValue.type === 'string' ? runtimeValue.type : describeUnknown(runtimeValue);
   throw new OcpParseError(`Unknown ${field}: ${type}`, {
     source: field,
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
+}
+
+function unknownVariant(value: never, field: string): never {
+  return throwUnknownVariant(value, field);
 }
 
 /** Convert complete canonical capitalization rules to the generated DAML record. */
@@ -258,6 +263,11 @@ function conversionTimingToDaml(
       return 'OcfConvTimingPreMoney';
     case 'POST_MONEY':
       return 'OcfConvTimingPostMoney';
+    default:
+      throw new OcpParseError(`Unknown conversion_timing: ${describeUnknown(timing)}`, {
+        source: 'conversion_mechanism.conversion_timing',
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      });
   }
 }
 
@@ -388,22 +398,35 @@ function compoundingFromDaml(value: unknown): NoteConversionMechanism['compoundi
   }
 }
 
+function requireInterestAccrualStartDate(value: unknown, field: string): unknown {
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(field, 'accrual_start_date is required for each convertible note interest rate', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
 function interestRateToDaml(value: ConvertibleInterestRate): Fairmint.OpenCapTable.Types.Conversion.OcfInterestRate {
+  const field = 'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[]';
+  const accrualStartDate = requireInterestAccrualStartDate(value.accrual_start_date, `${field}.accrual_start_date`);
   return {
     rate: normalizeNumericString(value.rate),
-    accrual_start_date: dateStringToDAMLTime(value.accrual_start_date),
-    accrual_end_date: value.accrual_end_date ? dateStringToDAMLTime(value.accrual_end_date) : null,
+    accrual_start_date: dateStringToDAMLTime(accrualStartDate, `${field}.accrual_start_date`),
+    accrual_end_date: optionalDateStringToDAMLTime(value.accrual_end_date, `${field}.accrual_end_date`),
   };
 }
 
-function interestRateFromDaml(value: unknown, index: number): ConvertibleInterestRate {
-  const field = `conversion_mechanism.interest_rates.${index}`;
+function interestRateFromDaml(value: unknown, _index: number): ConvertibleInterestRate {
+  const field = 'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.interest_rates[]';
   const rate = requireRecord(value, field);
-  const accrualEndDate = optionalStringFromDaml(rate.accrual_end_date, `${field}.accrual_end_date`);
+  const accrualStartDate = requireInterestAccrualStartDate(rate.accrual_start_date, `${field}.accrual_start_date`);
+  const accrualEndDate = optionalDamlTimeToDateString(rate.accrual_end_date, `${field}.accrual_end_date`);
   return {
     rate: requireNumeric(rate.rate, `${field}.rate`),
-    accrual_start_date: damlTimeToDateString(requireString(rate.accrual_start_date, `${field}.accrual_start_date`)),
-    ...(accrualEndDate ? { accrual_end_date: damlTimeToDateString(accrualEndDate) } : {}),
+    accrual_start_date: damlTimeToDateString(accrualStartDate, `${field}.accrual_start_date`),
+    ...(accrualEndDate !== undefined ? { accrual_end_date: accrualEndDate } : {}),
   };
 }
 
@@ -655,6 +678,17 @@ function sharePriceMechanismFromDaml(mechanism: Record<string, unknown>): ShareP
 
 /** Convert a canonical warrant mechanism to the exact generated DAML variant. */
 export function warrantMechanismToDaml(mechanism: WarrantConversionMechanism): DamlWarrantMechanism {
+  if (!isRecord(mechanism)) {
+    throw new OcpValidationError(
+      'conversion_right.conversion_mechanism',
+      'Warrant conversion mechanism must be an object',
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'WarrantConversionMechanism',
+        receivedValue: mechanism,
+      }
+    );
+  }
   switch (mechanism.type) {
     case 'CUSTOM_CONVERSION':
       return {
@@ -794,6 +828,10 @@ export function ratioMechanismToDaml(mechanism: RatioConversionMechanism): {
   ratio: Fairmint.OpenCapTable.Types.Stock.OcfRatio;
   conversion_price: Fairmint.OpenCapTable.Types.Monetary.OcfMonetary;
 } {
+  const runtimeMechanism: unknown = mechanism;
+  if (!isRecord(runtimeMechanism) || runtimeMechanism.type !== 'RATIO_CONVERSION') {
+    return throwUnknownVariant(runtimeMechanism, 'stock-class conversion mechanism');
+  }
   if (mechanism.rounding_type !== 'NORMAL') {
     throw new OcpValidationError(
       'conversion_right.conversion_mechanism.rounding_type',

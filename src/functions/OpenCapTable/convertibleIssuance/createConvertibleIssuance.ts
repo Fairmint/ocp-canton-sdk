@@ -1,6 +1,12 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { ConvertibleConversionTrigger, ConvertibleType, OcfConvertibleIssuance } from '../../../types/native';
-import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  monetaryToDaml,
+  optionalDateStringToDAMLTime,
+  optionalString,
+} from '../../../utils/typeConversions';
 import { canonicalOptionalNumericToDaml, convertibleMechanismToDaml } from '../shared/conversionMechanisms';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
@@ -58,10 +64,16 @@ function triggerToDaml(
     conversion_right: conversionRightToDaml(trigger.conversion_right),
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
-    trigger_date: trigger.trigger_date ? dateStringToDAMLTime(trigger.trigger_date) : null,
+    trigger_date: optionalDateStringToDAMLTime(
+      trigger.trigger_date,
+      'convertibleIssuance.conversion_triggers[].trigger_date'
+    ),
     trigger_condition: optionalString(trigger.trigger_condition),
-    start_date: trigger.start_date ? dateStringToDAMLTime(trigger.start_date) : null,
-    end_date: trigger.end_date ? dateStringToDAMLTime(trigger.end_date) : null,
+    start_date: optionalDateStringToDAMLTime(
+      trigger.start_date,
+      'convertibleIssuance.conversion_triggers[].start_date'
+    ),
+    end_date: optionalDateStringToDAMLTime(trigger.end_date, 'convertibleIssuance.conversion_triggers[].end_date'),
   };
 }
 
@@ -70,14 +82,18 @@ export function convertibleIssuanceDataToDaml(
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
   return {
     id: input.id,
-    date: dateStringToDAMLTime(input.date),
+    date: dateStringToDAMLTime(input.date, 'convertibleIssuance.date'),
     security_id: input.security_id,
     custom_id: input.custom_id,
     stakeholder_id: input.stakeholder_id,
-    board_approval_date: input.board_approval_date ? dateStringToDAMLTime(input.board_approval_date) : null,
-    stockholder_approval_date: input.stockholder_approval_date
-      ? dateStringToDAMLTime(input.stockholder_approval_date)
-      : null,
+    board_approval_date: optionalDateStringToDAMLTime(
+      input.board_approval_date,
+      'convertibleIssuance.board_approval_date'
+    ),
+    stockholder_approval_date: optionalDateStringToDAMLTime(
+      input.stockholder_approval_date,
+      'convertibleIssuance.stockholder_approval_date'
+    ),
     consideration_text: optionalString(input.consideration_text),
     security_law_exemptions: input.security_law_exemptions,
     investment_amount: monetaryToDaml(input.investment_amount),
