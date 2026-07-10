@@ -1,6 +1,7 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type { Monetary } from '../../../types';
+import type { ConversionTriggerFor, Monetary } from '../../../types';
+import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -9,14 +10,6 @@ import {
   optionalString,
   safeString,
 } from '../../../utils/typeConversions';
-
-type ConversionTriggerTypeInput =
-  | 'AUTOMATIC_ON_CONDITION'
-  | 'AUTOMATIC_ON_DATE'
-  | 'ELECTIVE_AT_WILL'
-  | 'ELECTIVE_ON_CONDITION'
-  | 'ELECTIVE_IN_RANGE'
-  | 'UNSPECIFIED';
 
 type ConvertibleConversionMechanismInput =
   | 'CUSTOM_CONVERSION'
@@ -28,23 +21,14 @@ type ConvertibleConversionMechanismInput =
   | 'PPS_BASED_CONVERSION'
   | (Record<string, unknown> & { type: string });
 
-export type ConversionTriggerInput =
-  | ConversionTriggerTypeInput
-  | {
-      type: ConversionTriggerTypeInput;
-      trigger_id?: string;
-      nickname?: string;
-      trigger_description?: string;
-      trigger_date?: string; // YYYY-MM-DD or ISO datetime
-      trigger_condition?: string;
-      start_date?: string; // YYYY-MM-DD or ISO datetime (ELECTIVE_IN_RANGE)
-      end_date?: string; // YYYY-MM-DD or ISO datetime (ELECTIVE_IN_RANGE)
-      conversion_right?: {
-        conversion_mechanism?: ConvertibleConversionMechanismInput;
-        converts_to_future_round?: boolean;
-        converts_to_stock_class_id?: string;
-      };
-    };
+interface ConvertibleConversionRightInput {
+  type?: 'CONVERTIBLE_CONVERSION_RIGHT';
+  conversion_mechanism?: ConvertibleConversionMechanismInput;
+  converts_to_future_round?: boolean;
+  converts_to_stock_class_id?: string;
+}
+
+export type ConversionTriggerInput = ConversionTriggerFor<ConvertibleConversionRightInput>;
 
 function convertibleTypeToDaml(
   t: 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY'
@@ -59,12 +43,8 @@ function convertibleTypeToDaml(
   }
 }
 
-function normalizeTriggerType(t: ConversionTriggerTypeInput): ConversionTriggerTypeInput {
-  return t;
-}
-
 function triggerTypeToDamlEnum(
-  t: ConversionTriggerTypeInput
+  t: ConversionTriggerInput['type']
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTriggerType {
   switch (t) {
     case 'AUTOMATIC_ON_DATE':
@@ -388,12 +368,11 @@ function mechanismInputToDamlEnum(
   );
 }
 
-function buildConvertibleRight(input: ConversionTriggerInput | undefined) {
-  const details = typeof input === 'object' && 'conversion_right' in input ? input.conversion_right : undefined;
-  const mechanism = mechanismInputToDamlEnum(details?.conversion_mechanism);
+function buildConvertibleRight(details: ConvertibleConversionRightInput) {
+  const mechanism = mechanismInputToDamlEnum(details.conversion_mechanism);
   const convertsToFutureRound =
-    details && typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null;
-  const convertsToStockClassId = optionalString(details?.converts_to_stock_class_id);
+    typeof details.converts_to_future_round === 'boolean' ? details.converts_to_future_round : null;
+  const convertsToStockClassId = optionalString(details.converts_to_stock_class_id);
   return {
     type_: 'CONVERTIBLE_CONVERSION_RIGHT',
     conversion_mechanism: mechanism,
@@ -403,35 +382,31 @@ function buildConvertibleRight(input: ConversionTriggerInput | undefined) {
 }
 
 function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuanceId: string) {
-  const normalized = typeof t === 'string' ? normalizeTriggerType(t) : normalizeTriggerType(t.type);
-  const typeEnum = triggerTypeToDamlEnum(normalized);
-  if (typeof t !== 'object' || !t.trigger_id) {
-    throw new OcpValidationError(
-      'conversionTrigger.trigger_id',
-      'trigger_id is required for each convertible conversion trigger',
-      {
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      }
-    );
-  }
-  const { trigger_id } = t;
-  const nickname = typeof t === 'object' && t.nickname ? t.nickname : null;
-  const trigger_description = typeof t === 'object' && t.trigger_description ? t.trigger_description : null;
-  const trigger_dateStr = typeof t === 'object' && t.trigger_date ? t.trigger_date : undefined;
-  const trigger_condition = typeof t === 'object' && t.trigger_condition ? t.trigger_condition : null;
-  const conversion_right = buildConvertibleRight(t);
-  const start_date = typeof t === 'object' && t.start_date ? dateStringToDAMLTime(t.start_date) : null;
-  const end_date = typeof t === 'object' && t.end_date ? dateStringToDAMLTime(t.end_date) : null;
+  const trigger = parseConversionTriggerFields(t, 'convertibleIssuance.conversion_triggers[]');
+  const typeEnum = triggerTypeToDamlEnum(trigger.type);
+  const conversion_right = buildConvertibleRight(trigger.conversion_right);
   return {
     type_: typeEnum,
-    trigger_id,
-    nickname,
-    trigger_description,
+    trigger_id: trigger.trigger_id,
+    nickname: trigger.nickname ?? null,
+    trigger_description: trigger.trigger_description ?? null,
     conversion_right,
-    trigger_date: trigger_dateStr ? dateStringToDAMLTime(trigger_dateStr) : null,
-    trigger_condition,
-    start_date,
-    end_date,
+    trigger_date:
+      trigger.type === 'AUTOMATIC_ON_DATE'
+        ? dateStringToDAMLTime(trigger.trigger_date, 'convertibleIssuance.conversion_triggers[].trigger_date')
+        : null,
+    trigger_condition:
+      trigger.type === 'AUTOMATIC_ON_CONDITION' || trigger.type === 'ELECTIVE_ON_CONDITION'
+        ? trigger.trigger_condition
+        : null,
+    start_date:
+      trigger.type === 'ELECTIVE_IN_RANGE'
+        ? dateStringToDAMLTime(trigger.start_date, 'convertibleIssuance.conversion_triggers[].start_date')
+        : null,
+    end_date:
+      trigger.type === 'ELECTIVE_IN_RANGE'
+        ? dateStringToDAMLTime(trigger.end_date, 'convertibleIssuance.conversion_triggers[].end_date')
+        : null,
   };
 }
 

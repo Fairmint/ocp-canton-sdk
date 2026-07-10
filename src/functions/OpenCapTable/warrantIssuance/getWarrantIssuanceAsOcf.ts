@@ -12,6 +12,7 @@ import type {
   WarrantStockClassConversionRight,
   WarrantTriggerConversionRight,
 } from '../../../types/native';
+import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   damlMonetaryToNative,
   damlMonetaryToNativeWithValidation,
@@ -327,6 +328,11 @@ function mapQuantitySource(qs: unknown): OcfWarrantIssuance['quantity_source'] |
  * replication compares raw DB OCF to Canton readback; missing optional keys cause false residual edits.
  */
 export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): OcfWarrantIssuance {
+  const parseOptionalDamlDate = (value: unknown, source: string): unknown => {
+    if (value === undefined || value === null) return undefined;
+    return typeof value === 'string' ? damlTimeToDateString(value, source) : value;
+  };
+
   const exercise_triggers: WarrantExerciseTrigger[] = Array.isArray(d.exercise_triggers)
     ? (d.exercise_triggers as unknown[]).map((raw: unknown, idx: number) => {
         const r = (raw ?? {}) as Record<string, unknown>;
@@ -339,43 +345,23 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
                 ? raw
                 : '';
         const type: ConversionTriggerType = mapDamlTriggerTypeToOcf(tag);
-        const trigger_id: string =
-          typeof r.trigger_id === 'string' && r.trigger_id.length
-            ? r.trigger_id
-            : `${typeof d.id === 'string' ? d.id : ''}-warrant-trigger-${idx + 1}`;
-        const nickname: string | undefined =
-          typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
-        const trigger_description: string | undefined =
-          typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-        const trigger_date: string | undefined =
-          typeof r.trigger_date === 'string' && r.trigger_date.length
-            ? damlTimeToDateString(r.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date')
-            : undefined;
-        const trigger_condition: string | undefined =
-          typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
-        const start_date: string | undefined =
-          typeof r.start_date === 'string' && r.start_date.length
-            ? damlTimeToDateString(r.start_date, 'warrantIssuance.exercise_triggers[].start_date')
-            : undefined;
-        const end_date: string | undefined =
-          typeof r.end_date === 'string' && r.end_date.length
-            ? damlTimeToDateString(r.end_date, 'warrantIssuance.exercise_triggers[].end_date')
-            : undefined;
-
         const conversion_right: WarrantTriggerConversionRight = mapAnyConversionRightFromDaml(r.conversion_right);
 
-        const t: WarrantExerciseTrigger = {
-          type,
-          trigger_id,
-          conversion_right,
-          ...(nickname ? { nickname } : {}),
-          ...(trigger_description ? { trigger_description } : {}),
-          ...(trigger_date ? { trigger_date } : {}),
-          ...(trigger_condition ? { trigger_condition } : {}),
-          ...(start_date ? { start_date } : {}),
-          ...(end_date ? { end_date } : {}),
-        };
-        return t;
+        return parseConversionTriggerFields(
+          {
+            type,
+            trigger_id: r.trigger_id,
+            conversion_right,
+            nickname: r.nickname,
+            trigger_description: r.trigger_description,
+            trigger_date: parseOptionalDamlDate(r.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date'),
+            trigger_condition: r.trigger_condition,
+            start_date: parseOptionalDamlDate(r.start_date, 'warrantIssuance.exercise_triggers[].start_date'),
+            end_date: parseOptionalDamlDate(r.end_date, 'warrantIssuance.exercise_triggers[].end_date'),
+          },
+          `warrantIssuance.exercise_triggers[${idx}]`,
+          { nullIsAbsent: true }
+        );
       })
     : [];
 

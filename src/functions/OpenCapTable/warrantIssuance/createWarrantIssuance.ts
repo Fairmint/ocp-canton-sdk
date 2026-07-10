@@ -1,6 +1,12 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type { CapitalizationDefinitionRules, Monetary } from '../../../types';
+import type {
+  CapitalizationDefinitionRules,
+  ConversionTriggerFor,
+  ConversionTriggerType,
+  Monetary,
+} from '../../../types';
+import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -14,13 +20,7 @@ export interface SimpleVesting {
   amount: string;
 }
 
-export type WarrantTriggerTypeInput =
-  | 'AUTOMATIC_ON_CONDITION'
-  | 'AUTOMATIC_ON_DATE'
-  | 'ELECTIVE_AT_WILL'
-  | 'ELECTIVE_ON_CONDITION'
-  | 'ELECTIVE_IN_RANGE'
-  | 'UNSPECIFIED';
+export type WarrantTriggerTypeInput = ConversionTriggerType;
 
 export type WarrantConversionMechanismInput =
   | { type: 'CUSTOM_CONVERSION'; custom_conversion_description: string }
@@ -72,22 +72,8 @@ export interface StockClassConversionRightInput {
 
 export type WarrantConversionRightKindInput = WarrantConversionRightInput | StockClassConversionRightInput;
 
-/** Object-shaped exercise trigger row (OCF schema); bare trigger-type strings are not accepted for issuance. */
-export interface WarrantExerciseTriggerInput {
-  type: WarrantTriggerTypeInput;
-  trigger_id?: string;
-  nickname?: string;
-  trigger_description?: string;
-  trigger_date?: string; // YYYY-MM-DD or ISO datetime
-  trigger_condition?: string;
-  start_date?: string; // YYYY-MM-DD or ISO datetime (ELECTIVE_IN_RANGE)
-  end_date?: string; // YYYY-MM-DD or ISO datetime (ELECTIVE_IN_RANGE)
-  conversion_right?: WarrantConversionRightKindInput;
-}
-
-function normalizeTriggerType(t: WarrantTriggerTypeInput): WarrantTriggerTypeInput {
-  return t;
-}
+/** The exact six OCF exercise-trigger variants accepted by warrant issuance writes. */
+export type WarrantExerciseTriggerInput = ConversionTriggerFor<WarrantConversionRightKindInput>;
 
 function triggerTypeToDamlEnum(
   t: WarrantTriggerTypeInput
@@ -203,21 +189,29 @@ function warrantMechanismToDamlVariant(
 type WarrantExerciseTriggerObject = WarrantExerciseTriggerInput;
 
 function warrantNestedConversionTrigger(
-  t: WarrantExerciseTriggerObject & { trigger_id: string },
+  t: WarrantExerciseTriggerObject,
   converts_to_stock_class_id: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
-  const normalized = normalizeTriggerType(t.type);
-  const typeEnum = triggerTypeToDamlEnum(normalized);
-  const trigger_dateStr = typeof t.trigger_date === 'string' ? t.trigger_date : undefined;
+  const typeEnum = triggerTypeToDamlEnum(t.type);
   return {
     type_: typeEnum,
     trigger_id: t.trigger_id,
-    nickname: typeof t.nickname === 'string' ? t.nickname : null,
-    trigger_description: typeof t.trigger_description === 'string' ? t.trigger_description : null,
-    trigger_date: trigger_dateStr ? dateStringToDAMLTime(trigger_dateStr) : null,
-    trigger_condition: typeof t.trigger_condition === 'string' ? t.trigger_condition : null,
-    start_date: typeof t.start_date === 'string' && t.start_date ? dateStringToDAMLTime(t.start_date) : null,
-    end_date: typeof t.end_date === 'string' && t.end_date ? dateStringToDAMLTime(t.end_date) : null,
+    nickname: t.nickname ?? null,
+    trigger_description: t.trigger_description ?? null,
+    trigger_date:
+      t.type === 'AUTOMATIC_ON_DATE'
+        ? dateStringToDAMLTime(t.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date')
+        : null,
+    trigger_condition:
+      t.type === 'AUTOMATIC_ON_CONDITION' || t.type === 'ELECTIVE_ON_CONDITION' ? t.trigger_condition : null,
+    start_date:
+      t.type === 'ELECTIVE_IN_RANGE'
+        ? dateStringToDAMLTime(t.start_date, 'warrantIssuance.exercise_triggers[].start_date')
+        : null,
+    end_date:
+      t.type === 'ELECTIVE_IN_RANGE'
+        ? dateStringToDAMLTime(t.end_date, 'warrantIssuance.exercise_triggers[].end_date')
+        : null,
     conversion_right: {
       tag: 'OcfRightConvertible',
       value: {
@@ -256,7 +250,7 @@ function toDamlRatio(mech: StockClassRatioConversionMechanismInput): {
 }
 
 function buildWarrantStockClassConversionRight(
-  exerciseTrigger: WarrantExerciseTriggerObject & { trigger_id: string },
+  exerciseTrigger: WarrantExerciseTriggerObject,
   details: StockClassConversionRightInput
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   // Runtime guard: protect against invalid data reaching this path (e.g. from untyped JSON)
@@ -294,38 +288,13 @@ function buildWarrantStockClassConversionRight(
 }
 
 function buildWarrantRight(
-  exerciseTrigger: WarrantExerciseTriggerInput | undefined
+  exerciseTrigger: WarrantExerciseTriggerInput
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
-  if (!exerciseTrigger || typeof exerciseTrigger !== 'object') {
-    throw new OcpValidationError(
-      'warrantTrigger.conversion_right',
-      'conversion_right is required for each warrant exercise trigger',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-    );
-  }
-
   const cr = exerciseTrigger.conversion_right;
-  if (!cr) {
-    throw new OcpValidationError(
-      'warrantTrigger.conversion_right',
-      'conversion_right is required for each warrant exercise trigger',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-    );
-  }
 
   switch (cr.type) {
     case 'STOCK_CLASS_CONVERSION_RIGHT': {
-      if (!exerciseTrigger.trigger_id) {
-        throw new OcpValidationError(
-          'warrantTrigger.trigger_id',
-          'trigger_id is required for STOCK_CLASS_CONVERSION_RIGHT triggers',
-          { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-        );
-      }
-      return buildWarrantStockClassConversionRight(
-        exerciseTrigger as WarrantExerciseTriggerObject & { trigger_id: string },
-        cr
-      );
+      return buildWarrantStockClassConversionRight(exerciseTrigger, cr);
     }
     case 'WARRANT_CONVERSION_RIGHT': {
       const mechanism = warrantMechanismToDamlVariant(cr.conversion_mechanism);
@@ -388,25 +357,31 @@ function quantitySourceToDamlEnum(
 }
 
 function buildWarrantTrigger(t: WarrantExerciseTriggerInput, _index: number, _ocfId: string) {
-  const typeEnum = triggerTypeToDamlEnum(normalizeTriggerType(t.type));
-  if (!t.trigger_id) {
-    throw new OcpValidationError(
-      'warrantTrigger.trigger_id',
-      'trigger_id is required for each warrant exercise trigger',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-    );
-  }
-  const conversion_right = buildWarrantRight(t);
+  const trigger = parseConversionTriggerFields(t, 'warrantIssuance.exercise_triggers[]');
+  const typeEnum = triggerTypeToDamlEnum(trigger.type);
+  const conversion_right = buildWarrantRight(trigger);
   return {
     type_: typeEnum,
-    trigger_id: t.trigger_id,
-    nickname: typeof t.nickname === 'string' ? t.nickname : null,
-    trigger_description: typeof t.trigger_description === 'string' ? t.trigger_description : null,
+    trigger_id: trigger.trigger_id,
+    nickname: trigger.nickname ?? null,
+    trigger_description: trigger.trigger_description ?? null,
     conversion_right,
-    trigger_date: typeof t.trigger_date === 'string' ? dateStringToDAMLTime(t.trigger_date) : null,
-    trigger_condition: typeof t.trigger_condition === 'string' ? t.trigger_condition : null,
-    start_date: typeof t.start_date === 'string' && t.start_date ? dateStringToDAMLTime(t.start_date) : null,
-    end_date: typeof t.end_date === 'string' && t.end_date ? dateStringToDAMLTime(t.end_date) : null,
+    trigger_date:
+      trigger.type === 'AUTOMATIC_ON_DATE'
+        ? dateStringToDAMLTime(trigger.trigger_date, 'warrantIssuance.exercise_triggers[].trigger_date')
+        : null,
+    trigger_condition:
+      trigger.type === 'AUTOMATIC_ON_CONDITION' || trigger.type === 'ELECTIVE_ON_CONDITION'
+        ? trigger.trigger_condition
+        : null,
+    start_date:
+      trigger.type === 'ELECTIVE_IN_RANGE'
+        ? dateStringToDAMLTime(trigger.start_date, 'warrantIssuance.exercise_triggers[].start_date')
+        : null,
+    end_date:
+      trigger.type === 'ELECTIVE_IN_RANGE'
+        ? dateStringToDAMLTime(trigger.end_date, 'warrantIssuance.exercise_triggers[].end_date')
+        : null,
   };
 }
 

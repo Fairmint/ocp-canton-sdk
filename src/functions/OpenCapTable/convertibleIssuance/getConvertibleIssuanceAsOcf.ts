@@ -3,9 +3,11 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { GetByContractIdParams } from '../../../types/common';
 import type {
   CapitalizationDefinitionRules,
+  ConversionTriggerFor,
   ConversionTriggerType,
   OcfConvertibleIssuance,
 } from '../../../types/native';
+import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   damlMonetaryToNativeWithValidation,
   damlTimeToDateString,
@@ -92,18 +94,7 @@ interface ConvertibleConversionRight {
   converts_to_stock_class_id?: string;
 }
 
-interface ConversionTrigger {
-  type: ConversionTriggerType;
-  trigger_id: string;
-  conversion_right: ConvertibleConversionRight;
-  nickname?: string;
-  trigger_description?: string;
-  // Optional fields for specific trigger subtypes
-  trigger_date?: string;
-  trigger_condition?: string;
-  start_date?: string;
-  end_date?: string;
-}
+type ConversionTrigger = ConversionTriggerFor<ConvertibleConversionRight>;
 
 export type OcfConvertibleIssuanceEvent = OcfConvertibleIssuance;
 
@@ -120,8 +111,13 @@ const typeMap: Partial<Record<string, 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY'>>
   OcfConvertibleSecurity: 'CONVERTIBLE_SECURITY',
 };
 
-const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): ConversionTrigger[] => {
+const convertTriggers = (ts: unknown[] | undefined): ConversionTrigger[] => {
   if (!Array.isArray(ts)) return [];
+
+  const parseOptionalDamlDate = (value: unknown, source: string): unknown => {
+    if (value === undefined || value === null) return undefined;
+    return typeof value === 'string' ? damlTimeToDateString(value, source) : value;
+  };
 
   const mapMechanism = (m: unknown): ConvertibleConversionRight['conversion_mechanism'] => {
     // Handle both string enum and DAML variant { tag, value }
@@ -516,26 +512,6 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
     const tag =
       typeof r.type_ === 'string' ? r.type_ : typeof r.tag === 'string' ? r.tag : typeof raw === 'string' ? raw : '';
     const type: ConversionTriggerType = mapDamlTriggerTypeToOcf(String(tag));
-    const trigger_id: string =
-      typeof r.trigger_id === 'string' && r.trigger_id.length ? r.trigger_id : `${issuanceId}-trigger-${idx + 1}`;
-    const nickname: string | undefined = typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
-    const trigger_description: string | undefined =
-      typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-    const trigger_date: string | undefined =
-      typeof r.trigger_date === 'string' && r.trigger_date.length
-        ? damlTimeToDateString(r.trigger_date, 'convertibleIssuance.conversion_triggers[].trigger_date')
-        : undefined;
-    const trigger_condition: string | undefined =
-      typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
-    const start_date: string | undefined =
-      typeof r.start_date === 'string' && r.start_date.length
-        ? damlTimeToDateString(r.start_date, 'convertibleIssuance.conversion_triggers[].start_date')
-        : undefined;
-    const end_date: string | undefined =
-      typeof r.end_date === 'string' && r.end_date.length
-        ? damlTimeToDateString(r.end_date, 'convertibleIssuance.conversion_triggers[].end_date')
-        : undefined;
-
     // Parse conversion_right if present and convertible variant is used
     let conversion_right: ConvertibleConversionRight | undefined;
     if (r.conversion_right && typeof r.conversion_right === 'object' && 'OcfRightConvertible' in r.conversion_right) {
@@ -578,18 +554,21 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
       });
     }
 
-    const trigger: ConversionTrigger = {
-      type,
-      trigger_id,
-      conversion_right,
-      ...(nickname ? { nickname } : {}),
-      ...(trigger_description ? { trigger_description } : {}),
-      ...(trigger_date ? { trigger_date } : {}),
-      ...(trigger_condition ? { trigger_condition } : {}),
-      ...(start_date ? { start_date } : {}),
-      ...(end_date ? { end_date } : {}),
-    };
-    return trigger;
+    return parseConversionTriggerFields(
+      {
+        type,
+        trigger_id: r.trigger_id,
+        conversion_right,
+        nickname: r.nickname,
+        trigger_description: r.trigger_description,
+        trigger_date: parseOptionalDamlDate(r.trigger_date, 'convertibleIssuance.conversion_triggers[].trigger_date'),
+        trigger_condition: r.trigger_condition,
+        start_date: parseOptionalDamlDate(r.start_date, 'convertibleIssuance.conversion_triggers[].start_date'),
+        end_date: parseOptionalDamlDate(r.end_date, 'convertibleIssuance.conversion_triggers[].end_date'),
+      },
+      `convertibleIssuance.conversion_triggers[${idx}]`,
+      { nullIsAbsent: true }
+    );
   });
 };
 
@@ -690,7 +669,7 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
       }
       return mapped;
     })(),
-    conversion_triggers: convertTriggers(d.conversion_triggers as unknown[], d.id),
+    conversion_triggers: convertTriggers(d.conversion_triggers as unknown[]),
     ...(typeof d.pro_rata === 'number' || typeof d.pro_rata === 'string'
       ? {
           pro_rata: normalizeNumericString(typeof d.pro_rata === 'number' ? d.pro_rata.toString() : d.pro_rata),
