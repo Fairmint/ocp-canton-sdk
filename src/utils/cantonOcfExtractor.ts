@@ -13,7 +13,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes } from '../errors/codes';
 import { OcpValidationError } from '../errors/OcpValidationError';
-import type { OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
+import type { OcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 import type { SupportedOcfReadType } from '../functions/OpenCapTable/capTable/damlToOcf';
 import { getEntityAsOcf } from '../functions/OpenCapTable/capTable/damlToOcf';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
@@ -87,7 +87,7 @@ export function txWeight(tx: Record<string, unknown>): number {
     // Creations first
     case 'TX_STOCK_ISSUANCE':
     case 'TX_EQUITY_COMPENSATION_ISSUANCE':
-    case 'TX_PLAN_SECURITY_ISSUANCE': // legacy alias
+    case 'TX_PLAN_SECURITY_ISSUANCE': // schema-supported OCF alias
     case 'TX_WARRANT_ISSUANCE':
     case 'TX_CONVERTIBLE_ISSUANCE':
       return 10;
@@ -96,7 +96,7 @@ export function txWeight(tx: Record<string, unknown>): number {
     case 'TX_STOCK_ACCEPTANCE':
     case 'TX_WARRANT_ACCEPTANCE':
     case 'TX_EQUITY_COMPENSATION_ACCEPTANCE':
-    case 'TX_PLAN_SECURITY_ACCEPTANCE': // legacy alias
+    case 'TX_PLAN_SECURITY_ACCEPTANCE': // schema-supported OCF alias
       return 11;
 
     // Vesting events
@@ -116,7 +116,7 @@ export function txWeight(tx: Record<string, unknown>): number {
     case 'TX_WARRANT_RETRACTION':
     case 'TX_CONVERTIBLE_RETRACTION':
     case 'TX_EQUITY_COMPENSATION_RETRACTION':
-    case 'TX_PLAN_SECURITY_RETRACTION': // legacy alias
+    case 'TX_PLAN_SECURITY_RETRACTION': // schema-supported OCF alias
       return 16;
 
     // Consolidation after retractions, before transfers
@@ -136,7 +136,7 @@ export function txWeight(tx: Record<string, unknown>): number {
     case 'TX_WARRANT_TRANSFER':
     case 'TX_CONVERTIBLE_TRANSFER':
     case 'TX_EQUITY_COMPENSATION_TRANSFER':
-    case 'TX_PLAN_SECURITY_TRANSFER': // legacy alias
+    case 'TX_PLAN_SECURITY_TRANSFER': // schema-supported OCF alias
       return 20;
 
     // Convertible acceptance requires preceding transfer
@@ -145,12 +145,12 @@ export function txWeight(tx: Record<string, unknown>): number {
 
     // Releases before exercises
     case 'TX_EQUITY_COMPENSATION_RELEASE':
-    case 'TX_PLAN_SECURITY_RELEASE': // legacy alias
+    case 'TX_PLAN_SECURITY_RELEASE': // schema-supported OCF alias
       return 25;
 
     // Exercises that may mint resulting stock
     case 'TX_EQUITY_COMPENSATION_EXERCISE':
-    case 'TX_PLAN_SECURITY_EXERCISE': // legacy alias
+    case 'TX_PLAN_SECURITY_EXERCISE': // schema-supported OCF alias
     case 'TX_WARRANT_EXERCISE':
       return 30;
 
@@ -163,7 +163,7 @@ export function txWeight(tx: Record<string, unknown>): number {
     case 'TX_STOCK_REPURCHASE':
     case 'TX_STOCK_CANCELLATION':
     case 'TX_EQUITY_COMPENSATION_CANCELLATION':
-    case 'TX_PLAN_SECURITY_CANCELLATION': // legacy alias
+    case 'TX_PLAN_SECURITY_CANCELLATION': // schema-supported OCF alias
     case 'TX_WARRANT_CANCELLATION':
     case 'TX_CONVERTIBLE_CANCELLATION':
       return 40;
@@ -171,8 +171,6 @@ export function txWeight(tx: Record<string, unknown>): number {
     // Stakeholder events - process after transactions that might create/modify stakes
     case 'CE_STAKEHOLDER_RELATIONSHIP':
     case 'CE_STAKEHOLDER_STATUS':
-    case 'TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT': // legacy alias
-    case 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT': // legacy alias
       return 45;
 
     // Unknown types at the end

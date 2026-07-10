@@ -22,8 +22,6 @@ import {
   ocfCompare,
   stripInternalFields,
 } from '../../../src/utils/ocfComparison';
-import { parseOcfEntityInput } from '../../../src/utils/ocfZodSchemas';
-import { normalizeOcfData } from '../../../src/utils/planSecurityAliases';
 import { validateOcfObject } from '../../utils/ocfSchemaValidator';
 import { loadProductionFixture, loadSyntheticFixture, stripSourceMetadata } from '../../utils/productionFixtures';
 import { createIntegrationTestSuite, type IntegrationTestContext } from '../setup';
@@ -1974,12 +1972,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent');
-      const legacyPrepared = {
+      const prepared = {
         ...prepareFixture(fixture, 'relationship-change'),
         stakeholder_id: stakeholderSetup.stakeholderData.id,
       };
-      expect(legacyPrepared.object_type).toBe('TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT');
-      const prepared = parseOcfEntityInput('stakeholderRelationshipChangeEvent', normalizeOcfData(legacyPrepared));
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stakeholderSetup.newCapTableContractId,
@@ -1996,13 +1992,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
 
-      const sourceWithoutId = stripInternalFields(
-        normalizeOcfData({
-          ...prepared,
-          object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-          id: readBack.data.id,
-        })
-      );
+      const sourceWithoutId = stripInternalFields({
+        ...prepared,
+        id: readBack.data.id,
+      });
       compareOcfData(
         sourceWithoutId,
         readBack.data as unknown as Record<string, unknown>,
@@ -2026,12 +2019,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent');
-      const legacyPrepared = {
+      const prepared = {
         ...prepareFixture(fixture, 'status-change'),
         stakeholder_id: stakeholderSetup.stakeholderData.id,
       };
-      expect(legacyPrepared.object_type).toBe('TX_STAKEHOLDER_STATUS_CHANGE_EVENT');
-      const prepared = parseOcfEntityInput('stakeholderStatusChangeEvent', normalizeOcfData(legacyPrepared));
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stakeholderSetup.newCapTableContractId,
@@ -2048,13 +2039,10 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
 
       await validateOcfObject(readBack.data as unknown as Record<string, unknown>);
 
-      const sourceWithoutId = stripInternalFields(
-        normalizeOcfData({
-          ...prepared,
-          object_type: 'CE_STAKEHOLDER_STATUS',
-          id: readBack.data.id,
-        })
-      );
+      const sourceWithoutId = stripInternalFields({
+        ...prepared,
+        id: readBack.data.id,
+      });
       compareOcfData(
         sourceWithoutId,
         readBack.data as unknown as Record<string, unknown>,

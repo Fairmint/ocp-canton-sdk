@@ -26,6 +26,7 @@ import {
   type SubmitAndWaitForTransactionTreeResponse,
   type WithdrawAuthorizationResult,
 } from '../../dist';
+import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -161,4 +162,12 @@ function verifyPublishedBatchApi(
   void invalidIdentityOperation;
 }
 
+function verifyPublishedUtilsApi(candidateEntityType: string): void {
+  if (isOcfEntityTypeFromUtils(candidateEntityType)) {
+    const narrowedEntityType: OcfEntityType = candidateEntityType;
+    void narrowedEntityType;
+  }
+}
+
 void verifyPublishedBatchApi;
+void verifyPublishedUtilsApi;
