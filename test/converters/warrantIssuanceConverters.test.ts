@@ -6,7 +6,7 @@
  * infinite edit loops in the replication script.
  */
 
-import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
@@ -153,6 +153,26 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
     expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
+
+  test.each(['board_approval_date', 'stockholder_approval_date'] as const)(
+    'rejects a present non-string %s on readback',
+    (field) => {
+      const invalidDate = { seconds: 1 };
+      const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+
+      try {
+        damlWarrantIssuanceDataToNative({ ...daml, [field]: invalidDate });
+        throw new Error('Expected approval date validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: `warrantIssuance.${field}`,
+          receivedValue: invalidDate,
+        });
+      }
+    }
+  );
 
   test('STOCK_CLASS_CONVERSION_RIGHT rejects non-NORMAL rounding_type (not persisted in DAML)', () => {
     const input = {

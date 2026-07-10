@@ -503,12 +503,12 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
         }
       : {}),
     ...(d.vesting_terms_id && typeof d.vesting_terms_id === 'string' ? { vesting_terms_id: d.vesting_terms_id } : {}),
-    ...(d.board_approval_date && typeof d.board_approval_date === 'string'
+    ...(d.board_approval_date !== null && d.board_approval_date !== undefined
       ? {
           board_approval_date: damlTimeToDateString(d.board_approval_date, 'warrantIssuance.board_approval_date'),
         }
       : {}),
-    ...(d.stockholder_approval_date && typeof d.stockholder_approval_date === 'string'
+    ...(d.stockholder_approval_date !== null && d.stockholder_approval_date !== undefined
       ? {
           stockholder_approval_date: damlTimeToDateString(
             d.stockholder_approval_date,

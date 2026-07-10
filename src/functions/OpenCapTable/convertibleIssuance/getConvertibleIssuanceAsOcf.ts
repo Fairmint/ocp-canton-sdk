@@ -655,12 +655,12 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
     security_id: d.security_id,
     custom_id: d.custom_id as string,
     stakeholder_id: d.stakeholder_id as string,
-    ...(typeof d.board_approval_date === 'string' && d.board_approval_date.length
+    ...(d.board_approval_date !== null && d.board_approval_date !== undefined
       ? {
           board_approval_date: damlTimeToDateString(d.board_approval_date, 'convertibleIssuance.board_approval_date'),
         }
       : {}),
-    ...(typeof d.stockholder_approval_date === 'string' && d.stockholder_approval_date.length
+    ...(d.stockholder_approval_date !== null && d.stockholder_approval_date !== undefined
       ? {
           stockholder_approval_date: damlTimeToDateString(
             d.stockholder_approval_date,

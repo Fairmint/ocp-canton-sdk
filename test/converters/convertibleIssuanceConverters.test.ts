@@ -11,6 +11,7 @@
  *   - OcfInterestPayoutDeferred / OcfInterestPayoutCash
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { loadProductionFixture } from '../utils/productionFixtures';
@@ -403,6 +404,31 @@ describe('SAFE conversion_timing round-trip', () => {
     expect(mech.type).toBe('SAFE_CONVERSION');
     expect(mech.conversion_timing).toBe('PRE_MONEY');
   });
+});
+
+describe('convertible issuance approval-date read boundaries', () => {
+  test.each(['board_approval_date', 'stockholder_approval_date'] as const)(
+    'rejects a present non-string %s',
+    (field) => {
+      const invalidDate = { seconds: 1 };
+      const daml = convertibleIssuanceDataToDaml({
+        ...BASE_INPUT,
+        conversion_triggers: [SAFE_TRIGGER_BASE],
+      });
+
+      try {
+        damlConvertibleIssuanceDataToNative({ ...daml, [field]: invalidDate });
+        throw new Error('Expected approval date validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: `convertibleIssuance.${field}`,
+          receivedValue: invalidDate,
+        });
+      }
+    }
+  );
 });
 
 /**
