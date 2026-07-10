@@ -22,7 +22,7 @@ export function warrantRetractionDataToDaml(d: OcfWarrantRetraction): Record<str
   }
   return {
     id: d.id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'warrantRetraction.date'),
     security_id: d.security_id,
     reason_text: d.reason_text,
     comments: cleanComments(d.comments),
