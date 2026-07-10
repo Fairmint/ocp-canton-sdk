@@ -13,7 +13,11 @@ import {
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
-import { ratioMechanismToDaml, warrantMechanismToDaml } from '../shared/conversionMechanisms';
+import {
+  canonicalOptionalNumericToDaml,
+  ratioMechanismToDaml,
+  warrantMechanismToDaml,
+} from '../shared/conversionMechanisms';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
 export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
@@ -190,7 +194,7 @@ export function warrantIssuanceDataToDaml(
       : null,
     consideration_text: optionalString(input.consideration_text),
     security_law_exemptions: input.security_law_exemptions,
-    quantity: input.quantity == null ? null : normalizeNumericString(input.quantity),
+    quantity: canonicalOptionalNumericToDaml(input.quantity, 'warrantIssuance.quantity'),
     quantity_source: quantitySource,
     exercise_price: input.exercise_price ? monetaryToDaml(input.exercise_price) : null,
     purchase_price: monetaryToDaml(input.purchase_price),

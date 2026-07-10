@@ -66,6 +66,28 @@ function requireNumeric(value: unknown, field: string): string {
   return normalizeNumericString(value);
 }
 
+/**
+ * Encode an optional canonical OCF numeric field for DAML.
+ *
+ * Omission is represented as DAML `null`, but explicit JSON `null` is not a
+ * canonical OCF Numeric value and must not be silently normalized to absence.
+ */
+export function canonicalOptionalNumericToDaml(value: unknown, field: string): string | null {
+  if (value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(
+      field,
+      'Expected a canonical decimal string when provided; omit the property when absent (explicit null is invalid)',
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'decimal string or omitted property',
+        receivedValue: value,
+      }
+    );
+  }
+  return normalizeNumericString(value);
+}
+
 function optionalStringFromDaml(value: unknown, field: string): string | undefined {
   if (value === null || value === undefined) return undefined;
   return requireText(value, field);
