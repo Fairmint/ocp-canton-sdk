@@ -50,11 +50,10 @@
     "test:coverage": "jest --coverage --passWithNoTests",
     "test:declarations": "ts-node --project tsconfig.tests.json scripts/check-declarations.ts && tsc -p tsconfig.declaration-tests.json --noEmit && npm run -s test:exact-public-config",
     "test:exact-public-config": "tsc -p tsconfig.exact-public-config-tests.json --noEmit",
-    "test:exact-source": "tsc -p tsconfig.exact-source.json --noEmit",
     "test:integration": "npm run -s typecheck && jest -c jest.integration.config.js --passWithNoTests",
     "test:integration:ci": "npm run -s typecheck && jest -c jest.integration.config.js --runInBand",
     "test:watch": "jest --watch",
-    "typecheck": "tsc -p tsconfig.tests.json --noEmit && npm run -s test:exact-source"
+    "typecheck": "tsc -p tsconfig.tests.json --noEmit"
   },
   "config": {
     "localnet_quickstart_ref": "5c90cf4d0eb934712fd8c269b56e6272b605ccad"

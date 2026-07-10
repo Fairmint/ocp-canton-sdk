@@ -1,5 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { ConvertibleConversionTrigger, ConvertibleType, OcfConvertibleIssuance } from '../../../types/native';
+import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -56,18 +57,53 @@ function conversionRightToDaml(
 }
 
 function triggerToDaml(
-  trigger: ConvertibleConversionTrigger
+  trigger: ConvertibleConversionTrigger,
+  index: number
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.OcfConvertibleConversionTrigger {
+  const source = `convertibleIssuance.conversion_triggers.${index}`;
+  const parsed = parseConversionTriggerFields(trigger, source);
+  const timing = (() => {
+    switch (parsed.type) {
+      case 'AUTOMATIC_ON_CONDITION':
+      case 'ELECTIVE_ON_CONDITION':
+        return {
+          trigger_date: null,
+          trigger_condition: parsed.trigger_condition,
+          start_date: null,
+          end_date: null,
+        };
+      case 'AUTOMATIC_ON_DATE':
+        return {
+          trigger_date: dateStringToDAMLTime(parsed.trigger_date, `${source}.trigger_date`),
+          trigger_condition: null,
+          start_date: null,
+          end_date: null,
+        };
+      case 'ELECTIVE_IN_RANGE':
+        return {
+          trigger_date: null,
+          trigger_condition: null,
+          start_date: dateStringToDAMLTime(parsed.start_date, `${source}.start_date`),
+          end_date: dateStringToDAMLTime(parsed.end_date, `${source}.end_date`),
+        };
+      case 'ELECTIVE_AT_WILL':
+      case 'UNSPECIFIED':
+        return {
+          trigger_date: null,
+          trigger_condition: null,
+          start_date: null,
+          end_date: null,
+        };
+    }
+  })();
+
   return {
-    type_: triggerTypeToDaml(trigger.type),
-    trigger_id: trigger.trigger_id,
-    conversion_right: conversionRightToDaml(trigger.conversion_right),
-    nickname: optionalString(trigger.nickname),
-    trigger_description: optionalString(trigger.trigger_description),
-    trigger_date: trigger.trigger_date ? dateStringToDAMLTime(trigger.trigger_date) : null,
-    trigger_condition: optionalString(trigger.trigger_condition),
-    start_date: trigger.start_date ? dateStringToDAMLTime(trigger.start_date) : null,
-    end_date: trigger.end_date ? dateStringToDAMLTime(trigger.end_date) : null,
+    type_: triggerTypeToDaml(parsed.type),
+    trigger_id: parsed.trigger_id,
+    conversion_right: conversionRightToDaml(parsed.conversion_right),
+    nickname: optionalString(parsed.nickname),
+    trigger_description: optionalString(parsed.trigger_description),
+    ...timing,
   };
 }
 

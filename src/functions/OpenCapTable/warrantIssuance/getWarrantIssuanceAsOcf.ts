@@ -11,6 +11,7 @@ import type {
   WarrantExerciseTrigger,
   WarrantTriggerConversionRight,
 } from '../../../types/native';
+import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   damlTimeToDateString,
   isRecord,
@@ -149,28 +150,29 @@ function conversionRightFromDaml(value: unknown): WarrantTriggerConversionRight 
   }
 }
 
-function triggerFromDaml(value: unknown): WarrantExerciseTrigger {
-  const trigger = requireRecord(value, 'warrantIssuance.exercise_trigger');
-  const nickname = optionalString(trigger.nickname, 'warrantIssuance.exercise_trigger.nickname');
-  const description = optionalString(
-    trigger.trigger_description,
-    'warrantIssuance.exercise_trigger.trigger_description'
+function optionalDamlDate(value: unknown, field: string): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  return damlTimeToDateString(value, field);
+}
+
+function triggerFromDaml(value: unknown, index: number): WarrantExerciseTrigger {
+  const source = `warrantIssuance.exercise_triggers.${index}`;
+  const trigger = requireRecord(value, source);
+  return parseConversionTriggerFields(
+    {
+      type: mapDamlTriggerTypeToOcf(requireString(trigger.type_, `${source}.type`)),
+      trigger_id: requireString(trigger.trigger_id, `${source}.trigger_id`),
+      conversion_right: conversionRightFromDaml(trigger.conversion_right),
+      nickname: trigger.nickname,
+      trigger_description: trigger.trigger_description,
+      trigger_date: optionalDamlDate(trigger.trigger_date, `${source}.trigger_date`),
+      trigger_condition: trigger.trigger_condition,
+      start_date: optionalDamlDate(trigger.start_date, `${source}.start_date`),
+      end_date: optionalDamlDate(trigger.end_date, `${source}.end_date`),
+    },
+    source,
+    { nullIsAbsent: true }
   );
-  const date = optionalString(trigger.trigger_date, 'warrantIssuance.exercise_trigger.trigger_date');
-  const condition = optionalString(trigger.trigger_condition, 'warrantIssuance.exercise_trigger.trigger_condition');
-  const startDate = optionalString(trigger.start_date, 'warrantIssuance.exercise_trigger.start_date');
-  const endDate = optionalString(trigger.end_date, 'warrantIssuance.exercise_trigger.end_date');
-  return {
-    type: mapDamlTriggerTypeToOcf(requireString(trigger.type_, 'warrantIssuance.exercise_trigger.type')),
-    trigger_id: requireString(trigger.trigger_id, 'warrantIssuance.exercise_trigger.trigger_id'),
-    conversion_right: conversionRightFromDaml(trigger.conversion_right),
-    ...(nickname ? { nickname } : {}),
-    ...(description ? { trigger_description: description } : {}),
-    ...(date ? { trigger_date: damlTimeToDateString(date) } : {}),
-    ...(condition ? { trigger_condition: condition } : {}),
-    ...(startDate ? { start_date: damlTimeToDateString(startDate) } : {}),
-    ...(endDate ? { end_date: damlTimeToDateString(endDate) } : {}),
-  };
 }
 
 function quantitySourceFromDaml(value: unknown): QuantitySourceType | undefined {

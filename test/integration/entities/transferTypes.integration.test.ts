@@ -34,6 +34,7 @@ import {
   setupStockSecurity,
   setupTestIssuer,
   setupWarrantSecurity,
+  withCapTableContractDetails,
 } from '../utils';
 
 /** Extract a contract ID from a transaction tree response. */
@@ -107,7 +108,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     const cmd = buildUpdateCapTableCommand(
       {
         capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
       },
       { creates: [{ type: 'stockTransfer', data: transferData }] }
     );
@@ -185,7 +186,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     const cmd = buildUpdateCapTableCommand(
       {
         capTableContractId: convertibleSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
       },
       { creates: [{ type: 'convertibleTransfer', data: transferData }] }
     );
@@ -258,7 +259,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     const cmd = buildUpdateCapTableCommand(
       {
         capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
       },
       { creates: [{ type: 'equityCompensationTransfer', data: transferData }] }
     );
@@ -330,7 +331,7 @@ createIntegrationTestSuite('Transfer Type operations', (getContext) => {
     const cmd = buildUpdateCapTableCommand(
       {
         capTableContractId: warrantSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
       },
       { creates: [{ type: 'warrantTransfer', data: transferData }] }
     );
