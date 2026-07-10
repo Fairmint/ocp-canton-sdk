@@ -118,11 +118,6 @@ export class CapTableBatch {
     }
 
     const tag = ENTITY_TAG_MAP[type].create;
-    if (!tag) {
-      throw new OcpValidationError('type', `Create operation not supported for entity type: ${type}`, {
-        code: OcpErrorCodes.INVALID_TYPE,
-      });
-    }
     const damlData = convertToDaml(...args);
     this.creates.push({ tag, value: damlData } as unknown as OcfCreateData);
     this.createMetas.push(extractBatchItemMeta(type, data));
@@ -145,11 +140,6 @@ export class CapTableBatch {
     }
 
     const tag = ENTITY_TAG_MAP[type].edit;
-    if (!tag) {
-      throw new OcpValidationError('type', `Edit operation not supported for entity type: ${type}`, {
-        code: OcpErrorCodes.INVALID_TYPE,
-      });
-    }
     const damlData = convertToDaml(...args);
     this.edits.push({ tag, value: damlData } as unknown as OcfEditData);
     this.editMetas.push(extractBatchItemMeta(type, data));
@@ -172,11 +162,6 @@ export class CapTableBatch {
     }
 
     const tag = ENTITY_TAG_MAP[type].delete;
-    if (!tag) {
-      throw new OcpValidationError('type', `Delete operation not supported for entity type: ${type}`, {
-        code: OcpErrorCodes.INVALID_TYPE,
-      });
-    }
     this.deletes.push({ tag, value: id } as unknown as OcfDeleteData);
     this.deleteMetas.push({ entityType: type, id });
     return this;

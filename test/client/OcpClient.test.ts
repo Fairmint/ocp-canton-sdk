@@ -6,6 +6,7 @@ import {
   ENTITY_REGISTRY,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
   mapOcfObjectTypeToEntityType,
+  type OcfEntityType,
   type OcfReadableObjectType,
 } from '../../src/functions/OpenCapTable/capTable';
 import {
@@ -379,6 +380,9 @@ describe('OcpClient OpenCapTable entity facade', () => {
   const objectTypeReaderEntries = Object.entries(OCF_OBJECT_TYPE_TO_ENTITY_TYPE) as Array<
     [OcfReadableObjectType, ObjectReaderEntityType]
   >;
+  const canonicalEntityEntries = Object.entries(ENTITY_REGISTRY) as Array<
+    [OcfEntityType, (typeof ENTITY_REGISTRY)[OcfEntityType]]
+  >;
 
   it('exports one canonical OCF object_type mapping for each readable registry entry', () => {
     const expected = Object.fromEntries(
@@ -416,6 +420,57 @@ describe('OcpClient OpenCapTable entity facade', () => {
       readAs: ['issuer::party-1'],
     });
   });
+
+  it.each(canonicalEntityEntries)(
+    '%s namespace validates template identity before decoding and forwards readAs',
+    async (entityType, entry) => {
+      const wrongTemplateId =
+        entityType === 'stakeholder' ? ENTITY_REGISTRY.stockClass.templateId : ENTITY_REGISTRY.stakeholder.templateId;
+      const getEventsByContractId = jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            templateId: wrongTemplateId,
+            createArgument: { [entry.dataField]: {} },
+          },
+        },
+      });
+      const ocp = new OcpClient({ ledger: { getEventsByContractId } as never });
+      const readAs = [`reader::${entityType}`];
+
+      await expect(
+        ocp.OpenCapTable[entityType].get({ contractId: `wrong-template-${entityType}`, readAs })
+      ).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'module_entity_mismatch',
+      });
+      expect(getEventsByContractId).toHaveBeenCalledWith({
+        contractId: `wrong-template-${entityType}`,
+        readAs,
+      });
+    }
+  );
+
+  it.each(canonicalEntityEntries)(
+    '%s namespace rejects malformed generated DAML payloads',
+    async (entityType, entry) => {
+      const getEventsByContractId = jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            templateId: entry.templateId,
+            createArgument: { [entry.dataField]: {} },
+          },
+        },
+      });
+      const ocp = new OcpClient({ ledger: { getEventsByContractId } as never });
+
+      await expect(
+        ocp.OpenCapTable[entityType].get({ contractId: `malformed-payload-${entityType}` })
+      ).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+      });
+    }
+  );
 
   it('rejects unsupported runtime object types', async () => {
     const ledger = createLedgerJsonApiClient({ network: 'devnet' });
