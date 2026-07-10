@@ -17,7 +17,7 @@ import {
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
-import { normalizeOcfData } from './planSecurityAliases';
+import { normalizeOcfData } from './ocfNormalization';
 
 // Preserve the public utils import path while keeping the protocol-native guard implementation centralized.
 export { isOcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
@@ -688,9 +688,7 @@ export function computeReplicationDiff(
         );
       }
 
-      // Normalize both objects before comparison:
-      // - object_type aliases (TX_PLAN_SECURITY_* → TX_EQUITY_COMPENSATION_*)
-      // - quantity_source defaults (add/strip UNSPECIFIED based on quantity presence)
+      // Normalize both objects before comparison, including quantity_source defaults.
       const normalizedSourceData = normalizeOcfData(sourceData);
       const normalizedCantonData = normalizeOcfData(cantonItemData);
 

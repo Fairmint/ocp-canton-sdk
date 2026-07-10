@@ -27,7 +27,7 @@ export function damlVestingEventToNative(d: DamlVestingEventData): OcfVestingEve
   return {
     object_type: 'TX_VESTING_EVENT',
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, 'vestingEvent.date'),
     security_id: d.security_id,
     vesting_condition_id: d.vesting_condition_id,
     ...(d.comments.length > 0 && { comments: d.comments }),

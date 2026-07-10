@@ -6,10 +6,11 @@ import type { OcfStockClass, StockClassConversionRight } from '../../../types/na
 import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
 import {
   damlMonetaryToNative,
-  damlTimeToDateString,
   isRecord,
   normalizeNumericString,
+  optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
+import { validateRequiredString } from '../../../utils/validation';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { ratioMechanismFromDaml } from '../shared/conversionMechanisms';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -98,6 +99,15 @@ export function damlStockClassDataToNative(
     });
   }
 
+  const boardApprovalDate = optionalDamlTimeToDateString(
+    damlData.board_approval_date,
+    'stockClass.board_approval_date'
+  );
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    damlData.stockholder_approval_date,
+    'stockClass.stockholder_approval_date'
+  );
+
   return {
     object_type: 'STOCK_CLASS',
     id,
@@ -109,18 +119,14 @@ export function damlStockClassDataToNative(
     seniority: normalizeNumericString(seniorityValue.toString()),
     conversion_rights: [],
     comments: [],
-    ...(damlData.board_approval_date && {
-      board_approval_date: damlTimeToDateString(damlData.board_approval_date),
-    }),
-    ...(damlData.stockholder_approval_date && {
-      stockholder_approval_date: damlTimeToDateString(damlData.stockholder_approval_date),
-    }),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(damlData.par_value && { par_value: damlMonetaryToNative(damlData.par_value) }),
     ...(damlData.price_per_share && {
       price_per_share: damlMonetaryToNative(damlData.price_per_share),
     }),
     ...(damlData.conversion_rights.length > 0 && {
-      conversion_rights: damlData.conversion_rights.map((right) => {
+      conversion_rights: damlData.conversion_rights.map((right, index) => {
         if (right.type_ !== 'STOCK_CLASS_CONVERSION_RIGHT') {
           throw new OcpParseError(`Unknown stock class conversion right type: ${right.type_}`, {
             source: 'conversion_right.type',
@@ -135,10 +141,15 @@ export function damlStockClassDataToNative(
           },
           'stockClass.conversion_right'
         );
+        const convertsToStockClassId: unknown = right.converts_to_stock_class_id;
+        validateRequiredString(
+          convertsToStockClassId,
+          `stockClass.conversion_rights[${index}].converts_to_stock_class_id`
+        );
         const convRight: StockClassConversionRight = {
           type: 'STOCK_CLASS_CONVERSION_RIGHT',
           conversion_mechanism: conversionMechanism,
-          ...(right.converts_to_stock_class_id ? { converts_to_stock_class_id: right.converts_to_stock_class_id } : {}),
+          converts_to_stock_class_id: convertsToStockClassId,
           ...(right.converts_to_future_round !== null
             ? { converts_to_future_round: right.converts_to_future_round }
             : {}),

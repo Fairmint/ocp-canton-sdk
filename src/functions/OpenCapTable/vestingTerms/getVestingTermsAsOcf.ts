@@ -208,12 +208,15 @@ function damlVestingTriggerToNative(t: string | { tag?: string; value?: Record<s
 
   if (tag === 'OcfVestingScheduleAbsoluteTrigger') {
     const value = typeof t === 'string' ? undefined : t.value;
-    if (!value || typeof value !== 'object' || !('date' in value) || typeof value.date !== 'string')
+    if (!value || typeof value !== 'object')
       throw new OcpValidationError('vestingTrigger.value', 'Missing value for OcfVestingScheduleAbsoluteTrigger', {
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
         receivedValue: value,
       });
-    return { type: 'VESTING_SCHEDULE_ABSOLUTE', date: damlTimeToDateString(value.date) };
+    return {
+      type: 'VESTING_SCHEDULE_ABSOLUTE',
+      date: damlTimeToDateString(value.date, 'vestingTerms.vesting_conditions[].trigger.date'),
+    };
   }
 
   if (tag === 'OcfVestingScheduleRelativeTrigger') {
@@ -286,7 +289,13 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
     next_condition_ids: c.next_condition_ids,
   };
   const quantity = typeof c.quantity === 'string' ? normalizeNumericString(c.quantity) : undefined;
-  const portion = c.portion === null ? undefined : damlVestingConditionPortionToNative(c.portion);
+  const rawPortion: unknown = c.portion;
+  const portion =
+    rawPortion === null || rawPortion === undefined
+      ? undefined
+      : damlVestingConditionPortionToNative(
+          rawPortion as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion
+        );
 
   if (portion !== undefined && quantity === undefined) return { ...common, portion };
   if (quantity !== undefined && portion === undefined) return { ...common, quantity };

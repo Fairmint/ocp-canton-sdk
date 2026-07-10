@@ -760,6 +760,30 @@ describe('VestingTerms drift regression', () => {
     );
   });
 
+  test.each([
+    ['null', null],
+    ['undefined', undefined],
+  ])('accepts a quantity condition when portion is %s', (_case, portion) => {
+    const result = damlVestingTermsDataToNative(
+      makeDamlVestingTerms({
+        vesting_conditions: [
+          {
+            id: 'quantity-condition',
+            description: null,
+            quantity: '250',
+            portion,
+            trigger: 'OcfVestingStartTrigger',
+            next_condition_ids: [],
+          },
+        ],
+      })
+    );
+    const condition = requireFirst(result.vesting_conditions, 'native quantity vesting condition');
+
+    expect(condition.quantity).toBe('250');
+    expect(condition.portion).toBeUndefined();
+  });
+
   test('round-trip OCF → DAML → OCF preserves remainder when DAML has it', () => {
     const ocfInput: OcfVestingTerms = {
       object_type: 'VESTING_TERMS',
