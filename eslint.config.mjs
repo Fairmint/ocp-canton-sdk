@@ -25,7 +25,12 @@ const eslintConfig = [
     languageOptions: {
       parser: typescriptEslintParser,
       parserOptions: {
-        project: ['./tsconfig.json', './tsconfig.tests.json', './tsconfig.declaration-tests.json'],
+        project: [
+          './tsconfig.json',
+          './tsconfig.tests.json',
+          './tsconfig.declaration-tests.json',
+          './tsconfig.exact-public-config-tests.json',
+        ],
         ecmaVersion: 2020,
         sourceType: 'module',
       },

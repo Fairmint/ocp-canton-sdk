@@ -1,5 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError, type OcpErrorContext } from './OcpError';
+import { contextOrUndefined, OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpNetworkErrorOptions {
   /** The endpoint that was being accessed */
@@ -47,20 +47,21 @@ export interface OcpNetworkErrorOptions {
  */
 export class OcpNetworkError extends OcpError {
   /** The endpoint that was being accessed */
-  readonly endpoint?: string;
+  readonly endpoint: string | undefined;
 
   /** The HTTP status code, if applicable */
-  readonly statusCode?: number;
+  readonly statusCode: number | undefined;
 
   constructor(message: string, options?: OcpNetworkErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CONNECTION_FAILED;
+    const context = contextOrUndefined({
+      ...options?.context,
+      ...(options?.endpoint !== undefined ? { endpoint: options.endpoint } : {}),
+      ...(options?.statusCode !== undefined ? { statusCode: options.statusCode } : {}),
+    });
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'network_error',
-      context: {
-        ...options?.context,
-        endpoint: options?.endpoint,
-        statusCode: options?.statusCode,
-      },
+      ...(context !== undefined ? { context } : {}),
     });
     this.name = 'OcpNetworkError';
     this.endpoint = options?.endpoint;

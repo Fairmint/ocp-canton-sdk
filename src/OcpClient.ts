@@ -58,13 +58,20 @@
 
 import { Canton, type LedgerJsonApiClient, type ValidatorApiClient } from '@fairmint/canton-node-sdk';
 import { TransactionBatch } from '@fairmint/canton-node-sdk/build/src/utils/transactions';
+import type {
+  OcpClientDependencies,
+  OcpClientEnvironmentOptions,
+  OcpClientEnvOptions,
+  OcpClientHostedPresetOptions,
+  OcpClientLocalNetOptions,
+  OcpFactoryCoordinates,
+} from './clientOptions';
 import {
   loadEnvironmentConfigFromEnv,
   resolveEnvironmentConfig,
   toCantonNetwork,
   toResolvedCantonConfig,
   type EnvironmentConfig,
-  type EnvironmentConfigInput,
   type OcpEnvironment,
 } from './environment';
 import { OcpErrorCodes, OcpValidationError } from './errors';
@@ -382,16 +389,16 @@ export class OcpClient {
   public readonly ledger: LedgerJsonApiClient;
 
   /** Optional injected Validator API client for validator-backed workflows */
-  public readonly validator?: ValidatorApiClient;
+  public readonly validator: ValidatorApiClient | undefined;
 
   /**
    * Optional factory coordinates when not using the bundled mainnet/devnet config
    * (e.g. localnet, staging, or a custom network).
    */
-  public readonly factory?: OcpFactoryCoordinates;
+  public readonly factory: Readonly<OcpFactoryCoordinates> | undefined;
 
   /** Logical Canton environment when this client was created through environment helpers. */
-  public readonly environment?: OcpEnvironment;
+  public readonly environment: OcpEnvironment | undefined;
 
   /** Optional logger, metrics, and default command context for OCP write operations. */
   public readonly observability: OcpObservabilityOptions;
@@ -418,10 +425,7 @@ export class OcpClient {
     validateFactoryCoordinates(dependencies.factory);
     this.ledger = dependencies.ledger;
     this.validator = dependencies.validator;
-    this.factory =
-      dependencies.factory === undefined
-        ? undefined
-        : { contractId: dependencies.factory.contractId, templateId: dependencies.factory.templateId };
+    this.factory = dependencies.factory === undefined ? undefined : Object.freeze({ ...dependencies.factory });
     this.environment = dependencies.environment;
     this.productionSafetyChecksEnabled = dependencies.productionSafetyChecks ?? false;
     const observability: OcpObservabilityOptions = {};
@@ -456,43 +460,51 @@ export class OcpClient {
   }
 
   /** Create a client using the LocalNet preset, including cn-quickstart app-provider ports. */
-  public static forLocalNet(options: OcpClientPresetOptions = {}): OcpClient {
+  public static forLocalNet(options: OcpClientLocalNetOptions = {}): OcpClient {
     return OcpClient.fromEnvironment({ ...options, environment: 'localnet' });
   }
 
   /** Create a client for DevNet with explicit API URLs and OAuth2 credentials. */
   public static forDevNet(options: OcpClientHostedPresetOptions): OcpClient {
-    return OcpClient.fromEnvironment({ ...options, environment: 'devnet' });
+    return OcpClient.fromEnvironment({ ...options, environment: 'devnet', authMode: 'oauth2' });
   }
 
   /** Create a client for TestNet with explicit API URLs and OAuth2 credentials. */
   public static forTestNet(options: OcpClientHostedPresetOptions): OcpClient {
-    return OcpClient.fromEnvironment({ ...options, environment: 'testnet' });
+    return OcpClient.fromEnvironment({ ...options, environment: 'testnet', authMode: 'oauth2' });
   }
 
   /** Create a client for MainNet with explicit API URLs and OAuth2 credentials. */
   public static forMainNet(options: OcpClientHostedPresetOptions): OcpClient {
-    return OcpClient.fromEnvironment({ ...options, environment: 'mainnet' });
+    return OcpClient.fromEnvironment({ ...options, environment: 'mainnet', authMode: 'oauth2' });
   }
 
   /** Create a client from `CANTON_*` environment variables, with optional per-call overrides. */
   public static fromEnv(options: OcpClientEnvOptions = {}): OcpClient {
     const { factory, productionSafetyChecks, ...overrides } = options;
     const config = loadEnvironmentConfigFromEnv(process.env, overrides);
-    return OcpClient.fromEnvironment({ ...config, factory, productionSafetyChecks });
+    return OcpClient.fromResolvedEnvironment(config, factory, productionSafetyChecks);
   }
 
   private static fromEnvironment(options: OcpClientEnvironmentOptions): OcpClient {
     const { factory, productionSafetyChecks, ...environmentInput } = options;
     const environmentConfig = resolveEnvironmentConfig(environmentInput);
+    return OcpClient.fromResolvedEnvironment(environmentConfig, factory, productionSafetyChecks);
+  }
+
+  private static fromResolvedEnvironment(
+    environmentConfig: EnvironmentConfig,
+    factory: OcpFactoryCoordinates | undefined,
+    productionSafetyChecks: boolean | undefined
+  ): OcpClient {
     const canton = new Canton(toResolvedCantonConfig(environmentConfig));
 
     return new OcpClient({
       ledger: canton.ledger,
       validator: canton.validator,
-      factory,
       environment: environmentConfig.environment,
-      productionSafetyChecks,
+      ...(factory !== undefined ? { factory } : {}),
+      ...(productionSafetyChecks !== undefined ? { productionSafetyChecks } : {}),
     });
   }
 
@@ -629,14 +641,9 @@ export class OcpClient {
       // ===== Authorization =====
       issuerAuthorization: {
         authorize: async (params: AuthorizeIssuerParams) => {
-          const hasPerCallOverride = params.factoryContractId != null || params.factoryTemplateId != null;
-          const clientFactory = hasCompleteFactoryCoordinates(this.factory) ? this.factory : undefined;
-          if (!hasPerCallOverride && this.factory !== undefined && clientFactory === undefined) {
-            throw new OcpValidationError('factory', 'factory override must include contractId and templateId', {
-              code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-            });
-          }
-          if (!hasPerCallOverride && clientFactory === undefined && requiresExplicitFactory(this.environment)) {
+          const factory = params.factory ?? this.factory;
+          validateFactoryCoordinates(factory);
+          if (factory === undefined && requiresExplicitFactory(this.environment)) {
             throw new OcpValidationError(
               'factory',
               `factory override is required for ${this.environment} issuer authorization`,
@@ -648,12 +655,7 @@ export class OcpClient {
             client,
             this.withObservability({
               ...params,
-              ...(hasPerCallOverride
-                ? {}
-                : {
-                    factoryContractId: clientFactory?.contractId,
-                    factoryTemplateId: clientFactory?.templateId,
-                  }),
+              ...(factory !== undefined ? { factory } : {}),
             })
           );
         },
@@ -732,50 +734,6 @@ export class OcpClient {
 }
 
 // ===== Type Definitions =====
-
-/** OCP Factory contract coordinates for custom deployments (localnet, staging, etc.). */
-export interface OcpFactoryCoordinates {
-  /** Contract ID of the deployed OCP Factory */
-  contractId: string;
-  /** Template ID of the deployed OCP Factory */
-  templateId: string;
-}
-
-/**
- * Clients consumed by {@link OcpClient}.
- *
- * Usually obtained from `new Canton({ network })` (or equivalent): pass `{ ledger: canton.ledger, validator: canton.validator }`.
- * **`validator`** is optional for cap-table-only usage of this SDK.
- */
-export interface OcpClientDependencies extends OcpObservabilityOptions {
-  readonly ledger: LedgerJsonApiClient;
-  readonly validator?: ValidatorApiClient;
-  /**
-   * Optional factory override — use when deploying your own OCP Factory (e.g. localnet, staging, or custom network).
-   * If omitted, the SDK resolves factory coords from the bundled network config.
-   */
-  readonly factory?: OcpFactoryCoordinates;
-  readonly environment?: OcpEnvironment;
-  readonly productionSafetyChecks?: boolean;
-}
-
-export type OcpClientEnvironmentOptions = EnvironmentConfigInput & {
-  readonly factory?: OcpFactoryCoordinates;
-  readonly productionSafetyChecks?: boolean;
-};
-
-export type OcpClientPresetOptions = Omit<Partial<EnvironmentConfigInput>, 'environment'> & {
-  readonly factory?: OcpFactoryCoordinates;
-  readonly productionSafetyChecks?: boolean;
-};
-
-export type OcpClientHostedPresetOptions = OcpClientPresetOptions &
-  Required<Pick<EnvironmentConfig, 'ledgerApiUrl' | 'authUrl' | 'clientId' | 'clientSecret'>>;
-
-export type OcpClientEnvOptions = Partial<EnvironmentConfigInput> & {
-  readonly factory?: OcpFactoryCoordinates;
-  readonly productionSafetyChecks?: boolean;
-};
 
 function requiresExplicitFactory(environment: OcpEnvironment | undefined): boolean {
   return environment === 'localnet' || environment === 'custom' || environment === 'scratchnet';

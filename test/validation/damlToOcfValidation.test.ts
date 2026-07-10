@@ -73,6 +73,7 @@ describe('DAML to OCF Validation', () => {
       stakeholder_id: 'sh-001',
       compensation_type: 'OcfCompensationTypeOption',
       quantity: '1000',
+      exercise_price: { amount: '1.00', currency: 'USD' },
       expiration_date: null,
       termination_exercise_windows: [],
       security_law_exemptions: [],

@@ -19,15 +19,14 @@ export async function authorizeIssuer(
   client: LedgerJsonApiClient,
   params: AuthorizeIssuerParams
 ): Promise<AuthorizeIssuerResult> {
-  if (params.factoryTemplateId != null && params.factoryContractId == null) {
-    throw new OcpValidationError(
-      'factoryContractId',
-      'factoryContractId is required when factoryTemplateId is provided',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-    );
-  }
-  if (params.factoryContractId != null && params.factoryTemplateId == null) {
-    throw new OcpValidationError('factoryTemplateId', 'factoryTemplateId is required when factoryContractId is set', {
+  if (
+    params.factory !== undefined &&
+    (typeof params.factory.contractId !== 'string' ||
+      params.factory.contractId.trim().length === 0 ||
+      typeof params.factory.templateId !== 'string' ||
+      params.factory.templateId.trim().length === 0)
+  ) {
+    throw new OcpValidationError('factory', 'factory override must include non-empty contractId and templateId', {
       code: OcpErrorCodes.INVALID_FORMAT,
     });
   }
@@ -35,9 +34,8 @@ export async function authorizeIssuer(
   let templateId: string;
   let contractId: string;
 
-  if (params.factoryContractId != null && params.factoryTemplateId != null) {
-    templateId = params.factoryTemplateId;
-    contractId = params.factoryContractId;
+  if (params.factory !== undefined) {
+    ({ templateId, contractId } = params.factory);
   } else {
     const network = client.getNetwork();
     const networkData = factoryContractIdData[network as keyof typeof factoryContractIdData] as
