@@ -387,7 +387,10 @@ export function createTestStockIssuanceData(
 
 /** Create test equity compensation issuance data with optional overrides. */
 export function createTestEquityCompensationIssuanceData(
-  overrides: Omit<Partial<OcfEquityCompensationIssuance>, 'object_type'> & {
+  overrides: Omit<
+    Partial<OcfEquityCompensationIssuance>,
+    'object_type' | 'compensation_type' | 'exercise_price' | 'base_price'
+  > & {
     stakeholder_id: string;
     stock_plan_id?: string;
     stock_class_id?: string;

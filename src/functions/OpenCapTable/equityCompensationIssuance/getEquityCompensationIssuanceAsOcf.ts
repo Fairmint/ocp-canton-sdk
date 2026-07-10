@@ -14,6 +14,7 @@ import {
   normalizeNumericString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import { validateEquityCompensationPricing } from './equityCompensationPricing';
 
 export interface GetEquityCompensationIssuanceAsOcfParams extends GetByContractIdParams {}
 export interface GetEquityCompensationIssuanceAsOcfResult {
@@ -54,10 +55,10 @@ const twMapPeriodType: Partial<Record<string, PeriodType>> = {
  * Used by both getEquityCompensationIssuanceAsOcf and the damlToOcf dispatcher.
  */
 export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unknown>): OcfEquityCompensationIssuance {
-  const exercise_price = damlMonetaryToNativeWithValidation(
+  const exercisePrice = damlMonetaryToNativeWithValidation(
     d.exercise_price as Record<string, unknown> | null | undefined
   );
-  const base_price = damlMonetaryToNativeWithValidation(d.base_price as Record<string, unknown> | null | undefined);
+  const basePrice = damlMonetaryToNativeWithValidation(d.base_price as Record<string, unknown> | null | undefined);
 
   const vestings =
     Array.isArray(d.vestings) && d.vestings.length > 0
@@ -191,6 +192,12 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
       }
     );
   }
+  const pricing = validateEquityCompensationPricing(
+    compensationType,
+    exercisePrice,
+    basePrice,
+    'equityCompensationIssuance'
+  );
 
   // Map security_law_exemptions if present
   const security_law_exemptions =
@@ -208,14 +215,12 @@ export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unk
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    compensation_type: compensationType,
+    ...pricing,
     quantity: normalizeNumericString(typeof d.quantity === 'number' ? d.quantity.toString() : d.quantity),
     expiration_date: d.expiration_date
       ? damlTimeToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date')
       : null,
     termination_exercise_windows: termination_exercise_windows ?? [],
-    ...(exercise_price ? { exercise_price } : {}),
-    ...(base_price ? { base_price } : {}),
     ...(d.early_exercisable !== null && d.early_exercisable !== undefined
       ? { early_exercisable: Boolean(d.early_exercisable) }
       : {}),

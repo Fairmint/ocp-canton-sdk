@@ -8,6 +8,7 @@ import {
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
+import { validateEquityCompensationPricing } from './equityCompensationPricing';
 
 export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
   switch (t) {
@@ -70,6 +71,12 @@ export function equityCompensationIssuanceDataToDaml(
     vesting_terms_id?: string;
   }
 ): Record<string, unknown> {
+  const pricing = validateEquityCompensationPricing(
+    d.compensation_type,
+    d.exercise_price,
+    d.base_price,
+    'equityCompensationIssuance'
+  );
   const filteredVestings = (d.vestings ?? []).filter((v) => {
     // normalizeNumericString validates strict decimal format and rejects scientific notation
     const normalized = normalizeNumericString(v.amount);
@@ -94,8 +101,8 @@ export function equityCompensationIssuanceDataToDaml(
     vesting_terms_id: optionalString(d.vesting_terms_id),
     compensation_type: compensationTypeToDaml(d.compensation_type),
     quantity: normalizeNumericString(d.quantity),
-    exercise_price: d.exercise_price ? monetaryToDaml(d.exercise_price) : null,
-    base_price: d.base_price ? monetaryToDaml(d.base_price) : null,
+    exercise_price: pricing.exercise_price ? monetaryToDaml(pricing.exercise_price) : null,
+    base_price: pricing.base_price ? monetaryToDaml(pricing.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
     vestings: filteredVestings.map((v) => ({
       date: dateStringToDAMLTime(v.date),
