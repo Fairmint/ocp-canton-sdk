@@ -15,6 +15,7 @@ import {
   safeString,
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
 interface CustomConversionMechanism {
   type: 'CUSTOM_CONVERSION';
@@ -509,17 +510,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
     const nickname: string | undefined = typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
     const trigger_description: string | undefined =
       typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-    const trigger_date = optionalDamlTimeToDateString(
-      r.trigger_date,
-      'convertibleIssuance.conversion_triggers[].trigger_date'
-    );
-    const trigger_condition: string | undefined =
-      typeof r.trigger_condition === 'string' && r.trigger_condition.length ? r.trigger_condition : undefined;
-    const start_date = optionalDamlTimeToDateString(
-      r.start_date,
-      'convertibleIssuance.conversion_triggers[].start_date'
-    );
-    const end_date = optionalDamlTimeToDateString(r.end_date, 'convertibleIssuance.conversion_triggers[].end_date');
+    const triggerFields = triggerFieldsFromDaml(r, type, 'convertibleIssuance.conversion_triggers[]');
 
     // Parse conversion_right if present and convertible variant is used
     let conversion_right: ConvertibleConversionRight | undefined;
@@ -569,10 +560,7 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
       conversion_right,
       ...(nickname ? { nickname } : {}),
       ...(trigger_description ? { trigger_description } : {}),
-      ...(trigger_date !== undefined ? { trigger_date } : {}),
-      ...(trigger_condition ? { trigger_condition } : {}),
-      ...(start_date !== undefined ? { start_date } : {}),
-      ...(end_date !== undefined ? { end_date } : {}),
+      ...triggerFields,
     };
     return trigger;
   });
