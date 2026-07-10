@@ -11,20 +11,29 @@ import {
   normalizeNumericString,
 } from '../../../utils/typeConversions';
 
+function requireRatioConversionMechanism(
+  value: OcfStockClassConversionRatioAdjustment['new_ratio_conversion_mechanism'] | undefined
+): OcfStockClassConversionRatioAdjustment['new_ratio_conversion_mechanism'] {
+  if (value) return value;
+
+  throw new OcpValidationError(
+    'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
+    'Required conversion mechanism is missing',
+    {
+      expectedType: 'ConversionMechanism',
+      receivedValue: value,
+    }
+  );
+}
+
 /**
  * Convert native OCF StockClassConversionRatioAdjustment data to DAML format.
- *
- * DAML expects new_ratio_conversion_mechanism as an OcfRatioConversionMechanism object
- * while OCF has flat new_ratio_numerator and new_ratio_denominator fields.
  *
  * Note: The OCF type includes optional `board_approval_date` and `stockholder_approval_date`
  * fields, but the DAML StockClassConversionRatioAdjustmentOcfData contract does not support
  * these fields. They are intentionally omitted from the conversion.
  *
- * The DAML OcfRatioConversionMechanism requires `conversion_price` and `rounding_type` fields
- * that are not present in the OCF type. Default values are used:
- * - conversion_price: { amount: '0', currency: 'USD' }
- * - rounding_type: 'OcfRoundingNormal'
+ * The canonical OCF input requires the complete ratio conversion mechanism.
  */
 export function stockClassConversionRatioAdjustmentDataToDaml(
   d: OcfStockClassConversionRatioAdjustment
@@ -35,30 +44,7 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
       receivedValue: d.id,
     });
   }
-  const legacyRatioMechanism =
-    d.new_ratio_numerator && d.new_ratio_denominator
-      ? {
-          type: 'RATIO_CONVERSION',
-          conversion_price: { amount: '0', currency: 'USD' },
-          ratio: {
-            numerator: d.new_ratio_numerator,
-            denominator: d.new_ratio_denominator,
-          },
-          rounding_type: 'NORMAL',
-        }
-      : null;
-
-  const newRatioConversionMechanism = d.new_ratio_conversion_mechanism ?? legacyRatioMechanism;
-  if (!newRatioConversionMechanism) {
-    throw new OcpValidationError(
-      'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
-      'Required conversion mechanism is missing',
-      {
-        expectedType: 'ConversionMechanism',
-        receivedValue: d.new_ratio_conversion_mechanism,
-      }
-    );
-  }
+  const newRatioConversionMechanism = requireRatioConversionMechanism(d.new_ratio_conversion_mechanism);
 
   const roundingTypeMap: Record<'NORMAL' | 'CEILING' | 'FLOOR', string> = {
     NORMAL: 'OcfRoundingNormal',
@@ -66,8 +52,7 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
     FLOOR: 'OcfRoundingFloor',
   };
 
-  const normalizedRoundingType =
-    roundingTypeMap[newRatioConversionMechanism.rounding_type as keyof typeof roundingTypeMap];
+  const normalizedRoundingType = roundingTypeMap[newRatioConversionMechanism.rounding_type];
   if (!normalizedRoundingType) {
     throw new OcpValidationError(
       'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type',

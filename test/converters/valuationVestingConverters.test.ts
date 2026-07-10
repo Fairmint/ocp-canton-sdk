@@ -375,6 +375,29 @@ describe('VestingTerms Converters', () => {
         remainder: true,
       });
     });
+
+    test.each([
+      ['neither amount', {}],
+      ['both amounts', { portion: { numerator: '1', denominator: '4' }, quantity: '250' }],
+    ])('rejects a vesting condition with %s at runtime', (_case, amountFields) => {
+      const ocfData = {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-invalid',
+        name: 'Invalid Vesting',
+        description: 'Invalid conditional shape',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'condition-invalid',
+            ...amountFields,
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: [],
+          },
+        ],
+      } as unknown as OcfVestingTerms;
+
+      expect(() => convertToDaml('vestingTerms', ocfData)).toThrow(OcpValidationError);
+    });
   });
 });
 
@@ -670,6 +693,35 @@ describe('VestingTerms drift regression', () => {
   test('preserves non-empty comments', () => {
     const result = damlVestingTermsDataToNative(makeDamlVestingTerms({ comments: ['Board note'] }));
     expect(result.comments).toEqual(['Board note']);
+  });
+
+  test.each([
+    [
+      'neither amount',
+      {
+        id: 'invalid-neither',
+        description: null,
+        quantity: null,
+        portion: null,
+        trigger: 'OcfVestingStartTrigger',
+        next_condition_ids: [],
+      },
+    ],
+    [
+      'both amounts',
+      {
+        id: 'invalid-both',
+        description: null,
+        quantity: '250',
+        portion: { numerator: '1', denominator: '4', remainder: false },
+        trigger: 'OcfVestingStartTrigger',
+        next_condition_ids: [],
+      },
+    ],
+  ])('rejects DAML vesting conditions with %s', (_case, condition) => {
+    expect(() => damlVestingTermsDataToNative(makeDamlVestingTerms({ vesting_conditions: [condition] }))).toThrow(
+      OcpValidationError
+    );
   });
 
   test('round-trip OCF → DAML → OCF preserves remainder when DAML has it', () => {

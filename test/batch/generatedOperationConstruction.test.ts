@@ -1,21 +1,21 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import {
-  buildOcfCreateData,
-  buildOcfDeleteData,
-  buildOcfEditData,
   buildUpdateCapTableCommand,
-  ENTITY_REGISTRY,
-  ENTITY_TAG_MAP,
   isOcfCreatableEntityType,
   isOcfDeletableEntityType,
   isOcfEditableEntityType,
-  parseOcfEntityInput,
-  parseOcfObject,
   type OcfCreateArguments,
   type OcfDataTypeFor,
   type OcfEditArguments,
   type OcfEntityType,
 } from '../../src';
+import { ENTITY_REGISTRY, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import {
+  buildOcfCreateData,
+  buildOcfDeleteData,
+  buildOcfEditData,
+} from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
+import { parseOcfEntityInput, parseOcfObject } from '../../src/utils/ocfZodSchemas';
 import { loadFixture, stripSourceMetadata } from '../utils/productionFixtures';
 
 function loadEntityFixture<T extends OcfEntityType>(

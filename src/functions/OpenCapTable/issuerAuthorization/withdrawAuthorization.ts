@@ -1,17 +1,9 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 import { OCP_TEMPLATES } from '@fairmint/open-captable-protocol-daml-js';
-import { submitObservedTransactionTree, type CommandObservabilityOptions } from '../../../observability';
+import { submitObservedTransactionTree } from '../../../observability';
+import type { WithdrawAuthorizationParams, WithdrawAuthorizationResult } from './types';
 
-export interface WithdrawAuthorizationParams extends CommandObservabilityOptions {
-  issuerAuthorizationContractId: string;
-  systemOperatorParty: string;
-}
-
-export interface WithdrawAuthorizationResult {
-  updateId: string;
-  response: SubmitAndWaitForTransactionTreeResponse;
-}
+export type { WithdrawAuthorizationParams, WithdrawAuthorizationResult } from './types';
 
 export async function withdrawAuthorization(
   client: LedgerJsonApiClient,

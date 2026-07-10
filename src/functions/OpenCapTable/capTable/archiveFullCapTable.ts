@@ -17,8 +17,8 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk/build/src/cl
 import { OcpErrorCodes } from '../../../errors/codes';
 import { OcpContractError } from '../../../errors/OcpContractError';
 import { archiveCapTable } from './archiveCapTable';
-import type { OcfEntityType } from './batchTypes';
 import { CapTableBatch } from './CapTableBatch';
+import type { OcfEntityType } from './entityTypes';
 import { classifyIssuerCapTables, type CapTableWithArchiveContext } from './getCapTableState';
 
 /** Minimal contract state needed for the archive operation. */

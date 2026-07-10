@@ -110,22 +110,26 @@ describe('CapTableBatch', () => {
       });
     });
 
-    it('should accept legacy stock class conversion ratio fields via canonicalization', () => {
+    it('should accept the canonical stock class conversion ratio mechanism', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
       });
 
-      const legacyRatioData: OcfStockClassConversionRatioAdjustment = {
+      const ratioData: OcfStockClassConversionRatioAdjustment = {
         object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
         id: 'ratio-123',
         date: '2024-01-15',
         stock_class_id: 'sc-123',
-        new_ratio_numerator: '11',
-        new_ratio_denominator: '10',
+        new_ratio_conversion_mechanism: {
+          type: 'RATIO_CONVERSION',
+          conversion_price: { amount: '0', currency: 'USD' },
+          ratio: { numerator: '11', denominator: '10' },
+          rounding_type: 'NORMAL',
+        },
       };
 
-      expect(() => batch.create('stockClassConversionRatioAdjustment', legacyRatioData)).not.toThrow();
+      expect(() => batch.create('stockClassConversionRatioAdjustment', ratioData)).not.toThrow();
       const { command } = batch.build();
       if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
 

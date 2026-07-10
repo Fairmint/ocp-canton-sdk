@@ -266,14 +266,22 @@ function damlVestingConditionPortionToNative(
 
 function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition): VestingCondition {
   const conditionWithId = c as unknown as { id?: string };
-  const native: VestingCondition = {
-    id: conditionWithId.id ?? '',
+  if (typeof conditionWithId.id !== 'string' || conditionWithId.id.length === 0) {
+    throw new OcpValidationError('vestingCondition.id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: conditionWithId.id,
+    });
+  }
+
+  const common = {
+    id: conditionWithId.id,
     ...(c.description && { description: c.description }),
-    ...(c.quantity && { quantity: normalizeNumericString(c.quantity) }),
     trigger: damlVestingTriggerToNative(c.trigger),
     next_condition_ids: c.next_condition_ids,
   };
+  const quantity = typeof c.quantity === 'string' ? normalizeNumericString(c.quantity) : undefined;
   const portionUnknown = c.portion as unknown;
+  let portion: VestingConditionPortion | undefined;
   if (portionUnknown) {
     if (
       typeof portionUnknown === 'object' &&
@@ -282,14 +290,22 @@ function damlVestingConditionToNative(c: Fairmint.OpenCapTable.OCF.VestingTerms.
       'value' in portionUnknown
     ) {
       const { value } = portionUnknown as { value: Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion };
-      native.portion = damlVestingConditionPortionToNative(value);
+      portion = damlVestingConditionPortionToNative(value);
     } else if (typeof portionUnknown === 'object') {
-      native.portion = damlVestingConditionPortionToNative(
+      portion = damlVestingConditionPortionToNative(
         portionUnknown as Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingConditionPortion
       );
     }
   }
-  return native;
+
+  if (portion !== undefined && quantity === undefined) return { ...common, portion };
+  if (quantity !== undefined && portion === undefined) return { ...common, quantity };
+
+  throw new OcpValidationError('vestingCondition', 'Exactly one of portion or quantity is required', {
+    code: portion === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_FORMAT,
+    expectedType: 'exactly one of portion or quantity',
+    receivedValue: { portion: c.portion, quantity: c.quantity },
+  });
 }
 
 export function damlVestingTermsDataToNative(

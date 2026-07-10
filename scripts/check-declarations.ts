@@ -5,7 +5,9 @@ import ts from 'typescript';
 const projectRoot = process.cwd();
 const configPath = path.join(projectRoot, 'tsconfig.json');
 const declarationEntryPoint = path.join(projectRoot, 'dist', 'index.d.ts');
+const strictConsumerEntryPoint = path.join(projectRoot, 'test', 'declarations', 'publicApi.types.ts');
 const declarationRoot = `${path.dirname(declarationEntryPoint)}${path.sep}`;
+const generatedDamlPackage = '@fairmint/open-captable-protocol-daml-js';
 const diagnosticHost: ts.FormatDiagnosticsHost = {
   getCanonicalFileName: (fileName) => fileName,
   getCurrentDirectory: () => projectRoot,
@@ -30,16 +32,26 @@ if (parsedConfig.errors.length > 0) {
 }
 
 const program = ts.createProgram({
-  rootNames: [declarationEntryPoint],
-  options: parsedConfig.options,
+  rootNames: [declarationEntryPoint, strictConsumerEntryPoint],
+  options: { ...parsedConfig.options, rootDir: projectRoot },
 });
 
-const sdkDiagnostics = ts
-  .getPreEmitDiagnostics(program)
-  .filter((diagnostic) => diagnostic.file?.fileName.startsWith(declarationRoot));
+const diagnostics = ts.getPreEmitDiagnostics(program);
 
-if (sdkDiagnostics.length > 0) {
+if (diagnostics.length > 0) {
   throw new Error(
-    `SDK declaration validation failed:\n${ts.formatDiagnosticsWithColorAndContext(sdkDiagnostics, diagnosticHost)}`
+    `Strict consumer declaration validation failed:\n${ts.formatDiagnosticsWithColorAndContext(diagnostics, diagnosticHost)}`
+  );
+}
+
+const generatedDamlLeaks = program
+  .getSourceFiles()
+  .filter((sourceFile) => sourceFile.fileName.startsWith(declarationRoot))
+  .filter((sourceFile) => sourceFile.text.includes(generatedDamlPackage))
+  .map((sourceFile) => path.relative(projectRoot, sourceFile.fileName));
+
+if (generatedDamlLeaks.length > 0) {
+  throw new Error(
+    `Public declaration graph references ${generatedDamlPackage}:\n${generatedDamlLeaks.map((file) => `- ${file}`).join('\n')}`
   );
 }

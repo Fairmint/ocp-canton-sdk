@@ -2,9 +2,16 @@
 /** Compile-time smoke tests for declarations exported by the built SDK. */
 
 import {
-  convertToDaml,
-  type CapTableBatch,
+  authorizeIssuer,
+  buildCreateIssuerCommand,
+  CapTableBatch,
+  OcpClient,
+  OcpValidationError,
+  withdrawAuthorization,
+  type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
+  type CreateIssuerParams,
+  type OcfContractId,
   type OcfCreateOperation,
   type OcfEntityDataMap,
   type OcfEntityType,
@@ -14,13 +21,23 @@ import {
   type OcfStakeholder,
   type OcfStockAcceptance,
   type OcfStockClass,
-  type OcfVestingEvent,
   type OcfVestingStart,
-  type OcfWarrantAcceptance,
 } from '../../dist';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type RemovedRootValue = Extract<
+  keyof typeof import('../../dist'),
+  | 'convertToDaml'
+  | 'convertToOcf'
+  | 'decodeDamlEntityData'
+  | 'ENTITY_REGISTRY'
+  | 'ENTITY_TAG_MAP'
+  | 'getIssuerAsOcf'
+  | 'getStakeholderAsOcf'
+>;
+// This file is linted before `dist` exists in a clean checkout, so its declaration-only imports appear as error types.
+
 type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType] | OcfFinancing;
 type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_ACCEPTANCE'
@@ -35,9 +52,35 @@ const publishedOcfObjectIsExact: Assert<IsExactly<OcfObject, IntendedCanonicalOc
 const publishedOcfObjectExcludesLegacyPlanSecurity: Assert<
   IsExactly<Extract<OcfObject, { readonly object_type: LegacyPlanSecurityObjectType }>, never>
 > = true;
+const generatedAndLegacyValuesAreNotRootExports: Assert<IsExactly<RemovedRootValue, never>> = true;
 
 void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesLegacyPlanSecurity;
+void generatedAndLegacyValuesAreNotRootExports;
+void authorizeIssuer;
+void buildCreateIssuerCommand;
+void CapTableBatch;
+void OcpClient;
+void OcpValidationError;
+void withdrawAuthorization;
+
+declare const createIssuerParams: CreateIssuerParams;
+buildCreateIssuerCommand(createIssuerParams);
+
+// @ts-expect-error generated DAML wire unions are intentionally not root exports
+type RemovedGeneratedWireType = import('../../dist').OcfCreateData;
+declare const removedGeneratedWireType: RemovedGeneratedWireType;
+void removedGeneratedWireType;
+
+declare const executeResult: CapTableBatchExecuteResult;
+const returnedContractIds: readonly OcfContractId[] = executeResult.editedCids;
+const issuerContractId: OcfContractId = { tag: 'CidIssuer', value: 'issuer-cid' };
+void returnedContractIds;
+void issuerContractId;
+
+// @ts-expect-error built declarations exclude legacy PlanSecurity result tags
+const legacyContractId: OcfContractId = { tag: 'CidPlanSecurityIssuance', value: 'legacy-cid' };
+void legacyContractId;
 
 function verifyPublishedBatchApi(
   batch: CapTableBatch,
@@ -45,9 +88,7 @@ function verifyPublishedBatchApi(
   stockClass: OcfStockClass,
   issuer: OcfIssuer,
   stockAcceptance: OcfStockAcceptance,
-  warrantAcceptance: OcfWarrantAcceptance,
-  vestingStart: OcfVestingStart,
-  vestingEvent: OcfVestingEvent
+  vestingStart: OcfVestingStart
 ): void {
   batch.create('stakeholder', stakeholder);
   batch.create('stockClass', stockClass);
@@ -71,20 +112,11 @@ function verifyPublishedBatchApi(
   // @ts-expect-error a union-valued kind cannot bypass edit payload correlation
   batch.edit(widenedKind, stakeholder);
 
-  // @ts-expect-error a union-valued kind cannot bypass converter payload correlation
-  convertToDaml(widenedKind, stakeholder);
-
   // @ts-expect-error published types preserve stock vs warrant identity even with identical fields
   batch.create('warrantAcceptance', stockAcceptance);
 
   // @ts-expect-error published types preserve vesting start vs vesting event identity
   batch.create('vestingEvent', vestingStart);
-
-  // @ts-expect-error converter declarations cannot reinterpret a warrant acceptance as stock
-  convertToDaml('stockAcceptance', warrantAcceptance);
-
-  // @ts-expect-error converter declarations cannot reinterpret a vesting event as vesting start
-  convertToDaml('vestingStart', vestingEvent);
 
   // @ts-expect-error published entity declarations require object_type
   const missingObjectType: OcfStockAcceptance = {

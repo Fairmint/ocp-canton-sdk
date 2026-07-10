@@ -11,6 +11,7 @@ import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clie
 import type { OcpClient } from '../../../src/OcpClient';
 import { buildUpdateCapTableCommand } from '../../../src/functions/OpenCapTable';
 import type {
+  AtMostOne,
   OcfConvertibleConversion,
   OcfConvertibleIssuance,
   OcfConvertibleRetraction,
@@ -114,17 +115,40 @@ export function generateDateString(daysFromNow = 0): string {
   return damlTimeToDateString(date.toISOString(), 'integrationTest.generatedDate');
 }
 
-/** Create test issuer data with optional overrides. */
-export function createTestIssuerData(overrides: Omit<Partial<OcfIssuer>, 'object_type'> = {}): OcfIssuer {
+type IssuerSubdivisionOverrides = AtMostOne<
+  {
+    country_subdivision_of_formation: string;
+    country_subdivision_name_of_formation: string;
+  },
+  'country_subdivision_of_formation' | 'country_subdivision_name_of_formation'
+>;
+
+type TestIssuerOverrides = Omit<
+  Partial<OcfIssuer>,
+  'object_type' | 'country_subdivision_of_formation' | 'country_subdivision_name_of_formation'
+> &
+  IssuerSubdivisionOverrides;
+
+/** Create test issuer data with optional canonical overrides. */
+export function createTestIssuerData(overrides: TestIssuerOverrides = {}): OcfIssuer {
   const id = overrides.id ?? generateTestId('issuer');
+  const {
+    country_subdivision_of_formation: subdivisionCode,
+    country_subdivision_name_of_formation: subdivisionName,
+    ...rest
+  } = overrides;
+  const subdivision =
+    subdivisionName !== undefined
+      ? { country_subdivision_name_of_formation: subdivisionName }
+      : { country_subdivision_of_formation: subdivisionCode ?? 'DE' };
   return {
     id,
     legal_name: `Test Company ${id}`,
     formation_date: generateDateString(-365),
     country_of_formation: 'US',
-    country_subdivision_of_formation: 'DE',
     tax_ids: [],
-    ...overrides,
+    ...rest,
+    ...subdivision,
     object_type: 'ISSUER',
   };
 }
@@ -176,14 +200,19 @@ export function createTestStockLegendTemplateData(
   };
 }
 
-/** Create test document data with optional overrides. */
-export function createTestDocumentData(overrides: Omit<Partial<OcfDocument>, 'object_type'> = {}): OcfDocument {
+type TestDocumentOverrides = Omit<Partial<OcfDocument>, 'object_type' | 'path' | 'uri'> &
+  AtMostOne<{ path: string; uri: string }, 'path' | 'uri'>;
+
+/** Create test document data with optional canonical overrides. */
+export function createTestDocumentData(overrides: TestDocumentOverrides = {}): OcfDocument {
   const id = overrides.id ?? generateTestId('document');
+  const { path, uri, ...rest } = overrides;
+  const location = uri !== undefined ? { uri } : { path: path ?? `/documents/${id}.pdf` };
   return {
     id,
     md5: '00000000000000000000000000000000', // Placeholder MD5 hash
-    path: `/documents/${id}.pdf`, // Default path (required: document must have path or uri)
-    ...overrides,
+    ...rest,
+    ...location,
     object_type: 'DOCUMENT',
   };
 }
@@ -1008,7 +1037,7 @@ export function createTestConvertibleIssuanceData(
 }
 
 /** Helper to extract a contract ID from a createdCids array by type tag. */
-function extractCreatedCid(createdCids: Array<Record<string, unknown>>, tagPrefix: string): string {
+function extractCreatedCid(createdCids: ReadonlyArray<Record<string, unknown>>, tagPrefix: string): string {
   for (const cid of createdCids) {
     const { tag, value: taggedValue } = cid;
     if (typeof tag === 'string' && tag.startsWith(tagPrefix) && typeof taggedValue === 'string') {

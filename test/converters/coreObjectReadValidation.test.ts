@@ -1,4 +1,6 @@
-import { damlDocumentDataToNative, damlStakeholderDataToNative, OcpValidationError } from '../../src';
+import { OcpValidationError } from '../../src';
+import { damlDocumentDataToNative } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
+import { damlStakeholderDataToNative } from '../../src/functions/OpenCapTable/stakeholder/getStakeholderAsOcf';
 
 const minimalStakeholder = {
   id: 'stakeholder-read-1',
@@ -56,5 +58,12 @@ describe('core DAML read converter required fields', () => {
     ['document id', () => damlDocumentDataToNative(asDamlDocument({ ...minimalDocument, id: '' }))],
   ])('rejects a missing %s instead of synthesizing an empty required field', (_field, convert) => {
     expect(convert).toThrow(OcpValidationError);
+  });
+
+  test.each([
+    ['neither location', { ...minimalDocument, path: null, uri: null }],
+    ['both locations', { ...minimalDocument, path: './document.pdf', uri: 'https://example.com/document.pdf' }],
+  ])('rejects a document with %s', (_case, document) => {
+    expect(() => damlDocumentDataToNative(asDamlDocument(document))).toThrow(OcpValidationError);
   });
 });

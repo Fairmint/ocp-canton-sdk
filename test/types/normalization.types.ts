@@ -1,12 +1,12 @@
 /** Compile-time contracts for canonicalization helpers exported from source. */
 
+import type { OcfPlanSecurityIssuance } from '../../src/types/native';
 import {
   deepNormalizeNumericStrings,
   normalizeEntityType,
   normalizeObjectType,
   normalizeOcfData,
-  type OcfPlanSecurityIssuance,
-} from '../../src';
+} from '../../src/utils/planSecurityAliases';
 
 const normalizedNumericString: string = deepNormalizeNumericStrings('1.00' as const);
 void normalizedNumericString;

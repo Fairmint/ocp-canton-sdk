@@ -182,6 +182,17 @@ describe('Stock Class Adjustment Converters', () => {
           'stockClassConversionRatioAdjustment.id'
         );
       });
+
+      test('rejects a missing conversion mechanism at runtime', () => {
+        const { new_ratio_conversion_mechanism: _, ...withoutMechanism } = baseData;
+
+        expect(() =>
+          convertToDaml(
+            'stockClassConversionRatioAdjustment',
+            withoutMechanism as unknown as OcfStockClassConversionRatioAdjustment
+          )
+        ).toThrow('new_ratio_conversion_mechanism');
+      });
     });
 
     describe('stockConsolidation', () => {

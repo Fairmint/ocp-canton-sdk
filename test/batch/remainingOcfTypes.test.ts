@@ -340,7 +340,7 @@ describe('Stock Plan Event Converters', () => {
 
 describe('Stakeholder Change Event Converters', () => {
   describe('stakeholderRelationshipChangeEvent', () => {
-    it('should convert legacy single-relationship stakeholder relationship change event to DAML format', () => {
+    it('should convert a relationship_started-only event to DAML format', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
@@ -351,8 +351,8 @@ describe('Stakeholder Change Event Converters', () => {
         id: 'rce-123',
         date: '2024-08-01',
         stakeholder_id: 'sh-001',
-        new_relationships: ['EMPLOYEE'],
-        comments: ['Initial relationship assignment from legacy payload'],
+        relationship_started: 'EMPLOYEE',
+        comments: ['Initial relationship assignment'],
       };
 
       batch.create('stakeholderRelationshipChangeEvent', data);
@@ -403,25 +403,6 @@ describe('Stakeholder Change Event Converters', () => {
       const value = requireDefined(choiceArg.creates[0], 'first create operation').value as Record<string, unknown>;
       expect(value.relationship_started).toBe('OcfRelFounder');
       expect(value.relationship_ended).toBe('OcfRelInvestor');
-    });
-
-    it('should reject legacy relationship list with multiple entries', () => {
-      const batch = new CapTableBatch({
-        capTableContractId: 'cap-table-123',
-        actAs: ['party-1'],
-      });
-
-      const data: OcfStakeholderRelationshipChangeEvent = {
-        object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
-        id: 'rce-invalid',
-        date: '2024-08-20',
-        stakeholder_id: 'sh-003',
-        new_relationships: ['FOUNDER', 'INVESTOR'],
-      };
-
-      expect(() => batch.create('stakeholderRelationshipChangeEvent', data)).toThrow(
-        'new_relationships with multiple entries is ambiguous'
-      );
     });
 
     it('should have correct ENTITY_TAG_MAP entry', () => {
