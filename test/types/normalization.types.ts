@@ -27,18 +27,14 @@ const normalizedPlanSecurity = normalizeObjectType('TX_PLAN_SECURITY_ISSUANCE');
 const exactPlanSecurity: 'TX_EQUITY_COMPENSATION_ISSUANCE' = normalizedPlanSecurity;
 void exactPlanSecurity;
 
-const normalizedLegacyEvent = normalizeObjectType('TX_STAKEHOLDER_STATUS_CHANGE_EVENT');
-const exactLegacyEvent: 'CE_STAKEHOLDER_STATUS' = normalizedLegacyEvent;
-void exactLegacyEvent;
-
 const unchangedObjectType = normalizeObjectType('TX_STOCK_ISSUANCE');
 const exactUnchangedObjectType: 'TX_STOCK_ISSUANCE' = unchangedObjectType;
 void exactUnchangedObjectType;
 
-declare const legacyIssuance: OcfPlanSecurityIssuance;
-const normalizedData: Record<string, unknown> = normalizeOcfData(legacyIssuance);
+declare const planSecurityIssuance: OcfPlanSecurityIssuance;
+const normalizedData: Record<string, unknown> = normalizeOcfData(planSecurityIssuance);
 void normalizedData;
 
 // @ts-expect-error normalization may rename the discriminator and fields, so the result cannot retain the input type
-const unsoundLegacyClaim: OcfPlanSecurityIssuance = normalizeOcfData(legacyIssuance);
-void unsoundLegacyClaim;
+const unsoundPlanSecurityClaim: OcfPlanSecurityIssuance = normalizeOcfData(planSecurityIssuance);
+void unsoundPlanSecurityClaim;

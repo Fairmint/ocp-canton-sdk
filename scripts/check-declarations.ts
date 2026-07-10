@@ -8,6 +8,8 @@ const declarationEntryPoint = path.join(projectRoot, 'dist', 'index.d.ts');
 const strictConsumerEntryPoint = path.join(projectRoot, 'test', 'declarations', 'publicApi.types.ts');
 const declarationRoot = `${path.dirname(declarationEntryPoint)}${path.sep}`;
 const generatedDamlPackage = '@fairmint/open-captable-protocol-daml-js';
+const cantonTransactionTreeOperationsModule = '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
+const commonTypesDeclaration = path.join(declarationRoot, 'types', 'common.d.ts');
 const diagnosticHost: ts.FormatDiagnosticsHost = {
   getCanonicalFileName: (fileName) => fileName,
   getCurrentDirectory: () => projectRoot,
@@ -53,5 +55,44 @@ const generatedDamlLeaks = program
 if (generatedDamlLeaks.length > 0) {
   throw new Error(
     `Public declaration graph references ${generatedDamlPackage}:\n${generatedDamlLeaks.map((file) => `- ${file}`).join('\n')}`
+  );
+}
+
+const validationErrorDeclaration = program.getSourceFile(
+  path.join(declarationRoot, 'errors', 'OcpValidationError.d.ts')
+);
+const validationErrorClass = validationErrorDeclaration?.statements.find(
+  (statement): statement is ts.ClassDeclaration =>
+    ts.isClassDeclaration(statement) && statement.name?.text === 'OcpValidationError'
+);
+const receivedValueProperty = validationErrorClass?.members.find(
+  (member): member is ts.PropertyDeclaration =>
+    ts.isPropertyDeclaration(member) && ts.isIdentifier(member.name) && member.name.text === 'receivedValue'
+);
+const receivedValueType = receivedValueProperty?.type;
+const hasExplicitUnknownAndUndefined =
+  receivedValueType !== undefined &&
+  ts.isUnionTypeNode(receivedValueType) &&
+  receivedValueType.types.some((type) => type.kind === ts.SyntaxKind.UnknownKeyword) &&
+  receivedValueType.types.some((type) => type.kind === ts.SyntaxKind.UndefinedKeyword);
+
+if (!hasExplicitUnknownAndUndefined) {
+  throw new Error(
+    'OcpValidationError.receivedValue must explicitly declare unknown | undefined in public declarations'
+  );
+}
+
+const duplicatedTransactionTreeResponseImports = program
+  .getSourceFiles()
+  .filter((sourceFile) => sourceFile.fileName.startsWith(declarationRoot))
+  .filter((sourceFile) => sourceFile.fileName !== commonTypesDeclaration)
+  .filter((sourceFile) => sourceFile.text.includes(cantonTransactionTreeOperationsModule))
+  .map((sourceFile) => path.relative(projectRoot, sourceFile.fileName));
+
+if (duplicatedTransactionTreeResponseImports.length > 0) {
+  throw new Error(
+    `Public declarations must import transaction-tree response types through src/types/common:\n${duplicatedTransactionTreeResponseImports
+      .map((file) => `- ${file}`)
+      .join('\n')}`
   );
 }

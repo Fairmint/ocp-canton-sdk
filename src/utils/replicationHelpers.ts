@@ -9,12 +9,18 @@
  * @module replicationHelpers
  */
 
-import type { OcfEntityDataMap, OcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
-import { mapOcfObjectTypeToEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
+import {
+  mapOcfObjectTypeToEntityType,
+  type OcfEntityDataMap,
+  type OcfEntityType,
+} from '../functions/OpenCapTable/capTable/entityTypes';
 import type { CapTableState } from '../functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
 import { normalizeOcfData } from './planSecurityAliases';
+
+// Preserve the public utils import path while keeping the protocol-native guard implementation centralized.
+export { isOcfEntityType } from '../functions/OpenCapTable/capTable/entityTypes';
 
 // ============================================================================
 // Categorized Type Mapping
@@ -124,10 +130,6 @@ export const TRANSACTION_SUBTYPE_MAP: Record<string, OcfEntityType> = {
   // Stakeholder Events (2 types)
   CE_STAKEHOLDER_RELATIONSHIP: 'stakeholderRelationshipChangeEvent',
   CE_STAKEHOLDER_STATUS: 'stakeholderStatusChangeEvent',
-
-  // Legacy aliases kept for backward compatibility with historical exports
-  TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT: 'stakeholderRelationshipChangeEvent',
-  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: 'stakeholderStatusChangeEvent',
 };
 
 /** Read only mappings owned by the registry object, never inherited prototype properties. */

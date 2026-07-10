@@ -77,6 +77,7 @@ describe('OcpValidationError', () => {
     });
 
     expect(error.receivedValue).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(error, 'receivedValue')).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(error.context ?? {}, 'receivedValue')).toBe(false);
   });
 
