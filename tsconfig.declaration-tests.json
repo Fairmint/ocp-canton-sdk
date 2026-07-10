@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.tests.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["test/declarations/**/*.ts"],
+  "exclude": []
+}

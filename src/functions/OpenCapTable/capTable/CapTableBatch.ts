@@ -17,11 +17,20 @@ import {
 import type { CommandWithDisclosedContracts } from '../../../types';
 import {
   ENTITY_TAG_MAP,
+  isOcfCreatableEntityType,
+  isOcfDeletableEntityType,
+  isOcfEditableEntityType,
   type CapTableBatchExecuteResult,
+  type CapTableBatchOperations,
+  type OcfCreateArguments,
   type OcfCreateData,
+  type OcfCreateOperation,
   type OcfDataTypeFor,
+  type OcfDeletableEntityType,
   type OcfDeleteData,
+  type OcfEditArguments,
   type OcfEditData,
+  type OcfEditOperation,
   type OcfEntityType,
   type UpdateCapTableResult,
 } from './batchTypes';
@@ -51,7 +60,7 @@ function createUpdateCapTableCommandId(): string {
 /** Metadata for a batch operation item, used for debugging and error reporting. */
 export interface BatchItemMeta {
   /** The OCF entity type (e.g., 'stockIssuance', 'stakeholder') */
-  entityType: string;
+  entityType: OcfEntityType;
   /** The canonical OCF object ID */
   id: string;
   /** The security_id for issuance types (stockIssuance, convertibleIssuance, etc.) */
@@ -98,25 +107,23 @@ export class CapTableBatch {
    * @param type - The OCF entity type to create (e.g., 'stakeholder', 'stockClass')
    * @param data - The native OCF data for the entity
    * @returns This for chaining
-   * @throws OcpValidationError if type is 'issuer' (issuer is created with CapTable via IssuerAuthorization)
+   * Unsupported entity kinds are rejected by TypeScript and guarded at runtime for untyped callers.
    */
-  create<T extends OcfEntityType>(type: T, data: OcfDataTypeFor<T>): this {
-    // Issuer is edit-only (created with CapTable via IssuerAuthorization.CreateCapTable)
-    if (type === 'issuer') {
-      throw new OcpValidationError(
-        'type',
-        'Cannot create issuer via batch - issuer is created with the CapTable via IssuerAuthorization.CreateCapTable',
-        { code: OcpErrorCodes.INVALID_TYPE }
-      );
+  create(...args: OcfCreateArguments): this {
+    const [type, data] = args;
+    if (!isOcfCreatableEntityType(type)) {
+      throw new OcpValidationError('type', `Create operation not supported for entity type: ${String(type)}`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+      });
     }
 
-    const damlData = convertToDaml(type, data);
     const tag = ENTITY_TAG_MAP[type].create;
     if (!tag) {
       throw new OcpValidationError('type', `Create operation not supported for entity type: ${type}`, {
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
+    const damlData = convertToDaml(...args);
     this.creates.push({ tag, value: damlData } as unknown as OcfCreateData);
     this.createMetas.push(extractBatchItemMeta(type, data));
     return this;
@@ -129,14 +136,21 @@ export class CapTableBatch {
    * @param data - The updated native OCF data (must include the entity's id)
    * @returns This for chaining
    */
-  edit<T extends OcfEntityType>(type: T, data: OcfDataTypeFor<T>): this {
-    const damlData = convertToDaml(type, data);
+  edit(...args: OcfEditArguments): this {
+    const [type, data] = args;
+    if (!isOcfEditableEntityType(type)) {
+      throw new OcpValidationError('type', `Edit operation not supported for entity type: ${String(type)}`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+      });
+    }
+
     const tag = ENTITY_TAG_MAP[type].edit;
     if (!tag) {
       throw new OcpValidationError('type', `Edit operation not supported for entity type: ${type}`, {
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
+    const damlData = convertToDaml(...args);
     this.edits.push({ tag, value: damlData } as unknown as OcfEditData);
     this.editMetas.push(extractBatchItemMeta(type, data));
     return this;
@@ -148,12 +162,11 @@ export class CapTableBatch {
    * @param type - The OCF entity type to delete
    * @param id - The OCF object ID to delete
    * @returns This for chaining
-   * @throws OcpValidationError if type is 'issuer' (issuer cannot be deleted)
+   * Unsupported entity kinds are rejected by TypeScript and guarded at runtime for untyped callers.
    */
-  delete(type: OcfEntityType, id: string): this {
-    // Issuer cannot be deleted - it must always exist for the CapTable
-    if (type === 'issuer') {
-      throw new OcpValidationError('type', 'Cannot delete issuer - issuer must always exist for the CapTable', {
+  delete(type: OcfDeletableEntityType, id: string): this {
+    if (!isOcfDeletableEntityType(type)) {
+      throw new OcpValidationError('type', `Delete operation not supported for entity type: ${String(type)}`, {
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
@@ -443,25 +456,14 @@ export interface BatchItemDetails {
   deletes: BatchItemMeta[];
 }
 
-/** Entity types that have a security_id field. */
-const ISSUANCE_ENTITY_TYPES = new Set([
-  'stockIssuance',
-  'convertibleIssuance',
-  'equityCompensationIssuance',
-  'warrantIssuance',
-  'planSecurityIssuance',
-]);
-
 /**
  * Extract debugging metadata from native OCF data.
  * Pulls id, and security_id for issuance types.
  */
-function extractBatchItemMeta(entityType: string, data: unknown): BatchItemMeta {
-  const obj = data as Record<string, unknown> | undefined;
-  const id = typeof obj?.id === 'string' ? obj.id : 'unknown';
-  const meta: BatchItemMeta = { entityType, id };
-  if (ISSUANCE_ENTITY_TYPES.has(entityType)) {
-    const securityId = obj?.security_id;
+function extractBatchItemMeta<T extends OcfEntityType>(entityType: T, data: OcfDataTypeFor<T>): BatchItemMeta {
+  const meta: BatchItemMeta = { entityType, id: data.id };
+  if ('security_id' in data) {
+    const securityId = data.security_id;
     if (typeof securityId === 'string') {
       meta.securityId = securityId;
     }
@@ -509,23 +511,27 @@ function findUndefinedPath(value: unknown, currentPath: string): string | undefi
  */
 export function buildUpdateCapTableCommand(
   params: Omit<CapTableBatchParams, 'actAs' | 'readAs'>,
-  operations: {
-    creates?: Array<{ type: OcfEntityType; data: OcfDataTypeFor<OcfEntityType> }>;
-    edits?: Array<{ type: OcfEntityType; data: OcfDataTypeFor<OcfEntityType> }>;
-    deletes?: Array<{ type: OcfEntityType; id: string }>;
-  }
+  operations: CapTableBatchOperations
 ): CommandWithDisclosedContracts {
   const batch = new CapTableBatch({ ...params, actAs: [] });
 
   for (const op of operations.creates ?? []) {
-    batch.create(op.type, op.data);
+    batch.create(...createOperationArguments(op));
   }
   for (const op of operations.edits ?? []) {
-    batch.edit(op.type, op.data);
+    batch.edit(...editOperationArguments(op));
   }
   for (const op of operations.deletes ?? []) {
     batch.delete(op.type, op.id);
   }
 
   return batch.build();
+}
+
+function createOperationArguments(operation: OcfCreateOperation): OcfCreateArguments {
+  return [operation.type, operation.data] as OcfCreateArguments;
+}
+
+function editOperationArguments(operation: OcfEditOperation): OcfEditArguments {
+  return [operation.type, operation.data] as OcfEditArguments;
 }

@@ -100,6 +100,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Test declarations
+        run: npm run test:declarations
+
       - name: Type Check
         run: npm run typecheck
 

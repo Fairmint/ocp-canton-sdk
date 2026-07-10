@@ -15,81 +15,8 @@ import type { OcfManifest } from './cantonOcfExtractor';
 import { DEFAULT_DEPRECATED_FIELDS, DEFAULT_INTERNAL_FIELDS, ocfDeepEqual } from './ocfComparison';
 import { normalizeEntityType, normalizeObjectType, normalizeOcfData } from './planSecurityAliases';
 
-// ============================================================================
-// OcfEntityType Validation
-// ============================================================================
-
-/**
- * Runtime set of all valid OcfEntityType values.
- * Used for runtime validation when entity types come from external sources.
- */
-const VALID_OCF_ENTITY_TYPES: ReadonlySet<string> = new Set<OcfEntityType>([
-  'convertibleAcceptance',
-  'convertibleCancellation',
-  'convertibleConversion',
-  'convertibleIssuance',
-  'convertibleRetraction',
-  'convertibleTransfer',
-  'document',
-  'equityCompensationAcceptance',
-  'equityCompensationCancellation',
-  'equityCompensationExercise',
-  'equityCompensationIssuance',
-  'equityCompensationRelease',
-  'equityCompensationRepricing',
-  'equityCompensationRetraction',
-  'equityCompensationTransfer',
-  'issuer',
-  'issuerAuthorizedSharesAdjustment',
-  'planSecurityAcceptance',
-  'planSecurityCancellation',
-  'planSecurityExercise',
-  'planSecurityIssuance',
-  'planSecurityRelease',
-  'planSecurityRetraction',
-  'planSecurityTransfer',
-  'stakeholder',
-  'stakeholderRelationshipChangeEvent',
-  'stakeholderStatusChangeEvent',
-  'stockAcceptance',
-  'stockCancellation',
-  'stockClass',
-  'stockClassAuthorizedSharesAdjustment',
-  'stockClassConversionRatioAdjustment',
-  'stockClassSplit',
-  'stockConsolidation',
-  'stockConversion',
-  'stockIssuance',
-  'stockLegendTemplate',
-  'stockPlan',
-  'stockPlanPoolAdjustment',
-  'stockPlanReturnToPool',
-  'stockReissuance',
-  'stockRepurchase',
-  'stockRetraction',
-  'stockTransfer',
-  'valuation',
-  'vestingAcceleration',
-  'vestingEvent',
-  'vestingStart',
-  'vestingTerms',
-  'warrantAcceptance',
-  'warrantCancellation',
-  'warrantExercise',
-  'warrantIssuance',
-  'warrantRetraction',
-  'warrantTransfer',
-]);
-
-/**
- * Runtime type guard for OcfEntityType.
- *
- * @param value - The value to check
- * @returns True if value is a valid OcfEntityType
- */
-export function isOcfEntityType(value: string): value is OcfEntityType {
-  return VALID_OCF_ENTITY_TYPES.has(value);
-}
+// Preserve the public utils import path while keeping the registry as the single implementation.
+export { isOcfEntityType } from '../functions/OpenCapTable/capTable/batchTypes';
 
 // ============================================================================
 // Categorized Type Mapping

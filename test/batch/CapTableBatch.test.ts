@@ -191,12 +191,13 @@ describe('CapTableBatch', () => {
       };
 
       try {
+        // @ts-expect-error issuer is edit-only; exercise the runtime guard for untyped callers
         batch.create('issuer', issuerData);
         throw new Error('Expected OcpValidationError to be thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(OcpValidationError);
         const validationError = error as OcpValidationError;
-        expect(validationError.message).toContain('Cannot create issuer via batch');
+        expect(validationError.message).toContain('Create operation not supported for entity type: issuer');
         expect(validationError.fieldPath).toBe('type');
         expect(validationError.code).toBe(OcpErrorCodes.INVALID_TYPE);
       }
@@ -209,12 +210,13 @@ describe('CapTableBatch', () => {
       });
 
       try {
+        // @ts-expect-error issuer is edit-only; exercise the runtime guard for untyped callers
         batch.delete('issuer', 'issuer-123');
         throw new Error('Expected OcpValidationError to be thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(OcpValidationError);
         const validationError = error as OcpValidationError;
-        expect(validationError.message).toContain('Cannot delete issuer');
+        expect(validationError.message).toContain('Delete operation not supported for entity type: issuer');
         expect(validationError.fieldPath).toBe('type');
         expect(validationError.code).toBe(OcpErrorCodes.INVALID_TYPE);
       }
