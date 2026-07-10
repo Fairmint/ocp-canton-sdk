@@ -5,6 +5,7 @@ import {
   type OcpClient,
   type OcpClientDependencies,
   type OcpClientEnvOptions,
+  type OcpValidationError,
 } from '../../dist';
 
 type IsOptional<T, Key extends keyof T> = {} extends Pick<T, Key> ? true : false;
@@ -21,6 +22,9 @@ const clientValidatorIsRequired: IsOptional<OcpClient, 'validator'> = false;
 const clientFactoryIsRequired: IsOptional<OcpClient, 'factory'> = false;
 const clientEnvironmentIsRequired: IsOptional<OcpClient, 'environment'> = false;
 const errorStatusCodeIsRequired: IsOptional<OcpNetworkError, 'statusCode'> = false;
+const validationReceivedValueIsRequired: IsOptional<OcpValidationError, 'receivedValue'> = false;
+declare const validationError: OcpValidationError;
+const validationReceivedValue: unknown = validationError.receivedValue;
 
 // @ts-expect-error Built environment inputs preserve omission-only properties.
 const explicitUndefinedInput: EnvironmentConfigInput = { environment: 'localnet', ledgerApiUrl: undefined };
@@ -41,6 +45,8 @@ void clientValidatorIsRequired;
 void clientFactoryIsRequired;
 void clientEnvironmentIsRequired;
 void errorStatusCodeIsRequired;
+void validationReceivedValueIsRequired;
+void validationReceivedValue;
 void explicitUndefinedInput;
 void explicitUndefinedOverride;
 void explicitUndefinedDependency;

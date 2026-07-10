@@ -30,6 +30,17 @@ function damlPhoneToNative(phone: Fairmint.OpenCapTable.Types.Contact.OcfPhone):
   };
 }
 
+function readOptionalSubdivision(value: unknown, field: string): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new OcpParseError(`Issuer contract field ${field} must be a non-empty string when provided`, {
+      source: `getIssuerAsOcf.${field}`,
+      code: typeof value === 'string' ? OcpErrorCodes.INVALID_FORMAT : OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+  return value;
+}
+
 export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
   const normalizeInitialSharesValue = (v: unknown): OcfIssuerInput['initial_shares_authorized'] | undefined => {
     if (typeof v === 'string' || typeof v === 'number') return normalizeNumericString(String(v));
@@ -50,8 +61,14 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const subdivisionCode = damlData.country_subdivision_of_formation ?? undefined;
-  const subdivisionName = damlData.country_subdivision_name_of_formation ?? undefined;
+  const subdivisionCode = readOptionalSubdivision(
+    damlData.country_subdivision_of_formation,
+    'country_subdivision_of_formation'
+  );
+  const subdivisionName = readOptionalSubdivision(
+    damlData.country_subdivision_name_of_formation,
+    'country_subdivision_name_of_formation'
+  );
   if (subdivisionCode !== undefined && subdivisionName !== undefined) {
     throw new OcpParseError('Issuer contract contains both subdivision code and subdivision name', {
       source: 'getIssuerAsOcf',
