@@ -447,7 +447,6 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
   }
 
   validateCanonicalSemanticRefinements(input);
-  validateCanonicalSemanticRefinements(input);
   const source = parseWithOcfSchema(input, declaredObjectType);
 
   let normalized: Record<string, unknown>;
