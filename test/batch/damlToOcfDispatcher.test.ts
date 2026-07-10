@@ -284,6 +284,28 @@ describe('damlToOcf dispatcher', () => {
       expect(result).toEqual({ id: 'acc-1', date: '2025-01-01T00:00:00Z', security_id: 'sec-1' });
     });
 
+    it('extracts stockPlan data from the canonical plan_data key', () => {
+      const planData = {
+        id: 'plan-1',
+        plan_name: '2025 Equity Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['class-1'],
+      };
+
+      expect(extractEntityData('stockPlan', { plan_data: planData })).toEqual(planData);
+    });
+
+    it('extracts stockPlan data from the legacy stock_plan_data key', () => {
+      const planData = {
+        id: 'plan-legacy-1',
+        plan_name: 'Legacy Equity Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['class-1'],
+      };
+
+      expect(extractEntityData('stockPlan', { stock_plan_data: planData })).toEqual(planData);
+    });
+
     it('extracts stakeholderRelationshipChangeEvent data from canonical event_data key', () => {
       const createArgument = {
         event_data: {
