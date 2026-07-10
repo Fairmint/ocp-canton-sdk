@@ -2,12 +2,14 @@
 /** Compile-time smoke tests for declarations exported by the built SDK. */
 
 import {
+  applyCommandContext,
   authorizeIssuer,
   buildCreateIssuerCommand,
   CapTableBatch,
   OcpClient,
   OcpValidationError,
   withdrawAuthorization,
+  type AuthorizeIssuerResult,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
   type CreateIssuerParams,
@@ -22,7 +24,10 @@ import {
   type OcfStockAcceptance,
   type OcfStockClass,
   type OcfVestingStart,
+  type SubmitAndWaitForTransactionTreeResponse,
+  type WithdrawAuthorizationResult,
 } from '../../dist';
+import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
 
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
@@ -53,10 +58,18 @@ const publishedOcfObjectExcludesLegacyPlanSecurity: Assert<
   IsExactly<Extract<OcfObject, { readonly object_type: LegacyPlanSecurityObjectType }>, never>
 > = true;
 const generatedAndLegacyValuesAreNotRootExports: Assert<IsExactly<RemovedRootValue, never>> = true;
+const authorizeIssuerResponseUsesPublicLedgerType: Assert<
+  IsExactly<AuthorizeIssuerResult['response'], SubmitAndWaitForTransactionTreeResponse>
+> = true;
+const withdrawAuthorizationResponseUsesPublicLedgerType: Assert<
+  IsExactly<WithdrawAuthorizationResult['response'], SubmitAndWaitForTransactionTreeResponse>
+> = true;
 
 void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesLegacyPlanSecurity;
 void generatedAndLegacyValuesAreNotRootExports;
+void authorizeIssuerResponseUsesPublicLedgerType;
+void withdrawAuthorizationResponseUsesPublicLedgerType;
 void authorizeIssuer;
 void buildCreateIssuerCommand;
 void CapTableBatch;
@@ -66,6 +79,19 @@ void withdrawAuthorization;
 
 declare const createIssuerParams: CreateIssuerParams;
 buildCreateIssuerCommand(createIssuerParams);
+
+const paramsWithCallerMetadata = {
+  commands: [],
+  actAs: ['issuer::party'],
+  callerMetadata: 'preserved' as const,
+};
+const contextualizedParams = applyCommandContext(paramsWithCallerMetadata);
+const publishedContextPreservesCallerSubtype: Assert<
+  IsExactly<typeof contextualizedParams, typeof paramsWithCallerMetadata>
+> = true;
+const preservedCallerMetadata: 'preserved' = contextualizedParams.callerMetadata;
+void publishedContextPreservesCallerSubtype;
+void preservedCallerMetadata;
 
 // @ts-expect-error generated DAML wire unions are intentionally not root exports
 type RemovedGeneratedWireType = import('../../dist').OcfCreateData;
@@ -150,4 +176,12 @@ function verifyPublishedBatchApi(
   void invalidIdentityOperation;
 }
 
+function verifyPublishedUtilsApi(candidateEntityType: string): void {
+  if (isOcfEntityTypeFromUtils(candidateEntityType)) {
+    const narrowedEntityType: OcfEntityType = candidateEntityType;
+    void narrowedEntityType;
+  }
+}
+
 void verifyPublishedBatchApi;
+void verifyPublishedUtilsApi;

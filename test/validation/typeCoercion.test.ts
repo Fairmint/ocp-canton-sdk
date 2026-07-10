@@ -160,6 +160,19 @@ describe('Type Coercion Utilities', () => {
       expect(tryIsoDateToDateString('2100-02-29')).toBeNull();
     });
 
+    test('accepts at most nine fractional-second digits', () => {
+      const nineDigits = '2024-01-15T23:59:59.123456789Z';
+      const tenDigits = '2024-01-15T23:59:59.1234567890Z';
+
+      expect(tryIsoDateToDateString(nineDigits)).toBe('2024-01-15');
+      expect(dateStringToDAMLTime(nineDigits)).toBe(nineDigits);
+      expect(damlTimeToDateString(nineDigits)).toBe('2024-01-15');
+
+      expect(tryIsoDateToDateString(tenDigits)).toBeNull();
+      expect(() => dateStringToDAMLTime(tenDigits)).toThrow(OcpValidationError);
+      expect(() => damlTimeToDateString(tenDigits)).toThrow(OcpValidationError);
+    });
+
     test('reports the caller field path and invalid value', () => {
       const value = '2024-02-30T00:00:00Z';
 
