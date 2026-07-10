@@ -13,7 +13,7 @@
  * 4. Fields are properly transformed to DAML format
  */
 
-import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { planSecurityExerciseDataToDaml } from '../../src/functions/OpenCapTable/planSecurityExercise';
 import { planSecurityIssuanceDataToDaml } from '../../src/functions/OpenCapTable/planSecurityIssuance';
 import type { OcfPlanSecurityExercise, OcfPlanSecurityIssuance } from '../../src/types/native';
@@ -114,6 +114,38 @@ describe('PlanSecurity Type Converters', () => {
         expect(result.termination_exercise_windows).toEqual([
           { reason: 'OcfTermVoluntaryOther', period: '90', period_type: 'OcfPeriodDays' },
         ]);
+      });
+
+      it.each([
+        ['undefined', undefined, OcpErrorCodes.INVALID_TYPE],
+        ['empty', '', OcpErrorCodes.INVALID_FORMAT],
+        ['non-string', { seconds: 1 }, OcpErrorCodes.INVALID_TYPE],
+      ] as const)('rejects a required-nullable expiration_date when %s', (_case, expirationDate, code) => {
+        const input = {
+          object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+          id: 'psi-expiration-boundary',
+          date: '2025-01-15',
+          security_id: 'sec-expiration-boundary',
+          custom_id: 'custom-expiration-boundary',
+          stakeholder_id: 'stakeholder-expiration-boundary',
+          compensation_type: 'OPTION',
+          quantity: '100',
+          expiration_date: expirationDate,
+          termination_exercise_windows: [],
+          security_law_exemptions: [],
+        } as unknown as OcfPlanSecurityIssuance;
+
+        try {
+          planSecurityIssuanceDataToDaml(input);
+          throw new Error('Expected expiration date validation to fail');
+        } catch (error) {
+          expect(error).toBeInstanceOf(OcpValidationError);
+          expect(error).toMatchObject({
+            code,
+            fieldPath: 'planSecurityIssuance.expiration_date',
+            receivedValue: expirationDate,
+          });
+        }
       });
 
       it('converts RSU plan security type to OcfCompensationTypeRSU', () => {

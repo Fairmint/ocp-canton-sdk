@@ -6,7 +6,7 @@
  * infinite edit loops in the replication script.
  */
 
-import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError, type OcpErrorCode } from '../../src/errors';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
@@ -17,6 +17,21 @@ function roundTrip(ocfInput: Parameters<typeof warrantIssuanceDataToDaml>[0]): R
   // daml is the DAML representation. Convert it back via the readback function.
   const native = damlWarrantIssuanceDataToNative(daml);
   return { ...native, object_type: 'TX_WARRANT_ISSUANCE' };
+}
+
+function expectInvalidWarrantDate(
+  action: () => unknown,
+  fieldPath: string,
+  receivedValue: unknown,
+  code: OcpErrorCode = OcpErrorCodes.INVALID_FORMAT
+): void {
+  try {
+    action();
+    throw new Error('Expected warrant date validation to fail');
+  } catch (error) {
+    expect(error).toBeInstanceOf(OcpValidationError);
+    expect(error).toMatchObject({ code, fieldPath, receivedValue });
+  }
 }
 
 describe('WarrantIssuance round-trip equivalence', () => {
@@ -48,6 +63,25 @@ describe('WarrantIssuance round-trip equivalence', () => {
     ],
     object_type: 'TX_WARRANT_ISSUANCE' as const,
   };
+
+  function stockClassTrigger(overrides: Record<string, unknown> = {}) {
+    return {
+      type: 'AUTOMATIC_ON_CONDITION' as const,
+      trigger_id: 'w_stock_ratio',
+      trigger_condition: 'X',
+      conversion_right: {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+        converts_to_stock_class_id: '16faa6e5-b13a-4dda-bad2-885fccd2975a',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION' as const,
+          ratio: { numerator: '1', denominator: '1' },
+          conversion_price: { amount: '1', currency: 'USD' },
+          rounding_type: 'NORMAL' as const,
+        },
+      },
+      ...overrides,
+    };
+  }
 
   test('basic warrant issuance survives round-trip', () => {
     const dbData = { ...baseWarrantIssuance, object_type: 'TX_WARRANT_ISSUANCE' } as Record<string, unknown>;
@@ -153,6 +187,235 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
     expect(ocfDeepEqual(dbData as Record<string, unknown>, cantonData)).toBe(true);
   });
+
+  test.each(['board_approval_date', 'stockholder_approval_date'] as const)(
+    'rejects a present non-string %s on readback',
+    (field) => {
+      const invalidDate = { seconds: 1 };
+      const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+
+      try {
+        damlWarrantIssuanceDataToNative({ ...daml, [field]: invalidDate });
+        throw new Error('Expected approval date validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: `warrantIssuance.${field}`,
+          receivedValue: invalidDate,
+        });
+      }
+    }
+  );
+
+  test.each([
+    ['', OcpErrorCodes.INVALID_FORMAT],
+    [{ seconds: 1 }, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('rejects a present invalid warrant_expiration_date on readback', (invalidDate, code) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+
+    try {
+      damlWarrantIssuanceDataToNative({ ...daml, warrant_expiration_date: invalidDate });
+      throw new Error('Expected warrant expiration date validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        fieldPath: 'warrantIssuance.warrant_expiration_date',
+        receivedValue: invalidDate,
+      });
+    }
+  });
+
+  test('omits a null or absent warrant_expiration_date on readback', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const withoutExpiration = { ...daml } as Record<string, unknown>;
+    delete withoutExpiration.warrant_expiration_date;
+
+    expect(damlWarrantIssuanceDataToNative({ ...daml, warrant_expiration_date: null }).warrant_expiration_date).toBe(
+      undefined
+    );
+    expect(damlWarrantIssuanceDataToNative(withoutExpiration).warrant_expiration_date).toBeUndefined();
+  });
+
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'rejects a present non-string exercise trigger %s on readback',
+    (field) => {
+      const invalidDate = { seconds: 1 };
+      const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+      const trigger = daml.exercise_triggers[0];
+
+      try {
+        damlWarrantIssuanceDataToNative({
+          ...daml,
+          exercise_triggers: [{ ...trigger, [field]: invalidDate }],
+        });
+        throw new Error('Expected trigger date validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: `warrantIssuance.exercise_triggers[].${field}`,
+          receivedValue: invalidDate,
+        });
+      }
+    }
+  );
+
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'rejects a present empty exercise trigger %s on readback',
+    (field) => {
+      const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+      const trigger = daml.exercise_triggers[0];
+
+      try {
+        damlWarrantIssuanceDataToNative({
+          ...daml,
+          exercise_triggers: [{ ...trigger, [field]: '' }],
+        });
+        throw new Error('Expected trigger date validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `warrantIssuance.exercise_triggers[].${field}`,
+          receivedValue: '',
+        });
+      }
+    }
+  );
+
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'omits a null or absent exercise trigger %s on readback',
+    (field) => {
+      const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+      const trigger = { ...daml.exercise_triggers[0] } as unknown as Record<string, unknown>;
+      const absentTrigger = { ...trigger };
+      delete absentTrigger[field];
+
+      const withNull = damlWarrantIssuanceDataToNative({
+        ...daml,
+        exercise_triggers: [{ ...trigger, [field]: null }],
+      }).exercise_triggers[0] as unknown as Record<string, unknown>;
+      const withoutField = damlWarrantIssuanceDataToNative({
+        ...daml,
+        exercise_triggers: [absentTrigger],
+      }).exercise_triggers[0] as unknown as Record<string, unknown>;
+
+      expect(withNull[field]).toBeUndefined();
+      expect(withoutField[field]).toBeUndefined();
+    }
+  );
+
+  test.each(['board_approval_date', 'stockholder_approval_date', 'warrant_expiration_date'] as const)(
+    'enforces optional write boundary semantics for %s',
+    (field) => {
+      const fieldPath = `warrantIssuance.${field}`;
+      const invalidDate = { seconds: 1 };
+
+      expectInvalidWarrantDate(
+        () =>
+          warrantIssuanceDataToDaml({
+            ...baseWarrantIssuance,
+            [field]: '',
+          }),
+        fieldPath,
+        ''
+      );
+      expectInvalidWarrantDate(
+        () =>
+          warrantIssuanceDataToDaml({
+            ...baseWarrantIssuance,
+            [field]: invalidDate,
+          }),
+        fieldPath,
+        invalidDate,
+        OcpErrorCodes.INVALID_TYPE
+      );
+
+      for (const value of [null, undefined]) {
+        const result = warrantIssuanceDataToDaml({
+          ...baseWarrantIssuance,
+          [field]: value,
+        });
+        expect(result[field]).toBeNull();
+      }
+    }
+  );
+
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'enforces optional outer trigger write boundary semantics for %s',
+    (field) => {
+      const fieldPath = `warrantIssuance.exercise_triggers[].${field}`;
+      const invalidDate = { seconds: 1 };
+
+      expectInvalidWarrantDate(
+        () =>
+          warrantIssuanceDataToDaml({
+            ...baseWarrantIssuance,
+            exercise_triggers: [{ ...baseWarrantIssuance.exercise_triggers[0], [field]: '' }],
+          }),
+        fieldPath,
+        ''
+      );
+      expectInvalidWarrantDate(
+        () =>
+          warrantIssuanceDataToDaml({
+            ...baseWarrantIssuance,
+            exercise_triggers: [{ ...baseWarrantIssuance.exercise_triggers[0], [field]: invalidDate }],
+          }),
+        fieldPath,
+        invalidDate,
+        OcpErrorCodes.INVALID_TYPE
+      );
+
+      for (const value of [null, undefined]) {
+        const result = warrantIssuanceDataToDaml({
+          ...baseWarrantIssuance,
+          exercise_triggers: [{ ...baseWarrantIssuance.exercise_triggers[0], [field]: value }],
+        });
+        expect(result.exercise_triggers[0]?.[field]).toBeNull();
+      }
+    }
+  );
+
+  test('uses identical canonical date semantics for outer and nested stock-class triggers', () => {
+    const result = warrantIssuanceDataToDaml({
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        stockClassTrigger({
+          trigger_date: '2024-01-15T23:30:00-05:00',
+          start_date: '2024-01-15T00:30:00+14:00',
+          end_date: '2024-01-15T12:00:00Z',
+        }),
+      ],
+    });
+    const outer = result.exercise_triggers[0] as unknown as Record<string, unknown>;
+    const right = outer.conversion_right as { value: { conversion_trigger: Record<string, unknown> } };
+    const nested = right.value.conversion_trigger;
+
+    for (const field of ['trigger_date', 'start_date', 'end_date'] as const) {
+      expect(outer[field]).toBe('2024-01-15T00:00:00.000Z');
+      expect(nested[field]).toBe('2024-01-15T00:00:00.000Z');
+    }
+  });
+
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'validates nested stock-class trigger %s before serialization',
+    (field) => {
+      const invalidDate = { seconds: 1 };
+      expectInvalidWarrantDate(
+        () =>
+          warrantIssuanceDataToDaml({
+            ...baseWarrantIssuance,
+            exercise_triggers: [stockClassTrigger({ [field]: invalidDate })],
+          }),
+        `warrantIssuance.exercise_triggers[].${field}`,
+        invalidDate,
+        OcpErrorCodes.INVALID_TYPE
+      );
+    }
+  );
 
   test('STOCK_CLASS_CONVERSION_RIGHT rejects non-NORMAL rounding_type (not persisted in DAML)', () => {
     const input = {

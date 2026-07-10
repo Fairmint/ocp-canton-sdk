@@ -19,7 +19,7 @@ export function stockTransferDataToDaml(d: OcfStockTransfer): Record<string, unk
   return {
     id: d.id,
     security_id: d.security_id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'stockTransfer.date'),
     quantity: normalizeNumericString(d.quantity),
     resulting_security_ids: d.resulting_security_ids,
     balance_security_id: optionalString(d.balance_security_id),

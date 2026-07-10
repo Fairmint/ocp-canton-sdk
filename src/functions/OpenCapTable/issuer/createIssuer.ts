@@ -86,7 +86,7 @@ function issuerDataToDamlInternal(
     legal_name: normalizedData.legal_name,
     country_of_formation: normalizedData.country_of_formation,
     dba: optionalString(normalizedData.dba),
-    formation_date: dateStringToDAMLTime(normalizedData.formation_date),
+    formation_date: dateStringToDAMLTime(normalizedData.formation_date, 'issuer.formation_date'),
     country_subdivision_of_formation: optionalString(normalizedData.country_subdivision_of_formation),
     country_subdivision_name_of_formation: optionalString(normalizedData.country_subdivision_name_of_formation),
     tax_ids: normalizedData.tax_ids ?? [],
