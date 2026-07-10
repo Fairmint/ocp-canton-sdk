@@ -17,77 +17,147 @@ interface EntityDataDecoder<T> {
   run(input: unknown): { readonly ok: true; readonly result: T } | { readonly ok: false; readonly error: DecoderError };
 }
 
-type EntityDataDecoderMap = {
-  readonly [EntityType in OcfEntityType]: EntityDataDecoder<DamlDataTypeFor<EntityType>>;
+interface EntityDataCodec<T> {
+  readonly decoder: EntityDataDecoder<T>;
+  readonly encode: (value: T) => unknown;
+}
+
+type EntityDataCodecMap = {
+  readonly [EntityType in OcfEntityType]: EntityDataCodec<DamlDataTypeFor<EntityType>>;
 };
 
-/** Generated payload decoders keyed by their correlated SDK entity kind. */
-const ENTITY_DATA_DECODER_MAP = {
-  convertibleAcceptance: Fairmint.OpenCapTable.OCF.ConvertibleAcceptance.ConvertibleAcceptanceOcfData.decoder,
-  convertibleCancellation: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellationOcfData.decoder,
-  convertibleConversion: Fairmint.OpenCapTable.OCF.ConvertibleConversion.ConvertibleConversionOcfData.decoder,
-  convertibleIssuance: Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData.decoder,
-  convertibleRetraction: Fairmint.OpenCapTable.OCF.ConvertibleRetraction.ConvertibleRetractionOcfData.decoder,
-  convertibleTransfer: Fairmint.OpenCapTable.OCF.ConvertibleTransfer.ConvertibleTransferOcfData.decoder,
-  document: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData.decoder,
+/** Generated payload codecs keyed by their correlated SDK entity kind. */
+const ENTITY_DATA_CODEC_MAP: EntityDataCodecMap = {
+  convertibleAcceptance: Fairmint.OpenCapTable.OCF.ConvertibleAcceptance.ConvertibleAcceptanceOcfData,
+  convertibleCancellation: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellationOcfData,
+  convertibleConversion: Fairmint.OpenCapTable.OCF.ConvertibleConversion.ConvertibleConversionOcfData,
+  convertibleIssuance: Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData,
+  convertibleRetraction: Fairmint.OpenCapTable.OCF.ConvertibleRetraction.ConvertibleRetractionOcfData,
+  convertibleTransfer: Fairmint.OpenCapTable.OCF.ConvertibleTransfer.ConvertibleTransferOcfData,
+  document: Fairmint.OpenCapTable.OCF.Document.DocumentOcfData,
   equityCompensationAcceptance:
-    Fairmint.OpenCapTable.OCF.EquityCompensationAcceptance.EquityCompensationAcceptanceOcfData.decoder,
+    Fairmint.OpenCapTable.OCF.EquityCompensationAcceptance.EquityCompensationAcceptanceOcfData,
   equityCompensationCancellation:
-    Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellationOcfData.decoder,
-  equityCompensationExercise:
-    Fairmint.OpenCapTable.OCF.EquityCompensationExercise.EquityCompensationExerciseOcfData.decoder,
-  equityCompensationIssuance:
-    Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuanceOcfData.decoder,
-  equityCompensationRelease:
-    Fairmint.OpenCapTable.OCF.EquityCompensationRelease.EquityCompensationReleaseOcfData.decoder,
-  equityCompensationRepricing:
-    Fairmint.OpenCapTable.OCF.EquityCompensationRepricing.EquityCompensationRepricingOcfData.decoder,
+    Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellationOcfData,
+  equityCompensationExercise: Fairmint.OpenCapTable.OCF.EquityCompensationExercise.EquityCompensationExerciseOcfData,
+  equityCompensationIssuance: Fairmint.OpenCapTable.OCF.EquityCompensationIssuance.EquityCompensationIssuanceOcfData,
+  equityCompensationRelease: Fairmint.OpenCapTable.OCF.EquityCompensationRelease.EquityCompensationReleaseOcfData,
+  equityCompensationRepricing: Fairmint.OpenCapTable.OCF.EquityCompensationRepricing.EquityCompensationRepricingOcfData,
   equityCompensationRetraction:
-    Fairmint.OpenCapTable.OCF.EquityCompensationRetraction.EquityCompensationRetractionOcfData.decoder,
-  equityCompensationTransfer:
-    Fairmint.OpenCapTable.OCF.EquityCompensationTransfer.EquityCompensationTransferOcfData.decoder,
-  issuer: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData.decoder,
+    Fairmint.OpenCapTable.OCF.EquityCompensationRetraction.EquityCompensationRetractionOcfData,
+  equityCompensationTransfer: Fairmint.OpenCapTable.OCF.EquityCompensationTransfer.EquityCompensationTransferOcfData,
+  issuer: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData,
   issuerAuthorizedSharesAdjustment:
-    Fairmint.OpenCapTable.OCF.IssuerAuthorizedSharesAdjustment.IssuerAuthorizedSharesAdjustmentOcfData.decoder,
-  stakeholder: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData.decoder,
+    Fairmint.OpenCapTable.OCF.IssuerAuthorizedSharesAdjustment.IssuerAuthorizedSharesAdjustmentOcfData,
+  stakeholder: Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData,
   stakeholderRelationshipChangeEvent:
-    Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEventOcfData.decoder,
+    Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEventOcfData,
   stakeholderStatusChangeEvent:
-    Fairmint.OpenCapTable.OCF.StakeholderStatusChangeEvent.StakeholderStatusChangeEventOcfData.decoder,
-  stockAcceptance: Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptanceOcfData.decoder,
-  stockCancellation: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellationOcfData.decoder,
-  stockClass: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData.decoder,
+    Fairmint.OpenCapTable.OCF.StakeholderStatusChangeEvent.StakeholderStatusChangeEventOcfData,
+  stockAcceptance: Fairmint.OpenCapTable.OCF.StockAcceptance.StockAcceptanceOcfData,
+  stockCancellation: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellationOcfData,
+  stockClass: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData,
   stockClassAuthorizedSharesAdjustment:
-    Fairmint.OpenCapTable.OCF.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustmentOcfData.decoder,
+    Fairmint.OpenCapTable.OCF.StockClassAuthorizedSharesAdjustment.StockClassAuthorizedSharesAdjustmentOcfData,
   stockClassConversionRatioAdjustment:
-    Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustmentOcfData.decoder,
-  stockClassSplit: Fairmint.OpenCapTable.OCF.StockClassSplit.StockClassSplitOcfData.decoder,
-  stockConsolidation: Fairmint.OpenCapTable.OCF.StockConsolidation.StockConsolidationOcfData.decoder,
-  stockConversion: Fairmint.OpenCapTable.OCF.StockConversion.StockConversionOcfData.decoder,
-  stockIssuance: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData.decoder,
-  stockLegendTemplate: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData.decoder,
-  stockPlan: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData.decoder,
-  stockPlanPoolAdjustment: Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustmentOcfData.decoder,
-  stockPlanReturnToPool: Fairmint.OpenCapTable.OCF.StockPlanReturnToPool.StockPlanReturnToPoolOcfData.decoder,
-  stockReissuance: Fairmint.OpenCapTable.OCF.StockReissuance.StockReissuanceOcfData.decoder,
-  stockRepurchase: Fairmint.OpenCapTable.OCF.StockRepurchase.StockRepurchaseOcfData.decoder,
-  stockRetraction: Fairmint.OpenCapTable.OCF.StockRetraction.StockRetractionOcfData.decoder,
-  stockTransfer: Fairmint.OpenCapTable.OCF.StockTransfer.StockTransferOcfData.decoder,
-  valuation: Fairmint.OpenCapTable.OCF.Valuation.ValuationOcfData.decoder,
-  vestingAcceleration: Fairmint.OpenCapTable.OCF.VestingAcceleration.VestingAccelerationOcfData.decoder,
-  vestingEvent: Fairmint.OpenCapTable.OCF.VestingEvent.VestingEventOcfData.decoder,
-  vestingStart: Fairmint.OpenCapTable.OCF.VestingStart.VestingStartOcfData.decoder,
-  vestingTerms: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData.decoder,
-  warrantAcceptance: Fairmint.OpenCapTable.OCF.WarrantAcceptance.WarrantAcceptanceOcfData.decoder,
-  warrantCancellation: Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellationOcfData.decoder,
-  warrantExercise: Fairmint.OpenCapTable.OCF.WarrantExercise.WarrantExerciseOcfData.decoder,
-  warrantIssuance: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData.decoder,
-  warrantRetraction: Fairmint.OpenCapTable.OCF.WarrantRetraction.WarrantRetractionOcfData.decoder,
-  warrantTransfer: Fairmint.OpenCapTable.OCF.WarrantTransfer.WarrantTransferOcfData.decoder,
-} as const satisfies EntityDataDecoderMap;
+    Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustmentOcfData,
+  stockClassSplit: Fairmint.OpenCapTable.OCF.StockClassSplit.StockClassSplitOcfData,
+  stockConsolidation: Fairmint.OpenCapTable.OCF.StockConsolidation.StockConsolidationOcfData,
+  stockConversion: Fairmint.OpenCapTable.OCF.StockConversion.StockConversionOcfData,
+  stockIssuance: Fairmint.OpenCapTable.OCF.StockIssuance.StockIssuanceOcfData,
+  stockLegendTemplate: Fairmint.OpenCapTable.OCF.StockLegendTemplate.StockLegendTemplateOcfData,
+  stockPlan: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData,
+  stockPlanPoolAdjustment: Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustmentOcfData,
+  stockPlanReturnToPool: Fairmint.OpenCapTable.OCF.StockPlanReturnToPool.StockPlanReturnToPoolOcfData,
+  stockReissuance: Fairmint.OpenCapTable.OCF.StockReissuance.StockReissuanceOcfData,
+  stockRepurchase: Fairmint.OpenCapTable.OCF.StockRepurchase.StockRepurchaseOcfData,
+  stockRetraction: Fairmint.OpenCapTable.OCF.StockRetraction.StockRetractionOcfData,
+  stockTransfer: Fairmint.OpenCapTable.OCF.StockTransfer.StockTransferOcfData,
+  valuation: Fairmint.OpenCapTable.OCF.Valuation.ValuationOcfData,
+  vestingAcceleration: Fairmint.OpenCapTable.OCF.VestingAcceleration.VestingAccelerationOcfData,
+  vestingEvent: Fairmint.OpenCapTable.OCF.VestingEvent.VestingEventOcfData,
+  vestingStart: Fairmint.OpenCapTable.OCF.VestingStart.VestingStartOcfData,
+  vestingTerms: Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData,
+  warrantAcceptance: Fairmint.OpenCapTable.OCF.WarrantAcceptance.WarrantAcceptanceOcfData,
+  warrantCancellation: Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellationOcfData,
+  warrantExercise: Fairmint.OpenCapTable.OCF.WarrantExercise.WarrantExerciseOcfData,
+  warrantIssuance: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData,
+  warrantRetraction: Fairmint.OpenCapTable.OCF.WarrantRetraction.WarrantRetractionOcfData,
+  warrantTransfer: Fairmint.OpenCapTable.OCF.WarrantTransfer.WarrantTransferOcfData,
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+interface LosslessCodecMismatch {
+  readonly decoderPath: string;
+  readonly decoderMessage: string;
+}
+
+function valueKind(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  return typeof value;
+}
+
+function objectPath(parent: string, key: string): string {
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? `${parent}.${key}` : `${parent}[${JSON.stringify(key)}]`;
+}
+
+/** Find the first raw value that a generated decode/encode round trip discarded or normalized. */
+function findLosslessCodecMismatch(
+  raw: unknown,
+  encoded: unknown,
+  decoderPath = 'input'
+): LosslessCodecMismatch | null {
+  if (Array.isArray(raw)) {
+    if (!Array.isArray(encoded)) {
+      return {
+        decoderPath,
+        decoderMessage: `raw array was decoded and encoded as ${valueKind(encoded)}`,
+      };
+    }
+    if (raw.length !== encoded.length) {
+      return {
+        decoderPath: `${decoderPath}[${Math.min(raw.length, encoded.length)}]`,
+        decoderMessage: `raw array length ${raw.length} was decoded and encoded as length ${encoded.length}`,
+      };
+    }
+    for (let index = 0; index < raw.length; index += 1) {
+      const mismatch = findLosslessCodecMismatch(raw[index], encoded[index], `${decoderPath}[${index}]`);
+      if (mismatch) return mismatch;
+    }
+    return null;
+  }
+
+  if (isRecord(raw)) {
+    if (!isRecord(encoded)) {
+      return {
+        decoderPath,
+        decoderMessage: `raw object was decoded and encoded as ${valueKind(encoded)}`,
+      };
+    }
+    for (const [key, rawValue] of Object.entries(raw)) {
+      const childPath = objectPath(decoderPath, key);
+      if (!Object.prototype.hasOwnProperty.call(encoded, key)) {
+        return {
+          decoderPath: childPath,
+          decoderMessage: 'raw field was discarded by the generated codec',
+        };
+      }
+      const mismatch = findLosslessCodecMismatch(rawValue, encoded[key], childPath);
+      if (mismatch) return mismatch;
+    }
+    return null;
+  }
+
+  return Object.is(raw, encoded)
+    ? null
+    : {
+        decoderPath,
+        decoderMessage: `raw ${valueKind(raw)} was decoded and encoded as ${valueKind(encoded)}`,
+      };
 }
 
 /** Extract the entity-specific data object from a ledger create argument. */
@@ -132,12 +202,27 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
 export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   input: unknown
-): DamlDataTypeFor<EntityType>;
-export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
-  const decoded = ENTITY_DATA_DECODER_MAP[entityType].run(input);
+): DamlDataTypeFor<EntityType> {
+  const codec = ENTITY_DATA_CODEC_MAP[entityType];
+  const decoded = codec.decoder.run(input);
 
   if (!decoded.ok) {
     const { at: decoderPath, message: decoderMessage } = decoded.error;
+    throw new OcpParseError(`Invalid DAML data for ${entityType} at ${decoderPath}: ${decoderMessage}`, {
+      source: `damlEntityData.${entityType}`,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: {
+        entityType,
+        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+        decoderPath,
+        decoderMessage,
+      },
+    });
+  }
+
+  const mismatch = findLosslessCodecMismatch(input, codec.encode(decoded.result));
+  if (mismatch) {
+    const { decoderPath, decoderMessage } = mismatch;
     throw new OcpParseError(`Invalid DAML data for ${entityType} at ${decoderPath}: ${decoderMessage}`, {
       source: `damlEntityData.${entityType}`,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
