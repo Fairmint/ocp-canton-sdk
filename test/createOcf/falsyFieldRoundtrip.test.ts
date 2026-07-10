@@ -25,6 +25,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
           {
             type_: 'OcfTriggerTypeTypeAutomaticOnDate',
             trigger_id: 't1',
+            trigger_date: '2024-01-15T00:00:00Z',
             conversion_right: {
               conversion_mechanism: {
                 tag: 'OcfConvMechNote',
@@ -60,6 +61,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
           {
             type_: 'OcfTriggerTypeTypeAutomaticOnDate',
             trigger_id: 't1',
+            trigger_date: '2024-01-15T00:00:00Z',
             conversion_right: {
               conversion_mechanism: {
                 tag: 'OcfConvMechSAFE',
