@@ -99,6 +99,34 @@ describe('conversion semantic parser refinements', () => {
     expect(() => parseOcfObject(invalid)).toThrow(message);
   });
 
+  test.each([
+    {
+      name: 'without a detail',
+      mechanism: {
+        type: 'PPS_BASED_CONVERSION',
+        description: 'Missing discount detail',
+        discount: true,
+      },
+    },
+    {
+      name: 'with both details',
+      mechanism: {
+        type: 'PPS_BASED_CONVERSION',
+        description: 'Ambiguous discount details',
+        discount: true,
+        discount_percentage: '0.10',
+        discount_amount: { amount: '1', currency: 'USD' },
+      },
+    },
+  ])('typed and raw parsers reject discounted PPS $name', ({ mechanism }) => {
+    const invalid = warrantWithRight({
+      type: 'WARRANT_CONVERSION_RIGHT',
+      conversion_mechanism: mechanism,
+    });
+    expect(() => parseOcfEntityInput('warrantIssuance', invalid)).toThrow(OcpValidationError);
+    expect(() => parseOcfObject(invalid)).toThrow(OcpValidationError);
+  });
+
   it('rejects a mechanism that does not belong to the conversion-right variant', () => {
     const invalid = warrantWithRight({
       type: 'STOCK_CLASS_CONVERSION_RIGHT',
