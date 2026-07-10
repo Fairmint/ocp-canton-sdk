@@ -43,6 +43,13 @@ export function damlStockIssuanceDataToNative(
       receivedValue: id,
     });
   }
+  const vestings = Array.isArray((anyD as { vestings?: unknown }).vestings)
+    ? (anyD as { vestings: Array<{ date: string; amount: string }> }).vestings.map((vesting) => ({
+        date: damlTimeToDateString(vesting.date),
+        amount: normalizeNumericString(vesting.amount),
+      }))
+    : [];
+
   return {
     object_type: 'TX_STOCK_ISSUANCE',
     id,
@@ -72,12 +79,7 @@ export function damlStockIssuanceDataToNative(
     share_price: damlMonetaryToNative(d.share_price),
     quantity: normalizeNumericString(d.quantity),
     ...(d.vesting_terms_id && { vesting_terms_id: d.vesting_terms_id }),
-    vestings: Array.isArray((anyD as { vestings?: unknown }).vestings)
-      ? (anyD as { vestings: Array<{ date: string; amount: string }> }).vestings.map((v) => ({
-          date: damlTimeToDateString(v.date),
-          amount: normalizeNumericString(v.amount),
-        }))
-      : [],
+    ...(vestings.length > 0 ? { vestings } : {}),
     ...(d.cost_basis && { cost_basis: damlMonetaryToNative(d.cost_basis) }),
     stock_legend_ids: Array.isArray((d as unknown as { stock_legend_ids?: unknown }).stock_legend_ids)
       ? (d as unknown as { stock_legend_ids: string[] }).stock_legend_ids
