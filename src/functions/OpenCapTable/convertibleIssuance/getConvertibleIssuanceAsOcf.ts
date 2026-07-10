@@ -7,12 +7,13 @@ import type {
   ConvertibleType,
   OcfConvertibleIssuance,
 } from '../../../types/native';
-import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { assertDamlConversionTriggerFieldNames, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   damlTimeToDateString,
   isRecord,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
+  optionalDamlTimeToDateString,
   toNonEmptyArray,
 } from '../../../utils/typeConversions';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
@@ -115,14 +116,10 @@ function conversionRightFromDaml(value: unknown): ConvertibleConversionRight {
   };
 }
 
-function optionalDamlDate(value: unknown, field: string): string | undefined {
-  if (value === null || value === undefined) return undefined;
-  return damlTimeToDateString(value, field);
-}
-
 function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleConversionTrigger {
   const source = `convertibleIssuance.conversion_triggers.${index}`;
   const trigger = requireRecord(value, source);
+  assertDamlConversionTriggerFieldNames(trigger, source);
   return parseConversionTriggerFields(
     {
       type: mapDamlTriggerTypeToOcf(requireString(trigger.type_, `${source}.type`)),
@@ -130,13 +127,13 @@ function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleCo
       conversion_right: conversionRightFromDaml(trigger.conversion_right),
       nickname: trigger.nickname,
       trigger_description: trigger.trigger_description,
-      trigger_date: optionalDamlDate(trigger.trigger_date, `${source}.trigger_date`),
+      trigger_date: optionalDamlTimeToDateString(trigger.trigger_date, `${source}.trigger_date`),
       trigger_condition: trigger.trigger_condition,
-      start_date: optionalDamlDate(trigger.start_date, `${source}.start_date`),
-      end_date: optionalDamlDate(trigger.end_date, `${source}.end_date`),
+      start_date: optionalDamlTimeToDateString(trigger.start_date, `${source}.start_date`),
+      end_date: optionalDamlTimeToDateString(trigger.end_date, `${source}.end_date`),
     },
     source,
-    { nullIsAbsent: true }
+    { nullIsAbsent: true, unexpectedFieldCode: OcpErrorCodes.SCHEMA_MISMATCH }
   );
 }
 
@@ -171,7 +168,7 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConvertibleIssuance {
   const data = requireRecord(value, 'convertibleIssuance');
   const id = requireString(data.id, 'convertibleIssuance.id');
-  const date = requireString(data.date, 'convertibleIssuance.date');
+  const date = damlTimeToDateString(data.date, 'convertibleIssuance.date');
   const investmentAmount = requireRecord(data.investment_amount, 'convertibleIssuance.investment_amount');
   const { amount } = investmentAmount;
   if (typeof amount !== 'string' && typeof amount !== 'number') {
@@ -189,8 +186,11 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
   if (!Number.isInteger(seniority)) {
     throw invalid('convertibleIssuance.seniority', 'seniority must be an integer', data.seniority);
   }
-  const boardApprovalDate = optionalString(data.board_approval_date, 'convertibleIssuance.board_approval_date');
-  const stockholderApprovalDate = optionalString(
+  const boardApprovalDate = optionalDamlTimeToDateString(
+    data.board_approval_date,
+    'convertibleIssuance.board_approval_date'
+  );
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
     data.stockholder_approval_date,
     'convertibleIssuance.stockholder_approval_date'
   );
@@ -210,7 +210,7 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
   return {
     object_type: 'TX_CONVERTIBLE_ISSUANCE',
     id,
-    date: damlTimeToDateString(date),
+    date,
     security_id: requireString(data.security_id, 'convertibleIssuance.security_id'),
     custom_id: requireText(data.custom_id, 'convertibleIssuance.custom_id'),
     stakeholder_id: requireString(data.stakeholder_id, 'convertibleIssuance.stakeholder_id'),
@@ -225,8 +225,8 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
     ),
     seniority,
     security_law_exemptions: securityLawExemptionsFromDaml(data.security_law_exemptions),
-    ...(boardApprovalDate ? { board_approval_date: damlTimeToDateString(boardApprovalDate) } : {}),
-    ...(stockholderApprovalDate ? { stockholder_approval_date: damlTimeToDateString(stockholderApprovalDate) } : {}),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(considerationText ? { consideration_text: considerationText } : {}),
     ...(proRata ? { pro_rata: proRata } : {}),
     ...(comments ? { comments } : {}),

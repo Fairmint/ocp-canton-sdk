@@ -14,6 +14,8 @@ import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCap
 import {
   convertibleMechanismFromDaml,
   convertibleMechanismToDaml,
+  ratioMechanismFromDaml,
+  warrantMechanismToDaml,
 } from '../../src/functions/OpenCapTable/shared/conversionMechanisms';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
@@ -323,6 +325,56 @@ describe('canonical conversion mechanism matrices', () => {
   });
 });
 
+describe('generated DAML Optional record boundaries', () => {
+  it('rejects a Some-wrapped Monetary instead of accepting a non-generated compatibility shape', () => {
+    const generated = convertibleMechanismToDaml({
+      type: 'SAFE_CONVERSION',
+      conversion_mfn: false,
+      conversion_valuation_cap: { amount: '1000000', currency: 'USD' },
+    });
+    if (generated.tag !== 'OcfConvMechSAFE') throw new Error('Expected generated SAFE mechanism');
+
+    const wrapped = {
+      ...generated,
+      value: {
+        ...generated.value,
+        conversion_valuation_cap: {
+          tag: 'Some',
+          value: generated.value.conversion_valuation_cap,
+        },
+      },
+    };
+    const error = captureValidationError(() => convertibleMechanismFromDaml(wrapped));
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'direct Monetary record or null',
+      fieldPath: 'conversion_mechanism.conversion_valuation_cap',
+    });
+    expect(error.message).toContain('generated DAML Optional encoding');
+  });
+
+  it('rejects a Some-wrapped Ratio instead of accepting a non-generated compatibility shape', () => {
+    const error = captureValidationError(() =>
+      ratioMechanismFromDaml(
+        {
+          conversion_mechanism: 'OcfConversionMechanismRatioConversion',
+          ratio: { tag: 'Some', value: { numerator: '2', denominator: '1' } },
+          conversion_price: { amount: '10', currency: 'USD' },
+        },
+        'stockClass.conversion_right'
+      )
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'direct Ratio record or null',
+      fieldPath: 'stockClass.conversion_right.ratio',
+    });
+    expect(error.message).toContain('generated DAML Optional encoding');
+  });
+});
+
 describe('strict optional numeric issuance fields', () => {
   it('encodes omitted values as DAML null', () => {
     expect(
@@ -387,6 +439,102 @@ describe('strict optional numeric issuance fields', () => {
     });
     expect(error.message).toContain('explicit null is invalid');
   });
+});
+
+describe('strict optional capitalization definitions', () => {
+  function suppliedCapitalizationDefinition(value: unknown): { readonly capitalization_definition?: string } {
+    return value === undefined ? {} : { capitalization_definition: value as string };
+  }
+
+  const writers: ReadonlyArray<{
+    encode: (definition: unknown) => unknown;
+    name: string;
+  }> = [
+    {
+      name: 'convertible SAFE',
+      encode: (definition) =>
+        convertibleMechanismToDaml({
+          type: 'SAFE_CONVERSION',
+          conversion_mfn: false,
+          ...suppliedCapitalizationDefinition(definition),
+        }),
+    },
+    {
+      name: 'convertible note',
+      encode: (definition) =>
+        convertibleMechanismToDaml({
+          type: 'CONVERTIBLE_NOTE_CONVERSION',
+          interest_rates: [],
+          day_count_convention: 'ACTUAL_365',
+          interest_payout: 'DEFERRED',
+          interest_accrual_period: 'MONTHLY',
+          compounding_type: 'SIMPLE',
+          ...suppliedCapitalizationDefinition(definition),
+        }),
+    },
+    {
+      name: 'convertible percent capitalization',
+      encode: (definition) =>
+        convertibleMechanismToDaml({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: '0.1',
+          ...suppliedCapitalizationDefinition(definition),
+        }),
+    },
+    {
+      name: 'warrant percent capitalization',
+      encode: (definition) =>
+        warrantMechanismToDaml({
+          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
+          converts_to_percent: '0.1',
+          ...suppliedCapitalizationDefinition(definition),
+        }),
+    },
+    {
+      name: 'warrant valuation',
+      encode: (definition) =>
+        warrantMechanismToDaml({
+          type: 'VALUATION_BASED_CONVERSION',
+          valuation_type: 'ACTUAL',
+          ...suppliedCapitalizationDefinition(definition),
+        }),
+    },
+  ];
+
+  test.each(writers)('encodes an omitted $name definition as DAML null', ({ encode }) => {
+    expect(encode(undefined)).toMatchObject({ value: { capitalization_definition: null } });
+  });
+
+  test.each(writers)('preserves an exact non-blank $name definition', ({ encode }) => {
+    const definition = '  Fully diluted capitalization  ';
+    expect(encode(definition)).toMatchObject({ value: { capitalization_definition: definition } });
+  });
+
+  test.each(writers.flatMap((writer) => ['', '   '].map((value) => ({ ...writer, value }))))(
+    'rejects a blank $name definition',
+    ({ encode, value }) => {
+      const error = captureValidationError(() => encode(value));
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'non-blank string or omitted property',
+        fieldPath: 'conversion_mechanism.capitalization_definition',
+        receivedValue: value,
+      });
+    }
+  );
+
+  test.each(writers.flatMap((writer) => [null, 42].map((value) => ({ ...writer, value }))))(
+    'rejects a non-string $name definition',
+    ({ encode, value }) => {
+      const error = captureValidationError(() => encode(value));
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'non-blank string or omitted property',
+        fieldPath: 'conversion_mechanism.capitalization_definition',
+        receivedValue: value,
+      });
+    }
+  );
 });
 
 describe('canonical DAML conversion timing constructors', () => {

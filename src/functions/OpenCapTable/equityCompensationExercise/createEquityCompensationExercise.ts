@@ -10,7 +10,7 @@ export function equityCompensationExerciseDataToDaml(d: OcfEquityCompensationExe
   return {
     id: d.id,
     security_id: d.security_id,
-    date: dateStringToDAMLTime(d.date),
+    date: dateStringToDAMLTime(d.date, 'equityCompensationExercise.date'),
     quantity: normalizeNumericString(d.quantity),
     consideration_text: optionalString(d.consideration_text),
     resulting_security_ids: d.resulting_security_ids,

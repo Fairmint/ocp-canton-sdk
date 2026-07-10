@@ -7,10 +7,24 @@
  */
 
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcpParseError } from '../../src/errors';
-import { buildCreateIssuerCommand, normalizeIssuerData } from '../../src/functions/OpenCapTable/issuer/createIssuer';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
+import {
+  buildCreateIssuerCommand,
+  issuerDataToDaml,
+  normalizeIssuerData,
+} from '../../src/functions/OpenCapTable/issuer/createIssuer';
 import { damlIssuerDataToNative } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import type { OcfIssuer } from '../../src/types/native';
+
+function captureValidationError(action: () => unknown): OcpValidationError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof OcpValidationError) return error;
+    throw error;
+  }
+  throw new Error('Expected OcpValidationError');
+}
 
 describe('Issuer Converters', () => {
   describe('normalizeIssuerData', () => {
@@ -162,6 +176,52 @@ describe('Issuer Converters', () => {
 
       expect(result.command).toBeDefined();
       expect(result.disclosedContracts).toBeDefined();
+    });
+  });
+
+  describe('issuerDataToDaml subdivision boundary', () => {
+    const baseIssuerData: OcfIssuer = {
+      object_type: 'ISSUER',
+      id: 'issuer-001',
+      legal_name: 'Test Corporation',
+      formation_date: '2020-01-01',
+      country_of_formation: 'US',
+      tax_ids: [],
+    };
+
+    it('allows subdivision omission and encodes both DAML optionals as null', () => {
+      expect(issuerDataToDaml(baseIssuerData, { skipSchemaParse: true })).toMatchObject({
+        country_subdivision_of_formation: null,
+        country_subdivision_name_of_formation: null,
+      });
+    });
+
+    it.each([
+      ['empty subdivision code', 'country_subdivision_of_formation', '', OcpErrorCodes.INVALID_FORMAT],
+      ['blank subdivision code', 'country_subdivision_of_formation', '   ', OcpErrorCodes.INVALID_FORMAT],
+      ['null subdivision code', 'country_subdivision_of_formation', null, OcpErrorCodes.INVALID_TYPE],
+      ['numeric subdivision code', 'country_subdivision_of_formation', 42, OcpErrorCodes.INVALID_TYPE],
+      ['empty subdivision name', 'country_subdivision_name_of_formation', '', OcpErrorCodes.INVALID_FORMAT],
+      ['blank subdivision name', 'country_subdivision_name_of_formation', '\t', OcpErrorCodes.INVALID_FORMAT],
+      ['null subdivision name', 'country_subdivision_name_of_formation', null, OcpErrorCodes.INVALID_TYPE],
+      ['numeric subdivision name', 'country_subdivision_name_of_formation', 42, OcpErrorCodes.INVALID_TYPE],
+    ] as const)('classifies %s before DAML optional-string normalization', (_case, field, subdivision, code) => {
+      const input = { ...baseIssuerData, [field]: subdivision } as unknown as OcfIssuer;
+      const error = captureValidationError(() => issuerDataToDaml(input, { skipSchemaParse: true }));
+      expect(error).toMatchObject({
+        code,
+        expectedType: 'non-blank string or omitted',
+        fieldPath: `issuer.${field}`,
+        receivedValue: subdivision,
+      });
+    });
+
+    it.each([
+      ['subdivision code', 'country_subdivision_of_formation', 'DE'],
+      ['subdivision name', 'country_subdivision_name_of_formation', 'Delaware'],
+    ] as const)('preserves a valid %s', (_case, field, subdivision) => {
+      const input = { ...baseIssuerData, [field]: subdivision } as OcfIssuer;
+      expect(issuerDataToDaml(input, { skipSchemaParse: true })).toMatchObject({ [field]: subdivision });
     });
   });
 
