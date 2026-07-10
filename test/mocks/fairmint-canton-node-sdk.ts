@@ -4,7 +4,7 @@ import type { ClientConfig } from '@fairmint/canton-node-sdk';
 import type { SubmitAndWaitForTransactionTreeResponse } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/operations';
 
 export class LedgerJsonApiClient {
-  private readonly config?: ClientConfig;
+  private readonly config: ClientConfig | undefined;
   public static __instances: LedgerJsonApiClient[] = [];
   public lastAuthToken?: string;
   private __getAuthToken?: () => Promise<string> | string;
@@ -147,7 +147,7 @@ export class Canton {
   public readonly ledger: LedgerJsonApiClient;
   public readonly validator: ValidatorApiClient;
   public readonly scan: unknown;
-  private partyId?: string;
+  private partyId: string | undefined;
 
   constructor(public readonly config: ClientConfig) {
     this.ledger = new LedgerJsonApiClient(config);

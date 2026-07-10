@@ -27,6 +27,7 @@ import {
   requireCreatedEventBlob,
   setupStockSecurity,
   setupTestIssuer,
+  withCapTableContractDetails,
 } from '../utils';
 
 createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
@@ -178,7 +179,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const stockSecurity2 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: stockSecurity1.capTableContractId,
       issuerParty: ctx.issuerParty,
-      capTableContractDetails: currentCapTableDetails,
+      ...withCapTableContractDetails(currentCapTableDetails),
     });
 
     events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
@@ -194,7 +195,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const stockSecurity3 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: stockSecurity2.capTableContractId,
       issuerParty: ctx.issuerParty,
-      capTableContractDetails: currentCapTableDetails,
+      ...withCapTableContractDetails(currentCapTableDetails),
     });
 
     events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity3.capTableContractId });
@@ -212,7 +213,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity3.capTableContractId,
-      capTableContractDetails: finalCapTableDetails,
+      ...withCapTableContractDetails(finalCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -269,7 +270,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity.capTableContractId,
-      capTableContractDetails: updatedCapTableDetails,
+      ...withCapTableContractDetails(updatedCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 
@@ -325,7 +326,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const stockSecurity2 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: stockSecurity1.capTableContractId,
       issuerParty: ctx.issuerParty,
-      capTableContractDetails: currentCapTableDetails,
+      ...withCapTableContractDetails(currentCapTableDetails),
     });
 
     events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity2.capTableContractId });
@@ -341,7 +342,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
     const stockSecurity3 = await setupStockSecurity(ctx.ocp, {
       issuerContractId: stockSecurity2.capTableContractId,
       issuerParty: ctx.issuerParty,
-      capTableContractDetails: currentCapTableDetails,
+      ...withCapTableContractDetails(currentCapTableDetails),
     });
 
     events = await ctx.ocp.ledger.getEventsByContractId({ contractId: stockSecurity3.capTableContractId });
@@ -356,7 +357,7 @@ createIntegrationTestSuite('Stock Class Adjustments', (getContext) => {
 
     const batch = ctx.ocp.OpenCapTable.capTable.update({
       capTableContractId: stockSecurity3.capTableContractId,
-      capTableContractDetails: finalCapTableDetails,
+      ...withCapTableContractDetails(finalCapTableDetails),
       actAs: [ctx.issuerParty],
     });
 

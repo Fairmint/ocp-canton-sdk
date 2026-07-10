@@ -38,6 +38,7 @@ import {
   setupTestIssuer,
   setupTestStakeholder,
   setupWarrantSecurity,
+  withCapTableContractDetails,
 } from '../utils';
 
 /**
@@ -121,7 +122,7 @@ async function createStockPlanPrerequisite(
   }
 ) {
   const stockPlanData = createTestStockPlanData({
-    id: params.stockPlanId,
+    ...(params.stockPlanId === undefined ? {} : { id: params.stockPlanId }),
     stock_class_ids: [params.stockClassId],
   });
 
@@ -497,14 +498,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -540,14 +541,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -583,14 +584,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -748,14 +749,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: convertibleSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: convertibleSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -850,14 +851,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: eqCompSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -895,14 +896,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: eqCompSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1139,14 +1140,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1187,14 +1188,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1229,14 +1230,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1310,14 +1311,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1353,14 +1354,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1399,14 +1400,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: convertibleSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: convertibleSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1443,14 +1444,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: convertibleSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: convertibleSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1487,14 +1488,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: eqCompSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1529,14 +1530,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: eqCompSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1571,14 +1572,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: eqCompSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: eqCompSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1693,14 +1694,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: warrantSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: warrantSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1735,14 +1736,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: warrantSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: warrantSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1777,14 +1778,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: warrantSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: warrantSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1858,14 +1859,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: warrantSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: warrantSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1902,14 +1903,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 
@@ -1944,14 +1945,14 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         ? {
             templateId: events.created.createdEvent.templateId,
             contractId: stockSecurity.capTableContractId,
-            createdEventBlob: events.created.createdEvent.createdEventBlob,
+            createdEventBlob: requireCreatedEventBlob(events.created.createdEvent),
             synchronizerId: issuerSetup.capTableContractDetails.synchronizerId,
           }
         : undefined;
 
       const batch = ctx.ocp.OpenCapTable.capTable.update({
         capTableContractId: stockSecurity.capTableContractId,
-        capTableContractDetails: updatedCapTableDetails,
+        ...withCapTableContractDetails(updatedCapTableDetails),
         actAs: [ctx.issuerParty],
       });
 

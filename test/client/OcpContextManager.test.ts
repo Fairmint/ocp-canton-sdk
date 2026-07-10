@@ -77,11 +77,9 @@ describe('OcpContextManager', () => {
       expect(contextManager.issuerParty).toBeNull();
     });
 
-    it('should not change values when undefined is passed', () => {
+    it('should not change omitted values', () => {
       contextManager.setIssuerParty('issuer::party-123');
-      contextManager.setAll({
-        issuerParty: undefined,
-      });
+      contextManager.setAll({});
 
       expect(contextManager.issuerParty).toBe('issuer::party-123');
     });

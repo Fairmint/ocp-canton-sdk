@@ -617,13 +617,8 @@ export function warrantMechanismToDaml(mechanism: WarrantConversionMechanism): D
           description: mechanism.description,
           discount: mechanism.discount,
           discount_percentage:
-            'discount_percentage' in mechanism && mechanism.discount_percentage !== undefined
-              ? normalizeNumericString(mechanism.discount_percentage)
-              : null,
-          discount_amount:
-            'discount_amount' in mechanism && mechanism.discount_amount
-              ? monetaryToDaml(mechanism.discount_amount)
-              : null,
+            mechanism.discount_percentage !== undefined ? normalizeNumericString(mechanism.discount_percentage) : null,
+          discount_amount: mechanism.discount_amount !== undefined ? monetaryToDaml(mechanism.discount_amount) : null,
         },
       };
     default:
