@@ -50,6 +50,39 @@ const schemaRefinementRuntime: CoverageReference = {
   target: 'intentional SDK semantic refinements',
 };
 
+const ppsUpstreamGapRuntime: CoverageReference = {
+  file: 'test/utils/conversionSemanticRefinements.test.ts',
+  kind: 'runtime',
+  target: 'typed and raw parsers reject PPS $name accepted by the upstream schema gap',
+};
+
+const ppsDiscountedRuntime: CoverageReference = {
+  file: 'test/utils/conversionSemanticRefinements.test.ts',
+  kind: 'runtime',
+  target: 'typed and raw parsers reject discounted PPS $name',
+};
+
+function ppsSourceTypes(target: string): CoverageReference {
+  return { file: 'test/types/conversionMechanisms.types.ts', kind: 'type', target };
+}
+
+function ppsBuiltTypes(target: string): CoverageReference {
+  return { file: 'test/declarations/conversionMechanisms.types.ts', kind: 'type', target };
+}
+
+const ppsRefinementCoverage: CoverageReference[] = [
+  ppsUpstreamGapRuntime,
+  ppsDiscountedRuntime,
+  ppsSourceTypes('ppsWithoutDiscount'),
+  ppsSourceTypes('falseWithDetails'),
+  ppsSourceTypes('trueWithoutDetails'),
+  ppsSourceTypes('trueWithBothDetails'),
+  ppsBuiltTypes('ppsWithoutDiscount'),
+  ppsBuiltTypes('falseWithDetails'),
+  ppsBuiltTypes('trueWithoutDetails'),
+  ppsBuiltTypes('trueWithBothDetails'),
+];
+
 function registration(
   path: string,
   coverage: CoverageReference[],
@@ -122,22 +155,22 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
   ]),
   registration(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf',
-    [schemaRefinementRuntime],
+    ppsRefinementCoverage,
     'pps-discount-exclusivity'
   ),
   registration(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/0/not',
-    [schemaRefinementRuntime],
+    ppsRefinementCoverage,
     'pps-discount-exclusivity'
   ),
   registration(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/1/not',
-    [schemaRefinementRuntime],
+    ppsRefinementCoverage,
     'pps-discount-exclusivity'
   ),
   registration(
     'schema/types/conversion_mechanisms/SharePriceBasedConversionMechanism.schema.json#/oneOf/2/not',
-    [schemaRefinementRuntime],
+    ppsRefinementCoverage,
     'pps-discount-exclusivity'
   ),
   registration('schema/types/conversion_mechanisms/ValuationBasedConversionMechanism.schema.json#/oneOf', [
