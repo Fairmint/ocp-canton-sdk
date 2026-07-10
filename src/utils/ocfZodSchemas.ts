@@ -511,10 +511,46 @@ function validateCanonicalSemanticRefinements(value: Record<string, unknown>): v
   }
 }
 
+const NON_CANONICAL_PUBLIC_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  STAKEHOLDER: ['current_relationship'],
+  TX_STOCK_CONVERSION: ['quantity'],
+  TX_EQUITY_COMPENSATION_RELEASE: ['balance_security_id'],
+  TX_STOCK_CLASS_SPLIT: [
+    'split_ratio_numerator',
+    'split_ratio_denominator',
+    'board_approval_date',
+    'stockholder_approval_date',
+  ],
+  TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT: ['board_approval_date', 'stockholder_approval_date'],
+  TX_STOCK_CONSOLIDATION: ['resulting_security_ids'],
+  TX_EQUITY_COMPENSATION_REPRICING: ['resulting_security_ids'],
+  TX_WARRANT_ISSUANCE: ['ratio_numerator', 'ratio_denominator', 'percent_of_outstanding', 'conversion_triggers'],
+  TX_WARRANT_EXERCISE: ['quantity', 'balance_security_id'],
+  CE_STAKEHOLDER_STATUS: ['reason_text'],
+  TX_STAKEHOLDER_STATUS_CHANGE_EVENT: ['reason_text'],
+};
+
+/** Reject obsolete aliases and unsupported extensions before normalization can hide them. */
+function validateCanonicalPublicFieldPurity(value: Record<string, unknown>): void {
+  const objectType = value.object_type;
+  if (typeof objectType !== 'string') return;
+  const forbiddenFields = NON_CANONICAL_PUBLIC_FIELDS[objectType] ?? [];
+  for (const field of forbiddenFields) {
+    if (Object.prototype.hasOwnProperty.call(value, field)) {
+      throw new OcpValidationError(field, `${field} is not part of the canonical ${objectType} SDK DTO`, {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'absent',
+        receivedValue: value[field],
+      });
+    }
+  }
+}
+
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
- * Deprecated/legacy aliases are normalized to canonical latest forms prior to strict validation.
+ * Explicitly supported object-type and PlanSecurity aliases are normalized prior
+ * to strict validation. Non-schema and obsolete DTO fields are rejected.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
   if (!isRecord(input)) {
@@ -524,6 +560,8 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
       receivedValue: input,
     });
   }
+
+  validateCanonicalPublicFieldPurity(input);
 
   let normalized: Record<string, unknown>;
   try {

@@ -36,7 +36,7 @@
       ]
     },
     "stakeholder_type": "INDIVIDUAL",
-    "current_relationship": "ADVISOR"
+    "current_relationships": ["ADVISOR"]
   },
   "request": {
     "ExerciseCommand": {

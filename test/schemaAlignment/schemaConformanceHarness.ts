@@ -31,6 +31,26 @@ export interface CanonicalOcfObjectInventoryEntry {
   requiredProperties: string[];
 }
 
+export interface PinnedOcfObjectPropertyInventoryEntry {
+  discriminator: string;
+  properties: string[];
+  schemaPath: string;
+}
+
+export interface CanonicalPropertyParityExclusion {
+  discriminator: string;
+  kind: 'schema-only' | 'sdk-only';
+  property: string;
+  rationale: string;
+}
+
+export interface CanonicalPropertyParityProblem {
+  discriminator: string;
+  kind: 'duplicate-exclusion' | 'duplicate-schema' | 'missing-schema' | 'schema-only' | 'sdk-only' | 'stale-exclusion';
+  property?: string;
+  schemaPath?: string;
+}
+
 export interface CoverageReference {
   file: string;
   kind: 'runtime' | 'type';
@@ -316,6 +336,163 @@ export function dereferencePinnedSchemaFile(schemaRoot: string, relativePath: st
   );
   assertJsonObject(dereferenced, `dereferenced ${relativePath}`);
   return dereferenced;
+}
+
+function collectComposedObjectProperties(schema: unknown, properties: Set<string>): void {
+  if (!isJsonObject(schema)) return;
+
+  if (isJsonObject(schema.properties)) {
+    Object.keys(schema.properties).forEach((property) => properties.add(property));
+  }
+
+  for (const keyword of ['allOf', 'anyOf', 'oneOf'] as const) {
+    const branches = schema[keyword];
+    if (Array.isArray(branches)) {
+      branches.forEach((branch) => collectComposedObjectProperties(branch, properties));
+    }
+  }
+}
+
+function getObjectSchemaDiscriminators(schema: JsonObject, source: string): string[] {
+  const { properties } = schema;
+  if (!isJsonObject(properties)) throw new Error(`Object schema has no properties object: ${source}`);
+  const objectType = properties.object_type;
+  if (!isJsonObject(objectType)) {
+    throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
+  }
+  if (typeof objectType.const === 'string' && objectType.const.length > 0) return [objectType.const];
+  if (
+    Array.isArray(objectType.enum) &&
+    objectType.enum.length > 0 &&
+    objectType.enum.every((value): value is string => typeof value === 'string' && value.length > 0)
+  ) {
+    return objectType.enum;
+  }
+  throw new Error(`Object schema has no literal object_type discriminator: ${source}`);
+}
+
+/** Inventory fully composed top-level properties for every pinned OCF object schema. */
+export function inventoryPinnedOcfObjectProperties(schemaRoot: string): PinnedOcfObjectPropertyInventoryEntry[] {
+  const objectRoot = path.join(schemaRoot, 'objects');
+  return listSchemaFiles(objectRoot)
+    .flatMap((schemaPath) => {
+      const dereferenced = dereferenceValue(
+        readSchemaFile(schemaPath),
+        schemaPath,
+        schemaRoot,
+        new Set([`${schemaPath}#`])
+      );
+      assertJsonObject(dereferenced, `dereferenced ${schemaPath}`);
+      const properties = new Set<string>();
+      collectComposedObjectProperties(dereferenced, properties);
+      const propertyNames = [...properties].sort((left, right) => left.localeCompare(right));
+      const relativeSchemaPath = `schema/objects/${normalizeSlashes(path.relative(objectRoot, schemaPath))}`;
+      return getObjectSchemaDiscriminators(dereferenced, schemaPath).map((discriminator) => ({
+        discriminator,
+        properties: propertyNames,
+        schemaPath: relativeSchemaPath,
+      }));
+    })
+    .sort((left, right) => left.discriminator.localeCompare(right.discriminator));
+}
+
+function propertyDifferenceKey(
+  kind: CanonicalPropertyParityExclusion['kind'],
+  discriminator: string,
+  property: string
+): string {
+  return `${kind}:${discriminator}:${property}`;
+}
+
+/** Compare canonical public DTO keys with pinned schema keys, enforcing live narrow exclusions. */
+export function compareCanonicalOcfPropertySets(
+  canonicalInventory: readonly CanonicalOcfObjectInventoryEntry[],
+  schemaInventory: readonly PinnedOcfObjectPropertyInventoryEntry[],
+  exclusions: readonly CanonicalPropertyParityExclusion[]
+): CanonicalPropertyParityProblem[] {
+  const problems: CanonicalPropertyParityProblem[] = [];
+  const canonicalDiscriminators = new Set(canonicalInventory.map((entry) => entry.discriminator));
+  const schemasByDiscriminator = new Map<string, PinnedOcfObjectPropertyInventoryEntry>();
+  for (const schema of schemaInventory) {
+    if (!canonicalDiscriminators.has(schema.discriminator)) continue;
+    if (schemasByDiscriminator.has(schema.discriminator)) {
+      problems.push({
+        discriminator: schema.discriminator,
+        kind: 'duplicate-schema',
+        schemaPath: schema.schemaPath,
+      });
+    } else {
+      schemasByDiscriminator.set(schema.discriminator, schema);
+    }
+  }
+
+  const exclusionsByKey = new Map<string, CanonicalPropertyParityExclusion>();
+  for (const exclusion of exclusions) {
+    const key = propertyDifferenceKey(exclusion.kind, exclusion.discriminator, exclusion.property);
+    if (exclusionsByKey.has(key)) {
+      problems.push({
+        discriminator: exclusion.discriminator,
+        kind: 'duplicate-exclusion',
+        property: exclusion.property,
+      });
+    } else {
+      if (exclusion.rationale.trim().length === 0) {
+        throw new Error(`Canonical property exclusion requires a rationale: ${key}`);
+      }
+      exclusionsByKey.set(key, exclusion);
+    }
+  }
+
+  const matchedExclusions = new Set<string>();
+  for (const canonical of canonicalInventory) {
+    const schema = schemasByDiscriminator.get(canonical.discriminator);
+    if (!schema) {
+      problems.push({ discriminator: canonical.discriminator, kind: 'missing-schema' });
+      continue;
+    }
+
+    const sdkProperties = new Set([...canonical.requiredProperties, ...canonical.optionalProperties]);
+    const schemaProperties = new Set(schema.properties);
+    const differences = [
+      ...[...schemaProperties]
+        .filter((property) => !sdkProperties.has(property))
+        .map((property) => ({ kind: 'schema-only' as const, property })),
+      ...[...sdkProperties]
+        .filter((property) => !schemaProperties.has(property))
+        .map((property) => ({ kind: 'sdk-only' as const, property })),
+    ];
+
+    for (const difference of differences) {
+      const key = propertyDifferenceKey(difference.kind, canonical.discriminator, difference.property);
+      if (exclusionsByKey.has(key)) {
+        matchedExclusions.add(key);
+      } else {
+        problems.push({
+          discriminator: canonical.discriminator,
+          kind: difference.kind,
+          property: difference.property,
+          schemaPath: schema.schemaPath,
+        });
+      }
+    }
+  }
+
+  for (const [key, exclusion] of exclusionsByKey) {
+    if (!matchedExclusions.has(key)) {
+      problems.push({
+        discriminator: exclusion.discriminator,
+        kind: 'stale-exclusion',
+        property: exclusion.property,
+      });
+    }
+  }
+
+  return problems.sort(
+    (left, right) =>
+      left.discriminator.localeCompare(right.discriminator) ||
+      left.kind.localeCompare(right.kind) ||
+      (left.property ?? '').localeCompare(right.property ?? '')
+  );
 }
 
 export function compareConditionalRegistry(

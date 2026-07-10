@@ -161,20 +161,16 @@ describe('ocfZodSchemas', () => {
     expect(parsedRecord).not.toHaveProperty('plan_security_type');
   });
 
-  it('canonicalizes legacy stakeholder status change event object_type + reason_text', () => {
+  it('rejects legacy stakeholder status reason_text before object_type normalization', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent'));
-    const legacyFixture = {
+    const legacyFixture: Record<string, unknown> = {
       ...fixture,
       object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
       reason_text: 'Legacy reason',
     };
 
-    const parsed = parseOcfObject(legacyFixture);
-    const parsedRecord = toRecord(parsed);
-
-    expect(parsedRecord.object_type).toBe('CE_STAKEHOLDER_STATUS');
-    expect(parsedRecord).not.toHaveProperty('reason_text');
-    expect(parsedRecord.comments).toContain('Legacy reason');
+    expect(() => parseOcfObject(legacyFixture)).toThrow(OcpValidationError);
+    expect(() => parseOcfObject(legacyFixture)).toThrow('reason_text');
   });
 
   it('canonicalizes legacy stakeholder relationship event shape', () => {
@@ -208,13 +204,16 @@ describe('ocfZodSchemas', () => {
     expect(() => parseOcfObject(legacyFixture)).toThrow('legacy new_relationships with multiple entries is ambiguous');
   });
 
-  it('canonicalizes stock consolidation legacy resulting_security_ids field', () => {
+  it('rejects stock consolidation legacy resulting_security_ids field', () => {
     const fixture = stripSourceMetadata(loadSyntheticFixture<Record<string, unknown>>('stockConsolidation'));
-    const parsed = parseOcfEntityInput('stockConsolidation', fixture);
-    const parsedRecord = toRecord(parsed);
+    const legacyFixture: Record<string, unknown> = {
+      ...fixture,
+      resulting_security_ids: [fixture.resulting_security_id],
+    };
+    delete legacyFixture.resulting_security_id;
 
-    expect(parsedRecord.resulting_security_id).toBe('test-security-consolidated-result-001');
-    expect(parsedRecord).not.toHaveProperty('resulting_security_ids');
+    expect(() => parseOcfEntityInput('stockConsolidation', legacyFixture)).toThrow(OcpValidationError);
+    expect(() => parseOcfEntityInput('stockConsolidation', legacyFixture)).toThrow('resulting_security_ids');
   });
 
   it('rejects entity/object_type mismatches', () => {

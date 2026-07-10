@@ -29,10 +29,6 @@ function requireRatioConversionMechanism(
 /**
  * Convert native OCF StockClassConversionRatioAdjustment data to DAML format.
  *
- * Note: The OCF type includes optional `board_approval_date` and `stockholder_approval_date`
- * fields, but the DAML StockClassConversionRatioAdjustmentOcfData contract does not support
- * these fields. They are intentionally omitted from the conversion.
- *
  * The canonical OCF input requires the complete ratio conversion mechanism.
  */
 export function stockClassConversionRatioAdjustmentDataToDaml(

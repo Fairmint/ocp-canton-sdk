@@ -2,18 +2,21 @@ import Ajv from 'ajv';
 import fs from 'fs';
 import path from 'path';
 import {
+  compareCanonicalOcfPropertySets,
   compareConditionalRegistry,
   dereferencePinnedObjectSchemas,
   dereferencePinnedSchemaFile,
   discoverConditionalPathsInValue,
   getNamedTypeProperty,
   inventoryCanonicalOcfObjects,
+  inventoryPinnedOcfObjectProperties,
   inventoryReachableObjectSchemas,
   validateCoverageReferences,
   validateSemanticRefinements,
   type CanonicalOcfObjectInventoryEntry,
 } from './schemaConformanceHarness';
 import {
+  CANONICAL_PROPERTY_PARITY_EXCLUSIONS,
   EXPECTED_SEMANTIC_REFINEMENTS,
   OCF_CONDITIONAL_COVERAGE,
   PINNED_REACHABLE_SCHEMA_FINGERPRINT,
@@ -83,6 +86,78 @@ describe('schema-driven OCF conformance guardrail', () => {
     // 48 ledger-backed registry entities plus the schema-only Financing object.
     expect(compilerInventory).toHaveLength(49);
     expect(compilerInventory).toEqual(readCanonicalInventory());
+  });
+
+  it('matches every canonical public DTO property set to its pinned dereferenced object schema', () => {
+    const compilerInventory = inventoryCanonicalOcfObjects(REPO_ROOT);
+    const pinnedPropertyInventory = inventoryPinnedOcfObjectProperties(SCHEMA_ROOT);
+    expect(
+      compareCanonicalOcfPropertySets(compilerInventory, pinnedPropertyInventory, CANONICAL_PROPERTY_PARITY_EXCLUSIONS)
+    ).toEqual([]);
+  });
+
+  it('detects a newly introduced public DTO property even when the snapshot is regenerated', () => {
+    expect(
+      compareCanonicalOcfPropertySets(
+        [
+          {
+            discriminator: 'SYNTHETIC',
+            optionalProperties: ['rogue_extension'],
+            requiredProperties: ['id', 'object_type'],
+          },
+        ],
+        [
+          {
+            discriminator: 'SYNTHETIC',
+            properties: ['id', 'object_type'],
+            schemaPath: 'schema/objects/Synthetic.schema.json',
+          },
+        ],
+        []
+      )
+    ).toEqual([
+      {
+        discriminator: 'SYNTHETIC',
+        kind: 'sdk-only',
+        property: 'rogue_extension',
+        schemaPath: 'schema/objects/Synthetic.schema.json',
+      },
+    ]);
+  });
+
+  it('detects unexpected schema properties and stale parity exclusions', () => {
+    expect(
+      compareCanonicalOcfPropertySets(
+        [{ discriminator: 'SYNTHETIC', optionalProperties: [], requiredProperties: ['id', 'object_type'] }],
+        [
+          {
+            discriminator: 'SYNTHETIC',
+            properties: ['future_schema_field', 'id', 'object_type'],
+            schemaPath: 'schema/objects/Synthetic.schema.json',
+          },
+        ],
+        [
+          {
+            discriminator: 'SYNTHETIC',
+            kind: 'schema-only',
+            property: 'retired_schema_field',
+            rationale: 'Synthetic stale exclusion test.',
+          },
+        ]
+      )
+    ).toEqual([
+      {
+        discriminator: 'SYNTHETIC',
+        kind: 'schema-only',
+        property: 'future_schema_field',
+        schemaPath: 'schema/objects/Synthetic.schema.json',
+      },
+      {
+        discriminator: 'SYNTHETIC',
+        kind: 'stale-exclusion',
+        property: 'retired_schema_field',
+      },
+    ]);
   });
 });
 

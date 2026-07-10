@@ -34,7 +34,7 @@
       "phone_numbers": []
     },
     "stakeholder_type": "INSTITUTION",
-    "current_relationship": "INVESTOR"
+    "current_relationships": ["INVESTOR"]
   },
   "request": {
     "ExerciseCommand": {

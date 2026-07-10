@@ -206,128 +206,6 @@ describe('PlanSecurity alias utilities', () => {
       expect(result).toBe(input); // Same reference - no copy needed
     });
 
-    it('maps stakeholder current_relationship to current_relationships', async () => {
-      const input = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Alice Doe' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'INVESTOR',
-      };
-
-      const result = normalizeOcfData(input);
-      await validateOcfObject(result);
-
-      expect(result).toMatchObject({ current_relationships: ['INVESTOR'] });
-    });
-
-    it('strips legacy current_relationship after migrating to current_relationships', () => {
-      const input = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Bella Hadid' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'INVESTOR',
-      };
-
-      const result = normalizeOcfData(input);
-
-      expect(result.current_relationships).toEqual(['INVESTOR']);
-      expect(result).not.toHaveProperty('current_relationship');
-    });
-
-    it('produces identical output for DB-style and Canton-style stakeholders (Diamond drift)', () => {
-      const dbStyle = {
-        object_type: 'STAKEHOLDER',
-        id: 'stk-001',
-        name: { legal_name: 'Victor Mangini' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'INVESTOR',
-      };
-      const cantonStyle = {
-        object_type: 'STAKEHOLDER',
-        id: 'stk-001',
-        name: { legal_name: 'Victor Mangini' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationships: ['INVESTOR'],
-      };
-
-      const dbResult = normalizeOcfData(dbStyle);
-      const cantonResult = normalizeOcfData(cantonStyle);
-
-      expect(JSON.stringify(dbResult)).toBe(JSON.stringify(cantonResult));
-    });
-
-    it('produces identical output for multiple INVESTOR stakeholders (Fairbnb drift)', () => {
-      const stakeholders = [
-        { name: 'Stakeholder A', rel: 'INVESTOR' },
-        { name: 'Stakeholder B', rel: 'INVESTOR' },
-        { name: 'Stakeholder C', rel: 'FOUNDER' },
-        { name: 'Stakeholder D', rel: 'INVESTOR' },
-      ];
-
-      for (const { name, rel } of stakeholders) {
-        const dbStyle = {
-          object_type: 'STAKEHOLDER' as const,
-          id: `stk-${name}`,
-          name: { legal_name: name },
-          stakeholder_type: 'INDIVIDUAL',
-          current_relationship: rel,
-        };
-        const cantonStyle = {
-          object_type: 'STAKEHOLDER' as const,
-          id: `stk-${name}`,
-          name: { legal_name: name },
-          stakeholder_type: 'INDIVIDUAL',
-          current_relationships: [rel],
-        };
-
-        const dbResult = normalizeOcfData(dbStyle);
-        const cantonResult = normalizeOcfData(cantonStyle);
-
-        expect(JSON.stringify(dbResult)).toBe(JSON.stringify(cantonResult));
-      }
-    });
-
-    it('produces identical output for FOUNDER relationship (Protelicious drift)', () => {
-      const dbStyle = {
-        object_type: 'STAKEHOLDER',
-        id: 'stk-founder',
-        name: { legal_name: 'William Strat' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'FOUNDER',
-      };
-      const cantonStyle = {
-        object_type: 'STAKEHOLDER',
-        id: 'stk-founder',
-        name: { legal_name: 'William Strat' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationships: ['FOUNDER'],
-      };
-
-      const dbResult = normalizeOcfData(dbStyle);
-      const cantonResult = normalizeOcfData(cantonStyle);
-
-      expect(JSON.stringify(dbResult)).toBe(JSON.stringify(cantonResult));
-    });
-
-    it('keeps explicit stakeholder current_relationships authoritative over legacy field', async () => {
-      const input = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Alice Doe' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 'INVESTOR',
-        current_relationships: [],
-      };
-
-      const result = normalizeOcfData(input);
-      await validateOcfObject(result);
-
-      expect(result).toBe(input);
-      expect(result.current_relationships).toEqual([]);
-    });
-
     it('normalizes stakeholder current_relationships ordering and duplicates', async () => {
       const input = {
         object_type: 'STAKEHOLDER',
@@ -341,19 +219,6 @@ describe('PlanSecurity alias utilities', () => {
       await validateOcfObject(result);
 
       expect(result.current_relationships).toEqual(['FOUNDER', 'INVESTOR']);
-    });
-
-    it('does not map legacy current_relationship for non-stakeholder objects', () => {
-      const input = {
-        object_type: 'TX_STOCK_ISSUANCE',
-        id: 'tx-1',
-        current_relationship: 'INVESTOR',
-      };
-
-      const result = normalizeOcfData(input);
-
-      expect(result).toBe(input);
-      expect(result).not.toHaveProperty('current_relationships');
     });
 
     it('throws for non-string entries in stakeholder current_relationships', () => {
@@ -390,30 +255,6 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationships: expected array');
-    });
-
-    it('throws when stakeholder current_relationship is not a string', () => {
-      const input = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Alice Doe' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: 9,
-      };
-
-      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationship: expected string');
-    });
-
-    it('throws when stakeholder current_relationship is an empty string', () => {
-      const input = {
-        object_type: 'STAKEHOLDER',
-        id: 'sh-1',
-        name: { legal_name: 'Alice Doe' },
-        stakeholder_type: 'INDIVIDUAL',
-        current_relationship: '   ',
-      };
-
-      expect(() => normalizeOcfData(input)).toThrow('Invalid stakeholder current_relationship: empty string');
     });
 
     it('maps stock plan stock_class_id to stock_class_ids and removes deprecated field', async () => {
@@ -647,95 +488,6 @@ describe('PlanSecurity alias utilities', () => {
       };
 
       expect(() => normalizeOcfData(input)).toThrow('unknown relationship');
-    });
-
-    it('canonicalizes legacy stakeholder status change event reason_text into comments', async () => {
-      const input = {
-        object_type: 'TX_STAKEHOLDER_STATUS_CHANGE_EVENT',
-        id: 'event-1',
-        date: '2024-01-15',
-        stakeholder_id: 'stakeholder-1',
-        new_status: 'ACTIVE',
-        reason_text: 'legacy reason',
-        comments: ['existing'],
-      };
-
-      const result = normalizeOcfData(input);
-      await validateOcfObject(result);
-
-      expect(result.object_type).toBe('CE_STAKEHOLDER_STATUS');
-      expect(result.comments).toEqual(['existing', 'legacy reason']);
-      expect(result).not.toHaveProperty('reason_text');
-    });
-
-    it('canonicalizes stock consolidation resulting_security_ids to resulting_security_id', async () => {
-      const input = {
-        object_type: 'TX_STOCK_CONSOLIDATION',
-        id: 'stock-consolidation-1',
-        date: '2024-01-15',
-        security_ids: ['sec-1', 'sec-2'],
-        resulting_security_ids: ['sec-new-1'],
-      };
-
-      const result = normalizeOcfData(input);
-      const resultRecord = result;
-      await validateOcfObject(resultRecord);
-
-      expect(resultRecord.resulting_security_id).toBe('sec-new-1');
-      expect(resultRecord).not.toHaveProperty('resulting_security_ids');
-    });
-
-    it('rejects conflicting stock consolidation legacy and canonical resulting security IDs', () => {
-      const input = {
-        object_type: 'TX_STOCK_CONSOLIDATION',
-        id: 'stock-consolidation-1',
-        date: '2024-01-15',
-        security_ids: ['sec-1', 'sec-2'],
-        resulting_security_id: 'sec-canonical',
-        resulting_security_ids: ['sec-legacy'],
-      };
-
-      expect(() => normalizeOcfData(input)).toThrow('Conflicting stock consolidation resulting security IDs');
-    });
-
-    it('canonicalizes stock conversion quantity to quantity_converted', async () => {
-      const input = {
-        object_type: 'TX_STOCK_CONVERSION',
-        id: 'stock-conversion-1',
-        date: '2024-01-15',
-        security_id: 'sec-1',
-        quantity: '100',
-        resulting_security_ids: ['sec-new-1'],
-      };
-
-      const result = normalizeOcfData(input);
-      const resultRecord = result;
-      await validateOcfObject(resultRecord);
-
-      expect(resultRecord.quantity_converted).toBe('100');
-      expect(resultRecord).not.toHaveProperty('quantity');
-    });
-
-    it('canonicalizes stock class split legacy ratio fields to split_ratio', async () => {
-      const input = {
-        object_type: 'TX_STOCK_CLASS_SPLIT',
-        id: 'stock-class-split-1',
-        date: '2024-01-15',
-        stock_class_id: 'sc-1',
-        split_ratio_numerator: '3',
-        split_ratio_denominator: '2',
-      };
-
-      const result = normalizeOcfData(input);
-      const resultRecord = result;
-      await validateOcfObject(resultRecord);
-
-      expect(resultRecord.split_ratio).toEqual({
-        numerator: '3',
-        denominator: '2',
-      });
-      expect(resultRecord).not.toHaveProperty('split_ratio_numerator');
-      expect(resultRecord).not.toHaveProperty('split_ratio_denominator');
     });
 
     it('canonicalizes stock class conversion ratio legacy fields to conversion mechanism', async () => {
@@ -1027,13 +779,13 @@ describe('PlanSecurity alias utilities', () => {
           expect(result.stakeholder_id).toBe('stk-001');
         });
 
-        it('applies relationship normalization without touching non-numeric fields', () => {
+        it('normalizes canonical relationships without touching non-numeric fields', () => {
           const input = {
             object_type: 'STAKEHOLDER',
             id: 'stk_000001',
             name: { legal_name: 'Alice Doe' },
             stakeholder_type: 'INDIVIDUAL',
-            current_relationship: 'INVESTOR',
+            current_relationships: ['INVESTOR'],
           } as Record<string, unknown>;
 
           const result = normalizeOcfData(input);

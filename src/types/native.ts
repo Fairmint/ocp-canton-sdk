@@ -650,11 +650,6 @@ export interface OcfStakeholder extends OcfObjectBase<'STAKEHOLDER'> {
   stakeholder_type: StakeholderType;
   /** Alternate ID assigned by issuer */
   issuer_assigned_id?: string;
-  /**
-   * Deprecated singular relationship field (v1 compatibility).
-   * Prefer `current_relationships`.
-   */
-  current_relationship?: StakeholderRelationshipType;
   /** Current relationship(s) to issuer */
   current_relationships?: StakeholderRelationshipType[];
   /** Current employment/engagement status */
@@ -1146,12 +1141,6 @@ export interface OcfWarrantIssuance extends OcfObjectBase<'TX_WARRANT_ISSUANCE'>
   quantity?: string;
   /** Source of quantity (human/machine estimated, instrument-derived, etc.) */
   quantity_source?: QuantitySourceType;
-  /** @internal DAML pass-through — not in OCF schema */
-  ratio_numerator?: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  ratio_denominator?: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  percent_of_outstanding?: string;
   /** The exercise price of the warrant */
   exercise_price?: Monetary;
   /** Actual purchase price of the warrant (sum up purported value of all consideration, including in-kind) */
@@ -1164,8 +1153,6 @@ export interface OcfWarrantIssuance extends OcfObjectBase<'TX_WARRANT_ISSUANCE'>
   vesting_terms_id?: string;
   /** Vesting schedule entries associated directly with this issuance */
   vestings?: VestingSimple[];
-  /** @internal DAML pass-through — not in OCF schema */
-  conversion_triggers?: WarrantExerciseTrigger[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1550,12 +1537,8 @@ export interface OcfWarrantExercise extends OcfObjectBase<'TX_WARRANT_EXERCISE'>
   security_id: string;
   /** Identifier for the warrant's exercise trigger that resulted in this exercise */
   trigger_id: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  quantity?: string;
   /** Array of identifiers for new securities resulting from the exercise */
   resulting_security_ids: string[];
-  /** @internal DAML pass-through — not in OCF schema */
-  balance_security_id?: string;
   /** Unstructured text description of consideration provided in exchange for security exercise */
   consideration_text?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1577,8 +1560,6 @@ export interface OcfStockConversion extends OcfObjectBase<'TX_STOCK_CONVERSION'>
   security_id: string;
   /** Quantity of stock being converted (canonical field) */
   quantity_converted: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  quantity?: string;
   /** Array of identifiers for new securities resulting from the conversion */
   resulting_security_ids: string[];
   /** Identifier for the security that holds the remainder balance (for partial conversions) */
@@ -1635,8 +1616,6 @@ export interface OcfEquityCompensationRelease extends OcfObjectBase<'TX_EQUITY_C
   settlement_date: string;
   /** Array of identifiers for new securities resulting from the release */
   resulting_security_ids: string[];
-  /** @internal DAML pass-through — not in OCF schema */
-  balance_security_id?: string;
   /** Unstructured text description of consideration provided */
   consideration_text?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1705,11 +1684,6 @@ export interface OcfVestingAcceleration extends OcfObjectBase<'TX_VESTING_ACCELE
  * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/objects/transactions/adjustment/StockClassSplit.schema.json
  */
 export interface OcfStockClassSplit extends OcfObjectBase<'TX_STOCK_CLASS_SPLIT'> {
-  /**
-   * At least one split-ratio representation must be provided:
-   * - canonical `split_ratio`, or
-   * - deprecated `split_ratio_numerator` + `split_ratio_denominator` pair.
-   */
   /** Identifier for the object */
   id: string;
   /** Date on which the transaction occurred */
@@ -1718,14 +1692,6 @@ export interface OcfStockClassSplit extends OcfObjectBase<'TX_STOCK_CLASS_SPLIT'
   stock_class_id: string;
   /** Canonical split ratio object */
   split_ratio: { numerator: string; denominator: string };
-  /** @internal DAML pass-through — not in OCF schema */
-  split_ratio_numerator?: string;
-  /** @internal DAML pass-through — not in OCF schema */
-  split_ratio_denominator?: string;
-  /** @internal Extension field — not in OCF schema */
-  board_approval_date?: string;
-  /** @internal Extension field — not in OCF schema */
-  stockholder_approval_date?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1743,10 +1709,6 @@ export interface OcfStockClassConversionRatioAdjustment extends OcfObjectBase<'T
   stock_class_id: string;
   /** Canonical conversion mechanism payload */
   new_ratio_conversion_mechanism: RatioConversionMechanism;
-  /** @internal Extension field — not in OCF schema */
-  board_approval_date?: string;
-  /** @internal Extension field — not in OCF schema */
-  stockholder_approval_date?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -1808,8 +1770,6 @@ export interface OcfStockConsolidation extends OcfObjectBase<'TX_STOCK_CONSOLIDA
   security_ids: string[];
   /** Identifier for the new consolidated security (canonical field) */
   resulting_security_id: string;
-  /** Deprecated legacy array form of resulting security ids */
-  resulting_security_ids?: string[];
   /** Reason for the consolidation */
   reason_text?: string;
   /** Unstructured text comments related to and stored for the object */
@@ -1832,8 +1792,6 @@ export interface OcfEquityCompensationRepricing extends OcfObjectBase<'TX_EQUITY
   security_id: string;
   /** Updated exercise price after repricing */
   new_exercise_price: Monetary;
-  /** @internal DAML pass-through — not in OCF schema */
-  resulting_security_ids?: string[];
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
@@ -2116,8 +2074,6 @@ export interface OcfStakeholderStatusChangeEvent extends OcfObjectBase<'CE_STAKE
   stakeholder_id: string;
   /** New status for the stakeholder */
   new_status: StakeholderStatus;
-  /** @internal Extension field — not in OCF schema */
-  reason_text?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }

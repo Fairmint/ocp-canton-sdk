@@ -64,7 +64,7 @@ describe('CapTableBatch', () => {
       );
     });
 
-    it('should accept deprecated stakeholder relationship field via canonicalization', () => {
+    it('should reject deprecated stakeholder relationship fields', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
@@ -78,11 +78,13 @@ describe('CapTableBatch', () => {
         current_relationship: 'INVESTOR',
       };
 
-      expect(() => batch.create('stakeholder', stakeholderWithDeprecatedField as OcfStakeholder)).not.toThrow();
-      expect(batch.size).toBe(1);
+      expect(() => batch.create('stakeholder', stakeholderWithDeprecatedField as OcfStakeholder)).toThrow(
+        'current_relationship'
+      );
+      expect(batch.size).toBe(0);
     });
 
-    it('should accept legacy stock class split ratio fields via canonicalization', () => {
+    it('should reject legacy stock class split ratio fields', () => {
       const batch = new CapTableBatch({
         capTableContractId: 'cap-table-123',
         actAs: ['party-1'],
@@ -97,17 +99,8 @@ describe('CapTableBatch', () => {
         split_ratio_denominator: '1',
       } as unknown as OcfStockClassSplit;
 
-      expect(() => batch.create('stockClassSplit', legacySplitData)).not.toThrow();
-      const { command } = batch.build();
-      if (!('ExerciseCommand' in command)) throw new Error('Expected ExerciseCommand');
-
-      const choiceArg = command.ExerciseCommand.choiceArgument as {
-        creates: Array<{ tag: string; value: Record<string, unknown> }>;
-      };
-      expect(requireDefined(choiceArg.creates[0], 'first create operation').value.split_ratio).toEqual({
-        numerator: '2',
-        denominator: '1',
-      });
+      expect(() => batch.create('stockClassSplit', legacySplitData)).toThrow('split_ratio_numerator');
+      expect(batch.size).toBe(0);
     });
 
     it('should accept the canonical stock class conversion ratio mechanism', () => {

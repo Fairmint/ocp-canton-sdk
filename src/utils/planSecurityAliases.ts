@@ -414,42 +414,14 @@ function normalizeStakeholderRelationshipChangeEvent(data: Record<string, unknow
  * - object_type: CE_STAKEHOLDER_STATUS
  * - new_status
  *
- * Legacy compatibility:
- * - object_type: TX_STAKEHOLDER_STATUS_CHANGE_EVENT
- * - reason_text (dropped during canonicalization)
+ * The legacy object_type alias is normalized, but non-schema payload fields are
+ * intentionally left in place so strict schema validation can reject them.
  */
 function normalizeStakeholderStatusChangeEvent(data: Record<string, unknown>): Record<string, unknown> {
   const normalizedObjectType = normalizeObjectType(typeof data.object_type === 'string' ? data.object_type : '');
   if (normalizedObjectType !== 'CE_STAKEHOLDER_STATUS') return data;
-
-  const result: Record<string, unknown> = {
-    ...data,
-    object_type: 'CE_STAKEHOLDER_STATUS',
-  };
-
-  if (result.comments !== undefined && !Array.isArray(result.comments)) {
-    throw new Error(
-      `normalizeStakeholderStatusChangeEvent (CE_STAKEHOLDER_STATUS): comments must be an array of strings`
-    );
-  }
-  const existingComments: string[] = [];
-  if (Array.isArray(result.comments)) {
-    for (const comment of result.comments) {
-      if (typeof comment !== 'string') {
-        throw new Error(
-          `normalizeStakeholderStatusChangeEvent (CE_STAKEHOLDER_STATUS): comments must contain only strings, received value ${JSON.stringify(comment)} of type ${typeof comment}`
-        );
-      }
-      existingComments.push(comment);
-    }
-  }
-
-  if (typeof result.reason_text === 'string' && result.reason_text.trim().length > 0) {
-    result.comments = [...existingComments, result.reason_text.trim()];
-  }
-  delete result.reason_text;
-
-  return result;
+  if (data.object_type === 'CE_STAKEHOLDER_STATUS') return data;
+  return { ...data, object_type: 'CE_STAKEHOLDER_STATUS' };
 }
 
 /**
@@ -534,17 +506,11 @@ function stripDocumentNonDamlFields(data: Record<string, unknown>): Record<strin
 /**
  * Normalize Stakeholder relationship fields for consistent comparison.
  *
- * OCF deprecated `current_relationship` in favor of `current_relationships`.
- * During round-trip, Canton data uses `current_relationships`, while source data
- * may still contain only the legacy field. This causes phantom edits where one
- * side appears empty/undefined.
- *
  * Rules:
  * - Apply only to Stakeholder objects.
- * - If `current_relationships` is an array, keep it authoritative and normalize
- *   ordering/duplicates for deterministic comparison.
- * - If `current_relationships` is missing and legacy `current_relationship` is
- *   a non-empty string, map it to `current_relationships: [value]`.
+ * - Normalize the canonical `current_relationships` ordering and duplicates for
+ *   deterministic comparison.
+ * - Legacy `current_relationship` is deliberately not upgraded.
  */
 function normalizeStakeholderRelationships(data: Record<string, unknown>): Record<string, unknown> {
   const isStakeholderObject = data.object_type === 'STAKEHOLDER' || hasStakeholderPayloadShape(data);
@@ -580,22 +546,7 @@ function normalizeStakeholderRelationships(data: Record<string, unknown>): Recor
     };
   }
 
-  if (data.current_relationship !== undefined && typeof data.current_relationship !== 'string') {
-    throw new Error(
-      `Invalid stakeholder current_relationship: expected string, got ${typeof data.current_relationship}`
-    );
-  }
-  if (typeof data.current_relationship !== 'string') return data;
-  const legacyRelationship = data.current_relationship.trim();
-  if (legacyRelationship.length === 0) {
-    throw new Error('Invalid stakeholder current_relationship: empty string');
-  }
-
-  const { current_relationship: _, ...rest } = data;
-  return {
-    ...rest,
-    current_relationships: [legacyRelationship],
-  };
+  return data;
 }
 
 /**
@@ -641,126 +592,6 @@ function normalizeStockPlanClassIds(data: Record<string, unknown>): Record<strin
     ...rest,
     stock_class_ids: [legacyClassId],
   };
-}
-
-/**
- * Canonicalize stock consolidation resulting security identifier fields.
- *
- * OCF now uses singular `resulting_security_id`, while legacy payloads may still send
- * `resulting_security_ids` as an array.
- */
-function normalizeStockConsolidationResultingSecurityId(data: Record<string, unknown>): Record<string, unknown> {
-  if (data.object_type !== 'TX_STOCK_CONSOLIDATION') return data;
-
-  const result: Record<string, unknown> = { ...data };
-  const { resulting_security_id } = result;
-  const { resulting_security_ids } = result;
-
-  if (resulting_security_ids !== undefined) {
-    if (!Array.isArray(resulting_security_ids)) {
-      throw new Error(`Invalid resulting_security_ids: expected array, got ${typeof resulting_security_ids}`);
-    }
-
-    for (const id of resulting_security_ids) {
-      if (typeof id !== 'string') {
-        throw new Error(
-          `Invalid resulting_security_ids: expected array of strings, found ${typeof id} (${JSON.stringify(id)})`
-        );
-      }
-    }
-
-    if (resulting_security_ids.length !== 1) {
-      throw new Error(
-        `Invalid resulting_security_ids: expected exactly one entry to map to resulting_security_id, got ${resulting_security_ids.length}`
-      );
-    }
-
-    if (resulting_security_id !== undefined && typeof resulting_security_id !== 'string') {
-      throw new Error(`Invalid resulting_security_id: expected string, got ${typeof resulting_security_id}`);
-    }
-
-    if (typeof resulting_security_id === 'string' && resulting_security_id !== resulting_security_ids[0]) {
-      throw new Error(
-        `Conflicting stock consolidation resulting security IDs: resulting_security_id="${resulting_security_id}" does not match resulting_security_ids[0]="${resulting_security_ids[0]}"`
-      );
-    }
-
-    if (resulting_security_id === undefined) {
-      result.resulting_security_id = resulting_security_ids[0];
-    }
-    delete result.resulting_security_ids;
-  }
-
-  return result;
-}
-
-/**
- * Canonicalize stock conversion quantity field.
- *
- * OCF now uses `quantity_converted`, while legacy payloads may still send `quantity`.
- */
-function normalizeStockConversionQuantityConverted(data: Record<string, unknown>): Record<string, unknown> {
-  if (data.object_type !== 'TX_STOCK_CONVERSION') return data;
-
-  const result: Record<string, unknown> = { ...data };
-  const quantityConverted = result.quantity_converted;
-  const legacyQuantity = result.quantity;
-
-  if (legacyQuantity !== undefined) {
-    if (typeof legacyQuantity !== 'string' && typeof legacyQuantity !== 'number') {
-      throw new Error(`Invalid stock conversion quantity: expected string or number, got ${typeof legacyQuantity}`);
-    }
-    const normalizedLegacyQuantity = normalizeNumericString(legacyQuantity);
-    if (quantityConverted === undefined) {
-      result.quantity_converted = normalizedLegacyQuantity;
-    }
-    delete result.quantity;
-  }
-
-  return result;
-}
-
-/**
- * Canonicalize stock class split ratio fields.
- *
- * OCF now uses nested `split_ratio`, while legacy payloads may still send
- * `split_ratio_numerator` / `split_ratio_denominator`.
- */
-function normalizeStockClassSplitRatio(data: Record<string, unknown>): Record<string, unknown> {
-  if (data.object_type !== 'TX_STOCK_CLASS_SPLIT') return data;
-
-  const result: Record<string, unknown> = { ...data };
-  const splitRatio = result.split_ratio;
-  const legacyNumerator = result.split_ratio_numerator;
-  const legacyDenominator = result.split_ratio_denominator;
-
-  if (legacyNumerator !== undefined || legacyDenominator !== undefined) {
-    if (legacyNumerator === undefined || legacyDenominator === undefined) {
-      throw new Error(
-        'Invalid stock class split legacy ratio fields: both split_ratio_numerator and split_ratio_denominator are required'
-      );
-    }
-    if (
-      (typeof legacyNumerator !== 'string' && typeof legacyNumerator !== 'number') ||
-      (typeof legacyDenominator !== 'string' && typeof legacyDenominator !== 'number')
-    ) {
-      throw new Error(
-        `Invalid stock class split legacy ratio fields: expected string or number values, got numerator=${typeof legacyNumerator}, denominator=${typeof legacyDenominator}`
-      );
-    }
-
-    if (splitRatio === undefined) {
-      result.split_ratio = {
-        numerator: normalizeNumericString(legacyNumerator),
-        denominator: normalizeNumericString(legacyDenominator),
-      };
-    }
-
-    delete result.split_ratio_numerator;
-    delete result.split_ratio_denominator;
-  }
-
-  return result;
 }
 
 /**
@@ -873,12 +704,10 @@ export function deepNormalizeNumericStrings(value: unknown): unknown {
  * 2. Normalizes quantity_source based on quantity presence (see normalizeQuantitySource)
  * 3. Strips Document fields that the DAML contract does not model (e.g. `date`)
  * 4. Canonicalizes deprecated issuance aliases (`plan_security_type`/`option_grant_type`)
- * 5. Canonicalizes Stakeholder relationships (`current_relationship` -> `current_relationships`)
+ * 5. Normalizes canonical Stakeholder relationship ordering
  * 6. Canonicalizes StockPlan class IDs (`stock_class_id` -> `stock_class_ids`)
- * 7. Canonicalizes StockConversion quantity (`quantity` -> `quantity_converted`)
- * 8. Canonicalizes StockClassSplit legacy ratio fields
- * 9. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
- * 10. Normalizes numeric string formatting (strips trailing zeros from decimals)
+ * 7. Canonicalizes StockClassConversionRatioAdjustment legacy ratio fields
+ * 8. Normalizes numeric string formatting (strips trailing zeros from decimals)
  *
  * @param data - The OCF data object that may contain an object_type field
  * @returns The data with normalized fields (shallow copy if modified)
@@ -927,20 +756,11 @@ export function normalizeOcfData(data: object): Record<string, unknown> {
   // Canonicalize deprecated option_grant_type to compensation_type
   result = normalizeOptionGrantType(result);
 
-  // Canonicalize deprecated/current stakeholder relationship fields
+  // Normalize canonical stakeholder relationship ordering
   result = normalizeStakeholderRelationships(result);
 
   // Canonicalize deprecated/current stock plan class ID fields
   result = normalizeStockPlanClassIds(result);
-
-  // Canonicalize deprecated stock consolidation singular resulting security identifier
-  result = normalizeStockConsolidationResultingSecurityId(result);
-
-  // Canonicalize deprecated stock conversion quantity field
-  result = normalizeStockConversionQuantityConverted(result);
-
-  // Canonicalize deprecated stock class split ratio fields
-  result = normalizeStockClassSplitRatio(result);
 
   // Canonicalize deprecated stock class conversion ratio adjustment fields
   result = normalizeStockClassConversionRatioAdjustmentMechanism(result);
