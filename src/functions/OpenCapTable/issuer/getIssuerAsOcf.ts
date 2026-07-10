@@ -42,23 +42,32 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
+  const subdivisionCode = damlData.country_subdivision_of_formation ?? undefined;
+  const subdivisionName = damlData.country_subdivision_name_of_formation ?? undefined;
+  if (subdivisionCode !== undefined && subdivisionName !== undefined) {
+    throw new OcpParseError('Issuer contract contains both subdivision code and subdivision name', {
+      source: 'getIssuerAsOcf',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+  const subdivision =
+    subdivisionCode !== undefined
+      ? { country_subdivision_of_formation: subdivisionCode }
+      : subdivisionName !== undefined
+        ? { country_subdivision_name_of_formation: subdivisionName }
+        : {};
   const out: OcfIssuerInput = {
     object_type: 'ISSUER',
     id: dataWithId.id,
     legal_name: damlData.legal_name,
     country_of_formation: damlData.country_of_formation,
     formation_date: damlTimeToDateString(damlData.formation_date),
+    ...subdivision,
     tax_ids: [],
     comments: [],
   };
 
   if (damlData.dba) out.dba = damlData.dba;
-  if (damlData.country_subdivision_of_formation) {
-    out.country_subdivision_of_formation = damlData.country_subdivision_of_formation;
-  }
-  if (damlData.country_subdivision_name_of_formation) {
-    out.country_subdivision_name_of_formation = damlData.country_subdivision_name_of_formation;
-  }
   if (damlData.tax_ids.length) out.tax_ids = damlData.tax_ids;
   if (damlData.email) out.email = damlEmailToNative(damlData.email);
   if (damlData.phone) out.phone = damlPhoneToNative(damlData.phone);

@@ -215,6 +215,13 @@ export function validateName(value: unknown, fieldPath: string): void {
  * This is a helper function used by both validateContactInfo and validateContactInfoWithoutName.
  */
 function validateContactArrays(contact: Record<string, unknown>, fieldPath: string): void {
+  if (contact.phone_numbers === undefined && contact.emails === undefined) {
+    throw new OcpValidationError(fieldPath, 'At least one contact collection is required', {
+      expectedType: 'phone_numbers and/or emails',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
+  }
+
   // Validate optional phone_numbers array
   if (contact.phone_numbers !== undefined && contact.phone_numbers !== null) {
     if (!Array.isArray(contact.phone_numbers)) {
@@ -305,6 +312,23 @@ export function validateIssuerData(data: unknown, fieldPath: string): void {
     value.country_subdivision_name_of_formation,
     `${fieldPath}.country_subdivision_name_of_formation`
   );
+  if (
+    value.country_subdivision_of_formation !== undefined &&
+    value.country_subdivision_name_of_formation !== undefined
+  ) {
+    throw new OcpValidationError(
+      fieldPath,
+      'Issuer must not provide both country subdivision code and country subdivision name',
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'at most one of country_subdivision_of_formation or country_subdivision_name_of_formation',
+        receivedValue: {
+          country_subdivision_of_formation: value.country_subdivision_of_formation,
+          country_subdivision_name_of_formation: value.country_subdivision_name_of_formation,
+        },
+      }
+    );
+  }
 
   // Optional complex fields
   if (value.email !== undefined && value.email !== null) {
@@ -621,13 +645,16 @@ export function validateDocumentData(data: unknown, fieldPath: string): void {
   validateRequiredString(value.id, `${fieldPath}.id`);
   validateRequiredString(value.md5, `${fieldPath}.md5`);
 
-  // Must have either path or uri
-  const hasPath = value.path !== undefined && value.path !== null && value.path !== '';
-  const hasUri = value.uri !== undefined && value.uri !== null && value.uri !== '';
+  // The OCF schema requires exactly one location property. Empty strings remain
+  // schema-valid values because neither property declares a minimum length.
+  const hasPath = typeof value.path === 'string';
+  const hasUri = typeof value.uri === 'string';
 
-  if (!hasPath && !hasUri) {
-    throw new OcpValidationError(`${fieldPath}`, 'Document must have either path or uri', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+  if (hasPath === hasUri) {
+    throw new OcpValidationError(`${fieldPath}`, 'Document must have exactly one of path or uri', {
+      code: hasPath ? OcpErrorCodes.INVALID_FORMAT : OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'exactly one of path or uri',
+      receivedValue: { path: value.path, uri: value.uri },
     });
   }
 

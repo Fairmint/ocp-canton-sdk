@@ -57,4 +57,11 @@ describe('core DAML read converter required fields', () => {
   ])('rejects a missing %s instead of synthesizing an empty required field', (_field, convert) => {
     expect(convert).toThrow(OcpValidationError);
   });
+
+  test.each([
+    ['neither location', { ...minimalDocument, path: null, uri: null }],
+    ['both locations', { ...minimalDocument, path: './document.pdf', uri: 'https://example.com/document.pdf' }],
+  ])('rejects a document with %s', (_case, document) => {
+    expect(() => damlDocumentDataToNative(asDamlDocument(document))).toThrow(OcpValidationError);
+  });
 });

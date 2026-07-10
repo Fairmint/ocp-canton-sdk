@@ -48,13 +48,9 @@ function contactInfoToDaml(info: ContactInfo): Fairmint.OpenCapTable.OCF.Stakeho
 
 function contactInfoWithoutNameToDaml(
   info: ContactInfoWithoutName
-): Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfoWithoutName | null {
+): Fairmint.OpenCapTable.OCF.Stakeholder.OcfContactInfoWithoutName {
   const phones = (info.phone_numbers ?? []).map(phoneToDaml);
   const emails = (info.emails ?? []).map(emailToDaml);
-
-  if (phones.length === 0 && emails.length === 0) {
-    return null;
-  }
 
   return {
     phone_numbers: phones,

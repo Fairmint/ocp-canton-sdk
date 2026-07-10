@@ -137,11 +137,11 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
       receivedValue: id,
     });
   }
-  return {
+  const path = typeof d.path === 'string' ? d.path : undefined;
+  const uri = typeof d.uri === 'string' ? d.uri : undefined;
+  const common = {
     object_type: 'DOCUMENT',
     id,
-    ...(d.path ? { path: d.path } : {}),
-    ...(d.uri ? { uri: d.uri } : {}),
     md5: d.md5,
     related_objects: d.related_objects.map((r) => ({
       object_type: objectTypeToNative(r.object_type),
@@ -150,7 +150,16 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
     comments: Array.isArray((d as unknown as { comments?: unknown }).comments)
       ? (d as unknown as { comments: string[] }).comments
       : [],
-  };
+  } as const;
+
+  if (path !== undefined && uri === undefined) return { ...common, path };
+  if (uri !== undefined && path === undefined) return { ...common, uri };
+
+  throw new OcpValidationError('document', 'Document must have exactly one of path or uri', {
+    code: path === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_FORMAT,
+    expectedType: 'exactly one of path or uri',
+    receivedValue: { path: d.path, uri: d.uri },
+  });
 }
 
 export interface GetDocumentAsOcfParams extends GetByContractIdParams {}

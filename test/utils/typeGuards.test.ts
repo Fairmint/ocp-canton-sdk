@@ -578,6 +578,15 @@ describe('OCF Type Guards', () => {
     it('returns false when required fields are missing', () => {
       expect(isOcfStockPlan({ ...validPlan, stock_class_ids: undefined })).toBe(false);
     });
+
+    it('returns false for an empty stock_class_ids array', () => {
+      expect(isOcfStockPlan({ ...validPlan, stock_class_ids: [] })).toBe(false);
+    });
+
+    it('returns false for the deprecated singular stock_class_id shape', () => {
+      const { stock_class_ids: _, ...withoutCanonicalIds } = validPlan;
+      expect(isOcfStockPlan({ ...withoutCanonicalIds, stock_class_id: 'class-1' })).toBe(false);
+    });
   });
 
   describe('isOcfVestingTerms', () => {

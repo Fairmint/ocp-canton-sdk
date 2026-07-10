@@ -39,11 +39,21 @@ interface DamlStakeholderRelationshipChangeEventContract {
   relationship_change_data?: DamlStakeholderRelationshipChangeEventData;
 }
 
+type RelationshipChangeFields =
+  | {
+      relationship_started: StakeholderRelationshipType;
+      relationship_ended?: StakeholderRelationshipType;
+    }
+  | {
+      relationship_started?: never;
+      relationship_ended: StakeholderRelationshipType;
+    };
+
 function mapRelationshipsToLatestFields(
   relationshipStarted: StakeholderRelationshipType | null,
   relationshipEnded: StakeholderRelationshipType | null,
   contractId: string
-): Pick<OcfStakeholderRelationshipChangeEvent, 'relationship_started' | 'relationship_ended'> {
+): RelationshipChangeFields {
   if (!relationshipStarted && !relationshipEnded) {
     throw new OcpContractError('Missing stakeholder relationship change data', {
       contractId,
@@ -51,10 +61,18 @@ function mapRelationshipsToLatestFields(
     });
   }
 
-  return {
-    ...(relationshipStarted ? { relationship_started: relationshipStarted } : {}),
-    ...(relationshipEnded ? { relationship_ended: relationshipEnded } : {}),
-  };
+  if (relationshipStarted) {
+    return {
+      relationship_started: relationshipStarted,
+      ...(relationshipEnded ? { relationship_ended: relationshipEnded } : {}),
+    };
+  }
+  if (relationshipEnded) return { relationship_ended: relationshipEnded };
+
+  throw new OcpContractError('Missing stakeholder relationship change data', {
+    contractId,
+    code: OcpErrorCodes.INVALID_FORMAT,
+  });
 }
 
 function isDamlStakeholderRelationshipChangeEventData(
@@ -128,14 +146,20 @@ export async function getStakeholderRelationshipChangeEventAsOcf(
     params.contractId
   );
 
-  const event: OcfStakeholderRelationshipChangeEvent = {
+  const common = {
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: data.id,
     date: data.date.split('T')[0],
     stakeholder_id: data.stakeholder_id,
-    ...relationshipFields,
     ...(data.comments.length ? { comments: data.comments } : {}),
-  };
+  } as const;
+  const event: OcfStakeholderRelationshipChangeEvent = relationshipFields.relationship_started
+    ? {
+        ...common,
+        relationship_started: relationshipFields.relationship_started,
+        ...(relationshipFields.relationship_ended ? { relationship_ended: relationshipFields.relationship_ended } : {}),
+      }
+    : { ...common, relationship_ended: relationshipFields.relationship_ended };
 
   return { event, contractId: params.contractId };
 }

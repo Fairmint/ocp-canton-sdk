@@ -2,6 +2,7 @@
  * DAML to OCF converters for StakeholderRelationshipChangeEvent entities.
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types';
 import {
   damlStakeholderRelationshipToNative,
@@ -31,15 +32,35 @@ export interface DamlStakeholderRelationshipChangeData {
 export function damlStakeholderRelationshipChangeEventToNative(
   d: DamlStakeholderRelationshipChangeData
 ): OcfStakeholderRelationshipChangeEvent {
-  return {
+  const common = {
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: d.id,
     date: damlTimeToDateString(d.date),
     stakeholder_id: d.stakeholder_id,
-    ...(d.relationship_started
-      ? { relationship_started: damlStakeholderRelationshipToNative(d.relationship_started) }
-      : {}),
-    ...(d.relationship_ended ? { relationship_ended: damlStakeholderRelationshipToNative(d.relationship_ended) } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
-  };
+  } as const;
+  const relationshipStarted = d.relationship_started
+    ? damlStakeholderRelationshipToNative(d.relationship_started)
+    : undefined;
+  const relationshipEnded = d.relationship_ended
+    ? damlStakeholderRelationshipToNative(d.relationship_ended)
+    : undefined;
+
+  if (relationshipStarted) {
+    return {
+      ...common,
+      relationship_started: relationshipStarted,
+      ...(relationshipEnded ? { relationship_ended: relationshipEnded } : {}),
+    };
+  }
+  if (relationshipEnded) return { ...common, relationship_ended: relationshipEnded };
+
+  throw new OcpValidationError(
+    'stakeholderRelationshipChangeEvent',
+    'At least one relationship_started or relationship_ended value is required',
+    {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d,
+    }
+  );
 }

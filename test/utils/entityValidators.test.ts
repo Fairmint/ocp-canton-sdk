@@ -215,8 +215,8 @@ describe('Entity Validators', () => {
       ).not.toThrow();
     });
 
-    it('passes for contact info with name only', () => {
-      expect(() => validateContactInfo({ name: { legal_name: 'John Doe' } }, 'contact')).not.toThrow();
+    it('throws for contact info with name only', () => {
+      expect(() => validateContactInfo({ name: { legal_name: 'John Doe' } }, 'contact')).toThrow(OcpValidationError);
     });
 
     it('throws for missing name', () => {
@@ -249,8 +249,8 @@ describe('Entity Validators', () => {
       ).not.toThrow();
     });
 
-    it('passes for empty contact info', () => {
-      expect(() => validateContactInfoWithoutName({}, 'contact')).not.toThrow();
+    it('throws for empty contact info', () => {
+      expect(() => validateContactInfoWithoutName({}, 'contact')).toThrow(OcpValidationError);
     });
   });
 
@@ -296,6 +296,19 @@ describe('Entity Validators', () => {
 
     it('throws for non-array tax_ids', () => {
       expect(() => validateIssuerData({ ...validIssuer, tax_ids: 'invalid' }, 'issuer')).toThrow(OcpValidationError);
+    });
+
+    it('throws when both subdivision representations are present', () => {
+      expect(() =>
+        validateIssuerData(
+          {
+            ...validIssuer,
+            country_subdivision_of_formation: 'DE',
+            country_subdivision_name_of_formation: 'Delaware',
+          },
+          'issuer'
+        )
+      ).toThrow(OcpValidationError);
     });
   });
 
@@ -493,6 +506,12 @@ describe('Entity Validators', () => {
 
     it('throws for missing both path and uri', () => {
       expect(() => validateDocumentData({ id: 'doc-1', md5: 'abc123' }, 'document')).toThrow(OcpValidationError);
+    });
+
+    it('throws when both path and uri are present', () => {
+      expect(() =>
+        validateDocumentData({ ...validDocumentWithPath, uri: 'https://example.com/contract.pdf' }, 'document')
+      ).toThrow(OcpValidationError);
     });
   });
 

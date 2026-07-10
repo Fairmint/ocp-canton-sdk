@@ -164,10 +164,17 @@ export function isOcfStockLegendTemplate(value: unknown): value is OcfStockLegen
 
 /**
  * Type guard for OcfStockPlan objects.
- * Accepts either `stock_class_ids` (array) or deprecated `stock_class_id` (string)
- * per the OCF StockPlan schema oneOf.
+ * Typed SDK data uses only the canonical non-empty `stock_class_ids` field.
  */
 export function isOcfStockPlan(value: unknown): value is OcfStockPlan {
+  if (
+    !isObject(value) ||
+    !Array.isArray(value.stock_class_ids) ||
+    value.stock_class_ids.length === 0 ||
+    'stock_class_id' in value
+  ) {
+    return false;
+  }
   return isStrictOcfObject<OcfStockPlan>(value, 'STOCK_PLAN');
 }
 
