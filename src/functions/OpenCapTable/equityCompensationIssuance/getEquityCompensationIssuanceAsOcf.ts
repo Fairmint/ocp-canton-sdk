@@ -16,6 +16,7 @@ import {
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { readSingleContract } from '../shared/singleContractRead';
 import { validateEquityCompensationPricing } from './equityCompensationPricing';
 
@@ -73,7 +74,7 @@ export function damlEquityCompensationIssuanceDataToNative(
 
   const termination_exercise_windows =
     d.termination_exercise_windows.length > 0
-      ? d.termination_exercise_windows.map((window) => {
+      ? d.termination_exercise_windows.map((window, index) => {
           const reason = twMapReason[window.reason];
           if (!reason) {
             throw new OcpValidationError('termination_exercise_window.reason', `Unknown reason: ${window.reason}`, {
@@ -92,14 +93,11 @@ export function damlEquityCompensationIssuanceDataToNative(
               }
             );
           }
-          const period = Number(window.period);
-          if (!Number.isFinite(period)) {
-            throw new OcpValidationError('termination_exercise_window.period', `Invalid period: ${window.period}`, {
-              code: OcpErrorCodes.INVALID_FORMAT,
-              expectedType: 'finite number',
-              receivedValue: window.period,
-            });
-          }
+          const period = parseDamlSafeInteger(
+            window.period,
+            `equityCompensationIssuance.termination_exercise_windows.${index}.period`,
+            'numeric'
+          );
           return { reason, period, period_type: periodType };
         })
       : undefined;

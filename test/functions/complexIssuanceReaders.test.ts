@@ -533,6 +533,102 @@ describe('decoder-backed complex issuance readers', () => {
     });
   });
 
+  it.each([
+    ['fractional text', '1.5'],
+    ['decimal text', '1.0'],
+    ['scientific notation', '1e3'],
+    ['a leading zero', '01'],
+    ['positive overflow', '9007199254740992'],
+    ['negative overflow', '-9007199254740992'],
+  ])('convertible issuance rejects seniority encoded with %s', async (_description, seniority) => {
+    const testCase = issuanceReaderCases[0];
+    if (!testCase) throw new Error('Missing convertible issuance reader case');
+    const { client } = createMockClient(testCase, { ...convertibleData(), seniority });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'convertibleIssuance.seniority',
+      receivedValue: seniority,
+      context: {
+        fieldPath: 'convertibleIssuance.seniority',
+        receivedValue: seniority,
+      },
+    });
+  });
+
+  it.each([
+    ['zero', '0', 0],
+    ['a negative integer', '-2', -2],
+    ['the positive safe boundary', '9007199254740991', Number.MAX_SAFE_INTEGER],
+    ['the negative safe boundary', '-9007199254740991', Number.MIN_SAFE_INTEGER],
+  ])('convertible issuance accepts seniority encoded as %s', async (_description, seniority, expected) => {
+    const testCase = issuanceReaderCases[0];
+    if (!testCase) throw new Error('Missing convertible issuance reader case');
+    const { client } = createMockClient(testCase, { ...convertibleData(), seniority });
+
+    await expect(testCase.invoke(client)).resolves.toMatchObject({
+      event: { seniority: expected },
+      contractId: testCase.contractId,
+    });
+  });
+
+  it.each([
+    ['fractional text', '1.5'],
+    ['scientific notation', '1e3'],
+    ['a leading zero', '090'],
+    ['negative zero', '-0'],
+    ['positive overflow', '9007199254740992'],
+    ['negative overflow', '-9007199254740992'],
+  ])('equity compensation issuance rejects a termination period encoded with %s', async (_description, period) => {
+    const testCase = issuanceReaderCases[1];
+    if (!testCase) throw new Error('Missing equity compensation issuance reader case');
+    const data = equityCompensationData();
+    const windows = data.termination_exercise_windows as Array<Record<string, unknown>>;
+    const window = windows[0];
+    if (!window) throw new Error('Missing termination exercise window fixture');
+    data.termination_exercise_windows = [{ ...window, period }];
+    const { client } = createMockClient(testCase, data);
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'equityCompensationIssuance.termination_exercise_windows.0.period',
+      receivedValue: period,
+      context: {
+        fieldPath: 'equityCompensationIssuance.termination_exercise_windows.0.period',
+        receivedValue: period,
+      },
+    });
+  });
+
+  it.each([
+    ['zero', '0', 0],
+    ['a negative integer', '-30', -30],
+    ['a zero-only fractional suffix', '90.0000000000', 90],
+    ['the positive safe boundary', '9007199254740991.0', Number.MAX_SAFE_INTEGER],
+    ['the negative safe boundary', '-9007199254740991.0', Number.MIN_SAFE_INTEGER],
+  ])(
+    'equity compensation issuance accepts a termination period encoded as %s',
+    async (_description, period, expected) => {
+      const testCase = issuanceReaderCases[1];
+      if (!testCase) throw new Error('Missing equity compensation issuance reader case');
+      const data = equityCompensationData();
+      const windows = data.termination_exercise_windows as Array<Record<string, unknown>>;
+      const window = windows[0];
+      if (!window) throw new Error('Missing termination exercise window fixture');
+      data.termination_exercise_windows = [{ ...window, period }];
+      const { client } = createMockClient(testCase, data);
+
+      await expect(testCase.invoke(client)).resolves.toMatchObject({
+        event: {
+          termination_exercise_windows: [{ period: expected }],
+        },
+        contractId: testCase.contractId,
+      });
+    }
+  );
+
   it('warrant issuance rejects a convertible conversion right after exact decoding', async () => {
     const testCase = issuanceReaderCases[2];
     if (!testCase) throw new Error('Missing warrant issuance reader case');

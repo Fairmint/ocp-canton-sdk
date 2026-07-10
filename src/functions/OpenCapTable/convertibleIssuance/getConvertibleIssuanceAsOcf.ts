@@ -19,6 +19,7 @@ import {
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
+import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { readSingleContract } from '../shared/singleContractRead';
 
 export type OcfConvertibleIssuanceEvent = OcfConvertibleIssuance;
@@ -189,10 +190,7 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
       conversionTriggers
     );
   }
-  const seniority = typeof data.seniority === 'number' ? data.seniority : Number(data.seniority);
-  if (!Number.isInteger(seniority)) {
-    throw invalid('convertibleIssuance.seniority', 'seniority must be an integer', data.seniority);
-  }
+  const seniority = parseDamlSafeInteger(data.seniority, 'convertibleIssuance.seniority', 'int');
   const boardApprovalDate = optionalString(data.board_approval_date, 'convertibleIssuance.board_approval_date');
   const stockholderApprovalDate = optionalString(
     data.stockholder_approval_date,
