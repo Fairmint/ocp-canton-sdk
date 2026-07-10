@@ -6,7 +6,7 @@ import type {
   StockClassConversionRight,
   WarrantExerciseTrigger,
 } from '../../../types/native';
-import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { conversionTriggerTimingToDaml, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -76,13 +76,12 @@ function storageTrigger(
   convertsToStockClassId: string,
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
-  const timing = triggerTimingToDaml(trigger, source);
   return {
     type_: triggerTypeToDaml(trigger.type),
     trigger_id: trigger.trigger_id,
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
-    ...timing,
+    ...conversionTriggerTimingToDaml(trigger, source),
     conversion_right: {
       tag: 'OcfRightConvertible',
       value: {
@@ -160,41 +159,6 @@ function conversionRightToDaml(
   }
 }
 
-function triggerTimingToDaml(trigger: WarrantExerciseTrigger, source: string) {
-  switch (trigger.type) {
-    case 'AUTOMATIC_ON_CONDITION':
-    case 'ELECTIVE_ON_CONDITION':
-      return {
-        trigger_date: null,
-        trigger_condition: trigger.trigger_condition,
-        start_date: null,
-        end_date: null,
-      };
-    case 'AUTOMATIC_ON_DATE':
-      return {
-        trigger_date: dateStringToDAMLTime(trigger.trigger_date, `${source}.trigger_date`),
-        trigger_condition: null,
-        start_date: null,
-        end_date: null,
-      };
-    case 'ELECTIVE_IN_RANGE':
-      return {
-        trigger_date: null,
-        trigger_condition: null,
-        start_date: dateStringToDAMLTime(trigger.start_date, `${source}.start_date`),
-        end_date: dateStringToDAMLTime(trigger.end_date, `${source}.end_date`),
-      };
-    case 'ELECTIVE_AT_WILL':
-    case 'UNSPECIFIED':
-      return {
-        trigger_date: null,
-        trigger_condition: null,
-        start_date: null,
-        end_date: null,
-      };
-  }
-}
-
 function triggerToDaml(
   trigger: WarrantExerciseTrigger,
   index: number
@@ -207,7 +171,7 @@ function triggerToDaml(
     conversion_right: conversionRightToDaml(parsed, source),
     nickname: optionalString(parsed.nickname),
     trigger_description: optionalString(parsed.trigger_description),
-    ...triggerTimingToDaml(parsed, source),
+    ...conversionTriggerTimingToDaml(parsed, source),
   };
 }
 
