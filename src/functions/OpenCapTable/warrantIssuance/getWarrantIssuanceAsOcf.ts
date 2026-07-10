@@ -494,7 +494,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
       }
       return {};
     })(),
-    ...(d.warrant_expiration_date
+    ...(d.warrant_expiration_date !== null && d.warrant_expiration_date !== undefined
       ? {
           warrant_expiration_date: damlTimeToDateString(
             d.warrant_expiration_date,

@@ -174,6 +174,36 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   );
 
+  test.each([
+    ['', OcpErrorCodes.INVALID_FORMAT],
+    [{ seconds: 1 }, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('rejects a present invalid warrant_expiration_date on readback', (invalidDate, code) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+
+    try {
+      damlWarrantIssuanceDataToNative({ ...daml, warrant_expiration_date: invalidDate });
+      throw new Error('Expected warrant expiration date validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        fieldPath: 'warrantIssuance.warrant_expiration_date',
+        receivedValue: invalidDate,
+      });
+    }
+  });
+
+  test('omits a null or absent warrant_expiration_date on readback', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const withoutExpiration = { ...daml } as Record<string, unknown>;
+    delete withoutExpiration.warrant_expiration_date;
+
+    expect(damlWarrantIssuanceDataToNative({ ...daml, warrant_expiration_date: null }).warrant_expiration_date).toBe(
+      undefined
+    );
+    expect(damlWarrantIssuanceDataToNative(withoutExpiration).warrant_expiration_date).toBeUndefined();
+  });
+
   test.each(['trigger_date', 'start_date', 'end_date'] as const)(
     'rejects a present non-string exercise trigger %s on readback',
     (field) => {

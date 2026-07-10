@@ -187,15 +187,17 @@ function mechanismInputToDamlEnum(
           Array.isArray(arr)
             ? arr.map((ir) => ({
                 rate: ir?.rate != null ? normalizeNumericString(String(ir.rate)) : null,
-                accrual_start_date: ir?.accrual_start_date
-                  ? dateStringToDAMLTime(
-                      ir.accrual_start_date,
-                      'convertibleIssuance.interest_rates[].accrual_start_date'
-                    )
-                  : null,
-                accrual_end_date: ir?.accrual_end_date
-                  ? dateStringToDAMLTime(ir.accrual_end_date, 'convertibleIssuance.interest_rates[].accrual_end_date')
-                  : null,
+                accrual_start_date:
+                  ir?.accrual_start_date !== null && ir?.accrual_start_date !== undefined
+                    ? dateStringToDAMLTime(
+                        ir.accrual_start_date,
+                        'convertibleIssuance.interest_rates[].accrual_start_date'
+                      )
+                    : null,
+                accrual_end_date:
+                  ir?.accrual_end_date !== null && ir?.accrual_end_date !== undefined
+                    ? dateStringToDAMLTime(ir.accrual_end_date, 'convertibleIssuance.interest_rates[].accrual_end_date')
+                    : null,
               }))
             : [];
         const accrualToDaml = (v: unknown): string => {
@@ -417,18 +419,29 @@ function buildTriggerToDaml(t: ConversionTriggerInput, _index: number, _issuance
   const { trigger_id } = t;
   const nickname = typeof t === 'object' && t.nickname ? t.nickname : null;
   const trigger_description = typeof t === 'object' && t.trigger_description ? t.trigger_description : null;
-  const trigger_dateStr = typeof t === 'object' && t.trigger_date ? t.trigger_date : undefined;
+  const triggerDate: unknown = t.trigger_date;
   const trigger_condition = typeof t === 'object' && t.trigger_condition ? t.trigger_condition : null;
   const conversion_right = buildConvertibleRight(t);
-  const start_date = typeof t === 'object' && t.start_date ? dateStringToDAMLTime(t.start_date) : null;
-  const end_date = typeof t === 'object' && t.end_date ? dateStringToDAMLTime(t.end_date) : null;
+  const startDate: unknown = t.start_date;
+  const endDate: unknown = t.end_date;
+  const start_date =
+    startDate === null || startDate === undefined
+      ? null
+      : dateStringToDAMLTime(startDate, 'convertibleIssuance.conversion_triggers[].start_date');
+  const end_date =
+    endDate === null || endDate === undefined
+      ? null
+      : dateStringToDAMLTime(endDate, 'convertibleIssuance.conversion_triggers[].end_date');
   return {
     type_: typeEnum,
     trigger_id,
     nickname,
     trigger_description,
     conversion_right,
-    trigger_date: trigger_dateStr ? dateStringToDAMLTime(trigger_dateStr) : null,
+    trigger_date:
+      triggerDate === null || triggerDate === undefined
+        ? null
+        : dateStringToDAMLTime(triggerDate, 'convertibleIssuance.conversion_triggers[].trigger_date'),
     trigger_condition,
     start_date,
     end_date,
@@ -452,14 +465,23 @@ export function convertibleIssuanceDataToDaml(d: {
   seniority: number;
   comments?: string[];
 }): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
+  const boardApprovalDate: unknown = d.board_approval_date;
+  const stockholderApprovalDate: unknown = d.stockholder_approval_date;
+
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date),
     security_id: d.security_id,
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    board_approval_date:
+      boardApprovalDate === null || boardApprovalDate === undefined
+        ? null
+        : dateStringToDAMLTime(boardApprovalDate, 'convertibleIssuance.board_approval_date'),
+    stockholder_approval_date:
+      stockholderApprovalDate === null || stockholderApprovalDate === undefined
+        ? null
+        : dateStringToDAMLTime(stockholderApprovalDate, 'convertibleIssuance.stockholder_approval_date'),
     consideration_text: optionalString(d.consideration_text),
     security_law_exemptions: d.security_law_exemptions,
     investment_amount: monetaryToDaml(d.investment_amount),

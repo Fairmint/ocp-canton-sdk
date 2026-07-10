@@ -54,7 +54,7 @@ export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
     new_shares_authorized: normalizeNumericString(
       typeof d.new_shares_authorized === 'number' ? String(d.new_shares_authorized) : d.new_shares_authorized
     ),
-    ...(d.board_approval_date
+    ...(d.board_approval_date !== null && d.board_approval_date !== undefined
       ? {
           board_approval_date: damlTimeToDateString(
             d.board_approval_date,
@@ -62,7 +62,7 @@ export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
           ),
         }
       : {}),
-    ...(d.stockholder_approval_date
+    ...(d.stockholder_approval_date !== null && d.stockholder_approval_date !== undefined
       ? {
           stockholder_approval_date: damlTimeToDateString(
             d.stockholder_approval_date,
