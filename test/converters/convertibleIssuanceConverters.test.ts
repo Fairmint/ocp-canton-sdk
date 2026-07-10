@@ -11,6 +11,7 @@
  *   - OcfInterestPayoutDeferred / OcfInterestPayoutCash
  */
 
+import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { loadProductionFixture } from '../utils/productionFixtures';
@@ -403,6 +404,90 @@ describe('SAFE conversion_timing round-trip', () => {
     expect(mech.type).toBe('SAFE_CONVERSION');
     expect(mech.conversion_timing).toBe('PRE_MONEY');
   });
+});
+
+describe('convertible issuance approval-date read boundaries', () => {
+  test.each(['board_approval_date', 'stockholder_approval_date'] as const)(
+    'rejects a present non-string %s',
+    (field) => {
+      const invalidDate = { seconds: 1 };
+      const daml = convertibleIssuanceDataToDaml({
+        ...BASE_INPUT,
+        conversion_triggers: [SAFE_TRIGGER_BASE],
+      });
+
+      try {
+        damlConvertibleIssuanceDataToNative({ ...daml, [field]: invalidDate });
+        throw new Error('Expected approval date validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: `convertibleIssuance.${field}`,
+          receivedValue: invalidDate,
+        });
+      }
+    }
+  );
+
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'rejects a present non-string conversion trigger %s',
+    (field) => {
+      const invalidDate = { seconds: 1 };
+
+      try {
+        damlConvertibleIssuanceDataToNative({
+          ...BASE_DAML,
+          conversion_triggers: [{ ...buildDamlSafeTrigger(), [field]: invalidDate }],
+        });
+        throw new Error('Expected trigger date validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: `convertibleIssuance.conversion_triggers[].${field}`,
+          receivedValue: invalidDate,
+        });
+      }
+    }
+  );
+
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'rejects a present empty conversion trigger %s',
+    (field) => {
+      try {
+        damlConvertibleIssuanceDataToNative({
+          ...BASE_DAML,
+          conversion_triggers: [{ ...buildDamlSafeTrigger(), [field]: '' }],
+        });
+        throw new Error('Expected trigger date validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: `convertibleIssuance.conversion_triggers[].${field}`,
+          receivedValue: '',
+        });
+      }
+    }
+  );
+
+  test.each(['trigger_date', 'start_date', 'end_date'] as const)(
+    'omits a null or absent conversion trigger %s',
+    (field) => {
+      const withNull = damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        conversion_triggers: [{ ...buildDamlSafeTrigger(), [field]: null }],
+      }).conversion_triggers[0] as unknown as Record<string, unknown>;
+      const withoutField = damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        conversion_triggers: [buildDamlSafeTrigger()],
+      }).conversion_triggers[0] as unknown as Record<string, unknown>;
+
+      expect(withNull[field]).toBeUndefined();
+      expect(withoutField[field]).toBeUndefined();
+    }
+  );
 });
 
 /**
