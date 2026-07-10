@@ -1,9 +1,10 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfVestingAcceleration } from '../../../types/native';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
-import { damlVestingAccelerationToNative, type DamlVestingAccelerationData } from './damlToOcf';
+import { damlVestingAccelerationToNative } from './damlToOcf';
 
 export type GetVestingAccelerationAsOcfParams = GetByContractIdParams;
 
@@ -27,37 +28,10 @@ export async function getVestingAccelerationAsOcf(
 ): Promise<GetVestingAccelerationAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getVestingAccelerationAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.vestingAcceleration,
   });
-
-  function hasVestingAccelerationData(arg: unknown): arg is {
-    acceleration_data?: DamlVestingAccelerationData;
-    vesting_acceleration_data?: DamlVestingAccelerationData;
-  } {
-    const record = arg as Record<string, unknown>;
-    return (
-      typeof arg === 'object' &&
-      arg !== null &&
-      ((record.acceleration_data !== null && typeof record.acceleration_data === 'object') ||
-        (record.vesting_acceleration_data !== null && typeof record.vesting_acceleration_data === 'object'))
-    );
-  }
-
-  if (!hasVestingAccelerationData(createArgument)) {
-    throw new OcpParseError('Unexpected createArgument shape for VestingAcceleration', {
-      source: 'VestingAcceleration.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const accelerationData = createArgument.acceleration_data ?? createArgument.vesting_acceleration_data;
-  if (!accelerationData || typeof accelerationData !== 'object') {
-    throw new OcpParseError('Unexpected createArgument shape for VestingAcceleration', {
-      source: 'VestingAcceleration.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const native = damlVestingAccelerationToNative(accelerationData);
+  const data = extractAndDecodeDamlEntityData('vestingAcceleration', createArgument);
+  const native = damlVestingAccelerationToNative(data);
   return {
     vestingAcceleration: native,
     contractId: params.contractId,

@@ -1,9 +1,10 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfVestingStart } from '../../../types/native';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
-import { damlVestingStartToNative, type DamlVestingStartData } from './damlToOcf';
+import { damlVestingStartToNative } from './damlToOcf';
 
 export type GetVestingStartAsOcfParams = GetByContractIdParams;
 
@@ -27,37 +28,10 @@ export async function getVestingStartAsOcf(
 ): Promise<GetVestingStartAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getVestingStartAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.vestingStart,
   });
-
-  function hasVestingStartData(arg: unknown): arg is {
-    vesting_data?: DamlVestingStartData;
-    vesting_start_data?: DamlVestingStartData;
-  } {
-    const record = arg as Record<string, unknown>;
-    return (
-      typeof arg === 'object' &&
-      arg !== null &&
-      ((record.vesting_data !== null && typeof record.vesting_data === 'object') ||
-        (record.vesting_start_data !== null && typeof record.vesting_start_data === 'object'))
-    );
-  }
-
-  if (!hasVestingStartData(createArgument)) {
-    throw new OcpParseError('Unexpected createArgument shape for VestingStart', {
-      source: 'VestingStart.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const vestingData = createArgument.vesting_data ?? createArgument.vesting_start_data;
-  if (!vestingData || typeof vestingData !== 'object') {
-    throw new OcpParseError('Unexpected createArgument shape for VestingStart', {
-      source: 'VestingStart.createArgument',
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const native = damlVestingStartToNative(vestingData);
+  const data = extractAndDecodeDamlEntityData('vestingStart', createArgument);
+  const native = damlVestingStartToNative(data);
   return {
     vestingStart: native,
     contractId: params.contractId,
