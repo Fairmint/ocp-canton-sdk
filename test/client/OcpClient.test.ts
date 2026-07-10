@@ -227,6 +227,29 @@ describe('OcpClient OpenCapTable.issuerAuthorization.authorize', () => {
     expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
   });
 
+  it('rejects a null per-call factory instead of falling back to client defaults', async () => {
+    const ledger = createLedgerJsonApiClient(config);
+    const ocp = new OcpClient({
+      ledger,
+      factory: { contractId: 'client-factory-cid', templateId: 'client-factory-tid' },
+    });
+
+    await expect(
+      ocp.OpenCapTable.issuerAuthorization.authorize({
+        issuer: 'issuer::party',
+        factory: null as unknown as { contractId: string; templateId: string },
+      })
+    ).rejects.toMatchObject({
+      name: 'OcpValidationError',
+      fieldPath: 'factory',
+      code: 'INVALID_FORMAT',
+      expectedType: 'object with non-empty string contractId and templateId properties',
+      receivedValue: null,
+    });
+
+    expect(mockedAuthorizeIssuer).not.toHaveBeenCalled();
+  });
+
   it('requires explicit factory coordinates for custom environment authorization', async () => {
     const ledger = createLedgerJsonApiClient({ network: 'localnet' });
     const ocp = new OcpClient({ ledger, environment: 'custom' });
