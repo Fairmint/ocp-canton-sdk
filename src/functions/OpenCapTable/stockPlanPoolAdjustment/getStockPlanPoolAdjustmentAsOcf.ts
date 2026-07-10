@@ -1,40 +1,42 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlanPoolAdjustment } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 
-export interface GetStockPlanPoolAdjustmentAsOcfParams extends GetByContractIdParams {}
+export type GetStockPlanPoolAdjustmentAsOcfParams = GetByContractIdParams;
 export interface GetStockPlanPoolAdjustmentAsOcfResult {
   event: OcfStockPlanPoolAdjustment;
   contractId: string;
 }
 
-/** Type alias for DAML StockPlanPoolAdjustment contract createArgument */
-type StockPlanPoolAdjustmentCreateArgument = Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment;
-
-/** Type alias for DAML StockPlanPoolAdjustment OCF data */
-type StockPlanPoolAdjustmentOcfData = Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustmentOcfData;
+/** Exact generated DAML payload shape without exposing generated package declarations. */
+export interface DamlStockPlanPoolAdjustmentData {
+  id: string;
+  date: string;
+  shares_reserved: string;
+  stock_plan_id: string;
+  comments: string[];
+  board_approval_date: string | null;
+  stockholder_approval_date: string | null;
+}
 
 /**
  * Converts DAML StockPlanPoolAdjustment data to native OCF format.
  * Used by the dispatcher pattern in damlToOcf.ts.
  */
 export function damlStockPlanPoolAdjustmentDataToNative(
-  data: StockPlanPoolAdjustmentOcfData
+  data: DamlStockPlanPoolAdjustmentData
 ): OcfStockPlanPoolAdjustment {
-  // Convert shares_reserved to string for normalization (DAML Numeric may come as number at runtime)
-  const sharesReserved = data.shares_reserved as string | number;
-  const sharesReservedStr = typeof sharesReserved === 'number' ? sharesReserved.toString() : sharesReserved;
-
   return {
     object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
     id: data.id,
     date: damlTimeToDateString(data.date, 'stockPlanPoolAdjustment.date'),
     stock_plan_id: data.stock_plan_id,
-    shares_reserved: normalizeNumericString(sharesReservedStr),
-    ...(data.board_approval_date
+    shares_reserved: normalizeNumericString(data.shares_reserved),
+    ...(data.board_approval_date !== null
       ? {
           board_approval_date: damlTimeToDateString(
             data.board_approval_date,
@@ -42,7 +44,7 @@ export function damlStockPlanPoolAdjustmentDataToNative(
           ),
         }
       : {}),
-    ...(data.stockholder_approval_date
+    ...(data.stockholder_approval_date !== null
       ? {
           stockholder_approval_date: damlTimeToDateString(
             data.stockholder_approval_date,
@@ -50,7 +52,7 @@ export function damlStockPlanPoolAdjustmentDataToNative(
           ),
         }
       : {}),
-    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
+    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
   };
 }
 
@@ -60,10 +62,9 @@ export async function getStockPlanPoolAdjustmentAsOcf(
 ): Promise<GetStockPlanPoolAdjustmentAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getStockPlanPoolAdjustmentAsOcf',
-    expectedTemplateId: Fairmint.OpenCapTable.OCF.StockPlanPoolAdjustment.StockPlanPoolAdjustment.templateId,
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.stockPlanPoolAdjustment,
   });
-  const contract = createArgument as StockPlanPoolAdjustmentCreateArgument;
-
-  const native = damlStockPlanPoolAdjustmentDataToNative(contract.adjustment_data);
+  const data = extractAndDecodeDamlEntityData('stockPlanPoolAdjustment', createArgument);
+  const native = damlStockPlanPoolAdjustmentDataToNative(data);
   return { event: native, contractId: params.contractId };
 }

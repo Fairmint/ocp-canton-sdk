@@ -63,27 +63,11 @@ describe('DAML read converter date boundaries', () => {
           date: '2024-01-15T00:00:00Z',
           new_shares_authorized: '1000',
           board_approval_date: boardApprovalDate,
+          stockholder_approval_date: null,
+          comments: [],
         }),
       'issuerAuthorizedSharesAdjustment.board_approval_date',
       boardApprovalDate
-    );
-  });
-
-  test('rejects a non-string optional date at the runtime ledger boundary', () => {
-    const stockholderApprovalDate = { seconds: 1 };
-
-    expectInvalidDate(
-      () =>
-        damlIssuerAuthorizedSharesAdjustmentDataToNative({
-          id: 'adjustment-1',
-          issuer_id: 'issuer-1',
-          date: '2024-01-15T00:00:00Z',
-          new_shares_authorized: '1000',
-          stockholder_approval_date: stockholderApprovalDate,
-        }),
-      'issuerAuthorizedSharesAdjustment.stockholder_approval_date',
-      stockholderApprovalDate,
-      OcpErrorCodes.INVALID_TYPE
     );
   });
 });

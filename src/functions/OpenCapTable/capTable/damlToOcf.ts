@@ -158,7 +158,9 @@ export function convertToOcf(
 
     // ===== Adjustment types =====
     case 'issuerAuthorizedSharesAdjustment':
-      return damlIssuerAuthorizedSharesAdjustmentDataToNative(data);
+      return damlIssuerAuthorizedSharesAdjustmentDataToNative(
+        data as Parameters<typeof damlIssuerAuthorizedSharesAdjustmentDataToNative>[0]
+      );
     case 'stockClassAuthorizedSharesAdjustment':
       return damlStockClassAuthorizedSharesAdjustmentDataToNative(
         data as Parameters<typeof damlStockClassAuthorizedSharesAdjustmentDataToNative>[0]
