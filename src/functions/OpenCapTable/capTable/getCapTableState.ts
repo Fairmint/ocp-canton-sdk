@@ -281,7 +281,7 @@ async function buildCapTableStateFromCreatedEvent(
     try {
       const eventsResponse = await client.getEventsByContractId({
         contractId: issuerContractId,
-        ...ledgerReadScope({ readAs: issuerPartyId ? [issuerPartyId] : undefined }),
+        ...ledgerReadScope(issuerPartyId ? { readAs: [issuerPartyId] } : {}),
       });
       const issuerId = requireIssuerCanonicalObjectId(eventsResponse, issuerContractId);
       entities.set('issuer', new Set([issuerId]));
