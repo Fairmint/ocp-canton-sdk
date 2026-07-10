@@ -114,6 +114,33 @@ export function canonicalOptionalNumericToDaml(value: unknown, field: string): s
   return normalizeNumericString(value);
 }
 
+/** Encode an optional canonical OCF Monetary without accepting JSON null or loose scalar values. */
+function canonicalOptionalMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> | null {
+  if (value === undefined) return null;
+  if (!isRecord(value)) {
+    throw new OcpValidationError(field, 'Expected a Monetary object when provided; omit the property when absent', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'Monetary object or omitted property',
+      receivedValue: value,
+    });
+  }
+  if (typeof value.amount !== 'string') {
+    throw new OcpValidationError(`${field}.amount`, 'Expected a decimal string', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'decimal string',
+      receivedValue: value.amount,
+    });
+  }
+  if (typeof value.currency !== 'string') {
+    throw new OcpValidationError(`${field}.currency`, 'Expected a currency string', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'currency string',
+      receivedValue: value.currency,
+    });
+  }
+  return monetaryToDaml({ amount: value.amount, currency: value.currency });
+}
+
 /** Encode optional canonical OCF text without normalizing invalid blank values into DAML absence. */
 function canonicalOptionalTextToDaml(value: unknown, field: string): string | null {
   if (value === undefined) return null;
@@ -731,14 +758,14 @@ export function warrantMechanismToDaml(mechanism: WarrantConversionMechanism): D
         value: {
           description: mechanism.description,
           discount: mechanism.discount,
-          discount_percentage:
-            'discount_percentage' in mechanism && mechanism.discount_percentage !== undefined
-              ? normalizeNumericString(mechanism.discount_percentage)
-              : null,
-          discount_amount:
-            'discount_amount' in mechanism && mechanism.discount_amount
-              ? monetaryToDaml(mechanism.discount_amount)
-              : null,
+          discount_percentage: canonicalOptionalNumericToDaml(
+            mechanism.discount_percentage,
+            'conversion_mechanism.discount_percentage'
+          ),
+          discount_amount: canonicalOptionalMonetaryToDaml(
+            mechanism.discount_amount,
+            'conversion_mechanism.discount_amount'
+          ),
         },
       };
     default:
