@@ -7,7 +7,7 @@ import type {
   ConvertibleType,
   OcfConvertibleIssuance,
 } from '../../../types/native';
-import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { assertDamlConversionTriggerFieldNames, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   damlTimeToDateString,
   isRecord,
@@ -122,6 +122,7 @@ function optionalDamlDate(value: unknown, field: string): string | undefined {
 function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleConversionTrigger {
   const source = `convertibleIssuance.conversion_triggers.${index}`;
   const trigger = requireRecord(value, source);
+  assertDamlConversionTriggerFieldNames(trigger, source);
   return parseConversionTriggerFields(
     {
       type: mapDamlTriggerTypeToOcf(requireString(trigger.type_, `${source}.type`)),
@@ -135,7 +136,7 @@ function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleCo
       end_date: optionalDamlDate(trigger.end_date, `${source}.end_date`),
     },
     source,
-    { nullIsAbsent: true }
+    { nullIsAbsent: true, unexpectedFieldCode: OcpErrorCodes.SCHEMA_MISMATCH }
   );
 }
 

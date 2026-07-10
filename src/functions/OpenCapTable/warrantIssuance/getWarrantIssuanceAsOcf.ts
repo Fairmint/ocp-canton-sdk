@@ -11,7 +11,7 @@ import type {
   WarrantExerciseTrigger,
   WarrantTriggerConversionRight,
 } from '../../../types/native';
-import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import { assertDamlConversionTriggerFieldNames, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   damlTimeToDateString,
   isRecord,
@@ -158,6 +158,7 @@ function optionalDamlDate(value: unknown, field: string): string | undefined {
 function triggerFromDaml(value: unknown, index: number): WarrantExerciseTrigger {
   const source = `warrantIssuance.exercise_triggers.${index}`;
   const trigger = requireRecord(value, source);
+  assertDamlConversionTriggerFieldNames(trigger, source);
   return parseConversionTriggerFields(
     {
       type: mapDamlTriggerTypeToOcf(requireString(trigger.type_, `${source}.type`)),
@@ -171,7 +172,7 @@ function triggerFromDaml(value: unknown, index: number): WarrantExerciseTrigger 
       end_date: optionalDamlDate(trigger.end_date, `${source}.end_date`),
     },
     source,
-    { nullIsAbsent: true }
+    { nullIsAbsent: true, unexpectedFieldCode: OcpErrorCodes.SCHEMA_MISMATCH }
   );
 }
 
