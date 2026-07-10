@@ -41,6 +41,7 @@
     "localnet:test": "CANTON_LOCALNET_TEST_CMD='npm run test:integration:ci' npm run -s localnet -- test",
     "localnet:verify": "CANTON_LOCALNET_TEST_CMD='npm run test:integration:ci' npm run -s localnet -- verify",
     "prepare-release": "ts-node --project tsconfig.tests.json scripts/prepare-release.ts",
+    "schema:inventory:update": "ts-node --project tsconfig.tests.json scripts/update-schema-conformance-inventory.ts",
     "script:authorize": "ts-node --project tsconfig.tests.json scripts/authorizeIssuer.ts",
     "script:create-issuer": "ts-node --project tsconfig.tests.json scripts/createIssuer.ts",
     "script:get-issuer-ocf": "ts-node --project tsconfig.tests.json scripts/getIssuerAsOcf.ts",
