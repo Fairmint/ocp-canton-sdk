@@ -103,8 +103,26 @@ describe('conversion semantic parser refinements', () => {
     const invalid = warrantWithRight({
       type: 'STOCK_CLASS_CONVERSION_RIGHT',
       conversion_mechanism: customMechanism,
+      converts_to_stock_class_id: 'common-class',
     });
     expect(() => parseOcfEntityInput('warrantIssuance', invalid)).toThrow(OcpValidationError);
+  });
+
+  it('requires a concrete destination for stock-class conversion rights at every parser boundary', () => {
+    const invalid = warrantWithRight({
+      type: 'STOCK_CLASS_CONVERSION_RIGHT',
+      conversion_mechanism: {
+        type: 'RATIO_CONVERSION',
+        ratio: { numerator: '1', denominator: '1' },
+        conversion_price: { amount: '1', currency: 'USD' },
+        rounding_type: 'NORMAL',
+      },
+    });
+
+    expect(() => parseOcfEntityInput('warrantIssuance', invalid)).toThrow(
+      /requires a non-empty converts_to_stock_class_id/
+    );
+    expect(() => parseOcfObject(invalid)).toThrow(/requires a non-empty converts_to_stock_class_id/);
   });
 
   it('does not default omitted capitalization-rule booleans', () => {

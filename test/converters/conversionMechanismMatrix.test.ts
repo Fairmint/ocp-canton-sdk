@@ -14,6 +14,7 @@ import { damlConvertibleIssuanceDataToNative } from '../../src/functions/OpenCap
 import {
   convertibleMechanismFromDaml,
   convertibleMechanismToDaml,
+  ratioMechanismFromDaml,
   warrantMechanismToDaml,
 } from '../../src/functions/OpenCapTable/shared/conversionMechanisms';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
@@ -321,6 +322,56 @@ describe('canonical conversion mechanism matrices', () => {
     expect(requireFirst(roundTripped.exercise_triggers, 'round-tripped warrant trigger').conversion_right).toEqual(
       requireFirst(input.exercise_triggers, 'input warrant trigger').conversion_right
     );
+  });
+});
+
+describe('generated DAML Optional record boundaries', () => {
+  it('rejects a Some-wrapped Monetary instead of accepting a non-generated compatibility shape', () => {
+    const generated = convertibleMechanismToDaml({
+      type: 'SAFE_CONVERSION',
+      conversion_mfn: false,
+      conversion_valuation_cap: { amount: '1000000', currency: 'USD' },
+    });
+    if (generated.tag !== 'OcfConvMechSAFE') throw new Error('Expected generated SAFE mechanism');
+
+    const wrapped = {
+      ...generated,
+      value: {
+        ...generated.value,
+        conversion_valuation_cap: {
+          tag: 'Some',
+          value: generated.value.conversion_valuation_cap,
+        },
+      },
+    };
+    const error = captureValidationError(() => convertibleMechanismFromDaml(wrapped));
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'direct Monetary record or null',
+      fieldPath: 'conversion_mechanism.conversion_valuation_cap',
+    });
+    expect(error.message).toContain('generated DAML Optional encoding');
+  });
+
+  it('rejects a Some-wrapped Ratio instead of accepting a non-generated compatibility shape', () => {
+    const error = captureValidationError(() =>
+      ratioMechanismFromDaml(
+        {
+          conversion_mechanism: 'OcfConversionMechanismRatioConversion',
+          ratio: { tag: 'Some', value: { numerator: '2', denominator: '1' } },
+          conversion_price: { amount: '10', currency: 'USD' },
+        },
+        'stockClass.conversion_right'
+      )
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'direct Ratio record or null',
+      fieldPath: 'stockClass.conversion_right.ratio',
+    });
+    expect(error.message).toContain('generated DAML Optional encoding');
   });
 });
 

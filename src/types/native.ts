@@ -400,7 +400,7 @@ export interface TaxId {
 export interface StockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
   conversion_mechanism: RatioConversionMechanism;
-  converts_to_stock_class_id?: string;
+  converts_to_stock_class_id: string;
   converts_to_future_round?: boolean;
 }
 

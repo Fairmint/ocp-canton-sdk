@@ -38,6 +38,30 @@ function requireRecord(value: unknown, field: string): Record<string, unknown> {
   return value;
 }
 
+/**
+ * Require the JSON representation emitted by the generated DAML bindings.
+ *
+ * For non-nullable records such as Monetary and Ratio, `damlTypes.Optional<T>`
+ * is encoded as `T | null`. A `{ tag: 'Some', value: T }` object is not a
+ * generated or JSON API Optional encoding and accepting it would weaken the
+ * ledger boundary with an undocumented compatibility shape.
+ */
+function requireDirectDamlRecord(value: unknown, field: string, recordType: string): Record<string, unknown> {
+  const record = requireRecord(value, field);
+  if (record.tag === 'Some' || record.tag === 'None') {
+    throw new OcpValidationError(
+      field,
+      `${field} must use the generated DAML Optional encoding: a direct ${recordType} record or null`,
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: `direct ${recordType} record or null`,
+        receivedValue: value,
+      }
+    );
+  }
+  return record;
+}
+
 function requireString(value: unknown, field: string): string {
   if (typeof value !== 'string' || value.length === 0) {
     throw validationError(field, `${field} must be a non-empty string`, value);
@@ -119,7 +143,7 @@ function optionalBooleanFromDaml(value: unknown, field: string): boolean | undef
 }
 
 function monetaryFromDaml(value: unknown, field: string): Monetary {
-  const monetary = requireRecord(value, field);
+  const monetary = requireDirectDamlRecord(value, field, 'Monetary');
   return {
     amount: requireNumeric(monetary.amount, `${field}.amount`),
     currency: requireString(monetary.currency, `${field}.currency`),
@@ -132,7 +156,7 @@ function optionalMonetaryFromDaml(value: unknown, field: string): Monetary | und
 }
 
 function ratioFromDaml(value: unknown, field: string): { numerator: string; denominator: string } {
-  const ratio = requireRecord(value, field);
+  const ratio = requireDirectDamlRecord(value, field, 'Ratio');
   return {
     numerator: requireNumeric(ratio.numerator, `${field}.numerator`),
     denominator: requireNumeric(ratio.denominator, `${field}.denominator`),
