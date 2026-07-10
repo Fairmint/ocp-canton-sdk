@@ -391,25 +391,26 @@ describe('strict optional numeric issuance fields', () => {
 });
 
 describe('strict optional capitalization definitions', () => {
-  const blankCases: ReadonlyArray<{
-    encode: () => unknown;
+  function suppliedCapitalizationDefinition(value: unknown): { readonly capitalization_definition?: string } {
+    return value === undefined ? {} : { capitalization_definition: value as string };
+  }
+
+  const writers: ReadonlyArray<{
+    encode: (definition: unknown) => unknown;
     name: string;
-    value: string;
   }> = [
     {
       name: 'convertible SAFE',
-      value: '',
-      encode: () =>
+      encode: (definition) =>
         convertibleMechanismToDaml({
           type: 'SAFE_CONVERSION',
           conversion_mfn: false,
-          capitalization_definition: '',
+          ...suppliedCapitalizationDefinition(definition),
         }),
     },
     {
       name: 'convertible note',
-      value: '   ',
-      encode: () =>
+      encode: (definition) =>
         convertibleMechanismToDaml({
           type: 'CONVERTIBLE_NOTE_CONVERSION',
           interest_rates: [],
@@ -417,88 +418,72 @@ describe('strict optional capitalization definitions', () => {
           interest_payout: 'DEFERRED',
           interest_accrual_period: 'MONTHLY',
           compounding_type: 'SIMPLE',
-          capitalization_definition: '   ',
+          ...suppliedCapitalizationDefinition(definition),
         }),
     },
     {
       name: 'convertible percent capitalization',
-      value: '',
-      encode: () =>
+      encode: (definition) =>
         convertibleMechanismToDaml({
           type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
           converts_to_percent: '0.1',
-          capitalization_definition: '',
+          ...suppliedCapitalizationDefinition(definition),
         }),
     },
     {
       name: 'warrant percent capitalization',
-      value: '   ',
-      encode: () =>
+      encode: (definition) =>
         warrantMechanismToDaml({
           type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
           converts_to_percent: '0.1',
-          capitalization_definition: '   ',
+          ...suppliedCapitalizationDefinition(definition),
         }),
     },
     {
       name: 'warrant valuation',
-      value: '',
-      encode: () =>
+      encode: (definition) =>
         warrantMechanismToDaml({
           type: 'VALUATION_BASED_CONVERSION',
           valuation_type: 'ACTUAL',
-          capitalization_definition: '',
+          ...suppliedCapitalizationDefinition(definition),
         }),
     },
   ];
 
-  test.each(blankCases)('rejects a blank $name definition', ({ encode, value }) => {
-    const error = captureValidationError(encode);
-    expect(error).toMatchObject({
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'non-blank string or omitted property',
-      fieldPath: 'conversion_mechanism.capitalization_definition',
-      receivedValue: value,
-    });
+  test.each(writers)('encodes an omitted $name definition as DAML null', ({ encode }) => {
+    expect(encode(undefined)).toMatchObject({ value: { capitalization_definition: null } });
   });
 
-  test.each([
-    ['convertible SAFE', () => convertibleMechanismToDaml({ type: 'SAFE_CONVERSION', conversion_mfn: false })],
-    [
-      'convertible note',
-      () =>
-        convertibleMechanismToDaml({
-          type: 'CONVERTIBLE_NOTE_CONVERSION',
-          interest_rates: [],
-          day_count_convention: 'ACTUAL_365',
-          interest_payout: 'DEFERRED',
-          interest_accrual_period: 'MONTHLY',
-          compounding_type: 'SIMPLE',
-        }),
-    ],
-    [
-      'convertible percent capitalization',
-      () =>
-        convertibleMechanismToDaml({
-          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-          converts_to_percent: '0.1',
-        }),
-    ],
-    [
-      'warrant percent capitalization',
-      () =>
-        warrantMechanismToDaml({
-          type: 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION',
-          converts_to_percent: '0.1',
-        }),
-    ],
-    [
-      'warrant valuation',
-      () => warrantMechanismToDaml({ type: 'VALUATION_BASED_CONVERSION', valuation_type: 'ACTUAL' }),
-    ],
-  ] as const)('encodes an omitted %s definition as DAML null', (_name, encode) => {
-    expect(encode()).toMatchObject({ value: { capitalization_definition: null } });
+  test.each(writers)('preserves an exact non-blank $name definition', ({ encode }) => {
+    const definition = '  Fully diluted capitalization  ';
+    expect(encode(definition)).toMatchObject({ value: { capitalization_definition: definition } });
   });
+
+  test.each(writers.flatMap((writer) => ['', '   '].map((value) => ({ ...writer, value }))))(
+    'rejects a blank $name definition',
+    ({ encode, value }) => {
+      const error = captureValidationError(() => encode(value));
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'non-blank string or omitted property',
+        fieldPath: 'conversion_mechanism.capitalization_definition',
+        receivedValue: value,
+      });
+    }
+  );
+
+  test.each(writers.flatMap((writer) => [null, 42].map((value) => ({ ...writer, value }))))(
+    'rejects a non-string $name definition',
+    ({ encode, value }) => {
+      const error = captureValidationError(() => encode(value));
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'non-blank string or omitted property',
+        fieldPath: 'conversion_mechanism.capitalization_definition',
+        receivedValue: value,
+      });
+    }
+  );
 });
 
 describe('canonical DAML conversion timing constructors', () => {
