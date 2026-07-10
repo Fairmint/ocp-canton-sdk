@@ -35,7 +35,7 @@ export function damlStakeholderRelationshipChangeEventToNative(
   const common = {
     object_type: 'CE_STAKEHOLDER_RELATIONSHIP',
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, 'stakeholderRelationshipChangeEvent.date'),
     stakeholder_id: d.stakeholder_id,
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   } as const;
