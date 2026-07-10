@@ -260,6 +260,17 @@ function vestingConditionPortionToDaml(
 }
 
 function vestingConditionToDaml(c: VestingCondition): Fairmint.OpenCapTable.OCF.VestingTerms.OcfVestingCondition {
+  const rawCondition = c as unknown as Record<'portion' | 'quantity', unknown>;
+  for (const field of ['portion', 'quantity'] as const) {
+    if (rawCondition[field] === null) {
+      throw new OcpValidationError(`vestingCondition.${field}`, `${field} cannot be null`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: `${field} value or omitted`,
+        receivedValue: rawCondition[field],
+      });
+    }
+  }
+
   const hasPortion = c.portion !== undefined;
   const hasQuantity = c.quantity !== undefined;
   if (hasPortion === hasQuantity) {
