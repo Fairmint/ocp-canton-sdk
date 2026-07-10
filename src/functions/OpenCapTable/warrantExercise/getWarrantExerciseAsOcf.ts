@@ -1,8 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfWarrantExercise } from '../../../types/native';
-import { isRecord } from '../../../utils/typeConversions';
+import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
+import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlWarrantExerciseToNative } from './damlToOcf';
 
@@ -29,17 +29,9 @@ export async function getWarrantExerciseAsOcf(
 ): Promise<GetWarrantExerciseAsOcfResult> {
   const { createArgument } = await readSingleContract(client, params, {
     operation: 'getWarrantExerciseAsOcf',
+    expectedTemplateId: ENTITY_TEMPLATE_ID_MAP.warrantExercise,
   });
-
-  const exerciseData = createArgument.exercise_data;
-  if (!isRecord(exerciseData)) {
-    throw new OcpContractError('WarrantExercise data not found in contract create argument', {
-      contractId: params.contractId,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-  const d = exerciseData;
-
-  const native = damlWarrantExerciseToNative(d);
+  const data = extractAndDecodeDamlEntityData('warrantExercise', createArgument);
+  const native = damlWarrantExerciseToNative(data);
   return { event: native, contractId: params.contractId };
 }

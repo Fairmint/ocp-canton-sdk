@@ -359,7 +359,6 @@ describe('DAML readers emit canonical public DTO fields only', () => {
       security_id: 'warrant-1',
       trigger_id: 'trigger-1',
       quantity: '100.0000000000',
-      balance_security_id: 'warrant-balance',
       resulting_security_ids: ['security-1'],
       consideration_text: null,
       comments: [],

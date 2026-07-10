@@ -158,6 +158,8 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         trigger_id: 't1',
         resulting_security_ids: ['sec-2'],
         comments: [],
+        balance_security_id: null,
+        capitalization_definition: null,
         quantity_converted: '0',
       };
       const result = damlConvertibleConversionToNative(daml);

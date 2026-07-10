@@ -156,7 +156,9 @@ export function convertToOcf(
 
     // ===== Exercise types =====
     case 'equityCompensationExercise':
-      return damlEquityCompensationExerciseDataToNative(data);
+      return damlEquityCompensationExerciseDataToNative(
+        data as Parameters<typeof damlEquityCompensationExerciseDataToNative>[0]
+      );
 
     // ===== Adjustment types =====
     case 'issuerAuthorizedSharesAdjustment':
@@ -202,7 +204,7 @@ export function convertToOcf(
     case 'stockReissuance':
       return damlStockReissuanceToNative(data as Parameters<typeof damlStockReissuanceToNative>[0]);
     case 'warrantExercise':
-      return damlWarrantExerciseToNative(data);
+      return damlWarrantExerciseToNative(data as Parameters<typeof damlWarrantExerciseToNative>[0]);
     case 'warrantRetraction':
       return damlWarrantRetractionToNative(data as Parameters<typeof damlWarrantRetractionToNative>[0]);
     case 'convertibleConversion':

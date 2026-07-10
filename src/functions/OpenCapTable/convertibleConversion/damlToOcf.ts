@@ -2,25 +2,16 @@
  * DAML to OCF converters for ConvertibleConversion entities.
  */
 
-import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types';
+import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import type { OcfConvertibleConversion } from '../../../types';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
 
 /**
  * DAML ConvertibleConversion data structure.
  * This matches the shape of data returned from DAML contracts.
  */
-export interface DamlConvertibleConversionData {
-  id: string;
-  date: string;
-  reason_text: string;
-  security_id: string;
-  trigger_id: string;
-  resulting_security_ids: string[];
-  balance_security_id?: string | null;
-  capitalization_definition?: CapitalizationDefinition | null;
-  quantity_converted?: string | null;
-  comments: string[];
-}
+export type DamlConvertibleConversionData = DamlDataTypeFor<'convertibleConversion'>;
 
 /**
  * Convert DAML ConvertibleConversion data to native OCF format.
@@ -29,6 +20,29 @@ export interface DamlConvertibleConversionData {
  * @returns The native OCF ConvertibleConversion object
  */
 export function damlConvertibleConversionToNative(d: DamlConvertibleConversionData): OcfConvertibleConversion {
+  if (d.resulting_security_ids.length === 0) {
+    throw new OcpValidationError(
+      'convertibleConversion.resulting_security_ids',
+      'Required field must be a non-empty array',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        receivedValue: d.resulting_security_ids,
+      }
+    );
+  }
+  if (d.reason_text.length === 0) {
+    throw new OcpValidationError('convertibleConversion.reason_text', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.reason_text,
+    });
+  }
+  if (d.trigger_id.length === 0) {
+    throw new OcpValidationError('convertibleConversion.trigger_id', 'Required field is missing or invalid', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      receivedValue: d.trigger_id,
+    });
+  }
+
   return {
     object_type: 'TX_CONVERTIBLE_CONVERSION',
     id: d.id,
