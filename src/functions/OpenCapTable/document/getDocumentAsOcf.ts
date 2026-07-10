@@ -3,6 +3,7 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfDocument, OcfObjectReference } from '../../../types/native';
+import { validateRequiredString } from '../../../utils/validation';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function objectTypeToNative(t: Fairmint.OpenCapTable.OCF.Document.OcfObjectType): OcfObjectReference['object_type'] {
@@ -152,8 +153,14 @@ export function damlDocumentDataToNative(d: Fairmint.OpenCapTable.OCF.Document.D
       : [],
   } as const;
 
-  if (path !== undefined && uri === undefined) return { ...common, path };
-  if (uri !== undefined && path === undefined) return { ...common, uri };
+  if (path !== undefined && uri === undefined) {
+    validateRequiredString(path, 'document.path');
+    return { ...common, path };
+  }
+  if (uri !== undefined && path === undefined) {
+    validateRequiredString(uri, 'document.uri');
+    return { ...common, uri };
+  }
 
   throw new OcpValidationError('document', 'Document must have exactly one of path or uri', {
     code: path === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_FORMAT,

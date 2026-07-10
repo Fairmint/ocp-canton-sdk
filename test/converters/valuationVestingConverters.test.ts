@@ -9,7 +9,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import {
   damlValuationToNative,
@@ -31,6 +31,7 @@ import {
   type DamlVestingStartData,
 } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
 import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
+import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
 import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import type {
   OcfValuation,
@@ -402,6 +403,36 @@ describe('VestingTerms Converters', () => {
       } as unknown as OcfVestingTerms;
 
       expect(() => convertToDaml('vestingTerms', ocfData)).toThrow(OcpValidationError);
+    });
+
+    test.each(['portion', 'quantity'] as const)('rejects an explicit null %s amount', (field) => {
+      const ocfData = {
+        object_type: 'VESTING_TERMS',
+        id: 'vt-null-amount',
+        name: 'Invalid Null Amount',
+        description: 'Explicit null is not canonical omission',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'condition-null',
+            [field]: null,
+            trigger: { type: 'VESTING_START_DATE' },
+            next_condition_ids: [],
+          },
+        ],
+      } as unknown as OcfVestingTerms;
+
+      try {
+        vestingTermsDataToDaml(ocfData);
+        throw new Error('Expected conversion to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          fieldPath: `vestingCondition.${field}`,
+          code: OcpErrorCodes.INVALID_TYPE,
+          receivedValue: null,
+        });
+      }
     });
   });
 });
