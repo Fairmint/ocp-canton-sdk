@@ -19,6 +19,12 @@ export interface TransactionTreeFixture {
 let currentFixture: TransactionTreeFixture | null = null;
 let currentEventsFixture: Record<string, unknown> | null = null;
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
 /**
  * Configure the mock with a fixture object directly (no file I/O)
  *
@@ -63,8 +69,9 @@ export function convertTransactionTreeToEventsResponse(
   synchronizerId: string
 ): Record<string, unknown> {
   // Handle both structures: response.transactionTree.eventsById and response.transactionTree.transaction.eventsById
-  const transactionTree = response.transactionTree as any;
-  const eventsById = transactionTree?.eventsById ?? transactionTree?.transaction?.eventsById;
+  const transactionTree = asRecord(response.transactionTree);
+  const nestedTransaction = asRecord(transactionTree?.transaction);
+  const eventsById = asRecord(transactionTree?.eventsById) ?? asRecord(nestedTransaction?.eventsById);
 
   if (!eventsById) {
     throw new Error('No eventsById in transaction tree');
@@ -96,7 +103,7 @@ export function convertTransactionTreeToEventsResponse(
  * Validate that an actual request matches the expected request from the fixture Performs a flexible match that ignores
  * dynamic fields and format differences
  */
-export function validateRequestMatchesFixture(actualRequest: Record<string, unknown>): void {
+export function validateRequestMatchesFixture(actualRequest: unknown): void {
   if (!currentFixture) {
     return; // No fixture configured, skip validation
   }
@@ -118,6 +125,8 @@ export function validateRequestMatchesFixture(actualRequest: Record<string, unkn
  * responses
  */
 export function configureClientWithFixture(client: unknown): jest.SpyInstance {
-  const clientWithPrivateAccess = client as any;
+  const clientWithPrivateAccess = client as {
+    ledger: { submitAndWaitForTransactionTree: (...args: unknown[]) => unknown };
+  };
   return jest.spyOn(clientWithPrivateAccess.ledger, 'submitAndWaitForTransactionTree');
 }

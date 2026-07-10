@@ -181,7 +181,6 @@ const eslintConfig = [
     files: ['scripts/**/*', 'test/**/*'],
     rules: {
       'no-console': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',

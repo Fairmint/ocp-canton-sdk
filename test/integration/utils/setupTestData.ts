@@ -83,6 +83,12 @@ export function generateTestId(prefix: string): string {
   return `${prefix}-${timestamp}-${random}`;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
 /** Omit optional disclosed-contract input rather than materializing it as `undefined`. */
 export function withCapTableContractDetails<T extends { templateId: string }>(
   capTableContractDetails: T | undefined
@@ -668,9 +674,9 @@ function extractContractIdFromResponse(
   response: SubmitAndWaitForTransactionTreeResponse,
   templateIdContains: string
 ): string {
-  const tree = response.transactionTree;
-  const treeAny = tree as any;
-  const eventsById: Record<string, unknown> = treeAny.eventsById ?? treeAny.transaction?.eventsById ?? {};
+  const tree = asRecord(response.transactionTree);
+  const nestedTransaction = asRecord(tree?.transaction);
+  const eventsById = asRecord(tree?.eventsById) ?? asRecord(nestedTransaction?.eventsById) ?? {};
 
   for (const event of Object.values(eventsById)) {
     const eventData = event as Record<string, unknown>;

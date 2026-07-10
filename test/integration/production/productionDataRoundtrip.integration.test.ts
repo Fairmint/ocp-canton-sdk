@@ -45,11 +45,10 @@ import {
  * Helper to prepare a fixture for submission to the API.
  * Strips metadata fields and generates unique IDs.
  *
- * Note: Returns `any` because fixtures are dynamically loaded JSON.
- * The batch API will validate structure at runtime.
+ * Fixtures remain unknown records until the batch API validates their structure at runtime.
  */
 
-function prepareFixture(fixture: Record<string, unknown>, idPrefix: string): any {
+function prepareFixture(fixture: Record<string, unknown>, idPrefix: string): Record<string, unknown> {
   const cleaned = stripSourceMetadata(fixture);
   // Generate unique ID to avoid conflicts between test runs
   const uniqueId = generateTestId(idPrefix);
@@ -59,6 +58,14 @@ function prepareFixture(fixture: Record<string, unknown>, idPrefix: string): any
     // Also update security_id if present
     ...(cleaned.security_id ? { security_id: generateTestId('security') } : {}),
   };
+}
+
+function requireFixtureString(fixture: Record<string, unknown>, field: string): string {
+  const value = fixture[field];
+  if (typeof value !== 'string') {
+    throw new Error(`Fixture field ${field} must be a string`);
+  }
+  return value;
 }
 
 /**
@@ -197,7 +204,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockClass', prepared).execute();
+      const result = await batch.create('stockClass', parseOcfEntityInput('stockClass', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -237,7 +244,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('valuation', prepared).execute();
+      const result = await batch.create('valuation', parseOcfEntityInput('valuation', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -262,7 +269,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stakeholder', prepared).execute();
+      const result = await batch.create('stakeholder', parseOcfEntityInput('stakeholder', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
 
       // Read back as OCF
@@ -296,7 +303,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stakeholder', prepared).execute();
+      const result = await batch.create('stakeholder', parseOcfEntityInput('stakeholder', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stakeholder.get({
@@ -324,7 +331,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockLegendTemplate', prepared).execute();
+      const result = await batch
+        .create('stockLegendTemplate', parseOcfEntityInput('stockLegendTemplate', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stockLegendTemplate.get({
@@ -352,7 +361,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('document', prepared).execute();
+      const result = await batch.create('document', parseOcfEntityInput('document', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.document.get({
@@ -385,7 +394,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('vestingTerms', prepared).execute();
+      const result = await batch.create('vestingTerms', parseOcfEntityInput('vestingTerms', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.vestingTerms.get({
@@ -413,7 +422,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockPlan', prepared).execute();
+      const result = await batch.create('stockPlan', parseOcfEntityInput('stockPlan', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
 
       const readBack = await ctx.ocp.OpenCapTable.stockPlan.get({
@@ -466,7 +475,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockIssuance', prepared).execute();
+      const result = await batch.create('stockIssuance', parseOcfEntityInput('stockIssuance', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -509,7 +518,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockCancellation', prepared).execute();
+      const result = await batch
+        .create('stockCancellation', parseOcfEntityInput('stockCancellation', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -552,7 +563,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockRepurchase', prepared).execute();
+      const result = await batch.create('stockRepurchase', parseOcfEntityInput('stockRepurchase', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -595,7 +606,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockTransfer', prepared).execute();
+      const result = await batch.create('stockTransfer', parseOcfEntityInput('stockTransfer', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -637,7 +648,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleIssuance', prepared).execute();
+      const result = await batch
+        .create('convertibleIssuance', parseOcfEntityInput('convertibleIssuance', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -676,7 +689,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleCancellation', prepared).execute();
+      const result = await batch
+        .create('convertibleCancellation', parseOcfEntityInput('convertibleCancellation', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -715,7 +730,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleConversion', prepared).execute();
+      const result = await batch
+        .create('convertibleConversion', parseOcfEntityInput('convertibleConversion', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -760,7 +777,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleTransfer', prepared).execute();
+      const result = await batch
+        .create('convertibleTransfer', parseOcfEntityInput('convertibleTransfer', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -817,7 +836,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationIssuance', prepared).execute();
+      const result = await batch
+        .create('equityCompensationIssuance', parseOcfEntityInput('equityCompensationIssuance', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -862,7 +883,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationCancellation', prepared).execute();
+      const result = await batch
+        .create('equityCompensationCancellation', parseOcfEntityInput('equityCompensationCancellation', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -907,7 +930,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationExercise', prepared).execute();
+      const result = await batch
+        .create('equityCompensationExercise', parseOcfEntityInput('equityCompensationExercise', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -935,7 +960,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('issuerAuthorizedSharesAdjustment', prepared).execute();
+      const result = await batch
+        .create('issuerAuthorizedSharesAdjustment', parseOcfEntityInput('issuerAuthorizedSharesAdjustment', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -974,7 +1001,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockClassAuthorizedSharesAdjustment', prepared).execute();
+      const result = await batch
+        .create(
+          'stockClassAuthorizedSharesAdjustment',
+          parseOcfEntityInput('stockClassAuthorizedSharesAdjustment', prepared)
+        )
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1008,7 +1040,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: stockSecurityCapTableDetails,
         issuerParty: ctx.issuerParty,
         stockClassId: stockSecurity.stockClassId,
-        stockPlanId: typeof fixturePrepared.stock_plan_id === 'string' ? fixturePrepared.stock_plan_id : undefined,
+        stockPlanId: requireFixtureString(fixturePrepared, 'stock_plan_id'),
       });
       const prepared = {
         ...fixturePrepared,
@@ -1021,7 +1053,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockPlanPoolAdjustment', prepared).execute();
+      const result = await batch
+        .create('stockPlanPoolAdjustment', parseOcfEntityInput('stockPlanPoolAdjustment', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1061,7 +1095,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockClassSplit', prepared).execute();
+      const result = await batch.create('stockClassSplit', parseOcfEntityInput('stockClassSplit', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1102,7 +1136,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantIssuance', prepared).execute();
+      const result = await batch.create('warrantIssuance', parseOcfEntityInput('warrantIssuance', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1151,7 +1185,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('vestingStart', prepared).execute();
+      const result = await batch.create('vestingStart', parseOcfEntityInput('vestingStart', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1199,7 +1233,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockAcceptance', prepared).execute();
+      const result = await batch.create('stockAcceptance', parseOcfEntityInput('stockAcceptance', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1241,7 +1275,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockRetraction', prepared).execute();
+      const result = await batch.create('stockRetraction', parseOcfEntityInput('stockRetraction', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1280,7 +1314,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockConversion', prepared).execute();
+      const result = await batch.create('stockConversion', parseOcfEntityInput('stockConversion', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1322,7 +1356,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockReissuance', prepared).execute();
+      const result = await batch.create('stockReissuance', parseOcfEntityInput('stockReissuance', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1365,7 +1399,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockConsolidation', prepared).execute();
+      const result = await batch
+        .create('stockConsolidation', parseOcfEntityInput('stockConsolidation', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1411,7 +1447,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleAcceptance', prepared).execute();
+      const result = await batch
+        .create('convertibleAcceptance', parseOcfEntityInput('convertibleAcceptance', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1455,7 +1493,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('convertibleRetraction', prepared).execute();
+      const result = await batch
+        .create('convertibleRetraction', parseOcfEntityInput('convertibleRetraction', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1499,7 +1539,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationAcceptance', prepared).execute();
+      const result = await batch
+        .create('equityCompensationAcceptance', parseOcfEntityInput('equityCompensationAcceptance', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1541,7 +1583,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationTransfer', prepared).execute();
+      const result = await batch
+        .create('equityCompensationTransfer', parseOcfEntityInput('equityCompensationTransfer', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1583,7 +1627,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationRetraction', prepared).execute();
+      const result = await batch
+        .create('equityCompensationRetraction', parseOcfEntityInput('equityCompensationRetraction', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1622,7 +1668,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationRelease', prepared).execute();
+      const result = await batch
+        .create('equityCompensationRelease', parseOcfEntityInput('equityCompensationRelease', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1661,7 +1709,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('equityCompensationRepricing', prepared).execute();
+      const result = await batch
+        .create('equityCompensationRepricing', parseOcfEntityInput('equityCompensationRepricing', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1705,7 +1755,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantAcceptance', prepared).execute();
+      const result = await batch
+        .create('warrantAcceptance', parseOcfEntityInput('warrantAcceptance', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1747,7 +1799,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantTransfer', prepared).execute();
+      const result = await batch.create('warrantTransfer', parseOcfEntityInput('warrantTransfer', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1789,7 +1841,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantCancellation', prepared).execute();
+      const result = await batch
+        .create('warrantCancellation', parseOcfEntityInput('warrantCancellation', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1828,7 +1882,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantExercise', prepared).execute();
+      const result = await batch.create('warrantExercise', parseOcfEntityInput('warrantExercise', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1870,7 +1924,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('warrantRetraction', prepared).execute();
+      const result = await batch
+        .create('warrantRetraction', parseOcfEntityInput('warrantRetraction', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -1914,7 +1970,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('vestingEvent', prepared).execute();
+      const result = await batch.create('vestingEvent', parseOcfEntityInput('vestingEvent', prepared)).execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1956,7 +2012,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('vestingAcceleration', prepared).execute();
+      const result = await batch
+        .create('vestingAcceleration', parseOcfEntityInput('vestingAcceleration', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
 
@@ -1976,7 +2034,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderRelationshipChangeEvent');
-      const legacyPrepared = {
+      const legacyPrepared: Record<string, unknown> = {
         ...prepareFixture(fixture, 'relationship-change'),
         stakeholder_id: stakeholderSetup.stakeholderData.id,
       };
@@ -2024,7 +2082,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
       });
 
       const fixture = loadSyntheticFixture<Record<string, unknown>>('stakeholderStatusChangeEvent');
-      const legacyPrepared = {
+      const legacyPrepared: Record<string, unknown> = {
         ...prepareFixture(fixture, 'status-change'),
         stakeholder_id: stakeholderSetup.stakeholderData.id,
       };
@@ -2090,7 +2148,7 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         capTableContractDetails: eqCompCapTableDetails,
         issuerParty: ctx.issuerParty,
         stockClassId: eqCompSecurity.stockClassId,
-        stockPlanId: typeof fixturePrepared.stock_plan_id === 'string' ? fixturePrepared.stock_plan_id : undefined,
+        stockPlanId: requireFixtureString(fixturePrepared, 'stock_plan_id'),
       });
       const prepared = {
         ...fixturePrepared,
@@ -2104,7 +2162,9 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockPlanReturnToPool', prepared).execute();
+      const result = await batch
+        .create('stockPlanReturnToPool', parseOcfEntityInput('stockPlanReturnToPool', prepared))
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
@@ -2146,7 +2206,12 @@ createIntegrationTestSuite('Production Data Round-Trip Tests', (getContext) => {
         actAs: [ctx.issuerParty],
       });
 
-      const result = await batch.create('stockClassConversionRatioAdjustment', prepared).execute();
+      const result = await batch
+        .create(
+          'stockClassConversionRatioAdjustment',
+          parseOcfEntityInput('stockClassConversionRatioAdjustment', prepared)
+        )
+        .execute();
       expect(result.createdCids).toHaveLength(1);
     });
   });
