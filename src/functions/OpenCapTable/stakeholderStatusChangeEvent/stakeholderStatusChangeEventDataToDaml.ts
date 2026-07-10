@@ -6,6 +6,7 @@ import { OcpValidationError } from '../../../errors';
 import type { OcfStakeholderStatusChangeEvent } from '../../../types/native';
 import { stakeholderStatusToDaml } from '../../../utils/enumConversions';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
 
 /**
  * Convert native OCF StakeholderStatusChangeEvent data to DAML format.
@@ -13,7 +14,9 @@ import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversi
  * @param data - The native OCF stakeholder status change event data
  * @returns The DAML-formatted data object
  */
-export function stakeholderStatusChangeEventDataToDaml(data: OcfStakeholderStatusChangeEvent): Record<string, unknown> {
+export function stakeholderStatusChangeEventDataToDaml(
+  data: OcfStakeholderStatusChangeEvent
+): DamlDataTypeFor<'stakeholderStatusChangeEvent'> {
   if (!data.id) {
     throw new OcpValidationError('stakeholderStatusChangeEvent.id', 'Required field is missing or empty', {
       expectedType: 'string',

@@ -6,6 +6,7 @@ import { OcpValidationError } from '../../../errors';
 import type { OcfStakeholderRelationshipChangeEvent } from '../../../types/native';
 import { stakeholderRelationshipTypeToDaml } from '../../../utils/enumConversions';
 import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import type { DamlDataTypeFor } from '../capTable/batchTypes';
 
 /**
  * Convert native OCF StakeholderRelationshipChangeEvent data to DAML format.
@@ -15,7 +16,7 @@ import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversi
  */
 export function stakeholderRelationshipChangeEventDataToDaml(
   data: OcfStakeholderRelationshipChangeEvent
-): Record<string, unknown> {
+): DamlDataTypeFor<'stakeholderRelationshipChangeEvent'> {
   if (!data.id) {
     throw new OcpValidationError('stakeholderRelationshipChangeEvent.id', 'Required field is missing or empty', {
       expectedType: 'string',
