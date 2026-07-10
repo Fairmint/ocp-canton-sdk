@@ -355,7 +355,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         () =>
           warrantIssuanceDataToDaml({
             ...baseWarrantIssuance,
-            exercise_triggers: [{ ...baseWarrantIssuance.exercise_triggers[0], [field]: '' }],
+            exercise_triggers: [{ ...baseExerciseTrigger, [field]: '' }],
           }),
         fieldPath,
         ''
@@ -364,7 +364,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         () =>
           warrantIssuanceDataToDaml({
             ...baseWarrantIssuance,
-            exercise_triggers: [{ ...baseWarrantIssuance.exercise_triggers[0], [field]: invalidDate }],
+            exercise_triggers: [{ ...baseExerciseTrigger, [field]: invalidDate }],
           }),
         fieldPath,
         invalidDate,
@@ -374,7 +374,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       for (const value of [null, undefined]) {
         const result = warrantIssuanceDataToDaml({
           ...baseWarrantIssuance,
-          exercise_triggers: [{ ...baseWarrantIssuance.exercise_triggers[0], [field]: value }],
+          exercise_triggers: [{ ...baseExerciseTrigger, [field]: value }],
         });
         expect(result.exercise_triggers[0]?.[field]).toBeNull();
       }

@@ -75,10 +75,10 @@ describe('date boundary source invariants', () => {
           ts.isIdentifier(node.expression) &&
           DATE_CONVERTERS.has(node.expression.text)
         ) {
-          if (node.arguments.length !== 2) {
+          const [value, fieldPath] = node.arguments;
+          if (node.arguments.length !== 2 || value === undefined || fieldPath === undefined) {
             violations.push(`${location(sourceFile, node)} ${node.expression.text} must receive value and fieldPath`);
           } else {
-            const fieldPath = node.arguments[1];
             const literalPath = ts.isStringLiteralLike(fieldPath) ? fieldPath.text : undefined;
             const templatePath = ts.isTemplateExpression(fieldPath) && fieldPath.getText(sourceFile).includes('.');
             const forwardedPath = ts.isIdentifier(fieldPath) && ['fieldPath', 'dateFieldPath'].includes(fieldPath.text);
@@ -92,8 +92,7 @@ describe('date boundary source invariants', () => {
             }
           }
 
-          const value = node.arguments[0];
-          if (ts.isPropertyAccessExpression(value)) {
+          if (value !== undefined && ts.isPropertyAccessExpression(value)) {
             const field = value.name.text;
             if (OPTIONAL_DATE_FIELDS.has(field) && REQUIRED_DATE_CONVERTERS.has(node.expression.text)) {
               violations.push(`${location(sourceFile, node)} optional ${field} must use an optional date converter`);

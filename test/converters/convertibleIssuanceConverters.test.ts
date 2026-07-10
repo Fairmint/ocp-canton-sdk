@@ -579,11 +579,14 @@ describe('convertible issuance approval-date read boundaries', () => {
       convertible_type: 'OcfConvertibleNote',
       conversion_triggers: [trigger],
     });
-    const nativeMechanism = result.conversion_triggers[0].conversion_right.conversion_mechanism as {
+    const nativeTrigger = requireFirst(result.conversion_triggers, 'converted note trigger');
+    const nativeMechanism = nativeTrigger.conversion_right.conversion_mechanism as {
       interest_rates: Array<{ accrual_end_date?: string }>;
     };
 
-    expect(nativeMechanism.interest_rates[0].accrual_end_date).toBeUndefined();
+    expect(
+      requireFirst(nativeMechanism.interest_rates, 'converted note interest rate').accrual_end_date
+    ).toBeUndefined();
   });
 });
 
@@ -717,7 +720,7 @@ describe('convertible issuance write date boundaries', () => {
     const result = convertibleIssuanceDataToDaml(
       buildConvertibleNoteInput({ rate: '0.05', accrual_start_date: '2024-01-15', accrual_end_date: value })
     );
-    const trigger = result.conversion_triggers[0];
+    const trigger = requireFirst(result.conversion_triggers, 'converted note trigger');
     const right = trigger.conversion_right as {
       conversion_mechanism?: { value?: { interest_rates?: Array<{ accrual_end_date: string | null }> } };
     };
