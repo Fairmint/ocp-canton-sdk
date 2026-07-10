@@ -7,8 +7,12 @@
  */
 
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
-import { OcpParseError } from '../../src/errors';
-import { buildCreateIssuerCommand, normalizeIssuerData } from '../../src/functions/OpenCapTable/issuer/createIssuer';
+import { OcpParseError, OcpValidationError } from '../../src/errors';
+import {
+  buildCreateIssuerCommand,
+  issuerDataToDaml,
+  normalizeIssuerData,
+} from '../../src/functions/OpenCapTable/issuer/createIssuer';
 import { damlIssuerDataToNative } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import type { OcfIssuer } from '../../src/types/native';
 
@@ -162,6 +166,34 @@ describe('Issuer Converters', () => {
 
       expect(result.command).toBeDefined();
       expect(result.disclosedContracts).toBeDefined();
+    });
+  });
+
+  describe('issuerDataToDaml subdivision boundary', () => {
+    const baseIssuerData: OcfIssuer = {
+      object_type: 'ISSUER',
+      id: 'issuer-001',
+      legal_name: 'Test Corporation',
+      formation_date: '2020-01-01',
+      country_of_formation: 'US',
+      tax_ids: [],
+    };
+
+    it('allows subdivision omission and encodes both DAML optionals as null', () => {
+      expect(issuerDataToDaml(baseIssuerData, { skipSchemaParse: true })).toMatchObject({
+        country_subdivision_of_formation: null,
+        country_subdivision_name_of_formation: null,
+      });
+    });
+
+    it.each([
+      ['empty subdivision code', { country_subdivision_of_formation: '' }],
+      ['blank subdivision code', { country_subdivision_of_formation: '   ' }],
+      ['empty subdivision name', { country_subdivision_name_of_formation: '' }],
+      ['blank subdivision name', { country_subdivision_name_of_formation: '\t' }],
+    ])('rejects %s before DAML optional-string normalization', (_case, subdivision) => {
+      const input = { ...baseIssuerData, ...subdivision } as OcfIssuer;
+      expect(() => issuerDataToDaml(input, { skipSchemaParse: true })).toThrow(OcpValidationError);
     });
   });
 

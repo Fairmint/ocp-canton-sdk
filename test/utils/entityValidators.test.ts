@@ -341,6 +341,15 @@ describe('Entity Validators', () => {
     ])('rejects explicit null for %s', (_case, subdivision) => {
       expect(() => validateIssuerData({ ...validIssuer, ...subdivision }, 'issuer')).toThrow(OcpValidationError);
     });
+
+    it.each([
+      ['empty subdivision code', { country_subdivision_of_formation: '' }],
+      ['blank subdivision code', { country_subdivision_of_formation: '   ' }],
+      ['empty subdivision name', { country_subdivision_name_of_formation: '' }],
+      ['blank subdivision name', { country_subdivision_name_of_formation: '\t' }],
+    ])('rejects %s instead of normalizing it to omission', (_case, subdivision) => {
+      expect(() => validateIssuerData({ ...validIssuer, ...subdivision }, 'issuer')).toThrow(OcpValidationError);
+    });
   });
 
   describe('validateStakeholderData', () => {

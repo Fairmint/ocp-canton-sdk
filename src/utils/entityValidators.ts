@@ -319,7 +319,20 @@ export function validateIssuerData(data: unknown, fieldPath: string): void {
         code: OcpErrorCodes.INVALID_TYPE,
       });
     }
-    validateOptionalString(subdivision, `${fieldPath}.${subdivisionField}`);
+    if (subdivision !== undefined) {
+      validateRequiredString(subdivision, `${fieldPath}.${subdivisionField}`);
+      if (subdivision.trim().length === 0) {
+        throw new OcpValidationError(
+          `${fieldPath}.${subdivisionField}`,
+          'Optional subdivision fields must be non-blank when provided',
+          {
+            expectedType: 'non-blank string or omitted',
+            receivedValue: subdivision,
+            code: OcpErrorCodes.INVALID_FORMAT,
+          }
+        );
+      }
+    }
   }
   if (
     value.country_subdivision_of_formation !== undefined &&
