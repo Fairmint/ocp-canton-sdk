@@ -26,7 +26,7 @@ import {
 type Assert<T extends true> = T;
 type IsExactly<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 type IntendedCanonicalOcfObject = OcfEntityDataMap[OcfEntityType] | OcfFinancing;
-type LegacyPlanSecurityObjectType =
+type SchemaSupportedPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_ACCEPTANCE'
   | 'TX_PLAN_SECURITY_CANCELLATION'
   | 'TX_PLAN_SECURITY_EXERCISE'
@@ -36,12 +36,12 @@ type LegacyPlanSecurityObjectType =
   | 'TX_PLAN_SECURITY_TRANSFER';
 
 const publishedOcfObjectIsExact: Assert<IsExactly<OcfObject, IntendedCanonicalOcfObject>> = true;
-const publishedOcfObjectExcludesLegacyPlanSecurity: Assert<
-  IsExactly<Extract<OcfObject, { readonly object_type: LegacyPlanSecurityObjectType }>, never>
+const publishedOcfObjectExcludesPlanSecurityWrappers: Assert<
+  IsExactly<Extract<OcfObject, { readonly object_type: SchemaSupportedPlanSecurityObjectType }>, never>
 > = true;
 
 void publishedOcfObjectIsExact;
-void publishedOcfObjectExcludesLegacyPlanSecurity;
+void publishedOcfObjectExcludesPlanSecurityWrappers;
 
 const snapshot: readonly OcfCapTableSnapshotObject[] = [{ object_type: 'ISSUER', id: 'issuer-1' }];
 const snapshotResult: OcfCapTableSnapshotValidationResult = validateOcfCapTableSnapshot(snapshot);
