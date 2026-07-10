@@ -1,11 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type {
-  OcfWarrantIssuance,
-  QuantitySourceType,
-  StockClassConversionRight,
-  WarrantExerciseTrigger,
-} from '../../../types/native';
+import type { OcfWarrantIssuance, StockClassConversionRight, WarrantExerciseTrigger } from '../../../types/native';
 import {
   cleanComments,
   dateStringToDAMLTime,
@@ -43,9 +38,7 @@ function triggerTypeToDaml(
   }
 }
 
-function quantitySourceToDaml(
-  value: QuantitySourceType | undefined
-): Fairmint.OpenCapTable.Types.Stock.OcfQuantitySourceType | null {
+function quantitySourceToDaml(value: unknown): Fairmint.OpenCapTable.Types.Stock.OcfQuantitySourceType | null {
   if (value === undefined) return null;
   switch (value) {
     case 'HUMAN_ESTIMATED':
@@ -61,6 +54,15 @@ function quantitySourceToDaml(
     case 'INSTRUMENT_MIN':
       return 'OcfQuantityInstrumentMin';
   }
+  throw new OcpValidationError(
+    'warrantIssuance.quantity_source',
+    'Expected a canonical quantity source when provided; omit the property when absent (explicit null is invalid)',
+    {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'QuantitySourceType or omitted property',
+      receivedValue: value,
+    }
+  );
 }
 
 function requireStockClassTarget(right: StockClassConversionRight): string {
