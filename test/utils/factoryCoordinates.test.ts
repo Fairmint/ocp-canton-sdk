@@ -2,13 +2,13 @@ import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { hasCompleteFactoryCoordinates, validateFactoryCoordinates } from '../../src/utils/factoryCoordinates';
 
 describe('factory coordinate validation', () => {
-  test.each([
-    { contractId: 'factory-cid', templateId: 'factory-template' },
-    { contractId: ' factory-cid ', templateId: ' factory-template ' },
-  ])('accepts complete non-blank coordinates', (factory) => {
-    expect(hasCompleteFactoryCoordinates(factory)).toBe(true);
-    expect(() => validateFactoryCoordinates(factory)).not.toThrow();
-  });
+  test.each([{ contractId: 'factory-cid', templateId: 'factory-template' }])(
+    'accepts complete canonical coordinates',
+    (factory) => {
+      expect(hasCompleteFactoryCoordinates(factory)).toBe(true);
+      expect(() => validateFactoryCoordinates(factory)).not.toThrow();
+    }
+  );
 
   test.each([
     null,
@@ -18,6 +18,10 @@ describe('factory coordinate validation', () => {
     { templateId: 'factory-template' },
     { contractId: '', templateId: 'factory-template' },
     { contractId: 'factory-cid', templateId: '   ' },
+    { contractId: ' factory-cid', templateId: 'factory-template' },
+    { contractId: 'factory-cid ', templateId: 'factory-template' },
+    { contractId: 'factory-cid', templateId: ' factory-template' },
+    { contractId: 'factory-cid', templateId: 'factory-template ' },
     { contractId: 123, templateId: 'factory-template' },
   ])('rejects incomplete or malformed coordinates: %p', (factory) => {
     expect(hasCompleteFactoryCoordinates(factory)).toBe(false);
