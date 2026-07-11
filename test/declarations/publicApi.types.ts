@@ -4,6 +4,7 @@
 import {
   convertToDaml,
   getOcfObjectTypeCapability,
+  mapOcfObjectTypeToEntityType,
   validateOcfCapTableSnapshot,
   type CapTableBatch,
   type CapTableBatchOperations,
@@ -14,10 +15,12 @@ import {
   type OcfCreateOperation,
   type OcfEntityDataMap,
   type OcfEntityType,
+  type OcfEntityTypeForObjectType,
   type OcfFinancing,
   type OcfIssuer,
   type OcfObject,
   type OcfObjectTypeCapability,
+  type OcfReadableObjectType,
   type OcfSecurityFamily,
   type OcfStakeholder,
   type OcfStockAcceptance,
@@ -29,9 +32,12 @@ import {
 import { isOcfEntityType as isOcfEntityTypeFromUtils } from '../../dist/utils';
 import {
   getOcfObjectTypeCapability as getSourceOcfObjectTypeCapability,
+  mapOcfObjectTypeToEntityType as mapSourceOcfObjectTypeToEntityType,
   validateOcfCapTableSnapshot as validateSourceOcfCapTableSnapshot,
   type OcfCapTableSnapshotObject as SourceOcfCapTableSnapshotObject,
+  type OcfEntityTypeForObjectType as SourceOcfEntityTypeForObjectType,
   type OcfObjectTypeCapability as SourceOcfObjectTypeCapability,
+  type OcfReadableObjectType as SourceOcfReadableObjectType,
 } from '../../src';
 
 type Assert<T extends true> = T;
@@ -76,10 +82,29 @@ const financingCapability = getOcfObjectTypeCapability('FINANCING');
 const planSecurityCapability = getOcfObjectTypeCapability('TX_PLAN_SECURITY_ISSUANCE');
 const unsupportedCapability = getOcfObjectTypeCapability('TX_NOT_REAL');
 const sourceUnsupportedCapability = getSourceOcfObjectTypeCapability('TX_NOT_REAL');
+const longUnsupportedCapability = getOcfObjectTypeCapability(
+  'TX_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+);
+const sourceLongUnsupportedCapability = getSourceOcfObjectTypeCapability(
+  'TX_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+);
 declare const templateObjectType: `TX_${string}`;
 declare const unrelatedTemplateObjectType: `UNRELATED_${string}`;
 declare const broadObjectType: string;
-declare const brandedObjectType: string & { readonly __ocfObjectType: unique symbol };
+declare const objectTypeBrand: unique symbol;
+type ObjectTypeBrand = { readonly [objectTypeBrand]: true };
+type BrandedObjectType = string & ObjectTypeBrand;
+type BrandedReadableObjectType = OcfReadableObjectType & SourceOcfReadableObjectType & ObjectTypeBrand;
+type BrandedIssuerObjectType = 'ISSUER' & BrandedObjectType;
+type BrandedPlanSecurityObjectType = 'TX_PLAN_SECURITY_ISSUANCE' & BrandedObjectType;
+declare const brandedObjectType: BrandedObjectType;
+declare const brandedIssuerObjectType: BrandedIssuerObjectType;
+declare const brandedPlanSecurityObjectType: BrandedPlanSecurityObjectType;
+declare const opaqueSuffixTemplateObjectType: `TX_STOCK_${BrandedObjectType}`;
+declare const opaquePrefixTemplateObjectType: `${BrandedObjectType}ISSUER`;
+declare const opaqueMiddleTemplateObjectType: `TX_STOCK_${BrandedObjectType}ANCE`;
+declare const opaqueIntrinsicObjectType: Uppercase<BrandedObjectType>;
+declare const unrelatedOpaqueTemplateObjectType: `UNRELATED_${BrandedObjectType}`;
 const templateCapability = getOcfObjectTypeCapability(templateObjectType);
 const sourceTemplateCapability = getSourceOcfObjectTypeCapability(templateObjectType);
 const unrelatedTemplateCapability = getOcfObjectTypeCapability(unrelatedTemplateObjectType);
@@ -88,6 +113,20 @@ const broadCapability = getOcfObjectTypeCapability(broadObjectType);
 const sourceBroadCapability = getSourceOcfObjectTypeCapability(broadObjectType);
 const brandedCapability = getOcfObjectTypeCapability(brandedObjectType);
 const sourceBrandedCapability = getSourceOcfObjectTypeCapability(brandedObjectType);
+const brandedIssuerCapability = getOcfObjectTypeCapability(brandedIssuerObjectType);
+const sourceBrandedIssuerCapability = getSourceOcfObjectTypeCapability(brandedIssuerObjectType);
+const brandedPlanSecurityCapability = getOcfObjectTypeCapability(brandedPlanSecurityObjectType);
+const sourceBrandedPlanSecurityCapability = getSourceOcfObjectTypeCapability(brandedPlanSecurityObjectType);
+const opaqueSuffixTemplateCapability = getOcfObjectTypeCapability(opaqueSuffixTemplateObjectType);
+const sourceOpaqueSuffixTemplateCapability = getSourceOcfObjectTypeCapability(opaqueSuffixTemplateObjectType);
+const opaquePrefixTemplateCapability = getOcfObjectTypeCapability(opaquePrefixTemplateObjectType);
+const sourceOpaquePrefixTemplateCapability = getSourceOcfObjectTypeCapability(opaquePrefixTemplateObjectType);
+const opaqueMiddleTemplateCapability = getOcfObjectTypeCapability(opaqueMiddleTemplateObjectType);
+const sourceOpaqueMiddleTemplateCapability = getSourceOcfObjectTypeCapability(opaqueMiddleTemplateObjectType);
+const opaqueIntrinsicCapability = getOcfObjectTypeCapability(opaqueIntrinsicObjectType);
+const sourceOpaqueIntrinsicCapability = getSourceOcfObjectTypeCapability(opaqueIntrinsicObjectType);
+const unrelatedOpaqueTemplateCapability = getOcfObjectTypeCapability(unrelatedOpaqueTemplateObjectType);
+const sourceUnrelatedOpaqueTemplateCapability = getSourceOcfObjectTypeCapability(unrelatedOpaqueTemplateObjectType);
 const templateCapabilityIsUnion: Assert<IsExactly<typeof templateCapability, OcfObjectTypeCapability>> = true;
 const sourceTemplateCapabilityIsUnion: Assert<
   IsExactly<typeof sourceTemplateCapability, SourceOcfObjectTypeCapability>
@@ -98,6 +137,29 @@ const sourceBroadCapabilityIsUnion: Assert<IsExactly<typeof sourceBroadCapabilit
 const brandedCapabilityIsUnion: Assert<IsExactly<typeof brandedCapability, OcfObjectTypeCapability>> = true;
 const sourceBrandedCapabilityIsUnion: Assert<IsExactly<typeof sourceBrandedCapability, SourceOcfObjectTypeCapability>> =
   true;
+const opaqueSuffixTemplateCapabilityIsUnion: Assert<
+  IsExactly<typeof opaqueSuffixTemplateCapability, OcfObjectTypeCapability>
+> = true;
+const sourceOpaqueSuffixTemplateCapabilityIsUnion: Assert<
+  IsExactly<typeof sourceOpaqueSuffixTemplateCapability, SourceOcfObjectTypeCapability>
+> = true;
+const opaquePrefixTemplateCapabilityIsUnion: Assert<
+  IsExactly<typeof opaquePrefixTemplateCapability, OcfObjectTypeCapability>
+> = true;
+const sourceOpaquePrefixTemplateCapabilityIsUnion: Assert<
+  IsExactly<typeof sourceOpaquePrefixTemplateCapability, SourceOcfObjectTypeCapability>
+> = true;
+const opaqueMiddleTemplateCapabilityIsUnion: Assert<
+  IsExactly<typeof opaqueMiddleTemplateCapability, OcfObjectTypeCapability>
+> = true;
+const sourceOpaqueMiddleTemplateCapabilityIsUnion: Assert<
+  IsExactly<typeof sourceOpaqueMiddleTemplateCapability, SourceOcfObjectTypeCapability>
+> = true;
+const opaqueIntrinsicCapabilityIsUnion: Assert<IsExactly<typeof opaqueIntrinsicCapability, OcfObjectTypeCapability>> =
+  true;
+const sourceOpaqueIntrinsicCapabilityIsUnion: Assert<
+  IsExactly<typeof sourceOpaqueIntrinsicCapability, SourceOcfObjectTypeCapability>
+> = true;
 
 if (financingCapability.support === 'schema-only') {
   const financingObjectType: 'FINANCING' = financingCapability.objectType;
@@ -106,10 +168,38 @@ if (financingCapability.support === 'schema-only') {
 
 const canonicalPlanSecurityType: 'TX_EQUITY_COMPENSATION_ISSUANCE' = planSecurityCapability.canonicalObjectType;
 const canonicalPlanSecurityEntity: 'equityCompensationIssuance' = planSecurityCapability.entityType;
+const brandedIssuerObjectTypeIsPreserved: BrandedIssuerObjectType = brandedIssuerCapability.objectType;
+const sourceBrandedIssuerObjectTypeIsPreserved: BrandedIssuerObjectType = sourceBrandedIssuerCapability.objectType;
+const brandedIssuerCanonicalType: 'ISSUER' = brandedIssuerCapability.canonicalObjectType;
+const sourceBrandedIssuerCanonicalType: 'ISSUER' = sourceBrandedIssuerCapability.canonicalObjectType;
+const brandedIssuerEntity: 'issuer' = brandedIssuerCapability.entityType;
+const sourceBrandedIssuerEntity: 'issuer' = sourceBrandedIssuerCapability.entityType;
+const brandedIssuerMappedEntity: 'issuer' = mapOcfObjectTypeToEntityType(brandedIssuerObjectType);
+const sourceBrandedIssuerMappedEntity: 'issuer' = mapSourceOcfObjectTypeToEntityType(brandedIssuerObjectType);
+const brandedIssuerEntityAlias: OcfEntityTypeForObjectType<BrandedIssuerObjectType> = 'issuer';
+const sourceBrandedIssuerEntityAlias: SourceOcfEntityTypeForObjectType<BrandedIssuerObjectType> = 'issuer';
+const readableEntityMapPreservesUnion: Assert<
+  IsExactly<OcfEntityTypeForObjectType<OcfReadableObjectType>, OcfEntityType>
+> = true;
+const sourceReadableEntityMapPreservesUnion: Assert<
+  IsExactly<SourceOcfEntityTypeForObjectType<SourceOcfReadableObjectType>, OcfEntityType>
+> = true;
+const brandedPlanSecurityObjectTypeIsPreserved: BrandedPlanSecurityObjectType =
+  brandedPlanSecurityCapability.objectType;
+const sourceBrandedPlanSecurityObjectTypeIsPreserved: BrandedPlanSecurityObjectType =
+  sourceBrandedPlanSecurityCapability.objectType;
+const brandedPlanSecurityCanonicalType: 'TX_EQUITY_COMPENSATION_ISSUANCE' =
+  brandedPlanSecurityCapability.canonicalObjectType;
+const sourceBrandedPlanSecurityCanonicalType: 'TX_EQUITY_COMPENSATION_ISSUANCE' =
+  sourceBrandedPlanSecurityCapability.canonicalObjectType;
+const brandedPlanSecurityEntity: 'equityCompensationIssuance' = brandedPlanSecurityCapability.entityType;
+const sourceBrandedPlanSecurityEntity: 'equityCompensationIssuance' = sourceBrandedPlanSecurityCapability.entityType;
 const unsupportedCapabilityTag: 'unsupported' = unsupportedCapability.support;
 const sourceUnsupportedCapabilityTag: 'unsupported' = sourceUnsupportedCapability.support;
 const unsupportedCapabilityObjectType: 'TX_NOT_REAL' = unsupportedCapability.objectType;
 const sourceUnsupportedCapabilityObjectType: 'TX_NOT_REAL' = sourceUnsupportedCapability.objectType;
+const longUnsupportedCapabilityTag: 'unsupported' = longUnsupportedCapability.support;
+const sourceLongUnsupportedCapabilityTag: 'unsupported' = sourceLongUnsupportedCapability.support;
 // @ts-expect-error template-literal inputs can include supported OCF discriminators
 const templateCapabilityTag: 'unsupported' = templateCapability.support;
 // @ts-expect-error source and dist both preserve overlapping template possibilities
@@ -124,6 +214,24 @@ const sourceBroadCapabilityTag: 'unsupported' = sourceBroadCapability.support;
 const brandedCapabilityTag: 'unsupported' = brandedCapability.support;
 // @ts-expect-error source and dist both preserve opaque runtime possibilities
 const sourceBrandedCapabilityTag: 'unsupported' = sourceBrandedCapability.support;
+// @ts-expect-error an opaque template suffix can evaluate to a supported discriminator
+const opaqueSuffixTemplateCapabilityTag: 'unsupported' = opaqueSuffixTemplateCapability.support;
+// @ts-expect-error source declarations preserve opaque template overlap
+const sourceOpaqueSuffixTemplateCapabilityTag: 'unsupported' = sourceOpaqueSuffixTemplateCapability.support;
+// @ts-expect-error an opaque template prefix can evaluate to a supported discriminator
+const opaquePrefixTemplateCapabilityTag: 'unsupported' = opaquePrefixTemplateCapability.support;
+// @ts-expect-error source declarations preserve opaque prefix overlap
+const sourceOpaquePrefixTemplateCapabilityTag: 'unsupported' = sourceOpaquePrefixTemplateCapability.support;
+// @ts-expect-error an embedded opaque segment can evaluate to a supported discriminator
+const opaqueMiddleTemplateCapabilityTag: 'unsupported' = opaqueMiddleTemplateCapability.support;
+// @ts-expect-error source declarations preserve embedded opaque overlap
+const sourceOpaqueMiddleTemplateCapabilityTag: 'unsupported' = sourceOpaqueMiddleTemplateCapability.support;
+// @ts-expect-error an intrinsic transform of an opaque string can evaluate to a supported discriminator
+const opaqueIntrinsicCapabilityTag: 'unsupported' = opaqueIntrinsicCapability.support;
+// @ts-expect-error source declarations preserve opaque intrinsic overlap
+const sourceOpaqueIntrinsicCapabilityTag: 'unsupported' = sourceOpaqueIntrinsicCapability.support;
+const unrelatedOpaqueTemplateCapabilityTag: 'unsupported' = unrelatedOpaqueTemplateCapability.support;
+const sourceUnrelatedOpaqueTemplateCapabilityTag: 'unsupported' = sourceUnrelatedOpaqueTemplateCapability.support;
 const capabilitySourceAndDistMatch: Assert<IsExactly<OcfObjectTypeCapability, SourceOcfObjectTypeCapability>> = true;
 const impossibleCapability: OcfObjectTypeCapability = {
   support: 'ledger-backed',
@@ -138,6 +246,34 @@ function verifyCapabilityCorrelation(capability: OcfObjectTypeCapability): void 
     const exactEntityType: 'stockIssuance' = capability.entityType;
     void exactEntityType;
   }
+}
+
+function verifyBrandedObjectTypeEqualityNarrowing(objectType: BrandedReadableObjectType): void {
+  if (objectType !== 'ISSUER') return;
+
+  const capability = getOcfObjectTypeCapability(objectType);
+  const sourceCapability = getSourceOcfObjectTypeCapability(objectType);
+  const exactObjectType: typeof objectType = capability.objectType;
+  const exactSourceObjectType: typeof objectType = sourceCapability.objectType;
+  const canonicalObjectType: 'ISSUER' = capability.canonicalObjectType;
+  const sourceCanonicalObjectType: 'ISSUER' = sourceCapability.canonicalObjectType;
+  const entityType: 'issuer' = capability.entityType;
+  const sourceEntityType: 'issuer' = sourceCapability.entityType;
+  const mappedEntityType: 'issuer' = mapOcfObjectTypeToEntityType(objectType);
+  const sourceMappedEntityType: 'issuer' = mapSourceOcfObjectTypeToEntityType(objectType);
+  const entityAlias: OcfEntityTypeForObjectType<typeof objectType> = 'issuer';
+  const sourceEntityAlias: SourceOcfEntityTypeForObjectType<typeof objectType> = 'issuer';
+
+  void exactObjectType;
+  void exactSourceObjectType;
+  void canonicalObjectType;
+  void sourceCanonicalObjectType;
+  void entityType;
+  void sourceEntityType;
+  void mappedEntityType;
+  void sourceMappedEntityType;
+  void entityAlias;
+  void sourceEntityAlias;
 }
 const securityFamily: OcfSecurityFamily = 'stock';
 const lineageIssueCode: OcfCapTableSnapshotIssueCode = 'SECURITY_LINEAGE_CYCLE';
@@ -217,10 +353,30 @@ void incompleteSnapshotObject;
 void planSecuritySnapshotObject;
 void canonicalPlanSecurityType;
 void canonicalPlanSecurityEntity;
+void brandedIssuerObjectTypeIsPreserved;
+void sourceBrandedIssuerObjectTypeIsPreserved;
+void brandedIssuerCanonicalType;
+void sourceBrandedIssuerCanonicalType;
+void brandedIssuerEntity;
+void sourceBrandedIssuerEntity;
+void brandedIssuerMappedEntity;
+void sourceBrandedIssuerMappedEntity;
+void brandedIssuerEntityAlias;
+void sourceBrandedIssuerEntityAlias;
+void readableEntityMapPreservesUnion;
+void sourceReadableEntityMapPreservesUnion;
+void brandedPlanSecurityObjectTypeIsPreserved;
+void sourceBrandedPlanSecurityObjectTypeIsPreserved;
+void brandedPlanSecurityCanonicalType;
+void sourceBrandedPlanSecurityCanonicalType;
+void brandedPlanSecurityEntity;
+void sourceBrandedPlanSecurityEntity;
 void unsupportedCapabilityTag;
 void sourceUnsupportedCapabilityTag;
 void unsupportedCapabilityObjectType;
 void sourceUnsupportedCapabilityObjectType;
+void longUnsupportedCapabilityTag;
+void sourceLongUnsupportedCapabilityTag;
 void templateCapabilityTag;
 void sourceTemplateCapabilityTag;
 void unrelatedTemplateCapabilityTag;
@@ -229,12 +385,30 @@ void broadCapabilityTag;
 void sourceBroadCapabilityTag;
 void brandedCapabilityTag;
 void sourceBrandedCapabilityTag;
+void opaqueSuffixTemplateCapabilityTag;
+void sourceOpaqueSuffixTemplateCapabilityTag;
+void opaquePrefixTemplateCapabilityTag;
+void sourceOpaquePrefixTemplateCapabilityTag;
+void opaqueMiddleTemplateCapabilityTag;
+void sourceOpaqueMiddleTemplateCapabilityTag;
+void opaqueIntrinsicCapabilityTag;
+void sourceOpaqueIntrinsicCapabilityTag;
+void unrelatedOpaqueTemplateCapabilityTag;
+void sourceUnrelatedOpaqueTemplateCapabilityTag;
 void templateCapabilityIsUnion;
 void sourceTemplateCapabilityIsUnion;
 void broadCapabilityIsUnion;
 void sourceBroadCapabilityIsUnion;
 void brandedCapabilityIsUnion;
 void sourceBrandedCapabilityIsUnion;
+void opaqueSuffixTemplateCapabilityIsUnion;
+void sourceOpaqueSuffixTemplateCapabilityIsUnion;
+void opaquePrefixTemplateCapabilityIsUnion;
+void sourceOpaquePrefixTemplateCapabilityIsUnion;
+void opaqueMiddleTemplateCapabilityIsUnion;
+void sourceOpaqueMiddleTemplateCapabilityIsUnion;
+void opaqueIntrinsicCapabilityIsUnion;
+void sourceOpaqueIntrinsicCapabilityIsUnion;
 void capabilitySourceAndDistMatch;
 void impossibleCapability;
 void lineageIssue;
@@ -244,6 +418,7 @@ void incompleteLineageIssue;
 void invalidFalseResult;
 void invalidTrueResult;
 void verifyCapabilityCorrelation;
+void verifyBrandedObjectTypeEqualityNarrowing;
 
 function verifyPublishedBatchApi(
   batch: CapTableBatch,

@@ -436,6 +436,29 @@ describe('getOcfObjectTypeCapability', () => {
     });
   });
 
+  it('keeps opaque template and intrinsic refinements aligned with runtime capability results', () => {
+    const dynamicSuffix = ['STOCK', 'ISSUANCE'].join('_');
+    assertValidatedObjectType(dynamicSuffix);
+    const templateObjectType = `TX_${dynamicSuffix}` as const;
+
+    expect(getOcfObjectTypeCapability(templateObjectType)).toEqual({
+      support: 'ledger-backed',
+      objectType: 'TX_STOCK_ISSUANCE',
+      canonicalObjectType: 'TX_STOCK_ISSUANCE',
+      entityType: 'stockIssuance',
+    });
+
+    const dynamicIssuer = ['ISSUER'].join('');
+    assertValidatedObjectType(dynamicIssuer);
+    const intrinsicObjectType = dynamicIssuer.toUpperCase() as Uppercase<ValidatedObjectType>;
+    expect(getOcfObjectTypeCapability(intrinsicObjectType)).toEqual({
+      support: 'ledger-backed',
+      objectType: 'ISSUER',
+      canonicalObjectType: 'ISSUER',
+      entityType: 'issuer',
+    });
+  });
+
   it('classifies every source-of-truth OCF schema object type exhaustively', () => {
     const capabilities = Object.keys(OCF_OBJECT_SCHEMA_PATHS).map((objectType) =>
       getOcfObjectTypeCapability(objectType)

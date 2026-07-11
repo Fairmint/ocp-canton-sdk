@@ -727,8 +727,21 @@ export const OCF_OBJECT_TYPE_TO_ENTITY_TYPE = buildOcfObjectTypeToEntityTypeMap(
 /** OCF object types that can be read through OpenCapTable entity readers. */
 export type OcfReadableObjectType = keyof typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE;
 
+/**
+ * Recover the unrefined registry literal represented by a readable object type.
+ *
+ * Intersections such as `"ISSUER" & Brand` remain valid subtypes of the public
+ * discriminator union, but indexing a record with that intersection produces
+ * `unknown`. Mapping over the known keys first preserves the literal-to-entity
+ * correlation without discarding the caller's refinement elsewhere.
+ */
+type UnderlyingOcfReadableObjectType<ObjectType extends OcfReadableObjectType> = {
+  [KnownObjectType in OcfReadableObjectType]: ObjectType extends KnownObjectType ? KnownObjectType : never;
+}[OcfReadableObjectType];
+
 /** SDK entity reader name for a given OCF object type. */
-export type OcfEntityTypeForObjectType<T extends OcfReadableObjectType> = (typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE)[T];
+export type OcfEntityTypeForObjectType<ObjectType extends OcfReadableObjectType> =
+  (typeof OCF_OBJECT_TYPE_TO_ENTITY_TYPE)[UnderlyingOcfReadableObjectType<ObjectType>];
 
 /** Canonical entity data returned for a readable OCF object type. */
 export type OcfReadableDataForObjectType<T extends OcfReadableObjectType> = OcfDataTypeFor<
