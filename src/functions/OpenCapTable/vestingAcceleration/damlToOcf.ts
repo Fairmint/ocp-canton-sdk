@@ -3,7 +3,9 @@
  */
 
 import type { OcfVestingAcceleration } from '../../../types';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { validateRequiredString } from '../../../utils/validation';
+import { damlPositiveVestingNumericToNative } from '../vestingTerms/vestingQuantity';
 
 /**
  * DAML VestingAcceleration data structure.
@@ -25,12 +27,17 @@ export interface DamlVestingAccelerationData {
  * @returns The native OCF VestingAcceleration object
  */
 export function damlVestingAccelerationToNative(d: DamlVestingAccelerationData): OcfVestingAcceleration {
+  validateRequiredString(d.id, 'vestingAcceleration.id');
+  validateRequiredString(d.security_id, 'vestingAcceleration.security_id');
+  validateRequiredString(d.reason_text, 'vestingAcceleration.reason_text');
+  d.comments.forEach((comment, index) => validateRequiredString(comment, `vestingAcceleration.comments[${index}]`));
+
   return {
     object_type: 'TX_VESTING_ACCELERATION',
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, 'vestingAcceleration.date'),
     security_id: d.security_id,
-    quantity: normalizeNumericString(d.quantity),
+    quantity: damlPositiveVestingNumericToNative(d.quantity, 'vestingAcceleration.quantity'),
     reason_text: d.reason_text,
     ...(d.comments.length > 0 && { comments: d.comments }),
   };

@@ -1,7 +1,7 @@
 /** Direct ledger-reader contracts shared by all four OCF acceptance families. */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../src/errors';
+import { OcpContractError, OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TEMPLATE_ID_MAP,
@@ -31,6 +31,11 @@ type AcceptanceEvent =
   | OcfEquityCompensationAcceptance
   | OcfStockAcceptance
   | OcfWarrantAcceptance;
+
+const VALID_CONTEXT = {
+  issuer: 'issuer::party',
+  system_operator: 'system-operator::party',
+} as const;
 
 interface AcceptanceReaderCase {
   readonly entityType: AcceptanceEntityType;
@@ -126,18 +131,26 @@ const acceptanceReaderCases: readonly AcceptanceReaderCase[] = [
   },
 ];
 
+interface MockContractOptions {
+  readonly templateId?: string;
+  readonly packageName?: string;
+  readonly createArgument?: Record<string, unknown>;
+}
+
 function createMockClient(
   testCase: AcceptanceReaderCase,
   data: Record<string, unknown>,
-  templateId: string = ENTITY_TEMPLATE_ID_MAP[testCase.entityType]
+  options: MockContractOptions = {}
 ): LedgerJsonApiClient {
   return {
     getEventsByContractId: jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
           contractId: testCase.contractId,
-          templateId,
-          createArgument: {
+          templateId: options.templateId ?? ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
+          ...(options.packageName !== undefined ? { packageName: options.packageName } : {}),
+          createArgument: options.createArgument ?? {
+            context: VALID_CONTEXT,
             [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: data,
           },
         },
@@ -159,10 +172,12 @@ describe('decoder-backed acceptance readers', () => {
   it.each(acceptanceReaderCases)('$entityType rejects malformed required fields', async (testCase) => {
     for (const [field, malformedData] of [
       ['id', { ...testCase.validData(), id: 17 }],
+      ['date', { ...testCase.validData(), date: null }],
       [
         'security_id',
         Object.fromEntries(Object.entries(testCase.validData()).filter(([key]) => key !== 'security_id')),
       ],
+      ['comments', { ...testCase.validData(), comments: null }],
     ] as const) {
       const client = createMockClient(testCase, malformedData);
 
@@ -198,15 +213,217 @@ describe('decoder-backed acceptance readers', () => {
       code: OcpErrorCodes.SCHEMA_MISMATCH,
       context: {
         entityType: testCase.entityType,
-        decoderPath: expect.stringContaining('comments'),
+        decoderPath: 'input.acceptance_data.comments[1]',
         decoderMessage: expect.any(String),
       },
     });
   });
 
+  it.each(acceptanceReaderCases)('$entityType rejects a createArgument missing generated context', async (testCase) => {
+    const client = createMockClient(testCase, testCase.validData(), {
+      createArgument: {
+        [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
+      },
+    });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      context: {
+        entityType: testCase.entityType,
+        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
+        decoderPath: 'input',
+        decoderMessage: expect.stringContaining("key 'context' is required"),
+      },
+    });
+  });
+
+  it.each(acceptanceReaderCases)('$entityType rejects an inherited generated wrapper', async (testCase) => {
+    const client = createMockClient(testCase, testCase.validData(), {
+      createArgument: Object.create({
+        context: VALID_CONTEXT,
+        [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
+      }),
+    });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      context: {
+        entityType: testCase.entityType,
+        decoderPath: 'input',
+        decoderMessage: expect.stringContaining("key 'context' is required as an own property"),
+      },
+    });
+  });
+
+  it.each(acceptanceReaderCases)('$entityType rejects malformed generated context fields', async (testCase) => {
+    const client = createMockClient(testCase, testCase.validData(), {
+      createArgument: {
+        context: { issuer: 17, system_operator: VALID_CONTEXT.system_operator },
+        [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
+      },
+    });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      context: {
+        entityType: testCase.entityType,
+        decoderPath: 'input.context.issuer',
+        decoderMessage: 'expected a string, got a number',
+      },
+    });
+  });
+
+  it.each(acceptanceReaderCases)('$entityType rejects inherited generated context fields', async (testCase) => {
+    const client = createMockClient(testCase, testCase.validData(), {
+      createArgument: {
+        context: Object.create(VALID_CONTEXT),
+        [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: testCase.validData(),
+      },
+    });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      context: {
+        entityType: testCase.entityType,
+        decoderPath: 'input.context',
+        decoderMessage: expect.stringContaining("key 'issuer' is required as an own property"),
+      },
+    });
+  });
+
+  it.each(acceptanceReaderCases)('$entityType rejects inherited required payload fields', async (testCase) => {
+    const client = createMockClient(testCase, testCase.validData(), {
+      createArgument: {
+        context: VALID_CONTEXT,
+        [ENTITY_DATA_FIELD_MAP[testCase.entityType]]: Object.create(testCase.validData()),
+      },
+    });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      context: {
+        entityType: testCase.entityType,
+        decoderPath: 'input.acceptance_data',
+        decoderMessage: expect.stringContaining("key 'id' is required as an own property"),
+      },
+    });
+  });
+
+  it.each(acceptanceReaderCases)('$entityType rejects a wrong generated wrapper variant', async (testCase) => {
+    const client = createMockClient(testCase, testCase.validData(), {
+      createArgument: {
+        context: VALID_CONTEXT,
+        cancellation_data: testCase.validData(),
+      },
+    });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      context: {
+        entityType: testCase.entityType,
+        decoderPath: 'input',
+        decoderMessage: expect.stringContaining("key 'acceptance_data' is required"),
+      },
+    });
+  });
+
+  it.each(acceptanceReaderCases)(
+    '$entityType rejects a malformed lexical date with its exact field path',
+    async (testCase) => {
+      const client = createMockClient(testCase, {
+        ...testCase.validData(),
+        date: 'not-a-date',
+      });
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `${testCase.entityType}.date`,
+        receivedValue: 'not-a-date',
+      });
+      await expect(testCase.invoke(client)).rejects.toBeInstanceOf(OcpValidationError);
+    }
+  );
+
+  it.each(acceptanceReaderCases)('$entityType omits only the canonical empty comments list', async (testCase) => {
+    const client = createMockClient(testCase, {
+      ...testCase.validData(),
+      comments: [],
+    });
+    const expectedEvent = { ...testCase.expectedEvent };
+    delete expectedEvent.comments;
+
+    await expect(testCase.invoke(client)).resolves.toEqual({
+      event: expectedEvent,
+      contractId: testCase.contractId,
+    });
+  });
+
+  it.each(acceptanceReaderCases)('$entityType rejects sparse comments without dropping indexes', async (testCase) => {
+    const comments = new Array<unknown>(2);
+    comments[1] = 'second comment';
+    const client = createMockClient(testCase, {
+      ...testCase.validData(),
+      comments,
+    });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      context: {
+        entityType: testCase.entityType,
+        decoderPath: 'input.acceptance_data.comments[0]',
+        decoderMessage: 'list element is missing or inherited rather than an own property',
+      },
+    });
+  });
+
+  it.each(acceptanceReaderCases)(
+    '$entityType rejects comments inherited through an array prototype',
+    async (testCase) => {
+      class InheritedComments extends Array<unknown> {}
+      Object.defineProperty(InheritedComments.prototype, 0, {
+        configurable: true,
+        value: 'inherited comment',
+      });
+      const comments = new InheritedComments(1);
+      const client = createMockClient(testCase, {
+        ...testCase.validData(),
+        comments,
+      });
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+        context: {
+          entityType: testCase.entityType,
+          decoderPath: 'input.acceptance_data.comments[0]',
+          decoderMessage: 'list element is missing or inherited rather than an own property',
+        },
+      });
+    }
+  );
+
   it.each(acceptanceReaderCases)('$entityType rejects a contract from the wrong template', async (testCase) => {
-    const wrongTemplateId = ENTITY_TEMPLATE_ID_MAP.document;
-    const client = createMockClient(testCase, testCase.validData(), wrongTemplateId);
+    const wrongTemplateId =
+      testCase.entityType === 'stockAcceptance'
+        ? ENTITY_TEMPLATE_ID_MAP.warrantAcceptance
+        : ENTITY_TEMPLATE_ID_MAP.stockAcceptance;
+    const client = createMockClient(testCase, testCase.validData(), { templateId: wrongTemplateId });
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpContractError',
@@ -220,5 +437,27 @@ describe('decoder-backed acceptance readers', () => {
       },
     });
     await expect(testCase.invoke(client)).rejects.toBeInstanceOf(OcpContractError);
+  });
+
+  it.each(acceptanceReaderCases)('$entityType rejects the right module on the wrong package line', async (testCase) => {
+    const expectedTemplateId = ENTITY_TEMPLATE_ID_MAP[testCase.entityType];
+    const wrongTemplateId = expectedTemplateId.replace(/^#[^:]+/, '#OpenCapTable-wrong');
+    const client = createMockClient(testCase, testCase.validData(), {
+      templateId: wrongTemplateId,
+      packageName: 'OpenCapTable-wrong',
+    });
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpContractError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'package_name_mismatch',
+      contractId: testCase.contractId,
+      templateId: wrongTemplateId,
+      context: {
+        expectedTemplateId,
+        actualTemplateId: wrongTemplateId,
+        actualPackageName: 'OpenCapTable-wrong',
+      },
+    });
   });
 });

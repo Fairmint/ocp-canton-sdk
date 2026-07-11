@@ -53,15 +53,24 @@ interface MalformedReaderCase {
   readonly validData: () => object;
 }
 
-function createMockClient(testCase: MalformedReaderCase): LedgerJsonApiClient {
-  const { dataField, templateId } = ENTITY_REGISTRY[testCase.entityType];
-  const malformedData = { ...testCase.validData(), [testCase.field]: 17 };
+function createMockClient(
+  testCase: MalformedReaderCase,
+  templateId = ENTITY_REGISTRY[testCase.entityType].templateId,
+  malformed = true
+): LedgerJsonApiClient {
+  const { dataField } = ENTITY_REGISTRY[testCase.entityType];
+  const data = malformed ? { ...testCase.validData(), [testCase.field]: 17 } : testCase.validData();
   return {
     getEventsByContractId: jest.fn().mockResolvedValue({
       created: {
         createdEvent: {
           templateId,
-          createArgument: { [dataField]: malformedData },
+          createArgument: {
+            ...(testCase.entityType === 'vestingTerms'
+              ? { context: { issuer: 'issuer::party', system_operator: 'system-operator::party' } }
+              : {}),
+            [dataField]: data,
+          },
         },
       },
     }),
@@ -186,4 +195,46 @@ describe('generated DAML reader validation', () => {
       }
     }
   );
+
+  it.each(malformedReaderCases)(
+    '$entityType rejects a valid payload under the wrong generated template',
+    async (testCase) => {
+      const wrongTemplateId =
+        testCase.entityType === 'issuer' ? ENTITY_REGISTRY.document.templateId : ENTITY_REGISTRY.issuer.templateId;
+      const client = createMockClient(testCase, wrongTemplateId, false);
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'module_entity_mismatch',
+      });
+    }
+  );
+
+  it('preserves the failing array index in generated decoder diagnostics', async () => {
+    const testCase = malformedReaderCases.find(({ entityType }) => entityType === 'stockIssuance');
+    if (testCase === undefined) throw new Error('Missing stockIssuance reader validation case');
+    const { dataField, templateId } = ENTITY_REGISTRY.stockIssuance;
+    const stockIssuanceData = {
+      ...testCase.validData(),
+      vestings: [
+        { date: '2025-01-01T00:00:00Z', amount: '1' },
+        { date: 17, amount: '2' },
+      ],
+    };
+    const client = {
+      getEventsByContractId: jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            templateId,
+            createArgument: { [dataField]: stockIssuanceData },
+          },
+        },
+      }),
+    } as unknown as LedgerJsonApiClient;
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: { decoderPath: expect.stringContaining('vestings[1]') },
+    });
+  });
 });

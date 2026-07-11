@@ -1,7 +1,11 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlanPoolAdjustment } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import {
+  damlTimeToDateString,
+  normalizeNumericString,
+  optionalDamlTimeToDateString,
+} from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -30,29 +34,27 @@ export interface DamlStockPlanPoolAdjustmentData {
 export function damlStockPlanPoolAdjustmentDataToNative(
   data: DamlStockPlanPoolAdjustmentData
 ): OcfStockPlanPoolAdjustment {
+  // Convert shares_reserved to string for normalization (DAML Numeric may come as number at runtime)
+  const sharesReserved = data.shares_reserved as string | number;
+  const sharesReservedStr = typeof sharesReserved === 'number' ? sharesReserved.toString() : sharesReserved;
+  const boardApprovalDate = optionalDamlTimeToDateString(
+    data.board_approval_date,
+    'stockPlanPoolAdjustment.board_approval_date'
+  );
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    data.stockholder_approval_date,
+    'stockPlanPoolAdjustment.stockholder_approval_date'
+  );
+
   return {
     object_type: 'TX_STOCK_PLAN_POOL_ADJUSTMENT',
     id: data.id,
     date: damlTimeToDateString(data.date, 'stockPlanPoolAdjustment.date'),
     stock_plan_id: data.stock_plan_id,
-    shares_reserved: normalizeNumericString(data.shares_reserved, 'stockPlanPoolAdjustment.shares_reserved'),
-    ...(data.board_approval_date !== null
-      ? {
-          board_approval_date: damlTimeToDateString(
-            data.board_approval_date,
-            'stockPlanPoolAdjustment.board_approval_date'
-          ),
-        }
-      : {}),
-    ...(data.stockholder_approval_date !== null
-      ? {
-          stockholder_approval_date: damlTimeToDateString(
-            data.stockholder_approval_date,
-            'stockPlanPoolAdjustment.stockholder_approval_date'
-          ),
-        }
-      : {}),
-    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
+    shares_reserved: normalizeNumericString(sharesReservedStr, 'stockPlanPoolAdjustment.shares_reserved'),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
+    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
 }
 

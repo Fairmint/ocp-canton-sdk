@@ -3,7 +3,7 @@
  */
 
 import type { OcfConvertibleTransfer } from '../../../types';
-import { damlMonetaryToNative, damlTimeToDateString, toNonEmptyArray } from '../../../utils/typeConversions';
+import { damlMonetaryToNative, damlTimeToDateString, toUniqueNonEmptyArray } from '../../../utils/typeConversions';
 
 /**
  * DAML ConvertibleTransfer data structure.
@@ -30,12 +30,15 @@ export function damlConvertibleTransferToNative(d: DamlConvertibleTransferData):
   return {
     object_type: 'TX_CONVERTIBLE_TRANSFER',
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, 'convertibleTransfer.date'),
     security_id: d.security_id,
-    amount: damlMonetaryToNative(d.amount),
-    resulting_security_ids: toNonEmptyArray(d.resulting_security_ids, 'convertibleTransfer.resulting_security_ids'),
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
+    amount: damlMonetaryToNative(d.amount, 'convertibleTransfer.amount'),
+    resulting_security_ids: toUniqueNonEmptyArray(
+      d.resulting_security_ids,
+      'convertibleTransfer.resulting_security_ids'
+    ),
+    ...(d.balance_security_id !== null ? { balance_security_id: d.balance_security_id } : {}),
+    ...(d.consideration_text !== null ? { consideration_text: d.consideration_text } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }

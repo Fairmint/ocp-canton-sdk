@@ -42,13 +42,6 @@ import type {
   OcfFinancing,
   OcfIssuer,
   OcfIssuerAuthorizedSharesAdjustment,
-  OcfPlanSecurityAcceptance,
-  OcfPlanSecurityCancellation,
-  OcfPlanSecurityExercise,
-  OcfPlanSecurityIssuance,
-  OcfPlanSecurityRelease,
-  OcfPlanSecurityRetraction,
-  OcfPlanSecurityTransfer,
   OcfStakeholder,
   OcfStakeholderRelationshipChangeEvent,
   OcfStakeholderStatusChangeEvent,
@@ -263,35 +256,6 @@ export type OcfStockPlanPoolAdjustmentOutput = WithObjectType<
 
 /** Stock Plan Return To Pool output */
 export type OcfStockPlanReturnToPoolOutput = WithObjectType<OcfStockPlanReturnToPool, 'TX_STOCK_PLAN_RETURN_TO_POOL'>;
-
-// ===== Transaction Types (plan security) =====
-
-// Legacy schema-ingestion aliases. Typed ledger reads and `OcfObject` use the
-// canonical EquityCompensation family instead.
-
-/** Plan Security Issuance output */
-export type OcfPlanSecurityIssuanceOutput = WithObjectType<OcfPlanSecurityIssuance, 'TX_PLAN_SECURITY_ISSUANCE'>;
-
-/** Plan Security Exercise output */
-export type OcfPlanSecurityExerciseOutput = WithObjectType<OcfPlanSecurityExercise, 'TX_PLAN_SECURITY_EXERCISE'>;
-
-/** Plan Security Cancellation output */
-export type OcfPlanSecurityCancellationOutput = WithObjectType<
-  OcfPlanSecurityCancellation,
-  'TX_PLAN_SECURITY_CANCELLATION'
->;
-
-/** Plan Security Acceptance output */
-export type OcfPlanSecurityAcceptanceOutput = WithObjectType<OcfPlanSecurityAcceptance, 'TX_PLAN_SECURITY_ACCEPTANCE'>;
-
-/** Plan Security Release output */
-export type OcfPlanSecurityReleaseOutput = WithObjectType<OcfPlanSecurityRelease, 'TX_PLAN_SECURITY_RELEASE'>;
-
-/** Plan Security Retraction output */
-export type OcfPlanSecurityRetractionOutput = WithObjectType<OcfPlanSecurityRetraction, 'TX_PLAN_SECURITY_RETRACTION'>;
-
-/** Plan Security Transfer output */
-export type OcfPlanSecurityTransferOutput = WithObjectType<OcfPlanSecurityTransfer, 'TX_PLAN_SECURITY_TRANSFER'>;
 
 // ===== Transaction Types (other) =====
 

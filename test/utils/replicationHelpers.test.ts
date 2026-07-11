@@ -82,8 +82,7 @@ function createTestStockClassSplitData(
 describe('TRANSACTION_SUBTYPE_MAP', () => {
   it('has correct count of transaction types', () => {
     // 9 stock + 8 equity comp + 6 convertible + 6 warrant + 4 stock class adj + 2 stock plan + 3 vesting + 2 stakeholder
-    // + 2 legacy stakeholder aliases = 42
-    expect(Object.keys(TRANSACTION_SUBTYPE_MAP)).toHaveLength(42);
+    expect(Object.keys(TRANSACTION_SUBTYPE_MAP)).toHaveLength(40);
   });
 
   describe('Stock Transactions (9 types)', () => {
@@ -187,12 +186,10 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     });
   });
 
-  describe('Stakeholder Events (canonical + legacy aliases)', () => {
+  describe('Stakeholder Events', () => {
     const stakeholderTypes: Array<[string, OcfEntityType]> = [
       ['CE_STAKEHOLDER_RELATIONSHIP', 'stakeholderRelationshipChangeEvent'],
       ['CE_STAKEHOLDER_STATUS', 'stakeholderStatusChangeEvent'],
-      ['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT', 'stakeholderRelationshipChangeEvent'], // legacy
-      ['TX_STAKEHOLDER_STATUS_CHANGE_EVENT', 'stakeholderStatusChangeEvent'], // legacy
     ];
 
     it.each(stakeholderTypes)('maps %s to %s', (objectType, entityType) => {
@@ -200,8 +197,12 @@ describe('TRANSACTION_SUBTYPE_MAP', () => {
     });
   });
 
-  it('does not include deprecated Plan Security types', () => {
-    // Plan Security types were removed after confirming no data exists in dev/prod
+  it('does not map non-schema stakeholder event names', () => {
+    expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_RELATIONSHIP_CHANGE_EVENT']).toBeUndefined();
+    expect(TRANSACTION_SUBTYPE_MAP['TX_STAKEHOLDER_STATUS_CHANGE_EVENT']).toBeUndefined();
+  });
+
+  it('does not expose retired PlanSecurity discriminators in the canonical lookup map', () => {
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_ISSUANCE']).toBeUndefined();
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_EXERCISE']).toBeUndefined();
     expect(TRANSACTION_SUBTYPE_MAP['TX_PLAN_SECURITY_CANCELLATION']).toBeUndefined();
@@ -502,6 +503,17 @@ describe('buildCantonOcfDataMap', () => {
 
       expect(() => buildCantonOcfDataMap(manifest)).toThrow("Invalid stakeholder: missing or invalid 'id' field");
     });
+
+    it('rejects a core object placed in the wrong manifest category', () => {
+      const manifest = createEmptyManifest();
+      manifest.stakeholders = asInvalidManifestValue<OcfManifest['stakeholders']>([
+        createTestStockClassData({ id: 'stock-class-in-stakeholders' }),
+      ]);
+
+      expect(() => buildCantonOcfDataMap(manifest)).toThrow(
+        'Invalid stakeholder: object_type "STOCK_CLASS" maps to "stockClass", not "stakeholder"'
+      );
+    });
   });
 
   describe('transactions', () => {
@@ -598,6 +610,23 @@ describe('buildCantonOcfDataMap', () => {
       ]);
 
       expect(() => buildCantonOcfDataMap(manifest)).toThrow('Unsupported transaction object_type: STAKEHOLDER');
+    });
+
+    it.each([
+      'TX_PLAN_SECURITY_ACCEPTANCE',
+      'TX_PLAN_SECURITY_CANCELLATION',
+      'TX_PLAN_SECURITY_EXERCISE',
+      'TX_PLAN_SECURITY_ISSUANCE',
+      'TX_PLAN_SECURITY_RELEASE',
+      'TX_PLAN_SECURITY_RETRACTION',
+      'TX_PLAN_SECURITY_TRANSFER',
+    ])('rejects retired PlanSecurity transaction input %s', (objectType) => {
+      const manifest = createEmptyManifest();
+      manifest.transactions = asInvalidManifestValue<OcfManifest['transactions']>([
+        { id: 'legacy-plan-security', object_type: objectType },
+      ]);
+
+      expect(() => buildCantonOcfDataMap(manifest)).toThrow(`Unsupported transaction object_type: ${objectType}`);
     });
 
     it('throws when transaction object_type is an inherited object property', () => {

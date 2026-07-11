@@ -5,10 +5,10 @@ import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
   cleanComments,
-  dateStringToDAMLTime,
   initialSharesAuthorizedToDaml,
   monetaryToDaml,
   normalizeNumericString,
+  optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
 import { ratioMechanismToDaml } from '../shared/conversionMechanisms';
 
@@ -68,8 +68,11 @@ export function stockClassDataToDaml(
     initial_shares_authorized: initialSharesAuthorizedToDaml(d.initial_shares_authorized),
     votes_per_share: normalizeNumericString(d.votes_per_share),
     seniority: normalizeNumericString(d.seniority),
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'stockClass.board_approval_date'),
+    stockholder_approval_date: optionalDateStringToDAMLTime(
+      d.stockholder_approval_date,
+      'stockClass.stockholder_approval_date'
+    ),
     par_value: d.par_value ? monetaryToDaml(d.par_value) : null,
     price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share) : null,
     conversion_rights: (d.conversion_rights ?? []).map((right, index) => {
