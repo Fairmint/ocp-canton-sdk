@@ -1,11 +1,14 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { types as nodeUtilTypes } from 'node:util';
+
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import { ledgerReadScope } from '../../../utils/readScope';
+import { findUnsafeJsonIssue } from '../../../utils/safeJson';
 import { assertTemplateIdentity, type ParsedTemplateIdentity } from '../../../utils/templateIdentity';
 
 export interface LedgerCreatedEvent {
-  contractId?: string;
+  contractId?: unknown;
   templateId?: unknown;
   packageName?: unknown;
   createArgument?: unknown;
@@ -32,11 +35,41 @@ export interface SingleContractReadResult {
   templateIdentity?: ParsedTemplateIdentity;
 }
 
+function assertSafeLedgerResponse(
+  value: unknown,
+  contractId: string,
+  operation?: string
+): asserts value is ContractEventsResponse {
+  const source = `contract ${contractId}.eventsResponse`;
+  // Let the entity-specific reader classify explicit undefined fields while
+  // retaining the descriptor-only proxy/accessor/cycle/bounds preflight here.
+  const issue = findUnsafeJsonIssue(value, source, { allowUndefined: true });
+  if (issue === undefined) return;
+  const createArgumentPath = `${source}.created.createdEvent.createArgument`;
+  const isCreateArgumentIssue =
+    issue.path === createArgumentPath ||
+    issue.path.startsWith(`${createArgumentPath}.`) ||
+    issue.path.startsWith(`${createArgumentPath}[`);
+
+  throw new OcpParseError(`Invalid contract events response: ${issue.message}`, {
+    source: issue.path,
+    code: isCreateArgumentIssue ? OcpErrorCodes.SCHEMA_MISMATCH : OcpErrorCodes.INVALID_RESPONSE,
+    classification: isCreateArgumentIssue ? 'invalid_create_argument_json' : 'invalid_ledger_json',
+    context: {
+      contractId,
+      operation,
+      issueKind: issue.kind,
+      receivedValue: issue.receivedValue,
+    },
+  });
+}
+
 export function extractCreateArgument(
   eventsResponse: ContractEventsResponse,
   contractId: string,
   diagnostics: { operation?: string } = {}
 ): unknown {
+  assertSafeLedgerResponse(eventsResponse, contractId, diagnostics.operation);
   if (!eventsResponse.created?.createdEvent) {
     throw new OcpParseError('Invalid contract events response: missing created event', {
       source: `contract ${contractId}`,
@@ -70,6 +103,22 @@ function requireCreateArgumentRecord(
   contractId: string,
   diagnostics: { operation: string; templateId?: string }
 ): Record<string, unknown> {
+  if (
+    ((typeof createArgument === 'object' && createArgument !== null) || typeof createArgument === 'function') &&
+    nodeUtilTypes.isProxy(createArgument)
+  ) {
+    throw new OcpParseError('Contract createArgument must not be a proxy', {
+      source: `contract ${contractId}`,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_create_argument_shape',
+      context: {
+        contractId,
+        operation: diagnostics.operation,
+        templateId: diagnostics.templateId,
+        receivedValue: createArgument,
+      },
+    });
+  }
   if (!createArgument || typeof createArgument !== 'object' || Array.isArray(createArgument)) {
     throw new OcpParseError('Contract createArgument must be an object', {
       source: `contract ${contractId}`,
@@ -118,10 +167,12 @@ export async function readSingleContract(
   params: GetByContractIdParams,
   options: SingleContractReadOptions
 ): Promise<SingleContractReadResult> {
-  const eventsResponse = (await client.getEventsByContractId({
+  const rawEventsResponse: unknown = await client.getEventsByContractId({
     contractId: params.contractId,
     ...ledgerReadScope(params),
-  })) as ContractEventsResponse;
+  });
+  assertSafeLedgerResponse(rawEventsResponse, params.contractId, options.operation);
+  const eventsResponse = rawEventsResponse;
 
   const createdEvent = eventsResponse.created?.createdEvent;
   if (!createdEvent) {
@@ -146,6 +197,33 @@ export async function readSingleContract(
         classification: 'missing_create_argument',
       }
     );
+  }
+
+  if (Object.prototype.hasOwnProperty.call(createdEvent, 'contractId')) {
+    if (typeof createdEvent.contractId !== 'string') {
+      throw new OcpParseError('Invalid contract events response: created-event contract ID must be a string', {
+        source: `contract ${params.contractId}.eventsResponse.created.createdEvent.contractId`,
+        code: OcpErrorCodes.INVALID_RESPONSE,
+        classification: 'invalid_created_contract_id',
+        context: {
+          contractId: params.contractId,
+          operation: options.operation,
+          receivedValue: createdEvent.contractId,
+        },
+      });
+    }
+    if (createdEvent.contractId !== params.contractId) {
+      throw new OcpContractError('Created-event contract ID does not match the requested contract', {
+        contractId: params.contractId,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'contract_id_mismatch',
+        context: {
+          operation: options.operation,
+          expectedContractId: params.contractId,
+          actualContractId: createdEvent.contractId,
+        },
+      });
+    }
   }
 
   const templateId = typeof createdEvent.templateId === 'string' ? createdEvent.templateId : undefined;

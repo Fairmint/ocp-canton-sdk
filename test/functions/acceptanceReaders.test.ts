@@ -7,6 +7,7 @@ import {
   ENTITY_TEMPLATE_ID_MAP,
   type OcfEntityType,
 } from '../../src/functions/OpenCapTable/capTable/batchTypes';
+import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlToOcf';
 import { convertibleAcceptanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleAcceptance/convertibleAcceptanceDataToDaml';
 import { getConvertibleAcceptanceAsOcf } from '../../src/functions/OpenCapTable/convertibleAcceptance/getConvertibleAcceptanceAsOcf';
 import { equityCompensationAcceptanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationAcceptance/equityCompensationAcceptanceDataToDaml';
@@ -159,6 +160,14 @@ function createMockClient(
   } as unknown as LedgerJsonApiClient;
 }
 
+function createArgumentRoot(testCase: AcceptanceReaderCase): string {
+  return `damlToOcf.${testCase.entityType}.createArgument`;
+}
+
+function ledgerCreateArgumentRoot(testCase: AcceptanceReaderCase): string {
+  return `contract ${testCase.contractId}.eventsResponse.created.createdEvent.createArgument`;
+}
+
 describe('decoder-backed acceptance readers', () => {
   it.each(acceptanceReaderCases)('$entityType returns the exact canonical event shape', async (testCase) => {
     const client = createMockClient(testCase, testCase.validData());
@@ -168,6 +177,18 @@ describe('decoder-backed acceptance readers', () => {
       contractId: testCase.contractId,
     });
   });
+
+  it.each(acceptanceReaderCases)(
+    '$entityType returns the same exact shape through the generic reader',
+    async (testCase) => {
+      const client = createMockClient(testCase, testCase.validData());
+
+      await expect(getEntityAsOcf(client, testCase.entityType, testCase.contractId)).resolves.toEqual({
+        data: testCase.expectedEvent,
+        contractId: testCase.contractId,
+      });
+    }
+  );
 
   it.each(acceptanceReaderCases)('$entityType rejects malformed required fields', async (testCase) => {
     for (const [field, malformedData] of [
@@ -229,7 +250,8 @@ describe('decoder-backed acceptance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      classification: 'invalid_generated_create_argument',
+      source: createArgumentRoot(testCase),
       context: {
         entityType: testCase.entityType,
         expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
@@ -250,11 +272,11 @@ describe('decoder-backed acceptance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      classification: 'invalid_create_argument_json',
+      source: ledgerCreateArgumentRoot(testCase),
       context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input',
-        decoderMessage: expect.stringContaining("key 'context' is required as an own property"),
+        contractId: testCase.contractId,
+        issueKind: 'custom_prototype',
       },
     });
   });
@@ -270,7 +292,8 @@ describe('decoder-backed acceptance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      classification: 'invalid_generated_create_argument',
+      source: createArgumentRoot(testCase),
       context: {
         entityType: testCase.entityType,
         decoderPath: 'input.context.issuer',
@@ -290,11 +313,11 @@ describe('decoder-backed acceptance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      classification: 'invalid_create_argument_json',
+      source: `${ledgerCreateArgumentRoot(testCase)}.context`,
       context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.context',
-        decoderMessage: expect.stringContaining("key 'issuer' is required as an own property"),
+        contractId: testCase.contractId,
+        issueKind: 'custom_prototype',
       },
     });
   });
@@ -310,11 +333,11 @@ describe('decoder-backed acceptance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      classification: 'invalid_create_argument_json',
+      source: `${ledgerCreateArgumentRoot(testCase)}.acceptance_data`,
       context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.acceptance_data',
-        decoderMessage: expect.stringContaining("key 'id' is required as an own property"),
+        contractId: testCase.contractId,
+        issueKind: 'custom_prototype',
       },
     });
   });
@@ -330,7 +353,8 @@ describe('decoder-backed acceptance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      classification: 'invalid_generated_create_argument',
+      source: createArgumentRoot(testCase),
       context: {
         entityType: testCase.entityType,
         decoderPath: 'input',
@@ -338,6 +362,59 @@ describe('decoder-backed acceptance readers', () => {
       },
     });
   });
+
+  it.each(acceptanceReaderCases)(
+    '$entityType rejects ordinary extra fields at every generated wrapper level',
+    async (testCase) => {
+      const validData = testCase.validData();
+      const rootPath = createArgumentRoot(testCase);
+      const cases = [
+        [
+          'wrapper',
+          { context: VALID_CONTEXT, acceptance_data: validData, unexpected_wrapper: true },
+          `${rootPath}.unexpected_wrapper`,
+        ],
+        [
+          'context',
+          {
+            context: { ...VALID_CONTEXT, unexpected_context: true },
+            acceptance_data: validData,
+          },
+          `${rootPath}.context.unexpected_context`,
+        ],
+        [
+          'acceptance data',
+          {
+            context: VALID_CONTEXT,
+            acceptance_data: { ...validData, unexpected_acceptance_data: true },
+          },
+          `${rootPath}.acceptance_data.unexpected_acceptance_data`,
+        ],
+      ] as const;
+
+      for (const [level, createArgument, expectedSource] of cases) {
+        const client = createMockClient(testCase, validData, { createArgument });
+        await expect(testCase.invoke(client)).rejects.toMatchObject({
+          name: 'OcpParseError',
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'lossy_daml_decode',
+          source: expectedSource,
+          context: {
+            entityType: testCase.entityType,
+            expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[testCase.entityType],
+            fieldPath: expectedSource,
+          },
+        });
+
+        try {
+          await testCase.invoke(client);
+          throw new Error(`Expected ${testCase.entityType} to reject an extra ${level} field`);
+        } catch (error: unknown) {
+          expect(error).toBeInstanceOf(OcpParseError);
+        }
+      }
+    }
+  );
 
   it.each(acceptanceReaderCases)(
     '$entityType rejects a malformed lexical date with its exact field path',
@@ -382,11 +459,11 @@ describe('decoder-backed acceptance readers', () => {
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
       code: OcpErrorCodes.SCHEMA_MISMATCH,
-      source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+      classification: 'invalid_create_argument_json',
+      source: `${ledgerCreateArgumentRoot(testCase)}.acceptance_data.comments[0]`,
       context: {
-        entityType: testCase.entityType,
-        decoderPath: 'input.acceptance_data.comments[0]',
-        decoderMessage: 'list element is missing or inherited rather than an own property',
+        contractId: testCase.contractId,
+        issueKind: 'sparse_array',
       },
     });
   });
@@ -408,15 +485,137 @@ describe('decoder-backed acceptance readers', () => {
       await expect(testCase.invoke(client)).rejects.toMatchObject({
         name: 'OcpParseError',
         code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: `damlAcceptanceCreateArgument.${testCase.entityType}`,
+        classification: 'invalid_create_argument_json',
+        source: `${ledgerCreateArgumentRoot(testCase)}.acceptance_data.comments`,
         context: {
-          entityType: testCase.entityType,
-          decoderPath: 'input.acceptance_data.comments[0]',
-          decoderMessage: 'list element is missing or inherited rather than an own property',
+          contractId: testCase.contractId,
+          issueKind: 'custom_prototype',
         },
       });
     }
   );
+
+  it.each(acceptanceReaderCases)(
+    '$entityType rejects nested custom array fields before generated decoding',
+    async (testCase) => {
+      const comments = ['accepted'];
+      Object.defineProperty(comments, 'unexpected', {
+        configurable: true,
+        enumerable: true,
+        value: true,
+      });
+      const client = createMockClient(testCase, { ...testCase.validData(), comments });
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_create_argument_json',
+        source: `${ledgerCreateArgumentRoot(testCase)}.acceptance_data.comments[unexpected]`,
+        context: {
+          contractId: testCase.contractId,
+          issueKind: 'custom_array_property',
+        },
+      });
+    }
+  );
+
+  it.each(acceptanceReaderCases)(
+    '$entityType rejects proxy create arguments without invoking traps',
+    async (testCase) => {
+      const getTrap = jest.fn(() => {
+        throw new Error('proxy get trap must not run');
+      });
+      const ownKeysTrap = jest.fn(() => {
+        throw new Error('proxy ownKeys trap must not run');
+      });
+      const createArgument = new Proxy(
+        { context: VALID_CONTEXT, acceptance_data: testCase.validData() },
+        { get: getTrap, ownKeys: ownKeysTrap }
+      );
+      const client = createMockClient(testCase, testCase.validData(), { createArgument });
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_create_argument_json',
+        source: ledgerCreateArgumentRoot(testCase),
+        context: {
+          contractId: testCase.contractId,
+          issueKind: 'proxy',
+        },
+      });
+      expect(getTrap).not.toHaveBeenCalled();
+      expect(ownKeysTrap).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(acceptanceReaderCases)(
+    '$entityType rejects accessor payload fields without invoking getters',
+    async (testCase) => {
+      const getter = jest.fn(() => {
+        throw new Error('acceptance accessor must not run');
+      });
+      const data = testCase.validData();
+      Object.defineProperty(data, 'id', { configurable: true, enumerable: true, get: getter });
+      const client = createMockClient(testCase, data);
+
+      await expect(testCase.invoke(client)).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_create_argument_json',
+        source: `${ledgerCreateArgumentRoot(testCase)}.acceptance_data.id`,
+        context: {
+          contractId: testCase.contractId,
+          issueKind: 'accessor',
+        },
+      });
+      expect(getter).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(acceptanceReaderCases)('$entityType rejects cyclic payload graphs at their exact path', async (testCase) => {
+    const data = { ...testCase.validData() };
+    data.self = data;
+    const client = createMockClient(testCase, data);
+
+    await expect(testCase.invoke(client)).rejects.toMatchObject({
+      name: 'OcpParseError',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_create_argument_json',
+      source: `${ledgerCreateArgumentRoot(testCase)}.acceptance_data.self`,
+      context: {
+        contractId: testCase.contractId,
+        issueKind: 'cycle',
+      },
+    });
+  });
+
+  it('bounds hostile acceptance diagnostic paths and serialized values', async () => {
+    const testCase = acceptanceReaderCases[0];
+    if (testCase === undefined) throw new Error('Expected at least one acceptance reader case');
+    const hostileField = `hostile_${'x'.repeat(10_000)}`;
+    const createArgument = {
+      context: VALID_CONTEXT,
+      acceptance_data: testCase.validData(),
+      [hostileField]: 'y'.repeat(10_000),
+    };
+    const client = createMockClient(testCase, testCase.validData(), { createArgument });
+
+    try {
+      await testCase.invoke(client);
+      throw new Error('Expected hostile acceptance diagnostics to be rejected');
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      const parseError = error as OcpParseError;
+      expect(parseError.classification).toBe('invalid_create_argument_json');
+      expect(parseError.context).toMatchObject({ issueKind: 'oversized_property_name' });
+      expect(parseError.source?.length).toBeLessThanOrEqual(512);
+      expect(parseError.message.length).toBeLessThanOrEqual(512);
+      const serialized = JSON.stringify(parseError.toJSON());
+      expect(serialized.length).toBeLessThanOrEqual(2_048);
+      expect(serialized).not.toContain(hostileField);
+    }
+  });
 
   it.each(acceptanceReaderCases)('$entityType rejects a contract from the wrong template', async (testCase) => {
     const wrongTemplateId =

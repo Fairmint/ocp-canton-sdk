@@ -1,8 +1,11 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { toSafeDiagnosticText } from '../../../errors/OcpError';
+import { assertSafeGeneratedDamlJson } from '../../../utils/generatedDamlValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
+import { assertLosslessGeneratedDamlRoundTrip } from './damlCodecLosslessness';
 
-type CancellationEntityType = Extract<
+export type CancellationEntityType = Extract<
   OcfEntityType,
   'convertibleCancellation' | 'equityCompensationCancellation' | 'stockCancellation' | 'warrantCancellation'
 >;
@@ -28,162 +31,115 @@ interface DecoderError {
   readonly message: string;
 }
 
-interface CancellationCreateArgumentDecoder<T> {
-  run(input: unknown): { readonly ok: true; readonly result: T } | { readonly ok: false; readonly error: DecoderError };
+interface CancellationCreateArgumentCodec<T> {
+  readonly decoder: {
+    run(
+      input: unknown
+    ): { readonly ok: true; readonly result: T } | { readonly ok: false; readonly error: DecoderError };
+  };
+  encode(value: T): unknown;
 }
-
-type CancellationCreateArgumentDecoderMap = {
-  readonly [EntityType in CancellationEntityType]: CancellationCreateArgumentDecoder<
-    CancellationCreateArgumentMap[EntityType]
-  >;
-};
-
-/** Generated template decoders correlated with each supported cancellation family. */
-const CANCELLATION_CREATE_ARGUMENT_DECODER_MAP = {
-  convertibleCancellation: Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation.decoder,
-  equityCompensationCancellation:
-    Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellation.decoder,
-  stockCancellation: Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation.decoder,
-  warrantCancellation: Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellation.decoder,
-} as const satisfies CancellationCreateArgumentDecoderMap;
 
 type CancellationDataFor<EntityType extends CancellationEntityType> =
   CancellationCreateArgumentMap[EntityType]['cancellation_data'];
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
+type CancellationCreateArgumentDecoderMap = {
+  readonly [EntityType in CancellationEntityType]: (createArgument: unknown) => CancellationDataFor<EntityType>;
+};
 
-function hasOwnField(record: object, field: string): boolean {
-  return Object.prototype.hasOwnProperty.call(record, field);
-}
-
-function ownField(record: Record<string, unknown>, field: string): unknown {
-  return hasOwnField(record, field) ? record[field] : undefined;
-}
-
-function receivedType(value: unknown): string {
-  if (value === null) return 'null';
-  if (Array.isArray(value)) return 'array';
-  return typeof value;
-}
-
-function cancellationDecodeError(
+function cancellationCreateArgumentError(
   entityType: CancellationEntityType,
-  decoderPath: string,
-  decoderMessage: string,
-  diagnostics: Record<string, unknown> = {}
+  rootPath: string,
+  message: string,
+  context: Readonly<Record<string, unknown>>
 ): OcpParseError {
-  return new OcpParseError(`Invalid DAML create argument for ${entityType} at ${decoderPath}: ${decoderMessage}`, {
-    source: `damlCancellationCreateArgument.${entityType}`,
+  return new OcpParseError(message, {
+    source: rootPath,
     code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_generated_create_argument',
     context: {
       entityType,
       expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
-      decoderPath,
-      decoderMessage,
-      ...diagnostics,
+      ...context,
     },
   });
 }
 
-function requireOwnFields(
-  entityType: CancellationEntityType,
-  record: Record<string, unknown>,
-  fields: readonly string[],
-  decoderPath: string
-): void {
-  for (const field of fields) {
-    if (!hasOwnField(record, field)) {
-      throw cancellationDecodeError(entityType, decoderPath, `the key '${field}' is required as an own property`);
-    }
-  }
-}
+/** Build one exact, lossless generated-template decoder while retaining its cancellation-family correlation. */
+function createCancellationCreateArgumentDecoder<const EntityType extends CancellationEntityType>(
+  entityType: EntityType,
+  codec: CancellationCreateArgumentCodec<CancellationCreateArgumentMap[EntityType]>
+): (createArgument: unknown) => CancellationDataFor<EntityType> {
+  return (createArgument) => {
+    const rootPath = `damlToOcf.${entityType}.createArgument`;
+    const diagnosticContext = {
+      entityType,
+      expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+    } as const;
 
-function validateCancellationOwnProperties(entityType: CancellationEntityType, createArgument: unknown): void {
-  if (!isRecord(createArgument)) return;
+    // The structural preflight is descriptor-only, bounded, and rejects every
+    // non-JSON value before generated code can read properties or invoke traps.
+    assertSafeGeneratedDamlJson(createArgument, rootPath);
 
-  requireOwnFields(entityType, createArgument, ['context', 'cancellation_data'], 'input');
-
-  const context = ownField(createArgument, 'context');
-  if (isRecord(context)) {
-    requireOwnFields(entityType, context, ['issuer', 'system_operator'], 'input.context');
-  }
-
-  const cancellationData = ownField(createArgument, 'cancellation_data');
-  if (!isRecord(cancellationData)) return;
-
-  const numericField = entityType === 'convertibleCancellation' ? 'amount' : 'quantity';
-  requireOwnFields(
-    entityType,
-    cancellationData,
-    ['id', numericField, 'date', 'reason_text', 'security_id', 'comments'],
-    'input.cancellation_data'
-  );
-
-  if (entityType === 'convertibleCancellation') {
-    const amount = ownField(cancellationData, 'amount');
-    if (isRecord(amount)) {
-      requireOwnFields(entityType, amount, ['amount', 'currency'], 'input.cancellation_data.amount');
-    }
-  }
-
-  const comments = ownField(cancellationData, 'comments');
-  if (Array.isArray(comments)) {
-    for (let index = 0; index < comments.length; index++) {
-      if (!hasOwnField(comments, String(index))) {
-        throw cancellationDecodeError(
-          entityType,
-          `input.cancellation_data.comments[${index}]`,
-          'list element is missing or inherited rather than an own property'
-        );
-      }
-    }
-  }
-
-  if (!hasOwnField(cancellationData, 'balance_security_id')) {
-    if ('balance_security_id' in cancellationData) {
-      throw cancellationDecodeError(
+    const decoded = codec.decoder.run(createArgument);
+    if (!decoded.ok) {
+      const { at: decoderPath, message: decoderMessage } = decoded.error;
+      throw cancellationCreateArgumentError(
         entityType,
-        'input.cancellation_data.balance_security_id',
-        "optional key 'balance_security_id' is inherited rather than an own property"
+        rootPath,
+        `Invalid generated DAML create argument for ${entityType} at ${decoderPath}: ${decoderMessage}`,
+        { decoderPath, decoderMessage }
       );
     }
-    return;
-  }
 
-  const balanceSecurityId = ownField(cancellationData, 'balance_security_id');
-  if (balanceSecurityId === null || balanceSecurityId === undefined || typeof balanceSecurityId === 'string') return;
-
-  const actualType = receivedType(balanceSecurityId);
-  throw cancellationDecodeError(
-    entityType,
-    'input.cancellation_data.balance_security_id',
-    `expected a string, null, or undefined, got ${actualType}`,
-    {
-      fieldPath: `${entityType}.balance_security_id`,
-      expectedType: 'string | null | undefined',
-      receivedType: actualType,
+    let encoded: unknown;
+    try {
+      encoded = codec.encode(decoded.result);
+    } catch (error) {
+      throw cancellationCreateArgumentError(
+        entityType,
+        rootPath,
+        `Unable to encode generated DAML create argument for ${entityType}: ${toSafeDiagnosticText(error)}`,
+        { phase: 'encode' }
+      );
     }
-  );
+
+    assertSafeGeneratedDamlJson(encoded, `${rootPath}.__encoded`);
+    assertLosslessGeneratedDamlRoundTrip(createArgument, encoded, {
+      rootPath,
+      description: `${entityType} create argument`,
+      decodeSource: rootPath,
+      context: diagnosticContext,
+    });
+
+    return decoded.result.cancellation_data;
+  };
 }
 
-/** Decode the full generated contract wrapper and return its recursively decoded cancellation payload. */
+/** Generated full-template codecs correlated with each supported cancellation family. */
+const CANCELLATION_CREATE_ARGUMENT_DECODER_MAP = {
+  convertibleCancellation: createCancellationCreateArgumentDecoder(
+    'convertibleCancellation',
+    Fairmint.OpenCapTable.OCF.ConvertibleCancellation.ConvertibleCancellation
+  ),
+  equityCompensationCancellation: createCancellationCreateArgumentDecoder(
+    'equityCompensationCancellation',
+    Fairmint.OpenCapTable.OCF.EquityCompensationCancellation.EquityCompensationCancellation
+  ),
+  stockCancellation: createCancellationCreateArgumentDecoder(
+    'stockCancellation',
+    Fairmint.OpenCapTable.OCF.StockCancellation.StockCancellation
+  ),
+  warrantCancellation: createCancellationCreateArgumentDecoder(
+    'warrantCancellation',
+    Fairmint.OpenCapTable.OCF.WarrantCancellation.WarrantCancellation
+  ),
+} as const satisfies CancellationCreateArgumentDecoderMap;
+
+/** Decode the exact generated contract wrapper and return its correlated cancellation payload. */
 export function extractAndDecodeCancellationData<const EntityType extends CancellationEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): CancellationDataFor<EntityType>;
-export function extractAndDecodeCancellationData(
-  entityType: CancellationEntityType,
-  createArgument: unknown
-): CancellationDataFor<CancellationEntityType> {
-  validateCancellationOwnProperties(entityType, createArgument);
-  const decoded = CANCELLATION_CREATE_ARGUMENT_DECODER_MAP[entityType].run(createArgument);
-
-  if (!decoded.ok) {
-    const { at: decoderPath, message: decoderMessage } = decoded.error;
-    throw cancellationDecodeError(entityType, decoderPath, decoderMessage);
-  }
-
-  return decoded.result.cancellation_data;
+): CancellationDataFor<EntityType> {
+  return CANCELLATION_CREATE_ARGUMENT_DECODER_MAP[entityType](createArgument);
 }

@@ -27,6 +27,10 @@ function nestedTree(value: unknown): Record<string, unknown> {
   };
 }
 
+function createdEvent(value: unknown): Record<string, unknown> {
+  return { CreatedTreeEvent: { value } };
+}
+
 describe('transaction-tree fixture guards', () => {
   it.each([
     ['direct', directTree(createdValue)],
@@ -40,6 +44,58 @@ describe('transaction-tree fixture guards', () => {
       },
     });
     expect(extractContractIdFromTransactionTree(response, 'CapTable')).toBe('contract-1');
+  });
+
+  it('selects multiple created events by node ID rather than object insertion order', () => {
+    const firstCreatedValue = { ...createdValue, contractId: 'contract-a' };
+    const lastCreatedValue = { ...createdValue, contractId: 'contract-z' };
+    const responses = [
+      {
+        transactionTree: {
+          eventsById: {
+            'node-z': createdEvent(lastCreatedValue),
+            'node-a': createdEvent(firstCreatedValue),
+          },
+        },
+      },
+      {
+        transactionTree: {
+          eventsById: {
+            'node-a': createdEvent(firstCreatedValue),
+            'node-z': createdEvent(lastCreatedValue),
+          },
+        },
+      },
+    ];
+
+    for (const response of responses) {
+      expect(convertTransactionTreeToEventsResponse(response, 'synchronizer-1')).toEqual({
+        archived: null,
+        created: {
+          createdEvent: lastCreatedValue,
+          synchronizerId: 'synchronizer-1',
+        },
+      });
+      expect(extractContractIdFromTransactionTree(response, 'CapTable')).toBe('contract-a');
+    }
+  });
+
+  it('compares decimal ledger node IDs numerically', () => {
+    const nodeTwoValue = { ...createdValue, contractId: 'contract-2' };
+    const nodeTenValue = { ...createdValue, contractId: 'contract-10' };
+    const response = {
+      transactionTree: {
+        eventsById: {
+          '10': createdEvent(nodeTenValue),
+          '2': createdEvent(nodeTwoValue),
+        },
+      },
+    };
+
+    expect(convertTransactionTreeToEventsResponse(response, 'synchronizer-1')).toMatchObject({
+      created: { createdEvent: nodeTenValue },
+    });
+    expect(extractContractIdFromTransactionTree(response, 'CapTable')).toBe('contract-2');
   });
 
   it.each([
@@ -91,5 +147,21 @@ describe('transaction-tree fixture guards', () => {
     expect(() => extractContractIdFromTransactionTree(response, 'CapTable')).toThrow(
       'Invalid transaction tree at transactionTree.transaction.eventsById.7: expected an object'
     );
+  });
+
+  it('bounds hostile node IDs in field-specific diagnostics', () => {
+    const hostileNodeId = 'x'.repeat(10_000);
+    const response = { transactionTree: { eventsById: { [hostileNodeId]: null } } };
+
+    try {
+      extractContractIdFromTransactionTree(response, 'CapTable');
+      throw new Error('Expected malformed transaction tree to throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      const { message } = error as Error;
+      expect(message).toContain('[10000 chars]');
+      expect(message).not.toContain(hostileNodeId);
+      expect(message.length).toBeLessThan(700);
+    }
   });
 });

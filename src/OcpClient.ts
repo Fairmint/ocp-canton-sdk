@@ -203,14 +203,16 @@ function selectObjectTypeReader<T extends OcfReadableObjectType>(
   readers: OpenCapTableObjectReaderMap,
   objectType: T
 ): OpenCapTableObjectReaderMap[T] {
-  if (mapOcfObjectTypeToEntityType(String(objectType)) === null) {
-    throw new OcpValidationError('objectType', `Unsupported OCF object_type: ${objectType}`, {
+  const runtimeObjectType: unknown = objectType;
+  if (typeof runtimeObjectType !== 'string' || mapOcfObjectTypeToEntityType(runtimeObjectType) === null) {
+    const detail = typeof runtimeObjectType === 'string' ? `: ${runtimeObjectType}` : '';
+    throw new OcpValidationError('objectType', `Unsupported OCF object_type${detail}`, {
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       receivedValue: objectType,
     });
   }
 
-  return readers[objectType];
+  return readers[runtimeObjectType as T];
 }
 
 // ===== Context Manager =====

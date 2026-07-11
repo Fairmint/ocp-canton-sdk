@@ -10,6 +10,7 @@ import {
   optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
+import { filterAndMapVestingsToDaml } from '../shared/vesting';
 import { validateEquityCompensationPricing } from './equityCompensationPricing';
 
 export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTable.Types.Vesting.OcfCompensationType {
@@ -79,12 +80,6 @@ export function equityCompensationIssuanceDataToDaml(
     d.base_price,
     'equityCompensationIssuance'
   );
-  const filteredVestings = (d.vestings ?? []).filter((v) => {
-    // normalizeNumericString validates strict decimal format and rejects scientific notation
-    const normalized = normalizeNumericString(v.amount);
-    return parseFloat(normalized) > 0;
-  });
-
   return {
     id: d.id,
     security_id: d.security_id,
@@ -112,10 +107,7 @@ export function equityCompensationIssuanceDataToDaml(
     exercise_price: pricing.exercise_price ? monetaryToDaml(pricing.exercise_price) : null,
     base_price: pricing.base_price ? monetaryToDaml(pricing.base_price) : null,
     early_exercisable: d.early_exercisable ?? null,
-    vestings: filteredVestings.map((v) => ({
-      date: dateStringToDAMLTime(v.date, 'equityCompensationIssuance.vestings[].date'),
-      amount: normalizeNumericString(v.amount),
-    })),
+    vestings: filterAndMapVestingsToDaml(d.vestings, 'equityCompensationIssuance.vestings'),
     expiration_date: nullableDateStringToDAMLTime(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
     termination_exercise_windows: d.termination_exercise_windows.map((w) => ({
       reason: terminationWindowReasonMap[w.reason],
