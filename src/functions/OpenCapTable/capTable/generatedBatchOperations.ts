@@ -46,15 +46,29 @@ function decodeGeneratedOperation<T>(
   }
 }
 
-interface GeneratedOperationBuilder<EntityType extends OcfEntityType, Data> {
-  readonly operation: 'create' | 'edit' | 'delete';
-  readonly displayName: 'Create' | 'Edit' | 'Delete';
-  readonly supports: (type: string) => type is EntityType;
-  readonly tagFor: (type: EntityType) => string;
-  readonly decoder: { runWithException: (input: unknown) => Data };
+interface GeneratedOperationDataMap {
+  readonly create: OcfCreateData;
+  readonly edit: OcfEditData;
+  readonly delete: OcfDeleteData;
 }
 
-const CREATE_OPERATION_BUILDER: GeneratedOperationBuilder<OcfCreatableEntityType, OcfCreateData> = {
+interface GeneratedOperationEntityTypeMap {
+  readonly create: OcfCreatableEntityType;
+  readonly edit: OcfEditableEntityType;
+  readonly delete: OcfDeletableEntityType;
+}
+
+type GeneratedOperation = keyof GeneratedOperationDataMap;
+
+interface GeneratedOperationBuilder<Operation extends GeneratedOperation> {
+  readonly operation: Operation;
+  readonly displayName: Capitalize<Operation>;
+  readonly supports: (type: string) => type is GeneratedOperationEntityTypeMap[Operation];
+  readonly tagFor: (type: GeneratedOperationEntityTypeMap[Operation]) => GeneratedOperationDataMap[Operation]['tag'];
+  readonly decoder: { runWithException: (input: unknown) => GeneratedOperationDataMap[Operation] };
+}
+
+const CREATE_OPERATION_BUILDER: GeneratedOperationBuilder<'create'> = {
   operation: 'create',
   displayName: 'Create',
   supports: isOcfCreatableEntityType,
@@ -62,7 +76,7 @@ const CREATE_OPERATION_BUILDER: GeneratedOperationBuilder<OcfCreatableEntityType
   decoder: Fairmint.OpenCapTable.CapTable.OcfCreateData.decoder,
 };
 
-const EDIT_OPERATION_BUILDER: GeneratedOperationBuilder<OcfEditableEntityType, OcfEditData> = {
+const EDIT_OPERATION_BUILDER: GeneratedOperationBuilder<'edit'> = {
   operation: 'edit',
   displayName: 'Edit',
   supports: isOcfEditableEntityType,
@@ -70,7 +84,7 @@ const EDIT_OPERATION_BUILDER: GeneratedOperationBuilder<OcfEditableEntityType, O
   decoder: Fairmint.OpenCapTable.CapTable.OcfEditData.decoder,
 };
 
-const DELETE_OPERATION_BUILDER: GeneratedOperationBuilder<OcfDeletableEntityType, OcfDeleteData> = {
+const DELETE_OPERATION_BUILDER: GeneratedOperationBuilder<'delete'> = {
   operation: 'delete',
   displayName: 'Delete',
   supports: isOcfDeletableEntityType,
@@ -78,11 +92,11 @@ const DELETE_OPERATION_BUILDER: GeneratedOperationBuilder<OcfDeletableEntityType
   decoder: Fairmint.OpenCapTable.CapTable.OcfDeleteData.decoder,
 };
 
-function buildGeneratedOperationData<EntityType extends OcfEntityType, Data>(
+function buildGeneratedOperationData<Operation extends GeneratedOperation>(
   type: OcfEntityType,
   convert: () => unknown,
-  builder: GeneratedOperationBuilder<EntityType, Data>
-): Data {
+  builder: GeneratedOperationBuilder<Operation>
+): GeneratedOperationDataMap[Operation] {
   if (!builder.supports(type)) {
     throw new OcpValidationError(
       'type',
