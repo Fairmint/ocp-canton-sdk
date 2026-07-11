@@ -125,6 +125,31 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   });
 
+  it('attributes an unknown runtime conversion right to the exact second exercise trigger', () => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        baseExerciseTrigger,
+        {
+          ...baseExerciseTrigger,
+          trigger_id: 'warrant2_trigger_2',
+          conversion_right: { type: 'NOT_A_REAL_RIGHT' },
+        },
+      ],
+    } as unknown as Parameters<typeof warrantIssuanceDataToDaml>[0];
+
+    try {
+      warrantIssuanceDataToDaml(input);
+      throw new Error('Expected runtime conversion-right validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'warrantIssuance.exercise_triggers.1.conversion_right.type',
+      });
+    }
+  });
+
   it('attributes an unknown DAML trigger tag to the exact second exercise trigger', () => {
     const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
     const firstTrigger = requireFirst(daml.exercise_triggers, 'serialized warrant exercise trigger');

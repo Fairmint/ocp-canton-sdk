@@ -175,7 +175,7 @@ function conversionRightToDaml(
           ? String(unexpected.type)
           : String(unexpected);
       throw new OcpParseError(`Unknown warrant conversion right type: ${type}`, {
-        source: 'conversion_right.type',
+        source: `${source}.type`,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
       });
     }
