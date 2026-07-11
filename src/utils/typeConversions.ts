@@ -8,6 +8,7 @@
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary, NonEmptyArray } from '../types/native';
 import { canonicalizeNonnegativeDamlNumeric10 } from './damlNumeric';
+import { assertSafeGeneratedDamlJson } from './generatedDamlValidation';
 
 // Public conversion helpers use stable structural wire shapes. Generated DAML
 // package declarations stay private to the ledger implementation boundary.
@@ -607,6 +608,11 @@ export function parseDamlMap<Key extends string, Value>(
   if (data == null) {
     return [];
   }
+
+  // Validate the complete graph before reading array lengths, tuple indexes, or
+  // user-supplied guards. This rejects proxies, accessors, cycles, sparse or
+  // oversized arrays, and custom prototypes without executing hostile code.
+  assertSafeGeneratedDamlJson(data, schema.source ?? 'parseDamlMap');
 
   if (!Array.isArray(data)) {
     const receivedType = damlMapReceivedType(data);

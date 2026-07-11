@@ -268,10 +268,8 @@ describe('parseDamlMap', () => {
       expect(() => parseStringDamlMap(input)).toThrow(
         expect.objectContaining({
           code: OcpErrorCodes.SCHEMA_MISMATCH,
-          context: expect.objectContaining({
-            tupleIndex: 0,
-            receivedType: 'missing',
-          }),
+          classification: 'invalid_generated_daml_json',
+          source: 'parseDamlMap[0]',
         })
       );
     });
@@ -287,12 +285,85 @@ describe('parseDamlMap', () => {
       expect(() => parseStringDamlMap([tuple])).toThrow(
         expect.objectContaining({
           code: OcpErrorCodes.SCHEMA_MISMATCH,
-          context: expect.objectContaining({
-            tupleIndex: 0,
-            missingTuplePositions: ['key', 'value'],
-          }),
+          classification: 'invalid_generated_daml_json',
+          source: 'parseDamlMap[0]',
         })
       );
+    });
+
+    test('rejects a proxy before invoking any traps or tuple guards', () => {
+      const getTrap = jest.fn(Reflect.get);
+      const input = new Proxy([['id1', 'contract1']], { get: getTrap });
+      const keyGuard = jest.fn((value: unknown) => typeof value === 'string');
+      const valueGuard = jest.fn((value: unknown) => typeof value === 'string');
+
+      expect(() =>
+        parseDamlMap(input, {
+          key: {
+            expectedType: 'string',
+            is: (value: unknown): value is string => keyGuard(value),
+          },
+          value: {
+            expectedType: 'string',
+            is: (value: unknown): value is string => valueGuard(value),
+          },
+        })
+      ).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'invalid_generated_daml_json',
+          source: 'parseDamlMap',
+        })
+      );
+      expect(getTrap).not.toHaveBeenCalled();
+      expect(keyGuard).not.toHaveBeenCalled();
+      expect(valueGuard).not.toHaveBeenCalled();
+    });
+
+    test('rejects an accessor tuple element without invoking it', () => {
+      const getter = jest.fn(() => 'id1');
+      const tuple = ['placeholder', 'contract1'];
+      Object.defineProperty(tuple, '0', { enumerable: true, get: getter });
+
+      expect(() => parseStringDamlMap([tuple])).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'invalid_generated_daml_json',
+          source: 'parseDamlMap[0][0]',
+        })
+      );
+      expect(getter).not.toHaveBeenCalled();
+    });
+
+    test('rejects a cyclic map graph before tuple traversal', () => {
+      const input: unknown[] = [];
+      input.push(input);
+
+      expect(() => parseStringDamlMap(input)).toThrow(
+        expect.objectContaining({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          classification: 'cyclic_ledger_json',
+          source: 'parseDamlMap[0]',
+        })
+      );
+    });
+
+    test('rejects oversized maps with globally bounded diagnostics before tuple traversal', () => {
+      const input = new Array<unknown>(100_001).fill(['id1', 'contract1']);
+      let caught: unknown;
+
+      try {
+        parseStringDamlMap(input);
+      } catch (error: unknown) {
+        caught = error;
+      }
+
+      expect(caught).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        classification: 'invalid_generated_daml_json',
+        source: 'parseDamlMap',
+      });
+      expect(JSON.stringify(caught).length).toBeLessThan(4_096);
     });
 
     test('throws on non-string key', () => {
