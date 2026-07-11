@@ -58,7 +58,7 @@ const wrongVestingAcceleration: OcfVestingAcceleration = vestingEventResult.vest
 // @ts-expect-error built vesting acceleration cannot be used as vesting start
 const wrongVestingStart: OcfVestingStart = vestingAccelerationResult.vestingAcceleration;
 // @ts-expect-error built root OcpClient vesting-start data cannot be used as vesting terms
-const wrongPublicVestingTerms: OcfVestingTerms = null as unknown as PublicVestingStartData;
+const wrongPublicVestingTerms: OcfVestingTerms = null;
 
 void vestingStartIsExact;
 void vestingEventIsExact;
