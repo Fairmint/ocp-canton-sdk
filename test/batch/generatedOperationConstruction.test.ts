@@ -14,6 +14,7 @@ import {
   buildOcfCreateData,
   buildOcfCreateDataFromOperation,
   buildOcfDeleteData,
+  buildOcfDeleteDataFromOperation,
   buildOcfEditData,
   buildOcfEditDataFromOperation,
 } from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
@@ -145,6 +146,18 @@ describe('generated DAML batch operation construction', () => {
       type: string;
       data: unknown;
     }) => unknown;
+    const untypedDelete = buildOcfDeleteData as unknown as (type: string, id: string) => unknown;
+    const untypedDeleteOperation = buildOcfDeleteDataFromOperation as unknown as (operation: {
+      type: string;
+      readonly id: string;
+    }) => unknown;
+    const unsupportedDeleteOperation = {
+      type: 'issuer',
+      get id(): string {
+        payloadWasRead = true;
+        throw new Error('builder must not read an unsupported identifier');
+      },
+    };
 
     expect(() => untypedCreate('issuer', poisonPayload)).toThrow(
       'Create operation not supported for entity type: issuer'
@@ -157,6 +170,12 @@ describe('generated DAML batch operation construction', () => {
     );
     expect(() => untypedEditOperation({ type: 'not-real', data: poisonPayload })).toThrow(
       'Edit operation not supported for entity type: not-real'
+    );
+    expect(() => untypedDelete('issuer', 'unsupported-delete-id')).toThrow(
+      'Delete operation not supported for entity type: issuer'
+    );
+    expect(() => untypedDeleteOperation(unsupportedDeleteOperation)).toThrow(
+      'Delete operation not supported for entity type: issuer'
     );
     expect(payloadWasRead).toBe(false);
   });
