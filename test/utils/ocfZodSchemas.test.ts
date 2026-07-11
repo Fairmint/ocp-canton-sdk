@@ -286,9 +286,10 @@ describe('ocfZodSchemas', () => {
   });
 
   it('typed parsing accepts the exact canonical object_type', () => {
-    const fixture = stripSourceMetadata(
+    const sourceFixture = stripSourceMetadata(
       loadProductionFixture<Record<string, unknown>>('equityCompensationIssuance', 'option-iso')
     );
+    const { option_grant_type: _, ...fixture } = sourceFixture;
 
     const parsed = parseOcfEntityInput('equityCompensationIssuance', fixture);
 
