@@ -37,7 +37,7 @@ import type {
   OcfWarrantCancellation,
   OcfWarrantIssuance,
 } from '../types/native';
-import { getOcfSchema } from './ocfZodSchemas';
+import { getOcfSchema, parseOcfEntityInput } from './ocfZodSchemas';
 import { tryIsoDateToDateString } from './typeConversions';
 
 // ===== Primitive Type Guards =====
@@ -242,7 +242,12 @@ export function isOcfValuation(value: unknown): value is OcfValuation {
  * Type guard for OcfDocument objects.
  */
 export function isOcfDocument(value: unknown): value is OcfDocument {
-  return isStrictOcfObject<OcfDocument>(value, 'DOCUMENT');
+  try {
+    parseOcfEntityInput('document', value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ===== Generic OCF Object Type Detection =====

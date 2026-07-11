@@ -25,10 +25,6 @@ function damlCancellationBehaviorToNative(b: string | null): StockPlanCancellati
   }
 }
 
-function isNonEmptyStringArray(value: unknown): value is [string, ...string[]] {
-  return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string');
-}
-
 export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan.StockPlanOcfData): OcfStockPlan {
   // Access fields via Record type to handle DAML types that may vary from the SDK definition
   const damlRecord = d as Record<string, unknown>;
@@ -61,7 +57,19 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
     });
   }
   const stockClassIds = damlRecord.stock_class_ids;
-  if (!isNonEmptyStringArray(stockClassIds)) {
+  if (!Array.isArray(stockClassIds)) {
+    throw new OcpValidationError('stockPlan.stock_class_ids', 'Expected at least one stock class identifier', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: '[string, ...string[]]',
+      receivedValue: stockClassIds,
+    });
+  }
+  const firstStockClassId: unknown = stockClassIds[0];
+  const remainingStockClassIds: unknown[] = stockClassIds.slice(1);
+  if (
+    typeof firstStockClassId !== 'string' ||
+    !remainingStockClassIds.every((id): id is string => typeof id === 'string')
+  ) {
     throw new OcpValidationError('stockPlan.stock_class_ids', 'Expected at least one stock class identifier', {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: '[string, ...string[]]',
@@ -85,7 +93,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
     ...(d.default_cancellation_behavior && {
       default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior),
     }),
-    stock_class_ids: stockClassIds,
+    stock_class_ids: [firstStockClassId, ...remainingStockClassIds],
     comments: Array.isArray((d as unknown as { comments?: unknown }).comments)
       ? (d as unknown as { comments: string[] }).comments
       : [],
