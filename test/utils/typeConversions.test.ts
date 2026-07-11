@@ -9,6 +9,7 @@ import {
   monetaryToDaml,
   nonEmptyArrayOrUndefined,
   normalizeNumericString,
+  normalizeOcfNumericString,
   parseDamlMap,
   quantityTransferToNative,
   toNonEmptyArray,
@@ -105,6 +106,31 @@ describe('normalizeNumericString', () => {
         });
       }
     });
+  });
+});
+
+describe('normalizeOcfNumericString', () => {
+  test('accepts the schema maximum of ten fractional digits', () => {
+    expect(normalizeOcfNumericString('1.1234567890', 'transfer.quantity')).toBe('1.123456789');
+  });
+
+  test('canonicalizes a schema-valid leading plus sign', () => {
+    expect(normalizeOcfNumericString('+1.20', 'transfer.quantity')).toBe('1.2');
+  });
+
+  test('rejects more than ten fractional digits with exact field diagnostics', () => {
+    try {
+      normalizeOcfNumericString('1.12345678901', 'transfer.quantity');
+      throw new Error('Expected OCF Numeric precision overflow to be rejected');
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'transfer.quantity',
+        expectedType: 'decimal string with at most 10 fractional digits',
+        receivedValue: '1.12345678901',
+      });
+    }
   });
 });
 
@@ -212,6 +238,9 @@ describe('quantityTransferToNative', () => {
           security_id: 'security-1',
           quantity: '1',
           resulting_security_ids: [],
+          balance_security_id: null,
+          consideration_text: null,
+          comments: [],
         },
         dateFieldPath
       );

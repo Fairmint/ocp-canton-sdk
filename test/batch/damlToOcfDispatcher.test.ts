@@ -4,7 +4,7 @@
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpContractError, OcpErrorCodes, OcpParseError, type OcpValidationError } from '../../src/errors';
+import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../src/errors';
 import { ENTITY_REGISTRY, isOcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
   convertToOcf,
@@ -191,6 +191,38 @@ describe('damlToOcf dispatcher', () => {
         },
       });
     });
+
+    it('enforces the full generated wrapper for generic transfer reads', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            transfer_data: {
+              id: 'transfer-1',
+              date: '2025-01-01T00:00:00Z',
+              quantity: '1',
+              security_id: 'security-1',
+              comments: [],
+              resulting_security_ids: ['result-1'],
+              balance_security_id: null,
+              consideration_text: null,
+            },
+          },
+          Fairmint.OpenCapTable.OCF.StockTransfer.StockTransfer.templateId
+        )
+      );
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getEntityAsOcf(mockClient, 'stockTransfer', 'transfer-cid')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlTransferCreateArgument.stockTransfer',
+        context: {
+          entityType: 'stockTransfer',
+          decoderPath: 'input',
+          decoderMessage: expect.stringContaining("key 'context' is required"),
+        },
+      });
+    });
   });
 
   describe('ENTITY_TEMPLATE_ID_MAP', () => {
@@ -313,6 +345,10 @@ describe('damlToOcf dispatcher', () => {
       const getEventsByContractId = jest.fn().mockResolvedValue(
         buildCreatedEventsResponse(
           {
+            context: {
+              issuer: 'issuer::p',
+              system_operator: 'system-operator::p',
+            },
             transfer_data: {
               id: 'transfer-1',
               date: '2026-01-01T00:00:00Z',
@@ -330,11 +366,15 @@ describe('damlToOcf dispatcher', () => {
       const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
 
       await expect(getStockTransferAsOcf(mockClient, { contractId: 'transfer-cid' })).rejects.toMatchObject({
-        code: OcpErrorCodes.INVALID_TYPE,
-        fieldPath: 'stockTransfer.resulting_security_ids',
-        expectedType: 'array',
-        receivedValue: 'security-2',
-      } satisfies Partial<OcpValidationError>);
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlTransferCreateArgument.stockTransfer',
+        context: {
+          entityType: 'stockTransfer',
+          decoderPath: 'input.transfer_data.resulting_security_ids',
+          decoderMessage: expect.any(String),
+        },
+      });
     });
   });
 

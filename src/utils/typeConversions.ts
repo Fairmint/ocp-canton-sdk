@@ -200,6 +200,22 @@ export function normalizeNumericString(value: string | number, fieldPath = 'nume
   return result;
 }
 
+/** Normalize a value that must satisfy the canonical OCF Numeric precision and lexical grammar. */
+export function normalizeOcfNumericString(value: string | number, fieldPath: string): string {
+  const stringValue = typeof value === 'number' ? value.toString() : value;
+  if (stringValue.toLowerCase().includes('e')) {
+    return normalizeNumericString(stringValue, fieldPath);
+  }
+  if (!/^[+-]?\d+(\.\d{1,10})?$/.test(stringValue)) {
+    throw new OcpValidationError(fieldPath, 'Invalid OCF numeric string format or precision', {
+      expectedType: 'decimal string with at most 10 fractional digits',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
+  return normalizeNumericString(stringValue.startsWith('+') ? stringValue.slice(1) : stringValue, fieldPath);
+}
+
 /**
  * Pass through an optional numeric string for DAML fields.
  * Returns null for null/undefined values (DAML optional field semantics).
@@ -265,9 +281,17 @@ export function monetaryToDaml(monetary: Monetary): DamlMonetary {
   };
 }
 
-export function damlMonetaryToNative(damlMonetary: DamlMonetary): Monetary {
+export function damlMonetaryToNative(damlMonetary: DamlMonetary, fieldPath = 'monetary'): Monetary {
+  if (!/^[A-Z]{3}$/.test(damlMonetary.currency)) {
+    throw new OcpValidationError(`${fieldPath}.currency`, 'Currency must be a three-letter uppercase ISO 4217 code', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'three-letter uppercase currency code',
+      receivedValue: damlMonetary.currency,
+    });
+  }
+
   return {
-    amount: normalizeNumericString(damlMonetary.amount),
+    amount: normalizeOcfNumericString(damlMonetary.amount, `${fieldPath}.amount`),
     currency: damlMonetary.currency,
   };
 }
@@ -667,6 +691,27 @@ export function toNonEmptyArray<T>(values: readonly T[], fieldPath: string): Non
   return [first, ...rest];
 }
 
+/** Return a non-empty tuple whose items are unique, or fail at the exact duplicate index. */
+export function toUniqueNonEmptyArray<T>(values: readonly T[], fieldPath: string): NonEmptyArray<T> {
+  const nonEmptyValues = toNonEmptyArray(values, fieldPath);
+  const firstIndexByValue = new Map<T, number>();
+
+  for (const [index, value] of nonEmptyValues.entries()) {
+    const firstIndex = firstIndexByValue.get(value);
+    if (firstIndex !== undefined) {
+      throw new OcpValidationError(`${fieldPath}[${index}]`, 'Array items must be unique', {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'unique array item',
+        receivedValue: value,
+        context: { firstIndex, duplicateIndex: index },
+      });
+    }
+    firstIndexByValue.set(value, index);
+  }
+
+  return nonEmptyValues;
+}
+
 /** Omit an optional array when empty; otherwise preserve its non-empty cardinality in the return type. */
 export function nonEmptyArrayOrUndefined<T>(values: readonly T[], fieldPath: string): NonEmptyArray<T> | undefined {
   if (!Array.isArray(values)) {
@@ -741,10 +786,10 @@ export function quantityTransferToNative(
     id: d.id,
     date: damlTimeToDateString(d.date, dateFieldPath),
     security_id: d.security_id,
-    quantity: normalizeNumericString(d.quantity),
-    resulting_security_ids: toNonEmptyArray(d.resulting_security_ids, `${fieldPathPrefix}resulting_security_ids`),
-    ...(d.balance_security_id ? { balance_security_id: d.balance_security_id } : {}),
-    ...(d.consideration_text ? { consideration_text: d.consideration_text } : {}),
+    quantity: normalizeOcfNumericString(d.quantity, `${fieldPathPrefix}quantity`),
+    resulting_security_ids: toUniqueNonEmptyArray(d.resulting_security_ids, `${fieldPathPrefix}resulting_security_ids`),
+    ...(d.balance_security_id !== null ? { balance_security_id: d.balance_security_id } : {}),
+    ...(d.consideration_text !== null ? { consideration_text: d.consideration_text } : {}),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),
   };
 }
