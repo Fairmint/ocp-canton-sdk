@@ -15,7 +15,7 @@ import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDa
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
 import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClass/stockClassDataToDaml';
 import type { OcfStockClass } from '../../src/types/native';
-import { initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
+import { initialSharesAuthorizedFromDaml, initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
 
 function captureValidationError(action: () => unknown): OcpValidationError {
   try {
@@ -63,7 +63,18 @@ describe('StockClass Converters', () => {
 
       expect(result).toEqual({
         tag: 'OcfInitialSharesNumeric',
-        value: '1000000.50',
+        value: '1000000.5',
+      });
+    });
+
+    test.each([
+      ['leading plus', '+1', '1'],
+      ['ten fractional digits', '+0001.1234567890', '1.123456789'],
+      ['twenty-eight integral digits', '9'.repeat(28), '9'.repeat(28)],
+    ])('canonicalizes %s', (_case, value, expected) => {
+      expect(initialSharesAuthorizedToDaml(value, 'stockClass.initial_shares_authorized')).toEqual({
+        tag: 'OcfInitialSharesNumeric',
+        value: expected,
       });
     });
 
@@ -86,9 +97,7 @@ describe('StockClass Converters', () => {
     });
 
     test('throws for unknown string values', () => {
-      expect(() => initialSharesAuthorizedToDaml('UNKNOWN_VALUE')).toThrow(
-        'Expected numeric string, "UNLIMITED", or "NOT APPLICABLE"'
-      );
+      expect(() => initialSharesAuthorizedToDaml('UNKNOWN_VALUE')).toThrow(OcpValidationError);
     });
 
     test('attributes invalid values to a caller-supplied field path', () => {
@@ -104,6 +113,40 @@ describe('StockClass Converters', () => {
         });
       }
     });
+
+    test.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('rejects %s with exact direct-helper diagnostics', (_case, value) => {
+      const error = captureValidationError(() =>
+        initialSharesAuthorizedToDaml(value, 'stockClass.initial_shares_authorized')
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'stockClass.initial_shares_authorized',
+        receivedValue: value,
+      });
+    });
+
+    test('rejects negative initial shares with an exact range error', () => {
+      const error = captureValidationError(() =>
+        initialSharesAuthorizedToDaml('-1', 'stockClass.initial_shares_authorized')
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: 'stockClass.initial_shares_authorized',
+        receivedValue: '-1',
+      });
+    });
+
+    test('decodes and canonicalizes the generated numeric variant directly', () => {
+      expect(
+        initialSharesAuthorizedFromDaml(
+          { tag: 'OcfInitialSharesNumeric', value: '+0001.0000000000' },
+          'stockClass.initial_shares_authorized'
+        )
+      ).toBe('1');
+    });
   });
 
   describe('OCF to DAML (convertToDaml stockClass)', () => {
@@ -113,6 +156,26 @@ describe('StockClass Converters', () => {
       expect(result.initial_shares_authorized).toEqual({
         tag: 'OcfInitialSharesNumeric',
         value: '10000000',
+      });
+    });
+
+    test('public StockClass writer accepts and canonicalizes a leading plus', () => {
+      expect(stockClassDataToDaml({ ...baseData, initial_shares_authorized: '+1' })).toMatchObject({
+        initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '1' },
+      });
+    });
+
+    test.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('public StockClass writer rejects %s with exact diagnostics', (_case, value) => {
+      const error = captureValidationError(() =>
+        stockClassDataToDaml({ ...baseData, initial_shares_authorized: value })
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'stockClass.initial_shares_authorized',
+        receivedValue: value,
       });
     });
 
@@ -290,6 +353,34 @@ describe('StockClass Converters', () => {
   });
 
   describe('DAML to OCF numeric field diagnostics', () => {
+    test('public StockClass reader canonicalizes a leading plus', () => {
+      const daml = stockClassDataToDaml(baseData);
+      expect(
+        damlStockClassDataToNative({
+          ...daml,
+          initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '+1' },
+        }).initial_shares_authorized
+      ).toBe('1');
+    });
+
+    test.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('public StockClass reader rejects %s with exact diagnostics', (_case, value) => {
+      const daml = stockClassDataToDaml(baseData);
+      const error = captureValidationError(() =>
+        damlStockClassDataToNative({
+          ...daml,
+          initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
+        })
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'stockClass.initial_shares_authorized.value',
+        receivedValue: value,
+      });
+    });
+
     test('rejects an unknown initial-shares enum instead of defaulting it', () => {
       const unknownValue = 'OcfAuthorizedSharesUnknown';
       const daml = convertToDaml('stockClass', baseData);

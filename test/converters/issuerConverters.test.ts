@@ -95,6 +95,76 @@ describe('Issuer Converters', () => {
     });
   });
 
+  describe('initial shares Numeric(10) boundary', () => {
+    const baseIssuerData: OcfIssuer = {
+      object_type: 'ISSUER',
+      id: 'issuer-initial-shares',
+      legal_name: 'Initial Shares Corp',
+      formation_date: '2020-01-01',
+      country_of_formation: 'US',
+      tax_ids: [],
+    };
+
+    test('public Issuer writer accepts and canonicalizes a leading plus', () => {
+      expect(issuerDataToDaml({ ...baseIssuerData, initial_shares_authorized: '+1' })).toMatchObject({
+        initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '1' },
+      });
+    });
+
+    test.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('public Issuer writer rejects %s with exact diagnostics', (_case, value) => {
+      const error = captureValidationError(() =>
+        issuerDataToDaml({ ...baseIssuerData, initial_shares_authorized: value }, { skipSchemaParse: true })
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.initial_shares_authorized',
+        receivedValue: value,
+      });
+    });
+
+    test('public Issuer writer rejects negative initial shares as out of range', () => {
+      const error = captureValidationError(() =>
+        issuerDataToDaml({ ...baseIssuerData, initial_shares_authorized: '-1' }, { skipSchemaParse: true })
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.OUT_OF_RANGE,
+        fieldPath: 'issuer.initial_shares_authorized',
+        receivedValue: '-1',
+      });
+    });
+
+    test('public Issuer reader accepts and canonicalizes a leading plus', () => {
+      const daml = issuerDataToDaml(baseIssuerData, { skipSchemaParse: true });
+      expect(
+        damlIssuerDataToNative({
+          ...daml,
+          initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '+1' },
+        }).initial_shares_authorized
+      ).toBe('1');
+    });
+
+    test.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('public Issuer reader rejects %s with exact diagnostics', (_case, value) => {
+      const daml = issuerDataToDaml(baseIssuerData, { skipSchemaParse: true });
+      const error = captureValidationError(() =>
+        damlIssuerDataToNative({
+          ...daml,
+          initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value },
+        })
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.initial_shares_authorized.value',
+        receivedValue: value,
+      });
+    });
+  });
+
   describe('buildCreateIssuerCommand', () => {
     const mockDisclosedContract: DisclosedContract = {
       templateId: 'test:IssuerAuthorization:1.0.0',

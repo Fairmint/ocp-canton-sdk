@@ -95,7 +95,7 @@ function issuerDataToDamlInternal(
     address: normalizedData.address ? addressToDaml(normalizedData.address) : null,
     initial_shares_authorized:
       normalizedData.initial_shares_authorized !== undefined
-        ? initialSharesAuthorizedToDaml(normalizedData.initial_shares_authorized)
+        ? initialSharesAuthorizedToDaml(normalizedData.initial_shares_authorized, 'issuer.initial_shares_authorized')
         : null,
     comments: cleanComments(normalizedData.comments),
   };

@@ -9,7 +9,7 @@ const SCALE_FACTOR = 10n ** BigInt(DAML_NUMERIC_10_SCALE);
 
 /** Validate and canonicalize the exact fixed-point string accepted by DAML Numeric(10). */
 export function canonicalizeDamlNumeric10(
-  value: string,
+  value: unknown,
   fieldPath: string,
   expectedType = 'DAML Numeric(10) decimal string'
 ): string {
@@ -20,6 +20,14 @@ export function canonicalizeDamlNumeric10(
       receivedValue: value,
     });
   };
+
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, `${fieldPath} has an invalid type`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
 
   if (value.length > MAX_NUMERIC_INPUT_LENGTH) {
     return invalid(`${fieldPath} is unreasonably long`);
@@ -45,6 +53,23 @@ export function canonicalizeDamlNumeric10(
   if (integer === '0' && fraction.length === 0) return '0';
 
   return `${sign === '-' ? '-' : ''}${integer}${fraction.length > 0 ? `.${fraction}` : ''}`;
+}
+
+/** Validate a nonnegative Numeric(10) while preserving exact structured diagnostics. */
+export function canonicalizeNonnegativeDamlNumeric10(
+  value: unknown,
+  fieldPath: string,
+  expectedType = 'nonnegative DAML Numeric(10) decimal string'
+): string {
+  const normalized = canonicalizeDamlNumeric10(value, fieldPath, expectedType);
+  if (normalized.startsWith('-')) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} must be nonnegative`, {
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  return normalized;
 }
 
 /** Convert an already validated Numeric(10) value to its exact scaled integer representation. */

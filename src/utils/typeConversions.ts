@@ -7,6 +7,7 @@
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
+import { canonicalizeNonnegativeDamlNumeric10 } from './damlNumeric';
 
 // Public conversion helpers use stable structural wire shapes. Generated DAML
 // package declarations stay private to the ledger implementation boundary.
@@ -365,22 +366,69 @@ export function initialSharesAuthorizedToDaml(
   value: string,
   fieldPath = 'initial_shares_authorized'
 ): DamlInitialSharesAuthorized {
-  if (/^\d+(\.\d+)?$/.test(value)) {
-    return {
-      tag: 'OcfInitialSharesNumeric',
-      value,
-    };
-  }
   if (value === 'UNLIMITED') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
   }
   if (value === 'NOT APPLICABLE') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
   }
-  throw new OcpValidationError(fieldPath, `Expected numeric string, "UNLIMITED", or "NOT APPLICABLE", got "${value}"`, {
-    code: OcpErrorCodes.INVALID_FORMAT,
-    expectedType: 'numeric string | "UNLIMITED" | "NOT APPLICABLE"',
-    receivedValue: value,
+  return {
+    tag: 'OcfInitialSharesNumeric',
+    value: canonicalizeNonnegativeDamlNumeric10(
+      value,
+      fieldPath,
+      'nonnegative numeric string or "UNLIMITED"/"NOT APPLICABLE"'
+    ),
+  };
+}
+
+/** Decode the exact generated DAML initial-shares variant into canonical OCF. */
+export function initialSharesAuthorizedFromDaml(value: unknown, fieldPath = 'initial_shares_authorized'): string {
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'initial shares variant',
+      receivedValue: value,
+    });
+  }
+  if (!isRecord(value)) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} has an invalid type`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'initial shares variant',
+      receivedValue: value,
+    });
+  }
+  if (typeof value.tag !== 'string') {
+    throw new OcpValidationError(`${fieldPath}.tag`, `${fieldPath}.tag has an invalid type`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'initial shares variant tag',
+      receivedValue: value.tag,
+    });
+  }
+
+  if (value.tag === 'OcfInitialSharesNumeric') {
+    if (typeof value.value !== 'string') {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value has an invalid type`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'DAML Numeric(10) decimal string',
+        receivedValue: value.value,
+      });
+    }
+    return canonicalizeNonnegativeDamlNumeric10(value.value, `${fieldPath}.value`);
+  }
+
+  if (value.tag === 'OcfInitialSharesEnum') {
+    if (value.value === 'OcfAuthorizedSharesUnlimited') return 'UNLIMITED';
+    if (value.value === 'OcfAuthorizedSharesNotApplicable') return 'NOT APPLICABLE';
+    throw new OcpParseError(`Unknown initial_shares_authorized enum value: ${String(value.value)}`, {
+      source: `${fieldPath}.value`,
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    });
+  }
+
+  throw new OcpParseError(`Unknown initial_shares_authorized variant: ${value.tag}`, {
+    source: `${fieldPath}.tag`,
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }
 

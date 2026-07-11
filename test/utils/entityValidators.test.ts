@@ -299,6 +299,23 @@ describe('Entity Validators', () => {
       expect(() => validateIssuerData(validIssuer, 'issuer')).not.toThrow();
     });
 
+    it('accepts leading-plus initial shares', () => {
+      expect(() => validateIssuerData({ ...validIssuer, initial_shares_authorized: '+1' }, 'issuer')).not.toThrow();
+    });
+
+    it.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('rejects initial shares with %s', (_case, value) => {
+      expect(
+        captureValidationError(() => validateIssuerData({ ...validIssuer, initial_shares_authorized: value }, 'issuer'))
+      ).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.initial_shares_authorized',
+        receivedValue: value,
+      });
+    });
+
     it('throws for missing id', () => {
       expect(() => validateIssuerData({ ...validIssuer, id: '' }, 'issuer')).toThrow(OcpValidationError);
     });
@@ -443,6 +460,27 @@ describe('Entity Validators', () => {
       expect(() =>
         validateStockClassData({ ...validStockClass, initial_shares_authorized: '1000000' }, 'stockClass')
       ).not.toThrow();
+    });
+
+    it('accepts leading-plus initial_shares_authorized', () => {
+      expect(() =>
+        validateStockClassData({ ...validStockClass, initial_shares_authorized: '+1' }, 'stockClass')
+      ).not.toThrow();
+    });
+
+    it.each([
+      ['eleven fractional digits', '1.00000000000'],
+      ['twenty-nine integral digits', '1'.repeat(29)],
+    ])('rejects initial_shares_authorized with %s', (_case, value) => {
+      expect(
+        captureValidationError(() =>
+          validateStockClassData({ ...validStockClass, initial_shares_authorized: value }, 'stockClass')
+        )
+      ).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'stockClass.initial_shares_authorized',
+        receivedValue: value,
+      });
     });
   });
 

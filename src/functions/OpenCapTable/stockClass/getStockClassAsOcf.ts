@@ -4,7 +4,11 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { GetByContractIdParams } from '../../../types/common';
 import type { Monetary, OcfStockClass, StockClassConversionRight } from '../../../types/native';
 import { damlStockClassTypeToNative } from '../../../utils/enumConversions';
-import { isRecord, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
+import {
+  initialSharesAuthorizedFromDaml,
+  isRecord,
+  optionalDamlTimeToDateString,
+} from '../../../utils/typeConversions';
 import { ratioMechanismFromDaml } from '../shared/conversionMechanisms';
 import { requireMonetary, requireNonnegativeDecimal } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -78,37 +82,6 @@ function optionalBoolean(value: unknown, field: string): boolean | undefined {
   if (value === null || value === undefined) return undefined;
   if (typeof value !== 'boolean') throw invalidType(field, 'boolean', value);
   return value;
-}
-
-function initialSharesFromDaml(value: unknown): string {
-  const field = 'stockClass.initial_shares_authorized';
-  if (value === null || value === undefined) throw requiredMissing(field, 'initial shares variant', value);
-
-  const variant = requireRecord(value, field);
-  const tag = requireString(variant.tag, `${field}.tag`);
-  switch (tag) {
-    case 'OcfInitialSharesNumeric':
-      return requireNonnegativeNumeric(variant.value, `${field}.value`);
-    case 'OcfInitialSharesEnum': {
-      const enumValue = requireString(variant.value, `${field}.value`);
-      switch (enumValue) {
-        case 'OcfAuthorizedSharesUnlimited':
-          return 'UNLIMITED';
-        case 'OcfAuthorizedSharesNotApplicable':
-          return 'NOT APPLICABLE';
-        default:
-          throw new OcpParseError(`Unknown initial_shares_authorized enum value: ${enumValue}`, {
-            source: `${field}.value`,
-            code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-          });
-      }
-    }
-    default:
-      throw new OcpParseError(`Unknown initial_shares_authorized variant: ${tag}`, {
-        source: `${field}.tag`,
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-  }
 }
 
 function conversionRightsFromDaml(value: unknown, stockClassId: string): StockClassConversionRight[] {
@@ -188,7 +161,10 @@ export function damlStockClassDataToNative(value: unknown): OcfStockClass {
     name: requireString(data.name, 'stockClass.name'),
     class_type: damlStockClassTypeToNative(classType),
     default_id_prefix: requireString(data.default_id_prefix, 'stockClass.default_id_prefix'),
-    initial_shares_authorized: initialSharesFromDaml(data.initial_shares_authorized),
+    initial_shares_authorized: initialSharesAuthorizedFromDaml(
+      data.initial_shares_authorized,
+      'stockClass.initial_shares_authorized'
+    ),
     votes_per_share: requireNonnegativeNumeric(data.votes_per_share, 'stockClass.votes_per_share'),
     seniority: requireNonnegativeNumeric(data.seniority, 'stockClass.seniority'),
     conversion_rights: conversionRightsFromDaml(data.conversion_rights, id),

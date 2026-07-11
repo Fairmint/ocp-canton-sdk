@@ -16,6 +16,7 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { Address, Email, Monetary, Phone } from '../types';
+import { canonicalizeNonnegativeDamlNumeric10 } from './damlNumeric';
 import {
   validateEnum,
   validateOptionalArray,
@@ -93,13 +94,8 @@ function validateInitialSharesAuthorized(
       code: OcpErrorCodes.INVALID_TYPE,
     });
   }
-  if (!/^\d+(\.\d+)?$/.test(value) && value !== 'UNLIMITED' && value !== 'NOT APPLICABLE') {
-    throw new OcpValidationError(fieldPath, 'Must be a numeric string, "UNLIMITED", or "NOT APPLICABLE"', {
-      expectedType: 'numeric string or "UNLIMITED"/"NOT APPLICABLE"',
-      receivedValue: value,
-      code: OcpErrorCodes.INVALID_FORMAT,
-    });
-  }
+  if (value === 'UNLIMITED' || value === 'NOT APPLICABLE') return;
+  canonicalizeNonnegativeDamlNumeric10(value, fieldPath, 'nonnegative numeric string or authorized-shares enum');
 }
 
 /**

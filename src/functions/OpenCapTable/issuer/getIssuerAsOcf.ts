@@ -5,7 +5,11 @@ import type { ContractResult, GetByContractIdParams } from '../../../types/commo
 import type { OcfIssuer as OcfIssuerInput } from '../../../types/native';
 import type { OcfIssuerOutput } from '../../../types/output';
 import { damlEmailTypeToNative, damlPhoneTypeToNative } from '../../../utils/enumConversions';
-import { damlAddressToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import {
+  damlAddressToNative,
+  damlTimeToDateString,
+  initialSharesAuthorizedFromDaml,
+} from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(
@@ -36,18 +40,6 @@ function readOptionalSubdivision(value: unknown, field: string): string | undefi
 }
 
 export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
-  const normalizeInitialSharesValue = (v: unknown): OcfIssuerInput['initial_shares_authorized'] | undefined => {
-    if (typeof v === 'string' || typeof v === 'number') return normalizeNumericString(String(v));
-    if (v && typeof v === 'object' && 'tag' in (v as { tag: string })) {
-      const i = v as { tag: 'OcfInitialSharesNumeric' | 'OcfInitialSharesEnum'; value?: unknown };
-      if (i.tag === 'OcfInitialSharesNumeric' && typeof i.value === 'string') return normalizeNumericString(i.value);
-      if (i.tag === 'OcfInitialSharesEnum' && typeof i.value === 'string') {
-        return i.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
-      }
-    }
-    return undefined;
-  };
-
   const dataWithId = damlData as unknown as { id?: string };
   if (!dataWithId.id) {
     throw new OcpParseError('Issuer contract is missing required field: id', {
@@ -96,8 +88,9 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
   }
 
   const isa = (damlData as unknown as { initial_shares_authorized?: unknown }).initial_shares_authorized;
-  const normalizedIsa = normalizeInitialSharesValue(isa);
-  if (normalizedIsa !== undefined) out.initial_shares_authorized = normalizedIsa;
+  if (isa !== null && isa !== undefined) {
+    out.initial_shares_authorized = initialSharesAuthorizedFromDaml(isa, 'issuer.initial_shares_authorized');
+  }
 
   return out;
 }
