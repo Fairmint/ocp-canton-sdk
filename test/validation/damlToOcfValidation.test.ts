@@ -13,7 +13,10 @@ import { getEquityCompensationIssuanceAsOcf } from '../../src/functions/OpenCapT
 import { getStakeholderRelationshipChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderRelationshipChangeEvent/getStakeholderRelationshipChangeEventAsOcf';
 import { getStakeholderStatusChangeEventAsOcf } from '../../src/functions/OpenCapTable/stakeholderStatusChangeEvent/getStakeholderStatusChangeEventAsOcf';
 import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
-import { getStockPlanAsOcf } from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
+import {
+  damlStockPlanDataToNative,
+  getStockPlanAsOcf,
+} from '../../src/functions/OpenCapTable/stockPlan/getStockPlanAsOcf';
 import { getVestingTermsAsOcf } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { validateOcfObject } from '../utils/ocfSchemaValidator';
@@ -378,6 +381,7 @@ describe('DAML to OCF Validation', () => {
       plan_name: '2024 Equity Incentive Plan',
       initial_shares_reserved: '1000000',
       stock_class_ids: ['sc-001'],
+      comments: [],
     };
 
     test.each([
@@ -386,6 +390,8 @@ describe('DAML to OCF Validation', () => {
       { description: 'a string', value: 'invalid' },
       { description: 'a number', value: 42 },
       { description: 'an array', value: [] },
+      { description: 'an empty object', value: {} },
+      { description: 'an object with the wrong fields', value: { id: 'sp-invalid', unexpected: true } },
     ])('throws OcpParseError when plan_data is $description', async ({ value }) => {
       const client = createMockClient('plan_data', value, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
@@ -403,24 +409,38 @@ describe('DAML to OCF Validation', () => {
       }
     });
 
-    test('throws OcpValidationError when id is missing', async () => {
+    test('throws a schema mismatch when id is missing from ledger data', async () => {
       const { id: _, ...invalidData } = validStockPlanData;
       const client = createMockClient('plan_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
       });
 
-      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('stockPlan.id');
+      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'StockPlan.createArgument',
+      });
     });
 
-    test('throws OcpValidationError when plan_name is missing', async () => {
+    test('throws a schema mismatch when plan_name is missing from ledger data', async () => {
       const { plan_name: _, ...invalidData } = validStockPlanData;
       const client = createMockClient('plan_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.stockPlan,
       });
 
-      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpValidationError);
-      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow('stockPlan.plan_name');
+      await expect(getStockPlanAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'StockPlan.createArgument',
+      });
+    });
+
+    test('the exported converter rejects non-object runtime input without a TypeError', () => {
+      const convert = () =>
+        damlStockPlanDataToNative(null as unknown as Parameters<typeof damlStockPlanDataToNative>[0]);
+
+      expect(convert).toThrow(OcpParseError);
+      expect(convert).toThrow('StockPlan data must be a non-null object');
     });
 
     test('handles zero values for initial_shares_reserved correctly', async () => {
