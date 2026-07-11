@@ -275,6 +275,8 @@ describe('read-side: required seniority boundary', () => {
     ['whitespace string', ' ', OcpErrorCodes.INVALID_FORMAT],
     ['non-integer string', '1.5', OcpErrorCodes.INVALID_FORMAT],
     ['scientific notation', '1e3', OcpErrorCodes.INVALID_FORMAT],
+    ['boolean false', false, OcpErrorCodes.INVALID_TYPE],
+    ['non-integer number', 1.5, OcpErrorCodes.INVALID_FORMAT],
     ['non-scalar', { value: 1 }, OcpErrorCodes.INVALID_TYPE],
   ] as const)('rejects %s instead of coercing it to an integer', (_case, seniority, code) => {
     try {
