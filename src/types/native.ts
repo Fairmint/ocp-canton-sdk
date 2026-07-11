@@ -100,13 +100,16 @@ export interface ConversionMechanismObject {
   rounding_type?: RoundingType;
 }
 
-/** RATIO_CONVERSION with ratio, price, and rounding required (warrant stock-class path). */
-export interface WarrantRatioConversionMechanism {
+/** Exact OCF RatioConversionMechanism with every schema-required field. */
+export interface RatioConversionMechanism {
   type: 'RATIO_CONVERSION';
   ratio: NonNullable<ConversionMechanismObject['ratio']>;
   conversion_price: NonNullable<ConversionMechanismObject['conversion_price']>;
   rounding_type: NonNullable<ConversionMechanismObject['rounding_type']>;
 }
+
+/** @deprecated Use {@link RatioConversionMechanism}. */
+export type WarrantRatioConversionMechanism = RatioConversionMechanism;
 
 /**
  * Enum - Conversion Trigger Type Type of conversion trigger OCF:
@@ -120,10 +123,64 @@ export type ConversionTriggerType =
   | 'ELECTIVE_AT_WILL'
   | 'UNSPECIFIED';
 
+/** Fields shared by every OCF conversion-trigger variant. */
+export interface ConversionTriggerBase<ConversionRight> {
+  /** Unique identifier for this trigger within its parent issuance. */
+  trigger_id: string;
+  /** Conversion right applied when this trigger fires. */
+  conversion_right: ConversionRight;
+  /** Human-readable nickname for the trigger. */
+  nickname?: string;
+  /** Long-form description of the trigger. */
+  trigger_description?: string;
+}
+
 /**
- * @deprecated Use ConversionTriggerType instead. Alias kept for backward compatibility.
+ * Exact discriminator-specific fields for an OCF conversion trigger.
+ *
+ * Forbidden fields use `never` so object variables, not only fresh literals,
+ * cannot mix fields from different trigger variants.
  */
-export type ConversionTrigger = ConversionTriggerType;
+export type ConversionTriggerFieldShapeFor<Type extends ConversionTriggerType> = Type extends 'AUTOMATIC_ON_DATE'
+  ? {
+      type: Type;
+      trigger_date: string;
+      trigger_condition?: never;
+      start_date?: never;
+      end_date?: never;
+    }
+  : Type extends 'AUTOMATIC_ON_CONDITION' | 'ELECTIVE_ON_CONDITION'
+    ? {
+        type: Type;
+        trigger_condition: string;
+        trigger_date?: never;
+        start_date?: never;
+        end_date?: never;
+      }
+    : Type extends 'ELECTIVE_IN_RANGE'
+      ? {
+          type: Type;
+          start_date: string;
+          end_date: string;
+          trigger_date?: never;
+          trigger_condition?: never;
+        }
+      : Type extends 'ELECTIVE_AT_WILL' | 'UNSPECIFIED'
+        ? {
+            type: Type;
+            trigger_date?: never;
+            trigger_condition?: never;
+            start_date?: never;
+            end_date?: never;
+          }
+        : never;
+
+/** Union of every exact discriminator-specific trigger field shape. */
+export type ConversionTriggerFieldShape = ConversionTriggerFieldShapeFor<ConversionTriggerType>;
+
+/** Exact OCF conversion-trigger union parameterized by its conversion-right type. */
+export type ConversionTriggerFor<ConversionRight> = ConversionTriggerBase<ConversionRight> &
+  ConversionTriggerFieldShape;
 
 // ===== Capitalization Definition Rules =====
 
@@ -219,41 +276,22 @@ export interface WarrantConversionRight {
   converts_to_stock_class_id?: string;
 }
 
-/**
- * WarrantIssuance ConversionTrigger.oneOf StockClassConversionRight (OCF) — exercised as
- * DAML {@code OcfAnyConversionRight} tag {@code OcfRightStockClass}.
- */
-export interface WarrantStockClassConversionRight {
+/** Exact OCF StockClassConversionRight shared by stock classes and warrant triggers. */
+export interface StockClassConversionRight {
   type: 'STOCK_CLASS_CONVERSION_RIGHT';
-  conversion_mechanism: WarrantRatioConversionMechanism;
-  converts_to_stock_class_id: string;
+  conversion_mechanism: RatioConversionMechanism;
+  converts_to_stock_class_id?: string;
   converts_to_future_round?: boolean;
 }
+
+/** Stock-class conversion-right branch accepted by warrant exercise triggers. */
+export type WarrantStockClassConversionRight = StockClassConversionRight;
 
 /** Union — warrant exercise triggers may carry either variant per OCF {@code ConversionTrigger} schema */
 export type WarrantTriggerConversionRight = WarrantConversionRight | WarrantStockClassConversionRight;
 
-/** Warrant Exercise Trigger Describes when and how a warrant can be exercised */
-export interface WarrantExerciseTrigger {
-  /** Type of trigger */
-  type: ConversionTriggerType;
-  /** Unique identifier for this trigger */
-  trigger_id: string;
-  /** Conversion right associated with this trigger */
-  conversion_right: WarrantTriggerConversionRight;
-  /** Human-readable nickname for the trigger */
-  nickname?: string;
-  /** Description of trigger conditions */
-  trigger_description?: string;
-  /** Date when trigger becomes active (YYYY-MM-DD) */
-  trigger_date?: string;
-  /** Condition that activates the trigger */
-  trigger_condition?: string;
-  /** Start date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  start_date?: string;
-  /** End date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  end_date?: string;
-}
+/** Warrant Exercise Trigger Describes exactly when and how a warrant can be exercised. */
+export type WarrantExerciseTrigger = ConversionTriggerFor<WarrantTriggerConversionRight>;
 
 // ===== Convertible Conversion Mechanism Types =====
 
@@ -391,27 +429,8 @@ export interface ConvertibleConversionRight {
   converts_to_stock_class_id?: string;
 }
 
-/** Convertible Conversion Trigger Describes when and how a convertible instrument can convert */
-export interface ConvertibleConversionTrigger {
-  /** Type of trigger */
-  type: ConversionTriggerType;
-  /** Unique identifier for this trigger */
-  trigger_id: string;
-  /** Conversion right associated with this trigger */
-  conversion_right: ConvertibleConversionRight;
-  /** Human-readable nickname for the trigger */
-  nickname?: string;
-  /** Description of trigger conditions */
-  trigger_description?: string;
-  /** Date when trigger becomes active (YYYY-MM-DD) */
-  trigger_date?: string;
-  /** Condition that activates the trigger */
-  trigger_condition?: string;
-  /** Start date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  start_date?: string;
-  /** End date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  end_date?: string;
-}
+/** Exact trigger union describing when and how a convertible instrument can convert. */
+export type ConvertibleConversionTrigger = ConversionTriggerFor<ConvertibleConversionRight>;
 
 /**
  * Enum - Rounding Type Rounding method for numeric values OCF:
@@ -478,60 +497,6 @@ export interface TaxId {
   country: string;
   /** Tax identification string */
   tax_id: string;
-}
-
-/**
- * Stock Class Conversion Right (shared) OCF:
- * https://raw.githubusercontent.com/Open-Cap-Table-Coalition/Open-Cap-Format-OCF/main/schema/types/conversion_rights/StockClassConversionRight.schema.json
- *
- * OCF-compliant fields: type, conversion_mechanism, converts_to_future_round, converts_to_stock_class_id.
- * The OCF schema has additionalProperties: false — no other fields are allowed in OCF output.
- *
- * The remaining fields below are DAML-internal passthrough fields. The DAML contract
- * `OcfStockClassConversionRight` stores conversion details flat (ratio, conversion_price, etc.)
- * rather than nested inside the conversion_mechanism object. These fields are accepted on write
- * for backwards compatibility but are NOT included in OCF-compliant reader output.
- */
-export interface StockClassConversionRight {
-  /** Type descriptor — must be 'STOCK_CLASS_CONVERSION_RIGHT' per OCF schema */
-  type: string;
-  /** Mechanism by which conversion occurs (OCF: RatioConversionMechanism only) */
-  conversion_mechanism: ConversionMechanism | ConversionMechanismObject;
-  /** Identifier of stock class to which this converts */
-  converts_to_stock_class_id: string;
-  /** Is this potentially convertible into a future, as-yet undetermined stock class? */
-  converts_to_future_round?: boolean;
-
-  // ----- DAML-internal passthrough fields (not in OCF output) -----
-
-  /** @internal DAML passthrough — trigger that would cause conversion */
-  conversion_trigger?: ConversionTrigger;
-  /** @internal DAML passthrough — ratio numerator for RATIO_CONVERSION */
-  ratio_numerator?: string;
-  /** @internal DAML passthrough — ratio denominator for RATIO_CONVERSION */
-  ratio_denominator?: string;
-  /** @internal DAML passthrough — percent of capitalization */
-  percent_of_capitalization?: string;
-  /** @internal DAML passthrough — conversion price per share */
-  conversion_price?: Monetary;
-  /** @internal DAML passthrough — reference share price */
-  reference_share_price?: Monetary;
-  /** @internal DAML passthrough — reference valuation price per share */
-  reference_valuation_price_per_share?: Monetary;
-  /** @internal DAML passthrough — discount rate */
-  discount_rate?: string;
-  /** @internal DAML passthrough — valuation cap */
-  valuation_cap?: Monetary;
-  /** @internal DAML passthrough — floor price per share */
-  floor_price_per_share?: Monetary;
-  /** @internal DAML passthrough — ceiling price per share */
-  ceiling_price_per_share?: Monetary;
-  /** @internal DAML passthrough — custom description */
-  custom_description?: string;
-  /** @internal DAML passthrough — rounding type for fractional shares */
-  rounding_type?: RoundingType;
-  /** @internal DAML passthrough — expiration date (YYYY-MM-DD) */
-  expires_at?: string;
 }
 
 /** Canonical OCF object discriminators supported by this SDK. */
@@ -1837,10 +1802,6 @@ export interface OcfStockClassConversionRatioAdjustment extends OcfObjectBase<'T
     ratio: { numerator: string; denominator: string };
     rounding_type: 'NORMAL' | 'CEILING' | 'FLOOR';
   };
-  /** @internal Extension field — not in OCF schema */
-  board_approval_date?: string;
-  /** @internal Extension field — not in OCF schema */
-  stockholder_approval_date?: string;
   /** Unstructured text comments related to and stored for the object */
   comments?: string[];
 }
