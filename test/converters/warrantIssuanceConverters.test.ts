@@ -91,6 +91,125 @@ describe('WarrantIssuance round-trip equivalence', () => {
       : trigger;
   }
 
+  function expectInvalidLedgerMonetary(convert: () => unknown, fieldPath: string, receivedValue: unknown): void {
+    try {
+      convert();
+      throw new Error('Expected monetary validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath,
+        receivedValue,
+      });
+    }
+  }
+
+  test.each([0, false, '', []] as const)(
+    'rejects malformed optional exercise_price %p instead of treating it as absent',
+    (value) => {
+      const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+      expectInvalidLedgerMonetary(
+        () => damlWarrantIssuanceDataToNative({ ...daml, exercise_price: value }),
+        'warrantIssuance.exercise_price',
+        value
+      );
+    }
+  );
+
+  test.each([0, false, '', []] as const)('rejects malformed required purchase_price %p contextually', (value) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    expectInvalidLedgerMonetary(
+      () => damlWarrantIssuanceDataToNative({ ...daml, purchase_price: value }),
+      'warrantIssuance.purchase_price',
+      value
+    );
+  });
+
+  test.each([
+    {
+      tag: 'OcfWarrantMechanismValuationBased',
+      field: 'valuation_amount',
+      fieldPath: 'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.valuation_amount',
+      value: { valuation_type: 'PRE_MONEY' },
+    },
+    {
+      tag: 'OcfWarrantMechanismPpsBased',
+      field: 'discount_amount',
+      fieldPath: 'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.discount_amount',
+      value: { description: 'Next financing', discount: false },
+    },
+  ])('reports malformed $field with its contextual path', ({ tag, field, fieldPath, value }) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const malformed = { amount: 'not-a-number', currency: 'USD' };
+    const trigger = {
+      type_: 'OcfTriggerTypeTypeElectiveAtWill',
+      trigger_id: `trigger-${field}`,
+      conversion_right: {
+        tag: 'OcfRightWarrant',
+        value: {
+          conversion_mechanism: {
+            tag,
+            value: { ...value, [field]: malformed },
+          },
+        },
+      },
+    };
+
+    try {
+      damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: [trigger] });
+      throw new Error('Expected monetary validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: `${fieldPath}.amount`,
+        receivedValue: malformed.amount,
+      });
+    }
+  });
+
+  test.each([0, false, '', []] as const)(
+    'rejects malformed stock-class conversion_price %p instead of treating it as absent',
+    (value) => {
+      const daml = warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: [stockClassTrigger()],
+      });
+      const payload = JSON.parse(JSON.stringify(daml)) as Record<string, unknown>;
+      const triggers = payload.exercise_triggers as Array<Record<string, unknown>>;
+      const conversionRight = requireFirst(triggers, 'serialized warrant exercise trigger').conversion_right as {
+        value: Record<string, unknown>;
+      };
+      conversionRight.value.conversion_price = value;
+
+      expectInvalidLedgerMonetary(
+        () => damlWarrantIssuanceDataToNative(payload),
+        'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.conversion_price',
+        value
+      );
+    }
+  );
+
+  test('rejects a malformed tagged Some stock-class conversion_price value', () => {
+    const daml = warrantIssuanceDataToDaml({
+      ...baseWarrantIssuance,
+      exercise_triggers: [stockClassTrigger()],
+    });
+    const payload = JSON.parse(JSON.stringify(daml)) as Record<string, unknown>;
+    const triggers = payload.exercise_triggers as Array<Record<string, unknown>>;
+    const conversionRight = requireFirst(triggers, 'serialized warrant exercise trigger').conversion_right as {
+      value: Record<string, unknown>;
+    };
+    conversionRight.value.conversion_price = { tag: 'Some', value: false };
+
+    expectInvalidLedgerMonetary(
+      () => damlWarrantIssuanceDataToNative(payload),
+      'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.conversion_price',
+      false
+    );
+  });
+
   test('basic warrant issuance survives round-trip', () => {
     const dbData = { ...baseWarrantIssuance, object_type: 'TX_WARRANT_ISSUANCE' } as Record<string, unknown>;
     const cantonData = roundTrip(baseWarrantIssuance);

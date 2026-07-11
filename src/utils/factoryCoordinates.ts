@@ -11,18 +11,24 @@ export function hasCompleteFactoryCoordinates(value: unknown): value is OcpFacto
   return (
     typeof candidate.contractId === 'string' &&
     candidate.contractId.trim().length > 0 &&
+    candidate.contractId === candidate.contractId.trim() &&
     typeof candidate.templateId === 'string' &&
-    candidate.templateId.trim().length > 0
+    candidate.templateId.trim().length > 0 &&
+    candidate.templateId === candidate.templateId.trim()
   );
 }
 
 /** Validate an optional atomic factory override at every public runtime boundary. */
 export function validateFactoryCoordinates(value: unknown): asserts value is OcpFactoryCoordinates | undefined {
   if (value !== undefined && !hasCompleteFactoryCoordinates(value)) {
-    throw new OcpValidationError('factory', 'factory override must include non-empty contractId and templateId', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'object with non-empty string contractId and templateId properties',
-      receivedValue: value,
-    });
+    throw new OcpValidationError(
+      'factory',
+      'factory override must include non-empty contractId and templateId without leading or trailing whitespace',
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'object with non-empty, whitespace-trimmed string contractId and templateId properties',
+        receivedValue: value,
+      }
+    );
   }
 }
