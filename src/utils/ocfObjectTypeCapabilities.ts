@@ -18,6 +18,8 @@ type CanonicalReadableObjectType<ObjectType extends string> = Extract<
 >;
 type OcfLedgerBackedObjectType = OcfReadableObjectType | PlanSecurityObjectType;
 type KnownOcfObjectType = OcfLedgerBackedObjectType | OcfSchemaOnlyObjectType;
+/** Literal/template domains resolve here; opaque string refinements intentionally do not. */
+type TransparentStringDomain<ObjectType extends string> = ObjectType extends `${infer Value}` ? Value : never;
 
 type OcfLedgerBackedCapability<ObjectType extends OcfLedgerBackedObjectType> =
   ObjectType extends OcfLedgerBackedObjectType
@@ -48,9 +50,11 @@ export type OcfObjectTypeCapabilityFor<ObjectType extends string> = ObjectType e
     : OcfLedgerBackedCapability<Extract<ObjectType, OcfLedgerBackedObjectType>>
   : string extends ObjectType
     ? OcfObjectTypeCapability
-    : [Extract<KnownOcfObjectType, ObjectType>] extends [never]
-      ? Readonly<{ support: 'unsupported'; objectType: ObjectType }>
-      : OcfObjectTypeCapability;
+    : [TransparentStringDomain<ObjectType>] extends [never]
+      ? OcfObjectTypeCapability
+      : [Extract<KnownOcfObjectType, ObjectType>] extends [never]
+        ? Readonly<{ support: 'unsupported'; objectType: ObjectType }>
+        : OcfObjectTypeCapability;
 
 function isSchemaOnlyObjectType(objectType: string): objectType is OcfSchemaOnlyObjectType {
   return (OCF_SCHEMA_ONLY_OBJECT_TYPES as readonly string[]).includes(objectType);

@@ -77,9 +77,27 @@ const planSecurityCapability = getOcfObjectTypeCapability('TX_PLAN_SECURITY_ISSU
 const unsupportedCapability = getOcfObjectTypeCapability('TX_NOT_REAL');
 const sourceUnsupportedCapability = getSourceOcfObjectTypeCapability('TX_NOT_REAL');
 declare const templateObjectType: `TX_${string}`;
+declare const unrelatedTemplateObjectType: `UNRELATED_${string}`;
+declare const broadObjectType: string;
 declare const brandedObjectType: string & { readonly __ocfObjectType: unique symbol };
 const templateCapability = getOcfObjectTypeCapability(templateObjectType);
+const sourceTemplateCapability = getSourceOcfObjectTypeCapability(templateObjectType);
+const unrelatedTemplateCapability = getOcfObjectTypeCapability(unrelatedTemplateObjectType);
+const sourceUnrelatedTemplateCapability = getSourceOcfObjectTypeCapability(unrelatedTemplateObjectType);
+const broadCapability = getOcfObjectTypeCapability(broadObjectType);
+const sourceBroadCapability = getSourceOcfObjectTypeCapability(broadObjectType);
 const brandedCapability = getOcfObjectTypeCapability(brandedObjectType);
+const sourceBrandedCapability = getSourceOcfObjectTypeCapability(brandedObjectType);
+const templateCapabilityIsUnion: Assert<IsExactly<typeof templateCapability, OcfObjectTypeCapability>> = true;
+const sourceTemplateCapabilityIsUnion: Assert<
+  IsExactly<typeof sourceTemplateCapability, SourceOcfObjectTypeCapability>
+> = true;
+const broadCapabilityIsUnion: Assert<IsExactly<typeof broadCapability, OcfObjectTypeCapability>> = true;
+const sourceBroadCapabilityIsUnion: Assert<IsExactly<typeof sourceBroadCapability, SourceOcfObjectTypeCapability>> =
+  true;
+const brandedCapabilityIsUnion: Assert<IsExactly<typeof brandedCapability, OcfObjectTypeCapability>> = true;
+const sourceBrandedCapabilityIsUnion: Assert<IsExactly<typeof sourceBrandedCapability, SourceOcfObjectTypeCapability>> =
+  true;
 
 if (financingCapability.support === 'schema-only') {
   const financingObjectType: 'FINANCING' = financingCapability.objectType;
@@ -90,9 +108,22 @@ const canonicalPlanSecurityType: 'TX_EQUITY_COMPENSATION_ISSUANCE' = planSecurit
 const canonicalPlanSecurityEntity: 'equityCompensationIssuance' = planSecurityCapability.entityType;
 const unsupportedCapabilityTag: 'unsupported' = unsupportedCapability.support;
 const sourceUnsupportedCapabilityTag: 'unsupported' = sourceUnsupportedCapability.support;
+const unsupportedCapabilityObjectType: 'TX_NOT_REAL' = unsupportedCapability.objectType;
+const sourceUnsupportedCapabilityObjectType: 'TX_NOT_REAL' = sourceUnsupportedCapability.objectType;
 // @ts-expect-error template-literal inputs can include supported OCF discriminators
 const templateCapabilityTag: 'unsupported' = templateCapability.support;
+// @ts-expect-error source and dist both preserve overlapping template possibilities
+const sourceTemplateCapabilityTag: 'unsupported' = sourceTemplateCapability.support;
+const unrelatedTemplateCapabilityTag: 'unsupported' = unrelatedTemplateCapability.support;
+const sourceUnrelatedTemplateCapabilityTag: 'unsupported' = sourceUnrelatedTemplateCapability.support;
+// @ts-expect-error a broad runtime string can name a supported OCF discriminator
+const broadCapabilityTag: 'unsupported' = broadCapability.support;
+// @ts-expect-error source and dist both preserve broad runtime possibilities
+const sourceBroadCapabilityTag: 'unsupported' = sourceBroadCapability.support;
+// @ts-expect-error an opaque string refinement can still contain a supported runtime value
 const brandedCapabilityTag: 'unsupported' = brandedCapability.support;
+// @ts-expect-error source and dist both preserve opaque runtime possibilities
+const sourceBrandedCapabilityTag: 'unsupported' = sourceBrandedCapability.support;
 const capabilitySourceAndDistMatch: Assert<IsExactly<OcfObjectTypeCapability, SourceOcfObjectTypeCapability>> = true;
 const impossibleCapability: OcfObjectTypeCapability = {
   support: 'ledger-backed',
@@ -188,8 +219,22 @@ void canonicalPlanSecurityType;
 void canonicalPlanSecurityEntity;
 void unsupportedCapabilityTag;
 void sourceUnsupportedCapabilityTag;
+void unsupportedCapabilityObjectType;
+void sourceUnsupportedCapabilityObjectType;
 void templateCapabilityTag;
+void sourceTemplateCapabilityTag;
+void unrelatedTemplateCapabilityTag;
+void sourceUnrelatedTemplateCapabilityTag;
+void broadCapabilityTag;
+void sourceBroadCapabilityTag;
 void brandedCapabilityTag;
+void sourceBrandedCapabilityTag;
+void templateCapabilityIsUnion;
+void sourceTemplateCapabilityIsUnion;
+void broadCapabilityIsUnion;
+void sourceBroadCapabilityIsUnion;
+void brandedCapabilityIsUnion;
+void sourceBrandedCapabilityIsUnion;
 void capabilitySourceAndDistMatch;
 void impossibleCapability;
 void lineageIssue;

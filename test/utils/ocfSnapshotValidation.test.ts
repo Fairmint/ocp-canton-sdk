@@ -26,6 +26,13 @@ type OcfCapTableSnapshotObject = Readonly<{
 
 type MutableSnapshotObject = Record<string, unknown> & { id: string; object_type: string };
 
+declare const validatedObjectTypeBrand: unique symbol;
+type ValidatedObjectType = string & { readonly [validatedObjectTypeBrand]: true };
+
+function assertValidatedObjectType(value: string): asserts value is ValidatedObjectType {
+  if (!/^[A-Z_]+$/.test(value)) throw new Error(`Invalid object type ${value}`);
+}
+
 const DEFAULT_STAKEHOLDER_ID = '__snapshot-test-stakeholder';
 const DEFAULT_STOCK_CLASS_ID = '__snapshot-test-stock-class';
 const DEFAULT_STOCK_PLAN_ID = '__snapshot-test-stock-plan';
@@ -413,6 +420,19 @@ describe('getOcfObjectTypeCapability', () => {
     expect(getOcfObjectTypeCapability('TX_NOT_REAL')).toEqual({
       support: 'unsupported',
       objectType: 'TX_NOT_REAL',
+    });
+  });
+
+  it('keeps opaque runtime object-type refinements aligned with capability results', () => {
+    const dynamicObjectType = ['ISSUER'].join('');
+    assertValidatedObjectType(dynamicObjectType);
+
+    const capability = getOcfObjectTypeCapability(dynamicObjectType);
+    expect(capability).toEqual({
+      support: 'ledger-backed',
+      objectType: 'ISSUER',
+      canonicalObjectType: 'ISSUER',
+      entityType: 'issuer',
     });
   });
 
