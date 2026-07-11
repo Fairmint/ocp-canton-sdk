@@ -33,7 +33,8 @@ function convertibleTypeToDaml(value: ConvertibleType): Fairmint.OpenCapTable.Ty
 }
 
 function triggerTypeToDaml(
-  value: ConvertibleConversionTrigger['type']
+  value: ConvertibleConversionTrigger['type'],
+  field = 'convertibleIssuance.conversion_triggers[].type'
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTriggerType {
   switch (value) {
     case 'AUTOMATIC_ON_CONDITION':
@@ -49,16 +50,12 @@ function triggerTypeToDaml(
     case 'UNSPECIFIED':
       return 'OcfTriggerTypeTypeUnspecified';
   }
-  throw new OcpValidationError(
-    'convertibleIssuance.conversion_triggers[].type',
-    `Unknown conversion trigger type: ${String(value)}`,
-    {
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      expectedType:
-        'AUTOMATIC_ON_CONDITION | AUTOMATIC_ON_DATE | ELECTIVE_IN_RANGE | ELECTIVE_ON_CONDITION | ELECTIVE_AT_WILL | UNSPECIFIED',
-      receivedValue: value,
-    }
-  );
+  throw new OcpValidationError(field, `Unknown conversion trigger type: ${String(value)}`, {
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    expectedType:
+      'AUTOMATIC_ON_CONDITION | AUTOMATIC_ON_DATE | ELECTIVE_IN_RANGE | ELECTIVE_ON_CONDITION | ELECTIVE_AT_WILL | UNSPECIFIED',
+    receivedValue: value,
+  });
 }
 
 function conversionRightToDaml(
@@ -78,9 +75,9 @@ function triggerToDaml(
   index: number
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.OcfConvertibleConversionTrigger {
   const source = `convertibleIssuance.conversion_triggers.${index}`;
-  const triggerFields = triggerFieldsToDaml(trigger, trigger.type, 'convertibleIssuance.conversion_triggers[]');
+  const triggerFields = triggerFieldsToDaml(trigger, trigger.type, source);
   return {
-    type_: triggerTypeToDaml(trigger.type),
+    type_: triggerTypeToDaml(trigger.type, `${source}.type`),
     trigger_id: trigger.trigger_id,
     conversion_right: conversionRightToDaml(trigger.conversion_right, `${source}.conversion_right`),
     nickname: optionalString(trigger.nickname),

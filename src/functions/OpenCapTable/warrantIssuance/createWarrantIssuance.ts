@@ -25,7 +25,8 @@ export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
 export type WarrantTriggerTypeInput = WarrantExerciseTrigger['type'];
 
 function triggerTypeToDaml(
-  value: WarrantExerciseTrigger['type']
+  value: WarrantExerciseTrigger['type'],
+  field = 'warrantIssuance.exercise_triggers[].type'
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTriggerType {
   switch (value) {
     case 'AUTOMATIC_ON_CONDITION':
@@ -41,16 +42,12 @@ function triggerTypeToDaml(
     case 'UNSPECIFIED':
       return 'OcfTriggerTypeTypeUnspecified';
   }
-  throw new OcpValidationError(
-    'warrantIssuance.exercise_triggers[].type',
-    `Unknown warrant trigger type: ${String(value)}`,
-    {
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      expectedType:
-        'AUTOMATIC_ON_CONDITION | AUTOMATIC_ON_DATE | ELECTIVE_IN_RANGE | ELECTIVE_ON_CONDITION | ELECTIVE_AT_WILL | UNSPECIFIED',
-      receivedValue: value,
-    }
-  );
+  throw new OcpValidationError(field, `Unknown warrant trigger type: ${String(value)}`, {
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+    expectedType:
+      'AUTOMATIC_ON_CONDITION | AUTOMATIC_ON_DATE | ELECTIVE_IN_RANGE | ELECTIVE_ON_CONDITION | ELECTIVE_AT_WILL | UNSPECIFIED',
+    receivedValue: value,
+  });
 }
 
 function invalidQuantitySource(value: unknown): never {
@@ -85,24 +82,23 @@ function quantitySourceToDaml(value: unknown): Fairmint.OpenCapTable.Types.Stock
   return invalidQuantitySource(value);
 }
 
-function requireStockClassTarget(right: StockClassConversionRight): string {
+function requireStockClassTarget(right: StockClassConversionRight, field: string): string {
   if (!right.converts_to_stock_class_id) {
-    throw new OcpValidationError(
-      'warrantTrigger.conversion_right.converts_to_stock_class_id',
-      'The current DAML stock-class right requires converts_to_stock_class_id',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-    );
+    throw new OcpValidationError(field, 'The current DAML stock-class right requires converts_to_stock_class_id', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
   return right.converts_to_stock_class_id;
 }
 
 function storageTrigger(
   trigger: WarrantExerciseTrigger,
-  convertsToStockClassId: string
+  convertsToStockClassId: string,
+  source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
-  const triggerFields = triggerFieldsToDaml(trigger, trigger.type, 'warrantIssuance.exercise_triggers[]');
+  const triggerFields = triggerFieldsToDaml(trigger, trigger.type, source);
   return {
-    type_: triggerTypeToDaml(trigger.type),
+    type_: triggerTypeToDaml(trigger.type, `${source}.type`),
     trigger_id: trigger.trigger_id,
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
@@ -125,16 +121,17 @@ function storageTrigger(
 function stockClassRightToDaml(
   trigger: WarrantExerciseTrigger,
   right: StockClassConversionRight,
-  source: string
+  source: string,
+  triggerSource: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
-  const convertsToStockClassId = requireStockClassTarget(right);
+  const convertsToStockClassId = requireStockClassTarget(right, `${source}.converts_to_stock_class_id`);
   const mechanism = ratioMechanismToDaml(right.conversion_mechanism, `${source}.conversion_mechanism`);
   return {
     tag: 'OcfRightStockClass',
     value: {
       type_: 'STOCK_CLASS_CONVERSION_RIGHT',
       conversion_mechanism: mechanism.conversion_mechanism,
-      conversion_trigger: storageTrigger(trigger, convertsToStockClassId),
+      conversion_trigger: storageTrigger(trigger, convertsToStockClassId, triggerSource),
       converts_to_stock_class_id: convertsToStockClassId,
       ratio: mechanism.ratio,
       conversion_price: mechanism.conversion_price,
@@ -154,7 +151,8 @@ function stockClassRightToDaml(
 
 function conversionRightToDaml(
   trigger: WarrantExerciseTrigger,
-  source: string
+  source: string,
+  triggerSource: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   const { conversion_right: right } = trigger;
   switch (right.type) {
@@ -169,7 +167,7 @@ function conversionRightToDaml(
         },
       };
     case 'STOCK_CLASS_CONVERSION_RIGHT':
-      return stockClassRightToDaml(trigger, right, source);
+      return stockClassRightToDaml(trigger, right, source, triggerSource);
     default: {
       const unexpected: unknown = right;
       const type =
@@ -189,11 +187,11 @@ function triggerToDaml(
   index: number
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
   const source = `warrantIssuance.exercise_triggers.${index}`;
-  const triggerFields = triggerFieldsToDaml(trigger, trigger.type, 'warrantIssuance.exercise_triggers[]');
+  const triggerFields = triggerFieldsToDaml(trigger, trigger.type, source);
   return {
-    type_: triggerTypeToDaml(trigger.type),
+    type_: triggerTypeToDaml(trigger.type, `${source}.type`),
     trigger_id: trigger.trigger_id,
-    conversion_right: conversionRightToDaml(trigger, `${source}.conversion_right`),
+    conversion_right: conversionRightToDaml(trigger, `${source}.conversion_right`, source),
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
     ...triggerFields,

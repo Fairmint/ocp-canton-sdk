@@ -79,11 +79,9 @@ export function stockClassDataToDaml(
     par_value: d.par_value ? monetaryToDaml(d.par_value, 'stockClass.par_value') : null,
     price_per_share: d.price_per_share ? monetaryToDaml(d.price_per_share, 'stockClass.price_per_share') : null,
     conversion_rights: (d.conversion_rights ?? []).map((right, index) => {
-      const convertsToStockClassId = requireStockClassTarget(right);
-      const mechanism = ratioMechanismToDaml(
-        right.conversion_mechanism,
-        `stockClass.conversion_rights.${index}.conversion_mechanism`
-      );
+      const field = `stockClass.conversion_rights.${index}`;
+      const convertsToStockClassId = requireStockClassTarget(right, `${field}.converts_to_stock_class_id`);
+      const mechanism = ratioMechanismToDaml(right.conversion_mechanism, `${field}.conversion_mechanism`);
 
       return {
         type_: 'STOCK_CLASS_CONVERSION_RIGHT',
@@ -117,13 +115,11 @@ export function stockClassDataToDaml(
   };
 }
 
-function requireStockClassTarget(right: StockClassConversionRight): string {
+function requireStockClassTarget(right: StockClassConversionRight, field: string): string {
   if (!right.converts_to_stock_class_id) {
-    throw new OcpValidationError(
-      'stockClass.conversion_rights.converts_to_stock_class_id',
-      'The current DAML stock-class right requires converts_to_stock_class_id',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-    );
+    throw new OcpValidationError(field, 'The current DAML stock-class right requires converts_to_stock_class_id', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    });
   }
   return right.converts_to_stock_class_id;
 }

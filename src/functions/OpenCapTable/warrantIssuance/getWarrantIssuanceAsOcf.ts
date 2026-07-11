@@ -83,95 +83,75 @@ function optionalMonetary(value: unknown, field: string): Monetary | undefined {
   return monetaryFromDaml(value, field);
 }
 
-function warrantRightFromDaml(value: Record<string, unknown>): WarrantConversionRight {
+function warrantRightFromDaml(value: Record<string, unknown>, field: string): WarrantConversionRight {
   if (value.type_ !== 'WARRANT_CONVERSION_RIGHT') {
-    throw invalid(
-      'warrantIssuance.conversion_right.type',
-      'Warrant conversion right type must be WARRANT_CONVERSION_RIGHT',
-      value.type_
-    );
+    throw invalid(`${field}.type_`, 'Warrant conversion right type must be WARRANT_CONVERSION_RIGHT', value.type_);
   }
-  const convertsToFutureRound = optionalBoolean(
-    value.converts_to_future_round,
-    'warrantIssuance.conversion_right.converts_to_future_round'
-  );
+  const convertsToFutureRound = optionalBoolean(value.converts_to_future_round, `${field}.converts_to_future_round`);
   const convertsToStockClassId = optionalString(
     value.converts_to_stock_class_id,
-    'warrantIssuance.conversion_right.converts_to_stock_class_id'
+    `${field}.converts_to_stock_class_id`
   );
   return {
     type: 'WARRANT_CONVERSION_RIGHT',
-    conversion_mechanism: warrantMechanismFromDaml(
-      value.conversion_mechanism,
-      'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism'
-    ),
+    conversion_mechanism: warrantMechanismFromDaml(value.conversion_mechanism, `${field}.conversion_mechanism`),
     ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
     ...(convertsToStockClassId ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
   };
 }
 
-function stockClassRightFromDaml(value: Record<string, unknown>): StockClassConversionRight {
+function stockClassRightFromDaml(value: Record<string, unknown>, field: string): StockClassConversionRight {
   if (value.type_ !== 'STOCK_CLASS_CONVERSION_RIGHT') {
     throw invalid(
-      'warrantIssuance.conversion_right.type',
+      `${field}.type_`,
       'Stock-class conversion right type must be STOCK_CLASS_CONVERSION_RIGHT',
       value.type_
     );
   }
-  const convertsToFutureRound = optionalBoolean(
-    value.converts_to_future_round,
-    'warrantIssuance.conversion_right.converts_to_future_round'
-  );
-  const convertsToStockClassId = requireString(
-    value.converts_to_stock_class_id,
-    'warrantIssuance.conversion_right.converts_to_stock_class_id'
-  );
+  const convertsToFutureRound = optionalBoolean(value.converts_to_future_round, `${field}.converts_to_future_round`);
+  const convertsToStockClassId = requireString(value.converts_to_stock_class_id, `${field}.converts_to_stock_class_id`);
   return {
     type: 'STOCK_CLASS_CONVERSION_RIGHT',
-    conversion_mechanism: ratioMechanismFromDaml(
-      value,
-      'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism'
-    ),
+    conversion_mechanism: ratioMechanismFromDaml(value, `${field}.conversion_mechanism`),
     converts_to_stock_class_id: convertsToStockClassId,
     ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
   };
 }
 
-function conversionRightFromDaml(value: unknown): WarrantTriggerConversionRight {
-  const variant = requireRecord(value, 'warrantIssuance.conversion_right');
-  const tag = requireString(variant.tag, 'warrantIssuance.conversion_right.tag');
-  const inner = requireRecord(variant.value, 'warrantIssuance.conversion_right.value');
+function conversionRightFromDaml(value: unknown, field: string): WarrantTriggerConversionRight {
+  const variant = requireRecord(value, field);
+  const tag = requireString(variant.tag, `${field}.tag`);
+  const inner = requireRecord(variant.value, `${field}.value`);
   switch (tag) {
     case 'OcfRightWarrant':
-      return warrantRightFromDaml(inner);
+      return warrantRightFromDaml(inner, field);
     case 'OcfRightStockClass':
-      return stockClassRightFromDaml(inner);
+      return stockClassRightFromDaml(inner, field);
     case 'OcfRightConvertible':
       throw new OcpParseError('Convertible conversion rights are not supported by WarrantIssuance', {
-        source: 'warrantIssuance.conversion_right.tag',
+        source: `${field}.tag`,
         code: OcpErrorCodes.SCHEMA_MISMATCH,
       });
     default:
       throw new OcpParseError(`Unknown warrant conversion right tag: ${tag}`, {
-        source: 'warrantIssuance.conversion_right.tag',
+        source: `${field}.tag`,
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
   }
 }
 
-function triggerFromDaml(value: unknown): WarrantExerciseTrigger {
-  const trigger = requireRecord(value, 'warrantIssuance.exercise_trigger');
-  const nickname = optionalString(trigger.nickname, 'warrantIssuance.exercise_trigger.nickname');
-  const description = optionalString(
-    trigger.trigger_description,
-    'warrantIssuance.exercise_trigger.trigger_description'
-  );
-  const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, 'warrantIssuance.exercise_trigger.type'));
-  const triggerFields = triggerFieldsFromDaml(trigger, type, 'warrantIssuance.exercise_triggers[]');
+function triggerFromDaml(value: unknown, index: number): WarrantExerciseTrigger {
+  const field = `warrantIssuance.exercise_triggers.${index}`;
+  const trigger = requireRecord(value, field);
+  const nickname = optionalString(trigger.nickname, `${field}.nickname`);
+  const description = optionalString(trigger.trigger_description, `${field}.trigger_description`);
+  const typePath = `${field}.type_`;
+  const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, typePath), typePath);
+  const triggerFields = triggerFieldsFromDaml(trigger, type, field);
   return {
     type,
-    trigger_id: requireString(trigger.trigger_id, 'warrantIssuance.exercise_trigger.trigger_id'),
-    conversion_right: conversionRightFromDaml(trigger.conversion_right),
+    trigger_id: requireString(trigger.trigger_id, `${field}.trigger_id`),
+    conversion_right: conversionRightFromDaml(trigger.conversion_right, `${field}.conversion_right`),
     ...(nickname ? { nickname } : {}),
     ...(description ? { trigger_description: description } : {}),
     ...triggerFields,
@@ -215,7 +195,7 @@ function vestingsFromDaml(value: unknown): VestingSimple[] | undefined {
       throw invalid(`warrantIssuance.vestings.${index}.amount`, 'vesting amount must be a decimal string', amount);
     }
     return {
-      date: damlTimeToDateString(vesting.date, 'warrantIssuance.vestings[].date'),
+      date: damlTimeToDateString(vesting.date, `warrantIssuance.vestings.${index}.date`),
       amount: normalizeNumericString(amount, `warrantIssuance.vestings.${index}.amount`),
     };
   });

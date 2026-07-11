@@ -280,5 +280,38 @@ describe('StockClass Converters', () => {
         });
       }
     });
+
+    test('reports a malformed ratio denominator on the exact second readback right', () => {
+      const conversionRight = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+        converts_to_stock_class_id: 'class-002',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION' as const,
+          ratio: { numerator: '1', denominator: '1' },
+          conversion_price: { amount: '1', currency: 'USD' },
+          rounding_type: 'NORMAL' as const,
+        },
+      };
+      const daml = stockClassDataToDaml({
+        ...baseData,
+        conversion_rights: [conversionRight, { ...conversionRight, converts_to_stock_class_id: 'class-003' }],
+      });
+      const secondRight = daml.conversion_rights[1];
+      if (secondRight === undefined) throw new Error('Expected a second stock-class conversion right');
+      if (secondRight.ratio === null) throw new Error('Expected a second stock-class ratio');
+      secondRight.ratio.denominator = '1e3';
+
+      try {
+        damlStockClassDataToNative(daml);
+        throw new Error('Expected readback ratio denominator validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_FORMAT,
+          fieldPath: 'stockClass.conversion_rights.1.conversion_mechanism.ratio.denominator',
+          receivedValue: '1e3',
+        });
+      }
+    });
   });
 });

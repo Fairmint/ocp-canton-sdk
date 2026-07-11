@@ -16,6 +16,7 @@ import {
   convertibleMechanismToDaml,
   ratioMechanismFromDaml,
   ratioMechanismToDaml,
+  warrantMechanismFromDaml,
   warrantMechanismToDaml,
 } from '../../src/functions/OpenCapTable/shared/conversionMechanisms';
 import { damlStockClassDataToNative } from '../../src/functions/OpenCapTable/stockClass/getStockClassAsOcf';
@@ -598,6 +599,33 @@ describe('writer discriminator diagnostic paths', () => {
       expect(error).toMatchObject({
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
         source: fieldPath,
+      });
+    }
+  });
+});
+
+describe('reader discriminator diagnostic paths', () => {
+  it('reports an unknown warrant valuation type at its caller-supplied path', () => {
+    const field = 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism';
+    try {
+      warrantMechanismFromDaml(
+        {
+          tag: 'OcfWarrantMechanismValuationBased',
+          value: {
+            valuation_type: 'UNKNOWN_VALUATION',
+            valuation_amount: null,
+            capitalization_definition: null,
+            capitalization_definition_rules: null,
+          },
+        },
+        field
+      );
+      throw new Error('Expected valuation type validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        source: `${field}.valuation_type`,
       });
     }
   });

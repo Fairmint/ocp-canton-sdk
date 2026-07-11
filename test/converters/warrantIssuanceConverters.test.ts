@@ -119,8 +119,29 @@ describe('WarrantIssuance round-trip equivalence', () => {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        fieldPath: 'warrantIssuance.exercise_triggers[].type',
+        fieldPath: 'warrantIssuance.exercise_triggers.0.type',
         receivedValue: 'ON_MAGIC_EVENT',
+      });
+    }
+  });
+
+  it('attributes an unknown DAML trigger tag to the exact second exercise trigger', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const firstTrigger = requireFirst(daml.exercise_triggers, 'serialized warrant exercise trigger');
+    try {
+      damlWarrantIssuanceDataToNative({
+        ...daml,
+        exercise_triggers: [
+          firstTrigger,
+          { ...firstTrigger, trigger_id: 'warrant2_trigger_2', type_: 'OcfTriggerTypeTypeWrong' },
+        ],
+      });
+      throw new Error('Expected trigger tag validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        source: 'warrantIssuance.exercise_triggers.1.type_',
       });
     }
   });
@@ -331,13 +352,13 @@ describe('WarrantIssuance round-trip equivalence', () => {
     {
       tag: 'OcfWarrantMechanismValuationBased',
       field: 'valuation_amount',
-      fieldPath: 'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.valuation_amount',
+      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.valuation_amount',
       value: { valuation_type: 'CAP' },
     },
     {
       tag: 'OcfWarrantMechanismPpsBased',
       field: 'discount_amount',
-      fieldPath: 'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.discount_amount',
+      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.discount_amount',
       value: { description: 'Next financing', discount: false },
     },
   ])('reports malformed $field with its contextual path', ({ tag, field, fieldPath, value }) => {
@@ -387,7 +408,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
       expectInvalidLedgerMonetary(
         () => damlWarrantIssuanceDataToNative(payload),
-        'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.conversion_price',
+        'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.conversion_price',
         value
       );
     }
@@ -412,7 +433,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'warrantIssuance.exercise_triggers[].conversion_right.conversion_mechanism.conversion_price',
+        fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.conversion_mechanism.conversion_price',
         expectedType: 'direct Monetary record or null',
         receivedValue: { tag: 'Some', value: false },
       });
@@ -614,7 +635,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
           ...daml,
           exercise_triggers: [{ ...daml.exercise_triggers[0], trigger_date: '2024-01-15T00:00:00Z' }],
         }),
-      'warrantIssuance.exercise_triggers[].trigger_date',
+      'warrantIssuance.exercise_triggers.0.trigger_date',
       '2024-01-15T00:00:00Z',
       OcpErrorCodes.SCHEMA_MISMATCH
     );
@@ -663,7 +684,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
           ...baseWarrantIssuance,
           exercise_triggers: [{ ...baseExerciseTrigger, trigger_date: '2024-01-15' }],
         }),
-      'warrantIssuance.exercise_triggers[].trigger_date',
+      'warrantIssuance.exercise_triggers.0.trigger_date',
       '2024-01-15',
       OcpErrorCodes.INVALID_FORMAT
     );

@@ -128,9 +128,10 @@ export function damlStockClassDataToNative(
     }),
     ...(damlData.conversion_rights.length > 0 && {
       conversion_rights: damlData.conversion_rights.map((right, index) => {
+        const field = `stockClass.conversion_rights.${index}`;
         if (right.type_ !== 'STOCK_CLASS_CONVERSION_RIGHT') {
           throw new OcpParseError(`Unknown stock class conversion right type: ${right.type_}`, {
-            source: 'conversion_right.type',
+            source: `${field}.type_`,
             code: OcpErrorCodes.SCHEMA_MISMATCH,
           });
         }
@@ -140,13 +141,10 @@ export function damlStockClassDataToNative(
             ratio: right.ratio,
             conversion_price: right.conversion_price,
           },
-          'stockClass.conversion_right'
+          `${field}.conversion_mechanism`
         );
         const convertsToStockClassId: unknown = right.converts_to_stock_class_id;
-        validateRequiredString(
-          convertsToStockClassId,
-          `stockClass.conversion_rights[${index}].converts_to_stock_class_id`
-        );
+        validateRequiredString(convertsToStockClassId, `${field}.converts_to_stock_class_id`);
         const convRight: StockClassConversionRight = {
           type: 'STOCK_CLASS_CONVERSION_RIGHT',
           conversion_mechanism: conversionMechanism,

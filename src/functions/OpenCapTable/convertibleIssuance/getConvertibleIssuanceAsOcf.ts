@@ -108,56 +108,52 @@ function convertibleTypeFromDaml(value: unknown): ConvertibleType {
   }
 }
 
-function unwrapConvertibleRight(value: unknown): Record<string, unknown> {
-  const right = requireRecord(value, 'conversion_trigger.conversion_right');
+function unwrapConvertibleRight(value: unknown, field: string): Record<string, unknown> {
+  const right = requireRecord(value, field);
   if ('conversion_mechanism' in right) return right;
   if ('OcfRightConvertible' in right) {
-    return requireRecord(right.OcfRightConvertible, 'conversion_trigger.conversion_right.OcfRightConvertible');
+    return requireRecord(right.OcfRightConvertible, `${field}.OcfRightConvertible`);
   }
   if (right.tag === 'OcfRightConvertible') {
-    return requireRecord(right.value, 'conversion_trigger.conversion_right.value');
+    return requireRecord(right.value, `${field}.value`);
   }
-  throw invalid('conversion_trigger.conversion_right', 'Expected a convertible conversion right', value);
+  throw invalid(field, 'Expected a convertible conversion right', value);
 }
 
-function conversionRightFromDaml(value: unknown): ConvertibleConversionRight {
-  const right = unwrapConvertibleRight(value);
+function conversionRightFromDaml(value: unknown, field: string): ConvertibleConversionRight {
+  const right = unwrapConvertibleRight(value, field);
   if (right.type_ !== 'CONVERTIBLE_CONVERSION_RIGHT') {
     throw invalid(
-      'conversion_trigger.conversion_right.type',
+      `${field}.type_`,
       'Convertible conversion right type must be CONVERTIBLE_CONVERSION_RIGHT',
       right.type_
     );
   }
-  const convertsToFutureRound = optionalBoolean(
-    right.converts_to_future_round,
-    'conversion_trigger.conversion_right.converts_to_future_round'
-  );
+  const convertsToFutureRound = optionalBoolean(right.converts_to_future_round, `${field}.converts_to_future_round`);
   const convertsToStockClassId = optionalString(
     right.converts_to_stock_class_id,
-    'conversion_trigger.conversion_right.converts_to_stock_class_id'
+    `${field}.converts_to_stock_class_id`
   );
   return {
     type: 'CONVERTIBLE_CONVERSION_RIGHT',
-    conversion_mechanism: convertibleMechanismFromDaml(
-      right.conversion_mechanism,
-      'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism'
-    ),
+    conversion_mechanism: convertibleMechanismFromDaml(right.conversion_mechanism, `${field}.conversion_mechanism`),
     ...(convertsToFutureRound !== undefined ? { converts_to_future_round: convertsToFutureRound } : {}),
     ...(convertsToStockClassId ? { converts_to_stock_class_id: convertsToStockClassId } : {}),
   };
 }
 
-function conversionTriggerFromDaml(value: unknown): ConvertibleConversionTrigger {
-  const trigger = requireRecord(value, 'conversion_trigger');
-  const nickname = optionalString(trigger.nickname, 'conversion_trigger.nickname');
-  const description = optionalString(trigger.trigger_description, 'conversion_trigger.trigger_description');
-  const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, 'conversion_trigger.type'));
-  const triggerFields = triggerFieldsFromDaml(trigger, type, 'convertibleIssuance.conversion_triggers[]');
+function conversionTriggerFromDaml(value: unknown, index: number): ConvertibleConversionTrigger {
+  const field = `convertibleIssuance.conversion_triggers.${index}`;
+  const trigger = requireRecord(value, field);
+  const nickname = optionalString(trigger.nickname, `${field}.nickname`);
+  const description = optionalString(trigger.trigger_description, `${field}.trigger_description`);
+  const typePath = `${field}.type_`;
+  const type = mapDamlTriggerTypeToOcf(requireString(trigger.type_, typePath), typePath);
+  const triggerFields = triggerFieldsFromDaml(trigger, type, field);
   return {
     type,
-    trigger_id: requireString(trigger.trigger_id, 'conversion_trigger.trigger_id'),
-    conversion_right: conversionRightFromDaml(trigger.conversion_right),
+    trigger_id: requireString(trigger.trigger_id, `${field}.trigger_id`),
+    conversion_right: conversionRightFromDaml(trigger.conversion_right, `${field}.conversion_right`),
     ...(nickname ? { nickname } : {}),
     ...(description ? { trigger_description: description } : {}),
     ...triggerFields,
