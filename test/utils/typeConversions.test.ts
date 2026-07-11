@@ -139,7 +139,8 @@ describe('quantityTransferToNative', () => {
     ['stockTransfer.date', 'stockTransfer.resulting_security_ids'],
     ['warrantTransfer.date', 'warrantTransfer.resulting_security_ids'],
     ['equityCompensationTransfer.date', 'equityCompensationTransfer.resulting_security_ids'],
-  ])('reports empty results at the entity-specific path derived from %s', (dateFieldPath, expectedFieldPath) => {
+    ['date', 'resulting_security_ids'],
+  ])('reports empty results at the sibling path derived from %s', (dateFieldPath, expectedFieldPath) => {
     try {
       quantityTransferToNative(
         {
