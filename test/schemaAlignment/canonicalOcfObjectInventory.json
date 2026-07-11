@@ -238,7 +238,7 @@
   },
   {
     "discriminator": "TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT",
-    "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+    "optionalProperties": ["comments"],
     "requiredProperties": ["date", "id", "new_ratio_conversion_mechanism", "object_type", "stock_class_id"]
   },
   {

@@ -277,6 +277,16 @@ describe.each([
   it.each([
     ['root', { ...RATIO_ADJUSTMENT, future: true }, 'stockClassConversionRatioAdjustment.future'],
     [
+      'board approval',
+      { ...RATIO_ADJUSTMENT, board_approval_date: '2025-12-01' },
+      'stockClassConversionRatioAdjustment.board_approval_date',
+    ],
+    [
+      'stockholder approval',
+      { ...RATIO_ADJUSTMENT, stockholder_approval_date: '2025-12-15' },
+      'stockClassConversionRatioAdjustment.stockholder_approval_date',
+    ],
+    [
       'mechanism',
       {
         ...RATIO_ADJUSTMENT,
