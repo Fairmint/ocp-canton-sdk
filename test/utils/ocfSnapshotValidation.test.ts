@@ -774,6 +774,54 @@ describe('validateOcfCapTableSnapshot', () => {
     ]);
   });
 
+  it('rejects duplicate document references by canonical object type and id without mutating input', () => {
+    const equityCompensation = schemaValidEquityCompensationRoot();
+    const stockClass = completeStockSnapshot().find((object) => object.object_type === 'STOCK_CLASS');
+    if (stockClass === undefined) throw new Error('Expected a stock class fixture');
+    const objects = deepFreezeValue([
+      ...completeStockSnapshot(),
+      { ...stockClass, id: equityCompensation.id },
+      equityCompensation,
+      {
+        object_type: 'DOCUMENT',
+        id: 'document-with-duplicate-related-object',
+        path: './duplicate-reference.pdf',
+        md5: '0123456789abcdef0123456789abcdef',
+        related_objects: [
+          { object_type: 'TX_PLAN_SECURITY_ISSUANCE', object_id: equityCompensation.id },
+          { object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE', object_id: equityCompensation.id },
+          { object_type: 'STOCK_CLASS', object_id: equityCompensation.id },
+          { object_type: 'ISSUER', object_id: 'missing-document-issuer' },
+        ],
+      },
+    ]);
+    const before = JSON.stringify(objects);
+
+    expectSchemaValid(objects);
+    const forward = validateRawSnapshot(objects);
+    expect(validateRawSnapshot([...objects].reverse())).toEqual(forward);
+    expect(forward.issues).toEqual([
+      expect.objectContaining({
+        code: 'DUPLICATE_REFERENCE',
+        objectId: 'document-with-duplicate-related-object',
+        path: 'related_objects[1].object_id',
+        firstPath: 'related_objects[0].object_id',
+        referenceId: equityCompensation.id,
+        count: 2,
+      }),
+      expect.objectContaining({
+        code: 'MISSING_REFERENCE',
+        path: 'related_objects[3].object_id',
+        referenceId: 'missing-document-issuer',
+        targetObjectTypes: ['ISSUER'],
+      }),
+    ]);
+    expect(Object.isFrozen(forward)).toBe(true);
+    expect(Object.isFrozen(forward.issues)).toBe(true);
+    expect(Object.isFrozen(forward.issues[0])).toBe(true);
+    expect(JSON.stringify(objects)).toBe(before);
+  });
+
   it('validates core object, security, plan-membership, and trigger references', () => {
     const objects: OcfCapTableSnapshotObject[] = [
       { object_type: 'ISSUER', id: 'issuer-1' },
@@ -1195,6 +1243,48 @@ describe('validateOcfCapTableSnapshot', () => {
 
     expectSchemaValid(objects);
     expect(issueCodes(objects)).toEqual(['AMBIGUOUS_TRIGGER', 'DUPLICATE_TRIGGER_ID']);
+  });
+
+  it('rejects empty trigger identities with exact indexed malformed and duplicate evidence', () => {
+    const convertible = schemaValidConvertibleRoot();
+    const triggers = convertible.conversion_triggers;
+    if (!Array.isArray(triggers) || !isRecord(triggers[0])) throw new Error('Expected a convertible trigger');
+    const emptyTrigger = { ...triggers[0], trigger_id: '' };
+    const objects = deepFreezeValue([
+      ...completeStockSnapshot(),
+      {
+        ...convertible,
+        conversion_triggers: [emptyTrigger, { ...emptyTrigger, nickname: 'Second empty trigger' }],
+      },
+    ]);
+    const before = JSON.stringify(objects);
+
+    expectSchemaValid(objects);
+    const forward = validateRawSnapshot(objects);
+    expect(validateRawSnapshot([...objects].reverse())).toEqual(forward);
+    expect(forward.issues).toEqual([
+      expect.objectContaining({
+        code: 'DUPLICATE_TRIGGER_ID',
+        path: 'conversion_triggers[1].trigger_id',
+        firstPath: 'conversion_triggers[0].trigger_id',
+        referenceId: '',
+        count: 2,
+      }),
+      expect.objectContaining({
+        code: 'MALFORMED_TRIGGER_ID',
+        path: 'conversion_triggers[0].trigger_id',
+        referenceId: '',
+      }),
+      expect.objectContaining({
+        code: 'MALFORMED_TRIGGER_ID',
+        path: 'conversion_triggers[1].trigger_id',
+        referenceId: '',
+      }),
+    ]);
+    expect(Object.isFrozen(forward)).toBe(true);
+    expect(Object.isFrozen(forward.issues)).toBe(true);
+    forward.issues.forEach((issue) => expect(Object.isFrozen(issue)).toBe(true));
+    expect(JSON.stringify(objects)).toBe(before);
   });
 
   it('permits stock-plan rollovers through produced security lineage', () => {
@@ -2009,6 +2099,57 @@ describe('validateOcfCapTableSnapshot', () => {
         referenceId: 'condition-self',
       }),
     ]);
+  });
+
+  it('rejects empty required vesting references at their exact paths without mutating input', () => {
+    const issuer = orphanedSnapshot.find((object) => object.object_type === 'ISSUER');
+    expect(issuer).toBeDefined();
+    const objects = deepFreezeValue([
+      issuer as OcfCapTableSnapshotObject,
+      {
+        object_type: 'VESTING_TERMS',
+        id: 'vesting-empty-references',
+        name: 'Empty reference graph',
+        description: 'Required references must not silently disappear',
+        allocation_type: 'CUMULATIVE_ROUNDING',
+        vesting_conditions: [
+          {
+            id: 'condition-a',
+            quantity: '1',
+            trigger: {
+              type: 'VESTING_SCHEDULE_RELATIVE',
+              period: { type: 'DAYS', length: 30, occurrences: 1 },
+              relative_to_condition_id: '',
+            },
+            next_condition_ids: [''],
+          },
+        ],
+      },
+    ]);
+    const before = JSON.stringify(objects);
+
+    expectSchemaValid(objects);
+    const forward = validateRawSnapshot(objects);
+    expect(validateRawSnapshot([...objects].reverse())).toEqual(forward);
+    expect(forward.issues).toEqual([
+      expect.objectContaining({
+        code: 'MISSING_VESTING_CONDITION',
+        path: 'vesting_conditions[0].next_condition_ids[0]',
+        referenceId: '',
+      }),
+      expect.objectContaining({
+        code: 'MISSING_VESTING_CONDITION',
+        path: 'vesting_conditions[0].trigger.relative_to_condition_id',
+        referenceId: '',
+      }),
+    ]);
+    expect(Object.isFrozen(forward)).toBe(true);
+    expect(Object.isFrozen(forward.issues)).toBe(true);
+    forward.issues.forEach((issue) => {
+      expect(Object.isFrozen(issue)).toBe(true);
+      if ('targetObjectTypes' in issue) expect(Object.isFrozen(issue.targetObjectTypes)).toBe(true);
+    });
+    expect(JSON.stringify(objects)).toBe(before);
   });
 
   it('returns the same issue ordering regardless of input order', () => {

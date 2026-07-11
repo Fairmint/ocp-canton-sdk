@@ -119,6 +119,24 @@ const lineageIssue: OcfCapTableSnapshotIssue = {
   referenceId: 'security-a',
   cycleIds: ['security-a', 'security-b'],
 };
+const malformedTriggerIssue: OcfCapTableSnapshotIssue = {
+  code: 'MALFORMED_TRIGGER_ID',
+  message: 'empty trigger id',
+  objectType: 'TX_CONVERTIBLE_ISSUANCE',
+  objectId: 'convertible-1',
+  path: 'conversion_triggers[0].trigger_id',
+  referenceId: '',
+};
+const duplicateTriggerIssue: OcfCapTableSnapshotIssue = {
+  code: 'DUPLICATE_TRIGGER_ID',
+  message: 'duplicate trigger id',
+  objectType: 'TX_CONVERTIBLE_ISSUANCE',
+  objectId: 'convertible-1',
+  path: 'conversion_triggers[1].trigger_id',
+  firstPath: 'conversion_triggers[0].trigger_id',
+  referenceId: 'trigger-1',
+  count: 2,
+};
 // @ts-expect-error cycle diagnostics require location, reference, and non-empty cycle evidence
 const incompleteLineageIssue: OcfCapTableSnapshotIssue = {
   code: 'SECURITY_LINEAGE_CYCLE',
@@ -175,6 +193,8 @@ void brandedCapabilityTag;
 void capabilitySourceAndDistMatch;
 void impossibleCapability;
 void lineageIssue;
+void malformedTriggerIssue;
+void duplicateTriggerIssue;
 void incompleteLineageIssue;
 void invalidFalseResult;
 void invalidTrueResult;

@@ -69,11 +69,13 @@ export type OcfCapTableSnapshotIssue =
         }>
     >
   | OcfIssue<
-      'DUPLICATE_TRIGGER_ID' | 'DUPLICATE_VESTING_CONDITION_ID',
-      LocatedIssueEvidence & Readonly<{ referenceId: string; count: number }>
+      'DUPLICATE_TRIGGER_ID',
+      LocatedIssueEvidence & Readonly<{ referenceId: string; firstPath: string; count: number }>
     >
+  | OcfIssue<'DUPLICATE_VESTING_CONDITION_ID', LocatedIssueEvidence & Readonly<{ referenceId: string; count: number }>>
   | OcfIssue<'ISSUER_CARDINALITY', Readonly<{ objectType: 'ISSUER'; count: number }>>
   | OcfIssue<'MALFORMED_SECURITY_FIELD', LocatedIssueEvidence>
+  | OcfIssue<'MALFORMED_TRIGGER_ID', LocatedIssueEvidence & Readonly<{ referenceId: string }>>
   | OcfIssue<'MALFORMED_SNAPSHOT', Readonly<{ path: '$'; expectedType: 'array'; receivedType: string }>>
   | OcfIssue<'MALFORMED_SNAPSHOT_OBJECT' | 'SCHEMA_VALIDATION_ERROR', SnapshotObjectInputIssueEvidence>
   | OcfIssue<'MISSING_REFERENCE', ReferenceIssueEvidence>
@@ -483,6 +485,13 @@ function stringValues(
   return typeof value === 'string' && (!optional || value.length > 0) ? [{ value, path }] : [];
 }
 
+interface ReferencePath {
+  value: string;
+  path: string;
+  /** Optional semantic key when identity is more specific than the displayed reference ID. */
+  duplicateKey?: string;
+}
+
 function canonicalObjectType(objectType: string): string {
   const capability = getOcfObjectTypeCapability(objectType);
   return capability.support === 'ledger-backed' ? capability.canonicalObjectType : objectType;
@@ -717,27 +726,28 @@ function missingReferenceIssue(
 
 function reportDuplicateReferences(
   source: IndexedObject,
-  references: ReadonlyArray<{ value: string; path: string }>,
+  references: readonly ReferencePath[],
   issues: OcfCapTableSnapshotIssue[]
 ): void {
-  const referencesById = new Map<string, Array<{ value: string; path: string }>>();
+  const referencesByIdentity = new Map<string, ReferencePath[]>();
   for (const reference of references) {
-    const matches = referencesById.get(reference.value) ?? [];
+    const key = reference.duplicateKey ?? reference.value;
+    const matches = referencesByIdentity.get(key) ?? [];
     matches.push(reference);
-    referencesById.set(reference.value, matches);
+    referencesByIdentity.set(key, matches);
   }
 
-  for (const [referenceId, matches] of referencesById) {
+  for (const matches of referencesByIdentity.values()) {
     if (matches.length <= 1) continue;
     const first = requireFirst(matches, 'duplicate reference list must be non-empty');
     for (const duplicate of matches.slice(1)) {
       issues.push({
         code: 'DUPLICATE_REFERENCE',
-        message: `${source.canonicalObjectType} ${source.data.id} ${duplicate.path} duplicates reference ${referenceId} from ${first.path}`,
+        message: `${source.canonicalObjectType} ${source.data.id} ${duplicate.path} duplicates reference ${duplicate.value} from ${first.path}`,
         objectType: source.canonicalObjectType,
         objectId: source.data.id,
         path: duplicate.path,
-        referenceId,
+        referenceId: duplicate.value,
         firstPath: first.path,
         count: matches.length,
       });
@@ -924,16 +934,57 @@ function stockPlanClassIds(plan: SnapshotObjectRecord): Set<string> {
   return ids;
 }
 
-function triggerIdCounts(issuance: SnapshotObjectRecord, field: string): Map<string, number> {
+function triggerIdEntries(issuance: SnapshotObjectRecord, field: string): ReferencePath[] {
   const triggers = issuance[field];
-  const counts = new Map<string, number>();
-  if (!Array.isArray(triggers)) return counts;
-  for (const trigger of triggers) {
+  if (!Array.isArray(triggers)) return [];
+  return triggers.flatMap((trigger, index) => {
     const triggerId = asRecord(trigger)?.trigger_id;
-    if (typeof triggerId !== 'string' || triggerId.length === 0) continue;
-    counts.set(triggerId, (counts.get(triggerId) ?? 0) + 1);
+    return typeof triggerId === 'string' ? [{ value: triggerId, path: `${field}[${index}].trigger_id` }] : [];
+  });
+}
+
+function triggerIdCounts(issuance: SnapshotObjectRecord, field: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const trigger of triggerIdEntries(issuance, field)) {
+    counts.set(trigger.value, (counts.get(trigger.value) ?? 0) + 1);
   }
   return counts;
+}
+
+function reportTriggerIdIssues(source: IndexedObject, field: string, issues: OcfCapTableSnapshotIssue[]): void {
+  const triggersById = new Map<string, ReferencePath[]>();
+  for (const trigger of triggerIdEntries(source.data, field)) {
+    if (trigger.value.length === 0) {
+      issues.push({
+        code: 'MALFORMED_TRIGGER_ID',
+        message: `${source.canonicalObjectType} ${source.data.id} ${trigger.path} must be a non-empty string`,
+        objectType: source.canonicalObjectType,
+        objectId: source.data.id,
+        path: trigger.path,
+        referenceId: trigger.value,
+      });
+    }
+    const matches = triggersById.get(trigger.value) ?? [];
+    matches.push(trigger);
+    triggersById.set(trigger.value, matches);
+  }
+
+  for (const matches of triggersById.values()) {
+    if (matches.length <= 1) continue;
+    const first = requireFirst(matches, 'duplicate trigger id list must be non-empty');
+    for (const duplicate of matches.slice(1)) {
+      issues.push({
+        code: 'DUPLICATE_TRIGGER_ID',
+        message: `${source.canonicalObjectType} ${source.data.id} ${duplicate.path} duplicates trigger ${duplicate.value} from ${first.path}`,
+        objectType: source.canonicalObjectType,
+        objectId: source.data.id,
+        path: duplicate.path,
+        referenceId: duplicate.value,
+        firstPath: first.path,
+        count: matches.length,
+      });
+    }
+  }
 }
 
 /**
@@ -1405,7 +1456,7 @@ export function validateOcfCapTableSnapshot(objects: unknown): OcfCapTableSnapsh
       const nextConditionIds = entry.condition.next_condition_ids;
       if (Array.isArray(nextConditionIds)) {
         nextConditionIds.forEach((nextConditionId, nextIndex) => {
-          if (typeof nextConditionId !== 'string' || nextConditionId.length === 0) return;
+          if (typeof nextConditionId !== 'string') return;
           addConditionReference(
             entry.conditionId,
             nextConditionId,
@@ -1415,7 +1466,7 @@ export function validateOcfCapTableSnapshot(objects: unknown): OcfCapTableSnapsh
         });
       }
       const relativeToConditionId = asRecord(entry.condition.trigger)?.relative_to_condition_id;
-      if (typeof relativeToConditionId === 'string' && relativeToConditionId.length > 0) {
+      if (typeof relativeToConditionId === 'string') {
         addConditionReference(
           entry.conditionId,
           relativeToConditionId,
@@ -1520,18 +1571,7 @@ export function validateOcfCapTableSnapshot(objects: unknown): OcfCapTableSnapsh
   )) {
     const issuanceField =
       issuance.canonicalObjectType === 'TX_CONVERTIBLE_ISSUANCE' ? 'conversion_triggers' : 'exercise_triggers';
-    for (const [triggerId, count] of triggerIdCounts(issuance.data, issuanceField)) {
-      if (count <= 1) continue;
-      issues.push({
-        code: 'DUPLICATE_TRIGGER_ID',
-        message: `${issuance.canonicalObjectType} ${issuance.data.id} has duplicate trigger ${triggerId}`,
-        objectType: issuance.canonicalObjectType,
-        objectId: issuance.data.id,
-        path: issuanceField,
-        referenceId: triggerId,
-        count,
-      });
-    }
+    reportTriggerIdIssues(issuance, issuanceField, issues);
   }
 
   const validateTransactionTrigger = (transactionType: string, family: SecurityFamily, issuanceField: string): void => {
@@ -1542,6 +1582,18 @@ export function validateOcfCapTableSnapshot(objects: unknown): OcfCapTableSnapsh
       if (typeof source.data.security_id !== 'string' || typeof source.data.trigger_id !== 'string') continue;
       const root = rootFactsForSecurity(source.data.security_id).uniqueRoot;
       if (root?.family !== family) continue;
+      if (source.data.trigger_id.length === 0) {
+        issues.push({
+          code: 'MISSING_TRIGGER',
+          message: `${source.canonicalObjectType} ${source.data.id} references an empty trigger id`,
+          objectType: source.canonicalObjectType,
+          objectId: source.data.id,
+          path: 'trigger_id',
+          referenceId: source.data.trigger_id,
+          targetObjectTypes: [ISSUANCE_OBJECT_TYPE_BY_FAMILY[family]],
+        });
+        continue;
+      }
       const triggerCount = triggerIdCounts(root.source.data, issuanceField).get(source.data.trigger_id) ?? 0;
       if (triggerCount === 0) {
         issues.push({
@@ -1652,9 +1704,17 @@ export function validateOcfCapTableSnapshot(objects: unknown): OcfCapTableSnapsh
 
   for (const source of indexed.filter((item) => item.canonicalObjectType === 'DOCUMENT')) {
     if (!Array.isArray(source.data.related_objects)) continue;
+    const relatedObjectReferences: ReferencePath[] = [];
     source.data.related_objects.forEach((reference, index) => {
       const record = asRecord(reference);
       if (typeof record?.object_type !== 'string' || typeof record.object_id !== 'string') return;
+      const targetType = canonicalObjectType(record.object_type);
+      const path = `related_objects[${index}].object_id`;
+      relatedObjectReferences.push({
+        value: record.object_id,
+        path,
+        duplicateKey: objectKey(targetType, record.object_id),
+      });
       const capability = getOcfObjectTypeCapability(record.object_type);
       if (capability.support === 'schema-only') {
         issues.push({
@@ -1668,13 +1728,11 @@ export function validateOcfCapTableSnapshot(objects: unknown): OcfCapTableSnapsh
         });
         return;
       }
-      const targetType = canonicalObjectType(record.object_type);
       if (!hasObject([targetType], record.object_id)) {
-        issues.push(
-          missingReferenceIssue(source, `related_objects[${index}].object_id`, record.object_id, [targetType])
-        );
+        issues.push(missingReferenceIssue(source, path, record.object_id, [targetType]));
       }
     });
+    reportDuplicateReferences(source, relatedObjectReferences, issues);
   }
 
   return validationResultFromIssues(issues);
