@@ -17,6 +17,7 @@ type TemplateIdentityMismatch =
   | 'invalid_template_id'
   | 'invalid_expected_template_id'
   | 'module_entity_mismatch'
+  | 'missing_package_name'
   | 'package_name_mismatch';
 
 export type TemplateIdentityComparison =
@@ -91,6 +92,10 @@ export function compareTemplateIdentity(
     typeof actual.packageName === 'string' && actual.packageName.length > 0
       ? actual.packageName
       : parsedActual.packageName;
+
+  if (expected.packageName && !actualPackageName) {
+    return { matches: false, mismatch: 'missing_package_name', actual: parsedActual, expected };
+  }
 
   if (expected.packageName && actualPackageName && actualPackageName !== expected.packageName) {
     return { matches: false, mismatch: 'package_name_mismatch', actual: parsedActual, expected };

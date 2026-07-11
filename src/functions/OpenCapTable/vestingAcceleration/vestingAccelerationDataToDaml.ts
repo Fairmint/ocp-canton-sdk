@@ -2,9 +2,10 @@
  * OCF to DAML converter for VestingAcceleration entities.
  */
 
-import { OcpValidationError } from '../../../errors';
 import type { OcfVestingAcceleration } from '../../../types';
-import { cleanComments, dateStringToDAMLTime, normalizeNumericString } from '../../../utils/typeConversions';
+import { cleanComments, dateStringToDAMLTime } from '../../../utils/typeConversions';
+import { validateRequiredString } from '../../../utils/validation';
+import { ocfPositiveVestingNumericToDaml } from '../vestingTerms/vestingQuantity';
 
 /**
  * Convert native OCF VestingAcceleration data to DAML format.
@@ -14,17 +15,14 @@ import { cleanComments, dateStringToDAMLTime, normalizeNumericString } from '../
  * @throws OcpValidationError if required fields are missing
  */
 export function vestingAccelerationDataToDaml(d: OcfVestingAcceleration): Record<string, unknown> {
-  if (!d.id) {
-    throw new OcpValidationError('vestingAcceleration.id', 'Required field is missing or empty', {
-      expectedType: 'string',
-      receivedValue: d.id,
-    });
-  }
+  validateRequiredString(d.id, 'vestingAcceleration.id');
+  validateRequiredString(d.security_id, 'vestingAcceleration.security_id');
+  validateRequiredString(d.reason_text, 'vestingAcceleration.reason_text');
   return {
     id: d.id,
     date: dateStringToDAMLTime(d.date, 'vestingAcceleration.date'),
     security_id: d.security_id,
-    quantity: normalizeNumericString(d.quantity),
+    quantity: ocfPositiveVestingNumericToDaml(d.quantity, 'vestingAcceleration.quantity'),
     reason_text: d.reason_text,
     comments: cleanComments(d.comments),
   };

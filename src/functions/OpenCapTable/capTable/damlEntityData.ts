@@ -11,6 +11,7 @@ import {
 import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
 import { findLosslessCodecMismatch } from './damlCodecLosslessness';
 import { extractAndDecodeTransferData, isTransferEntityType } from './transferContractData';
+import { extractAndDecodeVestingData, isVestingEntityType } from './vestingContractData';
 
 interface DecoderError {
   readonly at: string;
@@ -194,6 +195,10 @@ export function extractAndDecodeDamlEntityData(
 
   if (isTransferEntityType(entityType)) {
     return extractAndDecodeTransferData(entityType, createArgument);
+  }
+
+  if (isVestingEntityType(entityType)) {
+    return extractAndDecodeVestingData(entityType, createArgument);
   }
 
   return decodeDamlEntityData(entityType, extractEntityData(entityType, createArgument));

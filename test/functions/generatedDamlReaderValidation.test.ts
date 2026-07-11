@@ -65,7 +65,12 @@ function createMockClient(
       created: {
         createdEvent: {
           templateId,
-          createArgument: { [dataField]: data },
+          createArgument: {
+            ...(testCase.entityType === 'vestingTerms'
+              ? { context: { issuer: 'issuer::party', system_operator: 'system-operator::party' } }
+              : {}),
+            [dataField]: data,
+          },
         },
       },
     }),

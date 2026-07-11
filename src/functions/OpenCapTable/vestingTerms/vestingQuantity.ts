@@ -2,9 +2,8 @@ import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 
 const DAML_VESTING_QUANTITY_SCALE = 10n;
 const DAML_VESTING_QUANTITY_INTEGER_DIGITS = 28n;
-// Canonical Numeric(10) values need at most 40 characters. Keep generous room
-// for harmless non-canonical zero/exponent forms while bounding parser work on
-// untrusted ledger and SDK inputs.
+// Numeric(10) values need at most 40 characters once normalized. Keep generous
+// room for valid exponent forms while bounding parser work on untrusted input.
 const MAX_VESTING_QUANTITY_INPUT_LENGTH = 256;
 const DAML_VESTING_QUANTITY_PATTERN = /^(-?)((?:0|[1-9]\d*))(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/;
 const OCF_VESTING_QUANTITY_PATTERN = /^([+-]?)(\d+)(?:\.(\d{1,10}))?$/;
@@ -12,9 +11,10 @@ const OCF_VESTING_QUANTITY_PATTERN = /^([+-]?)(\d+)(?:\.(\d{1,10}))?$/;
 function invalidDamlVestingQuantity(
   receivedValue: string | number,
   message: string,
-  expectedType = 'decimal string or finite number'
+  expectedType = 'decimal string or finite number',
+  fieldPath = 'vestingCondition.quantity'
 ): never {
-  throw new OcpValidationError('vestingCondition.quantity', message, {
+  throw new OcpValidationError(fieldPath, message, {
     code: OcpErrorCodes.INVALID_FORMAT,
     expectedType,
     receivedValue,
@@ -25,15 +25,21 @@ function invalidDamlVestingQuantity(
 function canonicalizeDamlVestingQuantity(
   value: string,
   receivedValue: string | number,
-  expectedType = 'decimal string or finite number'
+  expectedType = 'decimal string or finite number',
+  fieldPath = 'vestingCondition.quantity'
 ): string {
   if (value.length > MAX_VESTING_QUANTITY_INPUT_LENGTH) {
-    return invalidDamlVestingQuantity(receivedValue, 'Numeric representation is unreasonably long', expectedType);
+    return invalidDamlVestingQuantity(
+      receivedValue,
+      'Numeric representation is unreasonably long',
+      expectedType,
+      fieldPath
+    );
   }
 
   const match = DAML_VESTING_QUANTITY_PATTERN.exec(value);
   if (!match) {
-    return invalidDamlVestingQuantity(receivedValue, 'Must be a valid DAML Numeric 10 value', expectedType);
+    return invalidDamlVestingQuantity(receivedValue, 'Must be a valid DAML Numeric 10 value', expectedType, fieldPath);
   }
 
   const captures: ReadonlyArray<string | undefined> = match;
@@ -42,7 +48,7 @@ function canonicalizeDamlVestingQuantity(
   const fractionalDigits = captures[3] ?? '';
   const rawExponent = captures[4] ?? '0';
   if (integerDigits === undefined) {
-    return invalidDamlVestingQuantity(receivedValue, 'Must be a valid DAML Numeric 10 value', expectedType);
+    return invalidDamlVestingQuantity(receivedValue, 'Must be a valid DAML Numeric 10 value', expectedType, fieldPath);
   }
 
   const digitsWithoutLeadingZeros = `${integerDigits}${fractionalDigits}`.replace(/^0+/, '');
@@ -58,14 +64,16 @@ function canonicalizeDamlVestingQuantity(
     return invalidDamlVestingQuantity(
       receivedValue,
       `Must not exceed DAML Numeric ${DAML_VESTING_QUANTITY_SCALE} scale`,
-      expectedType
+      expectedType,
+      fieldPath
     );
   }
   if (decimalIndex > DAML_VESTING_QUANTITY_INTEGER_DIGITS) {
     return invalidDamlVestingQuantity(
       receivedValue,
       `Must not exceed DAML Numeric ${DAML_VESTING_QUANTITY_INTEGER_DIGITS}-digit integer range`,
-      expectedType
+      expectedType,
+      fieldPath
     );
   }
 
@@ -85,68 +93,50 @@ function canonicalizeDamlVestingQuantity(
 function requireNonNegativeVestingQuantity(
   normalized: string,
   receivedValue: string | number,
-  expectedType = 'decimal string or finite number'
+  expectedType = 'decimal string or finite number',
+  fieldPath = 'vestingCondition.quantity'
 ): string {
   if (normalized.startsWith('-')) {
-    return invalidDamlVestingQuantity(receivedValue, 'Vesting quantity must be non-negative', expectedType);
+    return invalidDamlVestingQuantity(receivedValue, 'Vesting quantity must be non-negative', expectedType, fieldPath);
   }
   return normalized;
 }
 
-function damlVestingQuantityNumberToNative(value: number): string {
-  if (!Number.isFinite(value)) {
-    throw new OcpValidationError('vestingCondition.quantity', 'Must be a finite number', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'decimal string or finite number',
-      receivedValue: value,
-    });
-  }
-
-  if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
-    throw new OcpValidationError('vestingCondition.quantity', 'Integer exceeds JavaScript safe precision', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'decimal string or finite number',
-      receivedValue: value,
-    });
-  }
-
-  const normalized = requireNonNegativeVestingQuantity(canonicalizeDamlVestingQuantity(value.toString(), value), value);
-  const coefficient = normalized
-    .replace('-', '')
-    .replace('.', '')
-    .replace(/^0+(?=\d)/, '');
-  if (BigInt(coefficient) > BigInt(Number.MAX_SAFE_INTEGER)) {
-    throw new OcpValidationError('vestingCondition.quantity', 'Number exceeds JavaScript safe precision', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType: 'decimal string or finite number',
-      receivedValue: value,
-    });
-  }
-
-  return normalized;
-}
-
-/** Validate and canonicalize a quantity read from a DAML ledger payload. */
-export function damlVestingConditionQuantityToNative(value: unknown): string | undefined {
-  if (value === null || value === undefined) return undefined;
-
-  if (typeof value !== 'string' && typeof value !== 'number') {
-    throw new OcpValidationError('vestingCondition.quantity', 'Must be a decimal string or finite number', {
+/** Validate and normalize the string representation returned by generated DAML Numeric codecs. */
+export function damlVestingNumericToNative(value: unknown, fieldPath: string): string {
+  const expectedType = 'DAML Numeric 10 string';
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, 'Must be a DAML Numeric 10 string', {
       code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'decimal string or finite number',
+      expectedType,
       receivedValue: value,
     });
   }
+  return requireNonNegativeVestingQuantity(
+    canonicalizeDamlVestingQuantity(value, value, expectedType, fieldPath),
+    value,
+    expectedType,
+    fieldPath
+  );
+}
 
-  return typeof value === 'number'
-    ? damlVestingQuantityNumberToNative(value)
-    : requireNonNegativeVestingQuantity(canonicalizeDamlVestingQuantity(value, value), value);
+/** Validate a strictly positive DAML Numeric 10 value. */
+export function damlPositiveVestingNumericToNative(value: unknown, fieldPath: string): string {
+  const normalized = damlVestingNumericToNative(value, fieldPath);
+  if (normalized === '0') {
+    throw new OcpValidationError(fieldPath, 'Vesting quantity must be greater than zero', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'positive DAML Numeric 10 string',
+      receivedValue: value,
+    });
+  }
+  return normalized;
 }
 
 /** Convert a schema-valid OCF Numeric string into a canonical DAML Numeric 10 string. */
-export function ocfVestingConditionQuantityToDaml(value: unknown): string {
+export function ocfVestingConditionQuantityToDaml(value: unknown, fieldPath = 'vestingCondition.quantity'): string {
   if (typeof value !== 'string') {
-    throw new OcpValidationError('vestingCondition.quantity', 'OCF vesting quantity must be a string', {
+    throw new OcpValidationError(fieldPath, 'OCF vesting quantity must be a string', {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'OCF Numeric string',
       receivedValue: value,
@@ -154,7 +144,7 @@ export function ocfVestingConditionQuantityToDaml(value: unknown): string {
   }
 
   if (value.length > MAX_VESTING_QUANTITY_INPUT_LENGTH) {
-    throw new OcpValidationError('vestingCondition.quantity', 'Numeric representation is unreasonably long', {
+    throw new OcpValidationError(fieldPath, 'Numeric representation is unreasonably long', {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: 'OCF Numeric string',
       receivedValue: value,
@@ -168,7 +158,7 @@ export function ocfVestingConditionQuantityToDaml(value: unknown): string {
   const fractionalDigits = captures?.[3];
   if (integerDigits === undefined) {
     throw new OcpValidationError(
-      'vestingCondition.quantity',
+      fieldPath,
       'Must be a valid OCF fixed-point Numeric string with at most 10 decimal places',
       {
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -183,8 +173,22 @@ export function ocfVestingConditionQuantityToDaml(value: unknown): string {
     fractionalDigits === undefined ? '' : `.${fractionalDigits}`
   }`;
   return requireNonNegativeVestingQuantity(
-    canonicalizeDamlVestingQuantity(damlLexicalValue, value, 'OCF Numeric string'),
+    canonicalizeDamlVestingQuantity(damlLexicalValue, value, 'OCF Numeric string', fieldPath),
     value,
-    'OCF Numeric string'
+    'OCF Numeric string',
+    fieldPath
   );
+}
+
+/** Validate a strictly positive OCF Numeric value for contracts that disallow zero. */
+export function ocfPositiveVestingNumericToDaml(value: unknown, fieldPath: string): string {
+  const normalized = ocfVestingConditionQuantityToDaml(value, fieldPath);
+  if (normalized === '0') {
+    throw new OcpValidationError(fieldPath, 'Vesting quantity must be greater than zero', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'positive OCF Numeric string',
+      receivedValue: value,
+    });
+  }
+  return normalized;
 }

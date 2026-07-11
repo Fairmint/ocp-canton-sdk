@@ -223,6 +223,65 @@ describe('damlToOcf dispatcher', () => {
         },
       });
     });
+
+    it('enforces the full generated wrapper for generic vesting transaction reads', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            vesting_data: {
+              id: 'vesting-start-1',
+              date: '2025-01-01T00:00:00Z',
+              security_id: 'security-1',
+              vesting_condition_id: 'condition-1',
+              comments: [],
+            },
+          },
+          Fairmint.OpenCapTable.OCF.VestingStart.VestingStart.templateId
+        )
+      );
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getEntityAsOcf(mockClient, 'vestingStart', 'vesting-start-cid')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlVestingCreateArgument.vestingStart',
+        context: {
+          entityType: 'vestingStart',
+          decoderPath: 'input',
+          decoderMessage: expect.stringContaining("key 'context' is required"),
+        },
+      });
+    });
+
+    it('enforces the full generated wrapper for generic vesting-terms reads', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue(
+        buildCreatedEventsResponse(
+          {
+            vesting_terms_data: {
+              id: 'vesting-terms-1',
+              allocation_type: 'OcfAllocationCumulativeRounding',
+              description: 'Four year vesting',
+              name: 'Standard',
+              comments: [],
+              vesting_conditions: [],
+            },
+          },
+          Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId
+        )
+      );
+      const mockClient = { getEventsByContractId } as unknown as LedgerJsonApiClient;
+
+      await expect(getEntityAsOcf(mockClient, 'vestingTerms', 'vesting-terms-cid')).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'damlVestingCreateArgument.vestingTerms',
+        context: {
+          entityType: 'vestingTerms',
+          decoderPath: 'input',
+          decoderMessage: expect.stringContaining("key 'context' is required"),
+        },
+      });
+    });
   });
 
   describe('ENTITY_TEMPLATE_ID_MAP', () => {
@@ -473,7 +532,7 @@ describe('damlToOcf dispatcher', () => {
       });
     });
 
-    it('extracts vestingStart data from legacy vesting_start_data key', () => {
+    it('rejects the legacy vesting_start_data key for vestingStart', () => {
       const createArgument = {
         vesting_start_data: {
           id: 'vs-legacy-1',
@@ -483,13 +542,9 @@ describe('damlToOcf dispatcher', () => {
         },
       };
 
-      const result = extractEntityData('vestingStart', createArgument);
-      expect(result).toEqual({
-        id: 'vs-legacy-1',
-        date: '2025-01-01T00:00:00Z',
-        security_id: 'sec-1',
-        vesting_condition_id: 'vc-1',
-      });
+      expect(() => extractEntityData('vestingStart', createArgument)).toThrow(
+        "Expected field 'vesting_data' not found in contract create argument for vestingStart"
+      );
     });
 
     it('extracts vestingEvent data from canonical vesting_data key', () => {
@@ -506,7 +561,7 @@ describe('damlToOcf dispatcher', () => {
       });
     });
 
-    it('extracts vestingEvent data from legacy vesting_event_data key', () => {
+    it('rejects the legacy vesting_event_data key for vestingEvent', () => {
       const createArgument = {
         vesting_event_data: {
           id: 've-legacy-1',
@@ -516,13 +571,9 @@ describe('damlToOcf dispatcher', () => {
         },
       };
 
-      const result = extractEntityData('vestingEvent', createArgument);
-      expect(result).toEqual({
-        id: 've-legacy-1',
-        date: '2025-01-01T00:00:00Z',
-        security_id: 'sec-1',
-        vesting_condition_id: 'vc-1',
-      });
+      expect(() => extractEntityData('vestingEvent', createArgument)).toThrow(
+        "Expected field 'vesting_data' not found in contract create argument for vestingEvent"
+      );
     });
 
     it('extracts vestingAcceleration data from canonical acceleration_data key', () => {
@@ -546,7 +597,7 @@ describe('damlToOcf dispatcher', () => {
       });
     });
 
-    it('extracts vestingAcceleration data from legacy vesting_acceleration_data key', () => {
+    it('rejects the legacy vesting_acceleration_data key for vestingAcceleration', () => {
       const createArgument = {
         vesting_acceleration_data: {
           id: 'va-legacy-1',
@@ -557,14 +608,9 @@ describe('damlToOcf dispatcher', () => {
         },
       };
 
-      const result = extractEntityData('vestingAcceleration', createArgument);
-      expect(result).toEqual({
-        id: 'va-legacy-1',
-        date: '2025-01-01T00:00:00Z',
-        security_id: 'sec-1',
-        quantity: '10',
-        reason_text: 'Acceleration trigger',
-      });
+      expect(() => extractEntityData('vestingAcceleration', createArgument)).toThrow(
+        "Expected field 'acceleration_data' not found in contract create argument for vestingAcceleration"
+      );
     });
 
     it('throws when createArgument is not an object', () => {

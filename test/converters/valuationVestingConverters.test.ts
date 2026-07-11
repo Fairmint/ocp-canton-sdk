@@ -8,7 +8,6 @@
  * - VestingAcceleration
  */
 
-import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import {
@@ -28,7 +27,6 @@ import {
   damlVestingStartToNative,
   type DamlVestingStartData,
 } from '../../src/functions/OpenCapTable/vestingStart/damlToOcf';
-import { getVestingStartAsOcf } from '../../src/functions/OpenCapTable/vestingStart/getVestingStartAsOcf';
 import { vestingTermsDataToDaml } from '../../src/functions/OpenCapTable/vestingTerms/createVestingTerms';
 import { damlVestingTermsDataToNative } from '../../src/functions/OpenCapTable/vestingTerms/getVestingTermsAsOcf';
 import type {
@@ -429,7 +427,7 @@ describe('VestingTerms Converters', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(OcpValidationError);
         expect(error).toMatchObject({
-          fieldPath: 'vestingCondition.quantity',
+          fieldPath: 'vestingTerms.vesting_conditions[0].quantity',
           code,
           expectedType: 'OCF Numeric string',
           receivedValue: quantity,
@@ -494,7 +492,7 @@ describe('VestingTerms Converters', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(OcpValidationError);
         expect(error).toMatchObject({
-          fieldPath: `vestingCondition.${field}`,
+          fieldPath: `vestingTerms.vesting_conditions[0].${field}`,
           code: OcpErrorCodes.INVALID_TYPE,
           receivedValue: null,
         });
@@ -777,7 +775,7 @@ describe('VestingTerms drift regression', () => {
             denominator: '4',
             remainder: false,
           },
-          trigger: 'OcfVestingStartTrigger',
+          trigger: { tag: 'OcfVestingStartTrigger', value: {} },
           next_condition_ids: [],
         },
       ],
@@ -825,17 +823,13 @@ describe('VestingTerms drift regression', () => {
     ['exact maximum DAML Numeric 10 string', maximumDamlNumeric10, maximumDamlNumeric10],
     ['negative integer zero', '-0', '0'],
     ['negative decimal zero', '-0.0000000000', '0'],
-    ['zero number', 0, '0'],
-    ['ordinary decimal number', 250.5, '250.5'],
-    ['number serialized with a seven-place negative exponent', 1e-7, '0.0000001'],
-    ['number at the DAML Numeric scale limit', 1e-10, '0.0000000001'],
   ])('normalizes a DAML vesting quantity provided as a %s', (_case, quantity, expected) => {
     const condition = {
       id: 'quantity-condition',
       description: null,
       quantity,
       portion: null,
-      trigger: 'OcfVestingStartTrigger',
+      trigger: { tag: 'OcfVestingStartTrigger', value: {} },
       next_condition_ids: [],
     };
 
@@ -846,11 +840,11 @@ describe('VestingTerms drift regression', () => {
   });
 
   test.each([
-    ['NaN', Number.NaN, OcpErrorCodes.INVALID_FORMAT],
-    ['positive infinity', Number.POSITIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
-    ['negative infinity', Number.NEGATIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
-    ['an unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_FORMAT],
-    ['a number beyond the DAML Numeric scale', 1e-11, OcpErrorCodes.INVALID_FORMAT],
+    ['NaN', Number.NaN, OcpErrorCodes.INVALID_TYPE],
+    ['positive infinity', Number.POSITIVE_INFINITY, OcpErrorCodes.INVALID_TYPE],
+    ['negative infinity', Number.NEGATIVE_INFINITY, OcpErrorCodes.INVALID_TYPE],
+    ['an unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_TYPE],
+    ['a number beyond the DAML Numeric scale', 1e-11, OcpErrorCodes.INVALID_TYPE],
     ['a decimal string beyond the DAML Numeric scale', '0.00000000001', OcpErrorCodes.INVALID_FORMAT],
     ['an integer string with a leading zero', '01', OcpErrorCodes.INVALID_FORMAT],
     ['a decimal string with a leading zero', '00.1', OcpErrorCodes.INVALID_FORMAT],
@@ -859,11 +853,11 @@ describe('VestingTerms drift regression', () => {
     ['a 100-digit integer string', '9'.repeat(100), OcpErrorCodes.INVALID_FORMAT],
     ['a scientific string beyond the integer range', '1e28', OcpErrorCodes.INVALID_FORMAT],
     ['a negative string quantity', '-1', OcpErrorCodes.INVALID_FORMAT],
-    ['a negative numeric quantity', -1, OcpErrorCodes.INVALID_FORMAT],
+    ['a negative numeric quantity', -1, OcpErrorCodes.INVALID_TYPE],
     ['an enormous positive exponent', `1e${'9'.repeat(1_000)}`, OcpErrorCodes.INVALID_FORMAT],
     ['an enormous negative exponent', `1e-${'9'.repeat(1_000)}`, OcpErrorCodes.INVALID_FORMAT],
-    ['a number with unsafe decimal precision', 123456789.12345679, OcpErrorCodes.INVALID_FORMAT],
-    ['a floating-point artifact beyond the DAML Numeric scale', 0.30000000000000004, OcpErrorCodes.INVALID_FORMAT],
+    ['a number with unsafe decimal precision', 123456789.12345679, OcpErrorCodes.INVALID_TYPE],
+    ['a floating-point artifact beyond the DAML Numeric scale', 0.30000000000000004, OcpErrorCodes.INVALID_TYPE],
     ['invalid decimal string', 'not-a-number', OcpErrorCodes.INVALID_FORMAT],
     ['boolean', true, OcpErrorCodes.INVALID_TYPE],
     ['object', {}, OcpErrorCodes.INVALID_TYPE],
@@ -873,7 +867,7 @@ describe('VestingTerms drift regression', () => {
       description: null,
       quantity,
       portion: null,
-      trigger: 'OcfVestingStartTrigger',
+      trigger: { tag: 'OcfVestingStartTrigger', value: {} },
       next_condition_ids: [],
     };
 
@@ -883,9 +877,9 @@ describe('VestingTerms drift regression', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
-        fieldPath: 'vestingCondition.quantity',
+        fieldPath: 'vestingTerms.vesting_conditions[0].quantity',
         code,
-        expectedType: 'decimal string or finite number',
+        expectedType: 'DAML Numeric 10 string',
         receivedValue: quantity,
       });
     }
@@ -899,7 +893,7 @@ describe('VestingTerms drift regression', () => {
         description: null,
         quantity: null,
         portion: null,
-        trigger: 'OcfVestingStartTrigger',
+        trigger: { tag: 'OcfVestingStartTrigger', value: {} },
         next_condition_ids: [],
       },
     ],
@@ -910,7 +904,7 @@ describe('VestingTerms drift regression', () => {
         description: null,
         quantity: '250',
         portion: { numerator: '1', denominator: '4', remainder: false },
-        trigger: 'OcfVestingStartTrigger',
+        trigger: { tag: 'OcfVestingStartTrigger', value: {} },
         next_condition_ids: [],
       },
     ],
@@ -932,7 +926,7 @@ describe('VestingTerms drift regression', () => {
             description: null,
             quantity: '250',
             portion,
-            trigger: 'OcfVestingStartTrigger',
+            trigger: { tag: 'OcfVestingStartTrigger', value: {} },
             next_condition_ids: [],
           },
         ],

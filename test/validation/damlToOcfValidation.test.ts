@@ -40,6 +40,8 @@ const MOCK_LEDGER_TEMPLATE_IDS = {
   stockPlan: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
 } as const;
 
+const VESTING_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+
 /**
  * Creates a mock LedgerJsonApiClient with the given createArgument data
  */
@@ -275,6 +277,7 @@ describe('DAML to OCF Validation', () => {
       const { id: _, ...invalidData } = validVestingData;
       const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+        context: VESTING_CONTEXT,
       });
 
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
@@ -287,6 +290,7 @@ describe('DAML to OCF Validation', () => {
       const { name: _, ...invalidData } = validVestingData;
       const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+        context: VESTING_CONTEXT,
       });
 
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpParseError);
@@ -296,6 +300,7 @@ describe('DAML to OCF Validation', () => {
       const { description: _, ...invalidData } = validVestingData;
       const client = createMockClient('vesting_terms_data', invalidData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+        context: VESTING_CONTEXT,
       });
 
       await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toThrow(OcpParseError);
@@ -304,6 +309,7 @@ describe('DAML to OCF Validation', () => {
     test('succeeds with valid data', async () => {
       const client = createMockClient('vesting_terms_data', validVestingData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+        context: VESTING_CONTEXT,
       });
 
       const result = await getVestingTermsAsOcf(client, { contractId: 'test-contract' });
@@ -317,6 +323,7 @@ describe('DAML to OCF Validation', () => {
         { ...validVestingData, vesting_conditions: [] },
         {
           templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+          context: VESTING_CONTEXT,
         }
       );
 
