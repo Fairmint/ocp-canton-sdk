@@ -1217,8 +1217,8 @@ describe('PlanSecurity alias utilities', () => {
     });
   });
 
-  describe('stock class conversion-right preservation', () => {
-    it('preserves a complete 1:1 RATIO_CONVERSION', () => {
+  describe('canonical stock class conversion rights', () => {
+    it('preserves a 1:1 ratio because a conversion right is not equivalent to its omission', () => {
       const cantonStyle = {
         object_type: 'STOCK_CLASS',
         id: 'sc-preferred',
@@ -1270,6 +1270,7 @@ describe('PlanSecurity alias utilities', () => {
       ).toMatchObject({
         type: 'RATIO_CONVERSION',
         ratio: { numerator: '2', denominator: '1' },
+        rounding_type: 'NORMAL',
       });
     });
 

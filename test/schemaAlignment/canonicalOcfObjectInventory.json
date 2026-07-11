@@ -2,21 +2,56 @@
   {
     "discriminator": "CE_STAKEHOLDER_RELATIONSHIP",
     "optionalProperties": ["comments", "relationship_ended", "relationship_started"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"CE_STAKEHOLDER_RELATIONSHIP\"",
+      "relationship_ended": "\"ADVISOR\" | \"BOARD_MEMBER\" | \"CONSULTANT\" | \"EMPLOYEE\" | \"EXECUTIVE\" | \"EX_ADVISOR\" | \"EX_CONSULTANT\" | \"EX_EMPLOYEE\" | \"FOUNDER\" | \"INVESTOR\" | \"NON_US_EMPLOYEE\" | \"OFFICER\" | \"OTHER\"",
+      "relationship_started": "\"ADVISOR\" | \"BOARD_MEMBER\" | \"CONSULTANT\" | \"EMPLOYEE\" | \"EXECUTIVE\" | \"EX_ADVISOR\" | \"EX_CONSULTANT\" | \"EX_EMPLOYEE\" | \"FOUNDER\" | \"INVESTOR\" | \"NON_US_EMPLOYEE\" | \"OFFICER\" | \"OTHER\"",
+      "stakeholder_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "stakeholder_id"]
   },
   {
     "discriminator": "CE_STAKEHOLDER_STATUS",
     "optionalProperties": ["comments", "reason_text"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "new_status": "\"ACTIVE\" | \"LEAVE_OF_ABSENCE\" | \"TERMINATION_INVOLUNTARY_DEATH\" | \"TERMINATION_INVOLUNTARY_DISABILITY\" | \"TERMINATION_INVOLUNTARY_OTHER\" | \"TERMINATION_INVOLUNTARY_WITH_CAUSE\" | \"TERMINATION_VOLUNTARY_GOOD_CAUSE\" | \"TERMINATION_VOLUNTARY_OTHER\" | \"TERMINATION_VOLUNTARY_RETIREMENT\"",
+      "object_type": "\"CE_STAKEHOLDER_STATUS\"",
+      "reason_text": "string",
+      "stakeholder_id": "string"
+    },
     "requiredProperties": ["date", "id", "new_status", "object_type", "stakeholder_id"]
   },
   {
     "discriminator": "DOCUMENT",
     "optionalProperties": ["comments", "path", "related_objects", "uri"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "id": "string",
+      "md5": "string",
+      "object_type": "\"DOCUMENT\"",
+      "path": "null | string",
+      "related_objects": "OcfObjectReference[]",
+      "uri": "null | string"
+    },
     "requiredProperties": ["id", "md5", "object_type"]
   },
   {
     "discriminator": "FINANCING",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "issuance_ids": "string[]",
+      "name": "string",
+      "object_type": "\"FINANCING\""
+    },
     "requiredProperties": ["date", "id", "issuance_ids", "name", "object_type"]
   },
   {
@@ -32,6 +67,22 @@
       "phone",
       "tax_ids"
     ],
+    "propertyTypes": {
+      "address": "Address",
+      "comments": "string[]",
+      "country_of_formation": "string",
+      "country_subdivision_name_of_formation": "never | string",
+      "country_subdivision_of_formation": "never | string",
+      "dba": "string",
+      "email": "Email",
+      "formation_date": "string",
+      "id": "string",
+      "initial_shares_authorized": "string",
+      "legal_name": "string",
+      "object_type": "\"ISSUER\"",
+      "phone": "Phone",
+      "tax_ids": "TaxId[]"
+    },
     "requiredProperties": ["country_of_formation", "formation_date", "id", "legal_name", "object_type"]
   },
   {
@@ -47,6 +98,21 @@
       "primary_contact",
       "tax_ids"
     ],
+    "propertyTypes": {
+      "addresses": "Address[]",
+      "comments": "string[]",
+      "contact_info": "Omit<ContactInfoWithoutNameFields, \"phone_numbers\" | \"emails\"> & Required<Pick<ContactInfoWithoutNameFields, \"emails\">> & Partial<Pick<ContactInfoWithoutNameFields, \"phone_numbers\">> | Omit<ContactInfoWithoutNameFields, \"phone_numbers\" | \"emails\"> & Required<Pick<ContactInfoWithoutNameFields, \"phone_numbers\">> & Partial<Pick<ContactInfoWithoutNameFields, \"emails\">>",
+      "current_relationship": "\"ADVISOR\" | \"BOARD_MEMBER\" | \"CONSULTANT\" | \"EMPLOYEE\" | \"EXECUTIVE\" | \"EX_ADVISOR\" | \"EX_CONSULTANT\" | \"EX_EMPLOYEE\" | \"FOUNDER\" | \"INVESTOR\" | \"NON_US_EMPLOYEE\" | \"OFFICER\" | \"OTHER\"",
+      "current_relationships": "StakeholderRelationshipType[]",
+      "current_status": "\"ACTIVE\" | \"LEAVE_OF_ABSENCE\" | \"TERMINATION_INVOLUNTARY_DEATH\" | \"TERMINATION_INVOLUNTARY_DISABILITY\" | \"TERMINATION_INVOLUNTARY_OTHER\" | \"TERMINATION_INVOLUNTARY_WITH_CAUSE\" | \"TERMINATION_VOLUNTARY_GOOD_CAUSE\" | \"TERMINATION_VOLUNTARY_OTHER\" | \"TERMINATION_VOLUNTARY_RETIREMENT\"",
+      "id": "string",
+      "issuer_assigned_id": "string",
+      "name": "Name",
+      "object_type": "\"STAKEHOLDER\"",
+      "primary_contact": "Omit<ContactInfoFields, \"phone_numbers\" | \"emails\"> & Required<Pick<ContactInfoFields, \"emails\">> & Partial<Pick<ContactInfoFields, \"phone_numbers\">> | Omit<ContactInfoFields, \"phone_numbers\" | \"emails\"> & Required<Pick<ContactInfoFields, \"phone_numbers\">> & Partial<Pick<ContactInfoFields, \"emails\">>",
+      "stakeholder_type": "\"INDIVIDUAL\" | \"INSTITUTION\"",
+      "tax_ids": "TaxId[]"
+    },
     "requiredProperties": ["id", "name", "object_type", "stakeholder_type"]
   },
   {
@@ -61,6 +127,24 @@
       "price_per_share",
       "stockholder_approval_date"
     ],
+    "propertyTypes": {
+      "board_approval_date": "string",
+      "class_type": "\"COMMON\" | \"PREFERRED\"",
+      "comments": "string[]",
+      "conversion_rights": "StockClassConversionRight[]",
+      "default_id_prefix": "string",
+      "id": "string",
+      "initial_shares_authorized": "string",
+      "liquidation_preference_multiple": "string",
+      "name": "string",
+      "object_type": "\"STOCK_CLASS\"",
+      "par_value": "Monetary",
+      "participation_cap_multiple": "string",
+      "price_per_share": "Monetary",
+      "seniority": "string",
+      "stockholder_approval_date": "string",
+      "votes_per_share": "string"
+    },
     "requiredProperties": [
       "class_type",
       "default_id_prefix",
@@ -75,6 +159,13 @@
   {
     "discriminator": "STOCK_LEGEND_TEMPLATE",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "id": "string",
+      "name": "string",
+      "object_type": "\"STOCK_LEGEND_TEMPLATE\"",
+      "text": "string"
+    },
     "requiredProperties": ["id", "name", "object_type", "text"]
   },
   {
@@ -85,21 +176,62 @@
       "default_cancellation_behavior",
       "stockholder_approval_date"
     ],
+    "propertyTypes": {
+      "board_approval_date": "string",
+      "comments": "string[]",
+      "default_cancellation_behavior": "\"DEFINED_PER_PLAN_SECURITY\" | \"HOLD_AS_CAPITAL_STOCK\" | \"RETIRE\" | \"RETURN_TO_POOL\"",
+      "id": "string",
+      "initial_shares_reserved": "string",
+      "object_type": "\"STOCK_PLAN\"",
+      "plan_name": "string",
+      "stock_class_ids": "NonEmptyArray<string>",
+      "stockholder_approval_date": "string"
+    },
     "requiredProperties": ["id", "initial_shares_reserved", "object_type", "plan_name", "stock_class_ids"]
   },
   {
     "discriminator": "TX_CONVERTIBLE_ACCEPTANCE",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_CONVERTIBLE_ACCEPTANCE\"",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "security_id"]
   },
   {
     "discriminator": "TX_CONVERTIBLE_CANCELLATION",
     "optionalProperties": ["balance_security_id", "comments"],
+    "propertyTypes": {
+      "amount": "Monetary",
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_CONVERTIBLE_CANCELLATION\"",
+      "reason_text": "string",
+      "security_id": "string"
+    },
     "requiredProperties": ["amount", "date", "id", "object_type", "reason_text", "security_id"]
   },
   {
     "discriminator": "TX_CONVERTIBLE_CONVERSION",
     "optionalProperties": ["balance_security_id", "capitalization_definition", "comments", "quantity_converted"],
+    "propertyTypes": {
+      "balance_security_id": "string",
+      "capitalization_definition": "CapitalizationDefinition",
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_CONVERTIBLE_CONVERSION\"",
+      "quantity_converted": "string",
+      "reason_text": "string",
+      "resulting_security_ids": "string[]",
+      "security_id": "string",
+      "trigger_id": "string"
+    },
     "requiredProperties": [
       "date",
       "id",
@@ -119,6 +251,24 @@
       "pro_rata",
       "stockholder_approval_date"
     ],
+    "propertyTypes": {
+      "board_approval_date": "string",
+      "comments": "string[]",
+      "consideration_text": "string",
+      "conversion_triggers": "NonEmptyArray<ConvertibleConversionTrigger>",
+      "convertible_type": "\"CONVERTIBLE_SECURITY\" | \"NOTE\" | \"SAFE\"",
+      "custom_id": "string",
+      "date": "string",
+      "id": "string",
+      "investment_amount": "Monetary",
+      "object_type": "\"TX_CONVERTIBLE_ISSUANCE\"",
+      "pro_rata": "string",
+      "security_id": "string",
+      "security_law_exemptions": "{ description: string; jurisdiction: string; }[]",
+      "seniority": "number",
+      "stakeholder_id": "string",
+      "stockholder_approval_date": "string"
+    },
     "requiredProperties": [
       "conversion_triggers",
       "convertible_type",
@@ -136,26 +286,72 @@
   {
     "discriminator": "TX_CONVERTIBLE_RETRACTION",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_CONVERTIBLE_RETRACTION\"",
+      "reason_text": "string",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
   },
   {
     "discriminator": "TX_CONVERTIBLE_TRANSFER",
     "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "propertyTypes": {
+      "amount": "Monetary",
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "consideration_text": "string",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_CONVERTIBLE_TRANSFER\"",
+      "resulting_security_ids": "string[]",
+      "security_id": "string"
+    },
     "requiredProperties": ["amount", "date", "id", "object_type", "resulting_security_ids", "security_id"]
   },
   {
     "discriminator": "TX_EQUITY_COMPENSATION_ACCEPTANCE",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_EQUITY_COMPENSATION_ACCEPTANCE\"",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "security_id"]
   },
   {
     "discriminator": "TX_EQUITY_COMPENSATION_CANCELLATION",
     "optionalProperties": ["balance_security_id", "comments"],
+    "propertyTypes": {
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_EQUITY_COMPENSATION_CANCELLATION\"",
+      "quantity": "string",
+      "reason_text": "string",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
   },
   {
     "discriminator": "TX_EQUITY_COMPENSATION_EXERCISE",
     "optionalProperties": ["comments", "consideration_text"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "consideration_text": "string",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_EQUITY_COMPENSATION_EXERCISE\"",
+      "quantity": "string",
+      "resulting_security_ids": "string[]",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
   },
   {
@@ -173,6 +369,30 @@
       "vesting_terms_id",
       "vestings"
     ],
+    "propertyTypes": {
+      "base_price": "Monetary | never",
+      "board_approval_date": "string",
+      "comments": "string[]",
+      "compensation_type": "\"CSAR\" | \"OPTION\" | \"OPTION_ISO\" | \"OPTION_NSO\" | \"RSU\" | \"SSAR\"",
+      "consideration_text": "string",
+      "custom_id": "string",
+      "date": "string",
+      "early_exercisable": "false | true",
+      "exercise_price": "Monetary | never",
+      "expiration_date": "null | string",
+      "id": "string",
+      "object_type": "\"TX_EQUITY_COMPENSATION_ISSUANCE\"",
+      "quantity": "string",
+      "security_id": "string",
+      "security_law_exemptions": "SecurityExemption[]",
+      "stakeholder_id": "string",
+      "stock_class_id": "string",
+      "stock_plan_id": "string",
+      "stockholder_approval_date": "string",
+      "termination_exercise_windows": "TerminationWindow[]",
+      "vesting_terms_id": "string",
+      "vestings": "Vesting[]"
+    },
     "requiredProperties": [
       "compensation_type",
       "custom_id",
@@ -190,6 +410,19 @@
   {
     "discriminator": "TX_EQUITY_COMPENSATION_RELEASE",
     "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "propertyTypes": {
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "consideration_text": "string",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_EQUITY_COMPENSATION_RELEASE\"",
+      "quantity": "string",
+      "release_price": "Monetary",
+      "resulting_security_ids": "string[]",
+      "security_id": "string",
+      "settlement_date": "string"
+    },
     "requiredProperties": [
       "date",
       "id",
@@ -204,41 +437,114 @@
   {
     "discriminator": "TX_EQUITY_COMPENSATION_REPRICING",
     "optionalProperties": ["comments", "resulting_security_ids"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "new_exercise_price": "Monetary",
+      "object_type": "\"TX_EQUITY_COMPENSATION_REPRICING\"",
+      "resulting_security_ids": "string[]",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "new_exercise_price", "object_type", "security_id"]
   },
   {
     "discriminator": "TX_EQUITY_COMPENSATION_RETRACTION",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_EQUITY_COMPENSATION_RETRACTION\"",
+      "reason_text": "string",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
   },
   {
     "discriminator": "TX_EQUITY_COMPENSATION_TRANSFER",
     "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "propertyTypes": {
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "consideration_text": "string",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_EQUITY_COMPENSATION_TRANSFER\"",
+      "quantity": "string",
+      "resulting_security_ids": "string[]",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
   },
   {
     "discriminator": "TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT",
     "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+    "propertyTypes": {
+      "board_approval_date": "string",
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "issuer_id": "string",
+      "new_shares_authorized": "string",
+      "object_type": "\"TX_ISSUER_AUTHORIZED_SHARES_ADJUSTMENT\"",
+      "stockholder_approval_date": "string"
+    },
     "requiredProperties": ["date", "id", "issuer_id", "new_shares_authorized", "object_type"]
   },
   {
     "discriminator": "TX_STOCK_ACCEPTANCE",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_STOCK_ACCEPTANCE\"",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "security_id"]
   },
   {
     "discriminator": "TX_STOCK_CANCELLATION",
     "optionalProperties": ["balance_security_id", "comments"],
+    "propertyTypes": {
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_STOCK_CANCELLATION\"",
+      "quantity": "string",
+      "reason_text": "string",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
   },
   {
     "discriminator": "TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT",
     "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+    "propertyTypes": {
+      "board_approval_date": "string",
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "new_shares_authorized": "string",
+      "object_type": "\"TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT\"",
+      "stock_class_id": "string",
+      "stockholder_approval_date": "string"
+    },
     "requiredProperties": ["date", "id", "new_shares_authorized", "object_type", "stock_class_id"]
   },
   {
     "discriminator": "TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT",
-    "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+    "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "new_ratio_conversion_mechanism": "RatioConversionMechanism",
+      "object_type": "\"TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT\"",
+      "stock_class_id": "string"
+    },
     "requiredProperties": ["date", "id", "new_ratio_conversion_mechanism", "object_type", "stock_class_id"]
   },
   {
@@ -250,16 +556,49 @@
       "split_ratio_numerator",
       "stockholder_approval_date"
     ],
+    "propertyTypes": {
+      "board_approval_date": "string",
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_STOCK_CLASS_SPLIT\"",
+      "split_ratio": "{ numerator: string; denominator: string; }",
+      "split_ratio_denominator": "string",
+      "split_ratio_numerator": "string",
+      "stock_class_id": "string",
+      "stockholder_approval_date": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "split_ratio", "stock_class_id"]
   },
   {
     "discriminator": "TX_STOCK_CONSOLIDATION",
     "optionalProperties": ["comments", "reason_text", "resulting_security_ids"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_STOCK_CONSOLIDATION\"",
+      "reason_text": "string",
+      "resulting_security_id": "string",
+      "resulting_security_ids": "string[]",
+      "security_ids": "string[]"
+    },
     "requiredProperties": ["date", "id", "object_type", "resulting_security_id", "security_ids"]
   },
   {
     "discriminator": "TX_STOCK_CONVERSION",
     "optionalProperties": ["balance_security_id", "comments", "quantity"],
+    "propertyTypes": {
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_STOCK_CONVERSION\"",
+      "quantity": "string",
+      "quantity_converted": "string",
+      "resulting_security_ids": "string[]",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "quantity_converted", "resulting_security_ids", "security_id"]
   },
   {
@@ -276,6 +615,29 @@
       "vesting_terms_id",
       "vestings"
     ],
+    "propertyTypes": {
+      "board_approval_date": "string",
+      "comments": "string[]",
+      "consideration_text": "string",
+      "cost_basis": "Monetary",
+      "custom_id": "string",
+      "date": "string",
+      "id": "string",
+      "issuance_type": "\"FOUNDERS_STOCK\" | \"RSA\"",
+      "object_type": "\"TX_STOCK_ISSUANCE\"",
+      "quantity": "string",
+      "security_id": "string",
+      "security_law_exemptions": "SecurityExemption[]",
+      "share_numbers_issued": "ShareNumberRange[]",
+      "share_price": "Monetary",
+      "stakeholder_id": "string",
+      "stock_class_id": "string",
+      "stock_legend_ids": "string[]",
+      "stock_plan_id": "string",
+      "stockholder_approval_date": "string",
+      "vesting_terms_id": "string",
+      "vestings": "VestingSimple[]"
+    },
     "requiredProperties": [
       "custom_id",
       "date",
@@ -293,61 +655,175 @@
   {
     "discriminator": "TX_STOCK_PLAN_POOL_ADJUSTMENT",
     "optionalProperties": ["board_approval_date", "comments", "stockholder_approval_date"],
+    "propertyTypes": {
+      "board_approval_date": "string",
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_STOCK_PLAN_POOL_ADJUSTMENT\"",
+      "shares_reserved": "string",
+      "stock_plan_id": "string",
+      "stockholder_approval_date": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "shares_reserved", "stock_plan_id"]
   },
   {
     "discriminator": "TX_STOCK_PLAN_RETURN_TO_POOL",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_STOCK_PLAN_RETURN_TO_POOL\"",
+      "quantity": "string",
+      "reason_text": "string",
+      "security_id": "string",
+      "stock_plan_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id", "stock_plan_id"]
   },
   {
     "discriminator": "TX_STOCK_REISSUANCE",
     "optionalProperties": ["comments", "reason_text", "split_transaction_id"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_STOCK_REISSUANCE\"",
+      "reason_text": "string",
+      "resulting_security_ids": "string[]",
+      "security_id": "string",
+      "split_transaction_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "resulting_security_ids", "security_id"]
   },
   {
     "discriminator": "TX_STOCK_REPURCHASE",
     "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "propertyTypes": {
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "consideration_text": "string",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_STOCK_REPURCHASE\"",
+      "price": "Monetary",
+      "quantity": "string",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "price", "quantity", "security_id"]
   },
   {
     "discriminator": "TX_STOCK_RETRACTION",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_STOCK_RETRACTION\"",
+      "reason_text": "string",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
   },
   {
     "discriminator": "TX_STOCK_TRANSFER",
     "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "propertyTypes": {
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "consideration_text": "string",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_STOCK_TRANSFER\"",
+      "quantity": "string",
+      "resulting_security_ids": "string[]",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
   },
   {
     "discriminator": "TX_VESTING_ACCELERATION",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_VESTING_ACCELERATION\"",
+      "quantity": "string",
+      "reason_text": "string",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
   },
   {
     "discriminator": "TX_VESTING_EVENT",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_VESTING_EVENT\"",
+      "security_id": "string",
+      "vesting_condition_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "security_id", "vesting_condition_id"]
   },
   {
     "discriminator": "TX_VESTING_START",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_VESTING_START\"",
+      "security_id": "string",
+      "vesting_condition_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "security_id", "vesting_condition_id"]
   },
   {
     "discriminator": "TX_WARRANT_ACCEPTANCE",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_WARRANT_ACCEPTANCE\"",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "security_id"]
   },
   {
     "discriminator": "TX_WARRANT_CANCELLATION",
     "optionalProperties": ["balance_security_id", "comments"],
+    "propertyTypes": {
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_WARRANT_CANCELLATION\"",
+      "quantity": "string",
+      "reason_text": "string",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "quantity", "reason_text", "security_id"]
   },
   {
     "discriminator": "TX_WARRANT_EXERCISE",
     "optionalProperties": ["balance_security_id", "comments", "consideration_text", "quantity"],
+    "propertyTypes": {
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "consideration_text": "string",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_WARRANT_EXERCISE\"",
+      "quantity": "string",
+      "resulting_security_ids": "string[]",
+      "security_id": "string",
+      "trigger_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "resulting_security_ids", "security_id", "trigger_id"]
   },
   {
@@ -356,18 +832,35 @@
       "board_approval_date",
       "comments",
       "consideration_text",
-      "conversion_triggers",
       "exercise_price",
-      "percent_of_outstanding",
       "quantity",
       "quantity_source",
-      "ratio_denominator",
-      "ratio_numerator",
       "stockholder_approval_date",
       "vesting_terms_id",
       "vestings",
       "warrant_expiration_date"
     ],
+    "propertyTypes": {
+      "board_approval_date": "string",
+      "comments": "string[]",
+      "consideration_text": "string",
+      "custom_id": "string",
+      "date": "string",
+      "exercise_price": "Monetary",
+      "exercise_triggers": "WarrantExerciseTrigger[]",
+      "id": "string",
+      "object_type": "\"TX_WARRANT_ISSUANCE\"",
+      "purchase_price": "Monetary",
+      "quantity": "string",
+      "quantity_source": "\"HUMAN_ESTIMATED\" | \"INSTRUMENT_FIXED\" | \"INSTRUMENT_MAX\" | \"INSTRUMENT_MIN\" | \"MACHINE_ESTIMATED\" | \"UNSPECIFIED\"",
+      "security_id": "string",
+      "security_law_exemptions": "{ description: string; jurisdiction: string; }[]",
+      "stakeholder_id": "string",
+      "stockholder_approval_date": "string",
+      "vesting_terms_id": "string",
+      "vestings": "NonEmptyArray<VestingSimple>",
+      "warrant_expiration_date": "string"
+    },
     "requiredProperties": [
       "custom_id",
       "date",
@@ -383,21 +876,61 @@
   {
     "discriminator": "TX_WARRANT_RETRACTION",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "comments": "string[]",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_WARRANT_RETRACTION\"",
+      "reason_text": "string",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "reason_text", "security_id"]
   },
   {
     "discriminator": "TX_WARRANT_TRANSFER",
     "optionalProperties": ["balance_security_id", "comments", "consideration_text"],
+    "propertyTypes": {
+      "balance_security_id": "string",
+      "comments": "string[]",
+      "consideration_text": "string",
+      "date": "string",
+      "id": "string",
+      "object_type": "\"TX_WARRANT_TRANSFER\"",
+      "quantity": "string",
+      "resulting_security_ids": "string[]",
+      "security_id": "string"
+    },
     "requiredProperties": ["date", "id", "object_type", "quantity", "resulting_security_ids", "security_id"]
   },
   {
     "discriminator": "VALUATION",
     "optionalProperties": ["board_approval_date", "comments", "provider", "stockholder_approval_date"],
+    "propertyTypes": {
+      "board_approval_date": "string",
+      "comments": "string[]",
+      "effective_date": "string",
+      "id": "string",
+      "object_type": "\"VALUATION\"",
+      "price_per_share": "Monetary",
+      "provider": "string",
+      "stock_class_id": "string",
+      "stockholder_approval_date": "string",
+      "valuation_type": "\"409A\""
+    },
     "requiredProperties": ["effective_date", "id", "object_type", "price_per_share", "stock_class_id", "valuation_type"]
   },
   {
     "discriminator": "VESTING_TERMS",
     "optionalProperties": ["comments"],
+    "propertyTypes": {
+      "allocation_type": "\"BACK_LOADED\" | \"BACK_LOADED_TO_SINGLE_TRANCHE\" | \"CUMULATIVE_ROUNDING\" | \"CUMULATIVE_ROUND_DOWN\" | \"FRACTIONAL\" | \"FRONT_LOADED\" | \"FRONT_LOADED_TO_SINGLE_TRANCHE\"",
+      "comments": "string[]",
+      "description": "string",
+      "id": "string",
+      "name": "string",
+      "object_type": "\"VESTING_TERMS\"",
+      "vesting_conditions": "NonEmptyArray<VestingCondition>"
+    },
     "requiredProperties": ["allocation_type", "description", "id", "name", "object_type", "vesting_conditions"]
   }
 ]

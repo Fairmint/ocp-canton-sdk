@@ -1,7 +1,9 @@
 import Ajv from 'ajv';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import {
+  compareCodeUnits,
   compareConditionalRegistry,
   dereferencePinnedObjectSchemas,
   dereferencePinnedSchemaFile,
@@ -9,6 +11,7 @@ import {
   getNamedTypeProperty,
   inventoryCanonicalOcfObjects,
   inventoryReachableObjectSchemas,
+  normalizeFingerprintText,
   resolveJsonPointer,
   validateCoverageReferences,
   validateSemanticRefinements,
@@ -29,8 +32,48 @@ function readCanonicalInventory(): CanonicalOcfObjectInventoryEntry[] {
   return JSON.parse(fs.readFileSync(CANONICAL_INVENTORY_PATH, 'utf8')) as CanonicalOcfObjectInventoryEntry[];
 }
 
+const syntheticRepoRoots: string[] = [];
+
+function createSyntheticOcfRepo(memberType: 'number' | 'string'): string {
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ocp-schema-inventory-'));
+  syntheticRepoRoots.push(repoRoot);
+  fs.mkdirSync(path.join(repoRoot, 'src', 'types'), { recursive: true });
+  fs.writeFileSync(
+    path.join(repoRoot, 'tsconfig.tests.json'),
+    JSON.stringify({
+      compilerOptions: { module: 'commonjs', noEmit: true, strict: true, target: 'ES2020' },
+      include: ['src/**/*.ts'],
+    })
+  );
+  fs.writeFileSync(
+    path.join(repoRoot, 'src', 'types', 'output.ts'),
+    `export type OcfObject = {
+      readonly object_type: 'SYNTHETIC';
+      readonly optional_member?: ${memberType};
+      readonly optional_member_with_explicit_undefined?: ${memberType} | undefined;
+      readonly required_member: ${memberType};
+    };\n`
+  );
+  return repoRoot;
+}
+
+afterAll(() => {
+  syntheticRepoRoots.forEach((repoRoot) => fs.rmSync(repoRoot, { force: true, recursive: true }));
+});
+
 describe('schema-driven OCF conformance guardrail', () => {
   const schemaInventory = inventoryReachableObjectSchemas(SCHEMA_ROOT);
+
+  it('uses locale-independent code-unit ordering for canonical inventories', () => {
+    expect(['issuance/Issuance.schema.json', 'IssuerTransaction.schema.json'].sort(compareCodeUnits)).toEqual([
+      'IssuerTransaction.schema.json',
+      'issuance/Issuance.schema.json',
+    ]);
+  });
+
+  it('normalizes checkout-specific line endings before hashing schemas', () => {
+    expect(normalizeFingerprintText('first\r\nsecond\rthird\n')).toBe('first\nsecond\nthird\n');
+  });
 
   it('dereferences every pinned object schema using local-only resolution', () => {
     const dereferenced = dereferencePinnedObjectSchemas(SCHEMA_ROOT);
@@ -129,6 +172,31 @@ describe('schema-driven OCF conformance guardrail', () => {
     // 48 ledger-backed registry entities plus the schema-only Financing object.
     expect(compilerInventory).toHaveLength(49);
     expect(compilerInventory).toEqual(readCanonicalInventory());
+  });
+
+  it('detects canonical OcfObject member-type drift without a property-name change', () => {
+    const stringMemberInventory = inventoryCanonicalOcfObjects(createSyntheticOcfRepo('string'));
+    const numberMemberInventory = inventoryCanonicalOcfObjects(createSyntheticOcfRepo('number'));
+
+    expect(stringMemberInventory).toEqual([
+      {
+        discriminator: 'SYNTHETIC',
+        optionalProperties: ['optional_member', 'optional_member_with_explicit_undefined'],
+        propertyTypes: {
+          object_type: '"SYNTHETIC"',
+          optional_member: 'string',
+          optional_member_with_explicit_undefined: 'string | undefined',
+          required_member: 'string',
+        },
+        requiredProperties: ['object_type', 'required_member'],
+      },
+    ]);
+    expect(numberMemberInventory).not.toEqual(stringMemberInventory);
+    expect(numberMemberInventory[0]?.propertyTypes).toMatchObject({
+      optional_member: 'number',
+      optional_member_with_explicit_undefined: 'number | undefined',
+      required_member: 'number',
+    });
   });
 });
 

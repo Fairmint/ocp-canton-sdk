@@ -9,8 +9,41 @@ import type {
   OcfStockClassConversionRatioAdjustment,
   OcfStockPlan,
   OcfVestingTerms,
+  OcpClient,
   VestingCondition,
 } from '../../src';
+
+async function assertCoreReaderInference(client: OcpClient): Promise<void> {
+  const dedicatedDocument: OcfDocument = (await client.OpenCapTable.document.get({ contractId: 'document-contract' }))
+    .data;
+  const genericDocument: OcfDocument = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'DOCUMENT', contractId: 'document-contract' })
+  ).data;
+  const dedicatedIssuer: OcfIssuer = (await client.OpenCapTable.issuer.get({ contractId: 'issuer-contract' })).data;
+  const genericIssuer: OcfIssuer = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'ISSUER', contractId: 'issuer-contract' })
+  ).data;
+  const dedicatedStockPlan: OcfStockPlan = (await client.OpenCapTable.stockPlan.get({ contractId: 'plan-contract' }))
+    .data;
+  const genericStockPlan: OcfStockPlan = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'STOCK_PLAN', contractId: 'plan-contract' })
+  ).data;
+  const dedicatedVestingTerms: OcfVestingTerms = (
+    await client.OpenCapTable.vestingTerms.get({ contractId: 'vesting-contract' })
+  ).data;
+  const genericVestingTerms: OcfVestingTerms = (
+    await client.OpenCapTable.getByObjectType({ objectType: 'VESTING_TERMS', contractId: 'vesting-contract' })
+  ).data;
+
+  void dedicatedDocument;
+  void genericDocument;
+  void dedicatedIssuer;
+  void genericIssuer;
+  void dedicatedStockPlan;
+  void genericStockPlan;
+  void dedicatedVestingTerms;
+  void genericVestingTerms;
+}
 
 const pathDocument: OcfDocument = {
   object_type: 'DOCUMENT',
@@ -75,6 +108,14 @@ const stockPlanWithEmptyClassIds: OcfStockPlan = {
   initial_shares_reserved: '0',
   // @ts-expect-error stock_class_ids is schema-non-empty
   stock_class_ids: [],
+};
+const stockPlanWithDeprecatedClassId: OcfStockPlan = {
+  object_type: 'STOCK_PLAN',
+  id: 'plan-deprecated',
+  plan_name: 'Deprecated Plan',
+  initial_shares_reserved: '1000',
+  // @ts-expect-error typed stock plans require canonical stock_class_ids
+  stock_class_id: 'class-1',
 };
 
 const issuerWithoutSubdivision: OcfIssuer = {
@@ -158,6 +199,34 @@ const adjustmentWithoutMechanism: OcfStockClassConversionRatioAdjustment = {
   date: '2026-01-01',
   stock_class_id: 'class-1',
 };
+const adjustmentWithBoardApproval: OcfStockClassConversionRatioAdjustment = {
+  object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+  id: 'adjustment-board-approval',
+  date: '2026-01-01',
+  stock_class_id: 'class-1',
+  new_ratio_conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    conversion_price: { amount: '1', currency: 'USD' },
+    ratio: { numerator: '1', denominator: '1' },
+    rounding_type: 'NORMAL',
+  },
+  // @ts-expect-error approval dates are not part of the canonical OCF adjustment
+  board_approval_date: '2026-01-02',
+};
+const adjustmentWithStockholderApproval: OcfStockClassConversionRatioAdjustment = {
+  object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+  id: 'adjustment-stockholder-approval',
+  date: '2026-01-01',
+  stock_class_id: 'class-1',
+  new_ratio_conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    conversion_price: { amount: '1', currency: 'USD' },
+    ratio: { numerator: '1', denominator: '1' },
+    rounding_type: 'NORMAL',
+  },
+  // @ts-expect-error approval dates are not part of the canonical OCF adjustment
+  stockholder_approval_date: '2026-01-02',
+};
 
 void pathDocument;
 void uriDocument;
@@ -168,6 +237,7 @@ void documentWithBothLocations;
 void documentWithNullLocations;
 void stockPlan;
 void stockPlanWithEmptyClassIds;
+void stockPlanWithDeprecatedClassId;
 void issuerWithoutSubdivision;
 void issuerWithBothSubdivisions;
 void namedPhoneContact;
@@ -181,3 +251,6 @@ void conditionWithoutAmount;
 void conditionWithBothAmounts;
 void vestingTermsWithEmptyConditions;
 void adjustmentWithoutMechanism;
+void adjustmentWithBoardApproval;
+void adjustmentWithStockholderApproval;
+void assertCoreReaderInference;
