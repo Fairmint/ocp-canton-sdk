@@ -126,6 +126,32 @@ function warrantRightFromDaml(value: Record<string, unknown>, source: string): W
   };
 }
 
+const UNSUPPORTED_STOCK_CLASS_STORAGE_FIELDS = [
+  'ceiling_price_per_share',
+  'custom_description',
+  'discount_rate',
+  'expires_at',
+  'floor_price_per_share',
+  'percent_of_capitalization',
+  'reference_share_price',
+  'reference_valuation_price_per_share',
+  'valuation_cap',
+] as const;
+
+function assertNoUnsupportedStockClassStorageFields(value: Record<string, unknown>, source: string): void {
+  for (const field of UNSUPPORTED_STOCK_CLASS_STORAGE_FIELDS) {
+    const storedValue = value[field];
+    if (storedValue === null || storedValue === undefined) continue;
+
+    schemaMismatch(
+      `${source}.${field}`,
+      `${field} cannot be represented by the canonical OCF ratio-only stock-class conversion right`,
+      'null',
+      storedValue
+    );
+  }
+}
+
 function stockClassRightFromDaml(value: Record<string, unknown>, source: string): StockClassConversionRight {
   if (value.type_ !== 'STOCK_CLASS_CONVERSION_RIGHT') {
     throw invalid(
@@ -134,6 +160,7 @@ function stockClassRightFromDaml(value: Record<string, unknown>, source: string)
       value.type_
     );
   }
+  assertNoUnsupportedStockClassStorageFields(value, source);
   const convertsToFutureRound = optionalBoolean(value.converts_to_future_round, `${source}.converts_to_future_round`);
   const convertsToStockClassId = requireString(
     value.converts_to_stock_class_id,

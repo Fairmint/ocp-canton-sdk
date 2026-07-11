@@ -192,6 +192,21 @@ function warrantStockClassData(): Record<string, unknown> {
   });
 }
 
+const UNSUPPORTED_STOCK_CLASS_STORAGE_FIELDS = [
+  {
+    field: 'ceiling_price_per_share',
+    value: { amount: '1.12345678901', currency: 'usd' },
+  },
+  { field: 'custom_description', value: 'Legacy stock-class conversion' },
+  { field: 'discount_rate', value: '0.1' },
+  { field: 'expires_at', value: '2030-01-01T00:00:00Z' },
+  { field: 'floor_price_per_share', value: { amount: '1', currency: 'USD' } },
+  { field: 'percent_of_capitalization', value: '10' },
+  { field: 'reference_share_price', value: { amount: '1', currency: 'USD' } },
+  { field: 'reference_valuation_price_per_share', value: { amount: '1', currency: 'USD' } },
+  { field: 'valuation_cap', value: { amount: '1000000', currency: 'USD' } },
+] as const;
+
 interface ComplexIssuanceReaderCase {
   readonly entityType: ComplexIssuanceEntityType;
   readonly contractId: string;
@@ -1304,6 +1319,34 @@ describe('decoder-backed complex issuance readers', () => {
       source: 'warrantIssuance.exercise_triggers[0].conversion_right.tag',
     });
   });
+
+  it.each(UNSUPPORTED_STOCK_CLASS_STORAGE_FIELDS)(
+    'the public warrant reader rejects storage-only stock-class field $field instead of dropping it',
+    async ({ field, value }) => {
+      const testCase = issuanceReaderCases[2];
+      if (!testCase) throw new Error('Missing warrant issuance reader case');
+      const data = warrantStockClassData();
+      const trigger = firstTestRecord(data.exercise_triggers, 'exercise_triggers');
+      const rightVariant = testRecord(trigger.conversion_right, 'conversion_right');
+      const stockClassRight = testRecord(rightVariant.value, 'conversion_right.value');
+      stockClassRight[field] = value;
+      const { client } = createMockClient(testCase, data);
+      const ocp = new OcpClient({ ledger: client });
+
+      await expect(
+        ocp.OpenCapTable.getByObjectType({
+          objectType: 'TX_WARRANT_ISSUANCE',
+          contractId: testCase.contractId,
+        })
+      ).rejects.toMatchObject({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        fieldPath: `warrantIssuance.exercise_triggers[0].conversion_right.value.${field}`,
+        expectedType: 'null',
+        receivedValue: value,
+      });
+    }
+  );
 });
 
 describe('decoder-backed equity-compensation pricing invariants', () => {

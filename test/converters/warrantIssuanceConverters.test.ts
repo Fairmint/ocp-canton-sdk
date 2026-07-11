@@ -149,6 +149,21 @@ describe('WarrantIssuance round-trip equivalence', () => {
     return { payload, nested, stockClassRight };
   }
 
+  const unsupportedStockClassStorageFields = [
+    {
+      field: 'ceiling_price_per_share',
+      value: { amount: '1.12345678901', currency: 'usd' },
+    },
+    { field: 'custom_description', value: 'Legacy stock-class conversion' },
+    { field: 'discount_rate', value: '0.1' },
+    { field: 'expires_at', value: '2030-01-01T00:00:00Z' },
+    { field: 'floor_price_per_share', value: { amount: '1', currency: 'USD' } },
+    { field: 'percent_of_capitalization', value: '10' },
+    { field: 'reference_share_price', value: { amount: '1', currency: 'USD' } },
+    { field: 'reference_valuation_price_per_share', value: { amount: '1', currency: 'USD' } },
+    { field: 'valuation_cap', value: { amount: '1000000', currency: 'USD' } },
+  ] as const;
+
   function expectInvalidLedgerMonetary(convert: () => unknown, fieldPath: string, receivedValue: unknown): void {
     try {
       convert();
@@ -333,6 +348,27 @@ describe('WarrantIssuance round-trip equivalence', () => {
       });
     }
   });
+
+  test.each(unsupportedStockClassStorageFields)(
+    'rejects the generated storage-only stock-class field $field instead of silently dropping it',
+    ({ field, value }) => {
+      const { payload, stockClassRight } = stockClassPayloadWithNestedTrigger();
+      stockClassRight[field] = value;
+
+      try {
+        damlWarrantIssuanceDataToNative(payload);
+        throw new Error(`Expected ${field} validation to fail`);
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          fieldPath: `warrantIssuance.exercise_triggers[0].conversion_right.value.${field}`,
+          expectedType: 'null',
+          receivedValue: value,
+        });
+      }
+    }
+  );
 
   test('basic warrant issuance survives round-trip', () => {
     const dbData = { ...baseWarrantIssuance, object_type: 'TX_WARRANT_ISSUANCE' } as Record<string, unknown>;
