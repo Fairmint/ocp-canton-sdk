@@ -259,6 +259,41 @@ export type DamlStakeholderRelationshipType =
   | 'OcfRelOther';
 
 /**
+ * Exhaustive canonical relationship mapping shared by validation and encoding.
+ *
+ * `satisfies Record<...>` makes adding a public relationship value a compile-time
+ * error here until its DAML representation is defined, preventing validator and
+ * converter support from drifting apart.
+ */
+export const STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML = {
+  ADVISOR: 'OcfRelAdvisor',
+  BOARD_MEMBER: 'OcfRelBoardMember',
+  CONSULTANT: 'OcfRelConsultant',
+  EMPLOYEE: 'OcfRelEmployee',
+  EX_ADVISOR: 'OcfRelExAdvisor',
+  EX_CONSULTANT: 'OcfRelExConsultant',
+  EX_EMPLOYEE: 'OcfRelExEmployee',
+  EXECUTIVE: 'OcfRelExecutive',
+  FOUNDER: 'OcfRelFounder',
+  INVESTOR: 'OcfRelInvestor',
+  NON_US_EMPLOYEE: 'OcfRelNonUsEmployee',
+  OFFICER: 'OcfRelOfficer',
+  OTHER: 'OcfRelOther',
+} as const satisfies Record<StakeholderRelationshipType, DamlStakeholderRelationshipType>;
+
+/** All canonical native relationship values, derived from the exhaustive mapping. */
+export const STAKEHOLDER_RELATIONSHIP_TYPES = Object.freeze(
+  Object.keys(STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML) as StakeholderRelationshipType[]
+);
+
+const STAKEHOLDER_RELATIONSHIP_TYPE_SET: ReadonlySet<string> = new Set(STAKEHOLDER_RELATIONSHIP_TYPES);
+
+/** Runtime guard backed by the same exhaustive relationship source used for DAML encoding. */
+export function isStakeholderRelationshipType(value: unknown): value is StakeholderRelationshipType {
+  return typeof value === 'string' && STAKEHOLDER_RELATIONSHIP_TYPE_SET.has(value);
+}
+
+/**
  * Convert a native OCF stakeholder relationship type to DAML enum.
  *
  * @param relationship - Native relationship type
@@ -268,41 +303,14 @@ export type DamlStakeholderRelationshipType =
 export function stakeholderRelationshipTypeToDaml(
   relationship: StakeholderRelationshipType
 ): DamlStakeholderRelationshipType {
-  switch (relationship) {
-    case 'ADVISOR':
-      return 'OcfRelAdvisor';
-    case 'BOARD_MEMBER':
-      return 'OcfRelBoardMember';
-    case 'CONSULTANT':
-      return 'OcfRelConsultant';
-    case 'EMPLOYEE':
-      return 'OcfRelEmployee';
-    case 'EX_ADVISOR':
-      return 'OcfRelExAdvisor';
-    case 'EX_CONSULTANT':
-      return 'OcfRelExConsultant';
-    case 'EX_EMPLOYEE':
-      return 'OcfRelExEmployee';
-    case 'EXECUTIVE':
-      return 'OcfRelExecutive';
-    case 'FOUNDER':
-      return 'OcfRelFounder';
-    case 'INVESTOR':
-      return 'OcfRelInvestor';
-    case 'NON_US_EMPLOYEE':
-      return 'OcfRelNonUsEmployee';
-    case 'OFFICER':
-      return 'OcfRelOfficer';
-    case 'OTHER':
-      return 'OcfRelOther';
-    default: {
-      const exhaustiveCheck: never = relationship;
-      throw new OcpParseError(`Unknown stakeholder relationship type: ${exhaustiveCheck as string}`, {
-        source: 'stakeholderRelationshipType',
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      });
-    }
+  if (isStakeholderRelationshipType(relationship)) {
+    return STAKEHOLDER_RELATIONSHIP_TYPE_TO_DAML[relationship];
   }
+
+  throw new OcpParseError(`Unknown stakeholder relationship type: ${String(relationship)}`, {
+    source: 'stakeholderRelationshipType',
+    code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+  });
 }
 
 /**
