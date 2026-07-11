@@ -43,6 +43,18 @@ function validateRequiredPrice(
   if (value === undefined) {
     requiredPrice(field, source, compensationType);
   }
+  if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+    const monetary = value as Record<string, unknown>;
+    for (const monetaryField of ['amount', 'currency'] as const) {
+      if (monetary[monetaryField] === undefined) {
+        throw new OcpValidationError(`${source}.${field}.${monetaryField}`, `${monetaryField} is required`, {
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          expectedType: 'non-empty string',
+          receivedValue: monetary[monetaryField],
+        });
+      }
+    }
+  }
   validateRequiredMonetary(value, `${source}.${field}`);
 }
 

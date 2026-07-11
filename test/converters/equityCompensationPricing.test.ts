@@ -51,7 +51,7 @@ describe('validateEquityCompensationPricing', () => {
       exercisePrice: { amount: '1' },
       basePrice: undefined,
       field: 'exercise_price.currency',
-      code: OcpErrorCodes.INVALID_TYPE,
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     },
     {
       name: 'option with base price',

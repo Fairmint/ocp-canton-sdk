@@ -21,7 +21,7 @@ import {
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
-import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { ratioMechanismFromDaml, warrantMechanismFromDaml } from '../shared/conversionMechanisms';
 import { parseDamlNumeric10 } from '../shared/damlNumerics';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -484,7 +484,7 @@ export function damlWarrantIssuanceDataToNative(value: DamlWarrantIssuanceData):
   const vestings = vestingsFromDaml(data.vestings);
   const comments = commentsFromDaml(data.comments);
 
-  return {
+  const result: OcfWarrantIssuance = {
     object_type: 'TX_WARRANT_ISSUANCE',
     id: requireString(data.id, 'warrantIssuance.id'),
     date: damlTimeToDateString(data.date, 'warrantIssuance.date'),
@@ -505,6 +505,8 @@ export function damlWarrantIssuanceDataToNative(value: DamlWarrantIssuanceData):
     ...(vestings ? { vestings } : {}),
     ...(comments ? { comments } : {}),
   };
+  decodeDamlEntityData('warrantIssuance', value);
+  return result;
 }
 
 export async function getWarrantIssuanceAsOcf(

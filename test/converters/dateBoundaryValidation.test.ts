@@ -268,10 +268,23 @@ describe('OCF write converter optional date boundaries', () => {
     expectInvalidDate(() => convert(invalidDate), fieldPath, invalidDate, OcpErrorCodes.INVALID_TYPE);
   });
 
-  test.each(OPTIONAL_WRITE_DATE_CASES)('encodes a null or undefined $name as absent', ({ convert, field }) => {
-    expect(convert(null)[field]).toBeNull();
+  test.each(OPTIONAL_WRITE_DATE_CASES)('encodes an undefined $name as absent', ({ convert, field }) => {
     expect(convert(undefined)[field]).toBeNull();
   });
+
+  test.each(OPTIONAL_WRITE_DATE_CASES.filter(({ name }) => !name.startsWith('equity compensation issuance')))(
+    'continues to encode a null $name as absent',
+    ({ convert, field }) => {
+      expect(convert(null)[field]).toBeNull();
+    }
+  );
+
+  test.each(OPTIONAL_WRITE_DATE_CASES.filter(({ name }) => name.startsWith('equity compensation issuance')))(
+    'rejects explicit null for canonical $name input',
+    ({ convert, fieldPath }) => {
+      expectInvalidDate(() => convert(null), fieldPath, null, OcpErrorCodes.INVALID_TYPE);
+    }
+  );
 
   test('reports contextual paths for required and nested write dates', () => {
     expectInvalidDate(
@@ -291,7 +304,7 @@ describe('OCF write converter optional date boundaries', () => {
           ...EQUITY_COMPENSATION_WRITE_BASE,
           vestings: [{ date: '', amount: '1' }],
         }),
-      'equityCompensationIssuance.vestings[].date',
+      'equityCompensationIssuance.vestings[0].date',
       ''
     );
   });

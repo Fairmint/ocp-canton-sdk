@@ -9,19 +9,31 @@ import type {
 } from '../../dist';
 import type { DamlDataTypeFor } from '../../dist/functions/OpenCapTable/capTable/batchTypes';
 import type {
+  convertibleIssuanceDataToDaml,
+  ConvertibleIssuanceInput,
+} from '../../dist/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
+import type {
   DamlConvertibleIssuanceData,
-  GetConvertibleIssuanceAsOcfResult,
   damlConvertibleIssuanceDataToNative,
+  GetConvertibleIssuanceAsOcfResult,
 } from '../../dist/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import type {
+  equityCompensationIssuanceDataToDaml,
+  EquityCompensationIssuanceInput,
+} from '../../dist/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
+import type {
   DamlEquityCompensationIssuanceData,
-  GetEquityCompensationIssuanceAsOcfResult,
   damlEquityCompensationIssuanceDataToNative,
+  GetEquityCompensationIssuanceAsOcfResult,
 } from '../../dist/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import type {
+  warrantIssuanceDataToDaml,
+  WarrantIssuanceInput,
+} from '../../dist/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
+import type {
   DamlWarrantIssuanceData,
-  GetWarrantIssuanceAsOcfResult,
   damlWarrantIssuanceDataToNative,
+  GetWarrantIssuanceAsOcfResult,
 } from '../../dist/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 
 type Assert<T extends true> = T;
@@ -34,6 +46,12 @@ type WarrantEvent = GetWarrantIssuanceAsOcfResult['warrantIssuance'];
 type ConvertibleInput = Parameters<typeof damlConvertibleIssuanceDataToNative>[0];
 type EquityCompensationInput = Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0];
 type WarrantInput = Parameters<typeof damlWarrantIssuanceDataToNative>[0];
+type ConvertibleWriterInput = Parameters<typeof convertibleIssuanceDataToDaml>[0];
+type EquityCompensationWriterInput = Parameters<typeof equityCompensationIssuanceDataToDaml>[0];
+type WarrantWriterInput = Parameters<typeof warrantIssuanceDataToDaml>[0];
+type ConvertibleWriterOutput = ReturnType<typeof convertibleIssuanceDataToDaml>;
+type EquityCompensationWriterOutput = ReturnType<typeof equityCompensationIssuanceDataToDaml>;
+type WarrantWriterOutput = ReturnType<typeof warrantIssuanceDataToDaml>;
 
 const convertibleEventIsExact: Assert<IsExactly<ConvertibleEvent, OcfConvertibleIssuance>> = true;
 const equityCompensationEventIsExact: Assert<IsExactly<EquityCompensationEvent, OcfEquityCompensationIssuance>> = true;
@@ -55,6 +73,21 @@ const warrantDamlIsExact: Assert<IsExactly<DamlWarrantIssuanceData, DamlDataType
 const convertibleInputIsNotAny: Assert<IsExactly<IsAny<ConvertibleInput>, false>> = true;
 const equityCompensationInputIsNotAny: Assert<IsExactly<IsAny<EquityCompensationInput>, false>> = true;
 const warrantInputIsNotAny: Assert<IsExactly<IsAny<WarrantInput>, false>> = true;
+const convertibleWriterInputIsExact: Assert<IsExactly<ConvertibleWriterInput, ConvertibleIssuanceInput>> = true;
+const equityCompensationWriterInputIsExact: Assert<
+  IsExactly<EquityCompensationWriterInput, EquityCompensationIssuanceInput>
+> = true;
+const warrantWriterInputIsExact: Assert<IsExactly<WarrantWriterInput, WarrantIssuanceInput>> = true;
+const convertibleWriterOutputIsExact: Assert<
+  IsExactly<ConvertibleWriterOutput, DamlDataTypeFor<'convertibleIssuance'>>
+> = true;
+const equityCompensationWriterOutputIsExact: Assert<
+  IsExactly<EquityCompensationWriterOutput, DamlDataTypeFor<'equityCompensationIssuance'>>
+> = true;
+const warrantWriterOutputIsExact: Assert<IsExactly<WarrantWriterOutput, DamlDataTypeFor<'warrantIssuance'>>> = true;
+const convertibleWriterOutputIsNotAny: Assert<IsExactly<IsAny<ConvertibleWriterOutput>, false>> = true;
+const equityCompensationWriterOutputIsNotAny: Assert<IsExactly<IsAny<EquityCompensationWriterOutput>, false>> = true;
+const warrantWriterOutputIsNotAny: Assert<IsExactly<IsAny<WarrantWriterOutput>, false>> = true;
 
 declare const convertibleResult: GetConvertibleIssuanceAsOcfResult;
 declare const equityCompensationResult: GetEquityCompensationIssuanceAsOcfResult;
@@ -166,6 +199,15 @@ void warrantDamlIsExact;
 void convertibleInputIsNotAny;
 void equityCompensationInputIsNotAny;
 void warrantInputIsNotAny;
+void convertibleWriterInputIsExact;
+void equityCompensationWriterInputIsExact;
+void warrantWriterInputIsExact;
+void convertibleWriterOutputIsExact;
+void equityCompensationWriterOutputIsExact;
+void warrantWriterOutputIsExact;
+void convertibleWriterOutputIsNotAny;
+void equityCompensationWriterOutputIsNotAny;
+void warrantWriterOutputIsNotAny;
 void wrongWarrantEvent;
 void wrongConvertibleEvent;
 void wrongEquityCompensationEvent;

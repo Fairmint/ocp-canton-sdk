@@ -87,6 +87,20 @@ export function convertOperationToDaml(operation: OcfCreateOperation | OcfEditOp
 }
 
 function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntityType>): Record<string, unknown> {
+  // These converters perform descriptor-safe structural validation before reading
+  // input values, then run the complete canonical OCF schema after their exact,
+  // contextual field conversions. Pre-parsing here would invoke accessors and
+  // normalize away inherited, sparse, or unknown fields before those boundaries.
+  if (type === 'convertibleIssuance') {
+    return convertibleIssuanceDataToDaml(data as OcfDataTypeFor<'convertibleIssuance'>);
+  }
+  if (type === 'equityCompensationIssuance') {
+    return equityCompensationIssuanceDataToDaml(data as OcfDataTypeFor<'equityCompensationIssuance'>);
+  }
+  if (type === 'warrantIssuance') {
+    return warrantIssuanceDataToDaml(data as OcfDataTypeFor<'warrantIssuance'>);
+  }
+
   const d = parseOcfEntityInput(type, data);
 
   switch (type) {
@@ -104,12 +118,6 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
       return stockLegendTemplateDataToDaml(d as OcfDataTypeFor<'stockLegendTemplate'>);
     case 'stockPlan':
       return stockPlanDataToDaml(d as OcfDataTypeFor<'stockPlan'>);
-    case 'equityCompensationIssuance':
-      return equityCompensationIssuanceDataToDaml(d as OcfDataTypeFor<'equityCompensationIssuance'>);
-    case 'convertibleIssuance':
-      return convertibleIssuanceDataToDaml(d as OcfDataTypeFor<'convertibleIssuance'>);
-    case 'warrantIssuance':
-      return warrantIssuanceDataToDaml(d as OcfDataTypeFor<'warrantIssuance'>);
     case 'stockCancellation':
       return stockCancellationDataToDaml(d as OcfDataTypeFor<'stockCancellation'>);
     case 'equityCompensationExercise':

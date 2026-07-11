@@ -32,7 +32,7 @@ function invalidNumeric(
  * JSON still needs an exact scale and magnitude check at the SDK boundary.
  */
 export function parseDamlNumeric10(value: unknown, fieldPath: string): string {
-  if (value === null || value === undefined) return invalidNumeric(value, fieldPath, 'REQUIRED_FIELD_MISSING');
+  if (value === undefined) return invalidNumeric(value, fieldPath, 'REQUIRED_FIELD_MISSING');
   if (typeof value !== 'string') return invalidNumeric(value, fieldPath, 'INVALID_TYPE');
 
   const match = DAML_NUMERIC_10_PATTERN.exec(value);
@@ -70,6 +70,13 @@ export function parseDamlPercentage(value: unknown, fieldPath: string): string {
 
 /** Encode a native Monetary amount using the exact fixed-point limits of DAML Numeric 10. */
 export function nativeMonetaryToDamlNumeric10(value: unknown, fieldPath: string): { amount: string; currency: string } {
+  if (value === undefined) {
+    throw new OcpValidationError(fieldPath, `${fieldPath} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'Monetary object',
+      receivedValue: value,
+    });
+  }
   if (!isRecord(value)) {
     throw new OcpValidationError(fieldPath, `${fieldPath} must be a Monetary object`, {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -77,12 +84,30 @@ export function nativeMonetaryToDamlNumeric10(value: unknown, fieldPath: string)
       receivedValue: value,
     });
   }
+  if (value.currency === undefined) {
+    throw new OcpValidationError(`${fieldPath}.currency`, `${fieldPath}.currency is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'three-letter uppercase ISO 4217 currency code',
+      receivedValue: value.currency,
+    });
+  }
   if (typeof value.currency !== 'string') {
     throw new OcpValidationError(`${fieldPath}.currency`, `${fieldPath}.currency must be a string`, {
       code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'currency string',
+      expectedType: 'three-letter uppercase ISO 4217 currency code',
       receivedValue: value.currency,
     });
+  }
+  if (!/^[A-Z]{3}$/.test(value.currency)) {
+    throw new OcpValidationError(
+      `${fieldPath}.currency`,
+      `${fieldPath}.currency must be a three-letter uppercase ISO 4217 code`,
+      {
+        code: OcpErrorCodes.INVALID_FORMAT,
+        expectedType: 'three-letter uppercase ISO 4217 currency code',
+        receivedValue: value.currency,
+      }
+    );
   }
   return {
     amount: parseDamlNumeric10(value.amount, `${fieldPath}.amount`),

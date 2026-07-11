@@ -664,13 +664,18 @@ describe('WarrantIssuance round-trip equivalence', () => {
         OcpErrorCodes.INVALID_TYPE
       );
 
-      for (const value of [null, undefined]) {
-        const result = warrantIssuanceDataToDaml({
+      expect(
+        warrantIssuanceDataToDaml({
           ...baseWarrantIssuance,
-          [field]: value,
-        });
-        expect(result[field]).toBeNull();
-      }
+          [field]: undefined,
+        })[field]
+      ).toBeNull();
+      expectInvalidWarrantDate(
+        () => warrantIssuanceDataToDaml({ ...baseWarrantIssuance, [field]: null }),
+        fieldPath,
+        null,
+        OcpErrorCodes.INVALID_TYPE
+      );
     }
   );
 
@@ -735,7 +740,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       {
         trigger: stockClassTriggerWithTiming({
           type: 'AUTOMATIC_ON_DATE',
-          trigger_date: '2024-01-15T23:30:00-05:00',
+          trigger_date: '2024-01-15',
         }),
         expected: {
           trigger_date: '2024-01-15T00:00:00.000Z',
@@ -747,8 +752,8 @@ describe('WarrantIssuance round-trip equivalence', () => {
       {
         trigger: stockClassTriggerWithTiming({
           type: 'ELECTIVE_IN_RANGE',
-          start_date: '2024-01-15T00:30:00+14:00',
-          end_date: '2024-01-15T12:00:00Z',
+          start_date: '2024-01-15',
+          end_date: '2024-01-15',
         }),
         expected: {
           trigger_date: null,
@@ -1045,7 +1050,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
   });
 
-  test('readback accepts OcfRightStockClass.conversion_mechanism as DAML tagged enum JSON', () => {
+  test('readback rejects a non-generated tagged conversion_mechanism compatibility shape', () => {
     const stockClassId = '16faa6e5-b13a-4dda-bad2-885fccd2975a';
     const input = {
       ...baseWarrantIssuance,
@@ -1076,14 +1081,14 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const stockVal = cr.value as Record<string, unknown>;
     stockVal.conversion_mechanism = { tag: 'OcfConversionMechanismRatioConversion' };
 
-    const native = damlWarrantIssuanceDataToNative(payload);
-    const nativeTrigger = requireFirst(native.exercise_triggers, 'native warrant exercise trigger');
-    expect(nativeTrigger.conversion_right.type).toBe('STOCK_CLASS_CONVERSION_RIGHT');
-    if (nativeTrigger.conversion_right.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
-      throw new Error('expected stock class conversion right');
-    }
-    expect(nativeTrigger.conversion_right.converts_to_stock_class_id).toBe(stockClassId);
-    expect(nativeTrigger.conversion_right.conversion_mechanism.type).toBe('RATIO_CONVERSION');
+    expect(() => damlWarrantIssuanceDataToNative(payload)).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: expect.objectContaining({
+          decoderPath: 'input.exercise_triggers[0].conversion_right',
+        }),
+      })
+    );
   });
 
   test('STOCK_CLASS_CONVERSION_RIGHT with unsupported mechanism throws OcpParseError', () => {

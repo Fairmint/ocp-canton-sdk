@@ -15,7 +15,7 @@ import {
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
-import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { damlNumeric10MonetaryToNative, parseDamlNumeric10 } from '../shared/damlNumerics';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -197,7 +197,7 @@ export function damlEquityCompensationIssuanceDataToNative(
   const stockPlanId = optionalString(d.stock_plan_id, 'equityCompensationIssuance.stock_plan_id');
   const earlyExercisable = optionalBoolean(d.early_exercisable, 'equityCompensationIssuance.early_exercisable');
 
-  return {
+  const result: OcfEquityCompensationIssuance = {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     id,
     date: damlTimeToDateString(d.date, 'equityCompensationIssuance.date'),
@@ -219,6 +219,8 @@ export function damlEquityCompensationIssuanceDataToNative(
     ...(vestings ? { vestings } : {}),
     ...(comments ? { comments } : {}),
   };
+  decodeDamlEntityData('equityCompensationIssuance', d);
+  return result;
 }
 
 export async function getEquityCompensationIssuanceAsOcf(

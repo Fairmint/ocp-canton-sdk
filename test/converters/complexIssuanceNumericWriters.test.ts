@@ -37,7 +37,6 @@ interface NumericWriterCase {
   readonly inputPath: ValuePath;
   readonly damlPath: ValuePath;
   readonly nativePath: ValuePath;
-  readonly zeroIsFiltered?: boolean;
 }
 
 function convertibleInput(mechanism: ConvertibleConversionMechanism): ConvertibleIssuanceInput {
@@ -380,7 +379,6 @@ const numericWriterCases: readonly NumericWriterCase[] = [
     inputPath: ['vestings', 0, 'amount'],
     damlPath: ['vestings', 0, 'amount'],
     nativePath: ['vestings', 0, 'amount'],
-    zeroIsFiltered: true,
   },
   {
     name: 'warrant quantity',
@@ -417,7 +415,6 @@ const numericWriterCases: readonly NumericWriterCase[] = [
     inputPath: ['vestings', 0, 'amount'],
     damlPath: ['vestings', 0, 'amount'],
     nativePath: ['vestings', 0, 'amount'],
-    zeroIsFiltered: true,
   },
   {
     name: 'warrant fixed quantity',
@@ -500,7 +497,7 @@ function valueAtPath(value: unknown, path: ValuePath): unknown {
   return current;
 }
 
-function setValueAtPath(value: unknown, path: ValuePath, nextValue: string): void {
+function setValueAtPath(value: unknown, path: ValuePath, nextValue: unknown): void {
   const finalPart = path[path.length - 1];
   if (finalPart === undefined) throw new Error('Cannot set an empty path');
   let parent = value;
@@ -543,8 +540,8 @@ function addToPublicBatch(entityType: ComplexIssuanceEntityType, input: ComplexI
   const batch = new CapTableBatch({ capTableContractId: 'cap-table', actAs: ['issuer::party'] });
   switch (entityType) {
     case 'convertibleIssuance': {
-      if (input.object_type !== 'TX_CONVERTIBLE_ISSUANCE') throw new Error('Mismatched convertible input');
-      batch.create('convertibleIssuance', { ...input, object_type: 'TX_CONVERTIBLE_ISSUANCE' });
+      if (!isConvertibleIssuance(input)) throw new Error('Mismatched convertible input');
+      batch.create('convertibleIssuance', input);
       return;
     }
     case 'equityCompensationIssuance': {
@@ -553,11 +550,25 @@ function addToPublicBatch(entityType: ComplexIssuanceEntityType, input: ComplexI
       return;
     }
     case 'warrantIssuance': {
-      if (input.object_type !== 'TX_WARRANT_ISSUANCE') throw new Error('Mismatched warrant input');
-      batch.create('warrantIssuance', { ...input, object_type: 'TX_WARRANT_ISSUANCE' });
+      if (!isWarrantIssuance(input)) throw new Error('Mismatched warrant input');
+      batch.create('warrantIssuance', input);
     }
   }
 }
+
+function isConvertibleIssuance(input: ComplexIssuanceInput): input is OcfConvertibleIssuance {
+  return input.object_type === 'TX_CONVERTIBLE_ISSUANCE';
+}
+
+function isWarrantIssuance(input: ComplexIssuanceInput): input is OcfWarrantIssuance {
+  return input.object_type === 'TX_WARRANT_ISSUANCE';
+}
+
+const writerSurfaces = [
+  { name: 'direct writer', write: directWrite },
+  { name: 'generated public writer', write: publicWrite },
+  { name: 'typed CapTableBatch writer', write: addToPublicBatch },
+] as const;
 
 function readNative(entityType: ComplexIssuanceEntityType, daml: Record<string, unknown>): ComplexIssuanceNative {
   switch (entityType) {
@@ -675,13 +686,422 @@ describe('strict complex issuance Numeric(10) writers', () => {
   )('$testCase.name never emits negative zero for $input', ({ testCase, input }) => {
     for (const write of [directWrite, publicWrite]) {
       const daml = write(testCase.entityType, inputWithValue(testCase, input));
-      if (testCase.zeroIsFiltered) {
-        expect(valueAtPath(daml, testCase.damlPath)).toBeUndefined();
-        expect(valueAtPath(readNative(testCase.entityType, daml), testCase.nativePath)).toBeUndefined();
-      } else {
-        expect(valueAtPath(daml, testCase.damlPath)).toBe('0');
-        expect(valueAtPath(readNative(testCase.entityType, daml), testCase.nativePath)).toBe('0');
+      expect(valueAtPath(daml, testCase.damlPath)).toBe('0');
+      expect(valueAtPath(readNative(testCase.entityType, daml), testCase.nativePath)).toBe('0');
+    }
+  });
+
+  test.each(numericWriterCases.filter(({ name }) => name.endsWith('vesting amount')))(
+    '$name preserves a negative vesting amount instead of filtering it',
+    (testCase) => {
+      for (const write of [directWrite, publicWrite]) {
+        const daml = write(testCase.entityType, inputWithValue(testCase, '-1.2300000000'));
+        expect(valueAtPath(daml, testCase.damlPath)).toBe('-1.23');
+        expect(valueAtPath(readNative(testCase.entityType, daml), testCase.nativePath)).toBe('-1.23');
       }
+    }
+  );
+});
+
+describe('strict complex issuance monetary writers', () => {
+  const monetaryCaseNames = new Set([
+    'convertible investment amount',
+    'convertible SAFE valuation cap',
+    'convertible note valuation cap',
+    'equity compensation exercise price',
+    'equity compensation base price',
+    'warrant purchase price',
+    'warrant exercise price',
+    'warrant valuation amount',
+    'warrant PPS discount amount',
+    'stock-class conversion price',
+  ]);
+  const monetaryCases = numericWriterCases
+    .filter(({ name }) => monetaryCaseNames.has(name))
+    .map((testCase) => ({
+      ...testCase,
+      currencyFieldPath: testCase.fieldPath.replace(/\.amount$/, '.currency'),
+      currencyInputPath: [...testCase.inputPath.slice(0, -1), 'currency'] as ValuePath,
+    }));
+
+  test.each(
+    monetaryCases.flatMap((testCase) =>
+      ['usd', 'US', 'USDX'].flatMap((currency) => writerSurfaces.map((surface) => ({ testCase, currency, surface })))
+    )
+  )('$testCase.name $surface.name rejects non-canonical currency $currency', ({ testCase, currency, surface }) => {
+    const input = testCase.makeInput();
+    setValueAtPath(input, testCase.currencyInputPath, currency);
+    expectContextualError(() => surface.write(testCase.entityType, input), {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: testCase.currencyFieldPath,
+      receivedValue: currency,
+    });
+  });
+
+  test.each(
+    monetaryCases.flatMap((testCase) =>
+      [
+        { value: null, code: OcpErrorCodes.INVALID_TYPE },
+        { value: undefined, code: OcpErrorCodes.REQUIRED_FIELD_MISSING },
+      ].flatMap(({ value, code }) => writerSurfaces.map((surface) => ({ testCase, value, code, surface })))
+    )
+  )('$testCase.name $surface.name distinguishes missing and null currency', ({ testCase, value, code, surface }) => {
+    const input = testCase.makeInput();
+    setValueAtPath(input, testCase.currencyInputPath, value);
+    expectContextualError(() => surface.write(testCase.entityType, input), {
+      code,
+      fieldPath: testCase.currencyFieldPath,
+      receivedValue: value,
+    });
+  });
+});
+
+describe('exact equity-compensation termination-period writers', () => {
+  const fieldPath = 'equityCompensationIssuance.termination_exercise_windows[1].period';
+
+  function inputWithTerminationPeriod(period: unknown): OcfEquityCompensationIssuance {
+    return {
+      ...optionInput(),
+      termination_exercise_windows: [
+        { reason: 'VOLUNTARY_OTHER', period: 90, period_type: 'DAYS' },
+        { reason: 'INVOLUNTARY_OTHER', period, period_type: 'MONTHS' },
+      ],
+    } as OcfEquityCompensationIssuance;
+  }
+
+  test.each(
+    [
+      { value: undefined, code: OcpErrorCodes.REQUIRED_FIELD_MISSING },
+      { value: null, code: OcpErrorCodes.INVALID_TYPE },
+      { value: '90', code: OcpErrorCodes.INVALID_TYPE },
+      { value: 1.5, code: OcpErrorCodes.INVALID_FORMAT },
+      { value: Number.POSITIVE_INFINITY, code: OcpErrorCodes.INVALID_FORMAT },
+      { value: Number.MAX_SAFE_INTEGER + 1, code: OcpErrorCodes.OUT_OF_RANGE },
+    ].flatMap(({ value, code }) => writerSurfaces.map((surface) => ({ value, code, surface })))
+  )('$surface.name rejects non-exact period $value at its indexed path', ({ value, code, surface }) => {
+    expectContextualError(() => surface.write('equityCompensationIssuance', inputWithTerminationPeriod(value)), {
+      code,
+      fieldPath,
+      receivedValue: value,
+    });
+  });
+
+  test.each([Number.MIN_SAFE_INTEGER, 0, Number.MAX_SAFE_INTEGER])(
+    'preserves safe integer boundary %p through direct and generated public round trips',
+    (period) => {
+      for (const write of [directWrite, publicWrite]) {
+        const daml = write('equityCompensationIssuance', inputWithTerminationPeriod(period));
+        expect(valueAtPath(daml, ['termination_exercise_windows', 1, 'period'])).toBe(period.toString());
+        expect(
+          valueAtPath(readNative('equityCompensationIssuance', daml), ['termination_exercise_windows', 1, 'period'])
+        ).toBe(period);
+      }
+    }
+  );
+
+  test.each(
+    [
+      { field: 'reason', value: 'toString' },
+      { field: 'reason', value: 'constructor' },
+      { field: 'period_type', value: 'toString' },
+      { field: 'period_type', value: 'constructor' },
+    ].flatMap((invalid) => writerSurfaces.map((surface) => ({ ...invalid, surface })))
+  )('$surface.name rejects inherited map key $value for $field', ({ field, value, surface }) => {
+    const input = inputWithTerminationPeriod(90);
+    (input.termination_exercise_windows[1] as unknown as Record<string, unknown>)[field] = value;
+    expectContextualError(() => surface.write('equityCompensationIssuance', input), {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      fieldPath: `equityCompensationIssuance.termination_exercise_windows[1].${field}`,
+      receivedValue: value,
+    });
+  });
+});
+
+describe('lossless schema-valid optional text writers', () => {
+  const cases = [
+    {
+      name: 'convertible consideration text',
+      entityType: 'convertibleIssuance' as const,
+      makeInput: customConvertibleInput,
+      path: ['consideration_text'] as ValuePath,
+      fieldPath: 'convertibleIssuance.consideration_text',
+    },
+    ...(['consideration_text', 'stock_plan_id', 'stock_class_id', 'vesting_terms_id'] as const).map((field) => ({
+      name: `equity compensation ${field}`,
+      entityType: 'equityCompensationIssuance' as const,
+      makeInput: optionInput,
+      path: [field] as ValuePath,
+      fieldPath: `equityCompensationIssuance.${field}`,
+    })),
+    ...(['consideration_text', 'vesting_terms_id'] as const).map((field) => ({
+      name: `warrant ${field}`,
+      entityType: 'warrantIssuance' as const,
+      makeInput: warrantInput,
+      path: [field] as ValuePath,
+      fieldPath: `warrantIssuance.${field}`,
+    })),
+  ];
+
+  test.each(cases)('$name preserves present empty and whitespace-only strings', (testCase) => {
+    for (const value of ['', '   ']) {
+      for (const write of [directWrite, publicWrite]) {
+        const input = testCase.makeInput();
+        setValueAtPath(input, testCase.path, value);
+        const daml = write(testCase.entityType, input);
+        expect(valueAtPath(daml, testCase.path)).toBe(value);
+        expect(valueAtPath(readNative(testCase.entityType, daml), testCase.path)).toBe(value);
+      }
+    }
+  });
+
+  test.each(cases.flatMap((testCase) => writerSurfaces.map((surface) => ({ testCase, surface }))))(
+    '$testCase.name $surface.name rejects explicit null instead of conflating it with omission',
+    ({ testCase, surface }) => {
+      const input = testCase.makeInput();
+      setValueAtPath(input, testCase.path, null);
+      expectContextualError(() => surface.write(testCase.entityType, input), {
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: testCase.fieldPath,
+        receivedValue: null,
+      });
+    }
+  );
+});
+
+describe('lossless plain writer input boundaries', () => {
+  const cases = [
+    {
+      entityType: 'convertibleIssuance' as const,
+      fieldPath: 'convertibleIssuance',
+      makeInput: customConvertibleInput,
+    },
+    {
+      entityType: 'equityCompensationIssuance' as const,
+      fieldPath: 'equityCompensationIssuance',
+      makeInput: optionInput,
+    },
+    { entityType: 'warrantIssuance' as const, fieldPath: 'warrantIssuance', makeInput: warrantInput },
+  ];
+
+  function expectStructureError(
+    action: () => unknown,
+    expected: { readonly code?: OcpErrorCode; readonly fieldPath: string }
+  ): void {
+    try {
+      action();
+      throw new Error(`Expected writer structure validation to fail at ${expected.fieldPath}`);
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({ code: expected.code ?? OcpErrorCodes.INVALID_TYPE, fieldPath: expected.fieldPath });
+    }
+  }
+
+  test.each(cases.flatMap((testCase) => writerSurfaces.map((surface) => ({ testCase, surface }))))(
+    '$testCase.entityType $surface.name rejects inherited top-level fields',
+    ({ testCase, surface }) => {
+      const input = Object.create(testCase.makeInput()) as ComplexIssuanceInput;
+      expectStructureError(() => surface.write(testCase.entityType, input), {
+        fieldPath: `${testCase.fieldPath}.object_type`,
+      });
+    }
+  );
+
+  it('keeps a huge sparse-array error safe and bounded to inspect or serialize', () => {
+    const input = customConvertibleInput();
+    const comments: string[] = [];
+    comments.length = 0xffff_ffff;
+    input.comments = comments;
+
+    let thrown: unknown;
+    try {
+      directWrite('convertibleIssuance', input);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(OcpValidationError);
+    expect(thrown).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'convertibleIssuance.comments[0]',
+      receivedValue: { kind: 'array', length: 0xffff_ffff, ownKeyCount: 1 },
+    });
+    const serialized = JSON.stringify(thrown);
+    expect(serialized).toContain('"ownKeyCount":1');
+    expect(serialized.length).toBeLessThan(2_000);
+  });
+
+  test.each([
+    {
+      name: 'benign Proxy',
+      makeProxy: () => new Proxy(customConvertibleInput(), {}),
+    },
+    {
+      name: 'throwing Proxy',
+      makeProxy: () =>
+        new Proxy(customConvertibleInput(), {
+          get: () => {
+            throw new Error('get trap must not run');
+          },
+          getOwnPropertyDescriptor: () => {
+            throw new Error('descriptor trap must not run');
+          },
+          getPrototypeOf: () => {
+            throw new Error('prototype trap must not run');
+          },
+          ownKeys: () => {
+            throw new Error('ownKeys trap must not run');
+          },
+        }),
+    },
+    {
+      name: 'revoked Proxy',
+      makeProxy: () => {
+        const revocable = Proxy.revocable(customConvertibleInput(), {});
+        revocable.revoke();
+        return revocable.proxy;
+      },
+    },
+  ])('rejects a $name without invoking traps on direct and public writer surfaces', ({ makeProxy }) => {
+    for (const write of [directWrite, publicWrite]) {
+      let thrown: unknown;
+      try {
+        write('convertibleIssuance', makeProxy());
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBeInstanceOf(OcpValidationError);
+      expect(thrown).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'convertibleIssuance',
+        receivedValue: { kind: 'proxy' },
+      });
+      expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
+    }
+  });
+
+  test.each(cases.flatMap((testCase) => writerSurfaces.map((surface) => ({ testCase, surface }))))(
+    '$testCase.entityType $surface.name rejects inherited nested record fields',
+    ({ testCase, surface }) => {
+      const input = testCase.makeInput();
+      (input as { security_law_exemptions: unknown }).security_law_exemptions = [
+        Object.create({ description: 'Reg D', jurisdiction: 'US' }),
+      ];
+      expectStructureError(() => surface.write(testCase.entityType, input), {
+        fieldPath: `${testCase.fieldPath}.security_law_exemptions[0].description`,
+      });
+    }
+  );
+
+  test.each(cases.flatMap((testCase) => writerSurfaces.map((surface) => ({ testCase, surface }))))(
+    '$testCase.entityType $surface.name rejects a huge sparse array in time proportional to its own keys',
+    ({ testCase, surface }) => {
+      const input = testCase.makeInput();
+      const comments: string[] = [];
+      comments.length = 0xffff_ffff;
+      (input as { comments?: string[] }).comments = comments;
+      expectStructureError(() => surface.write(testCase.entityType, input), {
+        fieldPath: `${testCase.fieldPath}.comments[0]`,
+      });
+    }
+  );
+
+  test.each(cases.flatMap((testCase) => writerSurfaces.map((surface) => ({ testCase, surface }))))(
+    '$testCase.entityType $surface.name rejects an accessor without invoking it',
+    ({ testCase, surface }) => {
+      const input = testCase.makeInput();
+      let invocations = 0;
+      Object.defineProperty(input, 'consideration_text', {
+        configurable: true,
+        enumerable: true,
+        get: () => {
+          invocations += 1;
+          return 'must not run';
+        },
+      });
+
+      expectStructureError(() => surface.write(testCase.entityType, input), {
+        fieldPath: `${testCase.fieldPath}.consideration_text`,
+      });
+      expect(invocations).toBe(0);
+    }
+  );
+
+  test.each(cases.flatMap((testCase) => writerSurfaces.map((surface) => ({ testCase, surface }))))(
+    '$testCase.entityType $surface.name rejects an array-element accessor without invoking it',
+    ({ testCase, surface }) => {
+      const input = testCase.makeInput();
+      let invocations = 0;
+      const comments = ['safe'];
+      Object.defineProperty(comments, '0', {
+        configurable: true,
+        enumerable: true,
+        get: () => {
+          invocations += 1;
+          return 'must not run';
+        },
+      });
+      (input as { comments?: string[] }).comments = comments;
+
+      expectStructureError(() => surface.write(testCase.entityType, input), {
+        fieldPath: `${testCase.fieldPath}.comments[0]`,
+      });
+      expect(invocations).toBe(0);
+    }
+  );
+
+  test.each(cases)('$entityType rejects a present undefined array element at its indexed path', (testCase) => {
+    const input = testCase.makeInput();
+    (input as { comments?: unknown[] }).comments = [undefined];
+    expectStructureError(() => directWrite(testCase.entityType, input), {
+      fieldPath: `${testCase.fieldPath}.comments[0]`,
+    });
+  });
+
+  test.each(
+    cases.flatMap((testCase) =>
+      [
+        { value: 1n, code: OcpErrorCodes.INVALID_TYPE },
+        { value: Symbol('value'), code: OcpErrorCodes.INVALID_TYPE },
+        { value: () => 'value', code: OcpErrorCodes.INVALID_TYPE },
+        { value: Number.NaN, code: OcpErrorCodes.INVALID_FORMAT },
+        { value: Number.NEGATIVE_INFINITY, code: OcpErrorCodes.INVALID_FORMAT },
+      ].map(({ value, code }) => ({ testCase, value, code }))
+    )
+  )('$testCase.entityType rejects non-JSON primitive $value at its exact path', ({ testCase, value, code }) => {
+    const input = testCase.makeInput();
+    (input as { consideration_text?: unknown }).consideration_text = value;
+    expectStructureError(() => directWrite(testCase.entityType, input), {
+      code,
+      fieldPath: `${testCase.fieldPath}.consideration_text`,
+    });
+  });
+
+  test.each(cases)('$entityType rejects symbol and non-enumerable extra fields at exact paths', (testCase) => {
+    const symbol = Symbol('hidden');
+    const symbolInput = testCase.makeInput() as ComplexIssuanceInput & Record<PropertyKey, unknown>;
+    symbolInput[symbol] = true;
+    expectStructureError(() => directWrite(testCase.entityType, symbolInput), {
+      fieldPath: `${testCase.fieldPath}[Symbol(hidden)]`,
+    });
+
+    const hiddenInput = testCase.makeInput();
+    Object.defineProperty(hiddenInput, 'hidden', { configurable: true, enumerable: false, value: true });
+    expectStructureError(() => directWrite(testCase.entityType, hiddenInput), {
+      fieldPath: `${testCase.fieldPath}.hidden`,
+    });
+  });
+
+  test.each(cases)('$entityType distinguishes a missing required id from explicit null', (testCase) => {
+    for (const { value, code } of [
+      { value: undefined, code: OcpErrorCodes.REQUIRED_FIELD_MISSING },
+      { value: null, code: OcpErrorCodes.INVALID_TYPE },
+    ]) {
+      const input = testCase.makeInput();
+      (input as { id: unknown }).id = value;
+      expectStructureError(() => directWrite(testCase.entityType, input), {
+        code,
+        fieldPath: `${testCase.fieldPath}.id`,
+      });
     }
   });
 });

@@ -270,15 +270,15 @@ describe('convertible issuance seniority write boundary', () => {
   };
 
   test.each([
-    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
-    ['undefined', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
-    ['numeric string', '1', OcpErrorCodes.INVALID_TYPE],
-    ['boolean', false, OcpErrorCodes.INVALID_TYPE],
-    ['fractional number', 1.5, OcpErrorCodes.INVALID_FORMAT],
-    ['unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_FORMAT],
-    ['NaN', Number.NaN, OcpErrorCodes.INVALID_FORMAT],
-    ['positive infinity', Number.POSITIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
-  ] as const)('rejects %s before writing DAML', (_case, seniority, code) => {
+    ['null', null, OcpErrorCodes.INVALID_TYPE, 'safe integer number'],
+    ['undefined', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING, 'safe integer number'],
+    ['numeric string', '1', OcpErrorCodes.INVALID_TYPE, 'safe integer number'],
+    ['boolean', false, OcpErrorCodes.INVALID_TYPE, 'safe integer number'],
+    ['fractional number', 1.5, OcpErrorCodes.INVALID_FORMAT, 'safe integer number'],
+    ['unsafe integer', Number.MAX_SAFE_INTEGER + 1, OcpErrorCodes.INVALID_FORMAT, 'safe integer number'],
+    ['NaN', Number.NaN, OcpErrorCodes.INVALID_FORMAT, 'finite JSON number'],
+    ['positive infinity', Number.POSITIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT, 'finite JSON number'],
+  ] as const)('rejects %s before writing DAML', (_case, seniority, code, expectedType) => {
     try {
       convertibleIssuanceDataToDaml({
         ...validInput,
@@ -289,7 +289,7 @@ describe('convertible issuance seniority write boundary', () => {
       expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
         code,
-        expectedType: 'safe integer number',
+        expectedType,
         fieldPath: 'convertibleIssuance.seniority',
         receivedValue: seniority,
       });
@@ -315,6 +315,7 @@ const BASE_DAML = {
   convertible_type: 'OcfConvertibleSafe',
   security_law_exemptions: [],
   seniority: '1',
+  comments: [],
 };
 
 function buildDamlSafeTrigger(conversionTiming?: string) {
@@ -353,7 +354,7 @@ function buildDamlSafeTriggerWithDateField(field: TriggerDateField, value: unkno
 
 describe('read-side: required seniority boundary', () => {
   test.each([
-    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['null', null, OcpErrorCodes.INVALID_TYPE],
     ['undefined', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
     ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
     ['whitespace string', ' ', OcpErrorCodes.INVALID_FORMAT],
@@ -973,7 +974,7 @@ describe('convertible issuance write field boundaries', () => {
   );
 
   test.each(['board_approval_date', 'stockholder_approval_date'] as const)(
-    'rejects a present non-string %s and accepts null/undefined as absent',
+    'rejects a present non-string or null %s and accepts undefined as absent',
     (field) => {
       const invalidDate = { seconds: 1 };
       expectInvalidDate(
@@ -988,23 +989,31 @@ describe('convertible issuance write field boundaries', () => {
         OcpErrorCodes.INVALID_TYPE
       );
 
-      for (const value of [null, undefined]) {
-        const result = convertibleIssuanceDataToDaml({
+      expect(
+        convertibleIssuanceDataToDaml({
           ...BASE_INPUT,
           conversion_triggers: [SAFE_TRIGGER_BASE],
-          [field]: value,
-        });
-        expect(result[field]).toBeNull();
-      }
+          [field]: undefined,
+        })[field]
+      ).toBeNull();
+      expectInvalidDate(
+        () =>
+          convertibleIssuanceDataToDaml({
+            ...BASE_INPUT,
+            conversion_triggers: [SAFE_TRIGGER_BASE],
+            [field]: null,
+          }),
+        `convertibleIssuance.${field}`,
+        null,
+        OcpErrorCodes.INVALID_TYPE
+      );
     }
   );
 
   it('encodes the required AUTOMATIC_ON_DATE trigger_date and no range dates', () => {
     const result = convertibleIssuanceDataToDaml({
       ...BASE_INPUT,
-      conversion_triggers: [
-        { ...SAFE_TRIGGER_BASE, type: 'AUTOMATIC_ON_DATE', trigger_date: '2024-01-15T23:30:00-05:00' },
-      ],
+      conversion_triggers: [{ ...SAFE_TRIGGER_BASE, type: 'AUTOMATIC_ON_DATE', trigger_date: '2024-01-15' }],
     });
 
     expect(result.conversion_triggers[0]).toMatchObject({
@@ -1021,8 +1030,8 @@ describe('convertible issuance write field boundaries', () => {
         {
           ...SAFE_TRIGGER_BASE,
           type: 'ELECTIVE_IN_RANGE',
-          start_date: '2024-01-15T00:30:00+14:00',
-          end_date: '2024-02-15T23:30:00-05:00',
+          start_date: '2024-01-15',
+          end_date: '2024-02-15',
         },
       ],
     });
@@ -1123,9 +1132,9 @@ describe('convertible issuance write field boundaries', () => {
     );
   });
 
-  test.each([null, undefined])('accepts optional note accrual_end_date %p as absent', (value) => {
+  it('accepts an omitted optional note accrual_end_date as absent', () => {
     const result = convertibleIssuanceDataToDaml(
-      buildConvertibleNoteInput({ rate: '0.05', accrual_start_date: '2024-01-15', accrual_end_date: value })
+      buildConvertibleNoteInput({ rate: '0.05', accrual_start_date: '2024-01-15' })
     );
     const trigger = requireFirst(result.conversion_triggers, 'converted note trigger');
     const right = trigger.conversion_right as {
@@ -1133,6 +1142,18 @@ describe('convertible issuance write field boundaries', () => {
     };
 
     expect(right.conversion_mechanism?.value?.interest_rates?.[0]?.accrual_end_date).toBeNull();
+  });
+
+  it('rejects an explicit null optional note accrual_end_date', () => {
+    expectInvalidDate(
+      () =>
+        convertibleIssuanceDataToDaml(
+          buildConvertibleNoteInput({ rate: '0.05', accrual_start_date: '2024-01-15', accrual_end_date: null })
+        ),
+      `${NOTE_INTEREST_RATE_PATH}.accrual_end_date`,
+      null,
+      OcpErrorCodes.INVALID_TYPE
+    );
   });
 });
 

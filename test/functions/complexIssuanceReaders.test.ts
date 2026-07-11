@@ -422,14 +422,23 @@ function directIssuanceEvent(testCase: ComplexIssuanceReaderCase, data: Record<s
 async function publicIssuanceEvents(
   testCase: ComplexIssuanceReaderCase,
   data: Record<string, unknown>
-): Promise<readonly [ComplexIssuance, ComplexIssuance]> {
+): Promise<readonly [ComplexIssuance, ComplexIssuance, ComplexIssuance, ComplexIssuance]> {
   const namedClient = createMockClient(testCase, data).client;
   const named = (await testCase.invoke(namedClient)).event;
 
-  const ocpClient = createMockClient(testCase, data).client;
-  const ocp = new OcpClient({ ledger: ocpClient });
+  const genericClient = createMockClient(testCase, data).client;
+  const generic = await getEntityAsOcf(genericClient, testCase.entityType, testCase.contractId);
+
+  const namespaceClient = createMockClient(testCase, data).client;
+  const ocp = new OcpClient({ ledger: namespaceClient });
   const namespaced = await ocp.OpenCapTable[testCase.entityType].get({ contractId: testCase.contractId });
-  return [named, namespaced.data];
+  const literalClient = createMockClient(testCase, data).client;
+  const literalOcp = new OcpClient({ ledger: literalClient });
+  const literal = await literalOcp.OpenCapTable.getByObjectType({
+    objectType: testCase.objectType,
+    contractId: testCase.contractId,
+  });
+  return [named, generic.data, namespaced.data, literal.data];
 }
 
 async function allIssuanceEvents(
@@ -449,11 +458,45 @@ async function expectAllIssuancePathsToReject(
   const namedClient = createMockClient(testCase, data).client;
   await expect(testCase.invoke(namedClient)).rejects.toMatchObject(expected);
 
-  const ocpClient = createMockClient(testCase, data).client;
-  const ocp = new OcpClient({ ledger: ocpClient });
+  const genericClient = createMockClient(testCase, data).client;
+  await expect(getEntityAsOcf(genericClient, testCase.entityType, testCase.contractId)).rejects.toMatchObject(expected);
+
+  const namespaceClient = createMockClient(testCase, data).client;
+  const ocp = new OcpClient({ ledger: namespaceClient });
   await expect(ocp.OpenCapTable[testCase.entityType].get({ contractId: testCase.contractId })).rejects.toMatchObject(
     expected
   );
+
+  const literalClient = createMockClient(testCase, data).client;
+  const literalOcp = new OcpClient({ ledger: literalClient });
+  await expect(
+    literalOcp.OpenCapTable.getByObjectType({ objectType: testCase.objectType, contractId: testCase.contractId })
+  ).rejects.toMatchObject(expected);
+}
+
+async function expectEveryIssuanceSurfaceToReject(
+  testCase: ComplexIssuanceReaderCase,
+  data: Record<string, unknown>
+): Promise<void> {
+  expect(() => directIssuanceEvent(testCase, data)).toThrow();
+
+  const namedClient = createMockClient(testCase, data).client;
+  await expect(testCase.invoke(namedClient)).rejects.toBeInstanceOf(Error);
+
+  const genericClient = createMockClient(testCase, data).client;
+  await expect(getEntityAsOcf(genericClient, testCase.entityType, testCase.contractId)).rejects.toBeInstanceOf(Error);
+
+  const namespaceClient = createMockClient(testCase, data).client;
+  const namespaceOcp = new OcpClient({ ledger: namespaceClient });
+  await expect(
+    namespaceOcp.OpenCapTable[testCase.entityType].get({ contractId: testCase.contractId })
+  ).rejects.toBeInstanceOf(Error);
+
+  const literalClient = createMockClient(testCase, data).client;
+  const literalOcp = new OcpClient({ ledger: literalClient });
+  await expect(
+    literalOcp.OpenCapTable.getByObjectType({ objectType: testCase.objectType, contractId: testCase.contractId })
+  ).rejects.toBeInstanceOf(Error);
 }
 
 function setConvertibleMechanism(data: Record<string, unknown>, mechanism: Record<string, unknown>): void {
@@ -1492,7 +1535,9 @@ describe('decoder-backed complex issuance readers', () => {
   });
 
   it.each(issuanceReaderCases)('$entityType rejects fields discarded by the generated codec', async (testCase) => {
-    const { client } = createMockClient(testCase, { ...testCase.validData(), unexpected_field: true });
+    const data = { ...testCase.validData(), unexpected_field: true };
+    await expectEveryIssuanceSurfaceToReject(testCase, data);
+    const { client } = createMockClient(testCase, data);
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpParseError',
@@ -1575,6 +1620,7 @@ describe('decoder-backed complex issuance readers', () => {
 
   it.each(issuanceReaderCases)('$entityType requires issuance fields as own properties', async (testCase) => {
     const inheritedData = Object.create(testCase.validData()) as Record<string, unknown>;
+    await expectEveryIssuanceSurfaceToReject(testCase, inheritedData);
     const { client } = createMockClient(testCase, inheritedData);
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
@@ -1591,6 +1637,7 @@ describe('decoder-backed complex issuance readers', () => {
   it.each(issuanceReaderCases)('$entityType rejects sparse required collections', async (testCase) => {
     const data = testCase.validData();
     data.comments = new Array(1);
+    await expectEveryIssuanceSurfaceToReject(testCase, data);
     const { client } = createMockClient(testCase, data);
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
@@ -1613,6 +1660,7 @@ describe('decoder-backed complex issuance readers', () => {
           ? 'termination_exercise_windows'
           : 'exercise_triggers';
     data[field] = new Array(1);
+    await expectEveryIssuanceSurfaceToReject(testCase, data);
     const { client } = createMockClient(testCase, data);
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
@@ -1629,6 +1677,7 @@ describe('decoder-backed complex issuance readers', () => {
   it.each(issuanceReaderCases)('$entityType requires nested record fields as own properties', async (testCase) => {
     const data = testCase.validData();
     data.security_law_exemptions = [Object.create({ description: 'Reg D', jurisdiction: 'US' })];
+    await expectEveryIssuanceSurfaceToReject(testCase, data);
     const { client } = createMockClient(testCase, data);
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({

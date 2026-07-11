@@ -2,18 +2,27 @@ import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfWarrantIssuance, StockClassConversionRight, WarrantExerciseTrigger } from '../../../types/native';
 import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
-import {
-  cleanComments,
-  dateStringToDAMLTime,
-  optionalDateStringToDAMLTime,
-  optionalString,
-} from '../../../utils/typeConversions';
+import { dateStringToDAMLTime } from '../../../utils/typeConversions';
 import {
   canonicalOptionalNumericToDaml,
   ratioMechanismToDaml,
   warrantMechanismToDaml,
 } from '../shared/conversionMechanisms';
 import { nativeMonetaryToDamlNumeric10, parseDamlNumeric10 } from '../shared/damlNumerics';
+import {
+  canonicalOptionalBooleanToDaml,
+  canonicalOptionalDateToDaml,
+  canonicalOptionalTextToDaml,
+} from '../shared/damlText';
+import {
+  commentsToDaml,
+  optionalWriterArray,
+  requirePlainWriterInput,
+  requireWriterArray,
+  requireWriterString,
+  securityLawExemptionsToDaml,
+  validateCanonicalWriterInput,
+} from '../shared/ocfWriterValidation';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
@@ -85,10 +94,10 @@ function quantitySourceToDaml(value: unknown): Fairmint.OpenCapTable.Types.Stock
   return invalidQuantitySource(value);
 }
 
-function requireStockClassTarget(right: StockClassConversionRight): string {
+function requireStockClassTarget(right: StockClassConversionRight, source: string): string {
   if (!right.converts_to_stock_class_id) {
     throw new OcpValidationError(
-      'warrantTrigger.conversion_right.converts_to_stock_class_id',
+      `${source}.converts_to_stock_class_id`,
       'The current DAML stock-class right requires converts_to_stock_class_id',
       { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
     );
@@ -105,8 +114,8 @@ function storageTrigger(
   return {
     type_: triggerTypeToDaml(trigger.type),
     trigger_id: trigger.trigger_id,
-    nickname: optionalString(trigger.nickname),
-    trigger_description: optionalString(trigger.trigger_description),
+    nickname: canonicalOptionalTextToDaml(trigger.nickname, `${source}.nickname`),
+    trigger_description: canonicalOptionalTextToDaml(trigger.trigger_description, `${source}.trigger_description`),
     ...triggerFields,
     conversion_right: {
       tag: 'OcfRightConvertible',
@@ -128,7 +137,8 @@ function stockClassRightToDaml(
   right: StockClassConversionRight,
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
-  const convertsToStockClassId = requireStockClassTarget(right);
+  const rightSource = `${source}.conversion_right`;
+  const convertsToStockClassId = requireStockClassTarget(right, rightSource);
   const mechanism = ratioMechanismToDaml(right.conversion_mechanism, `${source}.conversion_right.conversion_mechanism`);
   return {
     tag: 'OcfRightStockClass',
@@ -139,7 +149,10 @@ function stockClassRightToDaml(
       converts_to_stock_class_id: convertsToStockClassId,
       ratio: mechanism.ratio,
       conversion_price: mechanism.conversion_price,
-      converts_to_future_round: right.converts_to_future_round ?? null,
+      converts_to_future_round: canonicalOptionalBooleanToDaml(
+        right.converts_to_future_round,
+        `${rightSource}.converts_to_future_round`
+      ),
       ceiling_price_per_share: null,
       custom_description: null,
       discount_rate: null,
@@ -168,8 +181,14 @@ function conversionRightToDaml(
             right.conversion_mechanism,
             `${source}.conversion_right.conversion_mechanism`
           ),
-          converts_to_future_round: right.converts_to_future_round ?? null,
-          converts_to_stock_class_id: optionalString(right.converts_to_stock_class_id),
+          converts_to_future_round: canonicalOptionalBooleanToDaml(
+            right.converts_to_future_round,
+            `${source}.conversion_right.converts_to_future_round`
+          ),
+          converts_to_stock_class_id: canonicalOptionalTextToDaml(
+            right.converts_to_stock_class_id,
+            `${source}.conversion_right.converts_to_stock_class_id`
+          ),
         },
       };
     case 'STOCK_CLASS_CONVERSION_RIGHT':
@@ -199,8 +218,8 @@ function triggerToDaml(
     type_: triggerTypeToDaml(parsed.type),
     trigger_id: parsed.trigger_id,
     conversion_right: conversionRightToDaml(parsed, source),
-    nickname: optionalString(parsed.nickname),
-    trigger_description: optionalString(parsed.trigger_description),
+    nickname: canonicalOptionalTextToDaml(parsed.nickname, `${source}.nickname`),
+    trigger_description: canonicalOptionalTextToDaml(parsed.trigger_description, `${source}.trigger_description`),
     ...triggerFields,
   };
 }
@@ -208,44 +227,53 @@ function triggerToDaml(
 export function warrantIssuanceDataToDaml(
   input: WarrantIssuanceInput
 ): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
-  const quantitySource = input.quantity
-    ? quantitySourceToDaml(input.quantity_source ?? 'UNSPECIFIED')
-    : quantitySourceToDaml(input.quantity_source);
-  const vestings = (input.vestings ?? [])
-    .map((vesting, index) => ({
-      ...vesting,
-      amount: parseDamlNumeric10(vesting.amount, `warrantIssuance.vestings[${index}].amount`),
-    }))
-    .filter((vesting) => vesting.amount !== '0' && !vesting.amount.startsWith('-'));
-  return {
-    id: input.id,
+  const writerInput = requirePlainWriterInput(input, 'warrantIssuance');
+  requireWriterArray(input.exercise_triggers, 'warrantIssuance.exercise_triggers');
+  const quantitySource =
+    input.quantity !== undefined
+      ? quantitySourceToDaml(input.quantity_source ?? 'UNSPECIFIED')
+      : quantitySourceToDaml(input.quantity_source);
+  const vestings = optionalWriterArray(input.vestings, 'warrantIssuance.vestings').map((value, index) => {
+    const fieldPath = `warrantIssuance.vestings[${index}]`;
+    const vesting = requirePlainWriterInput(value, fieldPath);
+    return {
+      date: dateStringToDAMLTime(vesting.date, `${fieldPath}.date`),
+      amount: parseDamlNumeric10(vesting.amount, `${fieldPath}.amount`),
+    };
+  });
+  const result: Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData = {
+    id: requireWriterString(input.id, 'warrantIssuance.id'),
     date: dateStringToDAMLTime(input.date, 'warrantIssuance.date'),
-    security_id: input.security_id,
-    custom_id: input.custom_id,
-    stakeholder_id: input.stakeholder_id,
-    board_approval_date: optionalDateStringToDAMLTime(input.board_approval_date, 'warrantIssuance.board_approval_date'),
-    stockholder_approval_date: optionalDateStringToDAMLTime(
+    security_id: requireWriterString(input.security_id, 'warrantIssuance.security_id'),
+    custom_id: requireWriterString(input.custom_id, 'warrantIssuance.custom_id'),
+    stakeholder_id: requireWriterString(input.stakeholder_id, 'warrantIssuance.stakeholder_id'),
+    board_approval_date: canonicalOptionalDateToDaml(input.board_approval_date, 'warrantIssuance.board_approval_date'),
+    stockholder_approval_date: canonicalOptionalDateToDaml(
       input.stockholder_approval_date,
       'warrantIssuance.stockholder_approval_date'
     ),
-    consideration_text: optionalString(input.consideration_text),
-    security_law_exemptions: input.security_law_exemptions,
+    consideration_text: canonicalOptionalTextToDaml(input.consideration_text, 'warrantIssuance.consideration_text'),
+    security_law_exemptions: securityLawExemptionsToDaml(
+      input.security_law_exemptions,
+      'warrantIssuance.security_law_exemptions'
+    ),
     quantity: canonicalOptionalNumericToDaml(input.quantity, 'warrantIssuance.quantity'),
     quantity_source: quantitySource,
-    exercise_price: input.exercise_price
-      ? nativeMonetaryToDamlNumeric10(input.exercise_price, 'warrantIssuance.exercise_price')
-      : null,
+    exercise_price:
+      input.exercise_price === undefined
+        ? null
+        : nativeMonetaryToDamlNumeric10(input.exercise_price, 'warrantIssuance.exercise_price'),
     purchase_price: nativeMonetaryToDamlNumeric10(input.purchase_price, 'warrantIssuance.purchase_price'),
     exercise_triggers: input.exercise_triggers.map(triggerToDaml),
-    warrant_expiration_date: optionalDateStringToDAMLTime(
+    warrant_expiration_date: canonicalOptionalDateToDaml(
       input.warrant_expiration_date,
       'warrantIssuance.warrant_expiration_date'
     ),
-    vesting_terms_id: optionalString(input.vesting_terms_id),
-    vestings: vestings.map((vesting) => ({
-      date: dateStringToDAMLTime(vesting.date, 'warrantIssuance.vestings[].date'),
-      amount: vesting.amount,
-    })),
-    comments: cleanComments(input.comments),
+    vesting_terms_id: canonicalOptionalTextToDaml(input.vesting_terms_id, 'warrantIssuance.vesting_terms_id'),
+    vestings,
+    comments: commentsToDaml(input.comments, 'warrantIssuance.comments'),
   };
+
+  validateCanonicalWriterInput('warrantIssuance', 'TX_WARRANT_ISSUANCE', writerInput, 'warrantIssuance');
+  return result;
 }

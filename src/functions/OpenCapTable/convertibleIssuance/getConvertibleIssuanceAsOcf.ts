@@ -17,7 +17,7 @@ import {
   toNonEmptyArray,
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
-import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { parseDamlNumeric10 } from '../shared/damlNumerics';
@@ -210,7 +210,7 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
       : parseDamlNumeric10(data.pro_rata, 'convertibleIssuance.pro_rata');
   const comments = commentsFromDaml(data.comments);
 
-  return {
+  const result: OcfConvertibleIssuance = {
     object_type: 'TX_CONVERTIBLE_ISSUANCE',
     id,
     date,
@@ -234,6 +234,8 @@ export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuan
     ...(proRata !== undefined ? { pro_rata: proRata } : {}),
     ...(comments ? { comments } : {}),
   };
+  decodeDamlEntityData('convertibleIssuance', value);
+  return result;
 }
 
 /** Retrieve a ConvertibleIssuance contract and return it as an OCF JSON object. */

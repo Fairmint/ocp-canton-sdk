@@ -516,7 +516,7 @@ describe('strict optional PPS discount fields', () => {
     const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
     expect(error).toMatchObject({
       code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'decimal string',
+      expectedType: 'DAML Numeric(10) decimal string with at most 28 integral digits and 10 fractional digits',
       fieldPath: 'conversion_mechanism.discount_amount.amount',
       receivedValue: null,
     });
@@ -527,7 +527,7 @@ describe('strict optional PPS discount fields', () => {
     const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
     expect(error).toMatchObject({
       code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'currency string',
+      expectedType: 'three-letter uppercase ISO 4217 currency code',
       fieldPath: 'conversion_mechanism.discount_amount.currency',
       receivedValue: null,
     });
@@ -598,21 +598,15 @@ describe('strict optional capitalization definitions', () => {
     expect(encode(undefined)).toMatchObject({ value: { capitalization_definition: null } });
   });
 
-  test.each(writers)('preserves an exact non-blank $name definition', ({ encode }) => {
+  test.each(writers)('preserves an exact $name definition', ({ encode }) => {
     const definition = '  Fully diluted capitalization  ';
     expect(encode(definition)).toMatchObject({ value: { capitalization_definition: definition } });
   });
 
   test.each(writers.flatMap((writer) => ['', '   '].map((value) => ({ ...writer, value }))))(
-    'rejects a blank $name definition',
+    'preserves a schema-valid empty or whitespace-only $name definition',
     ({ encode, value }) => {
-      const error = captureValidationError(() => encode(value));
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_FORMAT,
-        expectedType: 'non-blank string or omitted property',
-        fieldPath: 'conversion_mechanism.capitalization_definition',
-        receivedValue: value,
-      });
+      expect(encode(value)).toMatchObject({ value: { capitalization_definition: value } });
     }
   );
 
@@ -622,7 +616,7 @@ describe('strict optional capitalization definitions', () => {
       const error = captureValidationError(() => encode(value));
       expect(error).toMatchObject({
         code: OcpErrorCodes.INVALID_TYPE,
-        expectedType: 'non-blank string or omitted property',
+        expectedType: 'string or omitted property',
         fieldPath: 'conversion_mechanism.capitalization_definition',
         receivedValue: value,
       });

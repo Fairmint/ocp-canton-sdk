@@ -16,7 +16,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
     test('conversion_mfn: false is preserved in Note conversion mechanism', () => {
       const daml = convertibleIssuanceDataToDaml({
         id: 'ci-1',
-        date: '2024-01-15T00:00:00Z',
+        date: '2024-01-15',
         security_id: 'sec-1',
         custom_id: 'CI-1',
         stakeholder_id: 'sh-1',
@@ -26,7 +26,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
           {
             type: 'AUTOMATIC_ON_DATE',
             trigger_id: 't1',
-            trigger_date: '2025-01-01T00:00:00Z',
+            trigger_date: '2025-01-01',
             conversion_right: {
               type: 'CONVERTIBLE_CONVERSION_RIGHT',
               conversion_mechanism: {
@@ -55,7 +55,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
     test('conversion_mfn: false is preserved in SAFE conversion mechanism', () => {
       const daml = convertibleIssuanceDataToDaml({
         id: 'ci-2',
-        date: '2024-01-15T00:00:00Z',
+        date: '2024-01-15',
         security_id: 'sec-1',
         custom_id: 'CI-2',
         stakeholder_id: 'sh-1',
@@ -65,7 +65,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
           {
             type: 'AUTOMATIC_ON_DATE',
             trigger_id: 't1',
-            trigger_date: '2025-01-01T00:00:00Z',
+            trigger_date: '2025-01-01',
             conversion_right: {
               type: 'CONVERTIBLE_CONVERSION_RIGHT',
               conversion_mechanism: {
