@@ -54,6 +54,19 @@ function stockClassConversionRightToDaml(
   stockClassId: string,
   index: number
 ): Fairmint.OpenCapTable.Types.Conversion.OcfStockClassConversionRight {
+  const rawRight = right as unknown as Record<string, unknown>;
+  if (rawRight.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
+    throw new OcpValidationError(
+      `stockClass.conversion_rights[${index}].type`,
+      'Stock-class conversion rights require the exact OCF discriminator',
+      {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'STOCK_CLASS_CONVERSION_RIGHT',
+        receivedValue: rawRight.type,
+      }
+    );
+  }
+
   const convertsToStockClassId = right.converts_to_stock_class_id;
   if (typeof convertsToStockClassId !== 'string' || convertsToStockClassId.length === 0) {
     throw new OcpValidationError(

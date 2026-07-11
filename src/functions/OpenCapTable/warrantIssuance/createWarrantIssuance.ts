@@ -252,6 +252,19 @@ function buildWarrantStockClassConversionRight(
   details: StockClassConversionRightInput,
   index: number
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
+  const targetStockClassId = (details as { converts_to_stock_class_id?: unknown }).converts_to_stock_class_id;
+  if (typeof targetStockClassId !== 'string' || targetStockClassId.length === 0) {
+    throw new OcpValidationError(
+      `warrantIssuance.exercise_triggers[${index}].conversion_right.converts_to_stock_class_id`,
+      'The current DAML package requires a target stock class for warrant stock-class conversion rights',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'non-empty string',
+        receivedValue: targetStockClassId,
+      }
+    );
+  }
+
   // Runtime guard: protect against invalid data reaching this path (e.g. from untyped JSON)
   const mechType = (details.conversion_mechanism as { type: string }).type;
   if (mechType !== 'RATIO_CONVERSION') {
@@ -267,8 +280,8 @@ function buildWarrantStockClassConversionRight(
   const value: Fairmint.OpenCapTable.Types.Conversion.OcfStockClassConversionRight = {
     type_: 'STOCK_CLASS_CONVERSION_RIGHT',
     conversion_mechanism: 'OcfConversionMechanismRatioConversion',
-    conversion_trigger: warrantNestedConversionTrigger(exerciseTrigger, details.converts_to_stock_class_id, index),
-    converts_to_stock_class_id: details.converts_to_stock_class_id,
+    conversion_trigger: warrantNestedConversionTrigger(exerciseTrigger, targetStockClassId, index),
+    converts_to_stock_class_id: targetStockClassId,
     ratio,
     conversion_price,
     converts_to_future_round,

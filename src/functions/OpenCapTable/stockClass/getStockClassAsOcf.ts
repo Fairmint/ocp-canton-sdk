@@ -11,13 +11,94 @@ import {
 } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
+function firstLossyGeneratedPath(
+  source: unknown,
+  encoded: unknown,
+  path: string,
+  ancestors = new WeakSet<object>()
+): string | undefined {
+  if (source === null || typeof source !== 'object') {
+    return Object.is(source, encoded) ? undefined : path;
+  }
+  if (ancestors.has(source)) return path;
+  ancestors.add(source);
+  try {
+    if (Array.isArray(source)) {
+      if (!Array.isArray(encoded) || source.length !== encoded.length) return path;
+      for (let index = 0; index < source.length; index += 1) {
+        const mismatch = firstLossyGeneratedPath(source[index], encoded[index], `${path}[${index}]`, ancestors);
+        if (mismatch !== undefined) return mismatch;
+      }
+      return undefined;
+    }
+    if (encoded === null || typeof encoded !== 'object' || Array.isArray(encoded)) return path;
+
+    const encodedRecord = encoded as Record<string, unknown>;
+    for (const [key, value] of Object.entries(source)) {
+      if (!Object.prototype.hasOwnProperty.call(encodedRecord, key)) return `${path}.${key}`;
+      const mismatch = firstLossyGeneratedPath(value, encodedRecord[key], `${path}.${key}`, ancestors);
+      if (mismatch !== undefined) return mismatch;
+    }
+    return undefined;
+  } finally {
+    ancestors.delete(source);
+  }
+}
+
 /**
  * Internal type for the intermediate stock class data converted from DAML.
  * This represents the data structure before it's transformed to the final OCF output.
  */
-export function damlStockClassDataToNative(
-  damlData: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData
-): OcfStockClass {
+export function damlStockClassDataToNative(input: unknown): OcfStockClass {
+  if (input !== null && typeof input === 'object' && !Array.isArray(input)) {
+    const raw = input as Record<string, unknown>;
+    if (typeof raw.id !== 'string' || raw.id.length === 0) {
+      throw new OcpValidationError('stockClass.id', 'Required field is missing', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        receivedValue: raw.id,
+      });
+    }
+    if (typeof raw.name !== 'string' || raw.name.length === 0) {
+      throw new OcpValidationError('stockClass.name', 'Required field is missing', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        receivedValue: raw.name,
+      });
+    }
+    optionalDamlTimeToDateString(raw.board_approval_date, 'stockClass.board_approval_date');
+    optionalDamlTimeToDateString(raw.stockholder_approval_date, 'stockClass.stockholder_approval_date');
+  }
+
+  let damlData: Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData;
+  try {
+    damlData = Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData.decoder.runWithException(input);
+  } catch (error) {
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const message = rawMessage.length > 500 ? `${rawMessage.slice(0, 500)}…` : rawMessage;
+    throw new OcpParseError(`Invalid DAML stock class data: ${message}`, {
+      source: 'stockClass',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+
+  let encoded: unknown;
+  try {
+    encoded = Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData.encode(damlData);
+  } catch (error) {
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const message = rawMessage.length > 500 ? `${rawMessage.slice(0, 500)}…` : rawMessage;
+    throw new OcpParseError(`Unable to encode DAML stock class data: ${message}`, {
+      source: 'stockClass',
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+  const lossyPath = firstLossyGeneratedPath(input, encoded, 'stockClass');
+  if (lossyPath !== undefined) {
+    throw new OcpParseError(`Generated DAML decoding would discard or alter ${lossyPath}`, {
+      source: lossyPath,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+    });
+  }
+
   // Access fields via Record type to handle DAML union types that may vary from the SDK definition
   const damlRecord = damlData as Record<string, unknown>;
   const dataWithId = damlRecord as { id?: string };
@@ -156,6 +237,104 @@ export function damlStockClassDataToNative(
           throw new OcpValidationError(`${path}.converts_to_stock_class_id`, 'Required target stock class is missing', {
             code: OcpErrorCodes.SCHEMA_MISMATCH,
           });
+        }
+
+        const unsupportedFields = [
+          ['ceiling_price_per_share', right.ceiling_price_per_share],
+          ['custom_description', right.custom_description],
+          ['discount_rate', right.discount_rate],
+          ['expires_at', right.expires_at],
+          ['floor_price_per_share', right.floor_price_per_share],
+          ['percent_of_capitalization', right.percent_of_capitalization],
+          ['reference_share_price', right.reference_share_price],
+          ['reference_valuation_price_per_share', right.reference_valuation_price_per_share],
+          ['valuation_cap', right.valuation_cap],
+        ] as const;
+        for (const [field, value] of unsupportedFields) {
+          if (value !== null) {
+            throw new OcpValidationError(
+              `${path}.${field}`,
+              `DAML field ${field} cannot be represented by canonical OCF StockClassConversionRight`,
+              { code: OcpErrorCodes.SCHEMA_MISMATCH, receivedValue: value }
+            );
+          }
+        }
+
+        const trigger = right.conversion_trigger;
+        const triggerPath = `${path}.conversion_trigger`;
+        const expectedTriggerId = `ocp-sdk:stock-class:${damlData.id}:conversion-right:${index}:unspecified`;
+        if (trigger.trigger_id !== expectedTriggerId) {
+          throw new OcpValidationError(`${triggerPath}.trigger_id`, 'Unexpected storage-only trigger identifier', {
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            expectedType: expectedTriggerId,
+            receivedValue: trigger.trigger_id,
+          });
+        }
+        if (trigger.type_ !== 'OcfTriggerTypeTypeUnspecified') {
+          throw new OcpValidationError(`${triggerPath}.type`, 'Unexpected storage-only trigger type', {
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            expectedType: 'OcfTriggerTypeTypeUnspecified',
+            receivedValue: trigger.type_,
+          });
+        }
+        const populatedTriggerField = [
+          ['end_date', trigger.end_date],
+          ['nickname', trigger.nickname],
+          ['start_date', trigger.start_date],
+          ['trigger_condition', trigger.trigger_condition],
+          ['trigger_date', trigger.trigger_date],
+          ['trigger_description', trigger.trigger_description],
+        ].find((entry) => entry[1] !== null);
+        if (populatedTriggerField) {
+          throw new OcpValidationError(
+            `${triggerPath}.${String(populatedTriggerField[0])}`,
+            'Storage-only trigger fields must be empty',
+            { code: OcpErrorCodes.SCHEMA_MISMATCH, receivedValue: populatedTriggerField[1] }
+          );
+        }
+        if (trigger.conversion_right.tag !== 'OcfRightConvertible') {
+          throw new OcpValidationError(
+            `${triggerPath}.conversion_right.tag`,
+            'Unexpected storage-only conversion-right variant',
+            {
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+              expectedType: 'OcfRightConvertible',
+              receivedValue: trigger.conversion_right.tag,
+            }
+          );
+        }
+        const sentinelRight = trigger.conversion_right.value;
+        if (sentinelRight.type_ !== 'CONVERTIBLE_CONVERSION_RIGHT') {
+          throw new OcpValidationError(
+            `${triggerPath}.conversion_right.type`,
+            'Unexpected storage-only conversion-right discriminator',
+            {
+              code: OcpErrorCodes.SCHEMA_MISMATCH,
+              expectedType: 'CONVERTIBLE_CONVERSION_RIGHT',
+              receivedValue: sentinelRight.type_,
+            }
+          );
+        }
+        if (
+          sentinelRight.converts_to_stock_class_id !== right.converts_to_stock_class_id ||
+          sentinelRight.converts_to_future_round !== right.converts_to_future_round
+        ) {
+          throw new OcpValidationError(
+            `${triggerPath}.conversion_right`,
+            'Storage-only conversion right does not match its stock-class right',
+            { code: OcpErrorCodes.SCHEMA_MISMATCH }
+          );
+        }
+        if (
+          sentinelRight.conversion_mechanism.tag !== 'OcfConvMechCustom' ||
+          sentinelRight.conversion_mechanism.value.custom_conversion_description !==
+            'OCF stock-class conversion storage adapter'
+        ) {
+          throw new OcpValidationError(
+            `${triggerPath}.conversion_right.conversion_mechanism`,
+            'Unexpected storage-only conversion mechanism',
+            { code: OcpErrorCodes.SCHEMA_MISMATCH }
+          );
         }
 
         const mechanismObj: RatioConversionMechanism = {

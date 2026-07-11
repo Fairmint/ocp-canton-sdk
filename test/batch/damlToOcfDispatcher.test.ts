@@ -187,7 +187,7 @@ describe('damlToOcf dispatcher', () => {
               name: 'Common',
               class_type: 'OcfStockClassTypeCommon',
               default_id_prefix: 'CS-',
-              initial_shares_authorized: '1000',
+              initial_shares_authorized: { tag: 'OcfInitialSharesNumeric', value: '1000' },
               votes_per_share: '1',
               seniority: '1',
               conversion_rights: [],

@@ -577,6 +577,25 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(() => warrantIssuanceDataToDaml(input)).toThrow(/rounding_type/);
   });
 
+  test('STOCK_CLASS_CONVERSION_RIGHT rejects a missing v34 target with an indexed SDK error', () => {
+    const trigger = stockClassTrigger();
+    const right = { ...trigger.conversion_right } as Record<string, unknown>;
+    delete right.converts_to_stock_class_id;
+    const error = captureError(() =>
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: [{ ...trigger, conversion_right: right }] as unknown as WarrantExerciseTriggerInput[],
+      })
+    );
+
+    expect(error).toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.converts_to_stock_class_id',
+      expectedType: 'non-empty string',
+    });
+  });
+
   test('STOCK_CLASS_CONVERSION_RIGHT + RATIO_CONVERSION maps to OcfRightStockClass and round-trips', () => {
     const stockClassId = '16faa6e5-b13a-4dda-bad2-885fccd2975a';
     const input = {
