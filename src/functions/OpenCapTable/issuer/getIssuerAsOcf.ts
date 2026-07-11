@@ -8,6 +8,7 @@ import { damlEmailTypeToNative, damlPhoneTypeToNative } from '../../../utils/enu
 import {
   assertSafeGeneratedDamlJson,
   decodeGeneratedDaml,
+  extractGeneratedCreateArgumentData,
   rejectUnknownGeneratedFields,
   requireGeneratedArray,
   requireGeneratedRecord,
@@ -281,16 +282,9 @@ export async function getIssuerAsOcf(
     expectedTemplateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
   });
   const argumentPath = 'Issuer.createArgument';
-  assertSafeGeneratedDamlJson(createArgument, argumentPath);
-  const argument = requireGeneratedRecord(createArgument, argumentPath);
-  if (!Object.prototype.hasOwnProperty.call(argument, 'issuer_data')) {
-    throw new OcpParseError('Issuer data not found in contract create argument', {
-      source: `${argumentPath}.issuer_data`,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const issuerData = argument.issuer_data as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
+  const issuerData = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
+    dataField: 'issuer_data',
+  }) as unknown as Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData;
   const native = damlIssuerDataToNative(issuerData);
 
   const data: OcfIssuerOutput = native;

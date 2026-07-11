@@ -6,6 +6,8 @@ import { documentDataToDaml } from '../../src/functions/OpenCapTable/document/cr
 import { getDocumentAsOcf } from '../../src/functions/OpenCapTable/document/getDocumentAsOcf';
 import type { OcfDocument } from '../../src/types';
 
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+
 function requireDefined<T>(value: T | undefined, message: string): T {
   if (value === undefined) throw new Error(message);
   return value;
@@ -127,6 +129,7 @@ describe('Document converters', () => {
         createdEvent: {
           templateId: Fairmint.OpenCapTable.OCF.Document.Document.templateId,
           createArgument: {
+            context: GENERATED_CONTEXT,
             document_data: {
               id: 'document-lossy',
               md5: 'd41d8cd98f00b204e9800998ecf8427e',

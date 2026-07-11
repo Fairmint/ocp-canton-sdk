@@ -18,6 +18,8 @@ import {
 import { damlIssuerDataToNative, getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import type { OcfIssuer } from '../../src/types/native';
 
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+
 function captureValidationError(action: () => unknown): OcpValidationError {
   try {
     action();
@@ -424,6 +426,7 @@ describe('Issuer Converters', () => {
           createdEvent: {
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
             createArgument: {
+              context: GENERATED_CONTEXT,
               issuer_data: {
                 ...baseDamlIssuer,
                 initial_shares_authorized: {
@@ -452,7 +455,10 @@ describe('Issuer Converters', () => {
         created: {
           createdEvent: {
             templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
-            createArgument: { issuer_data: { ...baseDamlIssuer, comments: 42 } },
+            createArgument: {
+              context: GENERATED_CONTEXT,
+              issuer_data: { ...baseDamlIssuer, comments: 42 },
+            },
           },
         },
       });

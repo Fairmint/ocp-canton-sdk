@@ -22,12 +22,14 @@ import { getStockClassAsOcf } from '../../src/functions/OpenCapTable/stockClass/
 import { getStockIssuanceAsOcf } from '../../src/functions/OpenCapTable/stockIssuance/getStockIssuanceAsOcf';
 import { getStockTransferAsOcf } from '../../src/functions/OpenCapTable/stockTransfer/getStockTransferAsOcf';
 
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+
 function buildCreatedEventsResponse(createArgument: Record<string, unknown>, templateId?: string) {
   return {
     created: {
       createdEvent: {
         ...(templateId ? { templateId } : {}),
-        createArgument,
+        createArgument: { context: GENERATED_CONTEXT, ...createArgument },
       },
     },
   };
@@ -652,14 +654,18 @@ describe('damlToOcf dispatcher', () => {
         stock_class_ids: ['class-1'],
       };
 
-      expect(extractEntityData('stockPlan', { plan_data: planData })).toEqual(planData);
+      expect(extractEntityData('stockPlan', { context: GENERATED_CONTEXT, plan_data: planData })).toEqual(planData);
     });
 
     it('rejects the non-contract stock_plan_data key for stockPlan', () => {
-      const extract = () => extractEntityData('stockPlan', { stock_plan_data: { id: 'plan-invalid-1' } });
+      const extract = () =>
+        extractEntityData('stockPlan', {
+          context: GENERATED_CONTEXT,
+          stock_plan_data: { id: 'plan-invalid-1' },
+        });
 
       expect(extract).toThrow(OcpParseError);
-      expect(extract).toThrow("Expected field 'plan_data' not found in contract create argument for stockPlan");
+      expect(extract).toThrow('Unexpected generated DAML field stock_plan_data');
     });
 
     it('extracts stakeholderRelationshipChangeEvent data from canonical event_data key', () => {

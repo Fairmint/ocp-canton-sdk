@@ -6,6 +6,7 @@ import type { OcfDocument, OcfObjectReference } from '../../../types/native';
 import {
   assertSafeGeneratedDamlJson,
   decodeGeneratedDaml,
+  extractGeneratedCreateArgumentData,
   rejectUnknownGeneratedFields,
   requireGeneratedArray,
   requireGeneratedRecord,
@@ -239,15 +240,11 @@ export async function getDocumentAsOcf(
   });
 
   const argumentPath = 'Document.createArgument';
-  assertSafeGeneratedDamlJson(createArgument, argumentPath);
-  const argument = requireGeneratedRecord(createArgument, argumentPath);
-  if (!Object.prototype.hasOwnProperty.call(argument, 'document_data')) {
-    throw new OcpParseError('Unexpected createArgument shape for Document', {
-      source: `${argumentPath}.document_data`,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
-  const native = damlDocumentDataToNative(argument.document_data as Fairmint.OpenCapTable.OCF.Document.DocumentOcfData);
+  const documentData = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
+    dataField: 'document_data',
+  });
+  const native = damlDocumentDataToNative(
+    documentData as unknown as Fairmint.OpenCapTable.OCF.Document.DocumentOcfData
+  );
   return { document: native, contractId: params.contractId };
 }

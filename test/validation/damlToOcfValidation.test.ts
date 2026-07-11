@@ -527,13 +527,33 @@ describe('DAML to OCF Validation', () => {
       {
         description: 'missing',
         value: undefined,
-        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
         source: 'StockPlan.createArgument.plan_data',
       },
-      { description: 'null', value: null, code: OcpErrorCodes.SCHEMA_MISMATCH, source: 'stockPlan' },
-      { description: 'a string', value: 'invalid', code: OcpErrorCodes.SCHEMA_MISMATCH, source: 'stockPlan' },
-      { description: 'a number', value: 42, code: OcpErrorCodes.SCHEMA_MISMATCH, source: 'stockPlan' },
-      { description: 'an array', value: [], code: OcpErrorCodes.SCHEMA_MISMATCH, source: 'stockPlan' },
+      {
+        description: 'null',
+        value: null,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'StockPlan.createArgument.plan_data',
+      },
+      {
+        description: 'a string',
+        value: 'invalid',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'StockPlan.createArgument.plan_data',
+      },
+      {
+        description: 'a number',
+        value: 42,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'StockPlan.createArgument.plan_data',
+      },
+      {
+        description: 'an array',
+        value: [],
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: 'StockPlan.createArgument.plan_data',
+      },
       {
         description: 'an empty object',
         value: {},
@@ -737,7 +757,7 @@ describe('DAML to OCF Validation', () => {
     test.each([
       ['empty', '', OcpErrorCodes.UNKNOWN_ENUM_VALUE],
       ['non-string', 42, OcpErrorCodes.SCHEMA_MISMATCH],
-      ['missing', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      ['missing', undefined, OcpErrorCodes.SCHEMA_MISMATCH],
     ] as const)(
       'direct relationship reader rejects a %s started enum instead of omitting it',
       (_case, relationshipStarted, code) => {
@@ -762,12 +782,17 @@ describe('DAML to OCF Validation', () => {
     );
 
     test.each([
-      ['empty', '', OcpErrorCodes.UNKNOWN_ENUM_VALUE],
-      ['non-string', 42, OcpErrorCodes.SCHEMA_MISMATCH],
-      ['missing', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      ['empty', '', OcpErrorCodes.UNKNOWN_ENUM_VALUE, 'stakeholderRelationshipChangeEvent.relationship_started'],
+      ['non-string', 42, OcpErrorCodes.SCHEMA_MISMATCH, 'stakeholderRelationshipChangeEvent.relationship_started'],
+      [
+        'missing',
+        undefined,
+        OcpErrorCodes.SCHEMA_MISMATCH,
+        'StakeholderRelationshipChangeEvent.createArgument.event_data.relationship_started',
+      ],
     ] as const)(
       'dedicated relationship reader rejects a %s started enum with field context',
-      async (_case, relationshipStarted, code) => {
+      async (_case, relationshipStarted, code, source) => {
         const client = createMockClient(
           'event_data',
           {
@@ -786,7 +811,7 @@ describe('DAML to OCF Validation', () => {
         ).rejects.toMatchObject({
           name: OcpParseError.name,
           code,
-          source: 'stakeholderRelationshipChangeEvent.relationship_started',
+          source,
           context: expect.objectContaining({ receivedValue: relationshipStarted }),
         });
       }

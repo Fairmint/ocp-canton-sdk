@@ -1,10 +1,10 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError, type OcpErrorContext } from './OcpError';
+import { OcpError, toSafeDiagnosticContext, toSafeDiagnosticValue, type OcpErrorContext } from './OcpError';
 
 export interface OcpValidationErrorOptions {
   /** The expected type for this field */
   expectedType?: string;
-  /** The actual value received */
+  /** The actual value received; unsafe or oversized values are summarized on the resulting error */
   receivedValue?: unknown;
   /** Specific validation error code (defaults to REQUIRED_FIELD_MISSING) */
   code?: OcpErrorCode;
@@ -50,23 +50,33 @@ export class OcpValidationError extends OcpError {
   /** The expected type for this field, if applicable */
   readonly expectedType?: string;
 
-  /** The actual value that was received */
+  /** A bounded, JSON-safe representation of the value that was received */
   readonly receivedValue?: unknown;
 
   constructor(fieldPath: string, message: string, options?: OcpValidationErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.REQUIRED_FIELD_MISSING;
+    const receivedValue = toSafeDiagnosticValue(options?.receivedValue);
+    const context = toSafeDiagnosticContext(options?.context);
     super(`Validation error at '${fieldPath}': ${message}`, code, undefined, {
       classification: options?.classification ?? 'validation_error',
       context: {
-        ...options?.context,
+        ...context,
         fieldPath,
         expectedType: options?.expectedType,
-        receivedValue: options?.receivedValue,
+        receivedValue,
       },
     });
     this.name = 'OcpValidationError';
     this.fieldPath = fieldPath;
     this.expectedType = options?.expectedType;
-    this.receivedValue = options?.receivedValue;
+    this.receivedValue = receivedValue;
+    for (const property of ['fieldPath', 'expectedType', 'receivedValue'] as const) {
+      Object.defineProperty(this, property, {
+        value: this[property],
+        enumerable: false,
+        configurable: true,
+        writable: false,
+      });
+    }
   }
 }

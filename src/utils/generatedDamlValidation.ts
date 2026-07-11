@@ -1,4 +1,7 @@
+import { types as nodeUtilTypes } from 'node:util';
+
 import { OcpErrorCodes, OcpParseError } from '../errors';
+import { toSafeDiagnosticValue } from '../errors/OcpError';
 
 interface GeneratedDamlCodec<T> {
   decode(input: unknown): T;
@@ -11,9 +14,17 @@ interface DecodeGeneratedDamlOptions {
 }
 
 function boundedReceivedValue(value: unknown): unknown {
-  if (Array.isArray(value)) return { containerType: 'array' };
-  if (value !== null && typeof value === 'object') return { containerType: 'object' };
-  return value;
+  return toSafeDiagnosticValue(value);
+}
+
+function isObjectLike(value: unknown): value is object {
+  return (typeof value === 'object' && value !== null) || typeof value === 'function';
+}
+
+function rejectProxy(value: unknown, source: string): void {
+  if (isObjectLike(value) && nodeUtilTypes.isProxy(value)) {
+    invalidGeneratedJson(source, 'Generated DAML JSON must not contain proxies', value);
+  }
 }
 
 function invalidGeneratedJson(
@@ -42,7 +53,11 @@ function propertyPath(parent: string, key: PropertyKey): string {
  * it prevents getters or proxy-like class instances from running inside decoders.
  */
 export function assertSafeGeneratedDamlJson(value: unknown, source: string, ancestors = new WeakSet<object>()): void {
-  if (value === undefined || value === null || typeof value === 'string' || typeof value === 'boolean') return;
+  rejectProxy(value, source);
+  if (value === undefined) {
+    return invalidGeneratedJson(source, 'Generated DAML JSON must not contain undefined', value);
+  }
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
       return invalidGeneratedJson(source, 'Generated DAML JSON numbers must be finite', value);
@@ -110,6 +125,8 @@ export function assertSafeGeneratedDamlJson(value: unknown, source: string, ance
 }
 
 function firstLossyPath(source: unknown, encoded: unknown, fieldPath: string): string | undefined {
+  rejectProxy(source, fieldPath);
+  rejectProxy(encoded, fieldPath);
   if (source === null || typeof source !== 'object') {
     return Object.is(source, encoded) ? undefined : fieldPath;
   }
@@ -156,7 +173,21 @@ export function decodeGeneratedDaml<T>(
     });
   }
 
-  const encoded = codec.encode(decoded);
+  let encoded: unknown;
+  try {
+    encoded = codec.encode(decoded);
+  } catch (error) {
+    const cause = error instanceof Error ? error : undefined;
+    const detail = cause?.message ?? String(error);
+    throw new OcpParseError(`Unable to encode generated DAML data at ${source}: ${detail}`, {
+      source,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'invalid_generated_daml_encoding',
+      ...(cause ? { cause } : {}),
+      context: options.context,
+    });
+  }
+  assertSafeGeneratedDamlJson(encoded, `${source}.__encoded`);
   const lossyPath = firstLossyPath(input, encoded, source);
   if (lossyPath !== undefined) {
     throw new OcpParseError(`Generated DAML decoding would discard or alter ${lossyPath}`, {
@@ -177,6 +208,7 @@ export function requireGeneratedRecord(value: unknown, source: string): Record<s
       context: { receivedValue: value },
     });
   }
+  rejectProxy(value, source);
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return invalidGeneratedJson(source, 'Generated DAML value must be a record', value);
   }
@@ -188,6 +220,7 @@ export function rejectUnknownGeneratedFields(
   source: string,
   allowedFields: readonly string[]
 ): void {
+  rejectProxy(value, source);
   const allowed = new Set(allowedFields);
   const unknownField = Object.keys(value).find((field) => !allowed.has(field));
   if (unknownField !== undefined) {
@@ -221,6 +254,7 @@ export function requireGeneratedArray(value: unknown, source: string): unknown[]
       context: { receivedValue: value },
     });
   }
+  rejectProxy(value, source);
   if (!Array.isArray(value)) {
     return invalidGeneratedJson(source, 'Generated DAML List must be an array', value);
   }
@@ -230,4 +264,73 @@ export function requireGeneratedArray(value: unknown, source: string): unknown[]
 export function requireGeneratedStringArray(value: unknown, source: string): string[] {
   const array = requireGeneratedArray(value, source);
   return array.map((item, index) => requireGeneratedString(item, `${source}[${index}]`));
+}
+
+export interface GeneratedCreateArgumentShape {
+  readonly dataField: string;
+  readonly fallbackDataFields?: readonly string[];
+}
+
+function generatedWrapperMismatch(source: string, message: string, context?: Record<string, unknown>): never {
+  throw new OcpParseError(message, {
+    source,
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    classification: 'invalid_generated_create_argument',
+    context,
+  });
+}
+
+/**
+ * Validate an exact generated template create-argument wrapper and return its data record.
+ *
+ * Generated OCP templates share the canonical `{ context, *_data }` shape. The
+ * context and data wrappers are validated before any field is read, and exactly
+ * one canonical/fallback data field must be present.
+ */
+export function extractGeneratedCreateArgumentData(
+  createArgument: unknown,
+  source: string,
+  shape: GeneratedCreateArgumentShape
+): Record<string, unknown> {
+  assertSafeGeneratedDamlJson(createArgument, source);
+  const argument = requireGeneratedRecord(createArgument, source);
+  const candidateDataFields = [shape.dataField, ...(shape.fallbackDataFields ?? [])];
+  rejectUnknownGeneratedFields(argument, source, ['context', ...candidateDataFields]);
+
+  const contextPath = `${source}.context`;
+  if (!Object.prototype.hasOwnProperty.call(argument, 'context')) {
+    return generatedWrapperMismatch(contextPath, 'Generated createArgument is missing its canonical context');
+  }
+  const context = requireGeneratedRecord(argument.context, contextPath);
+  rejectUnknownGeneratedFields(context, contextPath, ['issuer', 'system_operator']);
+  for (const field of ['issuer', 'system_operator'] as const) {
+    const fieldPath = `${contextPath}.${field}`;
+    if (!Object.prototype.hasOwnProperty.call(context, field)) {
+      return generatedWrapperMismatch(fieldPath, `Generated createArgument context is missing ${field}`);
+    }
+    if (typeof context[field] !== 'string') {
+      return generatedWrapperMismatch(fieldPath, `Generated createArgument context ${field} must be a string`, {
+        receivedValue: context[field],
+      });
+    }
+  }
+
+  const presentDataFields = candidateDataFields.filter((field) =>
+    Object.prototype.hasOwnProperty.call(argument, field)
+  );
+  if (presentDataFields.length === 0) {
+    return generatedWrapperMismatch(
+      `${source}.${shape.dataField}`,
+      `Generated createArgument is missing data field ${shape.dataField}`,
+      { expectedDataFields: candidateDataFields }
+    );
+  }
+  if (presentDataFields.length > 1) {
+    return generatedWrapperMismatch(source, 'Generated createArgument contains ambiguous data fields', {
+      presentDataFields,
+    });
+  }
+
+  const dataField = presentDataFields[0];
+  return requireGeneratedRecord(argument[dataField], `${source}.${dataField}`);
 }

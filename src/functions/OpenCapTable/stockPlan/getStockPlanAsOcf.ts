@@ -6,6 +6,7 @@ import type { OcfStockPlan, StockPlanCancellationBehavior } from '../../../types
 import {
   assertSafeGeneratedDamlJson,
   decodeGeneratedDaml,
+  extractGeneratedCreateArgumentData,
   rejectUnknownGeneratedFields,
   requireGeneratedRecord,
   requireGeneratedString,
@@ -172,15 +173,10 @@ export async function getStockPlanAsOcf(
   });
 
   const argumentPath = 'StockPlan.createArgument';
-  assertSafeGeneratedDamlJson(createArgument, argumentPath);
-  const argument = requireGeneratedRecord(createArgument, argumentPath);
-  if (!Object.prototype.hasOwnProperty.call(argument, 'plan_data') || argument.plan_data === undefined) {
-    throw new OcpParseError('StockPlan create argument is missing plan_data', {
-      source: `${argumentPath}.plan_data`,
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-    });
-  }
-  const stockPlan = damlStockPlanDataToNative(argument.plan_data as StockPlanOcfData);
+  const planData = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
+    dataField: 'plan_data',
+  });
+  const stockPlan = damlStockPlanDataToNative(planData as unknown as StockPlanOcfData);
 
   return { stockPlan, contractId: params.contractId };
 }

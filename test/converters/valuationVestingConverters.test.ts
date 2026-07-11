@@ -445,6 +445,10 @@ describe('VestingTerms Converters', () => {
       ['an unreasonably long representation', '1'.repeat(1_000), OcpErrorCodes.INVALID_FORMAT],
       ['a runtime number', 250.5, OcpErrorCodes.INVALID_TYPE],
     ])('rejects OCF quantity with %s using a structured error', (_case, quantity, code) => {
+      const receivedValue =
+        typeof quantity === 'string' && quantity.length > 256
+          ? { valueType: 'string', length: quantity.length, preview: expect.any(String) }
+          : quantity;
       try {
         vestingTermsDataToDaml(makeOcfQuantityVestingTerms(quantity));
         throw new Error('Expected OCF vesting quantity conversion to fail');
@@ -454,7 +458,7 @@ describe('VestingTerms Converters', () => {
           fieldPath: 'vestingTerms.vesting_conditions[0].quantity',
           code,
           expectedType: 'OCF Numeric string',
-          receivedValue: quantity,
+          receivedValue,
         });
       }
     });
@@ -1338,6 +1342,10 @@ describe('VestingTerms drift regression', () => {
     ['boolean', true, OcpErrorCodes.INVALID_TYPE],
     ['object', {}, OcpErrorCodes.INVALID_TYPE],
   ])('rejects a DAML vesting quantity provided as %s', (_case, quantity, code) => {
+    const receivedValue =
+      typeof quantity === 'string' && quantity.length > 256
+        ? { valueType: 'string', length: quantity.length, preview: expect.any(String) }
+        : quantity;
     const condition = {
       id: 'invalid-quantity-condition',
       description: null,
@@ -1356,7 +1364,7 @@ describe('VestingTerms drift regression', () => {
         fieldPath: 'vestingTerms.vesting_conditions[0].quantity',
         code,
         expectedType: 'DAML Numeric 10 string',
-        receivedValue: quantity,
+        receivedValue,
       });
     }
   });

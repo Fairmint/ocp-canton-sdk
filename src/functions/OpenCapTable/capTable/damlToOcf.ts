@@ -16,6 +16,7 @@ import type { ReadScopeParams } from '../../../types/common';
 import {
   assertSafeGeneratedDamlJson,
   decodeGeneratedDaml,
+  extractGeneratedCreateArgumentData,
   requireGeneratedRecord,
 } from '../../../utils/generatedDamlValidation';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -311,25 +312,31 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
  */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
   const rootPath = `damlToOcf.${entityType}.createArgument`;
-  assertSafeGeneratedDamlJson(createArgument, rootPath);
-  const record = requireGeneratedRecord(createArgument, rootPath);
-
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
   const fallbackFieldNames = ENTITY_DATA_FIELD_FALLBACK_MAP[entityType] ?? [];
+  if (
+    entityType === 'document' ||
+    entityType === 'issuer' ||
+    entityType === 'stockPlan' ||
+    entityType === 'vestingTerms'
+  ) {
+    return extractGeneratedCreateArgumentData(createArgument, rootPath, {
+      dataField: dataFieldName,
+      fallbackDataFields: fallbackFieldNames,
+    });
+  }
+
+  assertSafeGeneratedDamlJson(createArgument, rootPath);
+  const record = requireGeneratedRecord(createArgument, rootPath);
   const candidateFieldNames = [dataFieldName, ...fallbackFieldNames];
   const presentFieldNames = candidateFieldNames.filter((fieldName) =>
     Object.prototype.hasOwnProperty.call(record, fieldName)
   );
-  const resolvedDataFieldName = presentFieldNames[0];
-
-  if (!resolvedDataFieldName) {
-    const expectedFields = [dataFieldName, ...fallbackFieldNames].join("', '");
+  if (presentFieldNames.length === 0) {
+    const expectedFields = candidateFieldNames.join("', '");
     throw new OcpParseError(
       `Expected field '${expectedFields}' not found in contract create argument for ${entityType}`,
-      {
-        source: entityType,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-      }
+      { source: entityType, code: OcpErrorCodes.SCHEMA_MISMATCH }
     );
   }
   if (presentFieldNames.length > 1) {
@@ -339,7 +346,7 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
       context: { presentFieldNames },
     });
   }
-
+  const resolvedDataFieldName = presentFieldNames[0];
   return requireGeneratedRecord(record[resolvedDataFieldName], `${rootPath}.${resolvedDataFieldName}`);
 }
 

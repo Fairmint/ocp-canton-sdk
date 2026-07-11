@@ -15,6 +15,7 @@ import type {
 import {
   assertSafeGeneratedDamlJson,
   decodeGeneratedDaml,
+  extractGeneratedCreateArgumentData,
   rejectUnknownGeneratedFields,
   requireGeneratedRecord,
   requireGeneratedString,
@@ -562,17 +563,11 @@ export async function getVestingTermsAsOcf(
   });
 
   const argumentPath = 'VestingTerms.createArgument';
-  assertSafeGeneratedDamlJson(createArgument, argumentPath);
-  const argument = requireGeneratedRecord(createArgument, argumentPath);
-  if (!Object.prototype.hasOwnProperty.call(argument, 'vesting_terms_data')) {
-    throw new OcpParseError('Vesting terms data not found in contract create argument', {
-      source: `${argumentPath}.vesting_terms_data`,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
-    });
-  }
-
+  const vestingTermsData = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
+    dataField: 'vesting_terms_data',
+  });
   const vestingTerms = damlVestingTermsDataToNative(
-    argument.vesting_terms_data as Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
+    vestingTermsData as unknown as Fairmint.OpenCapTable.OCF.VestingTerms.VestingTermsOcfData
   );
 
   return { vestingTerms, contractId: params.contractId };

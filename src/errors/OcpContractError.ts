@@ -1,5 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError, type OcpErrorContext } from './OcpError';
+import { OcpError, toSafeDiagnosticContext, type OcpErrorContext } from './OcpError';
 
 export interface OcpContractErrorOptions {
   /** The contract ID involved in the error */
@@ -58,7 +58,7 @@ export class OcpContractError extends OcpError {
 
   constructor(message: string, options?: OcpContractErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CHOICE_FAILED;
-    const context = { ...options?.context };
+    const context = { ...toSafeDiagnosticContext(options?.context) };
     if (options?.contractId !== undefined) {
       context.contractId = options.contractId;
     }
@@ -76,5 +76,13 @@ export class OcpContractError extends OcpError {
     this.contractId = options?.contractId;
     this.templateId = options?.templateId;
     this.choice = options?.choice;
+    for (const property of ['contractId', 'templateId', 'choice'] as const) {
+      Object.defineProperty(this, property, {
+        value: this[property],
+        enumerable: false,
+        configurable: true,
+        writable: false,
+      });
+    }
   }
 }
