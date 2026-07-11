@@ -281,7 +281,7 @@ export function vestingTermsDataToDaml(d: OcfVestingTerms): Record<string, unkno
     name: d.name,
     description: d.description,
     allocation_type: allocationTypeToDaml(d.allocation_type),
-    vesting_conditions: d.vesting_conditions.map(vestingConditionToDaml),
+    vesting_conditions: d.vesting_conditions.map((condition, index) => vestingConditionToDaml(condition, index)),
     comments: cleanComments(d.comments),
   };
 

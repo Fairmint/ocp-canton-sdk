@@ -9,7 +9,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpParseError, OcpValidationError } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import {
   damlValuationToNative,
@@ -686,6 +686,25 @@ describe('VestingTerms drift regression', () => {
     });
 
     expectInvalidDate(() => damlVestingTermsDataToNative(daml), 'vestingTerms.vesting_conditions[1].trigger.date', '');
+  });
+
+  test('reports the exact vesting-condition path when an absolute trigger value is missing', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'missing-trigger-value',
+      description: null,
+      quantity: null,
+      portion: null,
+      trigger: { tag: 'OcfVestingScheduleAbsoluteTrigger' },
+      next_condition_ids: [],
+    });
+
+    expectInvalidDate(
+      () => damlVestingTermsDataToNative(daml),
+      'vestingTerms.vesting_conditions[1].trigger.value',
+      undefined,
+      OcpErrorCodes.REQUIRED_FIELD_MISSING
+    );
   });
 
   test('preserves remainder: true', () => {

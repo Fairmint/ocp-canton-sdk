@@ -96,7 +96,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
         ),
       };
     case 'OcfWarrantMechanismValuationBased': {
-      const valuationAmount = damlMonetaryToNativeWithValidation(value.valuation_amount as Record<string, unknown>);
+      const valuationAmount = damlMonetaryToNativeWithValidation(value.valuation_amount);
       if (typeof value.valuation_type !== 'string' || !value.valuation_type) {
         throw new OcpValidationError(
           'warrantMechanism.valuation_type',
@@ -117,7 +117,7 @@ function mapWarrantMechanism(m: unknown): WarrantConversionMechanism {
       };
     }
     case 'OcfWarrantMechanismPpsBased': {
-      const discountAmount = damlMonetaryToNativeWithValidation(value.discount_amount as Record<string, unknown>);
+      const discountAmount = damlMonetaryToNativeWithValidation(value.discount_amount);
       if (typeof value.description !== 'string' || !value.description) {
         throw new OcpValidationError(
           'warrantMechanism.description',
@@ -365,9 +365,7 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
       })
     : [];
 
-  const exercise_price = d.exercise_price
-    ? damlMonetaryToNativeWithValidation(d.exercise_price as Record<string, unknown>)
-    : undefined;
+  const exercise_price = d.exercise_price ? damlMonetaryToNativeWithValidation(d.exercise_price) : undefined;
 
   const purchase_price_obj = d.purchase_price as Record<string, unknown> | null | undefined;
   if (!purchase_price_obj) {

@@ -14,6 +14,7 @@ import {
   optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
+import { filterAndMapVestingsToDaml } from '../shared/vesting';
 
 /**
  * Convert native StockIssuanceType to DAML enum value.
@@ -74,17 +75,7 @@ export function stockIssuanceDataToDaml(d: OcfStockIssuance): PkgStockIssuanceOc
     share_price: monetaryToDaml(d.share_price),
     quantity: normalizeNumericString(d.quantity),
     vesting_terms_id: optionalString(d.vesting_terms_id),
-    vestings: (d.vestings ?? [])
-      .map((vesting, index) => ({ index, vesting }))
-      .filter(({ vesting }) => {
-        // normalizeNumericString validates strict decimal format and rejects scientific notation
-        const normalized = normalizeNumericString(vesting.amount);
-        return parseFloat(normalized) > 0;
-      })
-      .map(({ index, vesting }) => ({
-        date: dateStringToDAMLTime(vesting.date, `stockIssuance.vestings[${index}].date`),
-        amount: normalizeNumericString(vesting.amount),
-      })),
+    vestings: filterAndMapVestingsToDaml(d.vestings, 'stockIssuance.vestings'),
     cost_basis: d.cost_basis ? monetaryToDaml(d.cost_basis) : null,
     stock_legend_ids: d.stock_legend_ids,
     issuance_type: getIssuanceType(d.issuance_type),

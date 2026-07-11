@@ -54,6 +54,16 @@ const nullableOcfDate: string | null = nullableDamlTimeToDateString(unknownDateI
 
 // @ts-expect-error every public date conversion requires an entity-specific field path
 dateStringToDAMLTime(unknownDateInput);
+// @ts-expect-error every public date conversion requires an entity-specific field path
+damlTimeToDateString(unknownDateInput);
+// @ts-expect-error every public date conversion requires an entity-specific field path
+optionalDamlTimeToDateString(unknownDateInput);
+// @ts-expect-error every public date conversion requires an entity-specific field path
+nullableDamlTimeToDateString(unknownDateInput);
+// @ts-expect-error every public date conversion requires an entity-specific field path
+optionalDateStringToDAMLTime(unknownDateInput);
+// @ts-expect-error every public date conversion requires an entity-specific field path
+nullableDateStringToDAMLTime(unknownDateInput);
 
 void publishedOcfObjectIsExact;
 void publishedOcfObjectExcludesLegacyPlanSecurity;
