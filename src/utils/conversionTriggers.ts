@@ -151,6 +151,13 @@ function optionalString(value: unknown, source: string, field: string, nullIsAbs
       receivedValue: value,
     });
   }
+  if (value.trim().length === 0) {
+    throw new OcpValidationError(fieldPath(source, field), `${field} must be a non-blank string when present`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'non-blank string',
+      receivedValue: value,
+    });
+  }
   return value;
 }
 
