@@ -504,6 +504,35 @@ describe('sortTransactions', () => {
     expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['parent', 'result-issuance']);
   });
 
+  it('sorts a stock consolidation before a same-day issuance of its singular resulting security', () => {
+    const transactions = [
+      {
+        id: 'result-issuance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'consolidated-security',
+      },
+      {
+        id: 'unrelated-issuance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'unrelated-security',
+      },
+      {
+        id: 'consolidation',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_CONSOLIDATION',
+        resulting_security_id: 'consolidated-security',
+      },
+    ] as const;
+
+    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual([
+      'unrelated-issuance',
+      'consolidation',
+      'result-issuance',
+    ]);
+  });
+
   it('sorts a transfer balance issuance after the parent transfer', () => {
     const transactions = [
       {
