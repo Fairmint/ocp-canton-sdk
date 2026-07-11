@@ -1086,6 +1086,47 @@ describe('VestingTerms drift regression', () => {
   });
 
   test.each([
+    {
+      name: 'missing value',
+      trigger: { tag: 'OcfVestingScheduleRelativeTrigger' },
+      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.value',
+    },
+    {
+      name: 'missing period',
+      trigger: {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: { relative_to_condition_id: 'start' },
+      },
+      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period',
+    },
+    {
+      name: 'missing relative condition id',
+      trigger: {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: { period: { tag: 'OcfVestingPeriodDays' } },
+      },
+      fieldPath: 'vestingTerms.vesting_conditions[1].trigger.relative_to_condition_id',
+    },
+  ])('reports the exact vesting-condition index for a relative trigger with $name', ({ trigger, fieldPath }) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'bad-relative-trigger',
+      description: null,
+      quantity: null,
+      portion: null,
+      trigger,
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        fieldPath,
+      })
+    );
+  });
+
+  test.each([
     [
       'missing length',
       { occurrences: '1', cliff_installment: null },
@@ -1168,6 +1209,25 @@ describe('VestingTerms drift regression', () => {
         fieldPath: 'vestingTerms.vesting_conditions[1].trigger.period.value.unexpected',
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         receivedValue: true,
+      })
+    );
+  });
+
+  test('reports the exact vesting-condition index for an unknown trigger tag', () => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'unknown-trigger',
+      description: null,
+      quantity: null,
+      portion: null,
+      trigger: { tag: 'OcfUnknownVestingTrigger' },
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        name: 'OcpParseError',
+        source: 'vestingTerms.vesting_conditions[1].trigger.tag',
       })
     );
   });
