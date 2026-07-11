@@ -98,6 +98,18 @@ export function stockClassDataToDaml(
       }
       const convertsToStockClassId = requireStockClassTarget(right, `${field}.converts_to_stock_class_id`);
       const mechanism = ratioMechanismToDaml(right.conversion_mechanism, `${field}.conversion_mechanism`);
+      const convertsToFutureRound: unknown = right.converts_to_future_round;
+      if (convertsToFutureRound !== undefined && typeof convertsToFutureRound !== 'boolean') {
+        throw new OcpValidationError(
+          `${field}.converts_to_future_round`,
+          'converts_to_future_round must be a boolean when present',
+          {
+            code: OcpErrorCodes.INVALID_TYPE,
+            expectedType: 'boolean or omitted property',
+            receivedValue: convertsToFutureRound,
+          }
+        );
+      }
 
       return {
         type_: 'STOCK_CLASS_CONVERSION_RIGHT',
@@ -106,8 +118,7 @@ export function stockClassDataToDaml(
         converts_to_stock_class_id: convertsToStockClassId,
         ratio: mechanism.ratio,
         conversion_price: mechanism.conversion_price,
-        converts_to_future_round:
-          typeof right.converts_to_future_round === 'boolean' ? right.converts_to_future_round : null,
+        converts_to_future_round: convertsToFutureRound ?? null,
         ceiling_price_per_share: null,
         custom_description: null,
         discount_rate: null,

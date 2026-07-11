@@ -240,6 +240,43 @@ describe('StockClass Converters', () => {
         });
       }
     });
+
+    test.each([
+      ['explicit null', null],
+      ['string', 'false'],
+      ['number', 0],
+      ['object', {}],
+    ] as const)('rejects a %s converts_to_future_round instead of silently omitting it', (_case, value) => {
+      const conversionRight = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+        converts_to_stock_class_id: 'class-002',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION' as const,
+          ratio: { numerator: '1', denominator: '1' },
+          conversion_price: { amount: '1', currency: 'USD' },
+          rounding_type: 'NORMAL' as const,
+        },
+      };
+      const input = {
+        ...baseData,
+        conversion_rights: [
+          conversionRight,
+          { ...conversionRight, converts_to_stock_class_id: 'class-003', converts_to_future_round: value },
+        ],
+      } as unknown as Parameters<typeof stockClassDataToDaml>[0];
+
+      try {
+        stockClassDataToDaml(input);
+        throw new Error('Expected future-round validation to fail');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: 'stockClass.conversion_rights.1.converts_to_future_round',
+          receivedValue: value,
+        });
+      }
+    });
   });
 
   describe('DAML to OCF numeric field diagnostics', () => {
