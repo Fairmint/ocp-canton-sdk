@@ -617,6 +617,50 @@ describe('WarrantIssuance round-trip equivalence', () => {
     });
   });
 
+  it('validates a malformed readback vesting date before its non-positive amount', () => {
+    const daml = warrantIssuanceDataToDaml({
+      ...baseWarrantIssuance,
+      vestings: [{ date: '2024-01-01', amount: '1' }],
+    });
+    const firstVesting = requireFirst(daml.vestings, 'serialized warrant vesting');
+
+    expectInvalidWarrantDate(
+      () =>
+        damlWarrantIssuanceDataToNative({
+          ...daml,
+          vestings: [firstVesting, { date: '', amount: '0' }],
+        }),
+      'warrantIssuance.vestings.1.date',
+      '',
+      OcpErrorCodes.INVALID_FORMAT
+    );
+  });
+
+  test.each([
+    ['null', null],
+    ['array', []],
+    ['primitive', 'not-a-vesting'],
+  ] as const)('rejects a %s second vesting with an indexed structured error', (_case, invalidVesting) => {
+    const daml = warrantIssuanceDataToDaml({
+      ...baseWarrantIssuance,
+      vestings: [{ date: '2024-01-01', amount: '1' }],
+    });
+    const firstVesting = requireFirst(daml.vestings, 'serialized warrant vesting');
+    const error = captureValidationError(() =>
+      damlWarrantIssuanceDataToNative({
+        ...daml,
+        vestings: [firstVesting, invalidVesting],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'warrantIssuance.vestings.1',
+      expectedType: 'object',
+      receivedValue: invalidVesting,
+    });
+  });
+
   test.each([0, false, '', []] as const)(
     'rejects malformed optional exercise_price %p instead of treating it as absent',
     (value) => {
