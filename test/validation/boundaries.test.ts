@@ -5,6 +5,7 @@
  * special edge cases.
  */
 
+import { OcpValidationError } from '../../src/errors';
 import { stakeholderDataToDaml } from '../../src/functions/OpenCapTable/stakeholder/stakeholderDataToDaml';
 import type { OcfStakeholder } from '../../src/types';
 import {
@@ -168,15 +169,29 @@ describe('Boundary Condition Tests', () => {
   });
 
   describe('Null vs Undefined Handling', () => {
-    test('omitted OCF optional fields become null in DAML', () => {
-      const data: OcfStakeholder = {
+    test('OCF inputs reject explicit undefined while omitted DAML optionals use null', () => {
+      // Emulate an unchecked JavaScript caller; exact optional property types reject this at compile time.
+      const explicitUndefined = {
+        id: 'sh-null-test',
+        object_type: 'STAKEHOLDER',
+        name: { legal_name: 'Test' },
+        stakeholder_type: 'INDIVIDUAL',
+        issuer_assigned_id: undefined,
+      } as unknown as OcfStakeholder;
+      expect(() => stakeholderDataToDaml(explicitUndefined)).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          fieldPath: 'stakeholder.issuer_assigned_id',
+        })
+      );
+
+      const omitted: OcfStakeholder = {
         id: 'sh-null-test',
         object_type: 'STAKEHOLDER',
         name: { legal_name: 'Test' },
         stakeholder_type: 'INDIVIDUAL',
       };
-
-      const result = stakeholderDataToDaml(data);
+      const result = stakeholderDataToDaml(omitted);
       expect(result.issuer_assigned_id).toBeNull();
     });
 

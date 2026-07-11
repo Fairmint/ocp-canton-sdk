@@ -2,6 +2,8 @@
  * Tests for replication helpers for cap table synchronization.
  */
 
+import { OcpErrorCodes } from '../../src/errors/codes';
+import { OcpValidationError } from '../../src/errors/OcpValidationError';
 import type { OcfEntityType } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import type { CapTableState } from '../../src/functions/OpenCapTable/capTable/getCapTableState';
 import type { OcfEquityCompensationExercise, OcfStockCancellation, OcfStockClassSplit } from '../../src/types/native';
@@ -592,6 +594,64 @@ describe('buildCantonOcfDataMap', () => {
       expect(() => buildCantonOcfDataMap(manifest)).toThrow(
         "Invalid transaction: missing or invalid 'object_type' field"
       );
+    });
+
+    it('bounds an oversized unsupported object_type diagnostic', () => {
+      const manifest = createEmptyManifest();
+      const objectType = `TX_${'x'.repeat(20_000)}`;
+      manifest.transactions = asInvalidManifestValue<OcfManifest['transactions']>([
+        { id: 'tx-long-type', object_type: objectType },
+      ]);
+
+      try {
+        buildCantonOcfDataMap(manifest);
+        throw new Error('Expected the oversized object type to be rejected');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        const validationError = error as OcpValidationError;
+        expect(validationError.code).toBe(OcpErrorCodes.UNKNOWN_ENTITY_TYPE);
+        expect(validationError.fieldPath).toBe('transaction.object_type');
+        expect(validationError.message.length).toBeLessThan(700);
+        expect(validationError.message).not.toContain(objectType);
+        expect(validationError.receivedValue).not.toBe(objectType);
+      }
+    });
+
+    it('does not invoke proxy traps while diagnosing an invalid object_type', () => {
+      let trapCalls = 0;
+      const hostileObjectType = new Proxy(Object.create(null) as object, {
+        get() {
+          trapCalls += 1;
+          throw new Error('proxy get trap must not run');
+        },
+        getPrototypeOf() {
+          trapCalls += 1;
+          throw new Error('proxy getPrototypeOf trap must not run');
+        },
+        ownKeys() {
+          trapCalls += 1;
+          throw new Error('proxy ownKeys trap must not run');
+        },
+      });
+      const manifest = createEmptyManifest();
+      manifest.transactions = asInvalidManifestValue<OcfManifest['transactions']>([
+        { id: 'tx-hostile-type', object_type: hostileObjectType },
+      ]);
+
+      try {
+        buildCantonOcfDataMap(manifest);
+        throw new Error('Expected the hostile object type to be rejected');
+      } catch (error) {
+        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: 'transaction.object_type',
+          receivedValue: { containerType: 'proxy' },
+        });
+        expect((error as Error).message.length).toBeLessThan(700);
+      }
+
+      expect(trapCalls).toBe(0);
     });
 
     it('throws when transaction has unsupported object_type', () => {

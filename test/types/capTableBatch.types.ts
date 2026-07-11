@@ -10,6 +10,9 @@ import {
   type CapTableBatch,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
+  type ConversionTriggerFor,
+  type ConvertibleConversionRight,
+  type ConvertibleConversionTrigger,
   type OcfContractId,
   type OcfCreateOperation,
   type OcfEntityDataMap,
@@ -21,6 +24,10 @@ import {
   type OcfStockAcceptance,
   type OcfStockClass,
   type OcfVestingStart,
+  type RatioConversionMechanism,
+  type StockClassConversionRight,
+  type WarrantExerciseTrigger,
+  type WarrantTriggerConversionRight,
 } from '../../src';
 
 type Assert<T extends true> = T;
@@ -141,3 +148,147 @@ function verifyCapTableBatchContract(
 }
 
 void verifyCapTableBatchContract;
+
+type CanonicalConvertibleTrigger = ConversionTriggerFor<ConvertibleConversionRight>;
+type CanonicalWarrantTrigger = ConversionTriggerFor<WarrantTriggerConversionRight>;
+
+const convertibleTriggerAliasIsCanonical: Assert<IsExactly<ConvertibleConversionTrigger, CanonicalConvertibleTrigger>> =
+  true;
+const warrantTriggerAliasIsCanonical: Assert<IsExactly<WarrantExerciseTrigger, CanonicalWarrantTrigger>> = true;
+
+declare const convertibleRight: ConvertibleConversionRight;
+declare const warrantRight: WarrantTriggerConversionRight;
+
+const validDateTrigger: ConvertibleConversionTrigger = {
+  type: 'AUTOMATIC_ON_DATE',
+  trigger_id: 'convertible-trigger-1',
+  conversion_right: convertibleRight,
+  trigger_date: '2026-01-01',
+};
+const validRangeTrigger: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_IN_RANGE',
+  trigger_id: 'warrant-trigger-1',
+  conversion_right: warrantRight,
+  start_date: '2026-01-01',
+  end_date: '2026-02-01',
+};
+
+const mixedDateTrigger = {
+  type: 'AUTOMATIC_ON_DATE',
+  trigger_id: 'convertible-trigger-mixed',
+  conversion_right: convertibleRight,
+  trigger_date: '2026-01-01',
+  trigger_condition: 'forbidden',
+} as const;
+// @ts-expect-error discriminator-specific fields cannot be mixed, including through a variable
+const invalidMixedDateTrigger: ConvertibleConversionTrigger = mixedDateTrigger;
+
+const fieldFreeTriggerWithDate = {
+  type: 'ELECTIVE_AT_WILL',
+  trigger_id: 'warrant-trigger-with-date',
+  conversion_right: warrantRight,
+  trigger_date: '2026-01-01',
+} as const;
+// @ts-expect-error field-free variants reject discriminator-specific fields
+const invalidFieldFreeTrigger: WarrantExerciseTrigger = fieldFreeTriggerWithDate;
+
+// @ts-expect-error AUTOMATIC_ON_DATE requires trigger_date
+const missingTriggerDate: ConvertibleConversionTrigger = {
+  type: 'AUTOMATIC_ON_DATE',
+  trigger_id: 'convertible-trigger-missing-date',
+  conversion_right: convertibleRight,
+};
+
+// @ts-expect-error ELECTIVE_IN_RANGE requires end_date
+const missingRangeEnd: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_IN_RANGE',
+  trigger_id: 'warrant-trigger-missing-end',
+  conversion_right: warrantRight,
+  start_date: '2026-01-01',
+};
+
+// @ts-expect-error every trigger requires trigger_id
+const missingTriggerId: ConvertibleConversionTrigger = {
+  type: 'ELECTIVE_AT_WILL',
+  conversion_right: convertibleRight,
+};
+
+// @ts-expect-error every trigger requires conversion_right
+const missingConversionRight: WarrantExerciseTrigger = {
+  type: 'UNSPECIFIED',
+  trigger_id: 'warrant-trigger-missing-right',
+};
+
+// @ts-expect-error bare trigger strings are not conversion-trigger records
+const bareTriggerString: ConvertibleConversionTrigger = 'AUTOMATIC_ON_DATE';
+
+const wrongTriggerRight: ConvertibleConversionTrigger = {
+  type: 'UNSPECIFIED',
+  trigger_id: 'convertible-trigger-wrong-right',
+  // @ts-expect-error convertible triggers require a convertible conversion right
+  conversion_right: warrantRight,
+};
+
+void convertibleTriggerAliasIsCanonical;
+void warrantTriggerAliasIsCanonical;
+void validDateTrigger;
+void validRangeTrigger;
+void invalidMixedDateTrigger;
+void invalidFieldFreeTrigger;
+void missingTriggerDate;
+void missingRangeEnd;
+void missingTriggerId;
+void missingConversionRight;
+void bareTriggerString;
+void wrongTriggerRight;
+
+interface CanonicalRatioConversionMechanism {
+  type: 'RATIO_CONVERSION';
+  ratio: { numerator: string; denominator: string };
+  conversion_price: { amount: string; currency: string };
+  rounding_type: 'CEILING' | 'FLOOR' | 'NORMAL';
+}
+interface CanonicalStockClassConversionRight {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT';
+  conversion_mechanism: CanonicalRatioConversionMechanism;
+  converts_to_stock_class_id: string;
+  converts_to_future_round?: boolean;
+}
+
+const ratioMechanismIsSchemaExact: Assert<IsExactly<RatioConversionMechanism, CanonicalRatioConversionMechanism>> =
+  true;
+const stockClassRightIsSchemaExact: Assert<IsExactly<StockClassConversionRight, CanonicalStockClassConversionRight>> =
+  true;
+
+const validStockClassRight: StockClassConversionRight = {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT',
+  conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    ratio: { numerator: '1', denominator: '1' },
+    conversion_price: { amount: '1', currency: 'USD' },
+    rounding_type: 'NORMAL',
+  },
+  converts_to_stock_class_id: 'common',
+};
+const invalidStockClassRightType: StockClassConversionRight = {
+  ...validStockClassRight,
+  // @ts-expect-error stock-class conversion rights have one exact discriminator
+  type: 'NOT_THE_SCHEMA_TAG',
+};
+const invalidStockClassScalarTrigger: StockClassConversionRight = {
+  ...validStockClassRight,
+  // @ts-expect-error DAML-only trigger artifacts are not part of canonical OCF
+  conversion_trigger: 'AUTOMATIC_ON_DATE',
+};
+const invalidStockClassStringMechanism: StockClassConversionRight = {
+  ...validStockClassRight,
+  // @ts-expect-error stock-class rights require the complete ratio mechanism object
+  conversion_mechanism: 'RATIO_CONVERSION',
+};
+
+void ratioMechanismIsSchemaExact;
+void stockClassRightIsSchemaExact;
+void validStockClassRight;
+void invalidStockClassRightType;
+void invalidStockClassScalarTrigger;
+void invalidStockClassStringMechanism;

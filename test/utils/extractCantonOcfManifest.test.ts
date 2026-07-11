@@ -354,6 +354,73 @@ describe('extractCantonOcfManifest', () => {
       expect(getEntityAsOcf).toHaveBeenCalledTimes(expectedAttempts);
     });
 
+    it('bounds identifiers, read scope, and underlying messages in public diagnostics', async () => {
+      const longObjectId = `stakeholder-${'o'.repeat(20_000)}`;
+      const longContractId = `contract-${'c'.repeat(20_000)}`;
+      const longParty = `party-${'p'.repeat(20_000)}`;
+      const state = buildCapTableState({
+        contractIds: new Map([['stakeholder', new Map([[longObjectId, longContractId]])]]),
+      });
+      mockGetEntityAsOcf.mockRejectedValue(new Error(`Schema mismatch: ${'x'.repeat(20_000)}`));
+      const logs: string[] = [];
+
+      let caught: unknown;
+      try {
+        await extractCantonOcfManifest(mockClient, state, {
+          logger: (message) => logs.push(message),
+          readAs: Array.from({ length: 20 }, (_, index) => `${longParty}-${index}`),
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(Error);
+      const diagnosed = caught as Error & {
+        cause: Error;
+        contractId: string;
+        diagnostics: { objectId: string; contractId: string; readAs: string[] };
+      };
+      expect(diagnosed.message.length).toBeLessThanOrEqual(512);
+      expect(diagnosed.contractId.length).toBeLessThanOrEqual(128);
+      expect(diagnosed.cause.message.length).toBeLessThanOrEqual(256);
+      expect(diagnosed.diagnostics.objectId.length).toBeLessThanOrEqual(128);
+      expect(diagnosed.diagnostics.contractId.length).toBeLessThanOrEqual(128);
+      expect(diagnosed.diagnostics.readAs).toHaveLength(12);
+      expect(diagnosed.diagnostics.readAs.every((party) => party.length <= 128)).toBe(true);
+      expect(logs.every((message) => message.length < 700)).toBe(true);
+    });
+
+    it('does not invoke proxy traps when a ledger read rejects with a hostile value', async () => {
+      let trapCalls = 0;
+      const hostileRejection = new Proxy(Object.create(null) as object, {
+        get() {
+          trapCalls += 1;
+          throw new Error('proxy get trap must not run');
+        },
+        getPrototypeOf() {
+          trapCalls += 1;
+          throw new Error('proxy getPrototypeOf trap must not run');
+        },
+        ownKeys() {
+          trapCalls += 1;
+          throw new Error('proxy ownKeys trap must not run');
+        },
+      });
+      const state = buildCapTableState({
+        contractIds: new Map([['stakeholder', new Map([['stakeholder-hostile', 'stakeholder-cid-hostile']])]]),
+      });
+      mockGetEntityAsOcf.mockRejectedValue(hostileRejection);
+
+      await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
+        code: OcpErrorCodes.CHOICE_FAILED,
+        classification: 'unknown',
+        contractId: 'stakeholder-cid-hostile',
+        cause: expect.objectContaining({ message: '{"containerType":"proxy"}' }),
+      });
+      expect(getEntityAsOcf).toHaveBeenCalledTimes(1);
+      expect(trapCalls).toBe(0);
+    });
+
     it('should return partial manifest when failOnReadErrors=false and child fetch is non-benign', async () => {
       const state = buildCapTableState({
         contractIds: new Map([['stakeholder', new Map([['stakeholder-1', 'stakeholder-cid-1']])]]),
