@@ -228,7 +228,8 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
             ? data.pro_rata
             : (() => {
                 throw invalid('convertibleIssuance.pro_rata', 'pro_rata must be a decimal string', data.pro_rata);
-              })()
+              })(),
+          'convertibleIssuance.pro_rata'
         );
   const comments = commentsFromDaml(data.comments);
 
@@ -240,7 +241,7 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
     custom_id: requireString(data.custom_id, 'convertibleIssuance.custom_id'),
     stakeholder_id: requireString(data.stakeholder_id, 'convertibleIssuance.stakeholder_id'),
     investment_amount: {
-      amount: normalizeNumericString(amount),
+      amount: normalizeNumericString(amount, 'convertibleIssuance.investment_amount.amount'),
       currency: requireString(investmentAmount.currency, 'convertibleIssuance.investment_amount.currency'),
     },
     convertible_type: convertibleTypeFromDaml(data.convertible_type),
