@@ -183,6 +183,11 @@ interface SecurityTransitionInstance {
   outputs: ReadonlyArray<SecurityFieldValue & { family: SecurityFamily }>;
 }
 
+interface SecurityConsumer {
+  source: IndexedObject;
+  path: string;
+}
+
 interface SecurityProducer {
   id: string;
   family: SecurityFamily;
@@ -311,13 +316,6 @@ const OBSERVED_SECURITY_REFERENCE_RULES: readonly ObservedSecurityReferenceRule[
     targetFamilies: ['stock'],
   },
   {
-    // OCF samples pair a cancellation and return-to-pool for the same security.
-    // Treat the return as cancellation accounting, not a second lineage consumer.
-    sourceObjectTypes: ['TX_STOCK_PLAN_RETURN_TO_POOL'],
-    path: 'security_id',
-    targetFamilies: ['stock', 'equity-compensation'],
-  },
-  {
     sourceObjectTypes: ['TX_WARRANT_ACCEPTANCE'],
     path: 'security_id',
     targetFamilies: ['warrant'],
@@ -328,6 +326,13 @@ const OBSERVED_SECURITY_REFERENCE_RULES: readonly ObservedSecurityReferenceRule[
     targetFamilies: ['stock', 'warrant', 'equity-compensation'],
   },
 ];
+
+const RETURN_TO_POOL_SECURITY_FAMILIES = [
+  'stock',
+  'equity-compensation',
+] as const satisfies OcfNonEmptyReadonlyArray<SecurityFamily>;
+
+const RETURN_TO_POOL_CANCELLATION_TYPES = ['TX_EQUITY_COMPENSATION_CANCELLATION', 'TX_STOCK_CANCELLATION'] as const;
 
 type SecurityTransitionObjectType =
   | 'TX_CONVERTIBLE_CANCELLATION'
@@ -499,6 +504,34 @@ function canonicalObjectType(objectType: string): string {
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function canonicalNumericIdentity(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  if (!/^[+-]?\d+(?:\.\d+)?$/.test(value)) return undefined;
+
+  const sign = value.startsWith('-') ? '-' : '';
+  const unsigned = value.replace(/^[+-]/, '');
+  const decimalIndex = unsigned.indexOf('.');
+  const integer = (decimalIndex >= 0 ? unsigned.slice(0, decimalIndex) : unsigned).replace(/^0+(?=\d)/, '');
+  const fraction = (decimalIndex >= 0 ? unsigned.slice(decimalIndex + 1) : '').replace(/0+$/, '');
+  const isZero = integer === '0' && fraction.length === 0;
+  return `${sign === '-' && !isZero ? '-' : ''}${integer}${fraction.length > 0 ? `.${fraction}` : ''}`;
+}
+
+function isMatchingReturnToPoolCancellation(returnToPool: IndexedObject, cancellation: IndexedObject): boolean {
+  if (!(RETURN_TO_POOL_CANCELLATION_TYPES as readonly string[]).includes(cancellation.canonicalObjectType)) {
+    return false;
+  }
+  if (returnToPool.data.date !== cancellation.data.date) return false;
+
+  const returnedQuantity = canonicalNumericIdentity(returnToPool.data.quantity);
+  const cancelledQuantity = canonicalNumericIdentity(cancellation.data.quantity);
+  return returnedQuantity !== undefined && returnedQuantity === cancelledQuantity;
+}
+
+function consumerSortKey(consumer: SecurityConsumer): string {
+  return [consumer.source.canonicalObjectType, consumer.source.data.id, consumer.path].join('\u0000');
 }
 
 function requireFirst<T>(values: readonly T[], context: string): T {
@@ -755,6 +788,35 @@ function reportDuplicateReferences(
   }
 }
 
+function addReturnToPoolConsumers(
+  returnsBySecurityId: ReadonlyMap<string, readonly SecurityConsumer[]>,
+  terminalConsumers: Map<string, SecurityConsumer[]>
+): void {
+  for (const [securityId, returns] of returnsBySecurityId) {
+    const existingConsumers = terminalConsumers.get(securityId) ?? [];
+    const availableCancellations = existingConsumers
+      .filter((consumer) =>
+        (RETURN_TO_POOL_CANCELLATION_TYPES as readonly string[]).includes(consumer.source.canonicalObjectType)
+      )
+      .sort((left, right) => compareText(consumerSortKey(left), consumerSortKey(right)));
+
+    for (const returnConsumer of [...returns].sort((left, right) =>
+      compareText(consumerSortKey(left), consumerSortKey(right))
+    )) {
+      const cancellationIndex = availableCancellations.findIndex((cancellation) =>
+        isMatchingReturnToPoolCancellation(returnConsumer.source, cancellation.source)
+      );
+      if (cancellationIndex >= 0) {
+        availableCancellations.splice(cancellationIndex, 1);
+      } else {
+        existingConsumers.push(returnConsumer);
+      }
+    }
+
+    terminalConsumers.set(securityId, existingConsumers);
+  }
+}
+
 function issuanceFamily(objectType: string): SecurityFamily | undefined {
   switch (objectType) {
     case 'TX_CONVERTIBLE_ISSUANCE':
@@ -1006,7 +1068,8 @@ export function validateOcfCapTableSnapshot(objects: unknown): OcfCapTableSnapsh
   const issues: OcfCapTableSnapshotIssue[] = [];
   const objectsByKey = new Map<string, IndexedObject[]>();
   const securityProducers = new Map<string, SecurityProducer[]>();
-  const terminalConsumers = new Map<string, Array<{ source: IndexedObject; path: string }>>();
+  const terminalConsumers = new Map<string, SecurityConsumer[]>();
+  const returnToPoolConsumers = new Map<string, SecurityConsumer[]>();
   const transitionInstances: SecurityTransitionInstance[] = [];
   const outputProducersByTransition = new Map<SecurityTransitionInstance, SecurityProducer[]>();
   const validTransitions = new Set<SecurityTransitionInstance>();
@@ -1270,6 +1333,24 @@ export function validateOcfCapTableSnapshot(objects: unknown): OcfCapTableSnapsh
       }
     }
   }
+
+  for (const source of indexed.filter((item) => item.canonicalObjectType === 'TX_STOCK_PLAN_RETURN_TO_POOL')) {
+    const references = readSecurityField(source, 'security_id', 'one', false, 0, issues);
+    for (const reference of references) {
+      const producer = validateSecurityReference(source, reference, RETURN_TO_POOL_SECURITY_FAMILIES);
+      if (producer === undefined) continue;
+      validObservedSecurityProducers.set(source, producer);
+      const consumers = returnToPoolConsumers.get(reference.id) ?? [];
+      consumers.push({ source, path: reference.path });
+      returnToPoolConsumers.set(reference.id, consumers);
+    }
+  }
+
+  // OCF models return-to-pool as terminal, but canonical snapshots pair it with
+  // the same cancellation to describe where the cancelled quantity was returned.
+  // Collapse that one-to-one accounting pair; every unmatched return remains an
+  // independent consumer and therefore participates in terminal cardinality.
+  addReturnToPoolConsumers(returnToPoolConsumers, terminalConsumers);
 
   for (const [securityId, consumers] of terminalConsumers) {
     if (consumers.length <= 1) continue;

@@ -1330,7 +1330,7 @@ describe('validateOcfCapTableSnapshot', () => {
   });
 
   it('allows cancellation and return-to-pool accounting for the same security', () => {
-    const objects: OcfCapTableSnapshotObject[] = [
+    const objects = deepFreezeValue([
       ...completeStockSnapshot().map((object) =>
         object.object_type === 'TX_STOCK_ISSUANCE' ? { ...object, stock_plan_id: 'plan-1' } : object
       ),
@@ -1353,7 +1353,7 @@ describe('validateOcfCapTableSnapshot', () => {
         id: 'cancel-plan-security',
         date: '2025-01-01',
         security_id: 'security-orphaned',
-        quantity: '10',
+        quantity: '+0010.0',
         reason_text: 'Cancelled into rollover',
       },
       {
@@ -1362,13 +1362,250 @@ describe('validateOcfCapTableSnapshot', () => {
         date: '2025-01-01',
         security_id: 'security-orphaned',
         stock_plan_id: 'plan-2',
-        quantity: '10',
+        quantity: '10.000',
         reason_text: 'Return to rollover plan',
+      },
+    ]);
+    const before = JSON.stringify(objects);
+
+    expectSchemaValid(objects);
+    const result = validateRawSnapshot(objects);
+    expect(result).toEqual({ valid: true, issues: [] });
+    expect(validateRawSnapshot([...objects].reverse())).toEqual(result);
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.issues)).toBe(true);
+    expect(JSON.stringify(objects)).toBe(before);
+  });
+
+  it('rejects a return-to-pool and another terminal transaction consuming the same security', () => {
+    const objects = deepFreezeValue([
+      ...completeStockSnapshot().map((object) =>
+        object.object_type === 'TX_STOCK_ISSUANCE' ? { ...object, stock_plan_id: 'plan-1' } : object
+      ),
+      {
+        object_type: 'STOCK_PLAN',
+        id: 'plan-1',
+        plan_name: 'Original Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['stock-class-common'],
+      },
+      {
+        object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+        id: 'return-conflicting-terminal',
+        date: '2025-01-01',
+        security_id: 'security-orphaned',
+        stock_plan_id: 'plan-1',
+        quantity: '10',
+        reason_text: 'Return to pool',
+      },
+      {
+        object_type: 'TX_STOCK_TRANSFER',
+        id: 'transfer-conflicting-terminal',
+        date: '2025-01-01',
+        security_id: 'security-orphaned',
+        quantity: '10',
+        resulting_security_ids: ['security-after-conflicting-transfer'],
+      },
+    ]);
+    const before = JSON.stringify(objects);
+
+    expectSchemaValid(objects);
+    const result = validateRawSnapshot(objects);
+    expect(validateRawSnapshot([...objects].reverse())).toEqual(result);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'MULTIPLE_SECURITY_CONSUMERS',
+        objectType: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+        objectId: 'return-conflicting-terminal',
+        path: 'security_id',
+        referenceId: 'security-orphaned',
+        consumerObjectTypes: ['TX_STOCK_PLAN_RETURN_TO_POOL', 'TX_STOCK_TRANSFER'],
+        count: 2,
+      }),
+    ]);
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.issues)).toBe(true);
+    expect(Object.isFrozen(result.issues[0])).toBe(true);
+    if (result.issues[0]?.code === 'MULTIPLE_SECURITY_CONSUMERS') {
+      expect(Object.isFrozen(result.issues[0].consumerObjectTypes)).toBe(true);
+    }
+    expect(JSON.stringify(objects)).toBe(before);
+  });
+
+  it('rejects duplicate standalone return-to-pool consumers deterministically', () => {
+    const objects = deepFreezeValue([
+      ...completeStockSnapshot().map((object) =>
+        object.object_type === 'TX_STOCK_ISSUANCE' ? { ...object, stock_plan_id: 'plan-1' } : object
+      ),
+      {
+        object_type: 'STOCK_PLAN',
+        id: 'plan-1',
+        plan_name: 'Original Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['stock-class-common'],
+      },
+      ...['a', 'b'].map((suffix) => ({
+        object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+        id: `return-duplicate-${suffix}`,
+        date: '2025-01-01',
+        security_id: 'security-orphaned',
+        stock_plan_id: 'plan-1',
+        quantity: '5',
+        reason_text: 'Duplicate return',
+      })),
+    ]);
+
+    expectSchemaValid(objects);
+    const result = validateRawSnapshot(objects);
+    expect(validateRawSnapshot([...objects].reverse())).toEqual(result);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'MULTIPLE_SECURITY_CONSUMERS',
+        objectType: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+        objectId: 'return-duplicate-a',
+        path: 'security_id',
+        referenceId: 'security-orphaned',
+        consumerObjectTypes: ['TX_STOCK_PLAN_RETURN_TO_POOL'],
+        count: 2,
+      }),
+    ]);
+  });
+
+  it('collapses at most one matching return-to-pool event per cancellation', () => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot().map((object) =>
+        object.object_type === 'TX_STOCK_ISSUANCE' ? { ...object, stock_plan_id: 'plan-1' } : object
+      ),
+      {
+        object_type: 'STOCK_PLAN',
+        id: 'plan-1',
+        plan_name: 'Original Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['stock-class-common'],
+      },
+      {
+        object_type: 'TX_STOCK_CANCELLATION',
+        id: 'single-cancellation',
+        date: '2025-01-01',
+        security_id: 'security-orphaned',
+        quantity: '10',
+        reason_text: 'Single cancellation',
+      },
+      ...['a', 'b'].map((suffix) => ({
+        object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+        id: `paired-return-${suffix}`,
+        date: '2025-01-01',
+        security_id: 'security-orphaned',
+        stock_plan_id: 'plan-1',
+        quantity: '10',
+        reason_text: 'Return cancelled shares',
+      })),
+    ];
+
+    expectSchemaValid(objects);
+    const result = validateRawSnapshot(objects);
+    expect(validateRawSnapshot([...objects].reverse())).toEqual(result);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'MULTIPLE_SECURITY_CONSUMERS',
+        objectType: 'TX_STOCK_CANCELLATION',
+        objectId: 'single-cancellation',
+        path: 'security_id',
+        referenceId: 'security-orphaned',
+        consumerObjectTypes: ['TX_STOCK_CANCELLATION', 'TX_STOCK_PLAN_RETURN_TO_POOL'],
+        count: 2,
+      }),
+    ]);
+  });
+
+  it.each([
+    ['date', { date: '2025-01-02', quantity: '10' }],
+    ['quantity', { date: '2025-01-01', quantity: '11' }],
+  ] as const)('does not collapse a cancellation with a return-to-pool whose %s differs', (_field, returnData) => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot().map((object) =>
+        object.object_type === 'TX_STOCK_ISSUANCE' ? { ...object, stock_plan_id: 'plan-1' } : object
+      ),
+      {
+        object_type: 'STOCK_PLAN',
+        id: 'plan-1',
+        plan_name: 'Original Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['stock-class-common'],
+      },
+      {
+        object_type: 'TX_STOCK_CANCELLATION',
+        id: 'cancel-mismatched-return',
+        date: '2025-01-01',
+        security_id: 'security-orphaned',
+        quantity: '10',
+        reason_text: 'Cancellation',
+      },
+      {
+        object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+        id: 'return-mismatched-cancellation',
+        ...returnData,
+        security_id: 'security-orphaned',
+        stock_plan_id: 'plan-1',
+        reason_text: 'Mismatched return',
       },
     ];
 
     expectSchemaValid(objects);
-    expect(validateOcfCapTableSnapshot(objects)).toEqual({ valid: true, issues: [] });
+    const result = validateRawSnapshot(objects);
+    expect(validateRawSnapshot([...objects].reverse())).toEqual(result);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: 'MULTIPLE_SECURITY_CONSUMERS',
+        objectType: 'TX_STOCK_CANCELLATION',
+        objectId: 'cancel-mismatched-return',
+        path: 'security_id',
+        referenceId: 'security-orphaned',
+        consumerObjectTypes: ['TX_STOCK_CANCELLATION', 'TX_STOCK_PLAN_RETURN_TO_POOL'],
+        count: 2,
+      }),
+    ]);
+  });
+
+  it('pairs a PlanSecurity cancellation alias with its canonical return-to-pool accounting event', () => {
+    const objects: OcfCapTableSnapshotObject[] = [
+      ...completeStockSnapshot(),
+      {
+        object_type: 'STOCK_PLAN',
+        id: 'alias-plan',
+        plan_name: 'Alias Plan',
+        initial_shares_reserved: '1000',
+        stock_class_ids: ['stock-class-common'],
+      },
+      {
+        ...schemaValidEquityCompensationRoot(),
+        object_type: 'TX_PLAN_SECURITY_ISSUANCE',
+        stock_plan_id: 'alias-plan',
+        stock_class_id: 'stock-class-common',
+      },
+      {
+        object_type: 'TX_PLAN_SECURITY_CANCELLATION',
+        id: 'alias-cancellation',
+        date: '2025-02-01',
+        security_id: 'equity-compensation-security-root',
+        quantity: '25',
+        reason_text: 'Cancel legacy PlanSecurity grant',
+      },
+      {
+        object_type: 'TX_STOCK_PLAN_RETURN_TO_POOL',
+        id: 'alias-return',
+        date: '2025-02-01',
+        security_id: 'equity-compensation-security-root',
+        stock_plan_id: 'alias-plan',
+        quantity: '25.0',
+        reason_text: 'Return legacy PlanSecurity grant',
+      },
+    ];
+
+    expectSchemaValid(objects);
+    const result = validateRawSnapshot(objects);
+    expect(result).toEqual({ valid: true, issues: [] });
+    expect(validateRawSnapshot([...objects].reverse())).toEqual(result);
   });
 
   it('rejects returning a lineage that contains a non-plan issuance', () => {
