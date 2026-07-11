@@ -507,10 +507,10 @@ describe('extractCantonOcfManifest', () => {
             security_id: 'security-1',
           }),
         };
-        const data = transactionsByContractId[contractId as keyof typeof transactionsByContractId];
-        if (data === undefined) {
+        if (!Object.prototype.hasOwnProperty.call(transactionsByContractId, contractId)) {
           throw new Error(`Unexpected stock transfer contract: ${contractId}`);
         }
+        const data = transactionsByContractId[contractId as keyof typeof transactionsByContractId];
         return { data, contractId };
       });
 
