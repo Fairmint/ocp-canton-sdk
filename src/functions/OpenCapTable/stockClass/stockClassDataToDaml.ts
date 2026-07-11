@@ -5,11 +5,16 @@ import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
 import {
   cleanComments,
+  damlMonetaryToNativeWithValidation,
   initialSharesAuthorizedToDaml,
   monetaryToDaml,
   normalizeNumericString,
   optionalDateStringToDAMLTime,
 } from '../../../utils/typeConversions';
+import {
+  STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION,
+  stockClassConversionStorageTriggerId,
+} from './stockClassConversionStorage';
 
 /**
  * Adapt the OCF/DAML v34 schema mismatch at the private storage boundary.
@@ -31,14 +36,14 @@ function buildStorageOnlyStockClassTrigger(
       value: {
         conversion_mechanism: {
           tag: 'OcfConvMechCustom',
-          value: { custom_conversion_description: 'OCF stock-class conversion storage adapter' },
+          value: { custom_conversion_description: STOCK_CLASS_CONVERSION_STORAGE_DESCRIPTION },
         },
         type_: 'CONVERTIBLE_CONVERSION_RIGHT',
         converts_to_future_round: right.converts_to_future_round ?? null,
         converts_to_stock_class_id: convertsToStockClassId,
       },
     },
-    trigger_id: `ocp-sdk:stock-class:${stockClassId}:conversion-right:${index}:unspecified`,
+    trigger_id: stockClassConversionStorageTriggerId(stockClassId, index),
     type_: 'OcfTriggerTypeTypeUnspecified',
     end_date: null,
     nickname: null,
@@ -80,18 +85,75 @@ function stockClassConversionRightToDaml(
     );
   }
 
-  const path = `stockClass.conversion_rights[${index}].conversion_mechanism.rounding_type`;
-  if (right.conversion_mechanism.rounding_type !== 'NORMAL') {
+  const mechanismPath = `stockClass.conversion_rights[${index}].conversion_mechanism`;
+  const rawMechanism = rawRight.conversion_mechanism;
+  if (rawMechanism === null || typeof rawMechanism !== 'object' || Array.isArray(rawMechanism)) {
+    throw new OcpValidationError(mechanismPath, 'A ratio conversion mechanism is required', {
+      code:
+        rawMechanism === undefined || rawMechanism === null
+          ? OcpErrorCodes.REQUIRED_FIELD_MISSING
+          : OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'RatioConversionMechanism object',
+      receivedValue: rawMechanism,
+    });
+  }
+  const mechanism = rawMechanism as Record<string, unknown>;
+  if (mechanism.type !== 'RATIO_CONVERSION') {
+    throw new OcpValidationError(`${mechanismPath}.type`, 'Stock-class rights require a ratio conversion mechanism', {
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      expectedType: 'RATIO_CONVERSION',
+      receivedValue: mechanism.type,
+    });
+  }
+
+  const roundingPath = `${mechanismPath}.rounding_type`;
+  if (mechanism.rounding_type !== 'NORMAL') {
     throw new OcpValidationError(
-      path,
+      roundingPath,
       'The current DAML package does not persist stock-class conversion rounding; only NORMAL round-trips losslessly',
       {
         code: OcpErrorCodes.INVALID_FORMAT,
         expectedType: 'NORMAL',
-        receivedValue: right.conversion_mechanism.rounding_type,
+        receivedValue: mechanism.rounding_type,
       }
     );
   }
+
+  const conversionPricePath = `${mechanismPath}.conversion_price`;
+  const conversionPrice = damlMonetaryToNativeWithValidation(mechanism.conversion_price, conversionPricePath);
+  if (conversionPrice === undefined) {
+    throw new OcpValidationError(conversionPricePath, 'A conversion price is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'Monetary object',
+      receivedValue: mechanism.conversion_price,
+    });
+  }
+
+  const ratioPath = `${mechanismPath}.ratio`;
+  const rawRatio = mechanism.ratio;
+  if (rawRatio === null || typeof rawRatio !== 'object' || Array.isArray(rawRatio)) {
+    throw new OcpValidationError(ratioPath, 'A conversion ratio is required', {
+      code:
+        rawRatio === undefined || rawRatio === null ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+      expectedType: '{ numerator: string; denominator: string }',
+      receivedValue: rawRatio,
+    });
+  }
+  const ratio = rawRatio as Record<string, unknown>;
+  const requireRatioPart = (field: 'numerator' | 'denominator'): string => {
+    const value = ratio[field];
+    const fieldPath = `${ratioPath}.${field}`;
+    if (typeof value !== 'string') {
+      throw new OcpValidationError(fieldPath, `Conversion ratio ${field} must be a decimal string`, {
+        code: value === undefined || value === null ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'decimal string',
+        receivedValue: value,
+      });
+    }
+    return normalizeNumericString(value, fieldPath);
+  };
+  const ratioNumerator = requireRatioPart('numerator');
+  const ratioDenominator = requireRatioPart('denominator');
 
   return {
     conversion_mechanism: 'OcfConversionMechanismRatioConversion',
@@ -99,7 +161,7 @@ function stockClassConversionRightToDaml(
     converts_to_stock_class_id: convertsToStockClassId,
     type_: right.type,
     ceiling_price_per_share: null,
-    conversion_price: monetaryToDaml(right.conversion_mechanism.conversion_price),
+    conversion_price: monetaryToDaml(conversionPrice, conversionPricePath),
     converts_to_future_round: right.converts_to_future_round ?? null,
     custom_description: null,
     discount_rate: null,
@@ -107,8 +169,8 @@ function stockClassConversionRightToDaml(
     floor_price_per_share: null,
     percent_of_capitalization: null,
     ratio: {
-      numerator: normalizeNumericString(right.conversion_mechanism.ratio.numerator),
-      denominator: normalizeNumericString(right.conversion_mechanism.ratio.denominator),
+      numerator: ratioNumerator,
+      denominator: ratioDenominator,
     },
     reference_share_price: null,
     reference_valuation_price_per_share: null,
