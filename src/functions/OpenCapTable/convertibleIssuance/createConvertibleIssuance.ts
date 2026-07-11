@@ -12,7 +12,7 @@ import {
   canonicalOptionalNumericToDaml,
   convertibleMechanismToDaml,
 } from '../shared/conversionMechanisms';
-import { requireDenseArray, requireMonetary, requireNonEmptyArray } from '../shared/ocfValues';
+import { assertNotRuntimeProxy, requireDenseArray, requireMonetary, requireNonEmptyArray } from '../shared/ocfValues';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
@@ -46,12 +46,14 @@ function invalidFormat(field: string, expectedType: string, receivedValue: unkno
 
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
   if (value === null || value === undefined) throw requiredMissing(field, 'object', value);
+  assertNotRuntimeProxy(value, field, 'plain OCF object');
   if (!isRecord(value)) throw invalidType(field, 'object', value);
   return value;
 }
 
 function requireArray(value: unknown, field: string): unknown[] {
   if (value === null || value === undefined) throw requiredMissing(field, 'array', value);
+  assertNotRuntimeProxy(value, field, 'ordinary JSON array');
   if (!Array.isArray(value)) throw invalidType(field, 'array', value);
   return requireDenseArray(value, field);
 }
@@ -97,6 +99,7 @@ function securityLawExemptionsToDaml(
 
 function commentsToDaml(value: unknown, field: string): string[] {
   if (value === undefined) return [];
+  assertNotRuntimeProxy(value, field, 'ordinary JSON array of non-empty strings or omitted property');
   if (!Array.isArray(value)) throw invalidType(field, 'array of non-empty strings or omitted property', value);
   return requireDenseArray(value, field).map((comment, index) => requireString(comment, `${field}.${index}`));
 }

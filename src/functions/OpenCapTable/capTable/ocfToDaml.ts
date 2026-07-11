@@ -42,7 +42,7 @@ import { stakeholderRelationshipChangeEventDataToDaml } from '../stakeholderRela
 import { stakeholderStatusChangeEventDataToDaml } from '../stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
 import { stockAcceptanceDataToDaml } from '../stockAcceptance/stockAcceptanceDataToDaml';
 import { stockCancellationDataToDaml } from '../stockCancellation/createStockCancellation';
-import { stockClassDataToDaml } from '../stockClass/stockClassDataToDaml';
+import { assertStockClassWriterProxyBoundary, stockClassDataToDaml } from '../stockClass/stockClassDataToDaml';
 import { stockClassAuthorizedSharesAdjustmentDataToDaml } from '../stockClassAuthorizedSharesAdjustment/createStockClassAuthorizedSharesAdjustment';
 import { stockClassConversionRatioAdjustmentDataToDaml } from '../stockClassConversionRatioAdjustment/stockClassConversionRatioAdjustmentDataToDaml';
 import { stockClassSplitDataToDaml } from '../stockClassSplit/stockClassSplitDataToDaml';
@@ -100,6 +100,9 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
     const converted = convertibleConversionDataToDaml(data as OcfDataTypeFor<'convertibleConversion'>);
     parseOcfEntityInput(type, data);
     return converted;
+  }
+  if (type === 'stockClass') {
+    assertStockClassWriterProxyBoundary(data);
   }
 
   const d = parseOcfEntityInput(type, data);

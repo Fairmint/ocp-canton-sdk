@@ -1,3 +1,4 @@
+import { types as nodeUtilTypes } from 'node:util';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { Monetary } from '../../../types/native';
 import { canonicalizeDamlNumeric10, damlNumeric10ToScaledBigInt } from '../../../utils/damlNumeric';
@@ -11,12 +12,27 @@ interface DecimalRange {
   expectedType: string;
 }
 
+/**
+ * Reject JavaScript Proxy values before any operation that can invoke a Proxy
+ * trap (or throw on a revoked Proxy). Proxies are not JSON values and retaining
+ * the Proxy itself in diagnostics would make later error serialization unsafe.
+ */
+export function assertNotRuntimeProxy(value: unknown, fieldPath: string, expectedType: string): void {
+  if (!nodeUtilTypes.isProxy(value)) return;
+  throw new OcpValidationError(fieldPath, `${fieldPath} cannot be a JavaScript Proxy`, {
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    expectedType,
+    receivedValue: 'JavaScript Proxy',
+  });
+}
+
 /** Reject object structure that cannot be represented by an exact OCF JSON record. */
 export function assertExactObjectFields(
   record: Record<string, unknown>,
   allowedFields: readonly string[],
   fieldPath: string
 ): void {
+  assertNotRuntimeProxy(record, fieldPath, 'plain OCF object');
   const prototype = Object.getPrototypeOf(record) as object | null;
   if (prototype !== Object.prototype && prototype !== null) {
     throw new OcpValidationError(fieldPath, `${fieldPath} must be a plain OCF object`, {
@@ -195,6 +211,7 @@ export function requireCurrencyCode(value: unknown, fieldPath: string): string {
 /** Validate a complete OCF/DAML Monetary value without accepting compatibility scalar forms. */
 export function requireMonetary(value: unknown, fieldPath: string): Monetary {
   if (value === null || value === undefined) throw requiredMissing(fieldPath, 'Monetary object', value);
+  assertNotRuntimeProxy(value, fieldPath, 'Monetary object');
   if (!isRecord(value)) throw invalidType(fieldPath, 'Monetary object', value);
   return {
     amount: requireNonnegativeDecimal(value.amount, `${fieldPath}.amount`),
@@ -225,6 +242,7 @@ function arrayShapeError(
 /** Require an ordinary, lossless JSON array and attribute malformed structure to its exact path. */
 export function requireDenseArray(value: unknown, fieldPath: string): unknown[] {
   if (value === null || value === undefined) throw requiredMissing(fieldPath, 'array', value);
+  assertNotRuntimeProxy(value, fieldPath, 'ordinary JSON array');
   if (!Array.isArray(value)) throw invalidType(fieldPath, 'array', value);
 
   if (Object.getPrototypeOf(value) !== Array.prototype) {
@@ -325,6 +343,7 @@ export function optionalStringArrayToDaml(value: unknown, fieldPath: string): st
 /** Require a non-empty runtime array while preserving the caller's exact field path. */
 export function requireNonEmptyArray(value: unknown, fieldPath: string): [unknown, ...unknown[]] {
   if (value === null || value === undefined) throw requiredMissing(fieldPath, 'non-empty array', value);
+  assertNotRuntimeProxy(value, fieldPath, 'ordinary non-empty JSON array');
   if (!Array.isArray(value)) throw invalidType(fieldPath, 'non-empty array', value);
   const values = requireDenseArray(value, fieldPath);
   if (values.length === 0) {

@@ -6,6 +6,7 @@ import type { Monetary, OcfStockClassConversionRatioAdjustment } from '../../../
 import { dateStringToDAMLTime, isRecord } from '../../../utils/typeConversions';
 import {
   assertExactObjectFields,
+  assertNotRuntimeProxy,
   optionalStringArrayToDaml,
   requireCurrencyCode,
   requireNonnegativeDecimal,
@@ -53,6 +54,7 @@ function invalidFormat(field: string, expectedType: string, receivedValue: unkno
 
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
   if (value === undefined) throw requiredMissing(field, 'object', value);
+  assertNotRuntimeProxy(value, field, 'plain OCF object');
   if (!isRecord(value)) throw invalidType(field, 'object', value);
   return value;
 }

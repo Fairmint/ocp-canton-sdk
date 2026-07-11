@@ -5,7 +5,12 @@ import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types';
 import { dateStringToDAMLTime, isRecord } from '../../../utils/typeConversions';
 import { canonicalOptionalNumericToDaml } from '../shared/conversionMechanisms';
-import { assertExactObjectFields, optionalStringArrayToDaml, requireStringArray } from '../shared/ocfValues';
+import {
+  assertExactObjectFields,
+  assertNotRuntimeProxy,
+  optionalStringArrayToDaml,
+  requireStringArray,
+} from '../shared/ocfValues';
 
 type DamlConvertibleConversion = Fairmint.OpenCapTable.OCF.ConvertibleConversion.ConvertibleConversionOcfData;
 
@@ -55,6 +60,7 @@ function invalidFormat(field: string, expectedType: string, receivedValue: unkno
 
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
   if (value === undefined) throw requiredMissing(field, 'object', value);
+  assertNotRuntimeProxy(value, field, 'plain OCF object');
   if (!isRecord(value)) throw invalidType(field, 'object', value);
   return value;
 }

@@ -24,6 +24,60 @@ function expectBoundaryError(
   expect(captureError(action)).toMatchObject({ name: 'OcpValidationError', ...expected });
 }
 
+const PROXY_MODES = ['benign', 'throwing', 'revoked'] as const;
+type ProxyMode = (typeof PROXY_MODES)[number];
+
+interface ProxyFixture<T extends object> {
+  readonly value: T;
+  readonly trapCalls: () => number;
+}
+
+function proxyFixture<T extends object>(target: T, mode: ProxyMode): ProxyFixture<T> {
+  let calls = 0;
+  if (mode === 'revoked') {
+    const revocable = Proxy.revocable(target, {});
+    revocable.revoke();
+    return { value: revocable.proxy, trapCalls: () => calls };
+  }
+
+  const visit = (): void => {
+    calls += 1;
+    if (mode === 'throwing') throw new Error('Proxy trap must not execute');
+  };
+  const handler: ProxyHandler<T> = {
+    get(innerTarget, property, receiver) {
+      visit();
+      return Reflect.get(innerTarget, property, receiver);
+    },
+    getOwnPropertyDescriptor(innerTarget, property) {
+      visit();
+      return Reflect.getOwnPropertyDescriptor(innerTarget, property);
+    },
+    getPrototypeOf(innerTarget) {
+      visit();
+      return Reflect.getPrototypeOf(innerTarget);
+    },
+    has(innerTarget, property) {
+      visit();
+      return Reflect.has(innerTarget, property);
+    },
+    ownKeys(innerTarget) {
+      visit();
+      return Reflect.ownKeys(innerTarget);
+    },
+  };
+  return { value: new Proxy(target, handler), trapCalls: () => calls };
+}
+
+function expectProxyBoundary(action: () => unknown, fieldPath: string, fixture: ProxyFixture<object>): void {
+  expectBoundaryError(action, {
+    code: OcpErrorCodes.SCHEMA_MISMATCH,
+    fieldPath,
+    receivedValue: 'JavaScript Proxy',
+  });
+  expect(fixture.trapCalls()).toBe(0);
+}
+
 const RATIO_ADJUSTMENT: OcfStockClassConversionRatioAdjustment = {
   object_type: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
   id: 'ratio-adjustment',
@@ -391,6 +445,53 @@ describe.each([
     });
   });
 
+  it.each(PROXY_MODES)('rejects %s Proxy records and arrays without invoking traps', (mode) => {
+    const root = proxyFixture({ ...RATIO_ADJUSTMENT }, mode);
+    expectProxyBoundary(() => write(root.value), 'stockClassConversionRatioAdjustment', root);
+
+    const mechanism = proxyFixture({ ...RATIO_ADJUSTMENT.new_ratio_conversion_mechanism }, mode);
+    expectProxyBoundary(
+      () => write({ ...RATIO_ADJUSTMENT, new_ratio_conversion_mechanism: mechanism.value }),
+      'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
+      mechanism
+    );
+
+    const monetary = proxyFixture({ ...RATIO_ADJUSTMENT.new_ratio_conversion_mechanism.conversion_price }, mode);
+    expectProxyBoundary(
+      () =>
+        write({
+          ...RATIO_ADJUSTMENT,
+          new_ratio_conversion_mechanism: {
+            ...RATIO_ADJUSTMENT.new_ratio_conversion_mechanism,
+            conversion_price: monetary.value,
+          },
+        }),
+      'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.conversion_price',
+      monetary
+    );
+
+    const ratio = proxyFixture({ ...RATIO_ADJUSTMENT.new_ratio_conversion_mechanism.ratio }, mode);
+    expectProxyBoundary(
+      () =>
+        write({
+          ...RATIO_ADJUSTMENT,
+          new_ratio_conversion_mechanism: {
+            ...RATIO_ADJUSTMENT.new_ratio_conversion_mechanism,
+            ratio: ratio.value,
+          },
+        }),
+      'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio',
+      ratio
+    );
+
+    const comments = proxyFixture(['comment'], mode);
+    expectProxyBoundary(
+      () => write({ ...RATIO_ADJUSTMENT, comments: comments.value }),
+      'stockClassConversionRatioAdjustment.comments',
+      comments
+    );
+  });
+
   it('canonicalizes valid values and round-trips every persisted field', () => {
     const daml = write({
       ...RATIO_ADJUSTMENT,
@@ -675,6 +776,64 @@ describe.each([
     );
   });
 
+  it.each(PROXY_MODES)('rejects %s Proxy records and arrays without invoking traps', (mode) => {
+    const root = proxyFixture({ ...CONVERTIBLE_CONVERSION }, mode);
+    expectProxyBoundary(() => write(root.value), 'convertibleConversion', root);
+
+    const resultingSecurityIds = proxyFixture(['preferred-security'], mode);
+    expectProxyBoundary(
+      () => write({ ...CONVERTIBLE_CONVERSION, resulting_security_ids: resultingSecurityIds.value }),
+      'convertibleConversion.resulting_security_ids',
+      resultingSecurityIds
+    );
+
+    const comments = proxyFixture(['comment'], mode);
+    expectProxyBoundary(
+      () => write({ ...CONVERTIBLE_CONVERSION, comments: comments.value }),
+      'convertibleConversion.comments',
+      comments
+    );
+
+    const capitalization = proxyFixture(
+      {
+        include_stock_class_ids: [],
+        include_stock_plans_ids: [],
+        include_security_ids: [],
+        exclude_security_ids: [],
+      },
+      mode
+    );
+    expectProxyBoundary(
+      () => write({ ...CONVERTIBLE_CONVERSION, capitalization_definition: capitalization.value }),
+      'convertibleConversion.capitalization_definition',
+      capitalization
+    );
+
+    for (const name of [
+      'include_stock_class_ids',
+      'include_stock_plans_ids',
+      'include_security_ids',
+      'exclude_security_ids',
+    ] as const) {
+      const ids = proxyFixture(['security'], mode);
+      expectProxyBoundary(
+        () =>
+          write({
+            ...CONVERTIBLE_CONVERSION,
+            capitalization_definition: {
+              include_stock_class_ids: [],
+              include_stock_plans_ids: [],
+              include_security_ids: [],
+              exclude_security_ids: [],
+              [name]: ids.value,
+            },
+          }),
+        `convertibleConversion.capitalization_definition.${name}`,
+        ids
+      );
+    }
+  });
+
   it('preserves schema-valid empty strings and round-trips canonical values', () => {
     const daml = write({
       ...CONVERTIBLE_CONVERSION,
@@ -731,9 +890,29 @@ describe('strict stock-class comment writes', () => {
     expectBoundaryError(() => stockClassDataToDaml({ ...STOCK_CLASS, comments } as never), { code, fieldPath });
   });
 
+  it.each(PROXY_MODES)('rejects %s Proxy comments without invoking traps', (mode) => {
+    const comments = proxyFixture(['comment'], mode);
+    expectProxyBoundary(
+      () => stockClassDataToDaml({ ...STOCK_CLASS, comments: comments.value }),
+      'stockClass.comments',
+      comments
+    );
+  });
+
   it('preserves empty and whitespace-only comments through a round trip', () => {
     const daml = stockClassDataToDaml({ ...STOCK_CLASS, comments: ['', '  ', 'kept'] });
     expect(daml.comments).toEqual(['', '  ', 'kept']);
     expect(damlStockClassDataToNative(daml).comments).toEqual(['', '  ', 'kept']);
+  });
+});
+
+describe('strict generic stock-class Proxy comment writes', () => {
+  it.each(PROXY_MODES)('rejects %s Proxy comments without invoking traps', (mode) => {
+    const comments = proxyFixture(['comment'], mode);
+    expectProxyBoundary(
+      () => convertToDaml('stockClass', { ...STOCK_CLASS, comments: comments.value }),
+      'stockClass.comments',
+      comments
+    );
   });
 });

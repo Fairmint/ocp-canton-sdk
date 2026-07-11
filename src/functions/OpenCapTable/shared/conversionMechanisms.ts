@@ -22,6 +22,7 @@ import {
 } from '../../../utils/typeConversions';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import {
+  assertNotRuntimeProxy,
   requireDecimalString,
   requireDenseArray,
   requireDiscount,
@@ -59,6 +60,7 @@ function invalidType(field: string, expectedType: string, receivedValue: unknown
 }
 
 function requireRecord(value: unknown, field: string): Record<string, unknown> {
+  assertNotRuntimeProxy(value, field, 'plain OCF or generated DAML object');
   if (!isRecord(value)) throw invalidType(field, 'object', value);
   return value;
 }
@@ -70,6 +72,7 @@ function requireRequiredRecord(value: unknown, field: string): Record<string, un
 
 function requireArray(value: unknown, field: string): unknown[] {
   if (value === null || value === undefined) throw requiredMissing(field, 'array', value);
+  assertNotRuntimeProxy(value, field, 'ordinary JSON array');
   if (!Array.isArray(value)) throw invalidType(field, 'array', value);
   return requireDenseArray(value, field);
 }
@@ -189,6 +192,7 @@ export function canonicalOptionalBooleanToDaml(value: unknown, field: string): b
 /** Encode an optional canonical OCF Monetary without accepting JSON null or loose scalar values. */
 function canonicalOptionalMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> | null {
   if (value === undefined) return null;
+  assertNotRuntimeProxy(value, field, 'Monetary object or omitted property');
   if (!isRecord(value)) {
     throw new OcpValidationError(field, 'Expected a Monetary object when provided; omit the property when absent', {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -310,6 +314,7 @@ function describeUnknown(value: unknown): string {
 }
 
 function throwUnknownVariant(runtimeValue: unknown, description: string, source = description): never {
+  assertNotRuntimeProxy(runtimeValue, source, `${description} object`);
   const type =
     isRecord(runtimeValue) && typeof runtimeValue.type === 'string' ? runtimeValue.type : describeUnknown(runtimeValue);
   throw new OcpParseError(`Unknown ${description}: ${type}`, {
@@ -618,6 +623,7 @@ export function convertibleMechanismToDaml(
   if (runtimeMechanism === null || runtimeMechanism === undefined) {
     throw requiredMissing(field, 'ConvertibleConversionMechanism object', runtimeMechanism);
   }
+  assertNotRuntimeProxy(runtimeMechanism, field, 'ConvertibleConversionMechanism object');
   if (!isRecord(runtimeMechanism)) {
     throw new OcpValidationError(field, 'Convertible conversion mechanism must be an object', {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -937,6 +943,7 @@ export function warrantMechanismToDaml(
   if (runtimeMechanism === null || runtimeMechanism === undefined) {
     throw requiredMissing(field, 'WarrantConversionMechanism object', runtimeMechanism);
   }
+  assertNotRuntimeProxy(runtimeMechanism, field, 'WarrantConversionMechanism object');
   if (!isRecord(runtimeMechanism)) {
     throw new OcpValidationError(field, 'Warrant conversion mechanism must be an object', {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -1117,6 +1124,7 @@ export function ratioMechanismToDaml(
   if (runtimeMechanism === null || runtimeMechanism === undefined) {
     throw requiredMissing(field, 'RatioConversionMechanism object', runtimeMechanism);
   }
+  assertNotRuntimeProxy(runtimeMechanism, field, 'RatioConversionMechanism object');
   if (!isRecord(runtimeMechanism)) {
     throw invalidType(field, 'RatioConversionMechanism object', runtimeMechanism);
   }

@@ -10,11 +10,23 @@ import {
 } from '../../../utils/typeConversions';
 import { canonicalOptionalBooleanToDaml, ratioMechanismToDaml } from '../shared/conversionMechanisms';
 import {
+  assertNotRuntimeProxy,
   optionalStringArrayToDaml,
   requireDenseArray,
   requireMonetary,
   requireNonnegativeDecimal,
 } from '../shared/ocfValues';
+
+/** Guard the stock-class writer fields hardened by this conversion stack before schema/validator inspection. */
+export function assertStockClassWriterProxyBoundary(value: unknown): void {
+  assertNotRuntimeProxy(value, 'stockClass', 'plain OCF object');
+  if (value === null || (typeof value !== 'object' && typeof value !== 'function')) return;
+
+  const commentsDescriptor = Object.getOwnPropertyDescriptor(value, 'comments');
+  if (commentsDescriptor !== undefined && 'value' in commentsDescriptor) {
+    assertNotRuntimeProxy(commentsDescriptor.value, 'stockClass.comments', 'ordinary JSON array');
+  }
+}
 
 /**
  * Build an OcfConversionTrigger record for a stock class conversion right.
@@ -61,6 +73,7 @@ function buildStockClassTrigger(
 export function stockClassDataToDaml(
   stockClassData: OcfStockClass
 ): Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData {
+  assertStockClassWriterProxyBoundary(stockClassData);
   validateStockClassData(stockClassData, 'stockClass');
 
   const d = stockClassData;
@@ -89,6 +102,7 @@ export function stockClassDataToDaml(
     conversion_rights: conversionRights.map((right, index) => {
       const field = `stockClass.conversion_rights.${index}`;
       const runtimeRight: unknown = right;
+      assertNotRuntimeProxy(runtimeRight, field, 'StockClassConversionRight object');
       const rightType =
         typeof runtimeRight === 'object' && runtimeRight !== null && 'type' in runtimeRight
           ? String(runtimeRight.type)
