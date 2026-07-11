@@ -126,7 +126,7 @@ export function canonicalOptionalNumericToDaml(value: unknown, field: string): s
       }
     );
   }
-  return normalizeNumericString(value);
+  return requireNumeric(value, field);
 }
 
 /** Encode an optional canonical OCF Monetary without accepting JSON null or loose scalar values. */
