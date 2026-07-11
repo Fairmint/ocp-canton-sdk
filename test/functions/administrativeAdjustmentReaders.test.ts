@@ -349,6 +349,23 @@ describe('decoder-backed administrative adjustment readers', () => {
     }
   );
 
+  it.each(
+    adjustmentReaderCases.flatMap((testCase) =>
+      (['-0', '-00', '-00.0000000000'] as const).map((zeroValue) => ({ testCase, zeroValue }))
+    )
+  )(
+    '$testCase.entityType canonicalizes the v34-valid all-zero spelling $zeroValue',
+    async ({ testCase, zeroValue }) => {
+      const { client } = createMockClient(testCase, {
+        ...testCase.validData(),
+        [testCase.numericField]: zeroValue,
+      });
+
+      const result = await testCase.invoke(client);
+      expect((result.event as unknown as Record<string, unknown>)[testCase.numericField]).toBe('0');
+    }
+  );
+
   it.each(adjustmentReaderCases)(
     '$entityType enforces non-empty IDs and comments through the direct converter',
     (testCase) => {

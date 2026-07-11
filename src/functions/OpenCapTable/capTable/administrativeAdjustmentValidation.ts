@@ -31,7 +31,9 @@ export function validateAdministrativeAdjustmentFields(
 
   const fieldPath = `${entityType}.${input.numericField}`;
   const normalized = normalizeOcfNumericString(input.numericValue, fieldPath);
-  if (normalized.startsWith('-') && normalized !== '-0') {
+  if (/^-0+$/.test(normalized)) return '0';
+
+  if (normalized.startsWith('-')) {
     throw new OcpValidationError(fieldPath, 'Absolute share totals must be non-negative', {
       code: OcpErrorCodes.OUT_OF_RANGE,
       expectedType: 'non-negative decimal string with at most 10 fractional digits',
@@ -39,5 +41,5 @@ export function validateAdministrativeAdjustmentFields(
     });
   }
 
-  return normalized === '-0' ? '0' : normalized;
+  return normalized;
 }
