@@ -1,5 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { extractAndDecodeAcceptanceData, isAcceptanceEntityType } from './acceptanceContractData';
 import {
   ENTITY_DATA_FIELD_FALLBACK_MAP,
   ENTITY_DATA_FIELD_MAP,
@@ -160,6 +161,14 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
 export function extractAndDecodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   createArgument: unknown
-): DamlDataTypeFor<EntityType> {
+): DamlDataTypeFor<EntityType>;
+export function extractAndDecodeDamlEntityData(
+  entityType: OcfEntityType,
+  createArgument: unknown
+): DamlDataTypeFor<OcfEntityType> {
+  if (isAcceptanceEntityType(entityType)) {
+    return extractAndDecodeAcceptanceData(entityType, createArgument);
+  }
+
   return decodeDamlEntityData(entityType, extractEntityData(entityType, createArgument));
 }
