@@ -381,6 +381,18 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
   validateRequiredObject(data, fieldPath);
   const value = data;
 
+  if (Object.prototype.hasOwnProperty.call(value, 'current_relationship')) {
+    throw new OcpValidationError(
+      `${fieldPath}.current_relationship`,
+      'current_relationship is not part of the canonical Stakeholder SDK DTO',
+      {
+        expectedType: 'absent',
+        receivedValue: value.current_relationship,
+        code: OcpErrorCodes.INVALID_FORMAT,
+      }
+    );
+  }
+
   // Required fields
   validateRequiredString(value.id, `${fieldPath}.id`);
   validateName(value.name, `${fieldPath}.name`);
