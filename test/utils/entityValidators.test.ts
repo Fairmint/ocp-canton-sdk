@@ -554,6 +554,13 @@ describe('Entity Validators', () => {
       expect(() => validateDocumentData(validDocumentWithUri, 'document')).not.toThrow();
     });
 
+    it.each([
+      ['path with a null uri', { ...validDocumentWithPath, uri: null }],
+      ['uri with a null path', { ...validDocumentWithUri, path: null }],
+    ])('passes for %s', (_case, document) => {
+      expect(() => validateDocumentData(document, 'document')).not.toThrow();
+    });
+
     it('throws for missing id', () => {
       expect(() => validateDocumentData({ ...validDocumentWithPath, id: '' }, 'document')).toThrow(OcpValidationError);
     });
@@ -569,6 +576,12 @@ describe('Entity Validators', () => {
     it('throws when both path and uri are present', () => {
       expect(() =>
         validateDocumentData({ ...validDocumentWithPath, uri: 'https://example.com/contract.pdf' }, 'document')
+      ).toThrow(OcpValidationError);
+    });
+
+    it('throws when both path and uri are null', () => {
+      expect(() =>
+        validateDocumentData({ id: 'doc-1', md5: 'abc123def456', path: null, uri: null }, 'document')
       ).toThrow(OcpValidationError);
     });
 
