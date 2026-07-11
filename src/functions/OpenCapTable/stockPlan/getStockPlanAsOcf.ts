@@ -57,10 +57,18 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
     });
   }
   const stockClassIds = damlRecord.stock_class_ids;
+  if (!Array.isArray(stockClassIds)) {
+    throw new OcpValidationError('stockPlan.stock_class_ids', 'Expected at least one stock class identifier', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: '[string, ...string[]]',
+      receivedValue: stockClassIds,
+    });
+  }
+  const firstStockClassId: unknown = stockClassIds[0];
+  const remainingStockClassIds: unknown[] = stockClassIds.slice(1);
   if (
-    !Array.isArray(stockClassIds) ||
-    stockClassIds.length === 0 ||
-    !stockClassIds.every((id) => typeof id === 'string')
+    typeof firstStockClassId !== 'string' ||
+    !remainingStockClassIds.every((id): id is string => typeof id === 'string')
   ) {
     throw new OcpValidationError('stockPlan.stock_class_ids', 'Expected at least one stock class identifier', {
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -85,7 +93,7 @@ export function damlStockPlanDataToNative(d: Fairmint.OpenCapTable.OCF.StockPlan
     ...(d.default_cancellation_behavior && {
       default_cancellation_behavior: damlCancellationBehaviorToNative(d.default_cancellation_behavior),
     }),
-    stock_class_ids: [stockClassIds[0], ...stockClassIds.slice(1)],
+    stock_class_ids: [firstStockClassId, ...remainingStockClassIds],
     comments: Array.isArray((d as unknown as { comments?: unknown }).comments)
       ? (d as unknown as { comments: string[] }).comments
       : [],
