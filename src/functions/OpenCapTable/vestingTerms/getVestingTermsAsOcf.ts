@@ -24,6 +24,7 @@ import {
 import { canonicalizeNumeric10 } from '../../../utils/numeric10';
 import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import { findVestingGraphIssue } from './vestingGraphValidation';
 import { damlVestingPeriodIntegerToNative } from './vestingPeriodInteger';
 import { damlVestingConditionQuantityToNative } from './vestingQuantity';
 
@@ -530,6 +531,19 @@ export function damlVestingTermsDataToNative(
     damlVestingConditionToNative(firstVestingCondition, 0),
     ...remainingVestingConditions.map((condition, index) => damlVestingConditionToNative(condition, index + 1)),
   ];
+  const graphIssue = findVestingGraphIssue(vestingConditions);
+  if (graphIssue !== undefined) {
+    throw new OcpParseError(graphIssue.message, {
+      source: graphIssue.fieldPath,
+      code: OcpErrorCodes.INVALID_FORMAT,
+      classification: 'invalid_vesting_graph',
+      context: {
+        expectedType: graphIssue.expectedType,
+        receivedValue: graphIssue.receivedValue,
+        ...graphIssue.context,
+      },
+    });
+  }
 
   const result: OcfVestingTerms = {
     object_type: 'VESTING_TERMS',
