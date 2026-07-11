@@ -56,8 +56,11 @@ const twMapPeriodType: Partial<Record<string, PeriodType>> = {
  * Used by both getEquityCompensationIssuanceAsOcf and the damlToOcf dispatcher.
  */
 export function damlEquityCompensationIssuanceDataToNative(d: Record<string, unknown>): OcfEquityCompensationIssuance {
-  const exercise_price = damlMonetaryToNativeWithValidation(d.exercise_price);
-  const base_price = damlMonetaryToNativeWithValidation(d.base_price);
+  const exercise_price = damlMonetaryToNativeWithValidation(
+    d.exercise_price,
+    'equityCompensationIssuance.exercise_price'
+  );
+  const base_price = damlMonetaryToNativeWithValidation(d.base_price, 'equityCompensationIssuance.base_price');
 
   const vestings =
     Array.isArray(d.vestings) && d.vestings.length > 0
