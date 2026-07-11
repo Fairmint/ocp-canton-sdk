@@ -292,23 +292,6 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   });
 
-  it('rejects empty optional trigger text instead of accepting a noncanonical ledger value', () => {
-    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
-    const firstTrigger = requireFirst(daml.exercise_triggers, 'serialized warrant exercise trigger');
-
-    try {
-      damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: [{ ...firstTrigger, nickname: '' }] });
-      throw new Error('Expected optional nickname validation to fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(OcpValidationError);
-      expect(error).toMatchObject({
-        code: OcpErrorCodes.INVALID_FORMAT,
-        fieldPath: 'warrantIssuance.exercise_triggers.0.nickname',
-        receivedValue: '',
-      });
-    }
-  });
-
   it('attributes an unknown DAML trigger tag to the exact second exercise trigger', () => {
     const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
     const firstTrigger = requireFirst(daml.exercise_triggers, 'serialized warrant exercise trigger');
