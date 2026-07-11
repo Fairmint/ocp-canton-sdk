@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { describeDiagnosticValue } from '../../../errors/diagnostics';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { PkgWarrantIssuanceOcfData } from '../../../types/daml';
 import type {
@@ -22,6 +23,7 @@ import {
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { validateComplexIssuanceDamlDataInput } from '../capTable/issuanceContractData';
 import { ratioMechanismFromDaml, warrantMechanismFromDaml } from '../shared/conversionMechanisms';
 import { parseDamlNumeric10 } from '../shared/damlNumerics';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -402,11 +404,7 @@ function quantitySourceFromDaml(value: unknown): QuantitySourceType | undefined 
     case 'OcfQuantityInstrumentMin':
       return 'INSTRUMENT_MIN';
     default:
-      const received =
-        typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-          ? String(value)
-          : JSON.stringify(value);
-      throw new OcpParseError(`Unknown quantity_source: ${received}`, {
+      throw new OcpParseError(`Unknown quantity_source: ${describeDiagnosticValue(value)}`, {
         source: 'warrantIssuance.quantity_source',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
@@ -456,6 +454,7 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 
 /** Convert decoded DAML WarrantIssuance data to its canonical OCF shape. */
 export function damlWarrantIssuanceDataToNative(value: DamlWarrantIssuanceData): OcfWarrantIssuance {
+  validateComplexIssuanceDamlDataInput('warrantIssuance', value);
   const data = requireRecord(value, 'warrantIssuance');
   const exerciseTriggers = data.exercise_triggers;
   if (!Array.isArray(exerciseTriggers)) {

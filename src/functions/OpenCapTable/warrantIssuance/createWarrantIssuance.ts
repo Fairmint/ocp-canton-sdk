@@ -1,5 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { describeDiagnosticValue } from '../../../errors/diagnostics';
 import type { OcfWarrantIssuance, StockClassConversionRight, WarrantExerciseTrigger } from '../../../types/native';
 import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import { dateStringToDAMLTime } from '../../../utils/typeConversions';
@@ -52,7 +53,7 @@ function triggerTypeToDaml(
   }
   throw new OcpValidationError(
     'warrantIssuance.exercise_triggers[].type',
-    `Unknown warrant trigger type: ${String(value)}`,
+    `Unknown warrant trigger type: ${describeDiagnosticValue(value)}`,
     {
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       expectedType:
@@ -195,11 +196,7 @@ function conversionRightToDaml(
       return stockClassRightToDaml(trigger, right, source);
     default: {
       const unexpected: unknown = right;
-      const type =
-        typeof unexpected === 'object' && unexpected !== null && 'type' in unexpected
-          ? String(unexpected.type)
-          : String(unexpected);
-      throw new OcpParseError(`Unknown warrant conversion right type: ${type}`, {
+      throw new OcpParseError(`Unknown warrant conversion right type: ${describeDiagnosticValue(unexpected)}`, {
         source: 'conversion_right.type',
         code: OcpErrorCodes.SCHEMA_MISMATCH,
       });

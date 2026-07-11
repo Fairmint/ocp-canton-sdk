@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { describeDiagnosticValue } from '../../../errors/diagnostics';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { PkgEquityCompensationIssuanceOcfData } from '../../../types/daml';
 import type {
@@ -16,6 +17,7 @@ import {
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { validateComplexIssuanceDamlDataInput } from '../capTable/issuanceContractData';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { damlNumeric10MonetaryToNative, parseDamlNumeric10 } from '../shared/damlNumerics';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -98,6 +100,7 @@ function optionalBoolean(value: unknown, fieldPath: string): boolean | undefined
 export function damlEquityCompensationIssuanceDataToNative(
   d: DamlEquityCompensationIssuanceData
 ): OcfEquityCompensationIssuance {
+  validateComplexIssuanceDamlDataInput('equityCompensationIssuance', d);
   const exercisePrice = damlNumeric10MonetaryToNative(d.exercise_price, 'equityCompensationIssuance.exercise_price');
   const basePrice = damlNumeric10MonetaryToNative(d.base_price, 'equityCompensationIssuance.base_price');
 
@@ -116,7 +119,7 @@ export function damlEquityCompensationIssuanceDataToNative(
           if (!reason) {
             throw new OcpValidationError(
               `equityCompensationIssuance.termination_exercise_windows[${index}].reason`,
-              `Unknown reason: ${window.reason}`,
+              `Unknown reason: ${describeDiagnosticValue(window.reason)}`,
               {
                 code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
                 receivedValue: window.reason,
@@ -127,7 +130,7 @@ export function damlEquityCompensationIssuanceDataToNative(
           if (!periodType) {
             throw new OcpValidationError(
               `equityCompensationIssuance.termination_exercise_windows[${index}].period_type`,
-              `Unknown period_type: ${window.period_type}`,
+              `Unknown period_type: ${describeDiagnosticValue(window.period_type)}`,
               {
                 code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
                 receivedValue: window.period_type,
@@ -157,7 +160,7 @@ export function damlEquityCompensationIssuanceDataToNative(
   if (!compensationType) {
     throw new OcpValidationError(
       'equityCompensationIssuance.compensation_type',
-      `Unknown compensation type: ${d.compensation_type}`,
+      `Unknown compensation type: ${describeDiagnosticValue(d.compensation_type)}`,
       {
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
         receivedValue: d.compensation_type,

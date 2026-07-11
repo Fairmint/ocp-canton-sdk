@@ -14,7 +14,11 @@ import {
 } from './batchTypes';
 import { extractAndDecodeCancellationData, isCancellationEntityType } from './cancellationContractData';
 import { findLosslessCodecMismatch } from './damlCodecLosslessness';
-import { extractAndDecodeComplexIssuanceData, isComplexIssuanceEntityType } from './issuanceContractData';
+import {
+  extractAndDecodeComplexIssuanceData,
+  isComplexIssuanceEntityType,
+  validateComplexIssuanceDamlDataInput,
+} from './issuanceContractData';
 import { extractAndDecodeTransferData, isTransferEntityType } from './transferContractData';
 import { extractAndDecodeVestingData, isVestingEntityType } from './vestingContractData';
 
@@ -146,6 +150,9 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   entityType: EntityType,
   input: unknown
 ): DamlDataTypeFor<EntityType> {
+  if (isComplexIssuanceEntityType(entityType)) {
+    validateComplexIssuanceDamlDataInput(entityType, input);
+  }
   const codec = ENTITY_DATA_CODEC_MAP[entityType];
   const decoded = codec.decoder.run(input);
 

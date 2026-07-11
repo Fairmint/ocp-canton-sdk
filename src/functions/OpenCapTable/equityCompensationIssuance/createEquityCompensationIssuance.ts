@@ -1,5 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { describeDiagnosticValue } from '../../../errors/diagnostics';
 import type { CompensationType, OcfEquityCompensationIssuance, TerminationWindow } from '../../../types';
 import { dateStringToDAMLTime, nullableDateStringToDAMLTime } from '../../../utils/typeConversions';
 import { nativeSafeIntegerToDaml } from '../shared/damlIntegers';
@@ -43,7 +44,7 @@ export function compensationTypeToDaml(t: CompensationType): Fairmint.OpenCapTab
       return 'OcfCompensationTypeSSAR';
     default: {
       const exhaustiveCheck: never = t;
-      throw new OcpParseError(`Unknown compensation type: ${exhaustiveCheck as string}`, {
+      throw new OcpParseError(`Unknown compensation type: ${describeDiagnosticValue(exhaustiveCheck)}`, {
         source: 'equityCompensationIssuance.compensation_type',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
@@ -80,7 +81,7 @@ function terminationWindowReasonToDaml(
   if (typeof value === 'string' && Object.prototype.hasOwnProperty.call(terminationWindowReasonMap, value)) {
     return terminationWindowReasonMap[value as TerminationWindow['reason']];
   }
-  throw new OcpValidationError(fieldPath, `Unknown termination-window reason: ${String(value)}`, {
+  throw new OcpValidationError(fieldPath, `Unknown termination-window reason: ${describeDiagnosticValue(value)}`, {
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
     expectedType: Object.keys(terminationWindowReasonMap).join(' | '),
     receivedValue: value,
@@ -94,7 +95,7 @@ function terminationWindowPeriodTypeToDaml(
   if (typeof value === 'string' && Object.prototype.hasOwnProperty.call(terminationWindowPeriodTypeMap, value)) {
     return terminationWindowPeriodTypeMap[value as TerminationWindow['period_type']];
   }
-  throw new OcpValidationError(fieldPath, `Unknown termination-window period type: ${String(value)}`, {
+  throw new OcpValidationError(fieldPath, `Unknown termination-window period type: ${describeDiagnosticValue(value)}`, {
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
     expectedType: Object.keys(terminationWindowPeriodTypeMap).join(' | '),
     receivedValue: value,

@@ -540,28 +540,20 @@ function addToPublicBatch(entityType: ComplexIssuanceEntityType, input: ComplexI
   const batch = new CapTableBatch({ capTableContractId: 'cap-table', actAs: ['issuer::party'] });
   switch (entityType) {
     case 'convertibleIssuance': {
-      if (!isConvertibleIssuance(input)) throw new Error('Mismatched convertible input');
-      batch.create('convertibleIssuance', input);
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Correlate the runtime entity branch for the variadic tuple overload without reading hostile input.
+      batch.create('convertibleIssuance', input as OcfConvertibleIssuance);
       return;
     }
     case 'equityCompensationIssuance': {
-      if (input.object_type !== 'TX_EQUITY_COMPENSATION_ISSUANCE') throw new Error('Mismatched equity input');
-      batch.create('equityCompensationIssuance', input);
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Correlate the runtime entity branch for the variadic tuple overload without reading hostile input.
+      batch.create('equityCompensationIssuance', input as OcfEquityCompensationIssuance);
       return;
     }
     case 'warrantIssuance': {
-      if (!isWarrantIssuance(input)) throw new Error('Mismatched warrant input');
-      batch.create('warrantIssuance', input);
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Correlate the runtime entity branch for the variadic tuple overload without reading hostile input.
+      batch.create('warrantIssuance', input as OcfWarrantIssuance);
     }
   }
-}
-
-function isConvertibleIssuance(input: ComplexIssuanceInput): input is OcfConvertibleIssuance {
-  return input.object_type === 'TX_CONVERTIBLE_ISSUANCE';
-}
-
-function isWarrantIssuance(input: ComplexIssuanceInput): input is OcfWarrantIssuance {
-  return input.object_type === 'TX_WARRANT_ISSUANCE';
 }
 
 const writerSurfaces = [
@@ -782,7 +774,8 @@ describe('exact equity-compensation termination-period writers', () => {
     expectContextualError(() => surface.write('equityCompensationIssuance', inputWithTerminationPeriod(value)), {
       code,
       fieldPath,
-      receivedValue: value,
+      receivedValue:
+        typeof value === 'number' && !Number.isFinite(value) ? { kind: 'number', value: 'Infinity' } : value,
     });
   });
 
@@ -961,8 +954,8 @@ describe('lossless plain writer input boundaries', () => {
         return revocable.proxy;
       },
     },
-  ])('rejects a $name without invoking traps on direct and public writer surfaces', ({ makeProxy }) => {
-    for (const write of [directWrite, publicWrite]) {
+  ])('rejects a $name without invoking traps on every writer surface', ({ makeProxy }) => {
+    for (const { write } of writerSurfaces) {
       let thrown: unknown;
       try {
         write('convertibleIssuance', makeProxy());
@@ -1103,6 +1096,128 @@ describe('lossless plain writer input boundaries', () => {
         fieldPath: `${testCase.fieldPath}.id`,
       });
     }
+  });
+
+  test.each(writerSurfaces)('$name bounds very large scalar and container diagnostics', (surface) => {
+    for (const makeInput of [
+      () => {
+        const input = customConvertibleInput();
+        input.investment_amount.amount = '9'.repeat(100_000);
+        return input;
+      },
+      () => {
+        const input = customConvertibleInput();
+        (input as { investment_amount: unknown }).investment_amount = Array(100_000).fill('x');
+        return input;
+      },
+    ]) {
+      let thrown: unknown;
+      try {
+        surface.write('convertibleIssuance', makeInput());
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(OcpValidationError);
+      const serialized = JSON.stringify(thrown);
+      expect(JSON.parse(serialized)).toEqual(expect.any(Object));
+      expect(serialized.length).toBeLessThan(2_000);
+    }
+  });
+
+  test.each(writerSurfaces)('$name rejects null-prototype enum values without coercion', (surface) => {
+    const input = customConvertibleInput();
+    (input as { convertible_type: unknown }).convertible_type = Object.create(null);
+
+    let thrown: unknown;
+    try {
+      surface.write('convertibleIssuance', input);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(OcpValidationError);
+    expect(thrown).toMatchObject({
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      fieldPath: 'convertibleIssuance.convertible_type',
+    });
+    expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
+  });
+
+  test.each(writerSurfaces)('$name rejects a hostile Proxy prototype without invoking its traps', (surface) => {
+    const input = customConvertibleInput();
+    Object.setPrototypeOf(
+      input,
+      new Proxy(
+        {},
+        {
+          getOwnPropertyDescriptor: () => {
+            throw new Error('prototype descriptor trap must not run');
+          },
+          getPrototypeOf: () => {
+            throw new Error('prototype traversal trap must not run');
+          },
+          ownKeys: () => {
+            throw new Error('prototype ownKeys trap must not run');
+          },
+        }
+      )
+    );
+
+    let thrown: unknown;
+    try {
+      surface.write('convertibleIssuance', input);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(OcpValidationError);
+    expect(thrown).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'convertibleIssuance',
+    });
+    expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
+  });
+
+  it.each([
+    {
+      name: 'function with a hostile name',
+      makeValue: () => {
+        const value = () => 'value';
+        Object.defineProperty(value, 'name', { value: Object.create(null) });
+        return value;
+      },
+    },
+    { name: 'very large symbol', makeValue: () => Symbol('x'.repeat(100_000)) },
+    { name: 'BigInt', makeValue: () => 1n },
+    {
+      name: 'cyclic object',
+      makeValue: () => {
+        const value: Record<string, unknown> = {};
+        value.self = value;
+        return value;
+      },
+    },
+  ])('keeps a rejected $name diagnostic bounded and JSON-safe', ({ name, makeValue }) => {
+    const input = customConvertibleInput();
+    (input as { consideration_text?: unknown }).consideration_text = makeValue();
+
+    let thrown: unknown;
+    try {
+      directWrite('convertibleIssuance', input);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(OcpValidationError);
+    expect(thrown).toMatchObject({
+      code: name === 'cyclic object' ? OcpErrorCodes.INVALID_FORMAT : OcpErrorCodes.INVALID_TYPE,
+      fieldPath:
+        name === 'cyclic object'
+          ? 'convertibleIssuance.consideration_text.self'
+          : 'convertibleIssuance.consideration_text',
+    });
+    expect(JSON.stringify(thrown).length).toBeLessThan(2_000);
   });
 });
 

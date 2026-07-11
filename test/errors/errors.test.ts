@@ -89,6 +89,23 @@ describe('OcpValidationError', () => {
 
     expect(error.receivedValue).toBeNull();
   });
+
+  it('preserves __proto__ as inert JSON evidence instead of mutating the diagnostic prototype', () => {
+    const receivedValue = Object.create(null) as Record<string, unknown>;
+    Object.defineProperty(receivedValue, '__proto__', {
+      enumerable: true,
+      value: { polluted: true },
+    });
+
+    const error = new OcpValidationError('field', 'Invalid value', { receivedValue });
+    const diagnostic = error.receivedValue as Record<string, unknown>;
+
+    expect(Object.getPrototypeOf(diagnostic)).toBe(Object.prototype);
+    expect(Object.prototype.hasOwnProperty.call(diagnostic, '__proto__')).toBe(true);
+    const serialized = JSON.parse(JSON.stringify(diagnostic)) as Record<string, unknown>;
+    expect(Object.prototype.hasOwnProperty.call(serialized, '__proto__')).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(serialized, '__proto__')?.value).toEqual({ polluted: true });
+  });
 });
 
 describe('OcpContractError', () => {

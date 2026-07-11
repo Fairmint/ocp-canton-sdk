@@ -1,5 +1,6 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { describeDiagnosticValue } from '../../../errors/diagnostics';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { PkgConvertibleIssuanceOcfData } from '../../../types/daml';
 import type {
@@ -18,6 +19,7 @@ import {
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { decodeDamlEntityData, extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
+import { validateComplexIssuanceDamlDataInput } from '../capTable/issuanceContractData';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { parseDamlNumeric10 } from '../shared/damlNumerics';
@@ -93,7 +95,7 @@ function convertibleTypeFromDaml(value: unknown): ConvertibleType {
     case 'OcfConvertibleSecurity':
       return 'CONVERTIBLE_SECURITY';
     default:
-      throw new OcpParseError(`Unknown convertible_type: ${String(value)}`, {
+      throw new OcpParseError(`Unknown convertible_type: ${describeDiagnosticValue(value)}`, {
         source: 'convertibleIssuance.convertible_type',
         code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
       });
@@ -181,6 +183,7 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 
 /** Convert decoded DAML ConvertibleIssuance data to its canonical OCF shape. */
 export function damlConvertibleIssuanceDataToNative(value: DamlConvertibleIssuanceData): OcfConvertibleIssuance {
+  validateComplexIssuanceDamlDataInput('convertibleIssuance', value);
   const data = requireRecord(value, 'convertibleIssuance');
   const id = requireString(data.id, 'convertibleIssuance.id');
   const date = damlTimeToDateString(data.date, 'convertibleIssuance.date');

@@ -1144,6 +1144,80 @@ function expectDecoderFailure(error: unknown, testCase: ComplexIssuanceReaderCas
   expect(`${String(parseError.context?.decoderPath)} ${String(parseError.context?.decoderMessage)}`).toContain(field);
 }
 
+function captureSyncError(action: () => unknown): unknown {
+  try {
+    action();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('Expected the synchronous reader to reject');
+}
+
+async function captureAsyncError(action: () => Promise<unknown>): Promise<unknown> {
+  try {
+    await action();
+  } catch (error) {
+    return error;
+  }
+  throw new Error('Expected the asynchronous reader to reject');
+}
+
+async function collectIssuanceSurfaceErrors(
+  testCase: ComplexIssuanceReaderCase,
+  data: unknown
+): Promise<readonly unknown[]> {
+  const direct = captureSyncError(() => directIssuanceEvent(testCase, data as Record<string, unknown>));
+  const named = await captureAsyncError(async () => testCase.invoke(createMockClient(testCase, data).client));
+  const generic = await captureAsyncError(async () =>
+    getEntityAsOcf(createMockClient(testCase, data).client, testCase.entityType, testCase.contractId)
+  );
+  const namespace = await captureAsyncError(async () => {
+    const ocp = new OcpClient({ ledger: createMockClient(testCase, data).client });
+    return ocp.OpenCapTable[testCase.entityType].get({ contractId: testCase.contractId });
+  });
+  const literal = await captureAsyncError(async () => {
+    const ocp = new OcpClient({ ledger: createMockClient(testCase, data).client });
+    return ocp.OpenCapTable.getByObjectType({
+      objectType: testCase.objectType,
+      contractId: testCase.contractId,
+    });
+  });
+  return [direct, named, generic, namespace, literal];
+}
+
+async function collectPublicWrapperErrors(
+  testCase: ComplexIssuanceReaderCase,
+  createArgument: unknown
+): Promise<readonly unknown[]> {
+  const client = (): LedgerJsonApiClient => createMockClient(testCase, testCase.validData(), { createArgument }).client;
+  const named = await captureAsyncError(async () => testCase.invoke(client()));
+  const generic = await captureAsyncError(async () =>
+    getEntityAsOcf(client(), testCase.entityType, testCase.contractId)
+  );
+  const namespace = await captureAsyncError(async () => {
+    const ocp = new OcpClient({ ledger: client() });
+    return ocp.OpenCapTable[testCase.entityType].get({ contractId: testCase.contractId });
+  });
+  const literal = await captureAsyncError(async () => {
+    const ocp = new OcpClient({ ledger: client() });
+    return ocp.OpenCapTable.getByObjectType({
+      objectType: testCase.objectType,
+      contractId: testCase.contractId,
+    });
+  });
+  return [named, generic, namespace, literal];
+}
+
+function expectBoundedSdkErrors(errors: readonly unknown[]): void {
+  for (const error of errors) {
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toMatchObject({ name: expect.stringMatching(/^Ocp/), code: expect.any(String) });
+    const serialized = JSON.stringify(error);
+    expect(JSON.parse(serialized)).toEqual(expect.any(Object));
+    expect(serialized.length).toBeLessThan(2_000);
+  }
+}
+
 describe('decoder-backed complex issuance readers', () => {
   it.each(issuanceReaderCases)(
     '$entityType returns its exact canonical event and forwards readAs',
@@ -1548,6 +1622,199 @@ describe('decoder-backed complex issuance readers', () => {
         decoderMessage: 'raw field was discarded by the generated codec',
       },
     });
+  });
+
+  it.each(issuanceReaderCases)(
+    '$entityType rejects hostile data Proxies across direct, dedicated, and generic readers without traps',
+    async (testCase) => {
+      const data = new Proxy(testCase.validData(), {
+        get: () => {
+          throw new Error('data get trap must not run');
+        },
+        getOwnPropertyDescriptor: () => {
+          throw new Error('data descriptor trap must not run');
+        },
+        getPrototypeOf: () => {
+          throw new Error('data prototype trap must not run');
+        },
+        ownKeys: () => {
+          throw new Error('data ownKeys trap must not run');
+        },
+      });
+
+      const errors = await collectIssuanceSurfaceErrors(testCase, data);
+      expectBoundedSdkErrors(errors);
+      for (const error of errors) {
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({ code: OcpErrorCodes.SCHEMA_MISMATCH });
+      }
+    }
+  );
+
+  it.each(issuanceReaderCases)(
+    '$entityType rejects hostile wrapper Proxies across dedicated and generic readers without traps',
+    async (testCase) => {
+      const createArgument = new Proxy(
+        { context: VALID_CONTEXT, issuance_data: testCase.validData() },
+        {
+          get: () => {
+            throw new Error('wrapper get trap must not run');
+          },
+          getOwnPropertyDescriptor: () => {
+            throw new Error('wrapper descriptor trap must not run');
+          },
+          getPrototypeOf: () => {
+            throw new Error('wrapper prototype trap must not run');
+          },
+          ownKeys: () => {
+            throw new Error('wrapper ownKeys trap must not run');
+          },
+        }
+      );
+
+      const errors = await collectPublicWrapperErrors(testCase, createArgument);
+      expectBoundedSdkErrors(errors);
+      for (const error of errors) expect(error).toBeInstanceOf(OcpParseError);
+    }
+  );
+
+  it.each(issuanceReaderCases)(
+    '$entityType rejects a hostile Proxy prototype across every reader surface without traps',
+    async (testCase) => {
+      const data = testCase.validData();
+      Object.setPrototypeOf(
+        data,
+        new Proxy(
+          {},
+          {
+            getOwnPropertyDescriptor: () => {
+              throw new Error('prototype descriptor trap must not run');
+            },
+            getPrototypeOf: () => {
+              throw new Error('prototype traversal trap must not run');
+            },
+            ownKeys: () => {
+              throw new Error('prototype ownKeys trap must not run');
+            },
+          }
+        )
+      );
+
+      const errors = await collectIssuanceSurfaceErrors(testCase, data);
+      expectBoundedSdkErrors(errors);
+      for (const error of errors) expect(error).toBeInstanceOf(OcpParseError);
+    }
+  );
+
+  it.each(issuanceReaderCases)(
+    '$entityType rejects known accessor and non-enumerable fields across every reader surface',
+    async (testCase) => {
+      let accessorInvocations = 0;
+      const accessorData = testCase.validData();
+      Object.defineProperty(accessorData, 'consideration_text', {
+        configurable: true,
+        enumerable: true,
+        get: () => {
+          accessorInvocations += 1;
+          return 'must not run';
+        },
+      });
+      const accessorErrors = await collectIssuanceSurfaceErrors(testCase, accessorData);
+      expect(accessorInvocations).toBe(0);
+      expectBoundedSdkErrors(accessorErrors);
+
+      const hiddenData = testCase.validData();
+      Object.defineProperty(hiddenData, 'consideration_text', {
+        configurable: true,
+        enumerable: false,
+        value: 'hidden',
+      });
+      const hiddenErrors = await collectIssuanceSurfaceErrors(testCase, hiddenData);
+      expectBoundedSdkErrors(hiddenErrors);
+
+      for (const error of [...accessorErrors, ...hiddenErrors]) {
+        expect(error).toBeInstanceOf(OcpParseError);
+        expect(error).toMatchObject({ code: OcpErrorCodes.SCHEMA_MISMATCH });
+      }
+    }
+  );
+
+  it.each(issuanceReaderCases)(
+    '$entityType rejects non-JSON primitives and cycles with bounded diagnostics across every reader surface',
+    async (testCase) => {
+      const values = [
+        () => 1n,
+        () => Symbol('x'.repeat(100_000)),
+        () => {
+          const value = () => 'value';
+          Object.defineProperty(value, 'name', { value: Object.create(null) });
+          return value;
+        },
+        () => {
+          const value: Record<string, unknown> = {};
+          value.self = value;
+          return value;
+        },
+      ];
+      for (const makeValue of values) {
+        const data = testCase.validData();
+        data.consideration_text = makeValue();
+        const errors = await collectIssuanceSurfaceErrors(testCase, data);
+        expectBoundedSdkErrors(errors);
+        for (const error of errors) expect(error).toBeInstanceOf(OcpParseError);
+      }
+    }
+  );
+
+  it('rejects revoked data and wrapper Proxies without invoking their unavailable traps', async () => {
+    const testCase = issuanceReaderCases[0];
+    if (!testCase) throw new Error('Missing convertible issuance reader case');
+
+    const dataProxy = Proxy.revocable(testCase.validData(), {});
+    dataProxy.revoke();
+    expectBoundedSdkErrors(await collectIssuanceSurfaceErrors(testCase, dataProxy.proxy));
+
+    const wrapperProxy = Proxy.revocable({ context: VALID_CONTEXT, issuance_data: testCase.validData() }, {});
+    wrapperProxy.revoke();
+    expectBoundedSdkErrors(await collectPublicWrapperErrors(testCase, wrapperProxy.proxy));
+  });
+
+  it('rejects a nested maximum-length sparse list before a generated decoder can iterate its length', async () => {
+    const testCase = issuanceReaderCases[0];
+    if (!testCase) throw new Error('Missing convertible issuance reader case');
+    const data = convertibleData();
+    const interestRates: unknown[] = [];
+    interestRates.length = 0xffff_ffff;
+    setConvertibleMechanism(data, noteMechanism({ interest_rates: interestRates }));
+
+    const errors = await collectIssuanceSurfaceErrors(testCase, data);
+    expectBoundedSdkErrors(errors);
+    expect(errors[0]).toMatchObject({
+      context: {
+        decoderPath: 'input.conversion_triggers[0].conversion_right.conversion_mechanism.value.interest_rates[0]',
+      },
+    });
+    for (const error of errors.slice(1)) {
+      expect(error).toMatchObject({
+        context: {
+          decoderPath:
+            'input.issuance_data.conversion_triggers[0].conversion_right.conversion_mechanism.value.interest_rates[0]',
+        },
+      });
+    }
+  });
+
+  it('bounds huge reader numeric and enum diagnostics across every reader surface', async () => {
+    const testCase = issuanceReaderCases[0];
+    if (!testCase) throw new Error('Missing convertible issuance reader case');
+
+    const numericData = convertibleData();
+    testRecord(numericData.investment_amount, 'investment_amount').amount = '9'.repeat(100_000);
+    expectBoundedSdkErrors(await collectIssuanceSurfaceErrors(testCase, numericData));
+
+    const enumData = convertibleData();
+    enumData.convertible_type = 'x'.repeat(100_000);
+    expectBoundedSdkErrors(await collectIssuanceSurfaceErrors(testCase, enumData));
   });
 
   it.each(issuanceReaderCases)('$entityType rejects fields discarded from the full wrapper', async (testCase) => {

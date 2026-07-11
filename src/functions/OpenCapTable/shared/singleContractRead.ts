@@ -1,4 +1,5 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { types as nodeUtilTypes } from 'node:util';
 import { OcpContractError, OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import { ledgerReadScope } from '../../../utils/readScope';
@@ -70,7 +71,12 @@ function requireCreateArgumentRecord(
   contractId: string,
   diagnostics: { operation: string; templateId?: string }
 ): Record<string, unknown> {
-  if (!createArgument || typeof createArgument !== 'object' || Array.isArray(createArgument)) {
+  const proxy =
+    createArgument !== null &&
+    (typeof createArgument === 'object' || typeof createArgument === 'function') &&
+    nodeUtilTypes.isProxy(createArgument);
+  const array = !proxy && Array.isArray(createArgument);
+  if (proxy || !createArgument || typeof createArgument !== 'object' || array) {
     throw new OcpParseError('Contract createArgument must be an object', {
       source: `contract ${contractId}`,
       code: OcpErrorCodes.SCHEMA_MISMATCH,
@@ -79,7 +85,7 @@ function requireCreateArgumentRecord(
         contractId,
         operation: diagnostics.operation,
         templateId: diagnostics.templateId,
-        receivedType: Array.isArray(createArgument) ? 'array' : typeof createArgument,
+        receivedType: proxy ? 'proxy' : array ? 'array' : typeof createArgument,
       },
     });
   }

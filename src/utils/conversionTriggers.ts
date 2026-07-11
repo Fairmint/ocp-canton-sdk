@@ -1,4 +1,5 @@
 import { OcpErrorCodes, OcpValidationError, type OcpErrorCode } from '../errors';
+import { describeDiagnosticValue } from '../errors/diagnostics';
 import type { ConversionTriggerFor, ConversionTriggerType } from '../types/native';
 
 const CONVERSION_TRIGGER_TYPES: ReadonlySet<string> = new Set([
@@ -155,11 +156,15 @@ function optionalString(value: unknown, source: string, field: string, nullIsAbs
 
 function requireTriggerType(value: unknown, source: string): ConversionTriggerType {
   if (!isConversionTriggerType(value)) {
-    throw new OcpValidationError(fieldPath(source, 'type'), `Unknown conversion trigger type: ${String(value)}`, {
-      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      expectedType: [...CONVERSION_TRIGGER_TYPES].join(' | '),
-      receivedValue: value,
-    });
+    throw new OcpValidationError(
+      fieldPath(source, 'type'),
+      `Unknown conversion trigger type: ${describeDiagnosticValue(value)}`,
+      {
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        expectedType: [...CONVERSION_TRIGGER_TYPES].join(' | '),
+        receivedValue: value,
+      }
+    );
   }
   return value;
 }

@@ -1,5 +1,6 @@
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { assertPlainDataValue, PlainDataValidationError } from '../shared/plainDataValidation';
 import { ENTITY_TEMPLATE_ID_MAP, type OcfEntityType } from './batchTypes';
 import { findLosslessCodecMismatch } from './damlCodecLosslessness';
 
@@ -121,6 +122,38 @@ function issuanceDecodeError(
   });
 }
 
+function validatePlainIssuanceBoundary(
+  entityType: ComplexIssuanceEntityType,
+  value: unknown,
+  decoderPath: string,
+  boundary: 'data' | 'wrapper'
+): void {
+  try {
+    assertPlainDataValue(value, decoderPath, { allowUndefinedObjectProperties: boundary === 'data' });
+  } catch (error) {
+    if (!(error instanceof PlainDataValidationError)) throw error;
+    const path = error.issueKind === 'inherited' ? error.containerPath : error.fieldPath;
+    if (boundary === 'data') {
+      throw new OcpParseError(`Invalid DAML data for ${entityType} at ${path}: ${error.message}`, {
+        source: `damlEntityData.${entityType}`,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: {
+          entityType,
+          expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+          decoderPath: path,
+          decoderMessage: error.message,
+        },
+      });
+    }
+    throw issuanceDecodeError(entityType, path, error.message);
+  }
+}
+
+/** Trap-free recursive preflight for a direct generated complex-issuance payload. */
+export function validateComplexIssuanceDamlDataInput(entityType: ComplexIssuanceEntityType, value: unknown): void {
+  validatePlainIssuanceBoundary(entityType, value, 'input', 'data');
+}
+
 function requireOwnFields(
   entityType: ComplexIssuanceEntityType,
   record: Record<string, unknown>,
@@ -222,6 +255,7 @@ export function extractAndDecodeComplexIssuanceData<const EntityType extends Com
   entityType: EntityType,
   createArgument: unknown
 ): ComplexIssuanceDataFor<EntityType> {
+  validatePlainIssuanceBoundary(entityType, createArgument, 'input', 'wrapper');
   validateIssuanceOwnProperties(entityType, createArgument);
   const codec: ComplexIssuanceCreateArgumentCodec<ComplexIssuanceCreateArgumentMap[EntityType]> =
     COMPLEX_ISSUANCE_CREATE_ARGUMENT_CODEC_MAP[entityType];

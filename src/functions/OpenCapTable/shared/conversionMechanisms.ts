@@ -1,5 +1,6 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
+import { describeDiagnosticValue } from '../../../errors/diagnostics';
 import type {
   CapitalizationDefinitionRules,
   ConvertibleConversionMechanism,
@@ -211,21 +212,11 @@ function taggedValue(value: unknown, field: string): { tag: string; value: Recor
 }
 
 function describeUnknown(value: unknown): string {
-  if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
-  try {
-    const serialized: unknown = JSON.stringify(value);
-    return typeof serialized === 'string' ? serialized : typeof value;
-  } catch {
-    return typeof value;
-  }
+  return describeDiagnosticValue(value);
 }
 
 function throwUnknownVariant(runtimeValue: unknown, field: string): never {
-  const type =
-    isRecord(runtimeValue) && typeof runtimeValue.type === 'string' ? runtimeValue.type : describeUnknown(runtimeValue);
-  throw new OcpParseError(`Unknown ${field}: ${type}`, {
+  throw new OcpParseError(`Unknown ${field}: ${describeDiagnosticValue(runtimeValue)}`, {
     source: field,
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });

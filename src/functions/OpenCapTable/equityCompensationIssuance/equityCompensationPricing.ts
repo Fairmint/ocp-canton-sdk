@@ -1,4 +1,5 @@
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { describeDiagnosticValue } from '../../../errors/diagnostics';
 import type { CompensationType, Monetary } from '../../../types';
 import { validateRequiredMonetary } from '../../../utils/validation';
 
@@ -113,7 +114,7 @@ export function validateEquityCompensationPricing(
       const exhaustiveCheck: never = compensationType;
       throw new OcpValidationError(
         `${source}.compensation_type`,
-        `Unknown compensation type: ${String(exhaustiveCheck)}`,
+        `Unknown compensation type: ${describeDiagnosticValue(exhaustiveCheck)}`,
         {
           code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
           receivedValue: exhaustiveCheck,

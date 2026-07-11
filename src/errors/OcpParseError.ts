@@ -1,4 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
+import { boundedDiagnosticText, toSafeDiagnosticContext } from './diagnostics';
 import { contextOrUndefined, OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpParseErrorOptions {
@@ -45,15 +46,16 @@ export class OcpParseError extends OcpError {
 
   constructor(message: string, options?: OcpParseErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.INVALID_RESPONSE;
+    const source = options?.source === undefined ? undefined : boundedDiagnosticText(options.source, 256);
     const context = contextOrUndefined({
-      ...options?.context,
-      ...(options?.source !== undefined ? { source: options.source } : {}),
+      ...(options?.context === undefined ? {} : toSafeDiagnosticContext(options.context)),
+      ...(source !== undefined ? { source } : {}),
     });
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'parse_error',
       ...(context !== undefined ? { context } : {}),
     });
     this.name = 'OcpParseError';
-    this.source = options?.source;
+    this.source = source;
   }
 }

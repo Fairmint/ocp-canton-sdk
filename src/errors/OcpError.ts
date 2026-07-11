@@ -1,4 +1,5 @@
 import type { OcpErrorCode } from './codes';
+import { boundedDiagnosticText, toSafeDiagnosticContext } from './diagnostics';
 
 export type OcpErrorContext = Record<string, unknown>;
 
@@ -42,16 +43,18 @@ export class OcpError extends Error {
   /** Structured failure classification for machine-readable diagnostics */
   readonly classification: string | undefined;
 
-  /** Structured context attached to the failure */
+  /** Bounded JSON-safe structured context attached to the failure */
   readonly context: OcpErrorContext | undefined;
 
   constructor(message: string, code: OcpErrorCode, cause?: Error, details?: OcpErrorDetails) {
-    super(message);
+    super(boundedDiagnosticText(message));
     this.name = 'OcpError';
     this.code = code;
     this.cause = cause;
-    this.classification = details?.classification;
-    this.context = details?.context;
+    Object.defineProperty(this, 'cause', { enumerable: false });
+    this.classification =
+      details?.classification === undefined ? undefined : boundedDiagnosticText(details.classification, 128);
+    this.context = details?.context === undefined ? undefined : toSafeDiagnosticContext(details.context);
 
     // Maintain proper stack trace in V8 environments (Node.js, Chrome)
     Error.captureStackTrace(this, this.constructor);
