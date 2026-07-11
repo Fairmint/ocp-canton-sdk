@@ -91,6 +91,33 @@ function triggerToDaml(
   };
 }
 
+function seniorityToDaml(value: unknown): string {
+  const field = 'convertibleIssuance.seniority';
+  const expectedType = 'safe integer number';
+  if (value === null || value === undefined) {
+    throw new OcpValidationError(field, `${field} is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (typeof value !== 'number') {
+    throw new OcpValidationError(field, `${field} must be a number`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (!Number.isSafeInteger(value)) {
+    throw new OcpValidationError(field, `${field} must be a safe integer`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  return value.toString();
+}
+
 export function convertibleIssuanceDataToDaml(
   input: ConvertibleIssuanceInput
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
@@ -114,7 +141,7 @@ export function convertibleIssuanceDataToDaml(
     convertible_type: convertibleTypeToDaml(input.convertible_type),
     conversion_triggers: input.conversion_triggers.map(triggerToDaml),
     pro_rata: canonicalOptionalNumericToDaml(input.pro_rata, 'convertibleIssuance.pro_rata'),
-    seniority: input.seniority.toString(),
+    seniority: seniorityToDaml(input.seniority),
     comments: cleanComments(input.comments),
   };
 }

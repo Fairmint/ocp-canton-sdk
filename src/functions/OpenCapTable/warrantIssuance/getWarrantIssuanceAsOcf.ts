@@ -75,7 +75,7 @@ function monetaryFromDaml(value: unknown, field: string): Monetary {
     throw invalid(`${field}.amount`, `${field}.amount must be a decimal string`, amount);
   }
   return {
-    amount: normalizeNumericString(amount),
+    amount: normalizeNumericString(amount, `${field}.amount`),
     currency: requireString(monetary.currency, `${field}.currency`),
   };
 }
