@@ -6,6 +6,8 @@
  * order as DB-loaded transactions by the cap table engine.
  */
 
+import { OcpErrorCodes } from '../../src/errors/codes';
+import { toSafeDiagnosticValue } from '../../src/errors/OcpError';
 import { OcpValidationError } from '../../src/errors/OcpValidationError';
 import {
   buildTransactionSortKey,
@@ -46,6 +48,13 @@ describe('getTimestampOrNull', () => {
   it('returns null for empty string', () => {
     expect(getTimestampOrNull('')).toBeNull();
   });
+
+  it.each([NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.MAX_VALUE])(
+    'returns null for a numeric input outside the Date timestamp range: %s',
+    (value) => {
+      expect(getTimestampOrNull(value)).toBeNull();
+    }
+  );
 });
 
 describe('txWeight', () => {
@@ -61,6 +70,18 @@ describe('txWeight', () => {
     expect(txWeight({ object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE' })).toBe(10);
     expect(txWeight({ object_type: 'TX_CONVERTIBLE_ISSUANCE' })).toBe(10);
     expect(txWeight({ object_type: 'TX_WARRANT_ISSUANCE' })).toBe(10);
+  });
+
+  it('moves an issuance produced by a parent transaction after conversions and exercises', () => {
+    const resultSecurityIds = new Set(['result-security']);
+
+    expect(txWeight({ object_type: 'TX_STOCK_ISSUANCE', security_id: 'result-security' }, resultSecurityIds)).toBe(36);
+    expect(txWeight({ object_type: 'TX_STOCK_ISSUANCE', security_id: 'unrelated-security' }, resultSecurityIds)).toBe(
+      10
+    );
+    expect(txWeight({ object_type: 'TX_STOCK_CANCELLATION', security_id: 'result-security' }, resultSecurityIds)).toBe(
+      40
+    );
   });
 
   it('returns weight 11 for acceptances', () => {
@@ -174,6 +195,20 @@ describe('buildTransactionSortKey', () => {
     expect(key).toContain('|9999-12-31T23:59:59.999Z|');
   });
 
+  it.each([NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.MAX_VALUE])(
+    'uses the far-future timestamp when createdAt is outside the Date timestamp range: %s',
+    (createdAt) => {
+      const key = buildTransactionSortKey({
+        id: 'tx-123',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        createdAt,
+      });
+
+      expect(key).toContain('|9999-12-31T23:59:59.999Z|');
+    }
+  );
+
   it('handles created_at (underscore) as fallback for createdAt', () => {
     const tx = {
       id: 'tx-123',
@@ -193,9 +228,33 @@ describe('buildTransactionSortKey', () => {
     };
 
     expect(() => buildTransactionSortKey(tx)).toThrow(OcpValidationError);
-    expect(() => buildTransactionSortKey(tx)).toThrow(/missing or invalid date/);
-    expect(() => buildTransactionSortKey(tx)).toThrow(/id: tx-123/);
-    expect(() => buildTransactionSortKey(tx)).toThrow(/object_type: TX_STOCK_ISSUANCE/);
+    expect(() => buildTransactionSortKey(tx)).toThrow(/missing date/);
+    expect(() => buildTransactionSortKey(tx)).toThrow(/id: "tx-123"/);
+    expect(() => buildTransactionSortKey(tx)).toThrow(/object_type: "TX_STOCK_ISSUANCE"/);
+
+    try {
+      buildTransactionSortKey(tx);
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: 'tx.date',
+        receivedValue: undefined,
+      });
+    }
+  });
+
+  it('classifies an explicit null date as missing', () => {
+    try {
+      buildTransactionSortKey({ id: 'tx-null-date', date: null, object_type: 'TX_STOCK_ISSUANCE' });
+      throw new Error('Expected buildTransactionSortKey to reject the transaction date');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: 'tx.date',
+        receivedValue: null,
+      });
+    }
   });
 
   it('throws OcpValidationError for invalid date', () => {
@@ -206,8 +265,62 @@ describe('buildTransactionSortKey', () => {
     };
 
     expect(() => buildTransactionSortKey(tx)).toThrow(OcpValidationError);
-    expect(() => buildTransactionSortKey(tx)).toThrow(/missing or invalid date/);
-    expect(() => buildTransactionSortKey(tx)).toThrow(/id: tx-456/);
+    expect(() => buildTransactionSortKey(tx)).toThrow(/invalid date/);
+    expect(() => buildTransactionSortKey(tx)).toThrow(/id: "tx-456"/);
+
+    try {
+      buildTransactionSortKey(tx);
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'tx.date',
+        receivedValue: 'not-a-valid-date',
+      });
+    }
+  });
+
+  it.each(['2023-02-29', '2024-02-30', '2024-13-01'])('rejects impossible calendar date %s', (date) => {
+    expect(() => buildTransactionSortKey({ id: 'tx-invalid-date', date, object_type: 'TX_STOCK_ISSUANCE' })).toThrow(
+      OcpValidationError
+    );
+
+    try {
+      buildTransactionSortKey({ id: 'tx-invalid-date', date, object_type: 'TX_STOCK_ISSUANCE' });
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'tx.date',
+        receivedValue: date,
+      });
+    }
+  });
+
+  it('accepts a valid leap day', () => {
+    expect(buildTransactionSortKey({ id: 'tx-leap', date: '2024-02-29' })).toMatch(/^2024-02-29\|/);
+  });
+
+  it.each([0, 1710502200000, {}, true, 1n, Symbol('date')])('rejects non-string transaction date %p', (date) => {
+    try {
+      buildTransactionSortKey({ id: 'tx-invalid-type', date, object_type: 'TX_STOCK_ISSUANCE' });
+      throw new Error('Expected buildTransactionSortKey to reject the transaction date');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      const validationError = error as OcpValidationError;
+      expect(validationError.code).toBe(OcpErrorCodes.INVALID_TYPE);
+      expect(validationError.fieldPath).toBe('tx.date');
+      expect(validationError.receivedValue).toEqual(toSafeDiagnosticValue(date));
+      expect(validationError.message.length).toBeLessThan(500);
+    }
+  });
+
+  it('preserves the lexical calendar day of an offset date-time', () => {
+    const key = buildTransactionSortKey({
+      id: 'tx-offset',
+      date: '2024-01-15T23:30:00-05:00',
+      object_type: 'TX_STOCK_ISSUANCE',
+    });
+
+    expect(key).toMatch(/^2024-01-15\|/);
   });
 
   it('includes date value in error message', () => {
@@ -219,6 +332,23 @@ describe('buildTransactionSortKey', () => {
 
     expect(() => buildTransactionSortKey(tx)).toThrow(OcpValidationError);
     expect(() => buildTransactionSortKey(tx)).toThrow(/"invalid"/);
+  });
+
+  it('bounds arbitrary transaction values in invalid-date diagnostics', () => {
+    const longValue = 'x'.repeat(20_000);
+
+    try {
+      buildTransactionSortKey({ id: longValue, object_type: longValue, date: longValue });
+      throw new Error('Expected buildTransactionSortKey to reject the transaction date');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      const validationError = error as OcpValidationError;
+      expect(validationError.code).toBe(OcpErrorCodes.INVALID_FORMAT);
+      expect(validationError.fieldPath).toBe('tx.date');
+      expect(validationError.receivedValue).toEqual(toSafeDiagnosticValue(longValue));
+      expect(validationError.receivedValue).not.toBe(longValue);
+      expect(validationError.message.length).toBeLessThan(500);
+    }
   });
 });
 
@@ -312,6 +442,88 @@ describe('sortTransactions', () => {
     expect(sorted.map((tx) => tx.id)).toEqual(['tx-aaa', 'tx-zzz']);
   });
 
+  it('uses stable UTF-16 code-unit ordering instead of locale-dependent collation', () => {
+    const transactions = [
+      { id: 'tx-ä', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE' },
+      { id: 'tx-z', date: '2025-03-15', object_type: 'TX_STOCK_ISSUANCE' },
+    ] as const;
+
+    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['tx-z', 'tx-ä']);
+  });
+
+  it('sorts a retroactive vesting start after the issuance while preserving its original date', () => {
+    const transactions = [
+      {
+        id: 'vesting-start',
+        date: '2025-07-27',
+        object_type: 'TX_VESTING_START',
+        security_id: 'option-1',
+      },
+      {
+        id: 'issuance',
+        date: '2025-10-27',
+        object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
+        security_id: 'option-1',
+      },
+    ] as const;
+
+    const sorted = sortTransactions(transactions);
+
+    expect(sorted.map((tx) => tx.id)).toEqual(['issuance', 'vesting-start']);
+    expect(sorted[1]?.date).toBe('2025-07-27');
+  });
+
+  it.each([
+    'TX_CONVERTIBLE_CONVERSION',
+    'TX_WARRANT_EXERCISE',
+    'TX_EQUITY_COMPENSATION_EXERCISE',
+    'TX_EQUITY_COMPENSATION_RELEASE',
+    'TX_STOCK_TRANSFER',
+    'TX_STOCK_CONVERSION',
+    'TX_CONVERTIBLE_TRANSFER',
+    'TX_WARRANT_TRANSFER',
+    'TX_EQUITY_COMPENSATION_TRANSFER',
+    'TX_STOCK_REISSUANCE',
+  ] as const)('sorts a resulting issuance after canonical parent %s', (parentObjectType) => {
+    const transactions = [
+      {
+        id: 'result-issuance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'result-security',
+      },
+      {
+        id: 'parent',
+        date: '2025-03-15',
+        object_type: parentObjectType,
+        security_id: 'source-security',
+        resulting_security_ids: ['result-security'],
+      },
+    ] as const;
+
+    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['parent', 'result-issuance']);
+  });
+
+  it('sorts a transfer balance issuance after the parent transfer', () => {
+    const transactions = [
+      {
+        id: 'balance-issuance',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_ISSUANCE',
+        security_id: 'balance-security',
+      },
+      {
+        id: 'transfer',
+        date: '2025-03-15',
+        object_type: 'TX_STOCK_TRANSFER',
+        security_id: 'source-security',
+        balance_security_id: 'balance-security',
+      },
+    ] as const;
+
+    expect(sortTransactions(transactions).map((tx) => tx.id)).toEqual(['transfer', 'balance-issuance']);
+  });
+
   it('returns empty array for empty input', () => {
     expect(sortTransactions([])).toEqual([]);
   });
@@ -351,13 +563,13 @@ describe('sortTransactions', () => {
     // Expected order by weight:
     // 1. adjustment (5)
     // 2. issuances (10) - by security_id: sec-a before sec-b
-    // 3. transfers (25)
+    // 3. transfers (20)
     // 4. exercises (30)
     // 5. cancellations (40)
     expect(ids[0]).toBe('adjustment-1'); // weight 5
     expect(ids[1]).toBe('issuance-2'); // weight 10, sec-a
     expect(ids[2]).toBe('issuance-1'); // weight 10, sec-b
-    expect(ids[3]).toBe('transfer-1'); // weight 25
+    expect(ids[3]).toBe('transfer-1'); // weight 20
     expect(ids[4]).toBe('exercise-1'); // weight 30
     expect(ids[5]).toBe('cancel-1'); // weight 40
   });

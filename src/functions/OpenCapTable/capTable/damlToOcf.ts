@@ -13,6 +13,15 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
+import {
+  assertSafeGeneratedDamlJson,
+  extractGeneratedCreateArgumentData,
+  requireGeneratedRecord,
+} from '../../../utils/generatedDamlValidation';
+import { requireFirst } from '../../../utils/requireDefined';
+import { initialSharesAuthorizedFromDaml } from '../../../utils/typeConversions';
+import { parseDamlSafeInteger } from '../shared/damlIntegers';
+import { assertCanonicalJsonGraph, requireDecimalString } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   ENTITY_DATA_FIELD_FALLBACK_MAP,
@@ -23,6 +32,7 @@ import {
   type OcfDataTypeFor,
   type OcfEntityType,
 } from './batchTypes';
+import { decodeLosslessGeneratedDamlValue } from './damlCodecLosslessness';
 
 // Import converters from entity folders
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -40,7 +50,7 @@ import { damlEquityCompensationReleaseToNative } from '../equityCompensationRele
 import { damlEquityCompensationRepricingToNative } from '../equityCompensationRepricing/damlToOcf';
 import { damlEquityCompensationRetractionToNative } from '../equityCompensationRetraction/damlToOcf';
 import { damlEquityCompensationTransferToNative } from '../equityCompensationTransfer/damlToOcf';
-import { damlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
+import { damlIssuerDataToNative, projectDamlIssuerDataToNative } from '../issuer/getIssuerAsOcf';
 import { damlIssuerAuthorizedSharesAdjustmentDataToNative } from '../issuerAuthorizedSharesAdjustment/getIssuerAuthorizedSharesAdjustmentAsOcf';
 import { damlStakeholderDataToNative } from '../stakeholder/getStakeholderAsOcf';
 import { damlStakeholderRelationshipChangeEventToNative } from '../stakeholderRelationshipChangeEvent/damlToOcf';
@@ -113,6 +123,7 @@ export function convertToOcf(
   type: SupportedOcfReadType,
   data: DamlDataTypeFor<SupportedOcfReadType>
 ): OcfDataTypeFor<SupportedOcfReadType> {
+  assertCanonicalJsonGraph(data, type);
   switch (type) {
     // ===== Core objects =====
     case 'document':
@@ -122,7 +133,7 @@ export function convertToOcf(
     case 'stakeholder':
       return damlStakeholderDataToNative(data as Parameters<typeof damlStakeholderDataToNative>[0]);
     case 'stockClass':
-      return damlStockClassDataToNative(data as Parameters<typeof damlStockClassDataToNative>[0]);
+      return damlStockClassDataToNative(data);
     case 'stockLegendTemplate':
       return damlStockLegendTemplateDataToNative(data as Parameters<typeof damlStockLegendTemplateDataToNative>[0]);
     case 'stockPlan':
@@ -269,16 +280,47 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   input: unknown
 ): DamlDataTypeFor<EntityType>;
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
+  assertCanonicalJsonGraph(input, entityType);
+  preflightSemanticDamlEntityData(entityType, input);
   const tag = ENTITY_TAG_MAP[entityType].edit;
-  try {
-    return Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value: input }).value;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new OcpParseError(`Invalid DAML data for ${entityType}: ${message}`, {
-      source: `damlToOcf.${entityType}`,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
+  const decoded = decodeLosslessGeneratedDamlValue(
+    Fairmint.OpenCapTable.CapTable.OcfEditData,
+    { tag, value: input },
+    {
+      rootPath: entityType,
+      description: entityType,
+      decodeSource: `damlToOcf.${entityType}`,
       context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
-    });
+    },
+    {
+      raw: input,
+      encoded: (encoded) => (isRecord(encoded) ? encoded.value : undefined),
+      decoded: (value) => value.value,
+    }
+  );
+
+  return decoded.value;
+}
+
+function hasOwnField(record: object, field: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(record, field);
+}
+
+function preflightSemanticDamlEntityData(entityType: OcfEntityType, input: unknown): void {
+  if (!isRecord(input)) return;
+
+  if (entityType === 'issuer') {
+    projectDamlIssuerDataToNative(input as Parameters<typeof projectDamlIssuerDataToNative>[0]);
+  } else if (entityType === 'stockClass' && hasOwnField(input, 'initial_shares_authorized')) {
+    initialSharesAuthorizedFromDaml(input.initial_shares_authorized, 'stockClass.initial_shares_authorized');
+  } else if (entityType === 'convertibleIssuance' && hasOwnField(input, 'seniority')) {
+    parseDamlSafeInteger(input.seniority, 'convertibleIssuance.seniority');
+  } else if (
+    entityType === 'convertibleConversion' &&
+    hasOwnField(input, 'quantity_converted') &&
+    input.quantity_converted !== null
+  ) {
+    requireDecimalString(input.quantity_converted, 'convertibleConversion.quantity_converted');
   }
 }
 
@@ -304,39 +346,44 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * ```
  */
 export function extractEntityData(entityType: OcfEntityType, createArgument: unknown): Record<string, unknown> {
-  if (!isRecord(createArgument)) {
-    throw new OcpParseError('Invalid createArgument: expected an object', {
-      source: entityType,
-      code: OcpErrorCodes.INVALID_RESPONSE,
-    });
-  }
-
+  const rootPath = `damlToOcf.${entityType}.createArgument`;
   const dataFieldName = ENTITY_DATA_FIELD_MAP[entityType];
   const fallbackFieldNames = ENTITY_DATA_FIELD_FALLBACK_MAP[entityType] ?? [];
-  const record = createArgument;
-  const resolvedDataFieldName =
-    dataFieldName in record ? dataFieldName : fallbackFieldNames.find((fieldName) => fieldName in record);
-
-  if (!resolvedDataFieldName) {
-    const expectedFields = [dataFieldName, ...fallbackFieldNames].join("', '");
-    throw new OcpParseError(
-      `Expected field '${expectedFields}' not found in contract create argument for ${entityType}`,
-      {
-        source: entityType,
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-      }
-    );
-  }
-
-  const entityData = record[resolvedDataFieldName];
-  if (!isRecord(entityData)) {
-    throw new OcpParseError(`Entity data field '${resolvedDataFieldName}' is not an object for ${entityType}`, {
-      source: entityType,
-      code: OcpErrorCodes.SCHEMA_MISMATCH,
+  if (
+    entityType === 'document' ||
+    entityType === 'issuer' ||
+    entityType === 'stockClassConversionRatioAdjustment' ||
+    entityType === 'stockPlan' ||
+    entityType === 'vestingTerms'
+  ) {
+    return extractGeneratedCreateArgumentData(createArgument, rootPath, {
+      dataField: dataFieldName,
+      fallbackDataFields: fallbackFieldNames,
     });
   }
 
-  return entityData;
+  assertSafeGeneratedDamlJson(createArgument, rootPath);
+  const record = requireGeneratedRecord(createArgument, rootPath);
+  const candidateFieldNames = [dataFieldName, ...fallbackFieldNames];
+  const presentFieldNames = candidateFieldNames.filter((fieldName) =>
+    Object.prototype.hasOwnProperty.call(record, fieldName)
+  );
+  if (presentFieldNames.length === 0) {
+    const expectedFields = candidateFieldNames.join("', '");
+    throw new OcpParseError(
+      `Expected field '${expectedFields}' not found in contract create argument for ${entityType}`,
+      { source: entityType, code: OcpErrorCodes.SCHEMA_MISMATCH }
+    );
+  }
+  if (presentFieldNames.length > 1) {
+    throw new OcpParseError(`Contract create argument contains ambiguous entity data fields for ${entityType}`, {
+      source: rootPath,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      context: { presentFieldNames },
+    });
+  }
+  const resolvedDataFieldName = requireFirst(presentFieldNames, `${entityType} create-argument data field`);
+  return requireGeneratedRecord(record[resolvedDataFieldName], `${rootPath}.${resolvedDataFieldName}`);
 }
 
 export { extractCreateArgument } from '../shared/singleContractRead';

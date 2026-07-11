@@ -12,8 +12,10 @@ import {
 import { ENTITY_REGISTRY, ENTITY_TAG_MAP } from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import {
   buildOcfCreateData,
+  buildOcfCreateDataFromOperation,
   buildOcfDeleteData,
   buildOcfEditData,
+  buildOcfEditDataFromOperation,
 } from '../../src/functions/OpenCapTable/capTable/generatedBatchOperations';
 import { parseOcfEntityInput, parseOcfObject } from '../../src/utils/ocfZodSchemas';
 import { loadFixture, stripSourceMetadata } from '../utils/productionFixtures';
@@ -22,7 +24,7 @@ function loadEntityFixture<T extends OcfEntityType>(
   entityType: T,
   relativePath: string
 ): readonly [type: T, data: OcfDataTypeFor<T>] {
-  const fixture = stripSourceMetadata(loadFixture<Record<string, unknown>>(relativePath));
+  const fixture = stripSourceMetadata(loadFixture(relativePath));
   const canonicalFixture = parseOcfObject(fixture);
   return [entityType, parseOcfEntityInput(entityType, canonicalFixture)];
 }
@@ -122,12 +124,47 @@ describe('generated DAML batch operation construction', () => {
     expect(Fairmint.OpenCapTable.CapTable.OcfDeleteData.decoder.runWithException(deletion)).toEqual(deletion);
   });
 
+  test('rejects unsupported tuple and operation kinds before reading their payloads', () => {
+    let payloadWasRead = false;
+    const poisonPayload = new Proxy<Record<string, never>>(
+      {},
+      {
+        get() {
+          payloadWasRead = true;
+          throw new Error('converter must not read an unsupported payload');
+        },
+      }
+    );
+    const untypedCreate = buildOcfCreateData as unknown as (type: string, data: unknown) => unknown;
+    const untypedCreateOperation = buildOcfCreateDataFromOperation as unknown as (operation: {
+      type: string;
+      data: unknown;
+    }) => unknown;
+    const untypedEdit = buildOcfEditData as unknown as (type: string, data: unknown) => unknown;
+    const untypedEditOperation = buildOcfEditDataFromOperation as unknown as (operation: {
+      type: string;
+      data: unknown;
+    }) => unknown;
+
+    expect(() => untypedCreate('issuer', poisonPayload)).toThrow(
+      'Create operation not supported for entity type: issuer'
+    );
+    expect(() => untypedCreateOperation({ type: 'issuer', data: poisonPayload })).toThrow(
+      'Create operation not supported for entity type: issuer'
+    );
+    expect(() => untypedEdit('not-real', poisonPayload)).toThrow(
+      'Edit operation not supported for entity type: not-real'
+    );
+    expect(() => untypedEditOperation({ type: 'not-real', data: poisonPayload })).toThrow(
+      'Edit operation not supported for entity type: not-real'
+    );
+    expect(payloadWasRead).toBe(false);
+  });
+
   test('constructs correlated operation objects without rebuilding asserted tuples', () => {
     const stakeholder = parseOcfEntityInput(
       'stakeholder',
-      parseOcfObject(
-        stripSourceMetadata(loadFixture<Record<string, unknown>>('production/stakeholder/individual.json'))
-      )
+      parseOcfObject(stripSourceMetadata(loadFixture('production/stakeholder/individual.json')))
     );
     const { command } = buildUpdateCapTableCommand(
       { capTableContractId: 'cap-table-generated-operation-1' },
