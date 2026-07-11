@@ -441,6 +441,92 @@ describe('extractCantonOcfManifest', () => {
         true
       );
     });
+
+    it('should fail loud with contract diagnostics when a transaction has a malformed date', async () => {
+      const state = buildCapTableState({
+        contractIds: new Map([['stockTransfer', new Map([['tx-invalid', 'stock-transfer-invalid-cid']])]]),
+        entities: new Map([['stockTransfer', new Set(['tx-invalid'])]]),
+      });
+
+      mockGetEntityAsOcf.mockResolvedValue({
+        data: createTestStockTransferData({
+          id: 'tx-invalid',
+          date: '2024-02-30',
+          security_id: 'security-invalid',
+        }),
+        contractId: 'stock-transfer-invalid-cid',
+      });
+
+      await expect(extractCantonOcfManifest(mockClient, state)).rejects.toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        contractId: 'stock-transfer-invalid-cid',
+        message: 'Failed to fetch stockTransfer/tx-invalid (schema)',
+        diagnostics: {
+          classification: 'schema',
+          operation: 'extractCantonOcfManifest',
+          entityType: 'stockTransfer',
+          objectId: 'tx-invalid',
+          contractId: 'stock-transfer-invalid-cid',
+          attempts: 1,
+        },
+      });
+      expect(getEntityAsOcf).toHaveBeenCalledTimes(1);
+    });
+
+    it('should skip malformed transaction dates in partial mode and sort the valid transactions', async () => {
+      const state = buildCapTableState({
+        contractIds: new Map([
+          [
+            'stockTransfer',
+            new Map([
+              ['tx-later', 'stock-transfer-later-cid'],
+              ['tx-invalid', 'stock-transfer-invalid-cid'],
+              ['tx-earlier', 'stock-transfer-earlier-cid'],
+            ]),
+          ],
+        ]),
+        entities: new Map([['stockTransfer', new Set(['tx-later', 'tx-invalid', 'tx-earlier'])]]),
+      });
+
+      mockGetEntityAsOcf.mockImplementation(async (_client: unknown, _entityType: string, contractId: string) => {
+        await Promise.resolve();
+        const transactionsByContractId = {
+          'stock-transfer-later-cid': createTestStockTransferData({
+            id: 'tx-later',
+            date: '2025-01-03',
+            security_id: 'security-1',
+          }),
+          'stock-transfer-invalid-cid': createTestStockTransferData({
+            id: 'tx-invalid',
+            date: 'not-a-date',
+            security_id: 'security-1',
+          }),
+          'stock-transfer-earlier-cid': createTestStockTransferData({
+            id: 'tx-earlier',
+            date: '2025-01-01',
+            security_id: 'security-1',
+          }),
+        };
+        if (!Object.prototype.hasOwnProperty.call(transactionsByContractId, contractId)) {
+          throw new Error(`Unexpected stock transfer contract: ${contractId}`);
+        }
+        const data = transactionsByContractId[contractId as keyof typeof transactionsByContractId];
+        return { data, contractId };
+      });
+
+      const logs: string[] = [];
+      const manifest = await extractCantonOcfManifest(mockClient, state, {
+        failOnReadErrors: false,
+        logger: (msg: string) => logs.push(msg),
+      });
+
+      expect(manifest.transactions.map((transaction) => transaction.id)).toEqual(['tx-earlier', 'tx-later']);
+      expect(logs.some((l) => l.includes('Failed to fetch stockTransfer/tx-invalid [schema]'))).toBe(true);
+      expect(logs.some((l) => l.includes('Continuing with partial manifest because failOnReadErrors=false'))).toBe(
+        true
+      );
+      expect(getEntityAsOcf).toHaveBeenCalledTimes(3);
+    });
   });
 
   describe('empty state', () => {
