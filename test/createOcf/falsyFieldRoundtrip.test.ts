@@ -44,7 +44,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
             },
           },
         ],
-        seniority: 1,
+        seniority: '1',
         security_law_exemptions: [],
       };
       const result = damlConvertibleIssuanceDataToNative(daml);
@@ -78,7 +78,7 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
             },
           },
         ],
-        seniority: 1,
+        seniority: '1',
         security_law_exemptions: [],
       };
       const result = damlConvertibleIssuanceDataToNative(daml);

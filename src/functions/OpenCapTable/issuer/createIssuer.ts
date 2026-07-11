@@ -14,6 +14,7 @@ import {
   dateStringToDAMLTime,
   ensureArray,
   initialSharesAuthorizedToDaml,
+  isRecord,
   optionalString,
 } from '../../../utils/typeConversions';
 import type { CreateIssuerParams, IssuerDataInput } from './types';
@@ -68,6 +69,17 @@ function issuerDataToDamlInternal(
   issuerData: IssuerDataInput,
   skipSchemaParse: boolean
 ): Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData {
+  const runtimeIssuerData: unknown = issuerData;
+  if (
+    isRecord(runtimeIssuerData) &&
+    Object.prototype.hasOwnProperty.call(runtimeIssuerData, 'initial_shares_authorized')
+  ) {
+    initialSharesAuthorizedToDaml(
+      runtimeIssuerData.initial_shares_authorized as string,
+      'issuer.initial_shares_authorized'
+    );
+  }
+
   let parsedData: IssuerDataInput;
   if (skipSchemaParse) {
     parsedData = issuerData;

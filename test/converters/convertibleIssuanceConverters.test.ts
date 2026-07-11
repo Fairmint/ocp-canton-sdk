@@ -590,7 +590,7 @@ const BASE_DAML = {
   investment_amount: { amount: '500000', currency: 'USD' },
   convertible_type: 'OcfConvertibleSafe',
   security_law_exemptions: [],
-  seniority: 1,
+  seniority: '1',
 };
 
 function buildDamlSafeTrigger(conversionTiming?: string) {
@@ -654,8 +654,12 @@ describe('read-side: required seniority boundary', () => {
     ['whitespace string', ' ', OcpErrorCodes.INVALID_FORMAT],
     ['non-integer string', '1.5', OcpErrorCodes.INVALID_FORMAT],
     ['scientific notation', '1e3', OcpErrorCodes.INVALID_FORMAT],
+    ['leading plus', '+1', OcpErrorCodes.INVALID_FORMAT],
+    ['leading zero', '01', OcpErrorCodes.INVALID_FORMAT],
+    ['negative zero', '-0', OcpErrorCodes.INVALID_FORMAT],
     ['boolean false', false, OcpErrorCodes.INVALID_TYPE],
-    ['non-integer number', 1.5, OcpErrorCodes.INVALID_FORMAT],
+    ['integer number', 1, OcpErrorCodes.INVALID_TYPE],
+    ['non-integer number', 1.5, OcpErrorCodes.INVALID_TYPE],
     ['non-scalar', { value: 1 }, OcpErrorCodes.INVALID_TYPE],
   ] as const)('rejects %s instead of coercing it to an integer', (_case, seniority, code) => {
     try {
@@ -692,6 +696,22 @@ describe('read-side: required seniority boundary', () => {
         receivedValue: seniority,
       });
     }
+  });
+
+  test.each([
+    ['zero', '0', 0],
+    ['positive', '1', 1],
+    ['negative', '-1', -1],
+    ['maximum safe integer', String(Number.MAX_SAFE_INTEGER), Number.MAX_SAFE_INTEGER],
+    ['minimum safe integer', String(Number.MIN_SAFE_INTEGER), Number.MIN_SAFE_INTEGER],
+  ] as const)('accepts a canonical %s DAML Int string', (_case, seniority, expected) => {
+    expect(
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        seniority,
+        conversion_triggers: [buildDamlSafeTrigger()],
+      }).seniority
+    ).toBe(expected);
   });
 });
 

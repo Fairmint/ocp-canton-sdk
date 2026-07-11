@@ -398,6 +398,14 @@ export function initialSharesAuthorizedFromDaml(value: unknown, fieldPath = 'ini
       receivedValue: value,
     });
   }
+
+  if (!Object.prototype.hasOwnProperty.call(value, 'tag')) {
+    throw new OcpValidationError(`${fieldPath}.tag`, `${fieldPath}.tag is required`, {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'initial shares variant tag',
+      receivedValue: value.tag,
+    });
+  }
   if (typeof value.tag !== 'string') {
     throw new OcpValidationError(`${fieldPath}.tag`, `${fieldPath}.tag has an invalid type`, {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -406,7 +414,24 @@ export function initialSharesAuthorizedFromDaml(value: unknown, fieldPath = 'ini
     });
   }
 
+  for (const key of Object.keys(value)) {
+    if (key !== 'tag' && key !== 'value') {
+      throw new OcpValidationError(`${fieldPath}.${key}`, `${fieldPath} contains a non-generated variant field`, {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'exact { tag, value } initial shares variant',
+        receivedValue: value[key],
+      });
+    }
+  }
+
   if (value.tag === 'OcfInitialSharesNumeric') {
+    if (!Object.prototype.hasOwnProperty.call(value, 'value')) {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value is required`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'DAML Numeric(10) decimal string',
+        receivedValue: value.value,
+      });
+    }
     if (typeof value.value !== 'string') {
       throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value has an invalid type`, {
         code: OcpErrorCodes.INVALID_TYPE,
@@ -418,9 +443,23 @@ export function initialSharesAuthorizedFromDaml(value: unknown, fieldPath = 'ini
   }
 
   if (value.tag === 'OcfInitialSharesEnum') {
+    if (!Object.prototype.hasOwnProperty.call(value, 'value')) {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value is required`, {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'authorized shares enum constructor',
+        receivedValue: value.value,
+      });
+    }
+    if (typeof value.value !== 'string') {
+      throw new OcpValidationError(`${fieldPath}.value`, `${fieldPath}.value has an invalid type`, {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'authorized shares enum constructor',
+        receivedValue: value.value,
+      });
+    }
     if (value.value === 'OcfAuthorizedSharesUnlimited') return 'UNLIMITED';
     if (value.value === 'OcfAuthorizedSharesNotApplicable') return 'NOT APPLICABLE';
-    throw new OcpParseError(`Unknown initial_shares_authorized enum value: ${String(value.value)}`, {
+    throw new OcpParseError(`Unknown initial_shares_authorized enum value: ${value.value}`, {
       source: `${fieldPath}.value`,
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
     });

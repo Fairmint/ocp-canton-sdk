@@ -147,6 +147,85 @@ describe('StockClass Converters', () => {
         )
       ).toBe('1');
     });
+
+    test.each([
+      ['missing tag', {}, 'stockClass.initial_shares_authorized.tag', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      ['null tag', { tag: null, value: '1' }, 'stockClass.initial_shares_authorized.tag', OcpErrorCodes.INVALID_TYPE],
+      [
+        'undefined tag',
+        { tag: undefined, value: '1' },
+        'stockClass.initial_shares_authorized.tag',
+        OcpErrorCodes.INVALID_TYPE,
+      ],
+      [
+        'numeric variant missing value',
+        { tag: 'OcfInitialSharesNumeric' },
+        'stockClass.initial_shares_authorized.value',
+        OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      ],
+      [
+        'enum variant missing value',
+        { tag: 'OcfInitialSharesEnum' },
+        'stockClass.initial_shares_authorized.value',
+        OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      ],
+      [
+        'numeric variant with a non-string value',
+        { tag: 'OcfInitialSharesNumeric', value: 1 },
+        'stockClass.initial_shares_authorized.value',
+        OcpErrorCodes.INVALID_TYPE,
+      ],
+      [
+        'enum variant with a non-string value',
+        { tag: 'OcfInitialSharesEnum', value: 1 },
+        'stockClass.initial_shares_authorized.value',
+        OcpErrorCodes.INVALID_TYPE,
+      ],
+      [
+        'numeric variant with a null value',
+        { tag: 'OcfInitialSharesNumeric', value: null },
+        'stockClass.initial_shares_authorized.value',
+        OcpErrorCodes.INVALID_TYPE,
+      ],
+      [
+        'enum variant with an undefined value',
+        { tag: 'OcfInitialSharesEnum', value: undefined },
+        'stockClass.initial_shares_authorized.value',
+        OcpErrorCodes.INVALID_TYPE,
+      ],
+      [
+        'keyed compatibility shape',
+        { OcfInitialSharesNumeric: '1' },
+        'stockClass.initial_shares_authorized.tag',
+        OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      ],
+      ['scalar compatibility shape', '1', 'stockClass.initial_shares_authorized', OcpErrorCodes.INVALID_TYPE],
+      [
+        'extra non-generated field',
+        { tag: 'OcfInitialSharesNumeric', value: '1', extra: true },
+        'stockClass.initial_shares_authorized.extra',
+        OcpErrorCodes.SCHEMA_MISMATCH,
+      ],
+    ] as const)('rejects a %s with exact direct-helper diagnostics', (_case, value, fieldPath, code) => {
+      expect(
+        captureValidationError(() => initialSharesAuthorizedFromDaml(value, 'stockClass.initial_shares_authorized'))
+      ).toMatchObject({ code, fieldPath });
+    });
+
+    test('classifies only an unknown string enum constructor as UNKNOWN_ENUM_VALUE', () => {
+      expect(() =>
+        initialSharesAuthorizedFromDaml(
+          { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesFuture' },
+          'stockClass.initial_shares_authorized'
+        )
+      ).toThrow(
+        expect.objectContaining({
+          name: 'OcpParseError',
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+          source: 'stockClass.initial_shares_authorized.value',
+        })
+      );
+    });
   });
 
   describe('OCF to DAML (convertToDaml stockClass)', () => {

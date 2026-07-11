@@ -13,6 +13,8 @@ import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
+import { initialSharesAuthorizedFromDaml } from '../../../utils/typeConversions';
+import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   ENTITY_DATA_FIELD_FALLBACK_MAP,
@@ -23,6 +25,7 @@ import {
   type OcfDataTypeFor,
   type OcfEntityType,
 } from './batchTypes';
+import { findLosslessCodecMismatch, type LosslessCodecMismatch } from './damlCodecLosslessness';
 
 // Import converters from entity folders
 import { damlConvertibleAcceptanceToNative } from '../convertibleAcceptance/convertibleAcceptanceDataToDaml';
@@ -269,9 +272,11 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   input: unknown
 ): DamlDataTypeFor<EntityType>;
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
+  preflightSemanticDamlEntityData(entityType, input);
   const tag = ENTITY_TAG_MAP[entityType].edit;
+  let decoded: Fairmint.OpenCapTable.CapTable.OcfEditData;
   try {
-    return Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value: input }).value;
+    decoded = Fairmint.OpenCapTable.CapTable.OcfEditData.decoder.runWithException({ tag, value: input });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new OcpParseError(`Invalid DAML data for ${entityType}: ${message}`, {
@@ -280,6 +285,53 @@ export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown):
       context: { entityType, expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType] },
     });
   }
+
+  const encoded = Fairmint.OpenCapTable.CapTable.OcfEditData.encode(decoded);
+  const encodedValue = isRecord(encoded) ? encoded.value : undefined;
+  const mismatch = findLosslessCodecMismatch(input, encodedValue);
+  if (mismatch) throw lossyDamlDecodeError(entityType, mismatch);
+
+  return decoded.value;
+}
+
+function hasOwnField(record: object, field: PropertyKey): boolean {
+  return Object.prototype.hasOwnProperty.call(record, field);
+}
+
+function preflightSemanticDamlEntityData(entityType: OcfEntityType, input: unknown): void {
+  if (!isRecord(input)) return;
+
+  if (entityType === 'stockClass' && hasOwnField(input, 'initial_shares_authorized')) {
+    initialSharesAuthorizedFromDaml(input.initial_shares_authorized, 'stockClass.initial_shares_authorized');
+  } else if (
+    entityType === 'issuer' &&
+    hasOwnField(input, 'initial_shares_authorized') &&
+    input.initial_shares_authorized !== null
+  ) {
+    initialSharesAuthorizedFromDaml(input.initial_shares_authorized, 'issuer.initial_shares_authorized');
+  } else if (entityType === 'convertibleIssuance' && hasOwnField(input, 'seniority')) {
+    parseDamlSafeInteger(input.seniority, 'convertibleIssuance.seniority');
+  }
+}
+
+function lossyDamlDecodeError(entityType: OcfEntityType, mismatch: LosslessCodecMismatch): OcpParseError {
+  const suffix = mismatch.decoderPath === 'input' ? '' : mismatch.decoderPath.slice('input'.length);
+  const fieldPath = `${entityType}${suffix}`;
+  return new OcpParseError(
+    `Generated DAML decoding for ${entityType} was lossy at ${fieldPath}: ${mismatch.decoderMessage}`,
+    {
+      source: fieldPath,
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      classification: 'lossy_daml_decode',
+      context: {
+        entityType,
+        fieldPath,
+        decoderPath: mismatch.decoderPath,
+        decoderMessage: mismatch.decoderMessage,
+        expectedTemplateId: ENTITY_TEMPLATE_ID_MAP[entityType],
+      },
+    }
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

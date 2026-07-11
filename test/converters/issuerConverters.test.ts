@@ -116,7 +116,7 @@ describe('Issuer Converters', () => {
       ['twenty-nine integral digits', '1'.repeat(29)],
     ])('public Issuer writer rejects %s with exact diagnostics', (_case, value) => {
       const error = captureValidationError(() =>
-        issuerDataToDaml({ ...baseIssuerData, initial_shares_authorized: value }, { skipSchemaParse: true })
+        issuerDataToDaml({ ...baseIssuerData, initial_shares_authorized: value })
       );
       expect(error).toMatchObject({
         code: OcpErrorCodes.INVALID_FORMAT,
@@ -127,12 +127,27 @@ describe('Issuer Converters', () => {
 
     test('public Issuer writer rejects negative initial shares as out of range', () => {
       const error = captureValidationError(() =>
-        issuerDataToDaml({ ...baseIssuerData, initial_shares_authorized: '-1' }, { skipSchemaParse: true })
+        issuerDataToDaml({ ...baseIssuerData, initial_shares_authorized: '-1' })
       );
       expect(error).toMatchObject({
         code: OcpErrorCodes.OUT_OF_RANGE,
         fieldPath: 'issuer.initial_shares_authorized',
         receivedValue: '-1',
+      });
+    });
+
+    test('public Issuer writer rejects a non-string with the exact type diagnostic before schema parsing', () => {
+      const value = 42;
+      const error = captureValidationError(() =>
+        issuerDataToDaml({
+          ...baseIssuerData,
+          initial_shares_authorized: value,
+        } as unknown as OcfIssuer)
+      );
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'issuer.initial_shares_authorized',
+        receivedValue: value,
       });
     });
 
@@ -246,6 +261,25 @@ describe('Issuer Converters', () => {
 
       expect(result.command).toBeDefined();
       expect(result.disclosedContracts).toBeDefined();
+    });
+
+    test('command builder preserves exact initial-shares diagnostics from the default public writer', () => {
+      const value = '1.00000000000';
+      const params = {
+        issuerAuthorizationContractDetails: mockDisclosedContract,
+        issuerParty: 'party-1',
+        issuerData: {
+          ...baseIssuerData,
+          object_type: 'ISSUER' as const,
+          initial_shares_authorized: value,
+        },
+      };
+
+      expect(captureValidationError(() => buildCreateIssuerCommand(params))).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'issuer.initial_shares_authorized',
+        receivedValue: value,
+      });
     });
   });
 

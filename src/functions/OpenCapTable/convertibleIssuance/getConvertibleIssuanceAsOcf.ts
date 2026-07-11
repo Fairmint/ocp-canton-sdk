@@ -14,6 +14,7 @@ import {
   optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
+import { parseDamlSafeInteger } from '../shared/damlIntegers';
 import { requireDecimalString, requireMonetary, requireNonEmptyArray } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
@@ -101,41 +102,6 @@ function optionalBoolean(value: unknown, field: string): boolean | undefined {
     });
   }
   return value;
-}
-
-function requiredInteger(value: unknown, field: string): number {
-  const expectedType = 'safe integer number or base-10 integer string';
-  if (value === null || value === undefined) {
-    throw new OcpValidationError(field, `${field} is required`, {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType,
-      receivedValue: value,
-    });
-  }
-  if (typeof value !== 'string' && typeof value !== 'number') {
-    throw new OcpValidationError(field, `${field} must be an integer`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType,
-      receivedValue: value,
-    });
-  }
-  if (typeof value === 'string' && !/^-?\d+$/.test(value)) {
-    throw new OcpValidationError(field, `${field} must be a base-10 integer string`, {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType,
-      receivedValue: value,
-    });
-  }
-
-  const integer = typeof value === 'number' ? value : Number(value);
-  if (!Number.isSafeInteger(integer)) {
-    throw new OcpValidationError(field, `${field} must be a safe integer`, {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      expectedType,
-      receivedValue: value,
-    });
-  }
-  return integer;
 }
 
 function convertibleTypeFromDaml(value: unknown): ConvertibleType {
@@ -233,7 +199,7 @@ export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConverti
     conversionTriggerFromDaml(firstConversionTrigger, 0),
     ...remainingConversionTriggers.map((trigger, index) => conversionTriggerFromDaml(trigger, index + 1)),
   ];
-  const seniority = requiredInteger(data.seniority, 'convertibleIssuance.seniority');
+  const seniority = parseDamlSafeInteger(data.seniority, 'convertibleIssuance.seniority');
   const boardApprovalDate = optionalDamlTimeToDateString(
     data.board_approval_date,
     'convertibleIssuance.board_approval_date'
