@@ -23,6 +23,20 @@ const uriDocument: OcfDocument = {
   md5: 'd41d8cd98f00b204e9800998ecf8427e',
   uri: 'https://example.com/agreement.pdf',
 };
+const pathDocumentWithNullUri: OcfDocument = {
+  object_type: 'DOCUMENT',
+  id: 'document-path-null-uri',
+  md5: 'd41d8cd98f00b204e9800998ecf8427e',
+  path: './agreement.pdf',
+  uri: null,
+};
+const uriDocumentWithNullPath: OcfDocument = {
+  object_type: 'DOCUMENT',
+  id: 'document-uri-null-path',
+  md5: 'd41d8cd98f00b204e9800998ecf8427e',
+  path: null,
+  uri: 'https://example.com/agreement.pdf',
+};
 // @ts-expect-error a document requires one location
 const documentWithoutLocation: OcfDocument = {
   object_type: 'DOCUMENT',
@@ -36,6 +50,14 @@ const documentWithBothLocations: OcfDocument = {
   md5: 'd41d8cd98f00b204e9800998ecf8427e',
   path: './agreement.pdf',
   uri: 'https://example.com/agreement.pdf',
+};
+// @ts-expect-error null locations do not satisfy the real-location requirement
+const documentWithNullLocations: OcfDocument = {
+  object_type: 'DOCUMENT',
+  id: 'document-null-locations',
+  md5: 'd41d8cd98f00b204e9800998ecf8427e',
+  path: null,
+  uri: null,
 };
 
 const stockPlan: OcfStockPlan = {
@@ -128,8 +150,11 @@ const adjustmentWithoutMechanism: OcfStockClassConversionRatioAdjustment = {
 
 void pathDocument;
 void uriDocument;
+void pathDocumentWithNullUri;
+void uriDocumentWithNullPath;
 void documentWithoutLocation;
 void documentWithBothLocations;
+void documentWithNullLocations;
 void stockPlan;
 void stockPlanWithEmptyClassIds;
 void issuerWithoutSubdivision;
