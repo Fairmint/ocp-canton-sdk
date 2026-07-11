@@ -16,6 +16,7 @@ import {
   damlMonetaryToNative,
   damlMonetaryToNativeWithValidation,
   damlTimeToDateString,
+  isRecord,
   mapDamlTriggerTypeToOcf,
   normalizeNumericString,
   optionalDamlTimeToDateString,
@@ -403,7 +404,19 @@ export function damlWarrantIssuanceDataToNative(d: Record<string, unknown>): Ocf
 
   const vestings: VestingSimple[] | undefined =
     Array.isArray(d.vestings) && d.vestings.length > 0
-      ? (d.vestings as Array<{ date: string; amount?: unknown }>).map((v, index) => {
+      ? d.vestings.map((v, index) => {
+          if (!isRecord(v)) {
+            throw new OcpValidationError(
+              `warrantIssuance.vestings[${index}]`,
+              `Must be an object, got ${v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v}`,
+              {
+                code: OcpErrorCodes.INVALID_TYPE,
+                expectedType: 'object',
+                receivedValue: v,
+              }
+            );
+          }
+
           if (typeof v.amount !== 'string' && typeof v.amount !== 'number') {
             throw new OcpValidationError(
               `warrantIssuance.vestings[${index}].amount`,
