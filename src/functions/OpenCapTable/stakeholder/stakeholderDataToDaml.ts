@@ -8,6 +8,8 @@ import {
   stakeholderStatusToDaml,
   stakeholderTypeToDaml,
 } from '../../../utils/enumConversions';
+import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
+import { parseOcfEntityInput } from '../../../utils/ocfZodSchemas';
 import { addressToDaml, cleanComments, optionalString } from '../../../utils/typeConversions';
 
 function emailToDaml(email: {
@@ -71,6 +73,7 @@ function getRelationshipsWithLegacyFallback(
 }
 
 export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTable.OCF.Stakeholder.StakeholderOcfData {
+  assertSafeOcfJson(data, 'stakeholder');
   // Validate input data using the entity validator
   validateStakeholderData(data, 'stakeholder');
 
@@ -88,5 +91,6 @@ export function stakeholderDataToDaml(data: OcfStakeholder): Fairmint.OpenCapTab
     current_status: data.current_status ? stakeholderStatusToDaml(data.current_status) : null,
   };
 
+  parseOcfEntityInput('stakeholder', data);
   return payload;
 }

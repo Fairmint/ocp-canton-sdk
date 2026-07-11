@@ -14,11 +14,32 @@ function coreTypes(target: string): CoverageReference {
   return { file: 'test/types/coreSchemaShapes.types.ts', kind: 'type', target };
 }
 
-const enumRuntime: CoverageReference = {
-  file: 'test/schemaAlignment/enumAlignment.test.ts',
-  kind: 'runtime',
-  target: 'OCF Enum Schema Alignment',
-};
+function conditionalBranchRuntime(target: string): CoverageReference {
+  return {
+    file: 'test/schemaAlignment/conditionalBranchCoverage.test.ts',
+    kind: 'runtime',
+    target,
+  };
+}
+
+const issuerInitialSharesRuntime = [
+  conditionalBranchRuntime('accepts Issuer AuthorizedShares initial_shares_authorized branch'),
+  conditionalBranchRuntime('accepts Issuer Numeric initial_shares_authorized branch'),
+];
+
+const stockClassInitialSharesRuntime = [
+  conditionalBranchRuntime('accepts StockClass AuthorizedShares initial_shares_authorized branch'),
+  conditionalBranchRuntime('accepts StockClass Numeric initial_shares_authorized branch'),
+];
+
+const convertibleTriggerRuntime = [
+  conditionalBranchRuntime('accepts ConvertibleIssuance AUTOMATIC_ON_CONDITION trigger branch'),
+  conditionalBranchRuntime('accepts ConvertibleIssuance AUTOMATIC_ON_DATE trigger branch'),
+  conditionalBranchRuntime('accepts ConvertibleIssuance ELECTIVE_AT_WILL trigger branch'),
+  conditionalBranchRuntime('accepts ConvertibleIssuance ELECTIVE_IN_RANGE trigger branch'),
+  conditionalBranchRuntime('accepts ConvertibleIssuance ELECTIVE_ON_CONDITION trigger branch'),
+  conditionalBranchRuntime('accepts ConvertibleIssuance UNSPECIFIED trigger branch'),
+];
 
 const convertibleRuntime: CoverageReference = {
   file: 'test/converters/convertibleIssuanceConverters.test.ts',
@@ -79,8 +100,14 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
     coreRuntime,
     coreTypes('issuerWithBothSubdivisions'),
   ]),
-  registration('schema/objects/Issuer.schema.json#/properties/initial_shares_authorized/oneOf', [enumRuntime]),
-  registration('schema/objects/StockClass.schema.json#/properties/initial_shares_authorized/oneOf', [enumRuntime]),
+  registration(
+    'schema/objects/Issuer.schema.json#/properties/initial_shares_authorized/oneOf',
+    issuerInitialSharesRuntime
+  ),
+  registration(
+    'schema/objects/StockClass.schema.json#/properties/initial_shares_authorized/oneOf',
+    stockClassInitialSharesRuntime
+  ),
   registration('schema/objects/StockPlan.schema.json#/oneOf', [coreRuntime, coreTypes('stockPlanWithEmptyClassIds')]),
   registration('schema/objects/StockPlan.schema.json#/oneOf/0/not', [
     coreRuntime,
@@ -96,7 +123,7 @@ export const OCF_CONDITIONAL_COVERAGE: ConditionalCoverageRegistration[] = [
   ]),
   registration(
     'schema/objects/transactions/issuance/ConvertibleIssuance.schema.json#/properties/conversion_triggers/items/anyOf',
-    [convertibleRuntime]
+    convertibleTriggerRuntime
   ),
   registration('schema/objects/transactions/issuance/EquityCompensationIssuance.schema.json#/anyOf', [
     equityCompensationRuntime,
@@ -187,4 +214,4 @@ export const EXPECTED_SEMANTIC_REFINEMENTS: SemanticRefinement[] = [
 ];
 
 /** SHA-256 over every schema resource reachable from all pinned object schemas. */
-export const PINNED_REACHABLE_SCHEMA_FINGERPRINT = '02c5b10358bbcef7ad8f34149c987109fffced2ee4b8b2ad652ac00e4bedc722';
+export const PINNED_REACHABLE_SCHEMA_FINGERPRINT = 'e1ac1de3030914e4d1c25872bb43f2dd4af2d0794a1d78180ad446cb2b941a56';
