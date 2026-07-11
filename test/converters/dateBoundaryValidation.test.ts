@@ -376,6 +376,18 @@ describe('OCF write converter optional date boundaries', () => {
     );
   });
 
+  test('validates an equity-compensation vesting date before filtering its zero amount', () => {
+    expectInvalidDate(
+      () =>
+        equityCompensationIssuanceDataToDaml({
+          ...EQUITY_COMPENSATION_WRITE_BASE,
+          vestings: [{ date: 'not-a-date', amount: '0' }],
+        }),
+      'equityCompensationIssuance.vestings[0].date',
+      'not-a-date'
+    );
+  });
+
   test('reports original array indexes for nested issuance and stock-class dates', () => {
     expectInvalidDate(
       () =>

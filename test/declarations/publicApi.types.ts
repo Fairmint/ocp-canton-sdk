@@ -5,6 +5,9 @@ import {
   convertToDaml,
   type CapTableBatch,
   type CapTableBatchOperations,
+  type ConversionTriggerFor,
+  type ConvertibleConversionRight,
+  type ConvertibleConversionTrigger,
   type OcfCreateOperation,
   type OcfEntityDataMap,
   type OcfEntityType,
@@ -17,6 +20,8 @@ import {
   type OcfVestingEvent,
   type OcfVestingStart,
   type OcfWarrantAcceptance,
+  type WarrantExerciseTrigger,
+  type WarrantTriggerConversionRight,
 } from '../../dist';
 import {
   damlTimeToDateString,
@@ -162,3 +167,70 @@ function verifyPublishedUtilsApi(candidateEntityType: string): void {
 
 void verifyPublishedBatchApi;
 void verifyPublishedUtilsApi;
+
+type PublishedCanonicalConvertibleTrigger = ConversionTriggerFor<ConvertibleConversionRight>;
+type PublishedCanonicalWarrantTrigger = ConversionTriggerFor<WarrantTriggerConversionRight>;
+
+const publishedConvertibleTriggerIsCanonical: Assert<
+  IsExactly<ConvertibleConversionTrigger, PublishedCanonicalConvertibleTrigger>
+> = true;
+const publishedWarrantTriggerIsCanonical: Assert<IsExactly<WarrantExerciseTrigger, PublishedCanonicalWarrantTrigger>> =
+  true;
+
+declare const publishedConvertibleRight: ConvertibleConversionRight;
+declare const publishedWarrantRight: WarrantTriggerConversionRight;
+
+const publishedValidConditionTrigger: ConvertibleConversionTrigger = {
+  type: 'AUTOMATIC_ON_CONDITION',
+  trigger_id: 'convertible-trigger-1',
+  conversion_right: publishedConvertibleRight,
+  trigger_condition: 'qualified financing',
+};
+const publishedValidAtWillTrigger: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_AT_WILL',
+  trigger_id: 'warrant-trigger-1',
+  conversion_right: publishedWarrantRight,
+};
+
+const publishedMixedRangeTrigger = {
+  type: 'ELECTIVE_IN_RANGE',
+  trigger_id: 'warrant-trigger-mixed',
+  conversion_right: publishedWarrantRight,
+  start_date: '2026-01-01',
+  end_date: '2026-02-01',
+  trigger_date: '2026-01-15',
+} as const;
+// @ts-expect-error built declarations forbid fields from another discriminator variant
+const publishedInvalidMixedRangeTrigger: WarrantExerciseTrigger = publishedMixedRangeTrigger;
+
+// @ts-expect-error built declarations require trigger_condition for condition triggers
+const publishedMissingCondition: ConvertibleConversionTrigger = {
+  type: 'ELECTIVE_ON_CONDITION',
+  trigger_id: 'convertible-trigger-missing-condition',
+  conversion_right: publishedConvertibleRight,
+};
+
+// @ts-expect-error built declarations require trigger_id
+const publishedMissingTriggerId: WarrantExerciseTrigger = {
+  type: 'UNSPECIFIED',
+  conversion_right: publishedWarrantRight,
+};
+
+// @ts-expect-error built declarations require conversion_right
+const publishedMissingConversionRight: ConvertibleConversionTrigger = {
+  type: 'ELECTIVE_AT_WILL',
+  trigger_id: 'convertible-trigger-missing-right',
+};
+
+// @ts-expect-error published API does not accept a bare trigger discriminator
+const publishedBareTriggerString: WarrantExerciseTrigger = 'AUTOMATIC_ON_DATE';
+
+void publishedConvertibleTriggerIsCanonical;
+void publishedWarrantTriggerIsCanonical;
+void publishedValidConditionTrigger;
+void publishedValidAtWillTrigger;
+void publishedInvalidMixedRangeTrigger;
+void publishedMissingCondition;
+void publishedMissingTriggerId;
+void publishedMissingConversionRight;
+void publishedBareTriggerString;

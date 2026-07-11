@@ -18,6 +18,13 @@ const REQUIRED_DATE_CONVERTERS = new Set(['dateStringToDAMLTime', 'damlTimeToDat
 const TRIGGER_FIELD_CONVERTERS = new Set(['triggerFieldsToDaml', 'triggerFieldsFromDaml']);
 const DISCRIMINATED_TRIGGER_DATE_FIELDS = new Set(['trigger_date', 'start_date', 'end_date']);
 const TRIGGER_FIELDS_HELPER = `${path.sep}shared${path.sep}triggerFields.ts`;
+const VESTING_HELPER_FILE = path.join(SRC_ROOT, 'functions', 'OpenCapTable', 'shared', 'vesting.ts');
+const VESTING_WRITER_FILES = [
+  'equityCompensationIssuance/createEquityCompensationIssuance.ts',
+  'planSecurityIssuance/planSecurityIssuanceDataToDaml.ts',
+  'stockIssuance/createStockIssuance.ts',
+  'warrantIssuance/createWarrantIssuance.ts',
+] as const;
 const OPTIONAL_DATE_FIELDS = new Set([
   'accrual_end_date',
   'board_approval_date',
@@ -57,6 +64,69 @@ function rawDateProperties(node: ts.Node): string[] {
 }
 
 describe('date boundary source invariants', () => {
+  test('validates shared vesting rows before filtering and routes every writer through that boundary', () => {
+    const helperSource = ts.createSourceFile(
+      VESTING_HELPER_FILE,
+      fs.readFileSync(VESTING_HELPER_FILE, 'utf8'),
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    let dateValidationPosition: number | undefined;
+    let amountValidationPosition: number | undefined;
+    let filterPosition: number | undefined;
+
+    function visitHelper(node: ts.Node): void {
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+        if (node.expression.text === 'dateStringToDAMLTime') dateValidationPosition = node.getStart(helperSource);
+        if (node.expression.text === 'normalizeNumericString') amountValidationPosition = node.getStart(helperSource);
+      }
+      if (
+        ts.isCallExpression(node) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        node.expression.name.text === 'filter'
+      ) {
+        filterPosition = node.expression.name.getStart(helperSource);
+      }
+      ts.forEachChild(node, visitHelper);
+    }
+    visitHelper(helperSource);
+
+    expect(dateValidationPosition).toBeDefined();
+    expect(amountValidationPosition).toBeDefined();
+    expect(filterPosition).toBeDefined();
+    expect(dateValidationPosition).toBeLessThan(filterPosition as number);
+    expect(amountValidationPosition).toBeLessThan(filterPosition as number);
+
+    for (const relativeFile of VESTING_WRITER_FILES) {
+      const file = path.join(SRC_ROOT, 'functions', 'OpenCapTable', relativeFile);
+      const sourceFile = ts.createSourceFile(
+        file,
+        fs.readFileSync(file, 'utf8'),
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TS
+      );
+      let delegatesVestings = false;
+
+      function visitWriter(node: ts.Node): void {
+        if (
+          ts.isPropertyAssignment(node) &&
+          node.name.getText(sourceFile) === 'vestings' &&
+          ts.isCallExpression(node.initializer) &&
+          ts.isIdentifier(node.initializer.expression) &&
+          node.initializer.expression.text === 'filterAndMapVestingsToDaml'
+        ) {
+          delegatesVestings = true;
+        }
+        ts.forEachChild(node, visitWriter);
+      }
+      visitWriter(sourceFile);
+
+      expect({ file: relativeFile, delegatesVestings }).toEqual({ file: relativeFile, delegatesVestings: true });
+    }
+  });
+
   test('requires contextual paths and forbids raw date presence guards', () => {
     const violations: string[] = [];
 
@@ -127,10 +197,15 @@ describe('date boundary source invariants', () => {
         if (
           ts.isCallExpression(node) &&
           ts.isIdentifier(node.expression) &&
-          TRIGGER_FIELD_CONVERTERS.has(node.expression.text) &&
-          node.arguments.length > 2
+          TRIGGER_FIELD_CONVERTERS.has(node.expression.text)
         ) {
-          const fieldPath = node.arguments[2];
+          const expectedArgumentCount = node.expression.text === 'triggerFieldsToDaml' ? 2 : 3;
+          if (node.arguments.length !== expectedArgumentCount) {
+            violations.push(
+              `${location(sourceFile, node)} ${node.expression.text} must use its discriminator-correlated signature`
+            );
+          }
+          const fieldPath = node.arguments[expectedArgumentCount - 1];
           if (fieldPath.getText(sourceFile).includes('[]')) {
             violations.push(`${location(sourceFile, fieldPath)} trigger array fieldPath must include its index`);
           }

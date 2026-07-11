@@ -1,7 +1,7 @@
 import type {
   ConversionMechanism,
   ConversionMechanismObject,
-  ConversionTrigger,
+  ConversionTriggerType,
   OcfStockClass,
   StockClassConversionRight,
 } from '../../../types';
@@ -16,7 +16,7 @@ import {
   optionalString,
 } from '../../../utils/typeConversions';
 
-function triggerTypeToDamlEnum(t: ConversionTrigger): string {
+function triggerTypeToDamlEnum(t: ConversionTriggerType): string {
   switch (t) {
     case 'AUTOMATIC_ON_CONDITION':
       return 'OcfTriggerTypeTypeAutomaticOnCondition';

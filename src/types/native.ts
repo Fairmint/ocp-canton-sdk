@@ -90,10 +90,64 @@ export type ConversionTriggerType =
   | 'ELECTIVE_AT_WILL'
   | 'UNSPECIFIED';
 
+/** Fields shared by every OCF conversion-trigger variant. */
+export interface ConversionTriggerBase<ConversionRight> {
+  /** Unique identifier for this trigger within its parent issuance. */
+  trigger_id: string;
+  /** Conversion right applied when this trigger fires. */
+  conversion_right: ConversionRight;
+  /** Human-readable nickname for the trigger. */
+  nickname?: string;
+  /** Long-form description of the trigger. */
+  trigger_description?: string;
+}
+
 /**
- * @deprecated Use ConversionTriggerType instead. Alias kept for backward compatibility.
+ * Exact discriminator-specific fields for an OCF conversion trigger.
+ *
+ * Forbidden fields use `never` so object variables, not only fresh literals,
+ * cannot mix fields from different trigger variants.
  */
-export type ConversionTrigger = ConversionTriggerType;
+export type ConversionTriggerFieldShapeFor<Type extends ConversionTriggerType> = Type extends 'AUTOMATIC_ON_DATE'
+  ? {
+      type: Type;
+      trigger_date: string;
+      trigger_condition?: never;
+      start_date?: never;
+      end_date?: never;
+    }
+  : Type extends 'AUTOMATIC_ON_CONDITION' | 'ELECTIVE_ON_CONDITION'
+    ? {
+        type: Type;
+        trigger_condition: string;
+        trigger_date?: never;
+        start_date?: never;
+        end_date?: never;
+      }
+    : Type extends 'ELECTIVE_IN_RANGE'
+      ? {
+          type: Type;
+          start_date: string;
+          end_date: string;
+          trigger_date?: never;
+          trigger_condition?: never;
+        }
+      : Type extends 'ELECTIVE_AT_WILL' | 'UNSPECIFIED'
+        ? {
+            type: Type;
+            trigger_date?: never;
+            trigger_condition?: never;
+            start_date?: never;
+            end_date?: never;
+          }
+        : never;
+
+/** Union of every exact discriminator-specific trigger field shape. */
+export type ConversionTriggerFieldShape = ConversionTriggerFieldShapeFor<ConversionTriggerType>;
+
+/** Exact OCF conversion-trigger union parameterized by its conversion-right type. */
+export type ConversionTriggerFor<ConversionRight> = ConversionTriggerBase<ConversionRight> &
+  ConversionTriggerFieldShape;
 
 // ===== Capitalization Definition Rules =====
 
@@ -203,27 +257,8 @@ export interface WarrantStockClassConversionRight {
 /** Union — warrant exercise triggers may carry either variant per OCF {@code ConversionTrigger} schema */
 export type WarrantTriggerConversionRight = WarrantConversionRight | WarrantStockClassConversionRight;
 
-/** Warrant Exercise Trigger Describes when and how a warrant can be exercised */
-export interface WarrantExerciseTrigger {
-  /** Type of trigger */
-  type: ConversionTriggerType;
-  /** Unique identifier for this trigger */
-  trigger_id: string;
-  /** Conversion right associated with this trigger */
-  conversion_right: WarrantTriggerConversionRight;
-  /** Human-readable nickname for the trigger */
-  nickname?: string;
-  /** Description of trigger conditions */
-  trigger_description?: string;
-  /** Date when trigger becomes active (YYYY-MM-DD) */
-  trigger_date?: string;
-  /** Condition that activates the trigger */
-  trigger_condition?: string;
-  /** Start date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  start_date?: string;
-  /** End date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  end_date?: string;
-}
+/** Warrant Exercise Trigger Describes exactly when and how a warrant can be exercised. */
+export type WarrantExerciseTrigger = ConversionTriggerFor<WarrantTriggerConversionRight>;
 
 // ===== Convertible Conversion Mechanism Types =====
 
@@ -361,27 +396,8 @@ export interface ConvertibleConversionRight {
   converts_to_stock_class_id?: string;
 }
 
-/** Convertible Conversion Trigger Describes when and how a convertible instrument can convert */
-export interface ConvertibleConversionTrigger {
-  /** Type of trigger */
-  type: ConversionTriggerType;
-  /** Unique identifier for this trigger */
-  trigger_id: string;
-  /** Conversion right associated with this trigger */
-  conversion_right: ConvertibleConversionRight;
-  /** Human-readable nickname for the trigger */
-  nickname?: string;
-  /** Description of trigger conditions */
-  trigger_description?: string;
-  /** Date when trigger becomes active (YYYY-MM-DD) */
-  trigger_date?: string;
-  /** Condition that activates the trigger */
-  trigger_condition?: string;
-  /** Start date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  start_date?: string;
-  /** End date of the trigger's validity window (YYYY-MM-DD) — used by ELECTIVE_IN_RANGE triggers */
-  end_date?: string;
-}
+/** Exact trigger union describing when and how a convertible instrument can convert. */
+export type ConvertibleConversionTrigger = ConversionTriggerFor<ConvertibleConversionRight>;
 
 /**
  * Enum - Rounding Type Rounding method for numeric values OCF:
@@ -475,7 +491,7 @@ export interface StockClassConversionRight {
   // ----- DAML-internal passthrough fields (not in OCF output) -----
 
   /** @internal DAML passthrough — trigger that would cause conversion */
-  conversion_trigger?: ConversionTrigger;
+  conversion_trigger?: ConversionTriggerType;
   /** @internal DAML passthrough — ratio numerator for RATIO_CONVERSION */
   ratio_numerator?: string;
   /** @internal DAML passthrough — ratio denominator for RATIO_CONVERSION */

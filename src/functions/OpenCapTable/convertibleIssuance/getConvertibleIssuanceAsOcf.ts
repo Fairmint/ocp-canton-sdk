@@ -4,6 +4,7 @@ import type { GetByContractIdParams } from '../../../types/common';
 import type {
   CapitalizationDefinitionRules,
   ConversionTriggerType,
+  ConvertibleConversionTrigger,
   OcfConvertibleIssuance,
 } from '../../../types/native';
 import {
@@ -94,19 +95,6 @@ interface ConvertibleConversionRight {
   converts_to_stock_class_id?: string;
 }
 
-interface ConversionTrigger {
-  type: ConversionTriggerType;
-  trigger_id: string;
-  conversion_right: ConvertibleConversionRight;
-  nickname?: string;
-  trigger_description?: string;
-  // Optional fields for specific trigger subtypes
-  trigger_date?: string;
-  trigger_condition?: string;
-  start_date?: string;
-  end_date?: string;
-}
-
 export type OcfConvertibleIssuanceEvent = OcfConvertibleIssuance;
 
 export interface GetConvertibleIssuanceAsOcfParams extends GetByContractIdParams {}
@@ -122,7 +110,7 @@ const typeMap: Partial<Record<string, 'NOTE' | 'SAFE' | 'CONVERTIBLE_SECURITY'>>
   OcfConvertibleSecurity: 'CONVERTIBLE_SECURITY',
 };
 
-const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): ConversionTrigger[] => {
+const convertTriggers = (ts: unknown[] | undefined): ConvertibleConversionTrigger[] => {
   if (!Array.isArray(ts)) return [];
 
   const mapMechanism = (m: unknown, mechanismPath: string): ConvertibleConversionRight['conversion_mechanism'] => {
@@ -533,22 +521,52 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
   };
 
   return ts.map((raw, idx) => {
-    const r = (raw ?? {}) as Record<string, unknown>;
-    const tag =
-      typeof r.type_ === 'string' ? r.type_ : typeof r.tag === 'string' ? r.tag : typeof raw === 'string' ? raw : '';
-    const type: ConversionTriggerType = mapDamlTriggerTypeToOcf(String(tag));
-    const trigger_id: string =
-      typeof r.trigger_id === 'string' && r.trigger_id.length ? r.trigger_id : `${issuanceId}-trigger-${idx + 1}`;
+    const triggerPath = `convertibleIssuance.conversion_triggers[${idx}]`;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new OcpValidationError(triggerPath, 'Expected a conversion trigger object', {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'non-null object',
+        receivedValue: raw,
+      });
+    }
+    const r = raw as Record<string, unknown>;
+    const hasCanonicalType = typeof r.type_ === 'string';
+    const tag = hasCanonicalType ? r.type_ : typeof r.tag === 'string' ? r.tag : '';
+    const type: ConversionTriggerType = mapDamlTriggerTypeToOcf(
+      String(tag),
+      `${triggerPath}.${hasCanonicalType ? 'type_' : typeof r.tag === 'string' ? 'tag' : 'type_'}`
+    );
+    if (typeof r.trigger_id !== 'string' || r.trigger_id.length === 0) {
+      throw new OcpValidationError(`${triggerPath}.trigger_id`, 'A non-empty trigger_id is required', {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'non-empty string',
+        receivedValue: r.trigger_id,
+      });
+    }
+    const { trigger_id } = r as { trigger_id: string };
     const nickname: string | undefined = typeof r.nickname === 'string' && r.nickname.length ? r.nickname : undefined;
     const trigger_description: string | undefined =
       typeof r.trigger_description === 'string' && r.trigger_description.length ? r.trigger_description : undefined;
-    const triggerFields = triggerFieldsFromDaml(r, type, `convertibleIssuance.conversion_triggers[${idx}]`);
-    const mechanismPath = `convertibleIssuance.conversion_triggers[${idx}].conversion_right.conversion_mechanism`;
+    const triggerFields = triggerFieldsFromDaml(r, type, triggerPath);
+    const rightPath = `${triggerPath}.conversion_right`;
+    const mechanismPath = `${rightPath}.conversion_mechanism`;
 
     // Parse conversion_right if present and convertible variant is used
     let conversion_right: ConvertibleConversionRight | undefined;
     if (r.conversion_right && typeof r.conversion_right === 'object' && 'OcfRightConvertible' in r.conversion_right) {
-      const right = (r.conversion_right as Record<string, unknown>).OcfRightConvertible as Record<string, unknown>;
+      const rawRight = (r.conversion_right as Record<string, unknown>).OcfRightConvertible;
+      if (!rawRight || typeof rawRight !== 'object' || Array.isArray(rawRight)) {
+        throw new OcpValidationError(
+          `${rightPath}.OcfRightConvertible`,
+          'Expected a non-null convertible conversion-right value',
+          {
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            expectedType: 'non-null object',
+            receivedValue: rawRight,
+          }
+        );
+      }
+      const right = rawRight as Record<string, unknown>;
       conversion_right = {
         type: 'CONVERTIBLE_CONVERSION_RIGHT',
         conversion_mechanism: mapMechanism(right.conversion_mechanism, mechanismPath),
@@ -582,13 +600,13 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
       };
     }
     if (!conversion_right) {
-      throw new OcpValidationError('conversionTrigger.conversion_right', 'Required field is missing', {
+      throw new OcpValidationError(rightPath, 'Required field is missing', {
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        receivedValue: r.conversion_right,
       });
     }
 
-    const trigger: ConversionTrigger = {
-      type,
+    const trigger: ConvertibleConversionTrigger = {
       trigger_id,
       conversion_right,
       ...(nickname ? { nickname } : {}),
@@ -688,7 +706,7 @@ export function damlConvertibleIssuanceDataToNative(d: Record<string, unknown>):
       }
       return mapped;
     })(),
-    conversion_triggers: convertTriggers(d.conversion_triggers as unknown[], d.id),
+    conversion_triggers: convertTriggers(d.conversion_triggers as unknown[]),
     ...(typeof d.pro_rata === 'number' || typeof d.pro_rata === 'string'
       ? {
           pro_rata: normalizeNumericString(typeof d.pro_rata === 'number' ? d.pro_rata.toString() : d.pro_rata),
