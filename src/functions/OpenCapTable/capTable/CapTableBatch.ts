@@ -15,6 +15,7 @@ import {
   type CommandObservabilityOptions,
 } from '../../../observability';
 import type { CommandWithDisclosedContracts } from '../../../types/common';
+import { assertSafeOcfJson } from '../../../utils/ocfJsonValidation';
 import { type OcfCreateData, type OcfDeleteData, type OcfEditData, type UpdateCapTableResult } from './batchTypes';
 import {
   isOcfDeletableEntityType,
@@ -119,6 +120,7 @@ export class CapTableBatch {
 
   /** Add a pre-correlated create operation object to the batch. */
   createOperation(operation: OcfCreateOperation): this {
+    assertSafeOcfJson(operation, 'batch.createOperation');
     this.creates.push(buildOcfCreateDataFromOperation(operation));
     this.createMetas.push(extractBatchItemMeta(operation.type, operation.data));
     return this;
@@ -140,6 +142,7 @@ export class CapTableBatch {
 
   /** Add a pre-correlated edit operation object to the batch. */
   editOperation(operation: OcfEditOperation): this {
+    assertSafeOcfJson(operation, 'batch.editOperation');
     this.edits.push(buildOcfEditDataFromOperation(operation));
     this.editMetas.push(extractBatchItemMeta(operation.type, operation.data));
     return this;
@@ -154,9 +157,12 @@ export class CapTableBatch {
    * Unsupported entity kinds are rejected by TypeScript and guarded at runtime for untyped callers.
    */
   delete(type: OcfDeletableEntityType, id: string): this {
+    const runtimeType: unknown = type;
     if (!isOcfDeletableEntityType(type)) {
-      throw new OcpValidationError('type', `Delete operation not supported for entity type: ${String(type)}`, {
+      const detail = typeof runtimeType === 'string' ? `: ${runtimeType}` : '';
+      throw new OcpValidationError('type', `Delete operation not supported for entity type${detail}`, {
         code: OcpErrorCodes.INVALID_TYPE,
+        receivedValue: type,
       });
     }
 
@@ -167,6 +173,7 @@ export class CapTableBatch {
 
   /** Add a pre-correlated delete operation object to the batch. */
   deleteOperation(operation: OcfDeleteOperation): this {
+    assertSafeOcfJson(operation, 'batch.deleteOperation');
     return this.delete(operation.type, operation.id);
   }
 
@@ -501,6 +508,7 @@ export function buildUpdateCapTableCommand(
   params: Omit<CapTableBatchParams, 'actAs' | 'readAs'>,
   operations: CapTableBatchOperations
 ): CommandWithDisclosedContracts {
+  assertSafeOcfJson(operations, 'batch.operations');
   const batch = new CapTableBatch({ ...params, actAs: [] });
 
   for (const op of operations.creates ?? []) {

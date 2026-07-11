@@ -16,8 +16,10 @@
 
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { Address, Email, Monetary, Phone } from '../types';
+import { canonicalizeOcfNumeric10 } from './numeric10';
 import {
   validateEnum,
+  validateMd5,
   validateOptionalArray,
   validateOptionalDate,
   validateOptionalEnum,
@@ -93,12 +95,18 @@ function validateInitialSharesAuthorized(
       code: OcpErrorCodes.INVALID_TYPE,
     });
   }
-  if (!/^\d+(\.\d+)?$/.test(value) && value !== 'UNLIMITED' && value !== 'NOT APPLICABLE') {
-    throw new OcpValidationError(fieldPath, 'Must be a numeric string, "UNLIMITED", or "NOT APPLICABLE"', {
-      expectedType: 'numeric string or "UNLIMITED"/"NOT APPLICABLE"',
-      receivedValue: value,
-      code: OcpErrorCodes.INVALID_FORMAT,
-    });
+  if (value === 'UNLIMITED' || value === 'NOT APPLICABLE') return;
+  const numeric = canonicalizeOcfNumeric10(value);
+  if (!numeric.ok) {
+    throw new OcpValidationError(
+      fieldPath,
+      `Must be a DAML Numeric 10 string, "UNLIMITED", or "NOT APPLICABLE": ${numeric.message}`,
+      {
+        expectedType: 'numeric string or "UNLIMITED"/"NOT APPLICABLE"',
+        receivedValue: value,
+        code: OcpErrorCodes.INVALID_FORMAT,
+      }
+    );
   }
 }
 
@@ -506,7 +514,7 @@ export function validateStockClassData(data: unknown, fieldPath: string): void {
     for (let i = 0; i < conversionRights.length; i++) {
       const right = conversionRights[i];
       validateRequiredObject(right, `${fieldPath}.conversion_rights[${i}]`);
-      validateRequiredString(
+      validateOptionalString(
         right.converts_to_stock_class_id,
         `${fieldPath}.conversion_rights[${i}].converts_to_stock_class_id`
       );
@@ -663,7 +671,7 @@ export function validateDocumentData(data: unknown, fieldPath: string): void {
 
   // Required fields
   validateRequiredString(value.id, `${fieldPath}.id`);
-  validateRequiredString(value.md5, `${fieldPath}.md5`);
+  validateMd5(value.md5, `${fieldPath}.md5`);
 
   // OCF requires exactly one location property. The upstream schema permits an
   // empty string, but DAML optional Text cannot represent it, so the SDK's

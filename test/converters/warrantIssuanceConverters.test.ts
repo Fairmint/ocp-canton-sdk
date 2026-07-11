@@ -6,14 +6,16 @@
  * infinite edit loops in the replication script.
  */
 
-import { OcpErrorCodes, OcpParseError, OcpValidationError, type OcpErrorCode } from '../../src/errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {
   warrantIssuanceDataToDaml,
+  type WarrantExerciseTriggerInput,
   type WarrantTriggerTypeInput,
 } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { damlWarrantIssuanceDataToNative } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { ocfDeepEqual } from '../../src/utils/ocfComparison';
 import { requireFirst } from '../../src/utils/requireDefined';
+import { expectInvalidDate } from '../utils/dateValidationAssertions';
 
 /** Helper: round-trip OCF data through DAML and back to OCF */
 function roundTrip(ocfInput: Parameters<typeof warrantIssuanceDataToDaml>[0]): Record<string, unknown> {
@@ -23,19 +25,13 @@ function roundTrip(ocfInput: Parameters<typeof warrantIssuanceDataToDaml>[0]): R
   return { ...native, object_type: 'TX_WARRANT_ISSUANCE' };
 }
 
-function expectInvalidWarrantDate(
-  action: () => unknown,
-  fieldPath: string,
-  receivedValue: unknown,
-  code: OcpErrorCode = OcpErrorCodes.INVALID_FORMAT
-): void {
+function captureError(action: () => unknown): unknown {
   try {
     action();
-    throw new Error('Expected warrant date validation to fail');
   } catch (error) {
-    expect(error).toBeInstanceOf(OcpValidationError);
-    expect(error).toMatchObject({ code, fieldPath, receivedValue });
+    return error;
   }
+  throw new Error('Expected warrant issuance conversion to fail');
 }
 
 describe('WarrantIssuance round-trip equivalence', () => {
@@ -69,7 +65,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
   };
   const baseExerciseTrigger = requireFirst(baseWarrantIssuance.exercise_triggers, 'base warrant exercise trigger');
 
-  function stockClassTrigger(overrides: Record<string, unknown> = {}) {
+  function stockClassTrigger(overrides: Record<string, unknown> = {}): WarrantExerciseTriggerInput {
     const triggerType = (overrides.type ?? 'AUTOMATIC_ON_CONDITION') as WarrantTriggerTypeInput;
     const trigger = {
       trigger_id: 'w_stock_ratio',
@@ -86,9 +82,11 @@ describe('WarrantIssuance round-trip equivalence', () => {
       ...overrides,
       type: triggerType,
     };
-    return triggerType === 'AUTOMATIC_ON_CONDITION' || triggerType === 'ELECTIVE_ON_CONDITION'
-      ? { trigger_condition: 'X', ...trigger }
-      : trigger;
+    return (
+      triggerType === 'AUTOMATIC_ON_CONDITION' || triggerType === 'ELECTIVE_ON_CONDITION'
+        ? { trigger_condition: 'X', ...trigger }
+        : trigger
+    ) as WarrantExerciseTriggerInput;
   }
 
   test('basic warrant issuance survives round-trip', () => {
@@ -96,6 +94,56 @@ describe('WarrantIssuance round-trip equivalence', () => {
     const cantonData = roundTrip(baseWarrantIssuance);
 
     expect(ocfDeepEqual(dbData, cantonData)).toBe(true);
+  });
+
+  test('requires a caller-provided exercise trigger_id', () => {
+    const error = captureError(() =>
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: [{ ...baseExerciseTrigger, trigger_id: '' }],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'warrantIssuance.exercise_triggers[0].trigger_id',
+      receivedValue: '',
+    });
+  });
+
+  test('rejects a truthy non-string writer exercise trigger_id', () => {
+    const error = captureError(() =>
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: [{ ...baseWarrantIssuance.exercise_triggers[0], trigger_id: 42 }] as unknown as Parameters<
+          typeof warrantIssuanceDataToDaml
+        >[0]['exercise_triggers'],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'warrantIssuance.exercise_triggers[0].trigger_id',
+      expectedType: 'non-empty string',
+      receivedValue: 42,
+    });
+  });
+
+  test('rejects a bare exercise-trigger discriminator at the writer boundary', () => {
+    const error = captureError(() =>
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: ['AUTOMATIC_ON_DATE'] as unknown as Parameters<
+          typeof warrantIssuanceDataToDaml
+        >[0]['exercise_triggers'],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'warrantIssuance.exercise_triggers[0]',
+      receivedValue: 'AUTOMATIC_ON_DATE',
+    });
   });
 
   test('warrant issuance with numeric amount as JS number survives round-trip', () => {
@@ -263,6 +311,65 @@ describe('WarrantIssuance round-trip equivalence', () => {
     expect(result.exercise_triggers[0]).not.toHaveProperty('end_date');
   });
 
+  it('requires a ledger exercise trigger_id instead of synthesizing one', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const trigger = requireFirst(daml.exercise_triggers, 'converted warrant exercise trigger');
+    const { trigger_id: _triggerId, ...triggerWithoutId } = trigger;
+    const error = captureError(() =>
+      damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: [triggerWithoutId] })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'warrantIssuance.exercise_triggers[0].trigger_id',
+      receivedValue: undefined,
+    });
+  });
+
+  it('rejects a bare exercise-trigger discriminator read from the ledger', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const error = captureError(() =>
+      damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: ['AUTOMATIC_ON_DATE'] })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      fieldPath: 'warrantIssuance.exercise_triggers[0]',
+      receivedValue: 'AUTOMATIC_ON_DATE',
+    });
+  });
+
+  it('reports the indexed canonical field for an unknown exercise-trigger discriminator', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const error = captureError(() =>
+      damlWarrantIssuanceDataToNative({
+        ...daml,
+        exercise_triggers: [{ ...daml.exercise_triggers[0], type_: 'OcfTriggerTypeTypeUnknown' }],
+      })
+    );
+
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      source: 'warrantIssuance.exercise_triggers[0].type_',
+    });
+  });
+
+  it('reports the exact path for a missing exercise conversion_right', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const trigger = requireFirst(daml.exercise_triggers, 'converted warrant exercise trigger');
+    const { conversion_right: _conversionRight, ...triggerWithoutRight } = trigger;
+    const error = captureError(() =>
+      damlWarrantIssuanceDataToNative({ ...daml, exercise_triggers: [triggerWithoutRight] })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right',
+      receivedValue: undefined,
+    });
+  });
+
   it('decodes only the required ELECTIVE_IN_RANGE dates', () => {
     const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
     const trigger = {
@@ -285,13 +392,20 @@ describe('WarrantIssuance round-trip equivalence', () => {
 
   it('rejects date fields forbidden by the trigger discriminator on readback', () => {
     const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
-    expectInvalidWarrantDate(
+    expectInvalidDate(
       () =>
         damlWarrantIssuanceDataToNative({
           ...daml,
-          exercise_triggers: [{ ...daml.exercise_triggers[0], trigger_date: '2024-01-15T00:00:00Z' }],
+          exercise_triggers: [
+            daml.exercise_triggers[0],
+            {
+              ...daml.exercise_triggers[0],
+              trigger_id: 'warrant2_trigger_invalid',
+              trigger_date: '2024-01-15T00:00:00Z',
+            },
+          ],
         }),
-      'warrantIssuance.exercise_triggers[].trigger_date',
+      'warrantIssuance.exercise_triggers[1].trigger_date',
       '2024-01-15T00:00:00Z',
       OcpErrorCodes.SCHEMA_MISMATCH
     );
@@ -303,7 +417,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
       const fieldPath = `warrantIssuance.${field}`;
       const invalidDate = { seconds: 1 };
 
-      expectInvalidWarrantDate(
+      expectInvalidDate(
         () =>
           warrantIssuanceDataToDaml({
             ...baseWarrantIssuance,
@@ -312,7 +426,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
         fieldPath,
         ''
       );
-      expectInvalidWarrantDate(
+      expectInvalidDate(
         () =>
           warrantIssuanceDataToDaml({
             ...baseWarrantIssuance,
@@ -334,16 +448,67 @@ describe('WarrantIssuance round-trip equivalence', () => {
   );
 
   it('rejects date fields forbidden by the trigger discriminator on write', () => {
-    expectInvalidWarrantDate(
+    expectInvalidDate(
       () =>
         warrantIssuanceDataToDaml({
           ...baseWarrantIssuance,
-          exercise_triggers: [{ ...baseExerciseTrigger, trigger_date: '2024-01-15' }],
+          exercise_triggers: [
+            baseExerciseTrigger,
+            {
+              ...baseExerciseTrigger,
+              trigger_id: 'warrant2_trigger_invalid',
+              trigger_date: '2024-01-15',
+            } as unknown as WarrantExerciseTriggerInput,
+          ],
         }),
-      'warrantIssuance.exercise_triggers[].trigger_date',
+      'warrantIssuance.exercise_triggers[1].trigger_date',
       '2024-01-15',
       OcpErrorCodes.INVALID_FORMAT
     );
+  });
+
+  it('validates zero-amount vesting dates before filtering and reports original indexes', () => {
+    expectInvalidDate(
+      () =>
+        warrantIssuanceDataToDaml({
+          ...baseWarrantIssuance,
+          vestings: [
+            { date: '2024-01-15', amount: '0' },
+            { date: '', amount: '0' },
+          ],
+        }),
+      'warrantIssuance.vestings[1].date',
+      ''
+    );
+
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    expectInvalidDate(
+      () =>
+        damlWarrantIssuanceDataToNative({
+          ...daml,
+          vestings: [
+            { date: '2024-01-15T00:00:00Z', amount: '1' },
+            { date: '', amount: '1' },
+          ],
+        }),
+      'warrantIssuance.vestings[1].date',
+      ''
+    );
+  });
+
+  it('rejects a negative warrant vesting amount instead of silently filtering it', () => {
+    const error = captureError(() =>
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        vestings: [{ date: '2024-01-15', amount: '-1' }],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: 'warrantIssuance.vestings[0].amount',
+      receivedValue: '-1',
+    });
   });
 
   test('uses identical canonical AUTOMATIC_ON_DATE semantics for outer and nested stock-class triggers', () => {
@@ -414,6 +579,25 @@ describe('WarrantIssuance round-trip equivalence', () => {
     };
     expect(() => warrantIssuanceDataToDaml(input)).toThrow(OcpValidationError);
     expect(() => warrantIssuanceDataToDaml(input)).toThrow(/rounding_type/);
+  });
+
+  test('STOCK_CLASS_CONVERSION_RIGHT rejects a missing v34 target with an indexed SDK error', () => {
+    const trigger = stockClassTrigger();
+    const right = { ...trigger.conversion_right } as Record<string, unknown>;
+    delete right.converts_to_stock_class_id;
+    const error = captureError(() =>
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: [{ ...trigger, conversion_right: right }] as unknown as WarrantExerciseTriggerInput[],
+      })
+    );
+
+    expect(error).toMatchObject({
+      name: 'OcpValidationError',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'warrantIssuance.exercise_triggers[0].conversion_right.converts_to_stock_class_id',
+      expectedType: 'non-empty string',
+    });
   });
 
   test('STOCK_CLASS_CONVERSION_RIGHT + RATIO_CONVERSION maps to OcfRightStockClass and round-trips', () => {

@@ -1,5 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { OcpError, type OcpErrorContext } from './OcpError';
+import { OcpError, toSafeDiagnosticContext, toSafeDiagnosticText, type OcpErrorContext } from './OcpError';
 
 export interface OcpContractErrorOptions {
   /** The contract ID involved in the error */
@@ -58,23 +58,34 @@ export class OcpContractError extends OcpError {
 
   constructor(message: string, options?: OcpContractErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CHOICE_FAILED;
-    const context = { ...options?.context };
-    if (options?.contractId !== undefined) {
-      context.contractId = options.contractId;
+    const contractId = options?.contractId === undefined ? undefined : toSafeDiagnosticText(options.contractId, 512);
+    const templateId = options?.templateId === undefined ? undefined : toSafeDiagnosticText(options.templateId, 512);
+    const choice = options?.choice === undefined ? undefined : toSafeDiagnosticText(options.choice, 256);
+    const context = { ...toSafeDiagnosticContext(options?.context) };
+    if (contractId !== undefined) {
+      context.contractId = contractId;
     }
-    if (options?.templateId !== undefined) {
-      context.templateId = options.templateId;
+    if (templateId !== undefined) {
+      context.templateId = templateId;
     }
-    if (options?.choice !== undefined) {
-      context.choice = options.choice;
+    if (choice !== undefined) {
+      context.choice = choice;
     }
     super(message, code, options?.cause, {
       classification: options?.classification ?? 'contract_error',
       context,
     });
     this.name = 'OcpContractError';
-    this.contractId = options?.contractId;
-    this.templateId = options?.templateId;
-    this.choice = options?.choice;
+    this.contractId = contractId;
+    this.templateId = templateId;
+    this.choice = choice;
+    for (const property of ['contractId', 'templateId', 'choice'] as const) {
+      Object.defineProperty(this, property, {
+        value: this[property],
+        enumerable: false,
+        configurable: true,
+        writable: false,
+      });
+    }
   }
 }

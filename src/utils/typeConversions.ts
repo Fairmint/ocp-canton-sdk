@@ -7,6 +7,7 @@
 
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../errors';
 import type { Address, AddressType, ConversionTriggerType, Monetary } from '../types/native';
+import { canonicalizeOcfNumeric10 } from './numeric10';
 
 // Public conversion helpers use stable structural wire shapes. Generated DAML
 // package declarations stay private to the ledger implementation boundary.
@@ -156,17 +157,17 @@ export function nullableDamlTimeToDateString(value: unknown, fieldPath: string):
  *
  * @throws OcpValidationError if the string contains scientific notation (e.g., "1.5e10") or is not a valid numeric string
  */
-export function normalizeNumericString(value: string | number): string {
+export function normalizeNumericString(value: string | number, fieldPath = 'numericString'): string {
   // DAML Numeric values may arrive as JavaScript numbers at runtime
   // despite being typed as string in the generated package types.
   // Coerce to string at this boundary.
   if (typeof value === 'number') {
-    return normalizeNumericString(value.toString());
+    return normalizeNumericString(value.toString(), fieldPath);
   }
 
   // Validate: reject scientific notation
   if (value.toLowerCase().includes('e')) {
-    throw new OcpValidationError('numericString', `Scientific notation is not supported`, {
+    throw new OcpValidationError(fieldPath, `Scientific notation is not supported`, {
       expectedType: 'string (decimal format)',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -175,7 +176,7 @@ export function normalizeNumericString(value: string | number): string {
 
   // Validate: must be a valid numeric string (optional minus, digits, optional decimal and more digits)
   if (!/^-?\d+(\.\d+)?$/.test(value)) {
-    throw new OcpValidationError('numericString', `Invalid numeric string format`, {
+    throw new OcpValidationError(fieldPath, `Invalid numeric string format`, {
       expectedType: 'string (decimal format)',
       receivedValue: value,
       code: OcpErrorCodes.INVALID_FORMAT,
@@ -222,10 +223,10 @@ export function optionalString(value: string | null | undefined): string | null 
  *
  * Used internally for DAML optional enum fields where null means "not set".
  */
-export function safeString(value: unknown): string {
+export function safeString(value: unknown, fieldPath = 'safeString'): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;
-  throw new OcpValidationError('safeString', `Expected a string value, got ${typeof value}`, {
+  throw new OcpValidationError(fieldPath, `Expected a string value, got ${typeof value}`, {
     code: OcpErrorCodes.INVALID_TYPE,
     expectedType: 'string',
     receivedValue: value,
@@ -240,9 +241,10 @@ export function safeString(value: unknown): string {
  * to the standardized OCF enum values.
  *
  * @param tag - The DAML trigger type tag (e.g., 'OcfTriggerTypeTypeAutomaticOnDate')
+ * @param source - Contextual source path used when the tag is unknown
  * @returns The corresponding OCF ConversionTriggerType enum value
  */
-export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
+export function mapDamlTriggerTypeToOcf(tag: string, source = 'triggerType.tag'): ConversionTriggerType {
   if (tag === 'OcfTriggerTypeTypeAutomaticOnDate') return 'AUTOMATIC_ON_DATE';
   if (tag === 'OcfTriggerTypeTypeAutomaticOnCondition') return 'AUTOMATIC_ON_CONDITION';
   if (tag === 'OcfTriggerTypeTypeElectiveInRange') return 'ELECTIVE_IN_RANGE';
@@ -250,16 +252,16 @@ export function mapDamlTriggerTypeToOcf(tag: string): ConversionTriggerType {
   if (tag === 'OcfTriggerTypeTypeElectiveAtWill') return 'ELECTIVE_AT_WILL';
   if (tag === 'OcfTriggerTypeTypeUnspecified') return 'UNSPECIFIED';
   throw new OcpParseError(`Unknown trigger type tag: ${tag}`, {
-    source: 'triggerType.tag',
+    source,
     code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
   });
 }
 
 // ===== Monetary Value Conversions =====
 
-export function monetaryToDaml(monetary: Monetary): DamlMonetary {
+export function monetaryToDaml(monetary: Monetary, fieldPath?: string): DamlMonetary {
   return {
-    amount: normalizeNumericString(monetary.amount),
+    amount: normalizeNumericString(monetary.amount, fieldPath ? `${fieldPath}.amount` : 'numericString'),
     currency: monetary.currency,
   };
 }
@@ -279,37 +281,50 @@ export function damlMonetaryToNative(damlMonetary: DamlMonetary): Monetary {
  * @returns The validated native monetary object, or undefined if input is null/undefined
  * @throws OcpValidationError if amount or currency are invalid
  */
-export function damlMonetaryToNativeWithValidation(
-  monetary: Record<string, unknown> | null | undefined
-): Monetary | undefined {
-  if (!monetary) return undefined;
+export function damlMonetaryToNativeWithValidation(monetary: unknown, fieldPath = 'monetary'): Monetary | undefined {
+  if (monetary === null || monetary === undefined) return undefined;
+  if (!isRecord(monetary)) {
+    throw new OcpValidationError(fieldPath, 'Monetary value must be a non-null object', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'Monetary object or null/undefined',
+      receivedValue: monetary,
+    });
+  }
 
   // Validate amount exists and is string
   if (monetary.amount === undefined || monetary.amount === null) {
-    throw new OcpValidationError('monetary.amount', 'Monetary amount is required but was undefined or null', {
+    throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount is required but was undefined or null', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       expectedType: 'string',
       receivedValue: monetary.amount,
     });
   }
   if (typeof monetary.amount !== 'string') {
-    throw new OcpValidationError('monetary.amount', `Monetary amount must be a string, got ${typeof monetary.amount}`, {
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'string',
-      receivedValue: monetary.amount,
-    });
+    throw new OcpValidationError(
+      `${fieldPath}.amount`,
+      `Monetary amount must be a string, got ${typeof monetary.amount}`,
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'string',
+        receivedValue: monetary.amount,
+      }
+    );
   }
 
   // Validate currency exists and is string
   if (typeof monetary.currency !== 'string' || !monetary.currency) {
-    throw new OcpValidationError('monetary.currency', 'Monetary currency is required and must be a non-empty string', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      expectedType: 'string',
-      receivedValue: monetary.currency,
-    });
+    throw new OcpValidationError(
+      `${fieldPath}.currency`,
+      'Monetary currency is required and must be a non-empty string',
+      {
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        expectedType: 'string',
+        receivedValue: monetary.currency,
+      }
+    );
   }
 
-  const amount = normalizeNumericString(monetary.amount);
+  const amount = normalizeNumericString(monetary.amount, `${fieldPath}.amount`);
   return { amount, currency: monetary.currency };
 }
 
@@ -333,21 +348,22 @@ type DamlInitialSharesAuthorized =
  * @returns DAML-formatted discriminated union
  */
 export function initialSharesAuthorizedToDaml(value: string): DamlInitialSharesAuthorized {
-  if (/^\d+(\.\d+)?$/.test(value)) {
-    return {
-      tag: 'OcfInitialSharesNumeric',
-      value,
-    };
-  }
   if (value === 'UNLIMITED') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' };
   }
   if (value === 'NOT APPLICABLE') {
     return { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' };
   }
+  const numeric = canonicalizeOcfNumeric10(value);
+  if (numeric.ok) {
+    return {
+      tag: 'OcfInitialSharesNumeric',
+      value: numeric.value,
+    };
+  }
   throw new OcpValidationError(
     'initial_shares_authorized',
-    `Expected numeric string, "UNLIMITED", or "NOT APPLICABLE", got "${value}"`,
+    `Expected a DAML Numeric 10 string, "UNLIMITED", or "NOT APPLICABLE", got "${value}": ${numeric.message}`,
     {
       code: OcpErrorCodes.INVALID_FORMAT,
       expectedType: 'numeric string | "UNLIMITED" | "NOT APPLICABLE"',
@@ -497,8 +513,16 @@ export function ensureArray<T>(value: T[] | null | undefined): T[] {
  * Defensively handles null values that may appear at runtime despite TypeScript types.
  */
 export function cleanComments(comments?: Array<string | null>): string[] {
-  if (!comments) return [];
-  return comments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
+  const runtimeComments: unknown = comments;
+  if (runtimeComments === undefined || runtimeComments === null) return [];
+  if (!Array.isArray(runtimeComments)) {
+    throw new OcpValidationError('comments', 'Comments must be an array when provided', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'string[] or omitted',
+      receivedValue: runtimeComments,
+    });
+  }
+  return runtimeComments.filter((c): c is string => typeof c === 'string' && c.trim() !== '');
 }
 
 // ===== Shared DAML-to-Native Transfer/Cancellation Helpers =====
