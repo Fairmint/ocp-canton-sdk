@@ -340,7 +340,7 @@ describe('lossless generic conversion read boundaries', () => {
       decodeDamlEntityData('issuer', {
         ...ISSUER_DAML,
         initial_shares_authorized: { OcfInitialSharesNumeric: '1' },
-      } as never)
+      })
     ).toThrow(
       expect.objectContaining({
         name: 'OcpValidationError',
@@ -464,7 +464,7 @@ describe('lossless generic conversion read boundaries', () => {
       ['1.5', OcpErrorCodes.INVALID_FORMAT],
     ] as const) {
       const data = { ...CONVERTIBLE_DAML, seniority };
-      const invocation = Promise.resolve().then<unknown>(() => invoke(data));
+      const invocation = (async (): Promise<unknown> => invoke(data))();
       await expect(invocation).rejects.toMatchObject({
         name: 'OcpValidationError',
         code,
