@@ -21,6 +21,8 @@ import {
   warrantMechanismToDaml,
 } from '../shared/conversionMechanisms';
 import {
+  assertCanonicalJsonGraph,
+  assertExactObjectFields,
   assertNotRuntimeProxy,
   requireDenseArray,
   requireMonetary,
@@ -36,6 +38,48 @@ export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
 
 /** Canonical warrant trigger discriminator accepted by the strongly typed writer. */
 export type WarrantTriggerTypeInput = WarrantExerciseTrigger['type'];
+
+const ROOT_FIELDS = [
+  'object_type',
+  'id',
+  'date',
+  'security_id',
+  'custom_id',
+  'stakeholder_id',
+  'board_approval_date',
+  'stockholder_approval_date',
+  'consideration_text',
+  'security_law_exemptions',
+  'quantity',
+  'quantity_source',
+  'exercise_price',
+  'purchase_price',
+  'exercise_triggers',
+  'warrant_expiration_date',
+  'vesting_terms_id',
+  'vestings',
+  'comments',
+] as const;
+const MONETARY_FIELDS = ['amount', 'currency'] as const;
+const SECURITY_EXEMPTION_FIELDS = ['description', 'jurisdiction'] as const;
+const VESTING_FIELDS = ['date', 'amount'] as const;
+const CONVERSION_RIGHT_FIELDS = [
+  'type',
+  'conversion_mechanism',
+  'converts_to_future_round',
+  'converts_to_stock_class_id',
+] as const;
+const TRIGGER_FIELDS = [
+  'type',
+  'trigger_id',
+  'conversion_right',
+  'nickname',
+  'trigger_description',
+  'trigger_date',
+  'trigger_condition',
+  'start_date',
+  'end_date',
+] as const;
 
 function requiredMissing(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
   return new OcpValidationError(field, `${field} is required`, {
@@ -103,13 +147,16 @@ function requiredDateToDaml(value: unknown, fieldPath: string): string {
 }
 
 function requiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
-  return monetaryToDaml(requireMonetary(value, field), field);
+  const monetary = requireRecord(value, field);
+  assertExactObjectFields(monetary, MONETARY_FIELDS, field);
+  return monetaryToDaml(requireMonetary(monetary, field), field);
 }
 
 function optionalMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> | null {
   if (value === undefined) return null;
   assertNotRuntimeProxy(value, field, 'Monetary object or omitted property');
   if (!isRecord(value)) throw invalidType(field, 'Monetary object or omitted property', value);
+  assertExactObjectFields(value, MONETARY_FIELDS, field);
   return requiredMonetaryToDaml(value, field);
 }
 
@@ -120,6 +167,7 @@ function securityLawExemptionsToDaml(
   return requireArray(value, field).map((entry, index) => {
     const source = `${field}.${index}`;
     const exemption = requireRecord(entry, source);
+    assertExactObjectFields(exemption, SECURITY_EXEMPTION_FIELDS, source);
     return {
       description: requireString(exemption.description, `${source}.description`),
       jurisdiction: requireString(exemption.jurisdiction, `${source}.jurisdiction`),
@@ -282,6 +330,7 @@ function conversionRightToDaml(
 ): Fairmint.OpenCapTable.Types.Conversion.OcfAnyConversionRight {
   const right = requireRecord(trigger.conversion_right, source);
   const rightType = requireString(right.type, `${source}.type`);
+  assertExactObjectFields(right, CONVERSION_RIGHT_FIELDS, source);
   switch (rightType) {
     case 'CONVERTIBLE_CONVERSION_RIGHT':
       return {
@@ -335,6 +384,7 @@ function triggerToDaml(value: unknown, index: number): Fairmint.OpenCapTable.Typ
   const source = `warrantIssuance.exercise_triggers.${index}`;
   const trigger = requireRecord(value, source);
   const nativeType = requireString(trigger.type, `${source}.type`) as WarrantExerciseTrigger['type'];
+  assertExactObjectFields(trigger, TRIGGER_FIELDS, source);
   const type = triggerTypeToDaml(nativeType, `${source}.type`);
   const triggerFields = triggerFieldsToDaml(trigger, nativeType, source);
   return {
@@ -350,7 +400,9 @@ function triggerToDaml(value: unknown, index: number): Fairmint.OpenCapTable.Typ
 export function warrantIssuanceDataToDaml(
   input: WarrantIssuanceInput
 ): Fairmint.OpenCapTable.OCF.WarrantIssuance.WarrantIssuanceOcfData {
+  assertCanonicalJsonGraph(input, 'warrantIssuance');
   const issuance = requireRecord(input, 'warrantIssuance');
+  assertExactObjectFields(issuance, ROOT_FIELDS, 'warrantIssuance');
   if (issuance.object_type !== undefined && issuance.object_type !== 'TX_WARRANT_ISSUANCE') {
     throw new OcpValidationError('warrantIssuance.object_type', 'Unexpected object_type', {
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
@@ -398,6 +450,7 @@ export function warrantIssuanceDataToDaml(
     vestings: vestings.map((value, index) => {
       const source = `warrantIssuance.vestings.${index}`;
       const vesting = requireRecord(value, source);
+      assertExactObjectFields(vesting, VESTING_FIELDS, source);
       const amount = requirePositiveDecimal(vesting.amount, `${source}.amount`);
       return { date: requiredDateToDaml(vesting.date, `${source}.date`), amount };
     }),

@@ -1,4 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
+import { boundedDiagnosticText, toBoundedDiagnosticContext } from './diagnosticValue';
 import { contextOrUndefined, OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpContractErrorOptions {
@@ -58,7 +59,7 @@ export class OcpContractError extends OcpError {
 
   constructor(message: string, options?: OcpContractErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CHOICE_FAILED;
-    const context = { ...options?.context };
+    const context = { ...toBoundedDiagnosticContext(options?.context) };
     if (options?.contractId !== undefined) {
       context.contractId = options.contractId;
     }
@@ -74,8 +75,8 @@ export class OcpContractError extends OcpError {
       ...(errorContext !== undefined ? { context: errorContext } : {}),
     });
     this.name = 'OcpContractError';
-    this.contractId = options?.contractId;
-    this.templateId = options?.templateId;
-    this.choice = options?.choice;
+    this.contractId = options?.contractId === undefined ? undefined : boundedDiagnosticText(options.contractId);
+    this.templateId = options?.templateId === undefined ? undefined : boundedDiagnosticText(options.templateId);
+    this.choice = options?.choice === undefined ? undefined : boundedDiagnosticText(options.choice);
   }
 }

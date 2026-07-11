@@ -11,7 +11,7 @@ import {
 } from '../../../utils/typeConversions';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import { ratioMechanismFromDaml } from '../shared/conversionMechanisms';
-import { requireMonetary, requireNonnegativeDecimal } from '../shared/ocfValues';
+import { assertCanonicalJsonGraph, requireMonetary, requireNonnegativeDecimal } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   assertInapplicableStockClassRightFields,
@@ -143,6 +143,7 @@ function commentsFromDaml(value: unknown): string[] {
 
 /** Convert decoded DAML StockClass data to the canonical OCF shape. */
 export function damlStockClassDataToNative(value: unknown): OcfStockClass {
+  assertCanonicalJsonGraph(value, 'stockClass');
   const data = requireRecord(value, 'stockClass');
   const id = requireString(data.id, 'stockClass.id');
   const classType = requireString(data.class_type, 'stockClass.class_type');

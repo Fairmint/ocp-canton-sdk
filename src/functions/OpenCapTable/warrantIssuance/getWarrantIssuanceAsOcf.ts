@@ -25,7 +25,12 @@ import {
   ratioMechanismFromDaml,
   warrantMechanismFromDaml,
 } from '../shared/conversionMechanisms';
-import { requireDecimalString, requireMonetary, requirePositiveDecimal } from '../shared/ocfValues';
+import {
+  assertCanonicalJsonGraph,
+  requireDecimalString,
+  requireMonetary,
+  requirePositiveDecimal,
+} from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   assertInapplicableStockClassRightFields,
@@ -317,6 +322,7 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 
 /** Convert decoded DAML WarrantIssuance data to its canonical OCF shape. */
 export function damlWarrantIssuanceDataToNative(value: unknown): OcfWarrantIssuance {
+  assertCanonicalJsonGraph(value, 'warrantIssuance');
   const data = requireRecord(value, 'warrantIssuance');
   const exerciseTriggers = requireArray(data.exercise_triggers, 'warrantIssuance.exercise_triggers');
   const quantity =

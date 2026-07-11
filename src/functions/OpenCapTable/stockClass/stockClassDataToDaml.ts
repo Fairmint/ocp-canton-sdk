@@ -1,5 +1,5 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
+import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
 import type { OcfStockClass } from '../../../types';
 import { validateStockClassData } from '../../../utils/entityValidators';
 import { stockClassTypeToDaml } from '../../../utils/enumConversions';
@@ -10,6 +10,8 @@ import {
 } from '../../../utils/typeConversions';
 import { canonicalOptionalBooleanToDaml, ratioMechanismToDaml } from '../shared/conversionMechanisms';
 import {
+  assertCanonicalJsonGraph,
+  assertExactObjectFields,
   assertNotRuntimeProxy,
   optionalStringArrayToDaml,
   requireDenseArray,
@@ -17,15 +19,44 @@ import {
   requireNonnegativeDecimal,
 } from '../shared/ocfValues';
 
+const ROOT_FIELDS = [
+  'object_type',
+  'id',
+  'class_type',
+  'default_id_prefix',
+  'initial_shares_authorized',
+  'name',
+  'seniority',
+  'votes_per_share',
+  'comments',
+  'conversion_rights',
+  'board_approval_date',
+  'liquidation_preference_multiple',
+  'par_value',
+  'participation_cap_multiple',
+  'price_per_share',
+  'stockholder_approval_date',
+] as const;
+const MONETARY_FIELDS = ['amount', 'currency'] as const;
+const CONVERSION_RIGHT_FIELDS = [
+  'type',
+  'conversion_mechanism',
+  'converts_to_stock_class_id',
+  'converts_to_future_round',
+] as const;
+
 /** Guard the stock-class writer fields hardened by this conversion stack before schema/validator inspection. */
 export function assertStockClassWriterProxyBoundary(value: unknown): void {
-  assertNotRuntimeProxy(value, 'stockClass', 'plain OCF object');
-  if (value === null || (typeof value !== 'object' && typeof value !== 'function')) return;
+  assertCanonicalJsonGraph(value, 'stockClass');
+}
 
-  const commentsDescriptor = Object.getOwnPropertyDescriptor(value, 'comments');
-  if (commentsDescriptor !== undefined && 'value' in commentsDescriptor) {
-    assertNotRuntimeProxy(commentsDescriptor.value, 'stockClass.comments', 'ordinary JSON array');
-  }
+function exactOptionalMonetary(value: unknown, field: string): ReturnType<typeof monetaryToDaml> | null {
+  if (value === null || value === undefined) return null;
+  assertNotRuntimeProxy(value, field, 'Monetary object');
+  if (typeof value !== 'object' || Array.isArray(value)) return monetaryToDaml(requireMonetary(value, field));
+  const monetary = value as Record<string, unknown>;
+  assertExactObjectFields(monetary, MONETARY_FIELDS, field);
+  return monetaryToDaml(requireMonetary(monetary, field));
 }
 
 /**
@@ -73,7 +104,16 @@ function buildStockClassTrigger(
 export function stockClassDataToDaml(
   stockClassData: OcfStockClass
 ): Fairmint.OpenCapTable.OCF.StockClass.StockClassOcfData {
-  assertStockClassWriterProxyBoundary(stockClassData);
+  const runtimeStockClass: unknown = stockClassData;
+  assertStockClassWriterProxyBoundary(runtimeStockClass);
+  if (runtimeStockClass === null || typeof runtimeStockClass !== 'object' || Array.isArray(runtimeStockClass)) {
+    throw new OcpValidationError('stockClass', 'stockClass must be a plain object', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'plain OCF stock-class object',
+      receivedValue: runtimeStockClass,
+    });
+  }
+  assertExactObjectFields(runtimeStockClass as Record<string, unknown>, ROOT_FIELDS, 'stockClass');
   validateStockClassData(stockClassData, 'stockClass');
 
   const d = stockClassData;
@@ -95,24 +135,28 @@ export function stockClassDataToDaml(
       d.stockholder_approval_date,
       'stockClass.stockholder_approval_date'
     ),
-    par_value: d.par_value ? monetaryToDaml(requireMonetary(d.par_value, 'stockClass.par_value')) : null,
-    price_per_share: d.price_per_share
-      ? monetaryToDaml(requireMonetary(d.price_per_share, 'stockClass.price_per_share'))
-      : null,
+    par_value: exactOptionalMonetary(d.par_value, 'stockClass.par_value'),
+    price_per_share: exactOptionalMonetary(d.price_per_share, 'stockClass.price_per_share'),
     conversion_rights: conversionRights.map((right, index) => {
       const field = `stockClass.conversion_rights.${index}`;
       const runtimeRight: unknown = right;
       assertNotRuntimeProxy(runtimeRight, field, 'StockClassConversionRight object');
-      const rightType =
-        typeof runtimeRight === 'object' && runtimeRight !== null && 'type' in runtimeRight
-          ? String(runtimeRight.type)
-          : String(runtimeRight);
-      if (
-        typeof runtimeRight !== 'object' ||
-        runtimeRight === null ||
-        !('type' in runtimeRight) ||
-        runtimeRight.type !== 'STOCK_CLASS_CONVERSION_RIGHT'
-      ) {
+      if (typeof runtimeRight !== 'object' || runtimeRight === null || Array.isArray(runtimeRight)) {
+        throw new OcpParseError(`Unknown stock-class conversion right type: ${String(runtimeRight)}`, {
+          source: `${field}.type`,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+        });
+      }
+      const rightRecord = runtimeRight as Record<string, unknown>;
+      assertExactObjectFields(rightRecord, CONVERSION_RIGHT_FIELDS, field);
+      if (rightRecord.type !== 'STOCK_CLASS_CONVERSION_RIGHT') {
+        const rawRightType = rightRecord.type;
+        const rightType =
+          rawRightType === null
+            ? 'null'
+            : typeof rawRightType === 'string' || typeof rawRightType === 'number' || typeof rawRightType === 'boolean'
+              ? String(rawRightType)
+              : typeof rawRightType;
         throw new OcpParseError(`Unknown stock-class conversion right type: ${rightType}`, {
           source: `${field}.type`,
           code: OcpErrorCodes.SCHEMA_MISMATCH,

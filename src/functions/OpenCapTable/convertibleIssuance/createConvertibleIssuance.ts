@@ -12,13 +12,58 @@ import {
   canonicalOptionalNumericToDaml,
   convertibleMechanismToDaml,
 } from '../shared/conversionMechanisms';
-import { assertNotRuntimeProxy, requireDenseArray, requireMonetary, requireNonEmptyArray } from '../shared/ocfValues';
+import {
+  assertCanonicalJsonGraph,
+  assertExactObjectFields,
+  assertNotRuntimeProxy,
+  requireDenseArray,
+  requireMonetary,
+  requireNonEmptyArray,
+} from '../shared/ocfValues';
 import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
 export type ConvertibleIssuanceInput = Omit<OcfConvertibleIssuance, 'object_type'> & {
   readonly object_type?: 'TX_CONVERTIBLE_ISSUANCE';
 };
+
+const ROOT_FIELDS = [
+  'object_type',
+  'id',
+  'date',
+  'security_id',
+  'custom_id',
+  'stakeholder_id',
+  'board_approval_date',
+  'stockholder_approval_date',
+  'consideration_text',
+  'security_law_exemptions',
+  'investment_amount',
+  'convertible_type',
+  'conversion_triggers',
+  'pro_rata',
+  'seniority',
+  'comments',
+] as const;
+const MONETARY_FIELDS = ['amount', 'currency'] as const;
+const SECURITY_EXEMPTION_FIELDS = ['description', 'jurisdiction'] as const;
+const CONVERSION_RIGHT_FIELDS = [
+  'type',
+  'conversion_mechanism',
+  'converts_to_future_round',
+  'converts_to_stock_class_id',
+] as const;
+const TRIGGER_FIELDS = [
+  'type',
+  'trigger_id',
+  'conversion_right',
+  'nickname',
+  'trigger_description',
+  'trigger_date',
+  'trigger_condition',
+  'start_date',
+  'end_date',
+] as const;
 
 function requiredMissing(field: string, expectedType: string, receivedValue: unknown): OcpValidationError {
   return new OcpValidationError(field, `${field} is required`, {
@@ -80,7 +125,9 @@ function requiredDateToDaml(value: unknown, fieldPath: string): string {
 }
 
 function requiredMonetaryToDaml(value: unknown, field: string): ReturnType<typeof monetaryToDaml> {
-  return monetaryToDaml(requireMonetary(value, field), field);
+  const monetary = requireRecord(value, field);
+  assertExactObjectFields(monetary, MONETARY_FIELDS, field);
+  return monetaryToDaml(requireMonetary(monetary, field), field);
 }
 
 function securityLawExemptionsToDaml(
@@ -90,6 +137,7 @@ function securityLawExemptionsToDaml(
   return requireArray(value, field).map((entry, index) => {
     const source = `${field}.${index}`;
     const exemption = requireRecord(entry, source);
+    assertExactObjectFields(exemption, SECURITY_EXEMPTION_FIELDS, source);
     return {
       description: requireString(exemption.description, `${source}.description`),
       jurisdiction: requireString(exemption.jurisdiction, `${source}.jurisdiction`),
@@ -157,6 +205,7 @@ function conversionRightToDaml(
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionRight {
   const right = requireRecord(value, source);
   const rightType = requireString(right.type, `${source}.type`);
+  assertExactObjectFields(right, CONVERSION_RIGHT_FIELDS, source);
   if (rightType !== 'CONVERTIBLE_CONVERSION_RIGHT') {
     throw new OcpParseError(`Unknown convertible conversion right type: ${rightType}`, {
       source: `${source}.type`,
@@ -187,6 +236,7 @@ function triggerToDaml(
   const source = `convertibleIssuance.conversion_triggers.${index}`;
   const trigger = requireRecord(value, source);
   const nativeType = requireString(trigger.type, `${source}.type`) as ConvertibleConversionTrigger['type'];
+  assertExactObjectFields(trigger, TRIGGER_FIELDS, source);
   const type = triggerTypeToDaml(nativeType, `${source}.type`);
   const triggerFields = triggerFieldsToDaml(trigger, nativeType, source);
   return {
@@ -211,7 +261,9 @@ function seniorityToDaml(value: unknown): string {
 export function convertibleIssuanceDataToDaml(
   input: ConvertibleIssuanceInput
 ): Fairmint.OpenCapTable.OCF.ConvertibleIssuance.ConvertibleIssuanceOcfData {
+  assertCanonicalJsonGraph(input, 'convertibleIssuance');
   const issuance = requireRecord(input, 'convertibleIssuance');
+  assertExactObjectFields(issuance, ROOT_FIELDS, 'convertibleIssuance');
   if (issuance.object_type !== undefined && issuance.object_type !== 'TX_CONVERTIBLE_ISSUANCE') {
     throw new OcpValidationError('convertibleIssuance.object_type', 'Unexpected object_type', {
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,

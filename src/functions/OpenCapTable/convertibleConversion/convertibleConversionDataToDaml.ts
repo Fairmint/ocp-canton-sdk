@@ -6,6 +6,7 @@ import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../.
 import { dateStringToDAMLTime, isRecord } from '../../../utils/typeConversions';
 import { canonicalOptionalNumericToDaml } from '../shared/conversionMechanisms';
 import {
+  assertCanonicalJsonGraph,
   assertExactObjectFields,
   assertNotRuntimeProxy,
   optionalStringArrayToDaml,
@@ -120,6 +121,7 @@ function capitalizationDefinitionToDaml(value: unknown): CapitalizationDefinitio
 /** Convert exact canonical OCF ConvertibleConversion data to generated DAML data. */
 export function convertibleConversionDataToDaml(input: OcfConvertibleConversion): DamlConvertibleConversion {
   const field = 'convertibleConversion';
+  assertCanonicalJsonGraph(input, field);
   const data = requireRecord(input, field);
   assertExactObjectFields(data, ROOT_FIELDS, field);
   requireObjectType(data.object_type);

@@ -1,4 +1,5 @@
 import type { OcpErrorCode } from './codes';
+import { boundedDiagnosticText, toBoundedDiagnosticContext, toBoundedDiagnosticValue } from './diagnosticValue';
 
 export type OcpErrorContext = Record<string, unknown>;
 
@@ -46,14 +47,51 @@ export class OcpError extends Error {
   readonly context: OcpErrorContext | undefined;
 
   constructor(message: string, code: OcpErrorCode, cause?: Error, details?: OcpErrorDetails) {
-    super(message);
+    super(boundedDiagnosticText(message));
     this.name = 'OcpError';
     this.code = code;
-    this.cause = cause;
-    this.classification = details?.classification;
-    this.context = details?.context;
+    Object.defineProperty(this, 'cause', { configurable: true, enumerable: false, value: cause, writable: false });
+    this.classification =
+      details?.classification === undefined ? undefined : boundedDiagnosticText(details.classification);
+    this.context = toBoundedDiagnosticContext(details?.context);
 
     // Maintain proper stack trace in V8 environments (Node.js, Chrome)
     Error.captureStackTrace(this, this.constructor);
+  }
+
+  /** Return a globally bounded JSON-safe representation for logs and telemetry. */
+  toJSON(): Record<string, unknown> {
+    const ownDataValue = (key: string): unknown => {
+      const descriptor = Object.getOwnPropertyDescriptor(this, key);
+      return descriptor !== undefined && 'value' in descriptor ? descriptor.value : undefined;
+    };
+    const rawName = ownDataValue('name');
+    const rawMessage = ownDataValue('message');
+    const rawCode = ownDataValue('code');
+    const rawClassification = ownDataValue('classification');
+    const rawContext = ownDataValue('context');
+    const result: Record<string, unknown> = {
+      name: typeof rawName === 'string' ? boundedDiagnosticText(rawName) : 'OcpError',
+      message: typeof rawMessage === 'string' ? boundedDiagnosticText(rawMessage) : 'OCP SDK error',
+      code: toBoundedDiagnosticValue(rawCode),
+      ...(typeof rawClassification === 'string' ? { classification: boundedDiagnosticText(rawClassification) } : {}),
+      ...(rawContext !== undefined ? { context: toBoundedDiagnosticContext(rawContext) } : {}),
+    };
+
+    for (const key of [
+      'fieldPath',
+      'expectedType',
+      'receivedValue',
+      'source',
+      'contractId',
+      'templateId',
+      'choice',
+      'endpoint',
+      'statusCode',
+    ]) {
+      const value = ownDataValue(key);
+      if (value !== undefined) result[key] = toBoundedDiagnosticValue(value);
+    }
+    return result;
   }
 }

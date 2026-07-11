@@ -1,10 +1,10 @@
 import { types as nodeUtilTypes } from 'node:util';
 
-const MAX_DIAGNOSTIC_STRING_LENGTH = 2_048;
+const MAX_DIAGNOSTIC_STRING_LENGTH = 256;
 const MAX_DIAGNOSTIC_KEY_LENGTH = 64;
-const MAX_DIAGNOSTIC_CONTAINER_ITEMS = 8;
+const MAX_DIAGNOSTIC_CONTAINER_ITEMS = 12;
 const MAX_DIAGNOSTIC_DEPTH = 2;
-const MAX_DIAGNOSTIC_NODES = 24;
+const MAX_DIAGNOSTIC_NODES = 8;
 
 interface DiagnosticState {
   nodes: number;
@@ -20,6 +20,24 @@ function truncate(value: string, maximum = MAX_DIAGNOSTIC_STRING_LENGTH): string
 /** Bound text that may become part of an SDK diagnostic message. */
 export function boundedDiagnosticText(value: string): string {
   return truncate(value, 512);
+}
+
+/** Bound user-influenced paths while preserving ordinary field paths verbatim. */
+export function boundedDiagnosticPath(value: string): string {
+  return truncate(value, 512);
+}
+
+/** Build a bounded child path without retaining an arbitrarily large property name. */
+export function diagnosticPropertyPath(parent: string, property: string | symbol): string {
+  const boundedParent = boundedDiagnosticPath(parent);
+  if (typeof property === 'symbol') {
+    return boundedDiagnosticPath(`${boundedParent}[${truncate(String(property), 96)}]`);
+  }
+  const boundedProperty = truncate(property, 96);
+  const path = /^(?:0|[1-9]\d*|[A-Za-z_$][A-Za-z0-9_$]*)$/.test(boundedProperty)
+    ? `${boundedParent}.${boundedProperty}`
+    : `${boundedParent}[${JSON.stringify(boundedProperty)}]`;
+  return boundedDiagnosticPath(path);
 }
 
 function metadata(type: string, details: Readonly<Record<string, string | number | boolean>> = {}): unknown {
@@ -106,4 +124,14 @@ function summarize(value: unknown, depth: number, state: DiagnosticState): unkno
  */
 export function toBoundedDiagnosticValue(value: unknown): unknown {
   return summarize(value, 0, { nodes: 0, seen: new WeakSet<object>() });
+}
+
+/** Convert arbitrary structured error context into a bounded JSON-safe record. */
+export function toBoundedDiagnosticContext(value: unknown): Record<string, unknown> | undefined {
+  if (value === undefined) return undefined;
+  const summarized = toBoundedDiagnosticValue(value);
+  if (summarized === null || typeof summarized !== 'object' || Array.isArray(summarized)) {
+    return { value: summarized };
+  }
+  return summarized as Record<string, unknown>;
 }

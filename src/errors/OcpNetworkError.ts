@@ -1,4 +1,5 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
+import { boundedDiagnosticText, toBoundedDiagnosticContext } from './diagnosticValue';
 import { contextOrUndefined, OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpNetworkErrorOptions {
@@ -55,7 +56,7 @@ export class OcpNetworkError extends OcpError {
   constructor(message: string, options?: OcpNetworkErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.CONNECTION_FAILED;
     const context = contextOrUndefined({
-      ...options?.context,
+      ...toBoundedDiagnosticContext(options?.context),
       ...(options?.endpoint !== undefined ? { endpoint: options.endpoint } : {}),
       ...(options?.statusCode !== undefined ? { statusCode: options.statusCode } : {}),
     });
@@ -64,7 +65,7 @@ export class OcpNetworkError extends OcpError {
       ...(context !== undefined ? { context } : {}),
     });
     this.name = 'OcpNetworkError';
-    this.endpoint = options?.endpoint;
+    this.endpoint = options?.endpoint === undefined ? undefined : boundedDiagnosticText(options.endpoint);
     this.statusCode = options?.statusCode;
   }
 }

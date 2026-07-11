@@ -5,6 +5,7 @@ import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { Monetary, OcfStockClassConversionRatioAdjustment } from '../../../types/native';
 import { dateStringToDAMLTime, isRecord } from '../../../utils/typeConversions';
 import {
+  assertCanonicalJsonGraph,
   assertExactObjectFields,
   assertNotRuntimeProxy,
   optionalStringArrayToDaml,
@@ -158,6 +159,7 @@ export function stockClassConversionRatioAdjustmentDataToDaml(
   const ratioField = `${mechanismField}.ratio`;
   const ratio = requireRecord(mechanism.ratio, ratioField);
   assertExactObjectFields(ratio, RATIO_FIELDS, ratioField);
+  assertCanonicalJsonGraph(input, field);
 
   return {
     id: requireNonEmptyString(data.id, `${field}.id`),

@@ -1,5 +1,6 @@
 import { types as nodeUtilTypes } from 'node:util';
 import { OcpErrorCodes, OcpValidationError } from '../../../errors';
+import { boundedDiagnosticPath, diagnosticPropertyPath } from '../../../errors/diagnosticValue';
 import type { Monetary } from '../../../types/native';
 import { canonicalizeDamlNumeric10, damlNumeric10ToScaledBigInt } from '../../../utils/damlNumeric';
 import { isRecord } from '../../../utils/typeConversions';
@@ -44,19 +45,27 @@ export function assertExactObjectFields(
 
   const allowed = new Set(allowedFields);
   for (const key of Object.getOwnPropertyNames(record)) {
+    const propertyPath = diagnosticPropertyPath(fieldPath, key);
     const descriptor = Object.getOwnPropertyDescriptor(record, key);
-    if (descriptor?.get !== undefined || descriptor?.set !== undefined) {
-      throw new OcpValidationError(`${fieldPath}.${key}`, `${fieldPath}.${key} must be a data property`, {
+    if (descriptor === undefined || !('value' in descriptor)) {
+      throw new OcpValidationError(propertyPath, `${propertyPath} must be a data property`, {
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         expectedType: 'own data property',
         receivedValue: 'accessor property',
       });
     }
+    if (descriptor.enumerable !== true) {
+      throw new OcpValidationError(propertyPath, `${propertyPath} must be enumerable`, {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'enumerable own data property',
+        receivedValue: 'non-enumerable property',
+      });
+    }
     if (!allowed.has(key)) {
-      throw new OcpValidationError(`${fieldPath}.${key}`, `${fieldPath}.${key} is not supported`, {
+      throw new OcpValidationError(propertyPath, `${propertyPath} is not supported`, {
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         expectedType: 'absent property',
-        receivedValue: descriptor?.value,
+        receivedValue: descriptor.value,
       });
     }
   }
@@ -72,11 +81,137 @@ export function assertExactObjectFields(
 
   for (const key of allowedFields) {
     if (!Object.prototype.hasOwnProperty.call(record, key) && key in record) {
-      throw new OcpValidationError(`${fieldPath}.${key}`, `${fieldPath}.${key} is inherited rather than own`, {
+      const propertyPath = diagnosticPropertyPath(fieldPath, key);
+      throw new OcpValidationError(propertyPath, `${propertyPath} is inherited rather than own`, {
         code: OcpErrorCodes.SCHEMA_MISMATCH,
         expectedType: 'own property or absent optional property',
         receivedValue: 'inherited property',
       });
+    }
+  }
+}
+
+interface PendingJsonValue {
+  readonly path: string;
+  readonly value: unknown;
+  readonly release?: object;
+}
+
+/**
+ * Descriptor-only preflight for values crossing OCF/DAML JavaScript boundaries.
+ * It rejects traps, accessors, non-enumerable data, custom prototypes, symbols,
+ * sparse arrays, BigInts, and functions before any converter dereference.
+ */
+export function assertCanonicalJsonGraph(value: unknown, fieldPath: string): void {
+  const pending: PendingJsonValue[] = [{ path: boundedDiagnosticPath(fieldPath), value }];
+  const active = new WeakSet<object>();
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined) break;
+    if (current.release !== undefined) {
+      active.delete(current.release);
+      continue;
+    }
+    const currentValue = current.value;
+    const valueType = typeof currentValue;
+    if (currentValue === null || currentValue === undefined) continue;
+    if (valueType === 'bigint' || valueType === 'symbol' || valueType === 'function') {
+      throw new OcpValidationError(current.path, `${current.path} is not a JSON value`, {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'JSON value',
+        receivedValue: currentValue,
+      });
+    }
+    if (valueType !== 'object') continue;
+
+    assertNotRuntimeProxy(currentValue, current.path, 'trap-free JSON value');
+    const object = currentValue;
+    if (active.has(object)) {
+      throw new OcpValidationError(current.path, `${current.path} contains a circular object reference`, {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'acyclic JSON tree',
+        receivedValue: 'circular object reference',
+      });
+    }
+    active.add(object);
+    pending.push({ path: current.path, value: undefined, release: object });
+
+    if (Array.isArray(object)) {
+      const values = requireDenseArray(object, current.path);
+      for (let index = values.length - 1; index >= 0; index -= 1) {
+        const descriptor = Object.getOwnPropertyDescriptor(values, String(index));
+        const itemPath = diagnosticPropertyPath(current.path, String(index));
+        if (descriptor === undefined || !('value' in descriptor)) {
+          throw new OcpValidationError(itemPath, `${itemPath} must be an own data property`, {
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            expectedType: 'enumerable own array item',
+            receivedValue: 'missing or accessor array item',
+          });
+        }
+        if (descriptor.enumerable !== true) {
+          throw new OcpValidationError(itemPath, `${itemPath} must be enumerable`, {
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            expectedType: 'enumerable own array item',
+            receivedValue: 'non-enumerable array item',
+          });
+        }
+        pending.push({ path: itemPath, value: descriptor.value });
+      }
+      continue;
+    }
+
+    const prototype = Object.getPrototypeOf(object) as object | null;
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new OcpValidationError(current.path, `${current.path} must be a plain JSON object`, {
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        expectedType: 'plain object',
+        receivedValue: 'custom prototype',
+      });
+    }
+
+    const symbol = Object.getOwnPropertySymbols(object)[0];
+    if (symbol !== undefined) {
+      throw new OcpValidationError(
+        diagnosticPropertyPath(current.path, symbol),
+        `${current.path} contains a symbol key`,
+        {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          expectedType: 'plain object without symbol properties',
+          receivedValue: symbol,
+        }
+      );
+    }
+
+    for (const key of Object.getOwnPropertyNames(object)) {
+      const propertyPath = diagnosticPropertyPath(current.path, key);
+      const descriptor = Object.getOwnPropertyDescriptor(object, key);
+      if (descriptor === undefined || !('value' in descriptor)) {
+        throw new OcpValidationError(propertyPath, `${propertyPath} must be an own data property`, {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          expectedType: 'enumerable own data property',
+          receivedValue: 'accessor property',
+        });
+      }
+      if (descriptor.enumerable !== true) {
+        throw new OcpValidationError(propertyPath, `${propertyPath} must be enumerable`, {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          expectedType: 'enumerable own data property',
+          receivedValue: 'non-enumerable property',
+        });
+      }
+      pending.push({ path: propertyPath, value: descriptor.value });
+    }
+
+    for (const key in object) {
+      if (!Object.prototype.hasOwnProperty.call(object, key)) {
+        const propertyPath = diagnosticPropertyPath(current.path, key);
+        throw new OcpValidationError(propertyPath, `${propertyPath} is inherited rather than own`, {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          expectedType: 'own data property',
+          receivedValue: 'inherited property',
+        });
+      }
     }
   }
 }
@@ -220,10 +355,7 @@ export function requireMonetary(value: unknown, fieldPath: string): Monetary {
 }
 
 function arrayPropertyPath(fieldPath: string, key: string | symbol): string {
-  if (typeof key === 'symbol') return `${fieldPath}[${String(key)}]`;
-  return /^(?:0|[1-9]\d*|[A-Za-z_$][A-Za-z0-9_$]*)$/.test(key)
-    ? `${fieldPath}.${key}`
-    : `${fieldPath}[${JSON.stringify(key)}]`;
+  return diagnosticPropertyPath(fieldPath, key);
 }
 
 function arrayShapeError(

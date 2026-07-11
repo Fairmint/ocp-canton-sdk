@@ -5,7 +5,7 @@ import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { CapitalizationDefinition, OcfConvertibleConversion } from '../../../types';
 import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
-import { requireDecimalString, requireDenseArray } from '../shared/ocfValues';
+import { assertCanonicalJsonGraph, requireDecimalString, requireDenseArray } from '../shared/ocfValues';
 
 type GeneratedConvertibleConversionData = Fairmint.OpenCapTable.OCF.ConvertibleConversion.ConvertibleConversionOcfData;
 
@@ -100,6 +100,7 @@ function capitalizationDefinitionFromDaml(value: unknown): CapitalizationDefinit
 
 /** Convert exact generated DAML ConvertibleConversion data to canonical OCF. */
 export function damlConvertibleConversionToNative(value: DamlConvertibleConversionData): OcfConvertibleConversion {
+  assertCanonicalJsonGraph(value, 'convertibleConversion');
   const data = requireRecord(value, 'convertibleConversion');
   // Preserve the dedicated getter's historical error priority for an empty result set.
   const resultingSecurityIds = requireNonEmptyStringArray(

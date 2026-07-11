@@ -1,5 +1,10 @@
 import { OcpErrorCodes, type OcpErrorCode } from './codes';
-import { boundedDiagnosticText, toBoundedDiagnosticValue } from './diagnosticValue';
+import {
+  boundedDiagnosticPath,
+  boundedDiagnosticText,
+  toBoundedDiagnosticContext,
+  toBoundedDiagnosticValue,
+} from './diagnosticValue';
 import { OcpError, type OcpErrorContext } from './OcpError';
 
 export interface OcpValidationErrorOptions {
@@ -57,19 +62,30 @@ export class OcpValidationError extends OcpError {
 
   constructor(fieldPath: string, message: string, options?: OcpValidationErrorOptions) {
     const code = options?.code ?? OcpErrorCodes.REQUIRED_FIELD_MISSING;
-    const receivedValue = toBoundedDiagnosticValue(options?.receivedValue);
-    super(`Validation error at '${fieldPath}': ${boundedDiagnosticText(message)}`, code, undefined, {
+    const boundedFieldPath = boundedDiagnosticPath(fieldPath);
+    const expectedType = options?.expectedType === undefined ? undefined : boundedDiagnosticText(options.expectedType);
+    const rawReceivedValue = options?.receivedValue;
+    const receivedValue = toBoundedDiagnosticValue(rawReceivedValue);
+    const publicReceivedValue =
+      rawReceivedValue === null ||
+      rawReceivedValue === undefined ||
+      (typeof rawReceivedValue === 'string' && rawReceivedValue.length <= 4_096) ||
+      typeof rawReceivedValue === 'number' ||
+      typeof rawReceivedValue === 'boolean'
+        ? rawReceivedValue
+        : receivedValue;
+    super(`Validation error at '${boundedFieldPath}': ${boundedDiagnosticText(message)}`, code, undefined, {
       classification: options?.classification ?? 'validation_error',
       context: {
-        ...options?.context,
-        fieldPath,
-        ...(options?.expectedType !== undefined ? { expectedType: options.expectedType } : {}),
+        ...toBoundedDiagnosticContext(options?.context),
+        fieldPath: boundedFieldPath,
+        ...(expectedType !== undefined ? { expectedType } : {}),
         ...(receivedValue !== undefined ? { receivedValue } : {}),
       },
     });
     this.name = 'OcpValidationError';
-    this.fieldPath = fieldPath;
-    this.expectedType = options?.expectedType;
-    this.receivedValue = receivedValue;
+    this.fieldPath = boundedFieldPath;
+    this.expectedType = expectedType;
+    this.receivedValue = publicReceivedValue;
   }
 }

@@ -5,7 +5,12 @@ import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../error
 import type { OcfStockClassConversionRatioAdjustment } from '../../../types/native';
 import { damlTimeToDateString, isRecord } from '../../../utils/typeConversions';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
-import { requireDenseArray, requireMonetary, requirePositiveDecimal } from '../shared/ocfValues';
+import {
+  assertCanonicalJsonGraph,
+  requireDenseArray,
+  requireMonetary,
+  requirePositiveDecimal,
+} from '../shared/ocfValues';
 
 /** Exact generated ledger representation accepted by the direct reader. */
 export type DamlStockClassConversionRatioAdjustmentData =
@@ -83,6 +88,7 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 export function damlStockClassConversionRatioAdjustmentToNative(
   value: DamlStockClassConversionRatioAdjustmentData
 ): OcfStockClassConversionRatioAdjustment {
+  assertCanonicalJsonGraph(value, 'stockClassConversionRatioAdjustment');
   const data = requireRecord(value, 'stockClassConversionRatioAdjustment');
   const mechanismField = 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism';
   const mechanism = requireRecord(data.new_ratio_conversion_mechanism, mechanismField);

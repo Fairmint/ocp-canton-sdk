@@ -15,7 +15,7 @@ import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { ReadScopeParams } from '../../../types/common';
 import { initialSharesAuthorizedFromDaml } from '../../../utils/typeConversions';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
-import { requireDecimalString } from '../shared/ocfValues';
+import { assertCanonicalJsonGraph, requireDecimalString } from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import {
   ENTITY_DATA_FIELD_FALLBACK_MAP,
@@ -117,6 +117,7 @@ export function convertToOcf(
   type: SupportedOcfReadType,
   data: DamlDataTypeFor<SupportedOcfReadType>
 ): OcfDataTypeFor<SupportedOcfReadType> {
+  assertCanonicalJsonGraph(data, type);
   switch (type) {
     // ===== Core objects =====
     case 'document':
@@ -273,6 +274,7 @@ export function decodeDamlEntityData<const EntityType extends OcfEntityType>(
   input: unknown
 ): DamlDataTypeFor<EntityType>;
 export function decodeDamlEntityData(entityType: OcfEntityType, input: unknown): DamlDataTypeFor<OcfEntityType> {
+  assertCanonicalJsonGraph(input, entityType);
   preflightSemanticDamlEntityData(entityType, input);
   const tag = ENTITY_TAG_MAP[entityType].edit;
   const decoded = decodeLosslessGeneratedDamlValue(

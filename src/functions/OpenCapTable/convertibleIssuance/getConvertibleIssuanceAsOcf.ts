@@ -17,7 +17,12 @@ import {
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import { convertibleMechanismFromDaml } from '../shared/conversionMechanisms';
 import { parseDamlSafeInteger } from '../shared/damlIntegers';
-import { requireDecimalString, requireMonetary, requireNonEmptyArray } from '../shared/ocfValues';
+import {
+  assertCanonicalJsonGraph,
+  requireDecimalString,
+  requireMonetary,
+  requireNonEmptyArray,
+} from '../shared/ocfValues';
 import { readSingleContract } from '../shared/singleContractRead';
 import { triggerFieldsFromDaml } from '../shared/triggerFields';
 
@@ -191,6 +196,7 @@ function commentsFromDaml(value: unknown): string[] | undefined {
 
 /** Convert decoded DAML ConvertibleIssuance data to its canonical OCF shape. */
 export function damlConvertibleIssuanceDataToNative(value: unknown): OcfConvertibleIssuance {
+  assertCanonicalJsonGraph(value, 'convertibleIssuance');
   const data = requireRecord(value, 'convertibleIssuance');
   const id = requireString(data.id, 'convertibleIssuance.id');
   const date = requiredDate(data.date, 'convertibleIssuance.date');

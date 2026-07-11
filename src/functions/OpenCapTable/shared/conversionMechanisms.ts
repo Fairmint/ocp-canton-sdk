@@ -22,6 +22,8 @@ import {
 } from '../../../utils/typeConversions';
 import { decodeLosslessGeneratedDamlValue } from '../capTable/damlCodecLosslessness';
 import {
+  assertCanonicalJsonGraph,
+  assertExactObjectFields,
   assertNotRuntimeProxy,
   requireDecimalString,
   requireDenseArray,
@@ -35,6 +37,100 @@ import {
 type DamlCapitalizationRules = Fairmint.OpenCapTable.Types.Conversion.OcfCapitalizationDefinitionRules;
 type DamlConvertibleMechanism = Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism;
 type DamlWarrantMechanism = Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism;
+
+const MONETARY_FIELDS = ['amount', 'currency'] as const;
+const RATIO_FIELDS = ['numerator', 'denominator'] as const;
+const CAPITALIZATION_RULE_FIELDS = [
+  'include_outstanding_shares',
+  'include_outstanding_options',
+  'include_outstanding_unissued_options',
+  'include_this_security',
+  'include_other_converting_securities',
+  'include_option_pool_topup_for_promised_options',
+  'include_additional_option_pool_topup',
+  'include_new_money',
+] as const;
+const INTEREST_RATE_FIELDS = ['rate', 'accrual_start_date', 'accrual_end_date'] as const;
+
+const SAFE_FIELDS = [
+  'type',
+  'conversion_mfn',
+  'conversion_discount',
+  'conversion_valuation_cap',
+  'conversion_timing',
+  'capitalization_definition',
+  'capitalization_definition_rules',
+  'exit_multiple',
+] as const;
+const NOTE_FIELDS = [
+  'type',
+  'interest_rates',
+  'day_count_convention',
+  'interest_payout',
+  'interest_accrual_period',
+  'compounding_type',
+  'conversion_discount',
+  'conversion_valuation_cap',
+  'capitalization_definition',
+  'capitalization_definition_rules',
+  'exit_multiple',
+  'conversion_mfn',
+] as const;
+const CUSTOM_FIELDS = ['type', 'custom_conversion_description'] as const;
+const PERCENT_CAPITALIZATION_FIELDS = [
+  'type',
+  'converts_to_percent',
+  'capitalization_definition',
+  'capitalization_definition_rules',
+] as const;
+const FIXED_AMOUNT_FIELDS = ['type', 'converts_to_quantity'] as const;
+const VALUATION_FIELDS = [
+  'type',
+  'valuation_type',
+  'valuation_amount',
+  'capitalization_definition',
+  'capitalization_definition_rules',
+] as const;
+const PPS_FIELDS = ['type', 'description', 'discount', 'discount_percentage', 'discount_amount'] as const;
+const RATIO_MECHANISM_FIELDS = ['type', 'ratio', 'conversion_price', 'rounding_type'] as const;
+
+function assertExactConvertibleMechanism(record: Record<string, unknown>, type: string, field: string): void {
+  switch (type) {
+    case 'SAFE_CONVERSION':
+      assertExactObjectFields(record, SAFE_FIELDS, field);
+      return;
+    case 'CONVERTIBLE_NOTE_CONVERSION':
+      assertExactObjectFields(record, NOTE_FIELDS, field);
+      return;
+    case 'CUSTOM_CONVERSION':
+      assertExactObjectFields(record, CUSTOM_FIELDS, field);
+      return;
+    case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION':
+      assertExactObjectFields(record, PERCENT_CAPITALIZATION_FIELDS, field);
+      return;
+    case 'FIXED_AMOUNT_CONVERSION':
+      assertExactObjectFields(record, FIXED_AMOUNT_FIELDS, field);
+  }
+}
+
+function assertExactWarrantMechanism(record: Record<string, unknown>, type: string, field: string): void {
+  switch (type) {
+    case 'CUSTOM_CONVERSION':
+      assertExactObjectFields(record, CUSTOM_FIELDS, field);
+      return;
+    case 'FIXED_PERCENT_OF_CAPITALIZATION_CONVERSION':
+      assertExactObjectFields(record, PERCENT_CAPITALIZATION_FIELDS, field);
+      return;
+    case 'FIXED_AMOUNT_CONVERSION':
+      assertExactObjectFields(record, FIXED_AMOUNT_FIELDS, field);
+      return;
+    case 'VALUATION_BASED_CONVERSION':
+      assertExactObjectFields(record, VALUATION_FIELDS, field);
+      return;
+    case 'PPS_BASED_CONVERSION':
+      assertExactObjectFields(record, PPS_FIELDS, field);
+  }
+}
 
 function validationError(field: string, message: string, receivedValue: unknown): OcpValidationError {
   return new OcpValidationError(field, message, {
@@ -200,6 +296,7 @@ function canonicalOptionalMonetaryToDaml(value: unknown, field: string): ReturnT
       receivedValue: value,
     });
   }
+  assertExactObjectFields(value, MONETARY_FIELDS, field);
   return monetaryToDaml(requireMonetary(value, field), field);
 }
 
@@ -228,6 +325,7 @@ function canonicalOptionalRatioToDaml(
 ): { numerator: string; denominator: string } | null {
   if (value === undefined) return null;
   const ratio = requireRecord(value, field);
+  assertExactObjectFields(ratio, RATIO_FIELDS, field);
   return {
     numerator: requirePositiveDecimal(ratio.numerator, `${field}.numerator`),
     denominator: requirePositiveDecimal(ratio.denominator, `${field}.denominator`),
@@ -294,11 +392,11 @@ function optionalRatioFromDaml(value: unknown, field: string): { numerator: stri
 }
 
 function taggedValue(value: unknown, field: string): { tag: string; value: Record<string, unknown> } {
+  assertCanonicalJsonGraph(value, field);
   const variant = requireRequiredRecord(value, field);
-  return {
-    tag: requireString(variant.tag, `${field}.tag`),
-    value: requireRequiredRecord(variant.value, `${field}.value`),
-  };
+  const tag = requireString(variant.tag, `${field}.tag`);
+  const mechanism = requireRequiredRecord(variant.value, `${field}.value`);
+  return { tag, value: mechanism };
 }
 
 function describeUnknown(value: unknown): string {
@@ -334,6 +432,7 @@ export function capitalizationRulesToDaml(
 ): DamlCapitalizationRules | null {
   if (rules === undefined) return null;
   const runtimeRules = requireRecord(rules, field);
+  assertExactObjectFields(runtimeRules, CAPITALIZATION_RULE_FIELDS, field);
   return {
     include_outstanding_shares: requireBoolean(
       runtimeRules.include_outstanding_shares,
@@ -594,6 +693,7 @@ function interestRateToDaml(
 ): Fairmint.OpenCapTable.Types.Conversion.OcfInterestRate {
   const field = `${mechanismField}.interest_rates.${index}`;
   const rate = requireRecord(value, field);
+  assertExactObjectFields(rate, INTEREST_RATE_FIELDS, field);
   const accrualStartDate = requireInterestAccrualStartDate(rate.accrual_start_date, `${field}.accrual_start_date`);
   return {
     rate: requirePercentage(rate.rate, `${field}.rate`),
@@ -623,6 +723,7 @@ export function convertibleMechanismToDaml(
   if (runtimeMechanism === null || runtimeMechanism === undefined) {
     throw requiredMissing(field, 'ConvertibleConversionMechanism object', runtimeMechanism);
   }
+  assertCanonicalJsonGraph(runtimeMechanism, field);
   assertNotRuntimeProxy(runtimeMechanism, field, 'ConvertibleConversionMechanism object');
   if (!isRecord(runtimeMechanism)) {
     throw new OcpValidationError(field, 'Convertible conversion mechanism must be an object', {
@@ -631,7 +732,8 @@ export function convertibleMechanismToDaml(
       receivedValue: mechanism,
     });
   }
-  requireString(runtimeMechanism.type, `${field}.type`);
+  const mechanismType = requireString(runtimeMechanism.type, `${field}.type`);
+  assertExactConvertibleMechanism(runtimeMechanism, mechanismType, field);
   switch (mechanism.type) {
     case 'SAFE_CONVERSION':
       return {
@@ -856,6 +958,7 @@ export function convertibleMechanismFromDaml(
   value: unknown,
   field = 'conversion_mechanism'
 ): ConvertibleConversionMechanism {
+  assertCanonicalJsonGraph(value, field);
   const native = projectConvertibleMechanismFromDaml(value, field);
   decodeLosslessGeneratedDamlValue(Fairmint.OpenCapTable.Types.Conversion.OcfConvertibleConversionMechanism, value, {
     rootPath: field,
@@ -943,6 +1046,7 @@ export function warrantMechanismToDaml(
   if (runtimeMechanism === null || runtimeMechanism === undefined) {
     throw requiredMissing(field, 'WarrantConversionMechanism object', runtimeMechanism);
   }
+  assertCanonicalJsonGraph(runtimeMechanism, field);
   assertNotRuntimeProxy(runtimeMechanism, field, 'WarrantConversionMechanism object');
   if (!isRecord(runtimeMechanism)) {
     throw new OcpValidationError(field, 'Warrant conversion mechanism must be an object', {
@@ -951,7 +1055,8 @@ export function warrantMechanismToDaml(
       receivedValue: runtimeMechanism,
     });
   }
-  requireString(mechanism.type, `${field}.type`);
+  const mechanismType = requireString(runtimeMechanism.type, `${field}.type`);
+  assertExactWarrantMechanism(runtimeMechanism, mechanismType, field);
   switch (mechanism.type) {
     case 'CUSTOM_CONVERSION':
       return {
@@ -1101,6 +1206,7 @@ function projectWarrantMechanismFromDaml(value: unknown, field = 'conversion_mec
 
 /** Convert a generated DAML warrant mechanism to its exact canonical OCF variant. */
 export function warrantMechanismFromDaml(value: unknown, field = 'conversion_mechanism'): WarrantConversionMechanism {
+  assertCanonicalJsonGraph(value, field);
   const native = projectWarrantMechanismFromDaml(value, field);
   decodeLosslessGeneratedDamlValue(Fairmint.OpenCapTable.Types.Conversion.OcfWarrantConversionMechanism, value, {
     rootPath: field,
@@ -1124,11 +1230,15 @@ export function ratioMechanismToDaml(
   if (runtimeMechanism === null || runtimeMechanism === undefined) {
     throw requiredMissing(field, 'RatioConversionMechanism object', runtimeMechanism);
   }
+  assertCanonicalJsonGraph(runtimeMechanism, field);
   assertNotRuntimeProxy(runtimeMechanism, field, 'RatioConversionMechanism object');
   if (!isRecord(runtimeMechanism)) {
     throw invalidType(field, 'RatioConversionMechanism object', runtimeMechanism);
   }
   const mechanismType = requireString(runtimeMechanism.type, `${field}.type`);
+  if (mechanismType === 'RATIO_CONVERSION') {
+    assertExactObjectFields(runtimeMechanism, RATIO_MECHANISM_FIELDS, field);
+  }
   if (mechanismType !== 'RATIO_CONVERSION') {
     return throwUnknownVariant(runtimeMechanism, 'stock-class conversion mechanism', field);
   }
@@ -1141,6 +1251,7 @@ export function ratioMechanismToDaml(
     );
   }
   const ratio = requireRequiredRecord(runtimeMechanism.ratio, `${field}.ratio`);
+  assertExactObjectFields(ratio, RATIO_FIELDS, `${field}.ratio`);
   return {
     conversion_mechanism: 'OcfConversionMechanismRatioConversion',
     ratio: {
@@ -1153,6 +1264,7 @@ export function ratioMechanismToDaml(
 
 /** Rebuild the only OCF mechanism permitted for a stock-class right from flat DAML fields. */
 export function ratioMechanismFromDaml(value: Record<string, unknown>, field: string): RatioConversionMechanism {
+  assertCanonicalJsonGraph(value, field);
   const record = requireRequiredRecord(value, field);
   const rawMechanism = record.conversion_mechanism;
   if (rawMechanism === null || rawMechanism === undefined) {

@@ -37,12 +37,13 @@ import { equityCompensationRetractionDataToDaml } from '../equityCompensationRet
 import { equityCompensationTransferDataToDaml } from '../equityCompensationTransfer/equityCompensationTransferDataToDaml';
 import { issuerDataToDaml } from '../issuer/createIssuer';
 import { issuerAuthorizedSharesAdjustmentDataToDaml } from '../issuerAuthorizedSharesAdjustment/createIssuerAuthorizedSharesAdjustment';
+import { assertCanonicalJsonGraph } from '../shared/ocfValues';
 import { stakeholderDataToDaml } from '../stakeholder/stakeholderDataToDaml';
 import { stakeholderRelationshipChangeEventDataToDaml } from '../stakeholderRelationshipChangeEvent/stakeholderRelationshipChangeEventDataToDaml';
 import { stakeholderStatusChangeEventDataToDaml } from '../stakeholderStatusChangeEvent/stakeholderStatusChangeEventDataToDaml';
 import { stockAcceptanceDataToDaml } from '../stockAcceptance/stockAcceptanceDataToDaml';
 import { stockCancellationDataToDaml } from '../stockCancellation/createStockCancellation';
-import { assertStockClassWriterProxyBoundary, stockClassDataToDaml } from '../stockClass/stockClassDataToDaml';
+import { stockClassDataToDaml } from '../stockClass/stockClassDataToDaml';
 import { stockClassAuthorizedSharesAdjustmentDataToDaml } from '../stockClassAuthorizedSharesAdjustment/createStockClassAuthorizedSharesAdjustment';
 import { stockClassConversionRatioAdjustmentDataToDaml } from '../stockClassConversionRatioAdjustment/stockClassConversionRatioAdjustmentDataToDaml';
 import { stockClassSplitDataToDaml } from '../stockClassSplit/stockClassSplitDataToDaml';
@@ -102,16 +103,28 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
     return converted;
   }
   if (type === 'stockClass') {
-    assertStockClassWriterProxyBoundary(data);
+    const converted = stockClassDataToDaml(data as OcfDataTypeFor<'stockClass'>);
+    parseOcfEntityInput(type, data);
+    return converted;
   }
+  if (type === 'convertibleIssuance') {
+    const converted = convertibleIssuanceDataToDaml(data as OcfDataTypeFor<'convertibleIssuance'>);
+    parseOcfEntityInput(type, data);
+    return converted;
+  }
+  if (type === 'warrantIssuance') {
+    const converted = warrantIssuanceDataToDaml(data as OcfDataTypeFor<'warrantIssuance'>);
+    parseOcfEntityInput(type, data);
+    return converted;
+  }
+
+  assertCanonicalJsonGraph(data, type);
 
   const d = parseOcfEntityInput(type, data);
 
   switch (type) {
     case 'stakeholder':
       return stakeholderDataToDaml(d as OcfDataTypeFor<'stakeholder'>);
-    case 'stockClass':
-      return stockClassDataToDaml(d as OcfDataTypeFor<'stockClass'>);
     case 'stockIssuance':
       return stockIssuanceDataToDaml(d as OcfDataTypeFor<'stockIssuance'>);
     case 'vestingTerms':
@@ -124,10 +137,6 @@ function convertEntityToDaml(type: OcfEntityType, data: OcfDataTypeFor<OcfEntity
       return stockPlanDataToDaml(d as OcfDataTypeFor<'stockPlan'>);
     case 'equityCompensationIssuance':
       return equityCompensationIssuanceDataToDaml(d as OcfDataTypeFor<'equityCompensationIssuance'>);
-    case 'convertibleIssuance':
-      return convertibleIssuanceDataToDaml(d as OcfDataTypeFor<'convertibleIssuance'>);
-    case 'warrantIssuance':
-      return warrantIssuanceDataToDaml(d as OcfDataTypeFor<'warrantIssuance'>);
     case 'stockCancellation':
       return stockCancellationDataToDaml(d as OcfDataTypeFor<'stockCancellation'>);
     case 'equityCompensationExercise':
