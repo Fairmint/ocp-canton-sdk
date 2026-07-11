@@ -649,6 +649,8 @@ describe.each([
     ['null', null, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.resulting_security_ids'],
     ['false', false, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.resulting_security_ids'],
     ['number', 1, OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.resulting_security_ids'],
+    ['empty array', [], OcpErrorCodes.REQUIRED_FIELD_MISSING, 'convertibleConversion.resulting_security_ids'],
+    ['empty element', [''], OcpErrorCodes.INVALID_FORMAT, 'convertibleConversion.resulting_security_ids.0'],
     ['sparse', new Array(1), OcpErrorCodes.REQUIRED_FIELD_MISSING, 'convertibleConversion.resulting_security_ids.0'],
     ['numeric element', [1], OcpErrorCodes.INVALID_TYPE, 'convertibleConversion.resulting_security_ids.0'],
   ] as const)('rejects %s resulting_security_ids', (_case, value, code, fieldPath) => {
