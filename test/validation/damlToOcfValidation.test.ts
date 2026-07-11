@@ -240,7 +240,16 @@ describe('DAML to OCF Validation', () => {
       name: 'Standard 4-year Vesting',
       description: 'Standard vesting with 1-year cliff',
       allocation_type: 'OcfAllocationCumulativeRounding',
-      vesting_conditions: [],
+      vesting_conditions: [
+        {
+          id: 'condition-1',
+          description: null,
+          quantity: '100',
+          portion: null,
+          trigger: 'OcfVestingStartTrigger',
+          next_condition_ids: [],
+        },
+      ],
     };
 
     test('throws OcpValidationError when id is missing', async () => {
@@ -283,6 +292,21 @@ describe('DAML to OCF Validation', () => {
       const result = await getVestingTermsAsOcf(client, { contractId: 'test-contract' });
       expect(result.vestingTerms.id).toBe('vt-001');
       expect(result.vestingTerms.name).toBe('Standard 4-year Vesting');
+    });
+
+    test('rejects vesting terms without a condition', async () => {
+      const client = createMockClient(
+        'vesting_terms_data',
+        { ...validVestingData, vesting_conditions: [] },
+        {
+          templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms,
+        }
+      );
+
+      await expect(getVestingTermsAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject({
+        fieldPath: 'vestingTerms.vesting_conditions',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
     });
   });
 

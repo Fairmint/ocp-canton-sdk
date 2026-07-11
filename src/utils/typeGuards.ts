@@ -251,7 +251,12 @@ export function isOcfValuation(value: unknown): value is OcfValuation {
  * Type guard for OcfDocument objects.
  */
 export function isOcfDocument(value: unknown): value is OcfDocument {
-  return isStrictOcfObject<OcfDocument>(value, 'DOCUMENT');
+  try {
+    parseOcfEntityInput('document', value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ===== Generic OCF Object Type Detection =====
