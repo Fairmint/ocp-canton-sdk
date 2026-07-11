@@ -4,7 +4,13 @@
 
 import type { OcfValuation, ValuationType } from '../../../types';
 import { validateValuationData } from '../../../utils/entityValidators';
-import { cleanComments, dateStringToDAMLTime, monetaryToDaml, optionalString } from '../../../utils/typeConversions';
+import {
+  cleanComments,
+  dateStringToDAMLTime,
+  monetaryToDaml,
+  optionalDateStringToDAMLTime,
+  optionalString,
+} from '../../../utils/typeConversions';
 
 /**
  * Map from OCF ValuationType to DAML OcfValuationType.
@@ -31,10 +37,13 @@ export function valuationDataToDaml(d: OcfValuation): Record<string, unknown> {
     id: d.id,
     stock_class_id: d.stock_class_id,
     provider: optionalString(d.provider),
-    board_approval_date: d.board_approval_date ? dateStringToDAMLTime(d.board_approval_date) : null,
-    stockholder_approval_date: d.stockholder_approval_date ? dateStringToDAMLTime(d.stockholder_approval_date) : null,
+    board_approval_date: optionalDateStringToDAMLTime(d.board_approval_date, 'valuation.board_approval_date'),
+    stockholder_approval_date: optionalDateStringToDAMLTime(
+      d.stockholder_approval_date,
+      'valuation.stockholder_approval_date'
+    ),
     price_per_share: monetaryToDaml(d.price_per_share),
-    effective_date: dateStringToDAMLTime(d.effective_date),
+    effective_date: dateStringToDAMLTime(d.effective_date, 'valuation.effective_date'),
     valuation_type: damlValuationType,
     comments: cleanComments(d.comments),
   };

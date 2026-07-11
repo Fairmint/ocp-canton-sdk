@@ -1,7 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockClassAuthorizedSharesAdjustment } from '../../../types/native';
-import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import { damlTimeToDateString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
+import { validateAdministrativeAdjustmentFields } from '../capTable/administrativeAdjustmentValidation';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -32,29 +33,33 @@ export interface DamlStockClassAuthorizedSharesAdjustmentData {
 export function damlStockClassAuthorizedSharesAdjustmentDataToNative(
   data: DamlStockClassAuthorizedSharesAdjustmentData
 ): OcfStockClassAuthorizedSharesAdjustment {
+  const newSharesAuthorized = validateAdministrativeAdjustmentFields('stockClassAuthorizedSharesAdjustment', {
+    id: data.id,
+    subjectField: 'stock_class_id',
+    subjectValue: data.stock_class_id,
+    numericField: 'new_shares_authorized',
+    numericValue: data.new_shares_authorized,
+    comments: data.comments,
+  });
+
+  const boardApprovalDate = optionalDamlTimeToDateString(
+    data.board_approval_date,
+    'stockClassAuthorizedSharesAdjustment.board_approval_date'
+  );
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    data.stockholder_approval_date,
+    'stockClassAuthorizedSharesAdjustment.stockholder_approval_date'
+  );
+
   return {
     object_type: 'TX_STOCK_CLASS_AUTHORIZED_SHARES_ADJUSTMENT',
     id: data.id,
     date: damlTimeToDateString(data.date, 'stockClassAuthorizedSharesAdjustment.date'),
     stock_class_id: data.stock_class_id,
-    new_shares_authorized: normalizeNumericString(data.new_shares_authorized),
-    ...(data.board_approval_date !== null
-      ? {
-          board_approval_date: damlTimeToDateString(
-            data.board_approval_date,
-            'stockClassAuthorizedSharesAdjustment.board_approval_date'
-          ),
-        }
-      : {}),
-    ...(data.stockholder_approval_date !== null
-      ? {
-          stockholder_approval_date: damlTimeToDateString(
-            data.stockholder_approval_date,
-            'stockClassAuthorizedSharesAdjustment.stockholder_approval_date'
-          ),
-        }
-      : {}),
-    ...(data.comments.length > 0 ? { comments: data.comments } : {}),
+    new_shares_authorized: newSharesAuthorized,
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
+    ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),
   };
 }
 

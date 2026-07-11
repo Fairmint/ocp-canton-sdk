@@ -1,17 +1,13 @@
 import { type Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../../errors';
-import type {
-  OcfWarrantIssuance,
-  QuantitySourceType,
-  StockClassConversionRight,
-  WarrantExerciseTrigger,
-} from '../../../types/native';
-import { conversionTriggerTimingToDaml, parseConversionTriggerFields } from '../../../utils/conversionTriggers';
+import type { OcfWarrantIssuance, StockClassConversionRight, WarrantExerciseTrigger } from '../../../types/native';
+import { parseConversionTriggerFields } from '../../../utils/conversionTriggers';
 import {
   cleanComments,
   dateStringToDAMLTime,
   monetaryToDaml,
   normalizeNumericString,
+  optionalDateStringToDAMLTime,
   optionalString,
 } from '../../../utils/typeConversions';
 import {
@@ -19,11 +15,15 @@ import {
   ratioMechanismToDaml,
   warrantMechanismToDaml,
 } from '../shared/conversionMechanisms';
+import { triggerFieldsToDaml } from '../shared/triggerFields';
 
 /** Strongly typed converter input; object_type is optional for direct helper use. */
 export type WarrantIssuanceInput = Omit<OcfWarrantIssuance, 'object_type'> & {
   readonly object_type?: 'TX_WARRANT_ISSUANCE';
 };
+
+/** Canonical warrant trigger discriminator accepted by the strongly typed writer. */
+export type WarrantTriggerTypeInput = WarrantExerciseTrigger['type'];
 
 function triggerTypeToDaml(
   value: WarrantExerciseTrigger['type']
@@ -42,12 +42,33 @@ function triggerTypeToDaml(
     case 'UNSPECIFIED':
       return 'OcfTriggerTypeTypeUnspecified';
   }
+  throw new OcpValidationError(
+    'warrantIssuance.exercise_triggers[].type',
+    `Unknown warrant trigger type: ${String(value)}`,
+    {
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      expectedType:
+        'AUTOMATIC_ON_CONDITION | AUTOMATIC_ON_DATE | ELECTIVE_IN_RANGE | ELECTIVE_ON_CONDITION | ELECTIVE_AT_WILL | UNSPECIFIED',
+      receivedValue: value,
+    }
+  );
 }
 
-function quantitySourceToDaml(
-  value: QuantitySourceType | undefined
-): Fairmint.OpenCapTable.Types.Stock.OcfQuantitySourceType | null {
+function invalidQuantitySource(value: unknown): never {
+  throw new OcpValidationError(
+    'warrantIssuance.quantity_source',
+    'Expected a canonical quantity source when provided; omit the property when absent (explicit null is invalid)',
+    {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType: 'QuantitySourceType or omitted property',
+      receivedValue: value,
+    }
+  );
+}
+
+function quantitySourceToDaml(value: unknown): Fairmint.OpenCapTable.Types.Stock.OcfQuantitySourceType | null {
   if (value === undefined) return null;
+  if (value === null) return invalidQuantitySource(value);
   switch (value) {
     case 'HUMAN_ESTIMATED':
       return 'OcfQuantityHumanEstimated';
@@ -62,6 +83,7 @@ function quantitySourceToDaml(
     case 'INSTRUMENT_MIN':
       return 'OcfQuantityInstrumentMin';
   }
+  return invalidQuantitySource(value);
 }
 
 function requireStockClassTarget(right: StockClassConversionRight): string {
@@ -80,12 +102,13 @@ function storageTrigger(
   convertsToStockClassId: string,
   source: string
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+  const triggerFields = triggerFieldsToDaml(trigger, trigger.type, source);
   return {
     type_: triggerTypeToDaml(trigger.type),
     trigger_id: trigger.trigger_id,
     nickname: optionalString(trigger.nickname),
     trigger_description: optionalString(trigger.trigger_description),
-    ...conversionTriggerTimingToDaml(trigger, source),
+    ...triggerFields,
     conversion_right: {
       tag: 'OcfRightConvertible',
       value: {
@@ -169,13 +192,14 @@ function triggerToDaml(
 ): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
   const source = `warrantIssuance.exercise_triggers.${index}`;
   const parsed = parseConversionTriggerFields(trigger, source);
+  const triggerFields = triggerFieldsToDaml(parsed, parsed.type, source);
   return {
     type_: triggerTypeToDaml(parsed.type),
     trigger_id: parsed.trigger_id,
     conversion_right: conversionRightToDaml(parsed, source),
     nickname: optionalString(parsed.nickname),
     trigger_description: optionalString(parsed.trigger_description),
-    ...conversionTriggerTimingToDaml(parsed, source),
+    ...triggerFields,
   };
 }
 
@@ -187,14 +211,15 @@ export function warrantIssuanceDataToDaml(
     : quantitySourceToDaml(input.quantity_source);
   return {
     id: input.id,
-    date: dateStringToDAMLTime(input.date),
+    date: dateStringToDAMLTime(input.date, 'warrantIssuance.date'),
     security_id: input.security_id,
     custom_id: input.custom_id,
     stakeholder_id: input.stakeholder_id,
-    board_approval_date: input.board_approval_date ? dateStringToDAMLTime(input.board_approval_date) : null,
-    stockholder_approval_date: input.stockholder_approval_date
-      ? dateStringToDAMLTime(input.stockholder_approval_date)
-      : null,
+    board_approval_date: optionalDateStringToDAMLTime(input.board_approval_date, 'warrantIssuance.board_approval_date'),
+    stockholder_approval_date: optionalDateStringToDAMLTime(
+      input.stockholder_approval_date,
+      'warrantIssuance.stockholder_approval_date'
+    ),
     consideration_text: optionalString(input.consideration_text),
     security_law_exemptions: input.security_law_exemptions,
     quantity: canonicalOptionalNumericToDaml(input.quantity, 'warrantIssuance.quantity'),
@@ -202,12 +227,15 @@ export function warrantIssuanceDataToDaml(
     exercise_price: input.exercise_price ? monetaryToDaml(input.exercise_price) : null,
     purchase_price: monetaryToDaml(input.purchase_price),
     exercise_triggers: input.exercise_triggers.map(triggerToDaml),
-    warrant_expiration_date: input.warrant_expiration_date ? dateStringToDAMLTime(input.warrant_expiration_date) : null,
+    warrant_expiration_date: optionalDateStringToDAMLTime(
+      input.warrant_expiration_date,
+      'warrantIssuance.warrant_expiration_date'
+    ),
     vesting_terms_id: optionalString(input.vesting_terms_id),
     vestings: (input.vestings ?? [])
       .filter((vesting) => Number(normalizeNumericString(vesting.amount)) > 0)
       .map((vesting) => ({
-        date: dateStringToDAMLTime(vesting.date),
+        date: dateStringToDAMLTime(vesting.date, 'warrantIssuance.vestings[].date'),
         amount: normalizeNumericString(vesting.amount),
       })),
     comments: cleanComments(input.comments),

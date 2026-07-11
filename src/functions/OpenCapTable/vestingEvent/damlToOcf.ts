@@ -4,6 +4,7 @@
 
 import type { OcfVestingEvent } from '../../../types';
 import { damlTimeToDateString } from '../../../utils/typeConversions';
+import { validateRequiredString } from '../../../utils/validation';
 
 /**
  * DAML VestingEvent data structure.
@@ -24,10 +25,15 @@ export interface DamlVestingEventData {
  * @returns The native OCF VestingEvent object
  */
 export function damlVestingEventToNative(d: DamlVestingEventData): OcfVestingEvent {
+  validateRequiredString(d.id, 'vestingEvent.id');
+  validateRequiredString(d.security_id, 'vestingEvent.security_id');
+  validateRequiredString(d.vesting_condition_id, 'vestingEvent.vesting_condition_id');
+  d.comments.forEach((comment, index) => validateRequiredString(comment, `vestingEvent.comments[${index}]`));
+
   return {
     object_type: 'TX_VESTING_EVENT',
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, 'vestingEvent.date'),
     security_id: d.security_id,
     vesting_condition_id: d.vesting_condition_id,
     ...(d.comments.length > 0 && { comments: d.comments }),

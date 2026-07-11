@@ -1,5 +1,6 @@
 import { OcpErrorCodes, OcpValidationError } from '../../src/errors';
 import { validateEquityCompensationPricing } from '../../src/functions/OpenCapTable/equityCompensationIssuance/equityCompensationPricing';
+import { damlEquityCompensationIssuanceDataToNative } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 
 const monetary = { amount: '1', currency: 'USD' };
 
@@ -34,6 +35,22 @@ describe('validateEquityCompensationPricing', () => {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     },
     {
+      name: 'option with null exercise price',
+      compensationType: 'OPTION' as const,
+      exercisePrice: null,
+      basePrice: undefined,
+      field: 'exercise_price',
+      code: OcpErrorCodes.INVALID_TYPE,
+    },
+    {
+      name: 'option with malformed exercise price',
+      compensationType: 'OPTION' as const,
+      exercisePrice: { amount: '1' },
+      basePrice: undefined,
+      field: 'exercise_price.currency',
+      code: OcpErrorCodes.INVALID_TYPE,
+    },
+    {
       name: 'option with base price',
       compensationType: 'OPTION_ISO' as const,
       exercisePrice: monetary,
@@ -48,6 +65,14 @@ describe('validateEquityCompensationPricing', () => {
       basePrice: undefined,
       field: 'base_price',
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    },
+    {
+      name: 'SAR with null base price',
+      compensationType: 'CSAR' as const,
+      exercisePrice: undefined,
+      basePrice: null,
+      field: 'base_price',
+      code: OcpErrorCodes.INVALID_TYPE,
     },
     {
       name: 'SAR with exercise price',
@@ -73,6 +98,14 @@ describe('validateEquityCompensationPricing', () => {
       field: 'base_price',
       code: OcpErrorCodes.INVALID_FORMAT,
     },
+    {
+      name: 'RSU with null exercise price',
+      compensationType: 'RSU' as const,
+      exercisePrice: null,
+      basePrice: undefined,
+      field: 'exercise_price',
+      code: OcpErrorCodes.INVALID_TYPE,
+    },
   ])('rejects $name', ({ compensationType, exercisePrice, basePrice, field, code }) => {
     try {
       validateEquityCompensationPricing(compensationType, exercisePrice, basePrice, 'issuance');
@@ -84,5 +117,122 @@ describe('validateEquityCompensationPricing', () => {
         code,
       });
     }
+  });
+});
+
+describe('equity compensation ledger pricing boundary', () => {
+  const ledgerIssuanceBase = {
+    id: 'issuance-1',
+    date: '2026-01-01',
+    security_id: 'security-1',
+    custom_id: 'EQ-1',
+    stakeholder_id: 'stakeholder-1',
+    quantity: '100',
+    security_law_exemptions: [],
+    expiration_date: null,
+    termination_exercise_windows: [],
+  };
+
+  const malformedMonetaryValues: ReadonlyArray<{ name: string; value: unknown }> = [
+    { name: 'zero', value: 0 },
+    { name: 'false', value: false },
+    { name: 'an empty string', value: '' },
+    { name: 'an array', value: [] },
+  ];
+
+  function expectInvalidLedgerPrice(convert: () => unknown, fieldPath: string, receivedValue: unknown): void {
+    try {
+      convert();
+      throw new Error('Expected validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        fieldPath,
+        code: OcpErrorCodes.INVALID_TYPE,
+        receivedValue,
+      });
+    }
+  }
+
+  it.each(malformedMonetaryValues)(
+    'rejects $name as an OPTION base_price instead of treating it as absent',
+    ({ value }) => {
+      expectInvalidLedgerPrice(
+        () =>
+          damlEquityCompensationIssuanceDataToNative({
+            ...ledgerIssuanceBase,
+            compensation_type: 'OcfCompensationTypeOption',
+            exercise_price: monetary,
+            base_price: value,
+          }),
+        'equityCompensationIssuance.base_price',
+        value
+      );
+    }
+  );
+
+  it.each(malformedMonetaryValues)(
+    'rejects $name as a SAR exercise_price instead of treating it as absent',
+    ({ value }) => {
+      expectInvalidLedgerPrice(
+        () =>
+          damlEquityCompensationIssuanceDataToNative({
+            ...ledgerIssuanceBase,
+            compensation_type: 'OcfCompensationTypeCSAR',
+            exercise_price: value,
+            base_price: monetary,
+          }),
+        'equityCompensationIssuance.exercise_price',
+        value
+      );
+    }
+  );
+
+  it.each(malformedMonetaryValues)(
+    'rejects $name as an RSU exercise_price instead of treating it as absent',
+    ({ value }) => {
+      expectInvalidLedgerPrice(
+        () =>
+          damlEquityCompensationIssuanceDataToNative({
+            ...ledgerIssuanceBase,
+            compensation_type: 'OcfCompensationTypeRSU',
+            exercise_price: value,
+            base_price: null,
+          }),
+        'equityCompensationIssuance.exercise_price',
+        value
+      );
+    }
+  );
+
+  it('reports malformed Monetary object fields with their contextual path', () => {
+    try {
+      damlEquityCompensationIssuanceDataToNative({
+        ...ledgerIssuanceBase,
+        compensation_type: 'OcfCompensationTypeOption',
+        exercise_price: {},
+        base_price: null,
+      });
+      throw new Error('Expected validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        fieldPath: 'equityCompensationIssuance.exercise_price.amount',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      });
+    }
+  });
+
+  it('continues to treat null DAML optionals as absent', () => {
+    expect(
+      damlEquityCompensationIssuanceDataToNative({
+        ...ledgerIssuanceBase,
+        compensation_type: 'OcfCompensationTypeRSU',
+        exercise_price: null,
+        base_price: null,
+      })
+    ).toMatchObject({
+      compensation_type: 'RSU',
+    });
   });
 });

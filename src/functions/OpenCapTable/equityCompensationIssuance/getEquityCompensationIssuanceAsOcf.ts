@@ -13,6 +13,8 @@ import {
   damlTimeToDateString,
   nonEmptyArrayOrUndefined,
   normalizeNumericString,
+  nullableDamlTimeToDateString,
+  optionalDamlTimeToDateString,
 } from '../../../utils/typeConversions';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
@@ -62,14 +64,18 @@ const twMapPeriodType: Partial<Record<string, PeriodType>> = {
 export function damlEquityCompensationIssuanceDataToNative(
   d: DamlEquityCompensationIssuanceData
 ): OcfEquityCompensationIssuance {
-  const exercisePrice = damlMonetaryToNativeWithValidation(d.exercise_price);
-  const basePrice = damlMonetaryToNativeWithValidation(d.base_price);
+  const exercisePrice = damlMonetaryToNativeWithValidation(
+    d.exercise_price,
+    'equityCompensationIssuance.exercise_price'
+  );
+  const basePrice = damlMonetaryToNativeWithValidation(d.base_price, 'equityCompensationIssuance.base_price');
 
   const vestings = nonEmptyArrayOrUndefined(
-    d.vestings.map((vesting) => ({
-      date: damlTimeToDateString(vesting.date, 'equityCompensationIssuance.vestings[].date'),
-      amount: normalizeNumericString(vesting.amount),
-    }))
+    d.vestings.map((vesting, index) => ({
+      date: damlTimeToDateString(vesting.date, `equityCompensationIssuance.vestings[${index}].date`),
+      amount: normalizeNumericString(vesting.amount, `equityCompensationIssuance.vestings[${index}].amount`),
+    })),
+    'equityCompensationIssuance.vestings'
   );
 
   const termination_exercise_windows =
@@ -109,12 +115,6 @@ export function damlEquityCompensationIssuanceDataToNative(
     throw new OcpValidationError('equityCompensationIssuance.id', 'Required field is missing or invalid', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       receivedValue: d.id,
-    });
-  }
-  if (typeof d.date !== 'string' || !d.date) {
-    throw new OcpValidationError('equityCompensationIssuance.date', 'Required field is missing or invalid', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.date,
     });
   }
   if (typeof d.security_id !== 'string' || !d.security_id) {
@@ -159,6 +159,15 @@ export function damlEquityCompensationIssuanceDataToNative(
     jurisdiction: exemption.jurisdiction,
   }));
 
+  const boardApprovalDate = optionalDamlTimeToDateString(
+    d.board_approval_date,
+    'equityCompensationIssuance.board_approval_date'
+  );
+  const stockholderApprovalDate = optionalDamlTimeToDateString(
+    d.stockholder_approval_date,
+    'equityCompensationIssuance.stockholder_approval_date'
+  );
+
   return {
     object_type: 'TX_EQUITY_COMPENSATION_ISSUANCE',
     id: d.id,
@@ -167,28 +176,14 @@ export function damlEquityCompensationIssuanceDataToNative(
     custom_id: d.custom_id,
     stakeholder_id: d.stakeholder_id,
     ...pricing,
-    quantity: normalizeNumericString(d.quantity),
-    expiration_date: d.expiration_date
-      ? damlTimeToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date')
-      : null,
+    quantity: normalizeNumericString(d.quantity, 'equityCompensationIssuance.quantity'),
+    expiration_date: nullableDamlTimeToDateString(d.expiration_date, 'equityCompensationIssuance.expiration_date'),
     termination_exercise_windows: termination_exercise_windows ?? [],
-    ...(d.early_exercisable !== null ? { early_exercisable: Boolean(d.early_exercisable) } : {}),
-    ...(d.board_approval_date
-      ? {
-          board_approval_date: damlTimeToDateString(
-            d.board_approval_date,
-            'equityCompensationIssuance.board_approval_date'
-          ),
-        }
+    ...(d.early_exercisable !== null && d.early_exercisable !== undefined
+      ? { early_exercisable: Boolean(d.early_exercisable) }
       : {}),
-    ...(d.stockholder_approval_date
-      ? {
-          stockholder_approval_date: damlTimeToDateString(
-            d.stockholder_approval_date,
-            'equityCompensationIssuance.stockholder_approval_date'
-          ),
-        }
-      : {}),
+    ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
+    ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(typeof d.consideration_text === 'string' && d.consideration_text
       ? { consideration_text: d.consideration_text }
       : {}),

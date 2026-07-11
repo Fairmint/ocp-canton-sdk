@@ -32,7 +32,7 @@ export function damlStakeholderStatusChangeEventToNative(
   return {
     object_type: 'CE_STAKEHOLDER_STATUS',
     id: d.id,
-    date: damlTimeToDateString(d.date),
+    date: damlTimeToDateString(d.date, 'stakeholderStatusChangeEvent.date'),
     stakeholder_id: d.stakeholder_id,
     new_status: damlStakeholderStatusToNative(d.new_status),
     ...(Array.isArray(d.comments) && d.comments.length > 0 ? { comments: d.comments } : {}),

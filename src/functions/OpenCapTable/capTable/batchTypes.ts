@@ -118,8 +118,7 @@ type OcfEntityRegistry = {
 /**
  * Single source of truth for entity-level metadata.
  *
- * Legacy PlanSecurity objects normalize to the canonical EquityCompensation family
- * before reaching typed batch operations.
+ * Only canonical OCF object types reach typed batch operations.
  */
 export const ENTITY_REGISTRY = {
   convertibleAcceptance: {
@@ -343,7 +342,6 @@ export const ENTITY_REGISTRY = {
     objectType: 'STOCK_PLAN',
     templateId: Fairmint.OpenCapTable.OCF.StockPlan.StockPlan.templateId,
     dataField: 'plan_data',
-    dataFieldFallbacks: ['stock_plan_data'],
     capTableField: 'stock_plans',
     operations: mutableEntityOperations('StockPlan'),
   },
@@ -400,7 +398,6 @@ export const ENTITY_REGISTRY = {
     objectType: 'TX_VESTING_ACCELERATION',
     templateId: Fairmint.OpenCapTable.OCF.VestingAcceleration.VestingAcceleration.templateId,
     dataField: 'acceleration_data',
-    dataFieldFallbacks: ['vesting_acceleration_data'],
     capTableField: 'vesting_accelerations',
     operations: mutableEntityOperations('VestingAcceleration'),
   },
@@ -408,7 +405,6 @@ export const ENTITY_REGISTRY = {
     objectType: 'TX_VESTING_EVENT',
     templateId: Fairmint.OpenCapTable.OCF.VestingEvent.VestingEvent.templateId,
     dataField: 'vesting_data',
-    dataFieldFallbacks: ['vesting_event_data'],
     capTableField: 'vesting_events',
     operations: mutableEntityOperations('VestingEvent'),
   },
@@ -416,7 +412,6 @@ export const ENTITY_REGISTRY = {
     objectType: 'TX_VESTING_START',
     templateId: Fairmint.OpenCapTable.OCF.VestingStart.VestingStart.templateId,
     dataField: 'vesting_data',
-    dataFieldFallbacks: ['vesting_start_data'],
     capTableField: 'vesting_starts',
     operations: mutableEntityOperations('VestingStart'),
   },
