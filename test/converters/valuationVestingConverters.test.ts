@@ -723,6 +723,56 @@ describe('VestingTerms drift regression', () => {
   });
 
   test.each([
+    ['string', '250.5000000000', '250.5'],
+    ['number', 250.5, '250.5'],
+  ])('normalizes a DAML vesting quantity provided as a %s', (_case, quantity, expected) => {
+    const condition = {
+      id: 'quantity-condition',
+      description: null,
+      quantity,
+      portion: null,
+      trigger: 'OcfVestingStartTrigger',
+      next_condition_ids: [],
+    };
+
+    const result = damlVestingTermsDataToNative(makeDamlVestingTerms({ vesting_conditions: [condition] }));
+
+    expect(result.vesting_conditions[0]).toMatchObject({ quantity: expected });
+    expect(result.vesting_conditions[0]).not.toHaveProperty('portion');
+  });
+
+  test.each([
+    ['NaN', Number.NaN, OcpErrorCodes.INVALID_FORMAT],
+    ['positive infinity', Number.POSITIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
+    ['negative infinity', Number.NEGATIVE_INFINITY, OcpErrorCodes.INVALID_FORMAT],
+    ['invalid decimal string', 'not-a-number', OcpErrorCodes.INVALID_FORMAT],
+    ['boolean', true, OcpErrorCodes.INVALID_TYPE],
+    ['object', {}, OcpErrorCodes.INVALID_TYPE],
+  ])('rejects a DAML vesting quantity provided as %s', (_case, quantity, code) => {
+    const condition = {
+      id: 'invalid-quantity-condition',
+      description: null,
+      quantity,
+      portion: null,
+      trigger: 'OcfVestingStartTrigger',
+      next_condition_ids: [],
+    };
+
+    try {
+      damlVestingTermsDataToNative(makeDamlVestingTerms({ vesting_conditions: [condition] }));
+      throw new Error('Expected vesting quantity conversion to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        fieldPath: 'vestingCondition.quantity',
+        code,
+        expectedType: 'decimal string or finite number',
+        receivedValue: quantity,
+      });
+    }
+  });
+
+  test.each([
     [
       'neither amount',
       {
