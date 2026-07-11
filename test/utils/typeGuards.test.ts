@@ -636,6 +636,34 @@ describe('OCF Type Guards', () => {
       expect(isOcfDocument({ ...documentWithoutPath, uri: 'https://example.com/doc.pdf' })).toBe(true);
     });
 
+    it.each([
+      {
+        name: 'path with a null inactive uri',
+        document: { ...validDocument, uri: null },
+      },
+      {
+        name: 'uri with a null inactive path',
+        document: {
+          ...validDocument,
+          path: null,
+          uri: 'https://example.com/doc.pdf',
+        },
+      },
+    ])('recognizes $name with typed document semantics', ({ document }) => {
+      expect(isOcfDocument(document)).toBe(true);
+      expect(detectOcfObjectType(document)).toBe('DOCUMENT');
+    });
+
+    it.each([
+      ['both locations null', { ...validDocument, path: null, uri: null }],
+      [
+        'both locations populated',
+        { ...validDocument, path: '/docs/agreement.pdf', uri: 'https://example.com/doc.pdf' },
+      ],
+    ])('returns false when %s', (_case, document) => {
+      expect(isOcfDocument(document)).toBe(false);
+    });
+
     it('returns false when required fields are missing', () => {
       expect(isOcfDocument({ ...validDocument, md5: undefined })).toBe(false);
     });

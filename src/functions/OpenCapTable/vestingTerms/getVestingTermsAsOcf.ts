@@ -269,7 +269,7 @@ function damlVestingConditionPortionToNative(
 
 const DAML_VESTING_QUANTITY_SCALE = 10n;
 const DAML_VESTING_QUANTITY_INTEGER_DIGITS = 28n;
-const DAML_VESTING_QUANTITY_PATTERN = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/;
+const DAML_VESTING_QUANTITY_PATTERN = /^(-?)((?:0|[1-9]\d*))(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/;
 
 function invalidDamlVestingQuantity(receivedValue: string | number, message: string): never {
   throw new OcpValidationError('vestingCondition.quantity', message, {
