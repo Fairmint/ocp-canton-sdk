@@ -228,6 +228,76 @@ describe('WarrantIssuance round-trip equivalence', () => {
   });
 
   test.each([
+    ['explicit null', null, OcpErrorCodes.INVALID_TYPE],
+    ['wrong type', 42, OcpErrorCodes.INVALID_TYPE],
+    ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('rejects a %s optional warrant stock-class target on the exact second trigger', (_case, value, code) => {
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        baseExerciseTrigger,
+        {
+          ...baseExerciseTrigger,
+          trigger_id: 'warrant2_trigger_2',
+          conversion_right: {
+            ...baseExerciseTrigger.conversion_right,
+            converts_to_stock_class_id: value,
+          },
+        },
+      ],
+    } as unknown as Parameters<typeof warrantIssuanceDataToDaml>[0];
+
+    try {
+      warrantIssuanceDataToDaml(input);
+      throw new Error('Expected optional stock-class target validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        expectedType: 'non-empty string or omitted property',
+        fieldPath: 'warrantIssuance.exercise_triggers.1.conversion_right.converts_to_stock_class_id',
+        receivedValue: value,
+      });
+    }
+  });
+
+  test.each([
+    ['missing', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['explicit null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['wrong type', 42, OcpErrorCodes.INVALID_TYPE],
+    ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('classifies a %s required stock-class target on the exact second trigger', (_case, value, code) => {
+    const secondTrigger = stockClassTrigger();
+    const input = {
+      ...baseWarrantIssuance,
+      exercise_triggers: [
+        baseExerciseTrigger,
+        {
+          ...secondTrigger,
+          trigger_id: 'w_stock_ratio_2',
+          conversion_right: {
+            ...secondTrigger.conversion_right,
+            converts_to_stock_class_id: value,
+          },
+        },
+      ],
+    } as unknown as Parameters<typeof warrantIssuanceDataToDaml>[0];
+
+    try {
+      warrantIssuanceDataToDaml(input);
+      throw new Error('Expected required stock-class target validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        expectedType: 'non-empty string',
+        fieldPath: 'warrantIssuance.exercise_triggers.1.conversion_right.converts_to_stock_class_id',
+        receivedValue: value,
+      });
+    }
+  });
+
+  test.each([
     ['missing', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
     ['wrong type', 42, OcpErrorCodes.INVALID_TYPE],
   ] as const)('classifies a %s second exercise-trigger record precisely', (_case, value, code) => {

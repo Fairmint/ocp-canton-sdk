@@ -310,6 +310,40 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
   });
 
   test.each([
+    ['explicit null', null, OcpErrorCodes.INVALID_TYPE],
+    ['wrong type', 42, OcpErrorCodes.INVALID_TYPE],
+    ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('rejects a %s optional stock-class target on the exact second trigger', (_case, value, code) => {
+    const input = {
+      ...validInput,
+      conversion_triggers: [
+        SAFE_TRIGGER_BASE,
+        {
+          ...SAFE_TRIGGER_BASE,
+          trigger_id: 'trigger-002',
+          conversion_right: {
+            ...SAFE_TRIGGER_BASE.conversion_right,
+            converts_to_stock_class_id: value,
+          },
+        },
+      ],
+    } as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0];
+
+    try {
+      convertibleIssuanceDataToDaml(input);
+      throw new Error('Expected stock-class target validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code,
+        expectedType: 'non-empty string or omitted property',
+        fieldPath: 'convertibleIssuance.conversion_triggers.1.conversion_right.converts_to_stock_class_id',
+        receivedValue: value,
+      });
+    }
+  });
+
+  test.each([
     ['missing', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
     ['wrong type', 42, OcpErrorCodes.INVALID_TYPE],
   ] as const)('classifies a %s second trigger record precisely', (_case, value, code) => {

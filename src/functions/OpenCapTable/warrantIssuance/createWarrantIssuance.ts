@@ -85,12 +85,51 @@ function quantitySourceToDaml(value: unknown): Fairmint.OpenCapTable.Types.Stock
 }
 
 function requireStockClassTarget(right: StockClassConversionRight, field: string): string {
-  if (!right.converts_to_stock_class_id) {
+  const value: unknown = right.converts_to_stock_class_id;
+  const expectedType = 'non-empty string';
+  if (value === undefined || value === null) {
     throw new OcpValidationError(field, 'The current DAML stock-class right requires converts_to_stock_class_id', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType,
+      receivedValue: value,
     });
   }
-  return right.converts_to_stock_class_id;
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(field, 'converts_to_stock_class_id must be a non-empty string', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
+    throw new OcpValidationError(field, 'converts_to_stock_class_id must be a non-empty string', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  return value;
+}
+
+function optionalNonEmptyStringToDaml(value: unknown, field: string): string | null {
+  const expectedType = 'non-empty string or omitted property';
+  if (value === undefined) return null;
+  // The generated DAML validator rejects Some ""; report the exact OCF field instead of silently storing None.
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(field, `${field} must be a non-empty string when provided`, {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
+    throw new OcpValidationError(field, `${field} must be a non-empty string when provided`, {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  return value;
 }
 
 function storageTrigger(
@@ -178,7 +217,10 @@ function conversionRightToDaml(
             right.converts_to_future_round,
             `${source}.converts_to_future_round`
           ),
-          converts_to_stock_class_id: optionalString(right.converts_to_stock_class_id),
+          converts_to_stock_class_id: optionalNonEmptyStringToDaml(
+            right.converts_to_stock_class_id,
+            `${source}.converts_to_stock_class_id`
+          ),
         },
       };
     case 'STOCK_CLASS_CONVERSION_RIGHT':
