@@ -141,7 +141,7 @@ export function damlEquityCompensationIssuanceDataToNative(
           const period = parseDamlSafeInteger(
             window.period,
             `equityCompensationIssuance.termination_exercise_windows[${index}].period`,
-            'numeric'
+            'int'
           );
           return { reason, period, period_type: periodType };
         })

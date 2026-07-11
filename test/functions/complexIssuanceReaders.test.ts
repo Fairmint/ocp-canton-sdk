@@ -11,7 +11,10 @@ import { getEntityAsOcf } from '../../src/functions/OpenCapTable/capTable/damlTo
 import { convertibleIssuanceDataToDaml } from '../../src/functions/OpenCapTable/convertibleIssuance/createConvertibleIssuance';
 import { getConvertibleIssuanceAsOcf } from '../../src/functions/OpenCapTable/convertibleIssuance/getConvertibleIssuanceAsOcf';
 import { equityCompensationIssuanceDataToDaml } from '../../src/functions/OpenCapTable/equityCompensationIssuance/createEquityCompensationIssuance';
-import { getEquityCompensationIssuanceAsOcf } from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
+import {
+  damlEquityCompensationIssuanceDataToNative,
+  getEquityCompensationIssuanceAsOcf,
+} from '../../src/functions/OpenCapTable/equityCompensationIssuance/getEquityCompensationIssuanceAsOcf';
 import { warrantIssuanceDataToDaml } from '../../src/functions/OpenCapTable/warrantIssuance/createWarrantIssuance';
 import { getWarrantIssuanceAsOcf } from '../../src/functions/OpenCapTable/warrantIssuance/getWarrantIssuanceAsOcf';
 import { OcpClient } from '../../src/OcpClient';
@@ -1244,8 +1247,11 @@ describe('decoder-backed complex issuance readers', () => {
 
   it.each([
     ['fractional text', '1.5'],
+    ['a zero-only fractional suffix', '1.0'],
+    ['a ten-digit zero-only fractional suffix', '90.0000000000'],
     ['scientific notation', '1e3'],
     ['a leading zero', '090'],
+    ['a leading plus', '+1'],
     ['negative zero', '-0'],
     ['positive overflow', '9007199254740992'],
     ['negative overflow', '-9007199254740992'],
@@ -1258,6 +1264,19 @@ describe('decoder-backed complex issuance readers', () => {
     if (!window) throw new Error('Missing termination exercise window fixture');
     data.termination_exercise_windows = [{ ...window, period }];
     const { client } = createMockClient(testCase, data);
+
+    expect(() =>
+      damlEquityCompensationIssuanceDataToNative(
+        data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
+      )
+    ).toThrow(
+      expect.objectContaining({
+        name: 'OcpValidationError',
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'equityCompensationIssuance.termination_exercise_windows[0].period',
+        receivedValue: period,
+      })
+    );
 
     await expect(testCase.invoke(client)).rejects.toMatchObject({
       name: 'OcpValidationError',
@@ -1274,9 +1293,8 @@ describe('decoder-backed complex issuance readers', () => {
   it.each([
     ['zero', '0', 0],
     ['a negative integer', '-30', -30],
-    ['a zero-only fractional suffix', '90.0000000000', 90],
-    ['the positive safe boundary', '9007199254740991.0', Number.MAX_SAFE_INTEGER],
-    ['the negative safe boundary', '-9007199254740991.0', Number.MIN_SAFE_INTEGER],
+    ['the positive safe boundary', '9007199254740991', Number.MAX_SAFE_INTEGER],
+    ['the negative safe boundary', '-9007199254740991', Number.MIN_SAFE_INTEGER],
   ])(
     'equity compensation issuance accepts a termination period encoded as %s',
     async (_description, period, expected) => {
@@ -1288,6 +1306,12 @@ describe('decoder-backed complex issuance readers', () => {
       if (!window) throw new Error('Missing termination exercise window fixture');
       data.termination_exercise_windows = [{ ...window, period }];
       const { client } = createMockClient(testCase, data);
+
+      expect(
+        damlEquityCompensationIssuanceDataToNative(
+          data as Parameters<typeof damlEquityCompensationIssuanceDataToNative>[0]
+        ).termination_exercise_windows
+      ).toEqual([{ reason: 'VOLUNTARY_OTHER', period: expected, period_type: 'DAYS' }]);
 
       await expect(testCase.invoke(client)).resolves.toMatchObject({
         event: {
