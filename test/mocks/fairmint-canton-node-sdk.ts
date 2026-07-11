@@ -219,7 +219,8 @@ export async function getFeaturedAppRightContractDetails(validatorApi: Validator
   if (!featuredAppRight) {
     throw new Error(`No featured app right found for party ${partyId}`);
   }
-  const synchronizerIdFromFeatured = typeof featuredAppRight.domain_id === 'string' ? featuredAppRight.domain_id : undefined;
+  const synchronizerIdFromFeatured =
+    typeof featuredAppRight.domain_id === 'string' ? featuredAppRight.domain_id : undefined;
   let synchronizerId = synchronizerIdFromFeatured;
   if (!synchronizerId) {
     // The featured-apps endpoint may not include the synchronizer/domain id.
