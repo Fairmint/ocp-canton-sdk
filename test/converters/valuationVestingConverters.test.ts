@@ -43,6 +43,46 @@ import type {
 } from '../../src/types';
 import { expectInvalidDate } from '../utils/dateValidationAssertions';
 
+function makeBranchingOcfVestingTerms(): OcfVestingTerms {
+  return {
+    object_type: 'VESTING_TERMS',
+    id: 'vt-branching-graph',
+    name: 'Branching vesting graph',
+    description: 'Two branches converge on a shared terminal condition',
+    allocation_type: 'CUMULATIVE_ROUNDING',
+    vesting_conditions: [
+      {
+        id: 'start',
+        quantity: '0',
+        trigger: { type: 'VESTING_START_DATE' },
+        next_condition_ids: ['milestone', 'service'],
+      },
+      {
+        id: 'milestone',
+        quantity: '10',
+        trigger: { type: 'VESTING_EVENT' },
+        next_condition_ids: ['finish'],
+      },
+      {
+        id: 'service',
+        quantity: '20',
+        trigger: {
+          type: 'VESTING_SCHEDULE_RELATIVE',
+          relative_to_condition_id: 'start',
+          period: { type: 'MONTHS', length: 12, occurrences: 1, day_of_month: '01' },
+        },
+        next_condition_ids: ['finish'],
+      },
+      {
+        id: 'finish',
+        quantity: '70',
+        trigger: { type: 'VESTING_EVENT' },
+        next_condition_ids: [],
+      },
+    ],
+  };
+}
+
 describe('Valuation Converters', () => {
   describe('OCF → DAML (valuationDataToDaml)', () => {
     test('converts minimal valuation data', () => {
@@ -352,6 +392,81 @@ describe('VestingTerms Converters', () => {
         ],
       } as unknown as OcfVestingTerms;
     }
+
+    test('accepts an acyclic branching graph whose branches share a terminal condition', () => {
+      expect(vestingTermsDataToDaml(makeBranchingOcfVestingTerms()).vesting_conditions).toMatchObject([
+        { id: 'start', next_condition_ids: ['milestone', 'service'] },
+        { id: 'milestone', next_condition_ids: ['finish'] },
+        { id: 'service', next_condition_ids: ['finish'] },
+        { id: 'finish', next_condition_ids: [] },
+      ]);
+    });
+
+    test.each([
+      [
+        'duplicate condition ID',
+        (input: OcfVestingTerms) => {
+          input.vesting_conditions[1].id = 'start';
+        },
+        'vestingTerms.vesting_conditions[1].id',
+        'start',
+        { firstIndex: 0 },
+      ],
+      [
+        'dangling next-condition reference',
+        (input: OcfVestingTerms) => {
+          input.vesting_conditions[0].next_condition_ids = ['missing'];
+        },
+        'vestingTerms.vesting_conditions[0].next_condition_ids[0]',
+        'missing',
+        { conditionId: 'start' },
+      ],
+      [
+        'dangling relative-trigger reference',
+        (input: OcfVestingTerms) => {
+          const { trigger } = input.vesting_conditions[2];
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'missing';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'missing',
+        { conditionId: 'service' },
+      ],
+      [
+        'self-relative trigger reference',
+        (input: OcfVestingTerms) => {
+          const { trigger } = input.vesting_conditions[2];
+          if (trigger.type !== 'VESTING_SCHEDULE_RELATIVE') throw new Error('Expected relative trigger fixture');
+          trigger.relative_to_condition_id = 'service';
+        },
+        'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+        'service',
+        { conditionId: 'service' },
+      ],
+      [
+        'cycle',
+        (input: OcfVestingTerms) => {
+          input.vesting_conditions[3].next_condition_ids = ['start'];
+        },
+        'vestingTerms.vesting_conditions[3].next_condition_ids[0]',
+        'start',
+        { conditionId: 'finish', targetConditionId: 'start' },
+      ],
+    ] as const)('rejects a vesting graph with a %s on write', (_case, mutate, fieldPath, receivedValue, context) => {
+      const input = JSON.parse(JSON.stringify(makeBranchingOcfVestingTerms())) as OcfVestingTerms;
+      mutate(input);
+
+      expect(() => vestingTermsDataToDaml(input)).toThrow(
+        expect.objectContaining({
+          name: OcpValidationError.name,
+          code: OcpErrorCodes.INVALID_FORMAT,
+          classification: 'invalid_vesting_graph',
+          fieldPath,
+          receivedValue,
+          context: expect.objectContaining(context),
+        })
+      );
+    });
 
     test('defaults portion.remainder to false when omitted', () => {
       const ocfData = {
@@ -974,6 +1089,86 @@ describe('VestingTerms drift regression', () => {
     } as unknown as Parameters<typeof damlVestingTermsDataToNative>[0];
   }
 
+  test('reads an acyclic branching graph whose branches share a terminal condition', () => {
+    const daml = vestingTermsDataToDaml(makeBranchingOcfVestingTerms());
+
+    expect(
+      damlVestingTermsDataToNative(daml as unknown as Parameters<typeof damlVestingTermsDataToNative>[0])
+        .vesting_conditions
+    ).toMatchObject([
+      { id: 'start', next_condition_ids: ['milestone', 'service'] },
+      { id: 'milestone', next_condition_ids: ['finish'] },
+      { id: 'service', next_condition_ids: ['finish'] },
+      { id: 'finish', next_condition_ids: [] },
+    ]);
+  });
+
+  test.each([
+    [
+      'duplicate condition ID',
+      (conditions: Array<Record<string, unknown>>) => {
+        conditions[1].id = 'start';
+      },
+      'vestingTerms.vesting_conditions[1].id',
+      'start',
+      { firstIndex: 0 },
+    ],
+    [
+      'dangling next-condition reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        conditions[0].next_condition_ids = ['missing'];
+      },
+      'vestingTerms.vesting_conditions[0].next_condition_ids[0]',
+      'missing',
+      { conditionId: 'start' },
+    ],
+    [
+      'dangling relative-trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        const trigger = conditions[2].trigger as { value: { relative_to_condition_id: string } };
+        trigger.value.relative_to_condition_id = 'missing';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'missing',
+      { conditionId: 'service' },
+    ],
+    [
+      'self-relative trigger reference',
+      (conditions: Array<Record<string, unknown>>) => {
+        const trigger = conditions[2].trigger as { value: { relative_to_condition_id: string } };
+        trigger.value.relative_to_condition_id = 'service';
+      },
+      'vestingTerms.vesting_conditions[2].trigger.relative_to_condition_id',
+      'service',
+      { conditionId: 'service' },
+    ],
+    [
+      'cycle',
+      (conditions: Array<Record<string, unknown>>) => {
+        conditions[3].next_condition_ids = ['start'];
+      },
+      'vestingTerms.vesting_conditions[3].next_condition_ids[0]',
+      'start',
+      { conditionId: 'finish', targetConditionId: 'start' },
+    ],
+  ] as const)('rejects a vesting graph with a %s on read', (_case, mutate, source, receivedValue, context) => {
+    const daml = vestingTermsDataToDaml(makeBranchingOcfVestingTerms());
+    const conditions = daml.vesting_conditions as Array<Record<string, unknown>>;
+    mutate(conditions);
+
+    expect(() =>
+      damlVestingTermsDataToNative(daml as unknown as Parameters<typeof damlVestingTermsDataToNative>[0])
+    ).toThrow(
+      expect.objectContaining({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.INVALID_FORMAT,
+        classification: 'invalid_vesting_graph',
+        source,
+        context: expect.objectContaining({ receivedValue, ...context }),
+      })
+    );
+  });
+
   test('preserves remainder: false when explicitly set (truthiness fix)', () => {
     const result = damlVestingTermsDataToNative(makeDamlVestingTerms());
     expect(result.vesting_conditions[0].portion).toBeDefined();
@@ -1338,6 +1533,14 @@ describe('VestingTerms drift regression', () => {
     const daml = makeDamlVestingTerms({
       vesting_conditions: [
         {
+          id: 'start',
+          description: null,
+          quantity: '0',
+          portion: null,
+          trigger: { tag: 'OcfVestingStartTrigger', value: {} },
+          next_condition_ids: ['max-safe-period'],
+        },
+        {
           id: 'max-safe-period',
           description: null,
           quantity: '1',
@@ -1361,7 +1564,7 @@ describe('VestingTerms drift regression', () => {
       ],
     });
 
-    expect(damlVestingTermsDataToNative(daml).vesting_conditions[0].trigger).toMatchObject({
+    expect(damlVestingTermsDataToNative(daml).vesting_conditions[1].trigger).toMatchObject({
       period: { length: Number.MAX_SAFE_INTEGER, occurrences: 1, cliff_installment: 0 },
     });
   });
@@ -1675,6 +1878,12 @@ describe('VestingTerms drift regression', () => {
       allocation_type: 'CUMULATIVE_ROUNDING',
       vesting_conditions: [
         {
+          id: 'start',
+          quantity: '0',
+          trigger: { type: 'VESTING_START_DATE' },
+          next_condition_ids: ['relative'],
+        },
+        {
           id: 'relative',
           quantity: '1',
           trigger: {
@@ -1689,11 +1898,11 @@ describe('VestingTerms drift regression', () => {
 
     const damlData = vestingTermsDataToDaml(ocfInput);
     expect(damlData).toMatchObject({
-      vesting_conditions: [{ trigger: { value: { period: { value: { length_: '0' } } } } }],
+      vesting_conditions: [{ id: 'start' }, { trigger: { value: { period: { value: { length_: '0' } } } } }],
     });
     expect(
       damlVestingTermsDataToNative(damlData as unknown as Parameters<typeof damlVestingTermsDataToNative>[0])
-        .vesting_conditions[0]
+        .vesting_conditions[1]
     ).toMatchObject({ trigger: { period: { length: 0 } } });
   });
 
