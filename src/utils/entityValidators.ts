@@ -17,6 +17,7 @@
 import { OcpErrorCodes, OcpValidationError } from '../errors';
 import type { Address, Email, Monetary, Phone } from '../types';
 import { canonicalizeNonnegativeDamlNumeric10 } from './damlNumeric';
+import { isStakeholderRelationshipType, STAKEHOLDER_RELATIONSHIP_TYPES } from './enumConversions';
 import {
   validateEnum,
   validateMd5,
@@ -54,17 +55,25 @@ const STAKEHOLDER_STATUSES = [
   'TERMINATION_INVOLUNTARY_WITH_CAUSE',
 ] as const;
 
-const STAKEHOLDER_RELATIONSHIPS = [
-  'EMPLOYEE',
-  'ADVISOR',
-  'INVESTOR',
-  'FOUNDER',
-  'BOARD_MEMBER',
-  'OFFICER',
-  'OTHER',
-] as const;
-
 // ===== Helper Validators =====
+
+function validateStakeholderRelationship(value: unknown, fieldPath: string): void {
+  const expectedType = `one of: ${STAKEHOLDER_RELATIONSHIP_TYPES.join(', ')}`;
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(fieldPath, `Value must be ${expectedType}`, {
+      expectedType,
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
+  }
+  if (!isStakeholderRelationshipType(value)) {
+    throw new OcpValidationError(fieldPath, `Value must be ${expectedType}`, {
+      expectedType,
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_FORMAT,
+    });
+  }
+}
 
 /**
  * Validate an initial_shares_authorized value.
@@ -409,7 +418,7 @@ export function validateStakeholderData(data: unknown, fieldPath: string): void 
     }
     const relationships = value.current_relationships;
     for (let i = 0; i < relationships.length; i++) {
-      validateEnum(relationships[i], `${fieldPath}.current_relationships[${i}]`, STAKEHOLDER_RELATIONSHIPS);
+      validateStakeholderRelationship(relationships[i], `${fieldPath}.current_relationships[${i}]`);
     }
   }
 
