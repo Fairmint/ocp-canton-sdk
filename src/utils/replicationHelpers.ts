@@ -9,6 +9,11 @@
  * @module replicationHelpers
  */
 
+import { types as nodeUtilTypes } from 'node:util';
+
+import { OcpErrorCodes } from '../errors/codes';
+import { toSafeDiagnosticText } from '../errors/OcpError';
+import { OcpValidationError } from '../errors/OcpValidationError';
 import {
   mapOcfObjectTypeToEntityType,
   OCF_OBJECT_TYPE_TO_ENTITY_TYPE,
@@ -243,7 +248,7 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
  *
  * @param manifest - OCF manifest from extractCantonOcfManifest
  * @returns Map of entityType → Map of canonical object ID → OCF data object
- * @throws Error if any object is missing a valid 'id' field or has an unsupported object_type
+ * @throws OcpValidationError if an object is missing a valid `id` or has an unsupported `object_type`
  *
  * @example
  * ```typescript
@@ -257,23 +262,47 @@ export function getEntityTypeLabel(type: OcfEntityType, count: number): string {
 export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
   const result = new CantonOcfDataMap();
 
+  const diagnosticText = (value: unknown): string => toSafeDiagnosticText(value, 128);
+  const diagnosticLiteral = (value: unknown): string =>
+    typeof value === 'string' ? JSON.stringify(diagnosticText(value)) : diagnosticText(value);
+  const ownDataProperty = (value: unknown, property: string): unknown => {
+    if (value === null || typeof value !== 'object' || nodeUtilTypes.isProxy(value)) return undefined;
+    const descriptor = Object.getOwnPropertyDescriptor(value, property);
+    return descriptor !== undefined && 'value' in descriptor ? descriptor.value : undefined;
+  };
+
   // Helper to add an item to the map with validation
   const addItem = <EntityType extends OcfEntityType>(
     entityType: EntityType,
     item: OcfEntityDataMap[EntityType],
     context: string
   ): void => {
-    const { id } = item;
-    if (typeof id !== 'string') {
-      throw new Error(`Invalid ${context}: missing or invalid 'id' field. Got: ${JSON.stringify(id)}`);
+    const safeContext = diagnosticText(context);
+    const id = ownDataProperty(item, 'id');
+    if (typeof id !== 'string' || id.length === 0) {
+      throw new OcpValidationError(
+        `${safeContext}.id`,
+        `Invalid ${safeContext}: missing or invalid 'id' field. Got: ${diagnosticText(id)}`,
+        {
+          code: id === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'non-empty string',
+          receivedValue: id,
+        }
+      );
     }
 
-    const { object_type: objectType } = item;
+    const objectType = ownDataProperty(item, 'object_type');
     const mappedEntityType = typeof objectType === 'string' ? mapOcfObjectTypeToEntityType(objectType) : null;
     if (mappedEntityType !== entityType) {
-      throw new Error(
-        `Invalid ${context}: object_type ${JSON.stringify(objectType)} maps to ${JSON.stringify(mappedEntityType)}, ` +
-          `not ${JSON.stringify(entityType)}`
+      throw new OcpValidationError(
+        `${safeContext}.object_type`,
+        `Invalid ${safeContext}: object_type ${diagnosticLiteral(objectType)} maps to ` +
+          `${diagnosticLiteral(mappedEntityType)}, not ${diagnosticLiteral(entityType)}`,
+        {
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          expectedType: entityType,
+          receivedValue: objectType,
+        }
       );
     }
 
@@ -315,10 +344,16 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
 
   // Process transactions using the canonical registry-backed object-type mapping.
   for (const tx of manifest.transactions) {
-    const objectType = tx['object_type'];
+    const objectType = ownDataProperty(tx, 'object_type');
     if (typeof objectType !== 'string') {
-      throw new Error(
-        `Invalid transaction: missing or invalid 'object_type' field. Got: ${JSON.stringify(objectType)}`
+      throw new OcpValidationError(
+        'transaction.object_type',
+        `Invalid transaction: missing or invalid 'object_type' field. Got: ${diagnosticText(objectType)}`,
+        {
+          code: objectType === undefined ? OcpErrorCodes.REQUIRED_FIELD_MISSING : OcpErrorCodes.INVALID_TYPE,
+          expectedType: 'canonical TX_ or CE_ discriminator',
+          receivedValue: objectType,
+        }
       );
     }
 
@@ -326,12 +361,28 @@ export function buildCantonOcfDataMap(manifest: OcfManifest): CantonOcfDataMap {
     // Legacy categorized inputs are handled by mapCategorizedTypeToEntityType
     // before they reach this typed boundary.
     if (!objectType.startsWith('TX_') && !objectType.startsWith('CE_')) {
-      throw new Error(`Unsupported transaction object_type: ${objectType}`);
+      throw new OcpValidationError(
+        'transaction.object_type',
+        `Unsupported transaction object_type: ${diagnosticText(objectType)}`,
+        {
+          code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+          expectedType: 'canonical TX_ or CE_ discriminator',
+          receivedValue: objectType,
+        }
+      );
     }
     const runtimeObjectType: string = objectType;
     const entityType = mapOcfObjectTypeToEntityType(runtimeObjectType);
     if (entityType === null) {
-      throw new Error(`Unsupported transaction object_type: ${objectType}`);
+      throw new OcpValidationError(
+        'transaction.object_type',
+        `Unsupported transaction object_type: ${diagnosticText(objectType)}`,
+        {
+          code: OcpErrorCodes.UNKNOWN_ENTITY_TYPE,
+          expectedType: 'supported canonical transaction discriminator',
+          receivedValue: objectType,
+        }
+      );
     }
     addItem(entityType, tx, `transaction (${objectType})`);
   }

@@ -10,6 +10,17 @@ import {
   type OcfDataTypeFor,
   type OcfEntityType,
 } from '../functions/OpenCapTable/capTable/entityTypes';
+import {
+  convertibleMechanismToDaml,
+  ratioMechanismToDaml,
+  warrantMechanismToDaml,
+} from '../functions/OpenCapTable/shared/conversionMechanisms';
+import type {
+  ConvertibleConversionMechanism,
+  RatioConversionMechanism,
+  WarrantConversionMechanism,
+} from '../types/native';
+import { assertSafeOcfJson } from './ocfJsonValidation';
 import { normalizeOcfData } from './ocfNormalization';
 
 const ENTITY_OBJECT_TYPE_MAP = Object.fromEntries(
@@ -360,11 +371,7 @@ function addCanonicalConversionIssues(
     } else {
       const rightAllowedByObject =
         objectType !== 'TX_CONVERTIBLE_ISSUANCE' || rightType === 'CONVERTIBLE_CONVERSION_RIGHT';
-      const rightAllowedByWarrant =
-        objectType !== 'TX_WARRANT_ISSUANCE' ||
-        rightType === 'WARRANT_CONVERSION_RIGHT' ||
-        rightType === 'STOCK_CLASS_CONVERSION_RIGHT';
-      if (!rightAllowedByObject || !rightAllowedByWarrant) {
+      if (!rightAllowedByObject) {
         ctx.addIssue({
           code: 'custom',
           path: [...segments, 'type'],
@@ -607,6 +614,37 @@ function normalizeTypedEntityInput(entityType: OcfEntityType, input: Record<stri
   return normalized;
 }
 
+/** Enforce ledger-v34 refinements only at the SDK's strongly typed entity boundary. */
+function validateTypedConversionRefinements(value: Record<string, unknown>): void {
+  const visit = (current: unknown, currentPath: string): void => {
+    if (Array.isArray(current)) {
+      current.forEach((item, index) => visit(item, currentPath === '' ? `${index}` : `${currentPath}.${index}`));
+      return;
+    }
+    if (!isRecord(current)) return;
+
+    const mechanism = current.conversion_mechanism;
+    const mechanismPath = currentPath === '' ? 'conversion_mechanism' : `${currentPath}.conversion_mechanism`;
+    switch (current.type) {
+      case 'CONVERTIBLE_CONVERSION_RIGHT':
+        convertibleMechanismToDaml(mechanism as ConvertibleConversionMechanism, mechanismPath);
+        break;
+      case 'WARRANT_CONVERSION_RIGHT':
+        warrantMechanismToDaml(mechanism as WarrantConversionMechanism, mechanismPath);
+        break;
+      case 'STOCK_CLASS_CONVERSION_RIGHT':
+        ratioMechanismToDaml(mechanism as RatioConversionMechanism, mechanismPath);
+        break;
+    }
+
+    for (const [key, child] of Object.entries(current)) {
+      visit(child, currentPath === '' ? key : `${currentPath}.${key}`);
+    }
+  };
+
+  visit(value, '');
+}
+
 /**
  * Parse and validate an arbitrary OCF JSON object.
  *
@@ -615,6 +653,7 @@ function normalizeTypedEntityInput(entityType: OcfEntityType, input: Record<stri
  * SDK's canonical forms. Retired PlanSecurity object types are rejected.
  */
 export function parseOcfObject(input: unknown): Record<string, unknown> {
+  assertSafeOcfJson(input, 'ocfObject');
   if (!isRecord(input)) {
     throw new OcpValidationError('ocfObject', 'Expected a JSON object', {
       code: OcpErrorCodes.INVALID_TYPE,
@@ -671,11 +710,20 @@ export function parseOcfObject(input: unknown): Record<string, unknown> {
  * {@link parseOcfObject} ingestion boundary.
  */
 export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, input: unknown): OcfDataTypeFor<T> {
+  assertSafeOcfJson(input, entityType);
   if (!isRecord(input)) {
     throw new OcpValidationError(`${entityType}`, 'Expected a JSON object', {
       code: OcpErrorCodes.INVALID_TYPE,
       expectedType: 'Record<string, unknown>',
       receivedValue: input,
+    });
+  }
+
+  if (entityType === 'stockPlan' && Object.prototype.hasOwnProperty.call(input, 'stock_class_id')) {
+    throw new OcpValidationError('stock_class_id', 'Typed stock plan input requires canonical stock_class_ids', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType: 'stock_class_ids: [string, ...string[]]',
+      receivedValue: input.stock_class_id,
     });
   }
 
@@ -719,6 +767,7 @@ export function parseOcfEntityInput<T extends OcfEntityType>(entityType: T, inpu
     );
   }
 
+  validateTypedConversionRefinements(parsed);
   return parsed;
 }
 

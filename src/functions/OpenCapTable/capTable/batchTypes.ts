@@ -252,8 +252,7 @@ export const ENTITY_REGISTRY = {
     objectType: 'CE_STAKEHOLDER_RELATIONSHIP',
     templateId:
       Fairmint.OpenCapTable.OCF.StakeholderRelationshipChangeEvent.StakeholderRelationshipChangeEvent.templateId,
-    dataField: 'relationship_change_data',
-    dataFieldFallbacks: ['event_data'],
+    dataField: 'event_data',
     capTableField: 'stakeholder_relationship_change_events',
     operations: mutableEntityOperations('StakeholderRelationshipChangeEvent'),
   },

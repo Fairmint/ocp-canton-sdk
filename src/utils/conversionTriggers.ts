@@ -161,10 +161,33 @@ function optionalString(value: unknown, source: string, field: string, nullIsAbs
 }
 
 function requireTriggerType(value: unknown, source: string): ConversionTriggerType {
+  const field = fieldPath(source, 'type');
+  const expectedType = [...CONVERSION_TRIGGER_TYPES].join(' | ');
+  if (value === undefined || value === null) {
+    throw new OcpValidationError(field, 'Conversion trigger type is required', {
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (typeof value !== 'string') {
+    throw new OcpValidationError(field, 'Conversion trigger type must be a string', {
+      code: OcpErrorCodes.INVALID_TYPE,
+      expectedType,
+      receivedValue: value,
+    });
+  }
+  if (value.length === 0) {
+    throw new OcpValidationError(field, 'Conversion trigger type must be non-empty', {
+      code: OcpErrorCodes.INVALID_FORMAT,
+      expectedType,
+      receivedValue: value,
+    });
+  }
   if (!isConversionTriggerType(value)) {
-    throw new OcpValidationError(fieldPath(source, 'type'), `Unknown conversion trigger type: ${String(value)}`, {
+    throw new OcpValidationError(field, `Unknown conversion trigger type: ${value}`, {
       code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-      expectedType: [...CONVERSION_TRIGGER_TYPES].join(' | '),
+      expectedType,
       receivedValue: value,
     });
   }
@@ -261,6 +284,13 @@ export function parseConversionTriggerFields(
   const nullIsAbsent = options.nullIsAbsent ?? false;
   const type = requireTriggerType(triggerFields.type, source);
   const unexpectedFieldCode = options.unexpectedFieldCode ?? OcpErrorCodes.INVALID_FORMAT;
+  rejectUnknownOwnFields(
+    fields,
+    CANONICAL_CONVERSION_TRIGGER_FIELDS,
+    source,
+    OcpErrorCodes.SCHEMA_MISMATCH,
+    (field) => `${field} is not a valid conversion-trigger field`
+  );
   rejectUnknownOwnFields(
     fields,
     ALLOWED_CONVERSION_TRIGGER_FIELDS[type],
