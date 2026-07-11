@@ -1,11 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfStockPlanPoolAdjustment } from '../../../types/native';
-import {
-  damlTimeToDateString,
-  normalizeNumericString,
-  optionalDamlTimeToDateString,
-} from '../../../utils/typeConversions';
+import { damlTimeToDateString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
+import { validateAdministrativeAdjustmentFields } from '../capTable/administrativeAdjustmentValidation';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -34,9 +31,14 @@ export interface DamlStockPlanPoolAdjustmentData {
 export function damlStockPlanPoolAdjustmentDataToNative(
   data: DamlStockPlanPoolAdjustmentData
 ): OcfStockPlanPoolAdjustment {
-  // Convert shares_reserved to string for normalization (DAML Numeric may come as number at runtime)
-  const sharesReserved = data.shares_reserved as string | number;
-  const sharesReservedStr = typeof sharesReserved === 'number' ? sharesReserved.toString() : sharesReserved;
+  const sharesReserved = validateAdministrativeAdjustmentFields('stockPlanPoolAdjustment', {
+    id: data.id,
+    subjectField: 'stock_plan_id',
+    subjectValue: data.stock_plan_id,
+    numericField: 'shares_reserved',
+    numericValue: data.shares_reserved,
+    comments: data.comments,
+  });
   const boardApprovalDate = optionalDamlTimeToDateString(
     data.board_approval_date,
     'stockPlanPoolAdjustment.board_approval_date'
@@ -51,7 +53,7 @@ export function damlStockPlanPoolAdjustmentDataToNative(
     id: data.id,
     date: damlTimeToDateString(data.date, 'stockPlanPoolAdjustment.date'),
     stock_plan_id: data.stock_plan_id,
-    shares_reserved: normalizeNumericString(sharesReservedStr, 'stockPlanPoolAdjustment.shares_reserved'),
+    shares_reserved: sharesReserved,
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(Array.isArray(data.comments) && data.comments.length ? { comments: data.comments } : {}),

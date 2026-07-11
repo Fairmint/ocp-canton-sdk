@@ -201,7 +201,14 @@ export function normalizeNumericString(value: string | number, fieldPath = 'nume
 }
 
 /** Normalize a value that must satisfy the canonical OCF Numeric precision and lexical grammar. */
-export function normalizeOcfNumericString(value: string | number, fieldPath: string): string {
+export function normalizeOcfNumericString(value: unknown, fieldPath: string): string {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw new OcpValidationError(fieldPath, 'OCF numeric value must be a string or number', {
+      expectedType: 'decimal string with at most 10 fractional digits',
+      receivedValue: value,
+      code: OcpErrorCodes.INVALID_TYPE,
+    });
+  }
   const stringValue = typeof value === 'number' ? value.toString() : value;
   if (stringValue.toLowerCase().includes('e')) {
     return normalizeNumericString(stringValue, fieldPath);

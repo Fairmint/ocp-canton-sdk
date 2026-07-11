@@ -1,12 +1,8 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
-import { OcpErrorCodes, OcpValidationError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
 import type { OcfIssuerAuthorizedSharesAdjustment } from '../../../types/native';
-import {
-  damlTimeToDateString,
-  normalizeNumericString,
-  optionalDamlTimeToDateString,
-} from '../../../utils/typeConversions';
+import { damlTimeToDateString, optionalDamlTimeToDateString } from '../../../utils/typeConversions';
+import { validateAdministrativeAdjustmentFields } from '../capTable/administrativeAdjustmentValidation';
 import { ENTITY_TEMPLATE_ID_MAP } from '../capTable/batchTypes';
 import { extractAndDecodeDamlEntityData } from '../capTable/damlEntityData';
 import { readSingleContract } from '../shared/singleContractRead';
@@ -35,28 +31,14 @@ export interface DamlIssuerAuthorizedSharesAdjustmentData {
 export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
   d: DamlIssuerAuthorizedSharesAdjustmentData
 ): OcfIssuerAuthorizedSharesAdjustment {
-  if (!d.id || typeof d.id !== 'string')
-    throw new OcpValidationError('issuerAuthorizedSharesAdjustment.id', 'Missing or invalid id', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.id,
-    });
-  if (!d.issuer_id || typeof d.issuer_id !== 'string')
-    throw new OcpValidationError('issuerAuthorizedSharesAdjustment.issuer_id', 'Missing or invalid issuer_id', {
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      receivedValue: d.issuer_id,
-    });
-  if (d.new_shares_authorized === undefined || d.new_shares_authorized === null)
-    throw new OcpValidationError(
-      'issuerAuthorizedSharesAdjustment.new_shares_authorized',
-      'Missing new_shares_authorized',
-      { code: OcpErrorCodes.REQUIRED_FIELD_MISSING }
-    );
-  if (typeof d.new_shares_authorized !== 'string' && typeof d.new_shares_authorized !== 'number')
-    throw new OcpValidationError(
-      'issuerAuthorizedSharesAdjustment.new_shares_authorized',
-      `Must be string or number, got ${typeof d.new_shares_authorized}`,
-      { code: OcpErrorCodes.INVALID_TYPE, expectedType: 'string | number', receivedValue: d.new_shares_authorized }
-    );
+  const newSharesAuthorized = validateAdministrativeAdjustmentFields('issuerAuthorizedSharesAdjustment', {
+    id: d.id,
+    subjectField: 'issuer_id',
+    subjectValue: d.issuer_id,
+    numericField: 'new_shares_authorized',
+    numericValue: d.new_shares_authorized,
+    comments: d.comments,
+  });
   const boardApprovalDate = optionalDamlTimeToDateString(
     d.board_approval_date,
     'issuerAuthorizedSharesAdjustment.board_approval_date'
@@ -71,10 +53,7 @@ export function damlIssuerAuthorizedSharesAdjustmentDataToNative(
     id: d.id,
     date: damlTimeToDateString(d.date, 'issuerAuthorizedSharesAdjustment.date'),
     issuer_id: d.issuer_id,
-    new_shares_authorized: normalizeNumericString(
-      d.new_shares_authorized,
-      'issuerAuthorizedSharesAdjustment.new_shares_authorized'
-    ),
+    new_shares_authorized: newSharesAuthorized,
     ...(boardApprovalDate !== undefined ? { board_approval_date: boardApprovalDate } : {}),
     ...(stockholderApprovalDate !== undefined ? { stockholder_approval_date: stockholderApprovalDate } : {}),
     ...(Array.isArray(d.comments) && d.comments.length ? { comments: d.comments } : {}),

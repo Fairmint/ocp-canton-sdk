@@ -2,6 +2,10 @@ import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import { extractAndDecodeAcceptanceData, isAcceptanceEntityType } from './acceptanceContractData';
 import {
+  extractAndDecodeAdministrativeAdjustmentData,
+  isAdministrativeAdjustmentEntityType,
+} from './adjustmentContractData';
+import {
   ENTITY_DATA_FIELD_FALLBACK_MAP,
   ENTITY_DATA_FIELD_MAP,
   ENTITY_TEMPLATE_ID_MAP,
@@ -185,6 +189,10 @@ export function extractAndDecodeDamlEntityData(
   entityType: OcfEntityType,
   createArgument: unknown
 ): DamlDataTypeFor<OcfEntityType> {
+  if (isAdministrativeAdjustmentEntityType(entityType)) {
+    return extractAndDecodeAdministrativeAdjustmentData(entityType, createArgument);
+  }
+
   if (isAcceptanceEntityType(entityType)) {
     return extractAndDecodeAcceptanceData(entityType, createArgument);
   }
