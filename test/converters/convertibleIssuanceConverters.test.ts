@@ -202,6 +202,59 @@ describe('SAFE conversion_timing DAML constructor names', () => {
   });
 });
 
+describe('convertible issuance discriminator and required-ID boundaries', () => {
+  const validInput = {
+    ...BASE_INPUT,
+    conversion_triggers: [SAFE_TRIGGER_BASE],
+  };
+
+  test.each([
+    {
+      name: 'convertible type',
+      fieldPath: 'convertibleIssuance.convertible_type',
+      receivedValue: 'BOND',
+      input: { ...validInput, convertible_type: 'BOND' },
+    },
+    {
+      name: 'trigger type',
+      fieldPath: 'convertibleIssuance.conversion_triggers[].type',
+      receivedValue: 'ON_MAGIC_EVENT',
+      input: {
+        ...validInput,
+        conversion_triggers: [{ ...SAFE_TRIGGER_BASE, type: 'ON_MAGIC_EVENT' }],
+      },
+    },
+  ])('rejects an unknown runtime $name with a typed error', ({ input, fieldPath, receivedValue }) => {
+    try {
+      convertibleIssuanceDataToDaml(input as unknown as Parameters<typeof convertibleIssuanceDataToDaml>[0]);
+      throw new Error('Expected runtime discriminator validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        fieldPath,
+        receivedValue,
+      });
+    }
+  });
+
+  it('rejects an empty required custom_id on ledger readback', () => {
+    const daml = convertibleIssuanceDataToDaml(validInput);
+
+    try {
+      damlConvertibleIssuanceDataToNative({ ...daml, custom_id: '' });
+      throw new Error('Expected custom_id validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_FORMAT,
+        fieldPath: 'convertibleIssuance.custom_id',
+        receivedValue: '',
+      });
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Read-side (DAML → OCF) exactness tests
 // ---------------------------------------------------------------------------
