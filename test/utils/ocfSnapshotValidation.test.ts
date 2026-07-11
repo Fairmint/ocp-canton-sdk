@@ -10,6 +10,7 @@ import {
   type OcfCapTableSnapshotValidationResult,
   type OcfSecurityFamily,
 } from '../../src';
+import * as batchTypes from '../../src/functions/OpenCapTable/capTable/batchTypes';
 import convertibleIssuanceFixture from '../fixtures/createOcf/TX_CONVERTIBLE_ISSUANCE-fb3ddea3-2642-41d7-abae-8c5dc63a4103.json';
 import warrantIssuanceFixture from '../fixtures/createOcf/TX_WARRANT_ISSUANCE-22b896cb-92df-4fd8-9e52-d0d4112b3f98.json';
 import convertibleConversionFixture from '../fixtures/production/convertibleConversion.json';
@@ -434,6 +435,17 @@ describe('getOcfObjectTypeCapability', () => {
       canonicalObjectType: 'ISSUER',
       entityType: 'issuer',
     });
+  });
+
+  it('fails closed if a readable object type loses its entity mapping', () => {
+    const mappingSpy = jest.spyOn(batchTypes, 'mapOcfObjectTypeToEntityType').mockReturnValue(null);
+    try {
+      expect(() => getOcfObjectTypeCapability('ISSUER')).toThrow(
+        'Internal invariant violated: ISSUER is readable but has no entity mapping'
+      );
+    } finally {
+      mappingSpy.mockRestore();
+    }
   });
 
   it('keeps opaque template and intrinsic refinements aligned with runtime capability results', () => {

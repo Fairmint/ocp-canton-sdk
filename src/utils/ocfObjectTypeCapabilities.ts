@@ -18,6 +18,12 @@ type CanonicalReadableObjectType<ObjectType extends string> = Extract<
 >;
 type OcfLedgerBackedObjectType = OcfReadableObjectType | PlanSecurityObjectType;
 type KnownOcfObjectType = OcfLedgerBackedObjectType | OcfSchemaOnlyObjectType;
+type RuntimeLedgerBackedCapability = Readonly<{
+  support: 'ledger-backed';
+  objectType: string;
+  canonicalObjectType: OcfReadableObjectType;
+  entityType: OcfEntityTypeForObjectType<OcfReadableObjectType>;
+}>;
 
 /** Recover the unrefined known literal represented by an exact branded discriminator. */
 type UnderlyingOcfLedgerBackedObjectType<ObjectType extends OcfLedgerBackedObjectType> = {
@@ -109,12 +115,22 @@ export function getOcfObjectTypeCapability(objectType: string): OcfObjectTypeCap
   if (!isOcfReadableObjectType(canonicalObjectType)) {
     return { support: 'unsupported', objectType };
   }
-  const entityType = mapOcfObjectTypeToEntityType(canonicalObjectType);
+  // Deliberately use the broad overload so this runtime boundary still fails
+  // closed if the readable-type guard and entity registry ever diverge.
+  const objectTypeForLookup: string = canonicalObjectType;
+  const entityType = mapOcfObjectTypeToEntityType(objectTypeForLookup);
+  if (entityType === null) {
+    throw new Error(`Internal invariant violated: ${canonicalObjectType} is readable but has no entity mapping`);
+  }
 
-  return {
+  const capability = {
     support: 'ledger-backed',
     objectType,
     canonicalObjectType,
     entityType,
-  } as OcfObjectTypeCapability;
+  } satisfies RuntimeLedgerBackedCapability;
+
+  // The runtime shape above is checked without an assertion. This final cast
+  // preserves the public alias/canonical/entity correlation for overload users.
+  return capability as OcfObjectTypeCapability;
 }

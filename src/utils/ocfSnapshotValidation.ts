@@ -1082,16 +1082,6 @@ export function validateOcfCapTableSnapshot(objects: unknown): OcfCapTableSnapsh
     sameObjects.push(item);
     objectsByKey.set(key, sameObjects);
 
-    const capability = getOcfObjectTypeCapability(item.data.object_type);
-    if (capability.support === 'unsupported') {
-      issues.push({
-        code: 'UNSUPPORTED_OBJECT_TYPE',
-        message: `Unsupported OCF object type ${item.data.object_type}`,
-        objectType: item.data.object_type,
-        objectId: item.data.id,
-      });
-    }
-
     const family = issuanceFamily(item.canonicalObjectType);
     if (family !== undefined) {
       const securityId = item.data.security_id;
