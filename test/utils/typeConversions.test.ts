@@ -3,6 +3,7 @@
 import { OcpParseError, OcpValidationError } from '../../src/errors';
 import {
   damlMonetaryToNative,
+  damlMonetaryToNativeWithValidation,
   ensureArray,
   monetaryToDaml,
   normalizeNumericString,
@@ -229,5 +230,21 @@ describe('monetary round-trip normalization', () => {
     const daml = monetaryToDaml(native1);
     const native2 = damlMonetaryToNative(daml);
     expect(native2).toEqual(native1);
+  });
+});
+
+describe('damlMonetaryToNativeWithValidation', () => {
+  test.each(['1e2', 'not-a-number', '12.34.56', ''])('reports invalid amount %p at the caller field path', (amount) => {
+    try {
+      damlMonetaryToNativeWithValidation({ amount, currency: 'USD' }, 'equityCompensationIssuance.exercise_price');
+      throw new Error('Expected monetary validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: 'INVALID_FORMAT',
+        fieldPath: 'equityCompensationIssuance.exercise_price.amount',
+        receivedValue: amount,
+      });
+    }
   });
 });

@@ -172,10 +172,13 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
                   ),
                 }
               : {}),
-            ...(value.conversion_valuation_cap
+            ...(value.conversion_valuation_cap !== null && value.conversion_valuation_cap !== undefined
               ? {
                   conversion_valuation_cap: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(value.conversion_valuation_cap);
+                    const monetary = damlMonetaryToNativeWithValidation(
+                      value.conversion_valuation_cap,
+                      'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.conversion_valuation_cap'
+                    );
                     if (!monetary) {
                       throw new OcpValidationError(
                         'convertibleIssuance.conversion_valuation_cap',
@@ -263,10 +266,13 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
           const mech: ValuationBasedMechanism = {
             type: 'VALUATION_BASED_CONVERSION',
             valuation_type: value.valuation_type,
-            ...(value.valuation_amount
+            ...(value.valuation_amount !== null && value.valuation_amount !== undefined
               ? {
                   valuation_amount: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(value.valuation_amount);
+                    const monetary = damlMonetaryToNativeWithValidation(
+                      value.valuation_amount,
+                      'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.valuation_amount'
+                    );
                     if (!monetary) {
                       throw new OcpValidationError(
                         'convertibleIssuance.valuation_amount',
@@ -311,10 +317,13 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
                   ),
                 }
               : {}),
-            ...(value.discount_amount
+            ...(value.discount_amount !== null && value.discount_amount !== undefined
               ? {
                   discount_amount: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(value.discount_amount);
+                    const monetary = damlMonetaryToNativeWithValidation(
+                      value.discount_amount,
+                      'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.discount_amount'
+                    );
                     if (!monetary) {
                       throw new OcpValidationError(
                         'convertibleIssuance.discount_amount',
@@ -429,10 +438,13 @@ const convertTriggers = (ts: unknown[] | undefined, issuanceId: string): Convers
                   ),
                 }
               : {}),
-            ...(value.conversion_valuation_cap
+            ...(value.conversion_valuation_cap !== null && value.conversion_valuation_cap !== undefined
               ? {
                   conversion_valuation_cap: (() => {
-                    const monetary = damlMonetaryToNativeWithValidation(value.conversion_valuation_cap);
+                    const monetary = damlMonetaryToNativeWithValidation(
+                      value.conversion_valuation_cap,
+                      'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.conversion_valuation_cap'
+                    );
                     if (!monetary) {
                       throw new OcpValidationError(
                         'convertibleIssuance.conversion_valuation_cap',

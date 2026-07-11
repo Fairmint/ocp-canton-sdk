@@ -259,6 +259,89 @@ function buildDamlNoteTrigger(dayCount: string, interestPayout: string) {
   };
 }
 
+type LedgerMonetaryVariant = 'SAFE' | 'VALUATION_BASED' | 'PPS_BASED' | 'NOTE';
+
+function buildDamlTriggerWithMonetaryValue(variant: LedgerMonetaryVariant, monetaryValue: unknown) {
+  const mechanism = (() => {
+    switch (variant) {
+      case 'SAFE':
+        return {
+          tag: 'OcfConvMechSAFE',
+          value: { conversion_mfn: false, conversion_valuation_cap: monetaryValue },
+        };
+      case 'VALUATION_BASED':
+        return {
+          tag: 'OcfConvMechValuationBased',
+          value: { valuation_type: 'PRE_MONEY', valuation_amount: monetaryValue },
+        };
+      case 'PPS_BASED':
+        return {
+          tag: 'OcfConvMechPpsBased',
+          value: { description: 'Next financing', discount: false, discount_amount: monetaryValue },
+        };
+      case 'NOTE':
+        return {
+          tag: 'OcfConvMechNote',
+          value: { interest_rates: [], conversion_valuation_cap: monetaryValue },
+        };
+    }
+  })();
+
+  return {
+    type_: 'OcfTriggerTypeTypeElectiveAtWill',
+    trigger_id: `trigger-${variant.toLowerCase()}`,
+    conversion_right: {
+      OcfRightConvertible: {
+        conversion_mechanism: mechanism,
+        converts_to_future_round: true,
+      },
+    },
+  };
+}
+
+describe('read-side: convertible monetary boundaries', () => {
+  const malformedValues: readonly unknown[] = [0, false, '', []];
+  const variants = [
+    {
+      variant: 'SAFE' as const,
+      fieldPath:
+        'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.conversion_valuation_cap',
+    },
+    {
+      variant: 'VALUATION_BASED' as const,
+      fieldPath: 'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.valuation_amount',
+    },
+    {
+      variant: 'PPS_BASED' as const,
+      fieldPath: 'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.discount_amount',
+    },
+    {
+      variant: 'NOTE' as const,
+      fieldPath:
+        'convertibleIssuance.conversion_triggers[].conversion_right.conversion_mechanism.conversion_valuation_cap',
+    },
+  ];
+
+  test.each(
+    variants.flatMap(({ variant, fieldPath }) => malformedValues.map((value) => ({ variant, fieldPath, value })))
+  )('rejects $value for $variant instead of treating it as absent', ({ variant, fieldPath, value }) => {
+    try {
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        conversion_triggers: [buildDamlTriggerWithMonetaryValue(variant, value)],
+      });
+      throw new Error('Expected monetary validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpValidationError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath,
+        receivedValue: value,
+      });
+    }
+  });
+});
+
 describe('read-side: conversion_timing exact DAML constructor matching', () => {
   it('OcfConvTimingPreMoney → PRE_MONEY', () => {
     const result = damlConvertibleIssuanceDataToNative({

@@ -323,7 +323,19 @@ export function damlMonetaryToNativeWithValidation(monetary: unknown, fieldPath 
     );
   }
 
-  const amount = normalizeNumericString(monetary.amount);
+  let amount: string;
+  try {
+    amount = normalizeNumericString(monetary.amount);
+  } catch (error) {
+    if (error instanceof OcpValidationError) {
+      throw new OcpValidationError(`${fieldPath}.amount`, 'Monetary amount must be a valid decimal string', {
+        code: error.code,
+        expectedType: error.expectedType,
+        receivedValue: error.receivedValue,
+      });
+    }
+    throw error;
+  }
   return { amount, currency: monetary.currency };
 }
 
