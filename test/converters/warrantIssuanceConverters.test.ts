@@ -39,6 +39,16 @@ function expectInvalidWarrantDate(
   }
 }
 
+function captureValidationError(action: () => unknown): OcpValidationError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof OcpValidationError) return error;
+    throw error;
+  }
+  throw new Error('Expected OcpValidationError');
+}
+
 describe('WarrantIssuance round-trip equivalence', () => {
   const baseWarrantIssuance = {
     id: '4afe6226-a717-4596-8bcc-fa3c22b154de',
@@ -167,12 +177,164 @@ describe('WarrantIssuance round-trip equivalence', () => {
       warrantIssuanceDataToDaml(input);
       throw new Error('Expected conversion-right validation to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
-        code: OcpErrorCodes.SCHEMA_MISMATCH,
-        source: 'warrantIssuance.exercise_triggers.1.conversion_right.type',
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: 'warrantIssuance.exercise_triggers.1.conversion_right',
+        receivedValue: null,
       });
     }
+  });
+
+  test.each([
+    ['null root', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['scalar root', 42, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s on write', (_case, value, code) => {
+    expect(captureValidationError(() => warrantIssuanceDataToDaml(value as never))).toMatchObject({
+      code,
+      fieldPath: 'warrantIssuance',
+      receivedValue: value,
+    });
+  });
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['record', {}, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s exercise_triggers collection on write', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      warrantIssuanceDataToDaml({ ...baseWarrantIssuance, exercise_triggers: value } as never)
+    );
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'warrantIssuance.exercise_triggers',
+      receivedValue: value,
+    });
+  });
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['number', 42, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s second exercise trigger on write', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: [baseExerciseTrigger, value],
+      } as never)
+    );
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'warrantIssuance.exercise_triggers.1',
+      receivedValue: value,
+    });
+  });
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['number', 0, OcpErrorCodes.INVALID_TYPE],
+    ['empty', '', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('classifies a %s second trigger_id on write', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: [baseExerciseTrigger, { ...baseExerciseTrigger, trigger_id: value }],
+      } as never)
+    );
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'warrantIssuance.exercise_triggers.1.trigger_id',
+      receivedValue: value,
+    });
+  });
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['number', 0, OcpErrorCodes.INVALID_TYPE],
+    ['malformed', '2024-02-30', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('classifies a %s required issuance date on write', (_case, value, code) => {
+    expect(
+      captureValidationError(() => warrantIssuanceDataToDaml({ ...baseWarrantIssuance, date: value } as never))
+    ).toMatchObject({ code, fieldPath: 'warrantIssuance.date', receivedValue: value });
+  });
+
+  test.each([null, false, 0, ''] as const)('rejects exercise_price %p instead of erasing it', (value) => {
+    expect(
+      captureValidationError(() =>
+        warrantIssuanceDataToDaml({ ...baseWarrantIssuance, exercise_price: value } as never)
+      )
+    ).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'warrantIssuance.exercise_price',
+      receivedValue: value,
+    });
+  });
+
+  it('rejects explicit-null vestings instead of defaulting to an empty array', () => {
+    expect(
+      captureValidationError(() => warrantIssuanceDataToDaml({ ...baseWarrantIssuance, vestings: null } as never))
+    ).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'warrantIssuance.vestings',
+      receivedValue: null,
+    });
+  });
+
+  test.each([
+    ['null purchase price', 'purchase_price', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['scalar purchase price', 'purchase_price', false, OcpErrorCodes.INVALID_TYPE],
+    ['null exemptions', 'security_law_exemptions', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['record exemptions', 'security_law_exemptions', {}, OcpErrorCodes.INVALID_TYPE],
+    ['null comments', 'comments', null, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies %s on write', (_case, field, value, code) => {
+    expect(
+      captureValidationError(() => warrantIssuanceDataToDaml({ ...baseWarrantIssuance, [field]: value }))
+    ).toMatchObject({ code, fieldPath: `warrantIssuance.${field}`, receivedValue: value });
+  });
+
+  test.each([
+    ['explicit null', null, OcpErrorCodes.INVALID_TYPE],
+    ['number', 42, OcpErrorCodes.INVALID_TYPE],
+    ['empty', '', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('strictly validates an optional warrant stock-class target that is %s', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: [
+          {
+            ...baseExerciseTrigger,
+            conversion_right: { ...baseExerciseTrigger.conversion_right, converts_to_stock_class_id: value },
+          },
+        ],
+      } as never)
+    );
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.converts_to_stock_class_id',
+      receivedValue: value,
+    });
+  });
+
+  test.each([
+    ['missing', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['wrong type', 42, OcpErrorCodes.INVALID_TYPE],
+    ['empty', '', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('strictly validates a required stock-class target that is %s', (_case, value, code) => {
+    const trigger = stockClassTrigger();
+    const error = captureValidationError(() =>
+      warrantIssuanceDataToDaml({
+        ...baseWarrantIssuance,
+        exercise_triggers: [
+          {
+            ...trigger,
+            conversion_right: { ...trigger.conversion_right, converts_to_stock_class_id: value },
+          },
+        ],
+      } as never)
+    );
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.converts_to_stock_class_id',
+      receivedValue: value,
+    });
   });
 
   test.each([
@@ -327,6 +489,62 @@ describe('WarrantIssuance round-trip equivalence', () => {
         receivedValue: '',
       });
     }
+  });
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['number', 42, OcpErrorCodes.INVALID_TYPE],
+    ['malformed', '2024-02-30', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('classifies a %s required issuance date on readback', (_case, value, code) => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const error = captureValidationError(() => damlWarrantIssuanceDataToNative({ ...daml, date: value }));
+    expect(error).toMatchObject({ code, fieldPath: 'warrantIssuance.date', receivedValue: value });
+  });
+
+  it('classifies a missing required purchase_price on readback', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    expect(
+      captureValidationError(() => damlWarrantIssuanceDataToNative({ ...daml, purchase_price: null }))
+    ).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'warrantIssuance.purchase_price',
+      receivedValue: null,
+    });
+  });
+
+  test('rejects a ledger-invalid empty optional trigger nickname at its exact path', () => {
+    const daml = warrantIssuanceDataToDaml(baseWarrantIssuance);
+    const firstTrigger = requireFirst(daml.exercise_triggers, 'serialized warrant trigger');
+    const error = captureValidationError(() =>
+      damlWarrantIssuanceDataToNative({
+        ...daml,
+        exercise_triggers: [{ ...firstTrigger, nickname: '' }],
+      })
+    );
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'warrantIssuance.exercise_triggers.0.nickname',
+      receivedValue: '',
+    });
+  });
+
+  test.each(['0', '-1'] as const)('rejects non-positive second vesting amount %s on readback', (amount) => {
+    const daml = warrantIssuanceDataToDaml({
+      ...baseWarrantIssuance,
+      vestings: [{ date: '2024-01-01', amount: '1' }],
+    });
+    const firstVesting = requireFirst(daml.vestings, 'serialized warrant vesting');
+    const error = captureValidationError(() =>
+      damlWarrantIssuanceDataToNative({
+        ...daml,
+        vestings: [firstVesting, { ...firstVesting, amount }],
+      })
+    );
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.OUT_OF_RANGE,
+      fieldPath: 'warrantIssuance.vestings.1.amount',
+      receivedValue: amount,
+    });
   });
 
   test.each([0, false, '', []] as const)(

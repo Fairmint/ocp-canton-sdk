@@ -907,6 +907,325 @@ describe('strict conversion record boundaries', () => {
   });
 });
 
+describe('runtime-total conversion mechanism boundaries', () => {
+  const note = {
+    type: 'CONVERTIBLE_NOTE_CONVERSION' as const,
+    interest_rates: [{ rate: '0.08', accrual_start_date: '2026-01-01' }],
+    day_count_convention: 'ACTUAL_365' as const,
+    interest_payout: 'DEFERRED' as const,
+    interest_accrual_period: 'ANNUAL' as const,
+    compounding_type: 'SIMPLE' as const,
+  };
+
+  test.each([
+    ['undefined', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['record', {}, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s note interest_rates collection', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      convertibleMechanismToDaml({ ...note, interest_rates: value } as unknown as ConvertibleConversionMechanism)
+    );
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'conversion_mechanism.interest_rates',
+      receivedValue: value,
+    });
+  });
+
+  test.each([null, 42, false])('rejects malformed second note interest-rate record %p at its index', (value) => {
+    const error = captureValidationError(() =>
+      convertibleMechanismToDaml({
+        ...note,
+        interest_rates: [note.interest_rates[0], value],
+      } as unknown as ConvertibleConversionMechanism)
+    );
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'conversion_mechanism.interest_rates.1',
+      receivedValue: value,
+    });
+  });
+
+  test.each([
+    ['day_count_convention', 'NOT_A_DAY_COUNT'],
+    ['interest_payout', 'NOT_A_PAYOUT'],
+    ['interest_accrual_period', 'NOT_A_PERIOD'],
+    ['compounding_type', 'NOT_COMPOUNDING'],
+  ] as const)('classifies note enum %s values without serializing undefined', (field, unknownValue) => {
+    for (const missingValue of [undefined, null]) {
+      const error = captureValidationError(() => convertibleMechanismToDaml({ ...note, [field]: missingValue }));
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: `conversion_mechanism.${field}`,
+        receivedValue: missingValue,
+      });
+    }
+
+    const wrongType = captureValidationError(() => convertibleMechanismToDaml({ ...note, [field]: 42 }));
+    expect(wrongType).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: `conversion_mechanism.${field}`,
+      receivedValue: 42,
+    });
+
+    try {
+      convertibleMechanismToDaml({ ...note, [field]: unknownValue });
+      throw new Error('Expected unknown note enum validation to fail');
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        source: `conversion_mechanism.${field}`,
+      });
+    }
+  });
+
+  test.each([
+    {
+      name: 'convertible custom',
+      encode: (description: unknown) =>
+        convertibleMechanismToDaml({
+          type: 'CUSTOM_CONVERSION',
+          custom_conversion_description: description,
+        } as unknown as ConvertibleConversionMechanism),
+    },
+    {
+      name: 'warrant custom',
+      encode: (description: unknown) =>
+        warrantMechanismToDaml({
+          type: 'CUSTOM_CONVERSION',
+          custom_conversion_description: description,
+        } as unknown as WarrantConversionMechanism),
+    },
+  ])('strictly validates the $name description', ({ encode }) => {
+    for (const value of [undefined, null]) {
+      expect(captureValidationError(() => encode(value))).toMatchObject({
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: 'conversion_mechanism.custom_conversion_description',
+        receivedValue: value,
+      });
+    }
+    expect(captureValidationError(() => encode(42))).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'conversion_mechanism.custom_conversion_description',
+      receivedValue: 42,
+    });
+    expect(captureValidationError(() => encode(''))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.custom_conversion_description',
+      receivedValue: '',
+    });
+  });
+
+  function pps(value: Record<string, unknown>): WarrantConversionMechanism {
+    return { type: 'PPS_BASED_CONVERSION', ...value } as unknown as WarrantConversionMechanism;
+  }
+
+  test.each([
+    [
+      'description missing',
+      { discount: false },
+      'conversion_mechanism.description',
+      OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    ],
+    [
+      'description wrong type',
+      { description: 42, discount: false },
+      'conversion_mechanism.description',
+      OcpErrorCodes.INVALID_TYPE,
+    ],
+    [
+      'description empty',
+      { description: '', discount: false },
+      'conversion_mechanism.description',
+      OcpErrorCodes.INVALID_FORMAT,
+    ],
+    ['discount missing', { description: 'PPS' }, 'conversion_mechanism.discount', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    [
+      'discount wrong type',
+      { description: 'PPS', discount: 'true' },
+      'conversion_mechanism.discount',
+      OcpErrorCodes.INVALID_TYPE,
+    ],
+  ] as const)('classifies a PPS %s', (_case, value, fieldPath, code) => {
+    const error = captureValidationError(() => warrantMechanismToDaml(pps(value)));
+    expect(error).toMatchObject({ code, fieldPath });
+  });
+
+  test.each([
+    ['discounted with no details', { description: 'PPS', discount: true }],
+    [
+      'discounted with both details',
+      {
+        description: 'PPS',
+        discount: true,
+        discount_percentage: '0.2',
+        discount_amount: { amount: '1', currency: 'USD' },
+      },
+    ],
+    ['non-discounted with percentage', { description: 'PPS', discount: false, discount_percentage: '0.2' }],
+    [
+      'non-discounted with amount',
+      { description: 'PPS', discount: false, discount_amount: { amount: '1', currency: 'USD' } },
+    ],
+  ] as const)('rejects a PPS mechanism that is %s', (_case, value) => {
+    expect(captureValidationError(() => warrantMechanismToDaml(pps(value)))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.discount',
+    });
+  });
+
+  const ratio = {
+    type: 'RATIO_CONVERSION' as const,
+    ratio: { numerator: '1', denominator: '1' },
+    conversion_price: { amount: '1', currency: 'USD' },
+    rounding_type: 'NORMAL' as const,
+  };
+
+  test.each([
+    ['ratio', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['ratio', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['conversion_price', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['conversion_price', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['rounding_type', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['rounding_type', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+  ] as const)('classifies missing ratio mechanism %s=%p', (field, value, code) => {
+    const error = captureValidationError(() => ratioMechanismToDaml({ ...ratio, [field]: value }));
+    expect(error).toMatchObject({
+      code,
+      fieldPath: `conversion_right.conversion_mechanism.${field}`,
+      receivedValue: value,
+    });
+  });
+
+  test.each([
+    ['null root', null, 'stockClass.conversion_right'],
+    ['scalar root', 42, 'stockClass.conversion_right'],
+    [
+      'missing constructor',
+      { ratio: ratio.ratio, conversion_price: ratio.conversion_price },
+      'stockClass.conversion_right.type',
+    ],
+    [
+      'wrong constructor type',
+      { conversion_mechanism: false, ratio: ratio.ratio, conversion_price: ratio.conversion_price },
+      'stockClass.conversion_right.type',
+    ],
+  ] as const)('rejects ratio reader %s', (_case, value, fieldPath) => {
+    const error = captureValidationError(() =>
+      ratioMechanismFromDaml(value as unknown as Record<string, unknown>, 'stockClass.conversion_right')
+    );
+    expect(error).toMatchObject({ fieldPath });
+  });
+
+  test.each([
+    {
+      name: 'convertible fixed quantity',
+      fieldPath: 'conversion_mechanism.converts_to_quantity',
+      encode: (value: unknown) =>
+        convertibleMechanismToDaml({
+          type: 'FIXED_AMOUNT_CONVERSION',
+          converts_to_quantity: value,
+        } as unknown as ConvertibleConversionMechanism),
+    },
+    {
+      name: 'warrant fixed quantity',
+      fieldPath: 'conversion_mechanism.converts_to_quantity',
+      encode: (value: unknown) =>
+        warrantMechanismToDaml({
+          type: 'FIXED_AMOUNT_CONVERSION',
+          converts_to_quantity: value,
+        } as unknown as WarrantConversionMechanism),
+    },
+  ])('classifies required numeric values for $name', ({ encode, fieldPath }) => {
+    for (const value of [undefined, null]) {
+      expect(captureValidationError(() => encode(value))).toMatchObject({
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath,
+        receivedValue: value,
+      });
+    }
+    expect(captureValidationError(() => encode(false))).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath,
+      receivedValue: false,
+    });
+    expect(captureValidationError(() => encode('1e3'))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath,
+      receivedValue: '1e3',
+    });
+  });
+
+  test.each([
+    ['missing root', undefined, 'conversion_mechanism', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['null root', null, 'conversion_mechanism', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['scalar root', 42, 'conversion_mechanism', OcpErrorCodes.INVALID_TYPE],
+    ['missing tag', { value: {} }, 'conversion_mechanism.tag', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['wrong tag type', { tag: 42, value: {} }, 'conversion_mechanism.tag', OcpErrorCodes.INVALID_TYPE],
+    ['missing value', { tag: 'OcfConvMechCustom' }, 'conversion_mechanism.value', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+  ] as const)('classifies a tagged reader %s', (_case, value, fieldPath, code) => {
+    const error = captureValidationError(() => convertibleMechanismFromDaml(value));
+    expect(error).toMatchObject({ code, fieldPath });
+  });
+
+  test.each([
+    {
+      name: 'convertible custom reader',
+      decode: (description: unknown) =>
+        convertibleMechanismFromDaml({
+          tag: 'OcfConvMechCustom',
+          value: { custom_conversion_description: description },
+        }),
+    },
+    {
+      name: 'warrant custom reader',
+      decode: (description: unknown) =>
+        warrantMechanismFromDaml({
+          tag: 'OcfWarrantMechanismCustom',
+          value: { custom_conversion_description: description },
+        }),
+    },
+  ])('strictly validates $name descriptions', ({ decode }) => {
+    for (const value of [undefined, null]) {
+      expect(captureValidationError(() => decode(value))).toMatchObject({
+        code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        fieldPath: 'conversion_mechanism.custom_conversion_description',
+        receivedValue: value,
+      });
+    }
+    expect(captureValidationError(() => decode(42))).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'conversion_mechanism.custom_conversion_description',
+      receivedValue: 42,
+    });
+    expect(captureValidationError(() => decode(''))).toMatchObject({
+      code: OcpErrorCodes.INVALID_FORMAT,
+      fieldPath: 'conversion_mechanism.custom_conversion_description',
+      receivedValue: '',
+    });
+  });
+
+  test.each(['CAP', 'FIXED'] as const)('requires a DAML valuation amount for %s formulas', (valuationType) => {
+    const error = captureValidationError(() =>
+      warrantMechanismFromDaml({
+        tag: 'OcfWarrantMechanismValuationBased',
+        value: {
+          valuation_type: valuationType,
+          valuation_amount: null,
+          capitalization_definition: null,
+          capitalization_definition_rules: null,
+        },
+      })
+    );
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'conversion_mechanism.valuation_amount',
+      receivedValue: null,
+    });
+  });
+});
+
 describe('reader discriminator diagnostic paths', () => {
   it('reports an unknown warrant valuation type at its caller-supplied path', () => {
     const field = 'warrantIssuance.exercise_triggers.1.conversion_right.conversion_mechanism';
@@ -1074,7 +1393,7 @@ describe('strict optional PPS discount fields', () => {
     const value = { amount: null, currency: 'USD' };
     const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
     expect(error).toMatchObject({
-      code: OcpErrorCodes.INVALID_TYPE,
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       expectedType: 'decimal string',
       fieldPath: 'conversion_mechanism.discount_amount.amount',
       receivedValue: null,
@@ -1085,8 +1404,8 @@ describe('strict optional PPS discount fields', () => {
     const value = { amount: '1', currency: null };
     const error = captureValidationError(() => warrantMechanismToDaml(amountMechanism(value)));
     expect(error).toMatchObject({
-      code: OcpErrorCodes.INVALID_TYPE,
-      expectedType: 'currency string',
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      expectedType: 'string',
       fieldPath: 'conversion_mechanism.discount_amount.currency',
       receivedValue: null,
     });

@@ -122,7 +122,7 @@ export function convertToOcf(
     case 'stakeholder':
       return damlStakeholderDataToNative(data as Parameters<typeof damlStakeholderDataToNative>[0]);
     case 'stockClass':
-      return damlStockClassDataToNative(data as Parameters<typeof damlStockClassDataToNative>[0]);
+      return damlStockClassDataToNative(data);
     case 'stockLegendTemplate':
       return damlStockLegendTemplateDataToNative(data as Parameters<typeof damlStockLegendTemplateDataToNative>[0]);
     case 'stockPlan':

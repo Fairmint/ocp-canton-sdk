@@ -135,10 +135,7 @@ function conversionRightsFromDaml(value: unknown): StockClassConversionRight[] {
       },
       `${source}.conversion_mechanism`
     );
-    const convertsToFutureRound = optionalBoolean(
-      right.converts_to_future_round,
-      `${source}.converts_to_future_round`
-    );
+    const convertsToFutureRound = optionalBoolean(right.converts_to_future_round, `${source}.converts_to_future_round`);
     return {
       type: 'STOCK_CLASS_CONVERSION_RIGHT',
       conversion_mechanism: conversionMechanism,
@@ -180,9 +177,7 @@ export function damlStockClassDataToNative(value: unknown): OcfStockClass {
     object_type: 'STOCK_CLASS',
     id: requireString(data.id, 'stockClass.id'),
     name: requireString(data.name, 'stockClass.name'),
-    class_type: damlStockClassTypeToNative(
-      classType as Parameters<typeof damlStockClassTypeToNative>[0]
-    ),
+    class_type: damlStockClassTypeToNative(classType),
     default_id_prefix: requireString(data.default_id_prefix, 'stockClass.default_id_prefix'),
     initial_shares_authorized: initialSharesFromDaml(data.initial_shares_authorized),
     votes_per_share: requireNumeric(data.votes_per_share, 'stockClass.votes_per_share'),

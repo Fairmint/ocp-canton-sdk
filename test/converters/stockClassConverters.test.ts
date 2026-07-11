@@ -17,6 +17,16 @@ import { stockClassDataToDaml } from '../../src/functions/OpenCapTable/stockClas
 import type { OcfStockClass } from '../../src/types/native';
 import { initialSharesAuthorizedToDaml } from '../../src/utils/typeConversions';
 
+function captureValidationError(action: () => unknown): OcpValidationError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof OcpValidationError) return error;
+    throw error;
+  }
+  throw new Error('Expected OcpValidationError');
+}
+
 describe('StockClass Converters', () => {
   const baseData: OcfStockClass = {
     object_type: 'STOCK_CLASS',
@@ -288,23 +298,112 @@ describe('StockClass Converters', () => {
         damlStockClassDataToNative({
           ...daml,
           initial_shares_authorized: { tag: 'OcfInitialSharesEnum', value: unknownValue },
-        } as unknown as Parameters<typeof damlStockClassDataToNative>[0]);
+        });
         throw new Error('Expected initial-shares enum validation to fail');
       } catch (error) {
-        expect(error).toBeInstanceOf(OcpValidationError);
+        expect(error).toBeInstanceOf(OcpParseError);
         expect(error).toMatchObject({
           code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-          fieldPath: 'stockClass.initial_shares_authorized',
-          receivedValue: unknownValue,
+          source: 'stockClass.initial_shares_authorized.value',
         });
       }
     });
 
     test.each([
+      ['null root', null, 'stockClass', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      ['scalar root', 42, 'stockClass', OcpErrorCodes.INVALID_TYPE],
+      ['numeric name', { ...stockClassDataToDaml(baseData), name: 42 }, 'stockClass.name', OcpErrorCodes.INVALID_TYPE],
+      ['empty name', { ...stockClassDataToDaml(baseData), name: '' }, 'stockClass.name', OcpErrorCodes.INVALID_FORMAT],
+    ] as const)('strictly classifies %s', (_case, value, fieldPath, code) => {
+      const error = captureValidationError(() => damlStockClassDataToNative(value));
+      expect(error).toMatchObject({ code, fieldPath });
+    });
+
+    test.each([
+      ['undefined', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      ['record', {}, OcpErrorCodes.INVALID_TYPE],
+    ] as const)('classifies a %s conversion_rights collection', (_case, value, code) => {
+      const daml = stockClassDataToDaml(baseData);
+      const error = captureValidationError(() => damlStockClassDataToNative({ ...daml, conversion_rights: value }));
+      expect(error).toMatchObject({
+        code,
+        fieldPath: 'stockClass.conversion_rights',
+        receivedValue: value,
+      });
+    });
+
+    test.each([
+      ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      ['boolean', false, OcpErrorCodes.INVALID_TYPE],
+    ] as const)('classifies a %s second conversion right record', (_case, value, code) => {
+      const conversionRight = {
+        type: 'STOCK_CLASS_CONVERSION_RIGHT' as const,
+        converts_to_stock_class_id: 'class-002',
+        conversion_mechanism: {
+          type: 'RATIO_CONVERSION' as const,
+          ratio: { numerator: '1', denominator: '1' },
+          conversion_price: { amount: '1', currency: 'USD' },
+          rounding_type: 'NORMAL' as const,
+        },
+      };
+      const daml = stockClassDataToDaml({ ...baseData, conversion_rights: [conversionRight] });
+      const firstRight = daml.conversion_rights[0];
+      if (firstRight === undefined) throw new Error('Expected serialized stock-class right');
+      const error = captureValidationError(() =>
+        damlStockClassDataToNative({ ...daml, conversion_rights: [firstRight, value] })
+      );
+      expect(error).toMatchObject({
+        code,
+        fieldPath: 'stockClass.conversion_rights.1',
+        receivedValue: value,
+      });
+    });
+
+    test.each([
+      ['undefined', undefined, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+      ['number', 42, OcpErrorCodes.INVALID_TYPE],
+    ] as const)('classifies %s comments', (_case, value, code) => {
+      const daml = stockClassDataToDaml(baseData);
+      const error = captureValidationError(() => damlStockClassDataToNative({ ...daml, comments: value }));
+      expect(error).toMatchObject({
+        code,
+        fieldPath: 'stockClass.comments',
+        receivedValue: value,
+      });
+    });
+
+    test.each([false, 0, ''] as const)('rejects malformed optional par_value %p instead of omitting it', (value) => {
+      const daml = stockClassDataToDaml(baseData);
+      const error = captureValidationError(() => damlStockClassDataToNative({ ...daml, par_value: value }));
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.INVALID_TYPE,
+        fieldPath: 'stockClass.par_value',
+        receivedValue: value,
+      });
+    });
+
+    test.each(['par_value', 'price_per_share'] as const)(
+      'rejects a non-string %s currency instead of returning an invalid Monetary value',
+      (field) => {
+        const daml = stockClassDataToDaml(baseData);
+        const error = captureValidationError(() =>
+          damlStockClassDataToNative({ ...daml, [field]: { amount: '1', currency: false } })
+        );
+        expect(error).toMatchObject({
+          code: OcpErrorCodes.INVALID_TYPE,
+          fieldPath: `stockClass.${field}.currency`,
+          receivedValue: false,
+        });
+      }
+    );
+
+    test.each([
       {
         name: 'initial authorized shares',
         field: 'initial_shares_authorized',
-        fieldPath: 'stockClass.initial_shares_authorized',
+        fieldPath: 'stockClass.initial_shares_authorized.value',
         value: { tag: 'OcfInitialSharesNumeric', value: '1e3' },
         receivedValue: '1e3',
       },
@@ -357,7 +456,7 @@ describe('StockClass Converters', () => {
         damlStockClassDataToNative({
           ...daml,
           [field]: value,
-        } as Parameters<typeof damlStockClassDataToNative>[0]);
+        });
         throw new Error('Expected stock class numeric validation to fail');
       } catch (error) {
         expect(error).toBeInstanceOf(OcpValidationError);

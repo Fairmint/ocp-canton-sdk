@@ -105,7 +105,10 @@ function optionalMonetaryToDaml(value: unknown, field: string): ReturnType<typeo
   return requiredMonetaryToDaml(value, field);
 }
 
-function securityLawExemptionsToDaml(value: unknown, field: string): Array<{ description: string; jurisdiction: string }> {
+function securityLawExemptionsToDaml(
+  value: unknown,
+  field: string
+): Array<{ description: string; jurisdiction: string }> {
   return requireArray(value, field).map((entry, index) => {
     const source = `${field}.${index}`;
     const exemption = requireRecord(entry, source);
@@ -153,7 +156,18 @@ function triggerTypeToDaml(
 function quantitySourceToDaml(value: unknown): Fairmint.OpenCapTable.Types.Stock.OcfQuantitySourceType | null {
   const field = 'warrantIssuance.quantity_source';
   if (value === undefined) return null;
-  if (value === null || typeof value !== 'string') {
+  if (value === null) {
+    throw new OcpValidationError(
+      field,
+      'Expected a canonical quantity source when provided; omit the property when absent (explicit null is invalid)',
+      {
+        code: OcpErrorCodes.INVALID_TYPE,
+        expectedType: 'QuantitySourceType or omitted property',
+        receivedValue: value,
+      }
+    );
+  }
+  if (typeof value !== 'string') {
     throw invalidType(field, 'QuantitySourceType or omitted property', value);
   }
   switch (value) {
@@ -289,10 +303,7 @@ function conversionRightToDaml(
   }
 }
 
-function triggerToDaml(
-  value: unknown,
-  index: number
-): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
+function triggerToDaml(value: unknown, index: number): Fairmint.OpenCapTable.Types.Conversion.OcfConversionTrigger {
   const source = `warrantIssuance.exercise_triggers.${index}`;
   const trigger = requireRecord(value, source);
   const nativeType = requireString(trigger.type, `${source}.type`) as WarrantExerciseTrigger['type'];
@@ -320,9 +331,10 @@ export function warrantIssuanceDataToDaml(
     });
   }
   const quantity = canonicalOptionalNumericToDaml(issuance.quantity, 'warrantIssuance.quantity');
-  const quantitySource = quantity !== null && issuance.quantity_source === undefined
-    ? quantitySourceToDaml('UNSPECIFIED')
-    : quantitySourceToDaml(issuance.quantity_source);
+  const quantitySource =
+    quantity !== null && issuance.quantity_source === undefined
+      ? quantitySourceToDaml('UNSPECIFIED')
+      : quantitySourceToDaml(issuance.quantity_source);
   const triggers = requireArray(issuance.exercise_triggers, 'warrantIssuance.exercise_triggers');
   const vestings = optionalArray(issuance.vestings, 'warrantIssuance.vestings');
 
@@ -332,7 +344,10 @@ export function warrantIssuanceDataToDaml(
     security_id: requireString(issuance.security_id, 'warrantIssuance.security_id'),
     custom_id: requireString(issuance.custom_id, 'warrantIssuance.custom_id'),
     stakeholder_id: requireString(issuance.stakeholder_id, 'warrantIssuance.stakeholder_id'),
-    board_approval_date: optionalDateStringToDAMLTime(issuance.board_approval_date, 'warrantIssuance.board_approval_date'),
+    board_approval_date: optionalDateStringToDAMLTime(
+      issuance.board_approval_date,
+      'warrantIssuance.board_approval_date'
+    ),
     stockholder_approval_date: optionalDateStringToDAMLTime(
       issuance.stockholder_approval_date,
       'warrantIssuance.stockholder_approval_date'

@@ -68,6 +68,16 @@ function expectParseErrorSource(action: () => unknown, source: string): void {
   }
 }
 
+function captureValidationError(action: () => unknown): OcpValidationError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof OcpValidationError) return error;
+    throw error;
+  }
+  throw new Error('Expected OcpValidationError');
+}
+
 const NOTE_INTEREST_RATE_READ_PATH =
   'convertibleIssuance.conversion_triggers.0.conversion_right.conversion_mechanism.interest_rates.0';
 const NOTE_INTEREST_RATE_WRITE_PATH =
@@ -391,6 +401,140 @@ describe('convertible issuance discriminator and required-ID boundaries', () => 
   });
 });
 
+describe('convertible issuance runtime-total writer boundary', () => {
+  const validInput = { ...BASE_INPUT, conversion_triggers: [SAFE_TRIGGER_BASE] };
+
+  test.each([
+    ['null root', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['scalar root', 42, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s', (_case, value, code) => {
+    expect(captureValidationError(() => convertibleIssuanceDataToDaml(value as never))).toMatchObject({
+      code,
+      fieldPath: 'convertibleIssuance',
+      receivedValue: value,
+    });
+  });
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['record', {}, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s conversion_triggers collection', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      convertibleIssuanceDataToDaml({ ...validInput, conversion_triggers: value } as never)
+    );
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'convertibleIssuance.conversion_triggers',
+      receivedValue: value,
+    });
+  });
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['number', 42, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s second trigger record', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      convertibleIssuanceDataToDaml({
+        ...validInput,
+        conversion_triggers: [SAFE_TRIGGER_BASE, value],
+      } as never)
+    );
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'convertibleIssuance.conversion_triggers.1',
+      receivedValue: value,
+    });
+  });
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['number', 0, OcpErrorCodes.INVALID_TYPE],
+    ['empty', '', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('classifies a %s second trigger_id', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      convertibleIssuanceDataToDaml({
+        ...validInput,
+        conversion_triggers: [SAFE_TRIGGER_BASE, { ...SAFE_TRIGGER_BASE, trigger_id: value }],
+      } as never)
+    );
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'convertibleIssuance.conversion_triggers.1.trigger_id',
+      receivedValue: value,
+    });
+  });
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['number', 0, OcpErrorCodes.INVALID_TYPE],
+    ['malformed', '2024-02-30', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('classifies a %s required issuance date', (_case, value, code) => {
+    expect(
+      captureValidationError(() => convertibleIssuanceDataToDaml({ ...validInput, date: value } as never))
+    ).toMatchObject({ code, fieldPath: 'convertibleIssuance.date', receivedValue: value });
+  });
+
+  test.each([
+    ['null monetary', null, 'convertibleIssuance.investment_amount', OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['scalar monetary', false, 'convertibleIssuance.investment_amount', OcpErrorCodes.INVALID_TYPE],
+    [
+      'missing amount',
+      { currency: 'USD' },
+      'convertibleIssuance.investment_amount.amount',
+      OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    ],
+    [
+      'wrong amount',
+      { amount: false, currency: 'USD' },
+      'convertibleIssuance.investment_amount.amount',
+      OcpErrorCodes.INVALID_TYPE,
+    ],
+    [
+      'missing currency',
+      { amount: '1', currency: null },
+      'convertibleIssuance.investment_amount.currency',
+      OcpErrorCodes.REQUIRED_FIELD_MISSING,
+    ],
+  ] as const)('classifies a %s', (_case, value, fieldPath, code) => {
+    expect(
+      captureValidationError(() => convertibleIssuanceDataToDaml({ ...validInput, investment_amount: value } as never))
+    ).toMatchObject({ code, fieldPath });
+  });
+
+  test.each([
+    ['null exemptions', 'security_law_exemptions', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['record exemptions', 'security_law_exemptions', {}, OcpErrorCodes.INVALID_TYPE],
+    ['null comments', 'comments', null, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies %s', (_case, field, value, code) => {
+    expect(
+      captureValidationError(() => convertibleIssuanceDataToDaml({ ...validInput, [field]: value }))
+    ).toMatchObject({ code, fieldPath: `convertibleIssuance.${field}`, receivedValue: value });
+  });
+
+  test.each([
+    ['explicit null', null, OcpErrorCodes.INVALID_TYPE],
+    ['number', 42, OcpErrorCodes.INVALID_TYPE],
+    ['empty string', '', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('rejects an optional stock-class target that is %s', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      convertibleIssuanceDataToDaml({
+        ...validInput,
+        conversion_triggers: [
+          {
+            ...SAFE_TRIGGER_BASE,
+            conversion_right: { ...SAFE_TRIGGER_BASE.conversion_right, converts_to_stock_class_id: value },
+          },
+        ],
+      } as never)
+    );
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'convertibleIssuance.conversion_triggers.0.conversion_right.converts_to_stock_class_id',
+      receivedValue: value,
+    });
+  });
+});
+
 describe('convertible issuance seniority write boundary', () => {
   const validInput = {
     ...BASE_INPUT,
@@ -462,6 +606,41 @@ function buildDamlSafeTrigger(conversionTiming?: string) {
     },
   };
 }
+
+describe('convertible issuance required read taxonomy', () => {
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['number', 42, OcpErrorCodes.INVALID_TYPE],
+    ['malformed', '2024-02-30', OcpErrorCodes.INVALID_FORMAT],
+  ] as const)('classifies a %s required date', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        date: value,
+        conversion_triggers: [buildDamlSafeTrigger()],
+      })
+    );
+    expect(error).toMatchObject({ code, fieldPath: 'convertibleIssuance.date', receivedValue: value });
+  });
+
+  test.each([
+    ['null', null, OcpErrorCodes.REQUIRED_FIELD_MISSING],
+    ['number', 42, OcpErrorCodes.INVALID_TYPE],
+  ] as const)('classifies a %s convertible_type', (_case, value, code) => {
+    const error = captureValidationError(() =>
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        convertible_type: value,
+        conversion_triggers: [buildDamlSafeTrigger()],
+      })
+    );
+    expect(error).toMatchObject({
+      code,
+      fieldPath: 'convertibleIssuance.convertible_type',
+      receivedValue: value,
+    });
+  });
+});
 
 describe('read-side: required seniority boundary', () => {
   test.each([

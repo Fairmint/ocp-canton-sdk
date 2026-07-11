@@ -140,9 +140,10 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         votes_per_share: '1',
         seniority: '1',
         conversion_rights: [],
+        comments: [],
         liquidation_preference_multiple: '0',
       };
-      const result = damlStockClassDataToNative(daml as unknown as Parameters<typeof damlStockClassDataToNative>[0]);
+      const result = damlStockClassDataToNative(daml);
       expect(result.liquidation_preference_multiple).toBe('0');
     });
 
@@ -156,9 +157,10 @@ describe('falsy field preservation in DAML-to-OCF converters', () => {
         votes_per_share: '1',
         seniority: '2',
         conversion_rights: [],
+        comments: [],
         participation_cap_multiple: '0',
       };
-      const result = damlStockClassDataToNative(daml as unknown as Parameters<typeof damlStockClassDataToNative>[0]);
+      const result = damlStockClassDataToNative(daml);
       expect(result.participation_cap_multiple).toBe('0');
     });
 
