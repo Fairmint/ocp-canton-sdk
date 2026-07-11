@@ -1,8 +1,7 @@
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
-import { OcpErrorCodes, OcpParseError } from '../../../errors';
 import type { GetByContractIdParams } from '../../../types/common';
-import { isRecord } from '../../../utils/typeConversions';
+import { extractGeneratedCreateArgumentData } from '../../../utils/generatedDamlValidation';
 import { readSingleContract } from '../shared/singleContractRead';
 import { damlStockClassConversionRatioAdjustmentToNative } from './damlToStockClassConversionRatioAdjustment';
 
@@ -39,16 +38,10 @@ export async function getStockClassConversionRatioAdjustmentAsOcf(
     expectedTemplateId:
       Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment.templateId,
   });
-  const adjustmentDataPath = 'StockClassConversionRatioAdjustment.createArgument.adjustment_data';
-  if (!isRecord(createArgument) || !Object.prototype.hasOwnProperty.call(createArgument, 'adjustment_data')) {
-    throw new OcpParseError('StockClassConversionRatioAdjustment create argument is missing adjustment_data', {
-      source: adjustmentDataPath,
-      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
-      classification: 'invalid_ratio_adjustment_contract',
-    });
-  }
-
-  const data: unknown = createArgument.adjustment_data;
+  const argumentPath = 'StockClassConversionRatioAdjustment.createArgument';
+  const data = extractGeneratedCreateArgumentData(createArgument, argumentPath, {
+    dataField: 'adjustment_data',
+  });
   const event: OcfStockClassConversionRatioAdjustmentEvent = damlStockClassConversionRatioAdjustmentToNative(
     data as StockClassConversionRatioAdjustmentCreateArgument['adjustment_data']
   );

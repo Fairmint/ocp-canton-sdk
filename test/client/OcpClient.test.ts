@@ -510,6 +510,68 @@ describe('OcpClient OpenCapTable entity facade', () => {
   });
 
   it.each([
+    [
+      'ratio-adjustment namespace',
+      async (ocp: OcpClient) =>
+        ocp.OpenCapTable.stockClassConversionRatioAdjustment.get({ contractId: 'ratio-wrapper' }),
+    ],
+    [
+      'getByObjectType',
+      async (ocp: OcpClient) =>
+        ocp.OpenCapTable.getByObjectType({
+          objectType: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+          contractId: 'ratio-wrapper',
+        }),
+    ],
+  ] as const)('%s enforces the exact generated ratio-adjustment create-argument wrapper', async (_surface, read) => {
+    const adjustmentData = {
+      id: 'ratio-wrapper',
+      date: '2026-01-01T00:00:00.000Z',
+      stock_class_id: 'class-1',
+      new_ratio_conversion_mechanism: {
+        conversion_price: { amount: '1', currency: 'USD' },
+        ratio: { numerator: '1', denominator: '1' },
+        rounding_type: 'OcfRoundingNormal',
+      },
+      comments: [],
+    };
+
+    for (const malformed of [
+      {
+        createArgument: { adjustment_data: adjustmentData },
+        source: 'damlToOcf.stockClassConversionRatioAdjustment.createArgument.context',
+        classification: 'invalid_generated_create_argument',
+      },
+      {
+        createArgument: {
+          context: GENERATED_CONTEXT,
+          adjustment_data: adjustmentData,
+          unexpected: true,
+        },
+        source: 'damlToOcf.stockClassConversionRatioAdjustment.createArgument.unexpected',
+        classification: 'invalid_generated_daml_json',
+      },
+    ] as const) {
+      const getEventsByContractId = jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            templateId: ENTITY_REGISTRY.stockClassConversionRatioAdjustment.templateId,
+            createArgument: malformed.createArgument,
+          },
+        },
+      });
+      const ocp = new OcpClient({ ledger: { getEventsByContractId } as never });
+
+      await expect(read(ocp)).rejects.toMatchObject({
+        name: 'OcpParseError',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        source: malformed.source,
+        classification: malformed.classification,
+      });
+    }
+  });
+
+  it.each([
     {
       name: 'null ratio mechanism',
       entityType: 'stockClassConversionRatioAdjustment',

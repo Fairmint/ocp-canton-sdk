@@ -317,6 +317,7 @@ export function extractEntityData(entityType: OcfEntityType, createArgument: unk
   if (
     entityType === 'document' ||
     entityType === 'issuer' ||
+    entityType === 'stockClassConversionRatioAdjustment' ||
     entityType === 'stockPlan' ||
     entityType === 'vestingTerms'
   ) {

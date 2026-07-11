@@ -31,6 +31,8 @@ import type {
   OcfStockReissuance,
 } from '../../src/types/native';
 
+const GENERATED_CONTEXT = { issuer: 'issuer::party', system_operator: 'system-operator::party' } as const;
+
 describe('Stock Class Adjustment Converters', () => {
   describe('OCF to DAML (ocfToDaml)', () => {
     describe('stockClassSplit', () => {
@@ -629,6 +631,7 @@ describe('Stock Class Adjustment Converters', () => {
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,
               createArgument: {
+                context: GENERATED_CONTEXT,
                 adjustment_data: {
                   id: 'adj-unknown-rounding',
                   date: '2024-02-01T00:00:00.000Z',
@@ -663,7 +666,7 @@ describe('Stock Class Adjustment Converters', () => {
               templateId:
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,
-              createArgument: {},
+              createArgument: { context: GENERATED_CONTEXT },
             },
           },
         });
@@ -674,10 +677,77 @@ describe('Stock Class Adjustment Converters', () => {
           })
         ).rejects.toMatchObject({
           name: OcpParseError.name,
-          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
           source: 'StockClassConversionRatioAdjustment.createArgument.adjustment_data',
+          classification: 'invalid_generated_create_argument',
         });
       });
+
+      test.each([
+        [
+          'missing context',
+          {
+            adjustment_data: {
+              id: 'adj-wrapper-shape',
+              date: '2024-02-01T00:00:00.000Z',
+              stock_class_id: 'class-002',
+              new_ratio_conversion_mechanism: {
+                conversion_price: { amount: '0', currency: 'USD' },
+                ratio: { numerator: '3', denominator: '2' },
+                rounding_type: 'OcfRoundingNormal',
+              },
+              comments: [],
+            },
+          },
+          'StockClassConversionRatioAdjustment.createArgument.context',
+          'invalid_generated_create_argument',
+        ],
+        [
+          'unexpected wrapper field',
+          {
+            context: GENERATED_CONTEXT,
+            adjustment_data: {
+              id: 'adj-wrapper-shape',
+              date: '2024-02-01T00:00:00.000Z',
+              stock_class_id: 'class-002',
+              new_ratio_conversion_mechanism: {
+                conversion_price: { amount: '0', currency: 'USD' },
+                ratio: { numerator: '3', denominator: '2' },
+                rounding_type: 'OcfRoundingNormal',
+              },
+              comments: [],
+            },
+            unexpected: true,
+          },
+          'StockClassConversionRatioAdjustment.createArgument.unexpected',
+          'invalid_generated_daml_json',
+        ],
+      ] as const)(
+        'dedicated reader rejects a create argument with %s',
+        async (_case, createArgument, source, classification) => {
+          const getEventsByContractId = jest.fn().mockResolvedValue({
+            created: {
+              createdEvent: {
+                templateId:
+                  Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
+                    .templateId,
+                createArgument,
+              },
+            },
+          });
+
+          await expect(
+            getStockClassConversionRatioAdjustmentAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+              contractId: 'adj-invalid-wrapper',
+            })
+          ).rejects.toMatchObject({
+            name: OcpParseError.name,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            source,
+            classification,
+          });
+        }
+      );
 
       test('dedicated reader rejects a null mechanism with a structured source', async () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
@@ -687,6 +757,7 @@ describe('Stock Class Adjustment Converters', () => {
                 Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
                   .templateId,
               createArgument: {
+                context: GENERATED_CONTEXT,
                 adjustment_data: {
                   id: 'adj-null-mechanism',
                   date: '2024-02-01T00:00:00.000Z',
