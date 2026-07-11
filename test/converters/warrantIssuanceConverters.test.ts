@@ -1567,7 +1567,7 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   });
 
-  test('reports an indexed path for an unknown nested stock-class trigger discriminator', () => {
+  test('treats an unknown private nested stock-class trigger discriminator as storage-shape drift', () => {
     const { payload, nested } = stockClassPayloadWithNestedTrigger();
     nested.type_ = 'bad-trigger-type';
 
@@ -1575,10 +1575,11 @@ describe('WarrantIssuance round-trip equivalence', () => {
       damlWarrantIssuanceDataToNative(payload);
       throw new Error('Expected nested stock-class trigger discriminator validation to fail');
     } catch (error) {
-      expect(error).toBeInstanceOf(OcpParseError);
+      expect(error).toBeInstanceOf(OcpValidationError);
       expect(error).toMatchObject({
-        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
-        source: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_trigger.type_',
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_trigger.type_',
+        receivedValue: 'bad-trigger-type',
       });
     }
   });
@@ -1600,17 +1601,18 @@ describe('WarrantIssuance round-trip equivalence', () => {
     }
   });
 
-  test('rejects a malformed date in the nested stock-class storage trigger', () => {
+  test('treats a malformed private nested stock-class trigger date as storage-shape drift', () => {
     const { payload, nested } = stockClassPayloadWithNestedTrigger(
       stockClassTriggerWithTiming({ type: 'AUTOMATIC_ON_DATE', trigger_date: '2024-01-15' })
     );
     nested.trigger_date = 'definitely-not-a-date';
 
-    expectInvalidWarrantDate(
-      () => damlWarrantIssuanceDataToNative(payload),
-      'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_trigger.trigger_date',
-      'definitely-not-a-date',
-      OcpErrorCodes.INVALID_FORMAT
+    expect(() => damlWarrantIssuanceDataToNative(payload)).toThrow(
+      expect.objectContaining({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        fieldPath: 'warrantIssuance.exercise_triggers.0.conversion_right.value.conversion_trigger.trigger_date',
+        receivedValue: 'definitely-not-a-date',
+      })
     );
   });
 
