@@ -514,7 +514,7 @@ export function validateStockClassData(data: unknown, fieldPath: string): void {
     for (let i = 0; i < conversionRights.length; i++) {
       const right = conversionRights[i];
       validateRequiredObject(right, `${fieldPath}.conversion_rights[${i}]`);
-      validateRequiredString(
+      validateOptionalString(
         right.converts_to_stock_class_id,
         `${fieldPath}.conversion_rights[${i}].converts_to_stock_class_id`
       );

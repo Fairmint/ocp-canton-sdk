@@ -11,6 +11,9 @@ import {
   type AuthorizeIssuerResult,
   type CapTableBatchExecuteResult,
   type CapTableBatchOperations,
+  type ConversionTriggerFor,
+  type ConvertibleConversionRight,
+  type ConvertibleConversionTrigger,
   type CreateIssuerParams,
   type OcfContractId,
   type OcfCreateOperation,
@@ -23,7 +26,11 @@ import {
   type OcfStockAcceptance,
   type OcfStockClass,
   type OcfVestingStart,
+  type RatioConversionMechanism,
+  type StockClassConversionRight,
   type SubmitAndWaitForTransactionTreeResponse,
+  type WarrantExerciseTrigger,
+  type WarrantTriggerConversionRight,
   type WithdrawAuthorizationResult,
 } from '../../dist';
 import {
@@ -205,3 +212,116 @@ function verifyPublishedUtilsApi(candidateEntityType: string): void {
 
 void verifyPublishedBatchApi;
 void verifyPublishedUtilsApi;
+
+type PublishedCanonicalConvertibleTrigger = ConversionTriggerFor<ConvertibleConversionRight>;
+type PublishedCanonicalWarrantTrigger = ConversionTriggerFor<WarrantTriggerConversionRight>;
+
+const publishedConvertibleTriggerIsCanonical: Assert<
+  IsExactly<ConvertibleConversionTrigger, PublishedCanonicalConvertibleTrigger>
+> = true;
+const publishedWarrantTriggerIsCanonical: Assert<IsExactly<WarrantExerciseTrigger, PublishedCanonicalWarrantTrigger>> =
+  true;
+
+declare const publishedConvertibleRight: ConvertibleConversionRight;
+declare const publishedWarrantRight: WarrantTriggerConversionRight;
+
+const publishedValidConditionTrigger: ConvertibleConversionTrigger = {
+  type: 'AUTOMATIC_ON_CONDITION',
+  trigger_id: 'convertible-trigger-1',
+  conversion_right: publishedConvertibleRight,
+  trigger_condition: 'qualified financing',
+};
+const publishedValidAtWillTrigger: WarrantExerciseTrigger = {
+  type: 'ELECTIVE_AT_WILL',
+  trigger_id: 'warrant-trigger-1',
+  conversion_right: publishedWarrantRight,
+};
+
+const publishedMixedRangeTrigger = {
+  type: 'ELECTIVE_IN_RANGE',
+  trigger_id: 'warrant-trigger-mixed',
+  conversion_right: publishedWarrantRight,
+  start_date: '2026-01-01',
+  end_date: '2026-02-01',
+  trigger_date: '2026-01-15',
+} as const;
+// @ts-expect-error built declarations forbid fields from another discriminator variant
+const publishedInvalidMixedRangeTrigger: WarrantExerciseTrigger = publishedMixedRangeTrigger;
+
+// @ts-expect-error built declarations require trigger_condition for condition triggers
+const publishedMissingCondition: ConvertibleConversionTrigger = {
+  type: 'ELECTIVE_ON_CONDITION',
+  trigger_id: 'convertible-trigger-missing-condition',
+  conversion_right: publishedConvertibleRight,
+};
+
+// @ts-expect-error built declarations require trigger_id
+const publishedMissingTriggerId: WarrantExerciseTrigger = {
+  type: 'UNSPECIFIED',
+  conversion_right: publishedWarrantRight,
+};
+
+// @ts-expect-error built declarations require conversion_right
+const publishedMissingConversionRight: ConvertibleConversionTrigger = {
+  type: 'ELECTIVE_AT_WILL',
+  trigger_id: 'convertible-trigger-missing-right',
+};
+
+// @ts-expect-error published API does not accept a bare trigger discriminator
+const publishedBareTriggerString: WarrantExerciseTrigger = 'AUTOMATIC_ON_DATE';
+
+void publishedConvertibleTriggerIsCanonical;
+void publishedWarrantTriggerIsCanonical;
+void publishedValidConditionTrigger;
+void publishedValidAtWillTrigger;
+void publishedInvalidMixedRangeTrigger;
+void publishedMissingCondition;
+void publishedMissingTriggerId;
+void publishedMissingConversionRight;
+void publishedBareTriggerString;
+
+interface PublishedRatioConversionMechanism {
+  type: 'RATIO_CONVERSION';
+  ratio: { numerator: string; denominator: string };
+  conversion_price: { amount: string; currency: string };
+  rounding_type: 'CEILING' | 'FLOOR' | 'NORMAL';
+}
+interface PublishedStockClassConversionRight {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT';
+  conversion_mechanism: PublishedRatioConversionMechanism;
+  converts_to_stock_class_id?: string;
+  converts_to_future_round?: boolean;
+}
+
+const publishedRatioMechanismIsExact: Assert<IsExactly<RatioConversionMechanism, PublishedRatioConversionMechanism>> =
+  true;
+const publishedStockClassRightIsExact: Assert<
+  IsExactly<StockClassConversionRight, PublishedStockClassConversionRight>
+> = true;
+
+const publishedStockClassRight: StockClassConversionRight = {
+  type: 'STOCK_CLASS_CONVERSION_RIGHT',
+  conversion_mechanism: {
+    type: 'RATIO_CONVERSION',
+    ratio: { numerator: '1', denominator: '1' },
+    conversion_price: { amount: '1', currency: 'USD' },
+    rounding_type: 'NORMAL',
+  },
+  converts_to_stock_class_id: 'common',
+};
+const publishedInvalidStockClassType: StockClassConversionRight = {
+  ...publishedStockClassRight,
+  // @ts-expect-error built declarations preserve the exact stock-class-right tag
+  type: 'NOT_THE_SCHEMA_TAG',
+};
+const publishedInvalidScalarTrigger: StockClassConversionRight = {
+  ...publishedStockClassRight,
+  // @ts-expect-error built declarations do not expose the DAML-only trigger artifact
+  conversion_trigger: 'AUTOMATIC_ON_DATE',
+};
+
+void publishedRatioMechanismIsExact;
+void publishedStockClassRightIsExact;
+void publishedStockClassRight;
+void publishedInvalidStockClassType;
+void publishedInvalidScalarTrigger;

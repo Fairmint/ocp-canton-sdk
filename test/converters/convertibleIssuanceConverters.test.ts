@@ -207,14 +207,64 @@ describe('ConvertibleConversionMechanismInput bare string handling', () => {
 });
 
 describe('write-side conversion mechanism paths', () => {
+  it('rejects a bare trigger discriminator at the writer boundary', () => {
+    const error = captureError(() =>
+      convertibleIssuanceDataToDaml({
+        ...BASE_INPUT,
+        conversion_triggers: ['AUTOMATIC_ON_DATE'] as unknown as Parameters<
+          typeof convertibleIssuanceDataToDaml
+        >[0]['conversion_triggers'],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.INVALID_TYPE,
+      fieldPath: 'convertibleIssuance.conversion_triggers[0]',
+      receivedValue: 'AUTOMATIC_ON_DATE',
+    });
+  });
+
+  it('requires a caller-provided trigger_id instead of synthesizing one', () => {
+    const error = captureError(() =>
+      convertibleIssuanceDataToDaml({
+        ...BASE_INPUT,
+        conversion_triggers: [{ ...SAFE_TRIGGER_BASE, trigger_id: '' }],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'convertibleIssuance.conversion_triggers[0].trigger_id',
+      receivedValue: '',
+    });
+  });
+
+  it('rejects a truthy non-string writer trigger_id', () => {
+    const error = captureError(() =>
+      convertibleIssuanceDataToDaml({
+        ...BASE_INPUT,
+        conversion_triggers: [{ ...SAFE_TRIGGER_BASE, trigger_id: 42 }] as unknown as Parameters<
+          typeof convertibleIssuanceDataToDaml
+        >[0]['conversion_triggers'],
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'convertibleIssuance.conversion_triggers[0].trigger_id',
+      expectedType: 'non-empty string',
+      receivedValue: 42,
+    });
+  });
+
   it('reports the exact trigger index for a malformed nested numeric field', () => {
     const invalidTrigger = {
       ...SAFE_TRIGGER_BASE,
       trigger_id: 'trigger-002',
       conversion_right: {
-        type: 'CONVERTIBLE_CONVERSION_RIGHT',
+        type: 'CONVERTIBLE_CONVERSION_RIGHT' as const,
         conversion_mechanism: {
-          type: 'FIXED_AMOUNT_CONVERSION',
+          type: 'FIXED_AMOUNT_CONVERSION' as const,
           converts_to_quantity: '1e2',
         },
       },
@@ -317,6 +367,78 @@ function buildDamlNoteTrigger(dayCount: string, interestPayout: string, triggerI
 }
 
 describe('read-side conversion mechanism paths', () => {
+  it('requires a ledger trigger_id instead of synthesizing one', () => {
+    const { trigger_id: _triggerId, ...triggerWithoutId } = buildDamlSafeTrigger();
+    const error = captureError(() =>
+      damlConvertibleIssuanceDataToNative({ ...BASE_DAML, conversion_triggers: [triggerWithoutId] })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'convertibleIssuance.conversion_triggers[0].trigger_id',
+      receivedValue: undefined,
+    });
+  });
+
+  it('rejects a bare trigger discriminator read from the ledger', () => {
+    const error = captureError(() =>
+      damlConvertibleIssuanceDataToNative({ ...BASE_DAML, conversion_triggers: ['AUTOMATIC_ON_DATE'] })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.SCHEMA_MISMATCH,
+      fieldPath: 'convertibleIssuance.conversion_triggers[0]',
+      receivedValue: 'AUTOMATIC_ON_DATE',
+    });
+  });
+
+  it('reports the indexed canonical field for an unknown trigger discriminator', () => {
+    const error = captureError(() =>
+      damlConvertibleIssuanceDataToNative({
+        ...BASE_DAML,
+        conversion_triggers: [{ ...buildDamlSafeTrigger(), type_: 'OcfTriggerTypeTypeUnknown' }],
+      })
+    );
+
+    expect(error).toBeInstanceOf(OcpParseError);
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      source: 'convertibleIssuance.conversion_triggers[0].type_',
+    });
+  });
+
+  it('reports the exact path for a missing conversion_right', () => {
+    const { conversion_right: _conversionRight, ...triggerWithoutRight } = buildDamlSafeTrigger();
+    const error = captureError(() =>
+      damlConvertibleIssuanceDataToNative({ ...BASE_DAML, conversion_triggers: [triggerWithoutRight] })
+    );
+
+    expect(error).toMatchObject({
+      code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+      fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right',
+      receivedValue: undefined,
+    });
+  });
+
+  test.each([null, 'not-an-object', 42, []])(
+    'rejects malformed wrapped convertible conversion-right value %p',
+    (value) => {
+      const trigger = {
+        ...buildDamlSafeTrigger(),
+        conversion_right: { OcfRightConvertible: value },
+      };
+      const error = captureError(() =>
+        damlConvertibleIssuanceDataToNative({ ...BASE_DAML, conversion_triggers: [trigger] })
+      );
+
+      expect(error).toMatchObject({
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        fieldPath: 'convertibleIssuance.conversion_triggers[0].conversion_right.OcfRightConvertible',
+        receivedValue: value,
+      });
+    }
+  );
+
   it('reports the exact trigger index for a malformed nested field', () => {
     const invalidTrigger = {
       ...buildDamlSafeTrigger(),
@@ -597,7 +719,7 @@ describe('convertible issuance approval-date read boundaries', () => {
         }),
       'convertibleIssuance.conversion_triggers[0].trigger_date',
       null,
-      OcpErrorCodes.INVALID_TYPE
+      OcpErrorCodes.REQUIRED_FIELD_MISSING
     );
   });
 
@@ -792,7 +914,9 @@ describe('convertible issuance write date boundaries', () => {
       () =>
         convertibleIssuanceDataToDaml({
           ...BASE_INPUT,
-          conversion_triggers: [{ ...SAFE_TRIGGER_BASE, trigger_date: '2024-01-15' }],
+          conversion_triggers: [
+            { ...SAFE_TRIGGER_BASE, trigger_date: '2024-01-15' } as unknown as typeof SAFE_TRIGGER_BASE,
+          ],
         }),
       'convertibleIssuance.conversion_triggers[0].trigger_date',
       '2024-01-15',
