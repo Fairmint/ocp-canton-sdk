@@ -143,6 +143,28 @@ describe('DAML to OCF Validation', () => {
       );
     });
 
+    test.each(['exercise_price', 'base_price'] as const)(
+      'reports the contextual %s path for malformed monetary data',
+      async (field) => {
+        const invalidData = {
+          ...validIssuanceData,
+          [field]: { amount: 1, currency: 'USD' },
+        };
+        const client = createMockClient('issuance_data', invalidData, {
+          templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
+        });
+
+        await expect(getEquityCompensationIssuanceAsOcf(client, { contractId: 'test-contract' })).rejects.toMatchObject(
+          {
+            name: 'OcpValidationError',
+            code: OcpErrorCodes.INVALID_TYPE,
+            fieldPath: `equityCompensationIssuance.${field}.amount`,
+            receivedValue: 1,
+          }
+        );
+      }
+    );
+
     test('succeeds with valid data', async () => {
       const client = createMockClient('issuance_data', validIssuanceData, {
         templateId: MOCK_LEDGER_TEMPLATE_IDS.equityCompensationIssuance,
