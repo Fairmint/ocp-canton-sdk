@@ -14,6 +14,7 @@ import {
   normalizeNumericString,
   optionalString,
 } from '../../../utils/typeConversions';
+import { ocfVestingPeriodIntegerToDaml } from './vestingPeriodInteger';
 import { ocfVestingConditionQuantityToDaml } from './vestingQuantity';
 
 function allocationTypeToDaml(t: AllocationType): Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType {
@@ -185,31 +186,16 @@ function vestingTriggerToDaml(
         });
       }
       const p = periodRecord as unknown as VestingPeriod;
-      const lengthNum = Number(p.length);
-      const occurrencesNum = Number(p.occurrences);
-
-      if (!Number.isFinite(lengthNum) || lengthNum <= 0) {
-        throw new OcpValidationError(`${fieldPath}.period.length`, 'Invalid vesting relative period length', {
-          code: OcpErrorCodes.INVALID_FORMAT,
-          receivedValue: p.length,
-        });
-      }
-      if (!Number.isFinite(occurrencesNum) || occurrencesNum < 1) {
-        throw new OcpValidationError(`${fieldPath}.period.occurrences`, 'Invalid vesting relative period occurrences', {
-          code: OcpErrorCodes.INVALID_FORMAT,
-          receivedValue: p.occurrences,
-        });
-      }
+      const length = ocfVestingPeriodIntegerToDaml(p.length, `${fieldPath}.period.length`, 1);
+      const occurrences = ocfVestingPeriodIntegerToDaml(p.occurrences, `${fieldPath}.period.occurrences`, 1);
 
       let cliffInstallment: string | null = null;
       if (p.cliff_installment !== undefined) {
-        if (!Number.isFinite(p.cliff_installment)) {
-          throw new OcpValidationError(`${fieldPath}.period.cliff_installment`, 'Invalid vesting cliff_installment', {
-            code: OcpErrorCodes.INVALID_FORMAT,
-            receivedValue: p.cliff_installment,
-          });
-        }
-        cliffInstallment = p.cliff_installment.toString();
+        cliffInstallment = ocfVestingPeriodIntegerToDaml(
+          p.cliff_installment,
+          `${fieldPath}.period.cliff_installment`,
+          0
+        );
       }
 
       let period:
@@ -231,8 +217,8 @@ function vestingTriggerToDaml(
         period = {
           tag: 'OcfVestingPeriodDays',
           value: {
-            length_: lengthNum.toString(),
-            occurrences: occurrencesNum.toString(),
+            length_: length,
+            occurrences,
             cliff_installment: cliffInstallment,
           },
         };
@@ -251,8 +237,8 @@ function vestingTriggerToDaml(
         period = {
           tag: 'OcfVestingPeriodMonths',
           value: {
-            length_: lengthNum.toString(),
-            occurrences: occurrencesNum.toString(),
+            length_: length,
+            occurrences,
             day_of_month: mapOcfDayOfMonthToDaml(p.day_of_month, `${fieldPath}.period.day_of_month`),
             cliff_installment: cliffInstallment,
           },

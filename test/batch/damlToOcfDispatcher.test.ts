@@ -123,6 +123,48 @@ describe('damlToOcf dispatcher', () => {
         })
       );
     });
+
+    it.each([
+      [
+        'ratio adjustment with a null mechanism',
+        'stockClassConversionRatioAdjustment',
+        'damlToOcf.stockClassConversionRatioAdjustment',
+        {
+          id: 'ratio-null-mechanism',
+          date: '2026-01-01T00:00:00.000Z',
+          stock_class_id: 'class-1',
+          new_ratio_conversion_mechanism: null,
+          comments: [],
+        },
+      ],
+      [
+        'issuer with an unknown initial-shares enum',
+        'issuer',
+        'damlToOcf.issuer.initial_shares_authorized',
+        {
+          id: 'issuer-unknown-shares',
+          legal_name: 'Issuer Inc.',
+          formation_date: '2026-01-01T00:00:00.000Z',
+          country_of_formation: 'US',
+          country_subdivision_of_formation: null,
+          country_subdivision_name_of_formation: null,
+          initial_shares_authorized: {
+            tag: 'OcfInitialSharesEnum',
+            value: 'OcfAuthorizedSharesSurprise',
+          },
+          tax_ids: [],
+          comments: [],
+        },
+      ],
+    ] as const)('rejects malformed generated data for %s', (_case, entityType, source, input) => {
+      expect(() => decodeDamlEntityData(entityType, input)).toThrow(
+        expect.objectContaining({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source,
+        })
+      );
+    });
   });
 
   describe('extractCreateArgument', () => {
@@ -279,6 +321,89 @@ describe('damlToOcf dispatcher', () => {
         receivedValue: 'condition-2',
       });
     });
+
+    it.each([
+      [
+        'stockClassConversionRatioAdjustment',
+        Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment.templateId,
+        'adjustment_data',
+        OcpErrorCodes.SCHEMA_MISMATCH,
+        {
+          id: 'ratio-null-mechanism',
+          date: '2026-01-01T00:00:00.000Z',
+          stock_class_id: 'class-1',
+          new_ratio_conversion_mechanism: null,
+          comments: [],
+        },
+      ],
+      [
+        'issuer',
+        Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
+        'issuer_data',
+        OcpErrorCodes.SCHEMA_MISMATCH,
+        {
+          id: 'issuer-unknown-shares',
+          legal_name: 'Issuer Inc.',
+          formation_date: '2026-01-01T00:00:00.000Z',
+          country_of_formation: 'US',
+          country_subdivision_of_formation: null,
+          country_subdivision_name_of_formation: null,
+          initial_shares_authorized: {
+            tag: 'OcfInitialSharesEnum',
+            value: 'OcfAuthorizedSharesSurprise',
+          },
+          tax_ids: [],
+          comments: [],
+        },
+      ],
+      [
+        'vestingTerms',
+        Fairmint.OpenCapTable.OCF.VestingTerms.VestingTerms.templateId,
+        'vesting_terms_data',
+        OcpErrorCodes.INVALID_FORMAT,
+        {
+          id: 'vesting-fractional-period',
+          name: 'Fractional period',
+          description: 'Invalid generated DAML Int',
+          allocation_type: 'OcfAllocationCumulativeRounding',
+          vesting_conditions: [
+            {
+              id: 'condition-relative',
+              description: null,
+              quantity: '100',
+              portion: null,
+              trigger: {
+                tag: 'OcfVestingScheduleRelativeTrigger',
+                value: {
+                  relative_to_condition_id: 'condition-start',
+                  period: {
+                    tag: 'OcfVestingPeriodDays',
+                    value: { length_: '1.5', occurrences: '1', cliff_installment: null },
+                  },
+                },
+              },
+              next_condition_ids: [],
+            },
+          ],
+          comments: [],
+        },
+      ],
+    ] as const)(
+      'generic reader rejects malformed conditional data for %s',
+      async (entityType, templateId, field, expectedCode, data) => {
+        const getEventsByContractId = jest
+          .fn()
+          .mockResolvedValue(buildCreatedEventsResponse({ [field]: data }, templateId));
+
+        await expect(
+          getEntityAsOcf(
+            { getEventsByContractId } as unknown as LedgerJsonApiClient,
+            entityType,
+            `${entityType}-malformed`
+          )
+        ).rejects.toMatchObject({ code: expectedCode });
+      }
+    );
   });
 
   describe('ENTITY_TEMPLATE_ID_MAP', () => {

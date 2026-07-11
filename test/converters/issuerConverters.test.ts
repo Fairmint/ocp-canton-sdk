@@ -6,14 +6,16 @@
  * - Canonical typed issuer input acceptance
  */
 
+import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
 import type { DisclosedContract } from '@fairmint/canton-node-sdk/build/src/clients/ledger-json-api/schemas/api/commands';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import {
   buildCreateIssuerCommand,
   issuerDataToDaml,
   normalizeIssuerData,
 } from '../../src/functions/OpenCapTable/issuer/createIssuer';
-import { damlIssuerDataToNative } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
+import { damlIssuerDataToNative, getIssuerAsOcf } from '../../src/functions/OpenCapTable/issuer/getIssuerAsOcf';
 import type { OcfIssuer } from '../../src/types/native';
 
 function captureValidationError(action: () => unknown): OcpValidationError {
@@ -311,6 +313,93 @@ describe('Issuer Converters', () => {
           source: 'getIssuerAsOcf.country_subdivision_name_of_formation',
         })
       );
+    });
+
+    test.each([
+      ['legacy primitive string', '1000', 'getIssuerAsOcf.initial_shares_authorized', OcpErrorCodes.SCHEMA_MISMATCH],
+      ['legacy primitive number', 1000, 'getIssuerAsOcf.initial_shares_authorized', OcpErrorCodes.SCHEMA_MISMATCH],
+      ['missing tag', { value: '1000' }, 'getIssuerAsOcf.initial_shares_authorized.tag', OcpErrorCodes.SCHEMA_MISMATCH],
+      [
+        'unknown tag',
+        { tag: 'OcfInitialSharesMystery', value: '1000' },
+        'getIssuerAsOcf.initial_shares_authorized.tag',
+        OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      ],
+      [
+        'malformed numeric value',
+        { tag: 'OcfInitialSharesNumeric', value: 1000 },
+        'getIssuerAsOcf.initial_shares_authorized.value',
+        OcpErrorCodes.SCHEMA_MISMATCH,
+      ],
+      [
+        'unknown enum value',
+        { tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesSurprise' },
+        'getIssuerAsOcf.initial_shares_authorized.value',
+        OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+      ],
+      [
+        'malformed enum value',
+        { tag: 'OcfInitialSharesEnum', value: 0 },
+        'getIssuerAsOcf.initial_shares_authorized.value',
+        OcpErrorCodes.SCHEMA_MISMATCH,
+      ],
+      [
+        'unexpected variant field',
+        { tag: 'OcfInitialSharesNumeric', value: '1000', legacy: true },
+        'getIssuerAsOcf.initial_shares_authorized.legacy',
+        OcpErrorCodes.SCHEMA_MISMATCH,
+      ],
+    ] as const)('rejects %s instead of omitting or defaulting it', (_case, initialShares, source, code) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        initial_shares_authorized: initialShares,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(() => damlIssuerDataToNative(damlIssuer)).toThrow(
+        expect.objectContaining({ name: OcpParseError.name, source, code })
+      );
+    });
+
+    test.each([
+      [{ tag: 'OcfInitialSharesNumeric', value: '1000.0000000000' }, '1000'],
+      [{ tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesUnlimited' }, 'UNLIMITED'],
+      [{ tag: 'OcfInitialSharesEnum', value: 'OcfAuthorizedSharesNotApplicable' }, 'NOT APPLICABLE'],
+    ] as const)('accepts the exact generated initial-shares variant %o', (initialShares, expected) => {
+      const damlIssuer = {
+        ...baseDamlIssuer,
+        initial_shares_authorized: initialShares,
+      } as unknown as Parameters<typeof damlIssuerDataToNative>[0];
+
+      expect(damlIssuerDataToNative(damlIssuer).initial_shares_authorized).toBe(expected);
+    });
+
+    test('dedicated reader rejects an unknown initial-shares enum instead of defaulting it', async () => {
+      const getEventsByContractId = jest.fn().mockResolvedValue({
+        created: {
+          createdEvent: {
+            templateId: Fairmint.OpenCapTable.OCF.Issuer.Issuer.templateId,
+            createArgument: {
+              issuer_data: {
+                ...baseDamlIssuer,
+                initial_shares_authorized: {
+                  tag: 'OcfInitialSharesEnum',
+                  value: 'OcfAuthorizedSharesSurprise',
+                },
+              },
+            },
+          },
+        },
+      });
+
+      await expect(
+        getIssuerAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+          contractId: 'issuer-unknown-initial-shares',
+        })
+      ).rejects.toMatchObject({
+        name: OcpParseError.name,
+        code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+        source: 'getIssuerAsOcf.initial_shares_authorized.value',
+      });
     });
   });
 });

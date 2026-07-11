@@ -14,6 +14,7 @@ import type {
 } from '../../../types/native';
 import { damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
+import { damlVestingPeriodIntegerToNative } from './vestingPeriodInteger';
 import { damlVestingConditionQuantityToNative } from './vestingQuantity';
 
 function damlAllocationTypeToNative(t: Fairmint.OpenCapTable.OCF.VestingTerms.OcfAllocationType): AllocationType {
@@ -98,39 +99,13 @@ function parseVestingPeriodCommonFields(
   occurrences: number;
   cliffInstallment?: number;
 } {
-  const parseNumericLike = (numericFieldPath: string, raw: unknown): number => {
-    const isNumericString = typeof raw === 'string' && /^-?\d+(\.\d+)?$/.test(raw);
-    if (typeof raw !== 'number' && !isNumericString) {
-      throw new OcpValidationError(numericFieldPath, 'Invalid numeric value format', {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: raw,
-      });
-    }
-
-    const parsed = typeof raw === 'number' ? raw : Number(raw);
-    if (!Number.isFinite(parsed)) {
-      throw new OcpValidationError(numericFieldPath, 'Invalid numeric value format', {
-        code: OcpErrorCodes.INVALID_FORMAT,
-        receivedValue: raw,
-      });
-    }
-
-    return parsed;
-  };
-
   const lengthRaw = v.length_;
   if (lengthRaw === undefined || lengthRaw === null) {
     throw new OcpValidationError(`${fieldPath}.length`, 'Missing vesting period length', {
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const length = parseNumericLike(`${fieldPath}.length`, lengthRaw);
-  if (length <= 0) {
-    throw new OcpValidationError(`${fieldPath}.length`, 'Invalid vesting period length', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      receivedValue: lengthRaw,
-    });
-  }
+  const length = damlVestingPeriodIntegerToNative(lengthRaw, `${fieldPath}.length`, 1);
 
   const occRaw = v.occurrences;
   if (occRaw === undefined || occRaw === null) {
@@ -138,17 +113,11 @@ function parseVestingPeriodCommonFields(
       code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
     });
   }
-  const occurrences = parseNumericLike(`${fieldPath}.occurrences`, occRaw);
-  if (occurrences < 1) {
-    throw new OcpValidationError(`${fieldPath}.occurrences`, 'Invalid vesting period occurrences', {
-      code: OcpErrorCodes.INVALID_FORMAT,
-      receivedValue: occRaw,
-    });
-  }
+  const occurrences = damlVestingPeriodIntegerToNative(occRaw, `${fieldPath}.occurrences`, 1);
 
   const cliffInstallment =
     v.cliff_installment !== null && v.cliff_installment !== undefined
-      ? parseNumericLike(`${fieldPath}.cliff_installment`, v.cliff_installment)
+      ? damlVestingPeriodIntegerToNative(v.cliff_installment, `${fieldPath}.cliff_installment`, 0)
       : undefined;
 
   return { length, occurrences, cliffInstallment };

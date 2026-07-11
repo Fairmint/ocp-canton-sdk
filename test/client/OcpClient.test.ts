@@ -506,6 +506,95 @@ describe('OcpClient OpenCapTable entity facade', () => {
     });
   });
 
+  it.each([
+    {
+      name: 'null ratio mechanism',
+      entityType: 'stockClassConversionRatioAdjustment',
+      objectType: 'TX_STOCK_CLASS_CONVERSION_RATIO_ADJUSTMENT',
+      expectedCode: OcpErrorCodes.SCHEMA_MISMATCH,
+      data: {
+        id: 'ratio-null-mechanism',
+        date: '2026-01-01T00:00:00.000Z',
+        stock_class_id: 'class-1',
+        new_ratio_conversion_mechanism: null,
+        comments: [],
+      },
+    },
+    {
+      name: 'unknown issuer initial-shares enum',
+      entityType: 'issuer',
+      objectType: 'ISSUER',
+      expectedCode: OcpErrorCodes.SCHEMA_MISMATCH,
+      data: {
+        id: 'issuer-unknown-shares',
+        legal_name: 'Issuer Inc.',
+        formation_date: '2026-01-01T00:00:00.000Z',
+        country_of_formation: 'US',
+        country_subdivision_of_formation: null,
+        country_subdivision_name_of_formation: null,
+        initial_shares_authorized: {
+          tag: 'OcfInitialSharesEnum',
+          value: 'OcfAuthorizedSharesSurprise',
+        },
+        tax_ids: [],
+        comments: [],
+      },
+    },
+    {
+      name: 'fractional generated vesting period Int',
+      entityType: 'vestingTerms',
+      objectType: 'VESTING_TERMS',
+      expectedCode: OcpErrorCodes.INVALID_FORMAT,
+      data: {
+        id: 'vesting-fractional-period',
+        name: 'Fractional period',
+        description: 'Invalid generated DAML Int',
+        allocation_type: 'OcfAllocationCumulativeRounding',
+        vesting_conditions: [
+          {
+            id: 'condition-relative',
+            description: null,
+            quantity: '100',
+            portion: null,
+            trigger: {
+              tag: 'OcfVestingScheduleRelativeTrigger',
+              value: {
+                relative_to_condition_id: 'condition-start',
+                period: {
+                  tag: 'OcfVestingPeriodDays',
+                  value: { length_: '1.5', occurrences: '1', cliff_installment: null },
+                },
+              },
+            },
+            next_condition_ids: [],
+          },
+        ],
+        comments: [],
+      },
+    },
+  ] as const)('namespace and getByObjectType reject $name', async ({ entityType, objectType, data, expectedCode }) => {
+    const entry = ENTITY_REGISTRY[entityType];
+    const getEventsByContractId = jest.fn().mockResolvedValue({
+      created: {
+        createdEvent: {
+          templateId: entry.templateId,
+          createArgument: { [entry.dataField]: data },
+        },
+      },
+    });
+    const ocp = new OcpClient({ ledger: { getEventsByContractId } as never });
+
+    await expect(
+      ocp.OpenCapTable[entityType].get({ contractId: `${entityType}-malformed-namespace` })
+    ).rejects.toMatchObject({ code: expectedCode });
+    await expect(
+      ocp.OpenCapTable.getByObjectType({
+        objectType,
+        contractId: `${entityType}-malformed-object-type`,
+      })
+    ).rejects.toMatchObject({ code: expectedCode });
+  });
+
   it('vestingTerms namespace rejects duplicate next_condition_ids with the exact duplicate index', async () => {
     const getEventsByContractId = jest.fn().mockResolvedValue({
       created: {

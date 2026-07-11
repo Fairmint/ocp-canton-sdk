@@ -616,6 +616,57 @@ describe('VestingTerms Converters', () => {
         })
       );
     });
+
+    test.each([
+      ['fractional length', { length: 1.5, occurrences: 1 }, 'length'],
+      ['unsafe length', { length: Number.MAX_SAFE_INTEGER + 1, occurrences: 1 }, 'length'],
+      ['fractional occurrences', { length: 1, occurrences: 1.5 }, 'occurrences'],
+      ['zero occurrences', { length: 1, occurrences: 0 }, 'occurrences'],
+      ['negative cliff', { length: 1, occurrences: 1, cliff_installment: -1 }, 'cliff_installment'],
+      ['fractional cliff', { length: 1, occurrences: 1, cliff_installment: 1.5 }, 'cliff_installment'],
+    ] as const)('direct writer rejects %s as a generated DAML Int', (_case, period, field) => {
+      const input = makeIndexedOcfVestingTerms({ quantity: '1' });
+      input.vesting_conditions[1].trigger = {
+        type: 'VESTING_SCHEDULE_RELATIVE',
+        relative_to_condition_id: 'first',
+        period: { type: 'DAYS', ...period },
+      };
+
+      expect(() => vestingTermsDataToDaml(input)).toThrow(
+        expect.objectContaining({
+          fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
+          code: OcpErrorCodes.INVALID_FORMAT,
+        })
+      );
+    });
+
+    test('direct writer preserves the exact maximum safe vesting period integer', () => {
+      const input = makeIndexedOcfVestingTerms({ quantity: '1' });
+      input.vesting_conditions[1].trigger = {
+        type: 'VESTING_SCHEDULE_RELATIVE',
+        relative_to_condition_id: 'first',
+        period: { type: 'DAYS', length: Number.MAX_SAFE_INTEGER, occurrences: 1, cliff_installment: 0 },
+      };
+
+      expect(vestingTermsDataToDaml(input)).toMatchObject({
+        vesting_conditions: [
+          {},
+          {
+            trigger: {
+              value: {
+                period: {
+                  value: {
+                    length_: Number.MAX_SAFE_INTEGER.toString(),
+                    occurrences: '1',
+                    cliff_installment: '0',
+                  },
+                },
+              },
+            },
+          },
+        ],
+      });
+    });
   });
 });
 
@@ -951,6 +1002,72 @@ describe('VestingTerms drift regression', () => {
         code: OcpErrorCodes.INVALID_FORMAT,
       })
     );
+  });
+
+  test.each([
+    ['fractional length', { length_: '1.5', occurrences: '1', cliff_installment: null }, 'length'],
+    ['number length', { length_: 1, occurrences: '1', cliff_installment: null }, 'length'],
+    ['leading-zero length', { length_: '01', occurrences: '1', cliff_installment: null }, 'length'],
+    ['unsafe length', { length_: '9007199254740992', occurrences: '1', cliff_installment: null }, 'length'],
+    ['fractional occurrences', { length_: '1', occurrences: '1.5', cliff_installment: null }, 'occurrences'],
+    ['zero occurrences', { length_: '1', occurrences: '0', cliff_installment: null }, 'occurrences'],
+    ['negative cliff', { length_: '1', occurrences: '1', cliff_installment: '-1' }, 'cliff_installment'],
+    ['negative-zero cliff', { length_: '1', occurrences: '1', cliff_installment: '-0' }, 'cliff_installment'],
+    ['fractional cliff', { length_: '1', occurrences: '1', cliff_installment: '1.5' }, 'cliff_installment'],
+  ] as const)('direct reader rejects %s without numeric coercion', (_case, periodValue, field) => {
+    const daml = makeDamlVestingTerms();
+    (daml as unknown as { vesting_conditions: unknown[] }).vesting_conditions.push({
+      id: 'bad-relative-period',
+      description: null,
+      quantity: '1',
+      portion: null,
+      trigger: {
+        tag: 'OcfVestingScheduleRelativeTrigger',
+        value: {
+          relative_to_condition_id: 'start',
+          period: { tag: 'OcfVestingPeriodDays', value: periodValue },
+        },
+      },
+      next_condition_ids: [],
+    });
+
+    expect(() => damlVestingTermsDataToNative(daml)).toThrow(
+      expect.objectContaining({
+        fieldPath: `vestingTerms.vesting_conditions[1].trigger.period.${field}`,
+      })
+    );
+  });
+
+  test('direct reader preserves the exact maximum safe vesting period integer', () => {
+    const daml = makeDamlVestingTerms({
+      vesting_conditions: [
+        {
+          id: 'max-safe-period',
+          description: null,
+          quantity: '1',
+          portion: null,
+          trigger: {
+            tag: 'OcfVestingScheduleRelativeTrigger',
+            value: {
+              relative_to_condition_id: 'start',
+              period: {
+                tag: 'OcfVestingPeriodDays',
+                value: {
+                  length_: Number.MAX_SAFE_INTEGER.toString(),
+                  occurrences: '1',
+                  cliff_installment: '0',
+                },
+              },
+            },
+          },
+          next_condition_ids: [],
+        },
+      ],
+    });
+
+    expect(damlVestingTermsDataToNative(daml).vesting_conditions[0].trigger).toMatchObject({
+      period: { length: Number.MAX_SAFE_INTEGER, occurrences: 1, cliff_installment: 0 },
+    });
   });
 
   test('preserves remainder: true', () => {

@@ -5,7 +5,12 @@ import type { ContractResult, GetByContractIdParams } from '../../../types/commo
 import type { OcfIssuer as OcfIssuerInput } from '../../../types/native';
 import type { OcfIssuerOutput } from '../../../types/output';
 import { damlEmailTypeToNative, damlPhoneTypeToNative } from '../../../utils/enumConversions';
-import { damlAddressToNative, damlTimeToDateString, normalizeNumericString } from '../../../utils/typeConversions';
+import {
+  damlAddressToNative,
+  damlTimeToDateString,
+  isRecord,
+  normalizeNumericString,
+} from '../../../utils/typeConversions';
 import { readSingleContract } from '../shared/singleContractRead';
 
 function damlEmailToNative(damlEmail: Fairmint.OpenCapTable.Types.Contact.OcfEmail): OcfIssuerInput['email'] {
@@ -39,15 +44,63 @@ function readOptionalSubdivision(value: unknown, field: string, kind: 'code' | '
 
 export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issuer.IssuerOcfData): OcfIssuerInput {
   const normalizeInitialSharesValue = (v: unknown): OcfIssuerInput['initial_shares_authorized'] | undefined => {
-    if (typeof v === 'string' || typeof v === 'number') return normalizeNumericString(String(v));
-    if (v && typeof v === 'object' && 'tag' in (v as { tag: string })) {
-      const i = v as { tag: 'OcfInitialSharesNumeric' | 'OcfInitialSharesEnum'; value?: unknown };
-      if (i.tag === 'OcfInitialSharesNumeric' && typeof i.value === 'string') return normalizeNumericString(i.value);
-      if (i.tag === 'OcfInitialSharesEnum' && typeof i.value === 'string') {
-        return i.value === 'OcfAuthorizedSharesUnlimited' ? 'UNLIMITED' : 'NOT APPLICABLE';
-      }
+    const fieldPath = 'getIssuerAsOcf.initial_shares_authorized';
+    if (v === null || v === undefined) return undefined;
+    if (!isRecord(v)) {
+      throw new OcpParseError('Issuer initial_shares_authorized must be a generated DAML variant', {
+        source: fieldPath,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: { receivedValue: v },
+      });
     }
-    return undefined;
+    const unknownField = Object.keys(v).find((field) => field !== 'tag' && field !== 'value');
+    if (unknownField !== undefined) {
+      throw new OcpParseError(`Unexpected issuer initial_shares_authorized field: ${unknownField}`, {
+        source: `${fieldPath}.${unknownField}`,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: { receivedValue: v[unknownField] },
+      });
+    }
+    if (typeof v.tag !== 'string') {
+      throw new OcpParseError('Issuer initial_shares_authorized is missing its generated DAML tag', {
+        source: `${fieldPath}.tag`,
+        code: OcpErrorCodes.SCHEMA_MISMATCH,
+        context: { receivedValue: v.tag },
+      });
+    }
+
+    switch (v.tag) {
+      case 'OcfInitialSharesNumeric':
+        if (typeof v.value !== 'string') {
+          throw new OcpParseError('Numeric issuer initial_shares_authorized must contain a DAML Numeric string', {
+            source: `${fieldPath}.value`,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            context: { receivedValue: v.value },
+          });
+        }
+        return normalizeNumericString(v.value, `${fieldPath}.value`);
+      case 'OcfInitialSharesEnum':
+        if (typeof v.value !== 'string') {
+          throw new OcpParseError('Enum issuer initial_shares_authorized must contain a generated DAML enum string', {
+            source: `${fieldPath}.value`,
+            code: OcpErrorCodes.SCHEMA_MISMATCH,
+            context: { receivedValue: v.value },
+          });
+        }
+        if (v.value === 'OcfAuthorizedSharesUnlimited') return 'UNLIMITED';
+        if (v.value === 'OcfAuthorizedSharesNotApplicable') return 'NOT APPLICABLE';
+        throw new OcpParseError(`Unknown issuer initial_shares_authorized enum value: ${String(v.value)}`, {
+          source: `${fieldPath}.value`,
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+          context: { receivedValue: v.value },
+        });
+      default:
+        throw new OcpParseError(`Unknown issuer initial_shares_authorized tag: ${v.tag}`, {
+          source: `${fieldPath}.tag`,
+          code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
+          context: { receivedValue: v.tag },
+        });
+    }
   };
 
   const dataWithId = damlData as unknown as { id?: string };
@@ -99,7 +152,7 @@ export function damlIssuerDataToNative(damlData: Fairmint.OpenCapTable.OCF.Issue
     out.comments = (damlData as unknown as { comments: string[] }).comments;
   }
 
-  const isa = (damlData as unknown as { initial_shares_authorized?: unknown }).initial_shares_authorized;
+  const isa: unknown = damlData.initial_shares_authorized;
   const normalizedIsa = normalizeInitialSharesValue(isa);
   if (normalizedIsa !== undefined) out.initial_shares_authorized = normalizedIsa;
 

@@ -15,6 +15,7 @@
  */
 
 import type { LedgerJsonApiClient } from '@fairmint/canton-node-sdk';
+import { Fairmint } from '@fairmint/open-captable-protocol-daml-js';
 import { OcpErrorCodes, OcpParseError, OcpValidationError } from '../../src/errors';
 import { convertToDaml } from '../../src/functions/OpenCapTable/capTable/ocfToDaml';
 import { damlStockClassConversionRatioAdjustmentToNative } from '../../src/functions/OpenCapTable/stockClassConversionRatioAdjustment/damlToStockClassConversionRatioAdjustment';
@@ -483,10 +484,54 @@ describe('Stock Class Adjustment Converters', () => {
         );
       });
 
+      test.each([
+        [
+          'null mechanism',
+          null,
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
+          OcpErrorCodes.SCHEMA_MISMATCH,
+        ],
+        [
+          'missing ratio',
+          { conversion_price: { amount: '0', currency: 'USD' }, rounding_type: 'OcfRoundingNormal' },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio',
+          OcpErrorCodes.REQUIRED_FIELD_MISSING,
+        ],
+        [
+          'numeric numerator',
+          {
+            conversion_price: { amount: '0', currency: 'USD' },
+            ratio: { numerator: 3, denominator: '2' },
+            rounding_type: 'OcfRoundingNormal',
+          },
+          'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.ratio.numerator',
+          OcpErrorCodes.SCHEMA_MISMATCH,
+        ],
+      ] as const)('direct reader rejects %s before nested dereference', (_case, mechanism, source, code) => {
+        const damlData = {
+          id: 'adj-invalid-shape',
+          date: '2024-02-01T00:00:00.000Z',
+          stock_class_id: 'class-002',
+          new_ratio_conversion_mechanism: mechanism,
+          comments: [],
+        } as unknown as Parameters<typeof damlStockClassConversionRatioAdjustmentToNative>[0];
+
+        expect(() => damlStockClassConversionRatioAdjustmentToNative(damlData)).toThrow(
+          expect.objectContaining({
+            name: OcpParseError.name,
+            code,
+            source,
+          })
+        );
+      });
+
       test('dedicated reader rejects an unknown rounding type', async () => {
         const getEventsByContractId = jest.fn().mockResolvedValue({
           created: {
             createdEvent: {
+              templateId:
+                Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
+                  .templateId,
               createArgument: {
                 adjustment_data: {
                   id: 'adj-unknown-rounding',
@@ -512,6 +557,60 @@ describe('Stock Class Adjustment Converters', () => {
           name: OcpParseError.name,
           code: OcpErrorCodes.UNKNOWN_ENUM_VALUE,
           source: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism.rounding_type',
+        });
+      });
+
+      test('dedicated reader rejects a missing adjustment_data wrapper with an exact source', async () => {
+        const getEventsByContractId = jest.fn().mockResolvedValue({
+          created: {
+            createdEvent: {
+              templateId:
+                Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
+                  .templateId,
+              createArgument: {},
+            },
+          },
+        });
+
+        await expect(
+          getStockClassConversionRatioAdjustmentAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+            contractId: 'adj-missing-wrapper',
+          })
+        ).rejects.toMatchObject({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
+          source: 'StockClassConversionRatioAdjustment.createArgument.adjustment_data',
+        });
+      });
+
+      test('dedicated reader rejects a null mechanism with a structured source', async () => {
+        const getEventsByContractId = jest.fn().mockResolvedValue({
+          created: {
+            createdEvent: {
+              templateId:
+                Fairmint.OpenCapTable.OCF.StockClassConversionRatioAdjustment.StockClassConversionRatioAdjustment
+                  .templateId,
+              createArgument: {
+                adjustment_data: {
+                  id: 'adj-null-mechanism',
+                  date: '2024-02-01T00:00:00.000Z',
+                  stock_class_id: 'class-002',
+                  new_ratio_conversion_mechanism: null,
+                  comments: [],
+                },
+              },
+            },
+          },
+        });
+
+        await expect(
+          getStockClassConversionRatioAdjustmentAsOcf({ getEventsByContractId } as unknown as LedgerJsonApiClient, {
+            contractId: 'adj-null-mechanism',
+          })
+        ).rejects.toMatchObject({
+          name: OcpParseError.name,
+          code: OcpErrorCodes.SCHEMA_MISMATCH,
+          source: 'stockClassConversionRatioAdjustment.new_ratio_conversion_mechanism',
         });
       });
     });

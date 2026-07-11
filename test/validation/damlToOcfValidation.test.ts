@@ -310,6 +310,40 @@ describe('DAML to OCF Validation', () => {
         code: OcpErrorCodes.REQUIRED_FIELD_MISSING,
       });
     });
+
+    test('dedicated reader rejects a fractional generated vesting period Int', async () => {
+      const client = createMockClient(
+        'vesting_terms_data',
+        {
+          ...validVestingData,
+          vesting_conditions: [
+            {
+              id: 'condition-relative',
+              description: null,
+              quantity: '100',
+              portion: null,
+              trigger: {
+                tag: 'OcfVestingScheduleRelativeTrigger',
+                value: {
+                  relative_to_condition_id: 'condition-start',
+                  period: {
+                    tag: 'OcfVestingPeriodDays',
+                    value: { length_: '1.5', occurrences: '1', cliff_installment: null },
+                  },
+                },
+              },
+              next_condition_ids: [],
+            },
+          ],
+        },
+        { templateId: MOCK_LEDGER_TEMPLATE_IDS.vestingTerms }
+      );
+
+      await expect(getVestingTermsAsOcf(client, { contractId: 'vesting-fractional-period' })).rejects.toMatchObject({
+        fieldPath: 'vestingTerms.vesting_conditions[0].trigger.period.length',
+        code: OcpErrorCodes.INVALID_FORMAT,
+      });
+    });
   });
 
   describe('getStockClassAsOcf', () => {
